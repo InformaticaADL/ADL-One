@@ -1,0 +1,35 @@
+{
+  "name": "api-backend-adlone",
+  "version": "1.0.0",
+  "description": "ADL One Backend API with Node.js, Express and SQL Server",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js"
+  },
+  "keywords": [
+    "adl",
+    "api",
+    "backend",
+    "sql-server"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "mssql": "^10.0.1",
+    "helmet": "^7.1.0",
+    "morgan": "^1.10.0",
+    "winston": "^3.11.0",
+    "jsonwebtoken": "^9.0.2",
+    "joi": "^17.11.0",
+    "bcryptjs": "^2.4.3",
+    "nodemailer": "^6.9.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}
