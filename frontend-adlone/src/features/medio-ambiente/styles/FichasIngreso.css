@@ -1,31 +1,204 @@
-.fichas-ingreso-container {
-    padding: 2rem;
-    max-width: 1200px;
-    margin: 0 auto;
+/* Commercial Page Specifics */
+.commercial-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    /* Reduced from 3rem */
 }
 
-.page-header {
-    margin-bottom: 2.5rem;
+/* Header Row for Back Button + Title */
+.header-row {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    margin-bottom: 0.5rem;
+    /* Reduced margin */
 }
 
 .page-title-geo {
     font-size: 1.8rem;
     font-weight: 700;
     color: #1e293b;
-    margin-bottom: 0.5rem;
+    margin: 0;
+    /* Reset margin for flex alignment */
+    line-height: 1.2;
 }
 
-.page-subtitle {
+/* Tabs Navigation */
+.tabs-container {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    /* Reduced from 2.5rem */
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #e2e8f0;
+    justify-content: center;
+    /* Center tabs horizontally */
+    flex-wrap: wrap;
+}
+
+.tab-button {
+    background: #f1f5f9;
+    border: 1px solid transparent;
+    border-radius: 9999px;
+    padding: 0.6rem 1.75rem;
+    /* Slightly more horizontal padding, less vertical */
+    font-size: 0.95rem;
+    font-weight: 500;
     color: #64748b;
-    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    outline: none;
 }
 
-/* Cards Grid from Selection Logic */
+.tab-button:hover {
+    background-color: #e2e8f0;
+    color: #0f172a;
+    transform: translateY(-1px);
+}
+
+.tab-button.active {
+    background-color: #1565c0;
+    color: white;
+    font-weight: 600;
+    box-shadow: 0 4px 6px -1px rgba(21, 101, 192, 0.25);
+}
+
+/* Content Area */
+.tab-content-area {
+    background: white;
+    border-radius: 1rem;
+    padding: 2rem;
+    /* Reduced from 3rem */
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025);
+    min-height: 400px;
+    border: 1px solid #f8fafc;
+}
+
+/* Inputs and Forms Generic Styles */
+.fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Action Buttons */
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 1.5rem;
+    /* Reduced from 2rem */
+    padding-top: 1.5rem;
+    border-top: 1px solid #e2e8f0;
+}
+
+.btn-save {
+    background: linear-gradient(135deg, #1565c0 0%, #0d47a1 100%);
+    color: white;
+    border: none;
+    padding: 0.85rem 3rem;
+    /* Slightly reduced padding */
+    border-radius: 0.75rem;
+    font-weight: 600;
+    font-size: 1.05rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    box-shadow: 0 4px 6px -1px rgba(13, 71, 161, 0.3);
+}
+
+.btn-save:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(13, 71, 161, 0.4);
+    background: linear-gradient(135deg, #1e88e5 0%, #1565c0 100%);
+}
+
+.btn-save svg {
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
+/* Global Container Override for less top padding if needed specifically here, 
+   but user asked to move EVERYTHING up. */
+.fichas-ingreso-container {
+    padding: 1rem 2rem;
+    /* Reduced top/bottom padding from 2rem */
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* Common Header Styles (redefined for specificity in this context) */
+.page-header {
+    margin-bottom: 1rem;
+    /* Reduced from 2.5rem */
+}
+
+/* Reused card styles if needed... */
 .cards-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 2rem;
-    margin-top: 2rem;
+    margin-top: 1rem;
+    /* Reduced from 2rem */
+}
+
+/* Blue Outline Back Button - slight margin fix */
+.btn-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background-color: white;
+    border: 1px solid #dbeafe;
+    border-radius: 0.5rem;
+    color: #2563eb;
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-bottom: 0;
+    /* Removed margin-bottom because it's in a flex row now */
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    white-space: nowrap;
+}
+
+.btn-back:hover {
+    background-color: #eff6ff;
+    border-color: #2563eb;
+    transform: translateX(-3px);
+    box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.1);
+}
+
+.btn-back svg {
+    width: 1.25rem;
+    height: 1.25rem;
+    stroke: currentColor;
+    stroke-width: 2.5;
+}
+
+.card-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    margin-bottom: 1.5rem;
+    transition: transform 0.3s;
 }
 
 .selection-card {
@@ -46,18 +219,6 @@
 .selection-card:hover {
     transform: translateY(-5px);
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-}
-
-.card-icon {
-    width: 50px;
-    height: 50px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.5rem;
-    margin-bottom: 1.5rem;
-    transition: transform 0.3s;
 }
 
 .selection-card:hover .card-icon {
@@ -89,154 +250,4 @@
 .selection-card:hover .card-arrow {
     opacity: 1;
     transform: translateX(0);
-}
-
-/* Blue Outline Back Button Style */
-.btn-back {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    background-color: white;
-    border: 1px solid #dbeafe;
-    /* Light blue border */
-    border-radius: 0.5rem;
-    color: #2563eb;
-    /* Blue text */
-    font-weight: 600;
-    font-size: 0.95rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    margin-bottom: 2rem;
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-}
-
-.btn-back:hover {
-    background-color: #eff6ff;
-    /* Very light blue background on hover */
-    border-color: #2563eb;
-    transform: translateX(-3px);
-    box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.1);
-}
-
-.btn-back svg {
-    width: 1.25rem;
-    height: 1.25rem;
-    stroke: currentColor;
-    stroke-width: 2.5;
-}
-
-/* =========================================
-   COMMERCIAL PAGE SPECIFIC STYLES
-   ========================================= */
-
-.commercial-layout {
-    display: flex;
-    flex-direction: column;
-    gap: 3rem;
-    /* Increased spacing as requested */
-}
-
-/* Tabs Navigation - Pill Design */
-.tabs-container {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid #e2e8f0;
-    flex-wrap: wrap;
-    /* Responsive wrapping */
-}
-
-.tab-button {
-    background: #f1f5f9;
-    border: 1px solid transparent;
-    border-radius: 9999px;
-    /* Pill shape */
-    padding: 0.75rem 1.5rem;
-    font-size: 0.95rem;
-    font-weight: 500;
-    color: #64748b;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    white-space: nowrap;
-    outline: none;
-}
-
-.tab-button:hover {
-    background-color: #e2e8f0;
-    color: #0f172a;
-    transform: translateY(-1px);
-}
-
-.tab-button.active {
-    background-color: #1565c0;
-    /* Corporate Blue */
-    color: white;
-    font-weight: 600;
-    box-shadow: 0 4px 6px -1px rgba(21, 101, 192, 0.25);
-}
-
-/* Content Area */
-.tab-content-area {
-    background: white;
-    border-radius: 1rem;
-    padding: 3rem;
-    /* More breathing room */
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025);
-    min-height: 450px;
-    border: 1px solid #f8fafc;
-}
-
-/* Inputs and Forms Generic Styles (Preparation) */
-.fade-in {
-    animation: fadeIn 0.3s ease-in-out;
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(5px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* Action Buttons */
-.form-actions {
-    display: flex;
-    justify-content: flex-end;
-    margin-top: 2rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid #e2e8f0;
-}
-
-.btn-save {
-    background: linear-gradient(135deg, #1565c0 0%, #0d47a1 100%);
-    color: white;
-    border: none;
-    padding: 1rem 3rem;
-    border-radius: 0.75rem;
-    font-weight: 600;
-    font-size: 1.1rem;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.75rem;
-    box-shadow: 0 4px 6px -1px rgba(13, 71, 161, 0.3);
-}
-
-.btn-save:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 15px -3px rgba(13, 71, 161, 0.4);
-    background: linear-gradient(135deg, #1e88e5 0%, #1565c0 100%);
-}
-
-.btn-save svg {
-    width: 1.25rem;
-    height: 1.25rem;
 }

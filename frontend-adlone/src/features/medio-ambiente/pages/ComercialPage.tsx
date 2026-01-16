@@ -25,22 +25,18 @@ export const ComercialPage: React.FC<Props> = ({ onBack }) => {
 
     return (
         <div className="fichas-ingreso-container commercial-layout">
-            {/* 1. Botón Volver y Título */}
-            <div>
+            {/* 1. Header Row (Back Button + Title) */}
+            <div className="header-row">
                 <button onClick={onBack} className="btn-back">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
                     </svg>
                     Volver
                 </button>
-
-                <header className="page-header" style={{ marginBottom: '1rem' }}>
-                    <h2 className="page-title-geo">Ficha de Ingreso - Comercial</h2>
-                    <p className="page-subtitle">Complete la información requerida en cada sección.</p>
-                </header>
+                <h2 className="page-title-geo">Ficha de Ingreso - Comercial</h2>
             </div>
 
-            {/* 2. Navegación por Pestañas */}
+            {/* 2. Navegación por Pestañas (Centradas) */}
             <div className="tabs-container">
                 <button
                     className={`tab-button ${activeTab === 'antecedentes' ? 'active' : ''}`}
@@ -90,7 +86,7 @@ export const ComercialPage: React.FC<Props> = ({ onBack }) => {
             {/* 4. Acción Global de Grabado */}
             <div className="form-actions">
                 <button className="btn-save" onClick={handleSave}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1-2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
                     Grabar Ficha
                 </button>
             </div>
