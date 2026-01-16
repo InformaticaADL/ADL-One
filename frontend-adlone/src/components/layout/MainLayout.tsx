@@ -1,8 +1,9 @@
 import { useState } from 'react';
+import { useNavStore } from '../../store/navStore';
 import './MainLayout.css';
 import logoAdl from '../../assets/images/logo-adlone.png';
 
-// Módulos reales de ADL One definidos por el usuario
+// Módulos reales de ADL One
 const MODULES = [
     // Grupo 1: Unidades
     { id: 'gem', label: 'GEM', icon: '🧬' },
@@ -40,7 +41,7 @@ const MODULES = [
 // Simulamos Submódulos 
 const SUBMODULES_MOCK: Record<string, any[]> = {
     'medio_ambiente': [
-        { id: 'ma-1', label: 'Fichas de ingreso' }
+        { id: 'ma-fichas-ingreso', label: 'Fichas de ingreso' }
     ]
 };
 
@@ -49,9 +50,9 @@ interface MainLayoutProps {
 }
 
 export const MainLayout = ({ children }: MainLayoutProps) => {
-    const [activeModule, setActiveModule] = useState('gem'); // Default a GEM
-    const [activeSubmodule, setActiveSubmodule] = useState('');
-    const [drawerOpen, setDrawerOpen] = useState(false);
+    // Usamos el store global en lugar de useState local
+    const { activeModule, activeSubmodule, drawerOpen, setActiveModule, setActiveSubmodule, setDrawerOpen } = useNavStore();
+
     const [showProfileMenu, setShowProfileMenu] = useState(false);
 
     // Datos simulados de usuario
@@ -62,7 +63,6 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
     };
 
     const handleLogout = () => {
-        // Si la lógica real existiera:
         console.log("Cerrando sesión...");
         window.location.reload();
     };
@@ -70,11 +70,15 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
     const handleModuleClick = (mod: any) => {
         if (mod.type === 'divider') return;
 
+        // Si cambiamos de módulo, el store mantiene su estado, pero si queremos resetear submodulo:
+        if (activeModule !== mod.id) {
+            setActiveSubmodule('');
+        }
         setActiveModule(mod.id);
 
+        // Abrir drawer si tiene submódulos
         if (SUBMODULES_MOCK[mod.id]) {
             setDrawerOpen(true);
-            setActiveSubmodule('');
         } else {
             setDrawerOpen(false);
         }
@@ -82,6 +86,14 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
 
     const getSubmodules = () => {
         return SUBMODULES_MOCK[activeModule] || [];
+    };
+
+    const handleSubmoduleClick = (item: any) => {
+        setActiveSubmodule(item.id);
+        // El store tiene logica para cerrar drawer si se desea, o lo hacemos aqui explicito
+        // Segun requerimiento: "al seleccionar, cerrar drawer".
+        // En useNavStore puse: setActiveSubmodule: (submoduleId) => set({ activeSubmodule: submoduleId, drawerOpen: false }),
+        // Así que solo llamar a setActiveSubmodule cierra el drawer y fija el id.
     };
 
     return (
@@ -93,7 +105,6 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                 </div>
 
                 <div className="sidebar-menu">
-                    {/* Título de sección opcional */}
                     <div style={{ padding: '0 0.8rem 0.5rem', fontSize: '0.7rem', fontWeight: 'bold', color: '#a1a1aa', letterSpacing: '0.5px' }}>UNIDADES</div>
 
                     {MODULES.map((mod) => (
@@ -127,7 +138,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                             <div
                                 key={item.id}
                                 className={`submodule-item ${activeSubmodule === item.id ? 'active' : ''}`}
-                                onClick={() => setActiveSubmodule(item.id)}
+                                onClick={() => handleSubmoduleClick(item)}
                             >
                                 {item.label}
                             </div>
@@ -141,7 +152,6 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
             {/* --- Header Superior --- */}
             <header className="app-header">
                 <div className="header-left">
-                    {/* Titulo de Pagina Dinamico */}
                     <h2 className="page-title">{MODULES.find(m => m.id === activeModule)?.label}</h2>
                 </div>
 
@@ -149,7 +159,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                     <div
                         className="user-profile-container"
                         onClick={() => setShowProfileMenu(!showProfileMenu)}
-                        onBlur={() => setTimeout(() => setShowProfileMenu(false), 200)} // Cierra al perder foco
+                        onBlur={() => setTimeout(() => setShowProfileMenu(false), 200)}
                         tabIndex={0}
                     >
                         <div className="user-profile">
@@ -160,7 +170,6 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                             <span className="dropdown-arrow">▼</span>
                         </div>
 
-                        {/* Dropdown Menu */}
                         {showProfileMenu && (
                             <div className="profile-dropdown">
                                 <button className="dropdown-item" onClick={handleLogout}>

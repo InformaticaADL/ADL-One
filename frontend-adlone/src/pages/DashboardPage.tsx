@@ -1,13 +1,22 @@
 import { MainLayout } from '../components/layout/MainLayout';
+import { useNavStore } from '../store/navStore';
+import { FichasIngresoPage } from '../features/medio-ambiente/pages/FichasIngresoPage';
 
 const DashboardPage = () => {
-    return (
-        <MainLayout>
+    const { activeSubmodule } = useNavStore();
+
+    // Renderizador de contenido dinámico
+    const renderContent = () => {
+        if (activeSubmodule === 'ma-fichas-ingreso') {
+            return <FichasIngresoPage />;
+        }
+
+        // Default Dashboard Content
+        return (
             <div className="dashboard-content">
                 <h1>Bienvenido a ADL One</h1>
                 <p>Seleccione un módulo del menú lateral para comenzar.</p>
 
-                {/* Aquí irán los widgets del dashboard en el futuro */}
                 <div style={{
                     marginTop: '2rem',
                     display: 'grid',
@@ -28,6 +37,12 @@ const DashboardPage = () => {
                     ))}
                 </div>
             </div>
+        );
+    };
+
+    return (
+        <MainLayout>
+            {renderContent()}
         </MainLayout>
     );
 };
