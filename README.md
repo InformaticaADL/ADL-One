@@ -106,25 +106,25 @@ NODE_ENV=development
 HOST=0.0.0.0
 
 # SQL Server Configuration
-DB_SERVER=192.168.10.5
+DB_SERVER=localhost
 DB_PORT=1433
-DB_DATABASE=PruebasInformatica
-DB_USER=sa
-DB_PASSWORD=MGmerlin.10
+DB_DATABASE=YourDatabase
+DB_USER=your_user
+DB_PASSWORD=your_password
 DB_ENCRYPT=true
 DB_TRUST_SERVER_CERTIFICATE=true
 
 # JWT Configuration
-JWT_SECRET=adl.2024#
+JWT_SECRET=your_jwt_secret
 JWT_EXPIRES_IN=24h
 
 # SMTP Configuration
-SMTP_HOST=mail.adldiagnostic.cl
-SMTP_PORT=465
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
 SMTP_SECURE=true
 
 # CORS Configuration
-CORS_ORIGIN=http://localhost:5173,http://192.168.10.152:5173,http://192.168.10.68:5173
+CORS_ORIGIN=http://localhost:5173
 ```
 
 ### Variables de Entorno - Frontend (.env)
@@ -138,25 +138,19 @@ VITE_API_URL=http://localhost:8002
 ## 🌐 Configuración de Red
 
 ### IPs Detectadas
-- **Wi-Fi:** `192.168.10.152`
-- **Ethernet:** `192.168.10.68`
 - **Localhost:** `127.0.0.1`
 
 ### Endpoints Configurados
 
 **Backend API:**
 - `http://localhost:8002`
-- `http://192.168.10.152:8002`
-- `http://192.168.10.68:8002`
 
 **Frontend:**
 - `http://localhost:5173`
-- `http://192.168.10.152:5173`
-- `http://192.168.10.68:5173`
 
 **Base de Datos:**
-- Servidor: `192.168.10.5:1433`
-- Base de datos: `PruebasInformatica`
+- Servidor: `your_server:1433`
+- Base de datos: `YourDatabase`
 
 ---
 
