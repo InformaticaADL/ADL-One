@@ -1,0 +1,257 @@
+Análisis de Migración: Ficha Comercial
+Pestaña: Antecedentes
+Campo 1: Monitoreo Agua / RIL
+
+• Tipo VFP: ComboBox (Estático)
+
+• Opciones: Compuesta, Puntual (RowSourceType: Value)
+
+• Propuesta Web: Radio Group o Dropdown con IDs numéricos desde tabla de parámetros.
+
+Campo 2: Base de Operaciones (Sede)
+
+• Tipo VFP: ComboBox (Dinámico)
+
+• Origen: Stored Procedure `maestro_lugaranalisis`.
+
+• Dependencia: Requiere Campo 1 (Validación en GotFocus).
+
+• Propuesta Web: Consumo vía API/Fetch. Control de estado "disabled" si Campo 1 está vacío.
+
+
+
+### Campo 3: Empresa a Facturar
+- **Tipo VFP:** Text16 (Buscador) + Combo11 (Selector).
+- **Lógica:** Validación de dependencia (Campo 2) en GotFocus. Carga de SP `maestro_empresaservicio`. Filtrado dinámico con `SCAN FOR LIKE`.
+- **Propuesta Web:** Autocomplete único con búsqueda asíncrona (API) y validación de estado proactiva.
+
+
+
+### Campo 4: Empresa (Cliente)
+- **Tipo VFP:** Text17 (Buscador) + Combo1 (Selector).
+- **Lógica:** 
+    - Dependencia obligatoria de Campo 3 (Empresa a Facturar). 
+    - Carga de SP `maestro_empresa`. 
+    - **Trigger Maestro (LostFocus):** Al seleccionar, realiza un reset masivo de más de 30 campos y define dinámicamente la edición (`enabled`) según el tipo de Monitoreo (Campo 1).
+- **Propuesta Web:** Autocomplete. Implementación de un "State Manager" centralizado para manejar la compleja lógica de habilitación y limpieza de campos dependientes.
+
+
+
+### Campo 5: Fuente emisora
+- **Tipo VFP:** Combo2 (Selector Filtrado).
+- **Lógica:** 
+    - Dependencia estricta de Campo 4 (Empresa). 
+    - Filtrado local vía `SET FILTER` sobre el cursor `vconsulta_centro` (SP `consulta_centro`).
+    - **Poblador Automático:** Al seleccionar, rellena automáticamente campos de Código, Tipo de Agua, Ubicación, Comuna y Región.
+- **Propuesta Web:** Selectores en cascada con filtrado desde el Backend (API). Uso de Data Binding reactivo para la actualización automática de campos geográficos y técnicos dependientes.
+
+
+
+### Campos 6-9: Información de Ubicación y Tipo (Auto-rellenados)
+- **Componentes VFP:** Text4 (Tipo Agua), Text1 (Ubicación), Text2 (Comuna), Text3 (Región).
+- **Lógica:** 
+    - Se cargan automáticamente desde el cursor `vconsulta_centro` al seleccionar la Fuente Emisora.
+    - **Excepción de Edición:** El campo Ubicación (Text1) es el único que se mantiene habilitado (`enabled = .T.`) para permitir ajustes manuales.
+- **Propuesta Web:** Implementar mediante vinculación de datos (Binding) al objeto de estado del Centro. Ubicación como Input editable; Comuna, Región y Tipo Agua como etiquetas o inputs de solo lectura.
+
+
+
+### Campo 10: Contacto Empresa
+- **Tipo VFP:** Combo7 (Selector de Contactos).
+- **Lógica:** 
+    - Dependencia de Campo 5 (Fuente Emisora) para flujo de foco, pero usa el ID de la Empresa (Campo 4) para la consulta.
+    - Ejecuta SP `consulta_contacto_una_empresa`.
+    - **Variables Clave:** Captura `email_contacto` y `nombre_contacto` para variables globales de envío de documentos.
+- **Propuesta Web:** Dropdown reactivo dependiente del ID de Empresa. Almacenamiento del contacto como un objeto en el estado global del formulario para facilitar el acceso a datos de contacto (email) en módulos de notificación.
+
+
+
+---
+### Cierre Parte 1: Identificación y Contacto
+- **Campo Final:** Text 13 (Cliente) - Informativo/Auto-rellenable.
+- **Nota de Migración:** Este bloque establece la jerarquía Sede -> Empresa -> Centro -> Contacto. En la Web, se recomienda un flujo de "Cards" o pasos para guiar al usuario en esta selección jerárquica.
+
+## Pestaña: Antecedentes - Parte 2: Datos del Servicio
+
+
+
+### Campo 11: Objetivo del Muestreo
+- **Tipo VFP:** Combo3 (Selector Dinámico).
+- **Lógica:** 
+    - Dependencia obligatoria de Campo 10 (vía Text13). 
+    - Ejecuta SP `consulta_objetivomuestreo_ma_oservicios`.
+    - **Generador de Glosa (LostFocus):** Al salir, concatena el valor de Fuente Emisora y Objetivo en el campo `Text24`.
+- **Propuesta Web:** Uso de "Computed Properties" para generar la glosa combinada en tiempo real. Implementación de flujo por pasos (Stepper) para manejar las dependencias jerárquicas de forma más amigable.
+
+
+
+### Campo 24: Componente Ambiental
+- **Tipo VFP:** Combo15 (Selector Dinámico).
+- **Lógica:** 
+    - Dependencia obligatoria de Campo 23 (Text26).
+    - Ejecuta SP `consulta_tipomuestra_medioambiente`.
+    - **Side Effect (InteractiveChange):** Al cambiar, actualiza la variable `xid_tipomuestra` y limpia obligatoriamente el `Combo10` (que probablemente es la Norma/Parámetro asociado).
+- **Propuesta Web:** Selector dinámico con carga vía API. Implementar lógica de "reset" en cascada para el siguiente campo (Combo10) mediante el manejo de estados de React/Angular.
+
+
+
+### Campo 26: Nombre de la tabla (Glosa Maestra)
+- **Tipo VFP:** Text24 (Input de Texto).
+- **Lógica:** 
+    - Dependencia de `Combo10`.
+    - **Contador:** Actualiza `Text11` con los caracteres restantes en tiempo real.
+    - **Puente:** Copia el valor a la Pestaña 2 (`Análisis`) al perder el foco.
+- **Propuesta Web:** Vincular a una variable de estado global compartida entre pestañas. Implementar contador de caracteres nativo en el componente de UI.
+
+
+
+### Campo 29: Inspector
+- **Tipo VFP:** Combo4 (Selector Dinámico).
+- **Lógica:** 
+    - Poblado mediante SP `consulta_inspectorambiental`.
+    - Su habilitación depende del estado de ETFA (Combo9) o Instrumento Ambiental (Combo20).
+- **Propuesta Web:** Implementar como un selector con búsqueda asíncrona. Se recomienda cargar los datos solo cuando el flujo de fiscalización sea activado para optimizar recursos.
+
+
+
+### Campo 30: Tipo de Muestreo
+- **Tipo VFP:** Combo16 (Selector Dinámico).
+- **Lógica:** 
+    - Dependencia obligatoria de Campo 26 (Text24 - Glosa Maestra).
+    - Ejecuta SP `consulta_tipomuestreo_medio_ambiente`.
+- **Propuesta Web:** Selector dinámico con carga vía API. Mantener la validación de flujo; el selector permanece inactivo hasta que la glosa maestra sea válida.
+
+
+
+### Campo 32: Actividad de muestreo
+- **Tipo VFP:** Combo12 (Selector Dinámico).
+- **Lógica:** 
+    - Dependencia obligatoria de Campo 31 (Tipo de muestra).
+    - Ejecuta SP `consulta_mae_actividadmuestreo`.
+- **Propuesta Web:** Cargar como parte de los metadatos globales del formulario. Implementar deshabilitado reactivo si el campo padre está vacío.
+
+
+
+### Campo 33: Duración muestreo
+- **Tipo VFP:** Text10 (Input de Texto).
+- **Lógica:** 
+    - Dependencia obligatoria de Campo 32 (Actividad de muestreo).
+- **Propuesta Web:** Implementar como Input numérico con validación reactiva de habilitación. Se sugiere añadir una unidad de medida estándar (ej. Horas) para facilitar el análisis de datos posterior.
+
+
+
+### Campo 34: Tipo de descarga
+- **Tipo VFP:** Combo26 (Selector Dinámico).
+- **Lógica:** 
+    - Validación condicional basada en `Combo27` (Monitoreo). 
+    - Solo exige `Text10` (Duración) si el monitoreo no es 'Puntual'.
+    - Ejecuta SP `consulta_mae_tipodescarga`.
+- **Propuesta Web:** Implementar validación reactiva. Cambiar el estado de obligatoriedad del campo Duración dinámicamente según el tipo de monitoreo seleccionado.
+
+
+
+### Campo 35: Referencia Google Maps
+- **Tipo VFP:** Text34 (Input de Texto).
+- **Lógica:** 
+    - Validación condicional basada en `Combo27`. 
+    - Si el monitoreo no es 'Puntual', exige que `Combo26` (Tipo de descarga) esté completo.
+- **Propuesta Web:** Implementar como un campo de URL con validación de formato. Se sugiere agregar un botón de previsualización de mapa para verificar la ubicación pegada.
+
+
+
+### Campo 36: Medición caudal
+- **Tipo VFP:** Combo28 (Selector Estático).
+- **Lógica:** 
+    - Clasifica el método de obtención de datos de flujo (Automático/Manual).
+    - Probable validación de secuencia dependiente de la Referencia Google Maps (Text34).
+- **Propuesta Web:** Selector con lógica condicional. Según la selección, habilitar sub-campos técnicos (ej. Identificación de equipo para automático o método de aforo para manual).
+
+
+
+### Campo 37: Modalidad
+- **Tipo VFP:** Combo29 (Selector Dinámico).
+- **Lógica:** 
+    - Dependencia obligatoria de Campo 36 (Medición caudal).
+    - Ejecuta SP `Consulta_Mae_Modalidad`.
+- **Propuesta Web:** Selector con propiedad `disabled` reactiva. Carga de datos centralizada en un servicio de metadatos para optimizar el rendimiento.
+
+
+
+---
+### Bloque de Cálculos (Campos 14-17)
+- **Campos:** Frecuencia Muestreo (Text9), Factor (Text12), Frecuencia Periodo (Combo8), Total Servicios (Text14).
+- **Lógica:** Cálculo aritmético reactivo: `Total = Frecuencia * Factor`. Validación de seguridad en `GotFocus` de Text14.
+- **Propuesta Web:** El total debe ser un campo de solo lectura calculado automáticamente por el estado del formulario.
+
+### Bloque de Georreferenciación (Campos 18-20)
+- **Campos:** Zona (Combo19), UTM Norte (Text8), UTM Este (Text15).
+- **Lógica:** El selector de Zona actúa como interruptor. Si es "No aplica", bloquea y limpia las coordenadas.
+- **Propuesta Web:** Renderizado condicional de los campos Norte/Este. Implementar validación de rangos UTM según la zona.
+
+### Bloque de Instrumento Ambiental (Campos 21-23)
+- **Campos:** Instrumento Ambiental (Combo20), N° (Text22), Año (Text26).
+- **Lógica:** Al seleccionar un instrumento, se marca como fiscalizable (ETFA) y se carga el inspector vía SP.
+- **Propuesta Web:** Agrupar en un componente de "Identificador Legal" con máscaras de entrada.
+
+### Clasificación Técnica Adicional
+- **Campo 25 (Sub Área):** Dependencia estricta de Componente Ambiental. SP `consulta_subarea_medioambiente`.
+- **Campo 28 (ETFA S/N):** Gatekeeper de fiscalización. Define si se requiere inspector y automatiza el salto a la pestaña de Análisis.
+- **Campo 31 (Tipo de muestra):** Selector dinámico dependiente de Tipo de Muestreo. SP `consulta_tipomuestra_ma`.
+
+### Cierre de Pestaña: Infraestructura (Campos 38-41)
+- **Campos:** Forma canal (Combo30), Detalle Canal (Text6), Dispositivo Hidráulico (Combo31), Detalle Dispositivo (Text7).
+- **Lógica:** Describen la infraestructura de medición. El `LostFocus` del último campo (Text7) dispara el cambio a la pestaña de Análisis.
+- **Propuesta Web:** Implementar como el paso final de un Stepper antes de habilitar la sección técnica de parámetros.
+
+
+
+## Pestaña: Análisis (Page 2) - Motor Técnico
+
+### Flujo de Selección y Filtrado
+- **Campo 1: Normativa (Combo1):** Punto de entrada legal. Carga SP `Consulta_App_Ma_Normativa`. Gatilla bloqueos preventivos en LostFocus.
+- **Campo 2: Referencia (Combo7):** Filtro jerárquico dependiente de Normativa (SP `Consulta_App_Ma_NormativaReferencia`). Su cambio puebla la grilla de selección (Grid2) vía SP `Consulta_App_Ma_ReferenciaAnalisis`.
+- **Buscador (Text2):** Filtro dinámico en tiempo real sobre la grilla usando `SET FILTER TO LIKE`.
+- **Acciones Masivas (Optiongroup4):** "Seleccionar/Deseleccionar Todo" mediante manipulación directa del campo lógico `marca` en el cursor de memoria.
+
+### Configuración del Analito (Bifurcación de Proceso)
+- **Tipo de Muestra (Combo3):** Define el flujo operativo:
+    - **Laboratorio:** Requiere obligatoriamente Lab Derivado (Combo4 - SP `consulta_laboratorioensayo`) y Tipo de Entrega (Combo5 - SP `Maestro_Tipoentrega`).
+    - **Terreno:** Salta validaciones, fija entrega como "Directa" y habilita el grabado inmediato.
+
+### Persistencia y Grillas
+- **Botón Grabar (Command3):** Procesador Batch. Realiza un bucle de inserción masiva desde el pool de selección (`con_ReferenciaAnalisis`) hacia la tabla de destino (`det_fichacomercial`). Cruza datos de límites, errores y traducciones.
+- **Detalle Confirmado (Grid1):** Estructura de 10 columnas que visualiza el "Carrito de Análisis".
+    - **Columnas:** Análisis, Tipo, Límites (Desde/Hasta), Errores (Min/Max), Entrega, Valor UF y Lab Derivado.
+    - **Funcionalidad:** Es editable para ajustes manuales post-inserción (Límites y Precios).
+- **Botón Eliminar (Command9):** Borrado físico de registros en `det_fichacomercial` con confirmación y reset de estado de la interfaz.
+
+### Propuesta de Migración (Estrategia Web)
+1. **Frontend:** Reemplazar el flujo de "Grids" por un componente de "Transfer List" o un DataGrid con selección persistente en memoria (Redux/Context).
+2. **Backend:** Implementar un endpoint de "Bulk Insert" que reciba un array de IDs y realice la inserción bajo una única transacción SQL para asegurar la integridad.
+3. **UX:** Implementar "Inline Editing" con validaciones en tiempo real para los límites numéricos.
+
+
+
+## Pestaña: Observaciones (Page 3)
+- **Campo: Observaciones Comercial (Edit3):** Ingreso de texto libre para acuerdos o notas de negocio.
+- **Control de Interfaz:** Contador de caracteres dinámico sincronizado con `text1`.
+- **Validación de Integridad:** Bloqueo preventivo si falta el dato de "Sub Área" en la primera pestaña.
+
+## Proceso de Finalización: Botón Grabar (Comand4)
+- **Validaciones Críticas:**
+    - Verifica que no existan valores UF en cero en el detalle de análisis.
+    - Valida obligatoriedad de "Contacto" y "Muestreador".
+- **Lógica de Persistencia (Transaccional):**
+    1. **Cabecera (ENC):** Inserta nuevo ID (calculado vía MAX + 1) en `App_Ma_FichaIngresoServicio_ENC` y actualiza 51 parámetros técnicos.
+    2. **Detalles (DET):** Bucle de volcado de registros desde el cursor de memoria a `App_Ma_FichaIngresoServicio_DET`.
+    3. **Generación de Agenda:** Proyecta la programación de servicios en `App_Ma_Agenda_MUESTREOS` según la frecuencia y el factor calculados.
+    4. **Correlativos:** Ejecución del SP `Consulta_App_Agenda_AsignarCorrelativo` para normalizar los IDs de agenda.
+- **Servicios Externos:**
+    - **Emailing:** Despacho automático de correo SMTP con el resumen de la ficha a los supervisores.
+    - **Auditoría:** Registro de creación en el log de auditoría del sistema (SP `actualiza_auditoria`).
+
+### Recomendaciones de Ingeniería para Migración
+- Implementar **Transacción SQL (Begin/Commit)** para asegurar que si falla la agenda, no se cree la cabecera huérfana.
+- Mover la lógica de envío de emails al Backend (Node/C#) y asegurar las credenciales en variables de entorno.
+- Reemplazar el cálculo de ID (MAX+1) por un campo `IDENTITY` nativo para evitar colisiones.
+

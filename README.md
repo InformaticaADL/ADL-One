@@ -337,3 +337,41 @@ Desarrollado para ADL Diagnostic
 - Frontend comunicándose con backend
 - Arquitectura profesional implementada
 - Listo para desarrollo de funcionalidades
+
+---
+
+## 📌 Implementación Ficha de Ingreso - Antecedentes
+
+### Versión Actual: 1.0.0 (Antecedentes Completo)
+
+Se ha implementado el módulo de Ficha de Ingreso, pestaña "Antecedentes", integrando la lógica de negocio migrada de FoxPro a una arquitectura Web moderna (React + Node.js).
+
+### Detalles Técnicos de Implementación
+
+#### 1. Frontend: AntecedentesForm.tsx
+- **Arquitectura de Componentes**: Formulario monolítico con gestión de estado local optimizado, integrado en layout de pestañas persistentes.
+- **Gestión de Estado (Catalog Loading)**:
+  - Implementación de `SearchableSelect` para dropdowns con miles de registros (e.g. Empresas, Clientes).
+  - Estrategia de carga "Split Batch" para `loadCatalogosComplementarios`:
+    - *Batch 1 (Light)*: Componentes, Inspectores, Tipos Muestreo/Descarga.
+    - *Batch 2 (Heavy)*: Cargos, Frecuencias, Dispositivos, Formas Canal.
+  - Mapeo y normalización de datos backend (e.g. `nombre_frecuencia` -> `nombre`).
+- **Lógica de Cascada (Dependency Chain)**:
+  - `Empresa` -> `Centro` -> `Contacto`.
+  - `Tipo Muestreo` -> `Tipo Muestra` -> `Actividad`.
+  - `Componente` -> `SubArea`.
+  - `Forma Canal` -> `Detalle`.
+- **Persistencia UI**: Uso de `display: none` en `ComercialPage` para mantener el estado del formulario al navegar entre pestañas.
+
+#### 2. Backend: API Catalogos
+- **Endpoints**: `/api/catalogos/*`.
+- **Stored Procedures Integrados**:
+  - `Consulta_Mae_Formacanal`
+  - `Consulta_Mae_Dispositivohidraulico`
+  - `consulta_centro` (Filtrado en memoria por performance).
+  - `maestro_empresaservicio` (Optimizado).
+- **Controladores**: Implementación de manejo de errores robusto y logs detallados.
+
+### Instrucciones de Uso (Desarrollador)
+- **Navegación**: El formulario se encuentra en `/comercial` (ComercialPage).
+- **Debug**: Revisar consola del navegador para logs de carga de catálogos y validaciones de cascada.

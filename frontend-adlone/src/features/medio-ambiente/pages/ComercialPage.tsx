@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { AntecedentesForm } from '../components/AntecedentesForm';
 
 interface Props {
     onBack: () => void;
@@ -59,28 +60,21 @@ export const ComercialPage: React.FC<Props> = ({ onBack }) => {
             </div>
 
             {/* 3. Contenido Dinámico (Persistente) */}
+            {/* 3. Contenido Dinámico (Persistente) */}
             <div className="tab-content-area">
-                {activeTab === 'antecedentes' && (
-                    <div className="fade-in">
-                        <h3>Antecedentes Generales</h3>
-                        <p>Formulario de ingreso de datos del cliente y proyecto.</p>
-                        {/* Aquí irán los inputs reales */}
-                    </div>
-                )}
+                <div className="fade-in" style={{ display: activeTab === 'antecedentes' ? 'block' : 'none' }}>
+                    <AntecedentesForm />
+                </div>
 
-                {activeTab === 'analisis' && (
-                    <div className="fade-in">
-                        <h3>Detalle de Análisis</h3>
-                        <p>Selección de matriz y ensayos requeridos.</p>
-                    </div>
-                )}
+                <div className="fade-in" style={{ display: activeTab === 'analisis' ? 'block' : 'none' }}>
+                    <h3>Detalle de Análisis</h3>
+                    <p>Selección de matriz y ensayos requeridos.</p>
+                </div>
 
-                {activeTab === 'observaciones' && (
-                    <div className="fade-in">
-                        <h3>Observaciones Finales</h3>
-                        <p>Comentarios adicionales importantes para la muestra.</p>
-                    </div>
-                )}
+                <div className="fade-in" style={{ display: activeTab === 'observaciones' ? 'block' : 'none' }}>
+                    <h3>Observaciones Finales</h3>
+                    <p>Comentarios adicionales importantes para la muestra.</p>
+                </div>
             </div>
 
             {/* 4. Acción Global de Grabado */}

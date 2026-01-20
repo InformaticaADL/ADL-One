@@ -28,3 +28,42 @@ body {
   width: 100%;
   min-height: 100vh;
 }
+
+/* Responsive Grid Utilities */
+.form-grid-row {
+  display: grid;
+  gap: 1rem;
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+.grid-cols-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.grid-cols-custom-5 {
+  grid-template-columns: 1.5fr 1fr 1.5fr 1fr 1fr;
+}
+
+.grid-cols-custom-2 {
+  grid-template-columns: 1fr 4fr;
+}
+
+@media (max-width: 1024px) {
+  .grid-cols-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .grid-cols-custom-5 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+
+  .grid-cols-4,
+  .grid-cols-custom-5,
+  .grid-cols-custom-2 {
+    grid-template-columns: 1fr;
+  }
+}
