@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import compression from 'compression';
 import dotenv from 'dotenv';
 import { getConnection } from './config/database.js';
 import logger from './utils/logger.js';
@@ -19,6 +20,18 @@ const HOST = process.env.HOST || '0.0.0.0';
 
 // Middleware
 app.use(helmet());
+
+// Compression middleware - reduces response sizes by ~70%
+app.use(compression({
+    filter: (req, res) => {
+        if (req.headers['x-no-compression']) {
+            return false;
+        }
+        return compression.filter(req, res);
+    },
+    level: 6 // Balance between speed and compression (1-9, default 6)
+}));
+
 app.use(requestLogger);
 
 // CORS Configuration

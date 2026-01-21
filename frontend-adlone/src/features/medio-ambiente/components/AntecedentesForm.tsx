@@ -1,6 +1,20 @@
 ﻿import React, { useEffect, useState, useRef } from 'react';
-import { catalogosService } from '../services/catalogos.service';
+import { useCachedCatalogos } from '../hooks/useCachedCatalogos';
 import type { LugarAnalisis, EmpresaServicio, Cliente, Contacto, Centro } from '../services/catalogos.service';
+import { useToast } from '../../../contexts/ToastContext';
+
+// Add spinner animation CSS
+const spinnerStyle = document.createElement('style');
+spinnerStyle.innerHTML = `
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+`;
+if (!document.head.querySelector('style[data-spinner]')) {
+    spinnerStyle.setAttribute('data-spinner', 'true');
+    document.head.appendChild(spinnerStyle);
+}
 
 // --- Components ---
 
@@ -12,6 +26,9 @@ interface SearchableSelectProps {
     disabled?: boolean;
     label?: string;
     onFocus?: () => void;
+    loading?: boolean;
+    error?: string | null;
+    onRetry?: () => void;
 }
 
 // Helper to dedup options
@@ -25,16 +42,13 @@ const dedupOptions = (options: { id: string | number; nombre: string }[]) => {
     });
 };
 
-const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onChange, placeholder, disabled, label, onFocus }) => {
+const SearchableSelect: React.FC<SearchableSelectProps> = ({
+    options, value, onChange, placeholder, disabled, label, onFocus, loading, error, onRetry
+}) => {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const wrapperRef = useRef<HTMLDivElement>(null);
 
-    // Dedup options internally to be safe, or assume passed options are deduped? 
-    // Safest to dedup before rendering or rely on parent. 
-    // Let's rely on parent for perf, but here we can at least use index fallback.
-
-    // However, for strict React keys, we need uniqueness.
     const selectedOption = options.find(o => String(o?.id || '') === String(value || ''));
 
     useEffect(() => {
@@ -53,12 +67,14 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
 
     return (
         <div className="form-group" ref={wrapperRef} style={{ position: 'relative' }}>
-            <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>{label}</label>
+            <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>
+                {label}
+                {loading && <span style={{ marginLeft: '8px', fontSize: '0.7rem', color: '#6b7280' }}>⏳ Cargando...</span>}
+            </label>
             <div
                 className={`custom-select-trigger ${disabled ? 'disabled' : ''}`}
                 onClick={() => {
-                    if (!disabled) {
-                        // Allow onFocus to return false to prevent opening (validation check)
+                    if (!disabled && !loading) {
                         if (onFocus) {
                             const result = onFocus() as any;
                             if (result === false) return;
@@ -69,10 +85,10 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
                 style={{
                     padding: '6px 10px',
                     fontSize: '0.85rem',
-                    border: '1px solid #d1d5db',
+                    border: error ? '1px solid #ef4444' : '1px solid #d1d5db',
                     borderRadius: '6px',
-                    backgroundColor: disabled ? '#f3f4f6' : 'white',
-                    cursor: disabled ? 'not-allowed' : 'pointer',
+                    backgroundColor: disabled || loading ? '#f3f4f6' : 'white',
+                    cursor: disabled || loading ? 'not-allowed' : 'pointer',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
@@ -92,12 +108,53 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
                     maxWidth: '100%',
                     display: 'block'
                 }}>
-                    {selectedOption ? selectedOption.nombre : placeholder || 'Seleccione...'}
+                    {loading ? 'Cargando...' : (selectedOption ? selectedOption.nombre : placeholder || 'Seleccione...')}
                 </span>
-                <span style={{ fontSize: '0.7rem', color: '#6b7280' }}>▼</span>
+                {loading ? (
+                    <span style={{ fontSize: '0.7rem', color: '#6b7280', animation: 'spin 1s linear infinite' }}>⟳</span>
+                ) : (
+                    <span style={{ fontSize: '0.7rem', color: '#6b7280' }}>▼</span>
+                )}
             </div>
 
-            {isOpen && !disabled && (
+            {error && (
+                <div style={{
+                    marginTop: '4px',
+                    padding: '6px 8px',
+                    fontSize: '0.75rem',
+                    color: '#dc2626',
+                    backgroundColor: '#fef2f2',
+                    border: '1px solid #fecaca',
+                    borderRadius: '4px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                }}>
+                    <span>⚠️ {error}</span>
+                    {onRetry && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onRetry();
+                            }}
+                            style={{
+                                marginLeft: '8px',
+                                padding: '2px 8px',
+                                fontSize: '0.7rem',
+                                backgroundColor: '#dc2626',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '3px',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            Reintentar
+                        </button>
+                    )}
+                </div>
+            )}
+
+            {isOpen && !disabled && !loading && (
                 <div style={{
                     position: 'absolute',
                     top: '100%',
@@ -135,7 +192,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
                         {filteredOptions.length > 0 ? (
                             filteredOptions.map((opt, index) => (
                                 <div
-                                    key={`${opt.id}-${index}`} // Composite key to ensure uniqueness if IDs dup
+                                    key={`${opt.id}-${index}`}
                                     onClick={() => {
                                         if (opt.id !== undefined && opt.id !== null) {
                                             onChange(String(opt.id));
@@ -188,6 +245,12 @@ const ReadOnlyField = ({ label, value }: { label: string, value: string }) => (
 );
 
 export const AntecedentesForm = () => {
+    // Initialize cached catalogos hook
+    const catalogos = useCachedCatalogos();
+
+    // Initialize toast notifications
+    const { showToast } = useToast();
+
     // Catalog State
     const [lugares, setLugares] = useState<LugarAnalisis[]>([]);
     const [empresas, setEmpresas] = useState<EmpresaServicio[]>([]);
@@ -195,8 +258,8 @@ export const AntecedentesForm = () => {
     const [contactos, setContactos] = useState<Contacto[]>([]);
     const [fuentesEmisoras, setFuentesEmisoras] = useState<Centro[]>([]);
 
-    const [loading, setLoading] = useState<boolean>(false);
-    // const [error, setError] = useState<string | null>(null);
+    // Error states for catalogs
+    const [catalogErrors, setCatalogErrors] = useState<{ [key: string]: string | null }>({});
 
     // Form State
     const [tipoMonitoreo, setTipoMonitoreo] = useState<string>('');
@@ -349,22 +412,19 @@ export const AntecedentesForm = () => {
 
     const loadLugares = async () => {
         try {
-            setLoading(true);
-            const data = await catalogosService.getLugaresAnalisis();
+            const data = await catalogos.getLugaresAnalisis();
             setLugares(data.map((item: any) => ({
                 id: item.id_lugaranalisis || item.IdLugarAnalisis || item.ID || item.id,
                 nombre: item.nombre_lugaranalisis || item.NombreLugar || item.Nombre || item.nombre
             })));
         } catch (err: any) {
             console.error(err);
-        } finally {
-            setLoading(false);
         }
     };
 
     const loadEmpresas = async () => {
         try {
-            const data = await catalogosService.getEmpresasServicio();
+            const data = await catalogos.getEmpresasServicio();
             setEmpresas(data.map((item: any) => ({
                 id: item.id_empresaservicio || item.id_empresa || item.IdEmpresa || item.id,
                 nombre: item.nombre_empresaservicios || item.nombre_empresaservicio || item.razon_social || item.RazonSocial || item.nombre
@@ -376,7 +436,7 @@ export const AntecedentesForm = () => {
 
     const loadClientes = async () => {
         try {
-            const data = await catalogosService.getClientes();
+            const data = await catalogos.getClientes();
             setClientes(data.map((item: any) => ({
                 id: item.id_cliente || item.IdCliente || item.id || item.id_empresa,
                 nombre: item.nombre_cliente || item.NombreCliente || item.nombre || item.razon_social || item.nombre_empresa
@@ -388,7 +448,7 @@ export const AntecedentesForm = () => {
 
     const loadContactos = async (clienteId: number) => {
         try {
-            const data = await catalogosService.getContactos(clienteId);
+            const data = await catalogos.getContactos(clienteId);
             setContactos(data.map((item: any) => ({
                 id: item.id_contacto || item.IdContacto || item.id,
                 nombre: item.nombre_contacto || item.NombreContacto || item.nombre || item.nombres || item.nombre_persona,
@@ -402,7 +462,7 @@ export const AntecedentesForm = () => {
 
     const loadFuentesEmisoras = async (clienteId: number) => {
         try {
-            const data = await catalogosService.getCentros(clienteId);
+            const data = await catalogos.getCentros(clienteId);
             setFuentesEmisoras(data.map((item: any) => ({
                 id: item.id_centro || item.id,
                 nombre: item.nombre_centro || item.nombre,
@@ -419,7 +479,7 @@ export const AntecedentesForm = () => {
 
     const loadObjetivos = async (clienteId: number) => {
         try {
-            const data = await catalogosService.getObjetivosMuestreo(clienteId);
+            const data = await catalogos.getObjetivosMuestreo(clienteId);
             setObjetivos((data || []).map((o: any) => ({
                 id: o.id_objetivomuestreo_ma || o.id,
                 nombre: o.nombre_objetivomuestreo_ma || o.nombre
@@ -434,11 +494,11 @@ export const AntecedentesForm = () => {
         try {
             // Batch 1: Core Catalogs (Lighter requests)
             const [comps, insp, tMuestreo, tDescarga, mods] = await Promise.all([
-                catalogosService.getComponentesAmbientales(),
-                catalogosService.getInspectores(),
-                catalogosService.getTiposMuestreo(),
-                catalogosService.getTiposDescarga(),
-                catalogosService.getModalidades()
+                catalogos.getComponentesAmbientales(),
+                catalogos.getInspectores(),
+                catalogos.getTiposMuestreo(),
+                catalogos.getTiposDescarga(),
+                catalogos.getModalidades()
             ]);
 
             setComponentes((comps || []).map((c: any) => ({
@@ -462,13 +522,31 @@ export const AntecedentesForm = () => {
                 nombre: m.nombre_modalidad || m.nombre
             })));
 
-            // Batch 2: Heavier Catalogs (Sequential to improve performance)
+            // Batch 2: Heavier Catalogs - Load on mount for now
+            // (Lazy loading caused issues with fields not showing options)
             const [cargosList, freqsList, formasCanalList, dispositivosList] = await Promise.all([
-                catalogosService.getCargos(),
-                catalogosService.getFrecuenciasPeriodo(),
-                catalogosService.getFormasCanal(),
-                catalogosService.getDispositivosHidraulicos()
+                catalogos.getCargos(),
+                catalogos.getFrecuenciasPeriodo(),
+                catalogos.getFormasCanal(),
+                catalogos.getDispositivosHidraulicos()
             ]);
+
+            // Normalize Cargos
+            const normCargos = (cargosList || []).map((c: any, index: number) => ({
+                ...c,
+                id: String(c.id_cargo || c.ID || c.id || `cargo-${index}`),
+                nombre: c.nombre_cargo || c.Nombre || 'Sin Nombre',
+                cliente: c.cliente || c.Cliente
+            }));
+            setCargos(normCargos);
+
+            // Normalize Frecuencias
+            const normFreqs = (freqsList || []).map((f: any, index: number) => ({
+                ...f,
+                id: String(f.id_frecuenciaperiodo || f.id || `freq-${index}`),
+                nombre: f.nombre_frecuencia || f.nombre
+            }));
+            setFrecuenciasOptions(normFreqs);
 
             // Formas Canal
             setFormasCanal((formasCanalList || []).map((f: any) => ({
@@ -482,32 +560,18 @@ export const AntecedentesForm = () => {
                 nombre: d.nombre_dispositivohidraulico || d.nombre
             })));
 
-            // Normalize Cargos
-            const normCargos = (cargosList || []).map((c: any, index: number) => ({
-                ...c,
-                id: String(c.id_cargo || c.ID || c.id || `cargo-${index}`),
-                nombre: c.nombre_cargo || c.Nombre || 'Sin Nombre',
-                cliente: c.cliente || c.Cliente // Map cliente flag
-            }));
-            setCargos(normCargos);
-
-            // Normalize Frecuencias
-            const normFreqs = (freqsList || []).map((f: any, index: number) => ({
-                ...f,
-                id: String(f.id_frecuenciaperiodo || f.id || `freq-${index}`),
-                nombre: f.nombre_frecuencia || f.nombre // Correct mapping explicitly
-            }));
-            setFrecuenciasOptions(normFreqs);
+            console.log('✅ All catalogs loaded successfully.');
 
         } catch (error) {
             console.error("Error loading complementarios", error);
+            setCatalogErrors(prev => ({ ...prev, complementarios: 'Error al cargar catálogos' }));
         }
     };
 
     // Dependent Loaders
     const loadSubAreas = async (componenteId: string) => {
         try {
-            const data = await catalogosService.getSubAreas(componenteId);
+            const data = await catalogos.getSubAreas(componenteId);
             setSubAreas((data || []).map((s: any) => ({
                 id: s.id_subarea || s.id,
                 nombre: s.nombre_subarea || s.nombre
@@ -517,14 +581,14 @@ export const AntecedentesForm = () => {
 
     const loadTiposMuestra = async (tipoMuestreoId: string) => {
         try {
-            const data = await catalogosService.getTiposMuestra(tipoMuestreoId);
+            const data = await catalogos.getTiposMuestra(tipoMuestreoId);
             setTiposMuestra(data || []);
         } catch (error) { console.error('Error loading tipos muestra', error); }
     };
 
     const loadActividades = async (tipoMuestraId: string) => {
         try {
-            const data = await catalogosService.getActividadesMuestreo(tipoMuestraId);
+            const data = await catalogos.getActividadesMuestreo(tipoMuestraId);
             setActividades(data || []);
         } catch (error) { console.error('Error loading actividades', error); }
     };
@@ -986,18 +1050,7 @@ export const AntecedentesForm = () => {
                         onChange={(val) => {
                             setSelectedTipoMuestreo(val);
                             setSelectedTipoMuestra(''); // Reset child
-                            // Load dependent catalog (or all if no filter needed, but here we trigger reload)
-                            catalogosService.getTiposMuestra(val).then(data => {
-                                console.log('Data recieved for Tipos Muestra:', data);
-                                setTiposMuestra((data || []).map((t: any) => {
-                                    const mapped = {
-                                        id: String(t.id_tipomuestra_ma || t.id || ''),
-                                        nombre: t.nombre_tipomuestra_ma || t.nombre || 'Sin Nombre'
-                                    };
-                                    console.log('Mapped item:', mapped);
-                                    return mapped;
-                                }));
-                            });
+                            // Removed duplicate API call - useEffect at line 312 handles this
                         }}
                         options={tiposMuestreo.map(t => ({ id: t.id, nombre: t.nombre }))}
                     />
@@ -1012,10 +1065,7 @@ export const AntecedentesForm = () => {
                         onChange={(val) => {
                             setSelectedTipoMuestra(val);
                             setSelectedActividad(''); // Reset child
-                            // Load dependent catalog
-                            catalogosService.getActividadesMuestreo(val).then(data => {
-                                setActividades(data || []);
-                            });
+                            // Removed duplicate API call - useEffect at line 321 handles this
                         }}
                         options={tiposMuestra.map((t: any) => ({
                             id: String(t.id_tipomuestra_ma || t.id || ''),
@@ -1102,7 +1152,11 @@ export const AntecedentesForm = () => {
                         onChange={setSelectedModalidad}
                         onFocus={() => {
                             if (!medicionCaudal || medicionCaudal === '') {
-                                alert('Debes ingresar el dato Medición caudal');
+                                showToast({
+                                    type: 'warning',
+                                    message: 'Debes ingresar el dato Medición caudal',
+                                    duration: 4000
+                                });
                                 return false;
                             }
                         }}
@@ -1119,7 +1173,11 @@ export const AntecedentesForm = () => {
                         }}
                         onFocus={() => {
                             if (!selectedModalidad || selectedModalidad === '') {
-                                alert('Debes ingresar el dato Modalidad');
+                                showToast({
+                                    type: 'warning',
+                                    message: 'Debes ingresar el dato Modalidad',
+                                    duration: 4000
+                                });
                                 return false;
                             }
                         }}

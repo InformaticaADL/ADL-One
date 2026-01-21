@@ -1,5 +1,63 @@
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import API_CONFIG from '../../../config/api.config';
+
+// Create axios instance with optimized configuration
+const axiosInstance = axios.create({
+    baseURL: `${API_CONFIG.getBaseURL()}/api/catalogos`,
+    timeout: 15000, // 15 seconds timeout
+    headers: {
+        // Note: Accept-Encoding is set automatically by browsers
+        'Content-Type': 'application/json'
+    }
+});
+
+// Request deduplication map to prevent duplicate simultaneous requests
+const pendingRequests = new Map<string, Promise<any>>();
+
+// Retry logic with exponential backoff
+const retryRequest = async (
+    fn: () => Promise<any>,
+    retries = 3,
+    delay = 1000
+): Promise<any> => {
+    try {
+        return await fn();
+    } catch (error) {
+        if (retries === 0) throw error;
+
+        const axiosError = error as AxiosError;
+        const shouldRetry =
+            axiosError.code === 'ECONNABORTED' ||
+            axiosError.code === 'ETIMEDOUT' ||
+            (axiosError.response?.status && axiosError.response.status >= 500);
+
+        if (!shouldRetry) throw error;
+
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return retryRequest(fn, retries - 1, delay * 2); // Exponential backoff
+    }
+};
+
+// Request deduplication wrapper
+const deduplicatedRequest = async <T>(
+    key: string,
+    requestFn: () => Promise<T>
+): Promise<T> => {
+    // If request is already pending, return the existing promise
+    if (pendingRequests.has(key)) {
+        return pendingRequests.get(key) as Promise<T>;
+    }
+
+    // Create new request promise
+    const requestPromise = retryRequest(requestFn)
+        .finally(() => {
+            // Remove from pending requests when complete
+            pendingRequests.delete(key);
+        });
+
+    pendingRequests.set(key, requestPromise);
+    return requestPromise;
+};
 
 // Define types based on expected DB response
 export interface LugarAnalisis {
@@ -37,196 +95,146 @@ export interface Centro {
     tipo_agua?: string;
 }
 
-const BASE_URL = `${API_CONFIG.getBaseURL()}/api/catalogos`;
 
 export const catalogosService = {
     getLugaresAnalisis: async (): Promise<LugarAnalisis[]> => {
-        try {
-            const response = await axios.get(`${BASE_URL}/lugares-analisis`);
+        return deduplicatedRequest('lugares-analisis', async () => {
+            const response = await axiosInstance.get('/lugares-analisis');
             return response.data.data;
-        } catch (error) {
-            console.error('Error fetching Lugares de Analisis:', error);
-            throw error;
-        }
+        });
     },
 
     getEmpresasServicio: async (sedeId?: number): Promise<EmpresaServicio[]> => {
-        try {
-            const response = await axios.get(`${BASE_URL}/empresas-servicio`, {
+        const key = `empresas-servicio${sedeId ? `-${sedeId}` : ''}`;
+        return deduplicatedRequest(key, async () => {
+            const response = await axiosInstance.get('/empresas-servicio', {
                 params: { sedeId }
             });
             return response.data.data;
-        } catch (error) {
-            console.error('Error fetching Empresas Servicio:', error);
-            throw error;
-        }
+        });
     },
 
     getClientes: async (empresaId?: number): Promise<Cliente[]> => {
-        try {
-            const response = await axios.get(`${BASE_URL}/clientes`, {
+        const key = `clientes${empresaId ? `-${empresaId}` : ''}`;
+        return deduplicatedRequest(key, async () => {
+            const response = await axiosInstance.get('/clientes', {
                 params: { empresaId }
             });
             return response.data.data;
-        } catch (error) {
-            console.error('Error fetching Clientes:', error);
-            throw error;
-        }
+        });
     },
 
     getContactos: async (clienteId?: number): Promise<Contacto[]> => {
-        try {
-            const response = await axios.get(`${BASE_URL}/contactos`, {
+        const key = `contactos${clienteId ? `-${clienteId}` : ''}`;
+        return deduplicatedRequest(key, async () => {
+            const response = await axiosInstance.get('/contactos', {
                 params: { clienteId }
             });
             return response.data.data;
-        } catch (error) {
-            console.error('Error fetching Contactos:', error);
-            throw error;
-        }
+        });
     },
 
     getCentros: async (clienteId?: number): Promise<Centro[]> => {
-        try {
-            const response = await axios.get(`${BASE_URL}/centros`, {
+        const key = `centros${clienteId ? `-${clienteId}` : ''}`;
+        return deduplicatedRequest(key, async () => {
+            const response = await axiosInstance.get('/centros', {
                 params: { clienteId }
             });
             return response.data.data;
-        } catch (error) {
-            console.error('Error fetching Centros:', error);
-            throw error;
-        }
+        });
     },
 
     // Bloque 2: Datos del Servicio y Muestreo
     // Bloque 2: Datos del Servicio y Muestreo
     getObjetivosMuestreo: async (clienteId?: number): Promise<any[]> => {
-        try {
-            const response = await axios.get(`${BASE_URL}/objetivos-muestreo`, { params: { clienteId } });
+        const key = `objetivos-muestreo${clienteId ? `-${clienteId}` : ''}`;
+        return deduplicatedRequest(key, async () => {
+            const response = await axiosInstance.get('/objetivos-muestreo', { params: { clienteId } });
             return response.data.data;
-        } catch (error) {
-            console.error('Error fetching Objetivos:', error);
-            throw error;
-        }
+        });
     },
 
     getComponentesAmbientales: async (): Promise<any[]> => {
-        try {
-            const response = await axios.get(`${BASE_URL}/componentes-ambientales`);
+        return deduplicatedRequest('componentes-ambientales', async () => {
+            const response = await axiosInstance.get('/componentes-ambientales');
             return response.data.data;
-        } catch (error) {
-            console.error('Error fetching Componentes Ambientales:', error);
-            throw error;
-        }
+        });
     },
 
     getSubAreas: async (componenteId: string): Promise<any[]> => {
-        try {
-            const response = await axios.get(`${BASE_URL}/subareas`, { params: { componenteId } });
+        return deduplicatedRequest(`subareas-${componenteId}`, async () => {
+            const response = await axiosInstance.get('/subareas', { params: { componenteId } });
             return response.data.data;
-        } catch (error) {
-            console.error('Error fetching SubAreas:', error);
-            throw error;
-        }
+        });
     },
 
     getInspectores: async (): Promise<any[]> => {
-        try {
-            const response = await axios.get(`${BASE_URL}/inspectores`);
+        return deduplicatedRequest('inspectores', async () => {
+            const response = await axiosInstance.get('/inspectores');
             return response.data.data;
-        } catch (error) {
-            console.error('Error fetching Inspectores:', error);
-            throw error;
-        }
+        });
     },
 
     getTiposMuestreo: async (): Promise<any[]> => {
-        try {
-            const response = await axios.get(`${BASE_URL}/tipos-muestreo`);
+        return deduplicatedRequest('tipos-muestreo', async () => {
+            const response = await axiosInstance.get('/tipos-muestreo');
             return response.data.data;
-        } catch (error) {
-            console.error('Error fetching Tipos Muestreo:', error);
-            throw error;
-        }
+        });
     },
 
     getTiposMuestra: async (tipoMuestreoId: string): Promise<any[]> => {
-        try {
-            const response = await axios.get(`${BASE_URL}/tipos-muestra`, { params: { tipoMuestreoId } });
+        return deduplicatedRequest(`tipos-muestra-${tipoMuestreoId}`, async () => {
+            const response = await axiosInstance.get('/tipos-muestra', { params: { tipoMuestreoId } });
             return response.data.data;
-        } catch (error) {
-            console.error('Error fetching Tipos Muestreo:', error);
-            throw error;
-        }
+        });
     },
 
     getActividadesMuestreo: async (tipoMuestraId: string): Promise<any[]> => {
-        try {
-            const response = await axios.get(`${BASE_URL}/actividades-muestreo`, { params: { tipoMuestraId } });
+        return deduplicatedRequest(`actividades-muestreo-${tipoMuestraId}`, async () => {
+            const response = await axiosInstance.get('/actividades-muestreo', { params: { tipoMuestraId } });
             return response.data.data;
-        } catch (error) {
-            console.error('Error fetching Actividades Muestreo:', error);
-            throw error;
-        }
+        });
     },
 
     getTiposDescarga: async (): Promise<any[]> => {
-        try {
-            const response = await axios.get(`${BASE_URL}/tipos-descarga`);
+        return deduplicatedRequest('tipos-descarga', async () => {
+            const response = await axiosInstance.get('/tipos-descarga');
             return response.data.data;
-        } catch (error) {
-            console.error('Error fetching Tipos Descarga:', error);
-            throw error;
-        }
+        });
     },
 
     getModalidades: async (): Promise<any[]> => {
-        try {
-            const response = await axios.get(`${BASE_URL}/modalidades`);
+        return deduplicatedRequest('modalidades', async () => {
+            const response = await axiosInstance.get('/modalidades');
             return response.data.data;
-        } catch (error) {
-            console.error('Error fetching Modalidades:', error);
-            throw error;
-        }
+        });
     },
 
     getCargos: async (): Promise<any[]> => {
-        try {
-            const response = await axios.get(`${BASE_URL}/cargos`);
+        return deduplicatedRequest('cargos', async () => {
+            const response = await axiosInstance.get('/cargos');
             return response.data.data;
-        } catch (error) {
-            console.error('Error fetching Cargos:', error);
-            throw error;
-        }
+        });
     },
 
     getFrecuenciasPeriodo: async (): Promise<any[]> => {
-        try {
-            const response = await axios.get(`${BASE_URL}/frecuencias-periodo`);
+        return deduplicatedRequest('frecuencias-periodo', async () => {
+            const response = await axiosInstance.get('/frecuencias-periodo');
             return response.data.data;
-        } catch (error) {
-            console.error('Error fetching Frecuencias Periodo:', error);
-            throw error;
-        }
+        });
     },
 
     getFormasCanal: async (): Promise<any[]> => {
-        try {
-            const response = await axios.get(`${BASE_URL}/formas-canal`);
+        return deduplicatedRequest('formas-canal', async () => {
+            const response = await axiosInstance.get('/formas-canal');
             return response.data.data;
-        } catch (error) {
-            console.error('Error fetching Formas Canal:', error);
-            throw error;
-        }
+        });
     },
 
     getDispositivosHidraulicos: async (): Promise<any[]> => {
-        try {
-            const response = await axios.get(`${BASE_URL}/dispositivos-hidraulicos`);
+        return deduplicatedRequest('dispositivos-hidraulicos', async () => {
+            const response = await axiosInstance.get('/dispositivos-hidraulicos');
             return response.data.data;
-        } catch (error) {
-            console.error('Error fetching Dispositivos Hidraulicos:', error);
-            throw error;
-        }
+        });
     },
 };

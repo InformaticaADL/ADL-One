@@ -15,9 +15,11 @@ const config = {
     enableArithAbort: true,
   },
   pool: {
-    max: 10,
-    min: 0,
-    idleTimeoutMillis: 30000,
+    max: 25,                      // Increased from 10 to handle more concurrent requests
+    min: 5,                       // Keep 5 connections warm
+    idleTimeoutMillis: 60000,     // 60 seconds (increased from 30)
+    acquireTimeoutMillis: 30000,  // 30 seconds timeout to acquire connection
+    createTimeoutMillis: 30000,   // 30 seconds timeout to create connection
   },
 };
 
