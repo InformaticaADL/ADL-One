@@ -11,6 +11,7 @@ import { errorHandler, notFoundHandler } from './middlewares/errorHandler.middle
 // Import routes
 import healthRoutes from './routes/health.routes.js';
 import catalogosRoutes from './routes/catalogos.routes.js';
+import analysisRoutes from './routes/analysis.routes.js';
 
 dotenv.config();
 
@@ -48,6 +49,7 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use('/api/health', healthRoutes);
 app.use('/api/catalogos', catalogosRoutes);
+app.use('/api/analysis', analysisRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {

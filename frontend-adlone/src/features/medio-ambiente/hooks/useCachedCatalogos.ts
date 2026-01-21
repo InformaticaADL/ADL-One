@@ -88,6 +88,29 @@ export const useCachedCatalogos = () => {
         return getCatalogo('dispositivos-hidraulicos', () => catalogosService.getDispositivosHidraulicos());
     }, [getCatalogo]);
 
+    // ===== Analysis Service Methods (Cached) =====
+    const getNormativas = useCallback(async (): Promise<any[]> => {
+        return getCatalogo('normativas', () => import('../services/analysis.service').then(m => m.analysisService.getNormativas()));
+    }, [getCatalogo]);
+
+    const getReferenciasByNormativa = useCallback(async (normativaId: string | number): Promise<any[]> => {
+        const key = `referencias-${normativaId}`;
+        return getCatalogo(key, () => import('../services/analysis.service').then(m => m.analysisService.getReferenciasByNormativa(normativaId)));
+    }, [getCatalogo]);
+
+    const getAnalysisByNormativaReferencia = useCallback(async (normativaId: string | number, referenciaId: string | number): Promise<any[]> => {
+        const key = `analysis-${normativaId}-${referenciaId}`;
+        return getCatalogo(key, () => import('../services/analysis.service').then(m => m.analysisService.getAnalysisByNormativaReferencia(normativaId, referenciaId)));
+    }, [getCatalogo]);
+
+    const getLaboratorios = useCallback(async (): Promise<any[]> => {
+        return getCatalogo('laboratorios', () => import('../services/analysis.service').then(m => m.analysisService.getLaboratorios()));
+    }, [getCatalogo]);
+
+    const getTiposEntrega = useCallback(async (): Promise<any[]> => {
+        return getCatalogo('tipos-entrega', () => import('../services/analysis.service').then(m => m.analysisService.getTiposEntrega()));
+    }, [getCatalogo]);
+
     return {
         // Catalog getters
         getLugaresAnalisis,
@@ -108,6 +131,13 @@ export const useCachedCatalogos = () => {
         getFrecuenciasPeriodo,
         getFormasCanal,
         getDispositivosHidraulicos,
+
+        // Analysis getters
+        getNormativas,
+        getReferenciasByNormativa,
+        getAnalysisByNormativaReferencia,
+        getLaboratorios,
+        getTiposEntrega,
 
         // Utility functions
         isLoading,

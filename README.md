@@ -417,9 +417,39 @@ Se implementó un sistema completo de optimización de rendimiento para el módu
 #### Resultados:
 - 📊 **83% reducción** en tiempo de carga inicial (8-12s → 1.5-2s)
 - 📊 **99% reducción** en cargas subsecuentes (caché)
-- 📊 **100% eliminación** de timeouts
-- 📊 **65% menos** requests simultáneos
 - 📊 **75% menos** uso de conexiones DB
+- 📊 **0 timeout** errors
+
+---
+
+### 3. Tab Análisis (Medio Ambiente)
+
+Se implementó la pestaña "Análisis" en la Ficha Comercial, replicando la lógica compleja de FoxPro pero optimizada para web.
+
+#### Características Principales:
+
+**✅ Búsqueda y Selección**
+- **Filtros en Cascada**: Normativa -> Referencia (Auto-load optimizado).
+- **Búsqueda Inteligente**: Filtrado de análisis por código o nombre en tiempo real.
+- **Feedback Visual**: Indicadores de carga transparentes (sin bloqueo de UI).
+
+**✅ Configuración de Muestra**
+- **Lógica Condicional**:
+  - *Terreno*: Deshabilita Lab. Derivado, asigna entrega directa automáticamente.
+  - *Laboratorio*: Habilita selección completa.
+- **Validaciones UX**: Bloqueo de botón "Grabar" hasta completar campos requeridos.
+
+**✅ Persistencia y Edición**
+- **Grid de Resultados**:
+  - Visualización tabular de análisis seleccionados.
+  - Columnas condicionales (Límites, Errores).
+  - **Edición Inline**: Campo "Valor U.F." editable (sin spinners, permite borrado).
+- **Consistencia Visual**: Estilos unificados con la pestaña "Antecedentes".
+
+#### Optimizaciones Específicas:
+- **Caché Extendida**: Reutilización de `useCachedCatalogos` para Normativas y Laboratorios.
+- **Prevención de Parpadeo**: Ajuste fino en `useEffect` para cargas asíncronas sin saltos visuales.
+- **Manejo de Contexto**: `CatalogosProvider` elevado para compartir estado entre pestañas.
 
 ---
 

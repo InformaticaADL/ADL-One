@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { AntecedentesForm } from '../components/AntecedentesForm';
+import { AnalysisForm } from '../components/AnalysisForm';
 import { CatalogosProvider } from '../context/CatalogosContext';
 import { ToastProvider } from '../../../contexts/ToastContext';
 import { ToastContainer } from '../../../components/Toast/Toast';
@@ -64,23 +65,23 @@ export const ComercialPage: React.FC<Props> = ({ onBack }) => {
                 </div>
 
                 {/* 3. Contenido Dinámico (Persistente) */}
-                <div className="tab-content-area">
-                    <div className="fade-in" style={{ display: activeTab === 'antecedentes' ? 'block' : 'none' }}>
-                        <CatalogosProvider>
+                {/* 3. Contenido Dinámico (Persistente) */}
+                <CatalogosProvider>
+                    <div className="tab-content-area">
+                        <div className="fade-in" style={{ display: activeTab === 'antecedentes' ? 'block' : 'none' }}>
                             <AntecedentesForm />
-                        </CatalogosProvider>
-                    </div>
+                        </div>
 
-                    <div className="fade-in" style={{ display: activeTab === 'analisis' ? 'block' : 'none' }}>
-                        <h3>Detalle de Análisis</h3>
-                        <p>Selección de matriz y ensayos requeridos.</p>
-                    </div>
+                        <div className="fade-in" style={{ display: activeTab === 'analisis' ? 'block' : 'none' }}>
+                            <AnalysisForm />
+                        </div>
 
-                    <div className="fade-in" style={{ display: activeTab === 'observaciones' ? 'block' : 'none' }}>
-                        <h3>Observaciones Finales</h3>
-                        <p>Comentarios adicionales importantes para la muestra.</p>
+                        <div className="fade-in" style={{ display: activeTab === 'observaciones' ? 'block' : 'none' }}>
+                            <h3>Observaciones Finales</h3>
+                            <p>Comentarios adicionales importantes para la muestra.</p>
+                        </div>
                     </div>
-                </div>
+                </CatalogosProvider>
 
                 {/* 4. Acción Global de Grabado */}
                 <div className="form-actions">
