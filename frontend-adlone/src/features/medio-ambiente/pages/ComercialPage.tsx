@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { AntecedentesForm } from '../components/AntecedentesForm';
 import { AnalysisForm } from '../components/AnalysisForm';
+import { ObservacionesForm } from '../components/ObservacionesForm';
 import { CatalogosProvider } from '../context/CatalogosContext';
 import { ToastProvider } from '../../../contexts/ToastContext';
 import { ToastContainer } from '../../../components/Toast/Toast';
@@ -77,8 +78,10 @@ export const ComercialPage: React.FC<Props> = ({ onBack }) => {
                         </div>
 
                         <div className="fade-in" style={{ display: activeTab === 'observaciones' ? 'block' : 'none' }}>
-                            <h3>Observaciones Finales</h3>
-                            <p>Comentarios adicionales importantes para la muestra.</p>
+                            <ObservacionesForm
+                                value={formData.observaciones || ''}
+                                onChange={(val) => setFormData(prev => ({ ...prev, observaciones: val }))}
+                            />
                         </div>
                     </div>
                 </CatalogosProvider>

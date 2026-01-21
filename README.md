@@ -453,6 +453,17 @@ Se implementó la pestaña "Análisis" en la Ficha Comercial, replicando la lóg
 
 ---
 
+### 4. Tab Observaciones (Medio Ambiente)
+
+Implementación del módulo final para comentarios libres.
+
+#### Características:
+- **Componente Reutilizable**: `ObservacionesForm` diseñado para entradas de texto controlado.
+- **Validación en Tiempo Real**: Contador de caracteres y limitación estricta (Max 250 chars).
+- **Integración**: Conectado al estado global del formulario comercial (`formData`).
+
+---
+
 ### 2. Custom Toast Notification System
 
 Se reemplazaron las alertas nativas del navegador (`alert()`) con un sistema moderno de notificaciones toast.
