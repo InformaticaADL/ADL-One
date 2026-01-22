@@ -1,7 +1,9 @@
-﻿import React, { useEffect, useState, useRef } from 'react';
+﻿import React, { useEffect, useState, useRef, useImperativeHandle, forwardRef } from 'react';
 import { useCachedCatalogos } from '../hooks/useCachedCatalogos';
 import type { LugarAnalisis, EmpresaServicio, Cliente, Contacto, Centro } from '../services/catalogos.service';
 import { useToast } from '../../../contexts/ToastContext';
+import '../styles/FichasIngreso.css';
+import '../styles/FormGrids.css';
 
 // Add spinner animation CSS
 const spinnerStyle = document.createElement('style');
@@ -14,6 +16,11 @@ spinnerStyle.innerHTML = `
 if (!document.head.querySelector('style[data-spinner]')) {
     spinnerStyle.setAttribute('data-spinner', 'true');
     document.head.appendChild(spinnerStyle);
+}
+
+// Define interface for exposed methods
+export interface AntecedentesFormHandle {
+    getData: () => any;
 }
 
 // --- Components ---
@@ -244,7 +251,7 @@ const ReadOnlyField = ({ label, value }: { label: string, value: string }) => (
     </div>
 );
 
-export const AntecedentesForm = () => {
+export const AntecedentesForm = forwardRef<AntecedentesFormHandle, {}>((props, ref) => {
     // Initialize cached catalogos hook
     const catalogos = useCachedCatalogos();
 
@@ -276,17 +283,14 @@ export const AntecedentesForm = () => {
     const [tipoAgua, setTipoAgua] = useState<string>('');
     const [codigo, setCodigo] = useState<string>('');
 
-    // Otros antecedentes state
-
-
     // --- Block 2 State ---
     const [objetivos, setObjetivos] = useState<any[]>([]);
     const [selectedObjetivo, setSelectedObjetivo] = useState<string>('');
     const [frecuencia, setFrecuencia] = useState<string>('');
     const [factor, setFactor] = useState<string>('1');
     const [periodo, setPeriodo] = useState<string>('');
-    const [frecuenciasOptions, setFrecuenciasOptions] = useState<any[]>([]); // New State for options
-    const [totalServicios, setTotalServicios] = useState<string>(''); // New State
+    const [frecuenciasOptions, setFrecuenciasOptions] = useState<any[]>([]);
+    const [totalServicios, setTotalServicios] = useState<string>('');
 
     // --- Block 3 State ---
     const [zona, setZona] = useState<string>('');
@@ -307,8 +311,8 @@ export const AntecedentesForm = () => {
     const [selectedInspector, setSelectedInspector] = useState<string>('');
 
     // --- Block 4 State ---
-    const [responsableMuestreo, setResponsableMuestreo] = useState<string>('ADL'); // Fixed default
-    const [cargos, setCargos] = useState<any[]>([]); // New State
+    const [responsableMuestreo, setResponsableMuestreo] = useState<string>('ADL');
+    const [cargos, setCargos] = useState<any[]>([]);
     const [cargoResponsable, setCargoResponsable] = useState<string>('');
     const [puntoMuestreo, setPuntoMuestreo] = useState<string>('');
     const [tiposMuestreo, setTiposMuestreo] = useState<any[]>([]);
@@ -328,11 +332,74 @@ export const AntecedentesForm = () => {
     // --- Block 5 State ---
     const [formasCanal, setFormasCanal] = useState<any[]>([]);
     const [formaCanal, setFormaCanal] = useState<string>('');
-    // const [detalleCanal, setDetalleCanal] = useState<string>(''); // Removed
+
+    // Check if detalleCanal exists in original or needs adding. Assuming it needs to be there.
+    const [detalleCanal, setDetalleCanal] = useState<string>('');
+
     const [dispositivos, setDispositivos] = useState<any[]>([]);
     const [dispositivo, setDispositivo] = useState<string>('');
+    const [detalleDispositivo, setDetalleDispositivo] = useState<string>('');
 
-    // Load Catalogs on mount
+    // Extra state for id_tipo_agua (separate from the display string)
+    const [idTipoAgua, setIdTipoAgua] = useState<number | null>(null);
+
+    // Expose data via ref
+    useImperativeHandle(ref, () => ({
+        getData: () => {
+            // Find selected contact name
+            const contactoObj = contactos.find(c => String(c.id) === selectedContacto);
+
+            const data = {
+                tipoMonitoreo,
+                selectedLugar,
+                selectedEmpresa,
+                selectedCliente,
+                selectedFuente,
+                tipoAgua,
+                idTipoAgua,
+                selectedObjetivo,
+                glosa,
+                esETFA,
+                puntoMuestreo,
+                zona, utmNorte, utmEste,
+                selectedComponente,
+                selectedSubArea,
+                selectedTipoDescarga,
+                selectedContacto,
+                contactoNombre: contactoObj ? contactoObj.nombre : '',
+                selectedTipoMuestreo,
+                selectedTipoMuestra,
+                selectedActividad,
+                duracion,
+                refGoogle,
+                medicionCaudal,
+                selectedModalidad,
+                formaCanal,
+                detalleCanal,
+                dispositivo,
+                detalleDispositivo,
+                responsableMuestreo,
+                cargoResponsable,
+                selectedInspector,
+                frecuencia,
+                factor,
+                periodo,
+                totalServicios,
+                ubicacion,
+                comuna,
+                region,
+                selectedInstrumento,
+                nroInstrumento,
+                anioInstrumento
+            };
+
+            console.log('🔍 DEBUG getData() - selectedInspector:', selectedInspector);
+            console.log('🔍 DEBUG getData() - idTipoAgua:', idTipoAgua);
+
+            return data;
+        }
+    }));
+
     // Load Catalogs on mount (Only independent ones)
     useEffect(() => {
         loadLugares();
@@ -399,6 +466,12 @@ export const AntecedentesForm = () => {
                 setComuna(fuente.comuna || fuente.nombre_comuna || '');
                 setRegion(fuente.region || fuente.nombre_region || '');
                 setTipoAgua(fuente.tipo_agua || '');
+                // Try to find reasonable ID: id_tipoagua, or parse from somewhere if not present
+                const fuenteAny = fuente as any;
+                const idTipo = fuenteAny.id_tipoagua || fuenteAny.IdTipoAgua || fuenteAny.ID_TIPOAGUA || null;
+                console.log('🔍 DEBUG Fuente Object:', fuenteAny);
+                console.log('🔍 DEBUG idTipoAgua extracted:', idTipo);
+                setIdTipoAgua(idTipo);
                 setCodigo(fuente.codigo || '');
             }
         } else {
@@ -470,6 +543,7 @@ export const AntecedentesForm = () => {
                 comuna: item.nombre_comuna || item.comuna,
                 region: item.nombre_region || item.region,
                 tipo_agua: item.tipo_agua || item.TipoAgua || item.tipoagua || item.Tipo_Agua || item.nombre_tipoagua,
+                id_tipoagua: item.id_tipoagua || item.IdTipoAgua || item.ID_TIPOAGUA,
                 codigo: item.codigo_centro || item.Codigo || item.codigo || item.codigo_ma
             })));
         } catch (err: any) {
@@ -506,7 +580,7 @@ export const AntecedentesForm = () => {
                 nombre: c.nombre_tipomuestra || c.nombre
             })));
             setInspectores((insp || []).map((i: any) => ({
-                id: String(i.id_inspector || i.id || ''),
+                id: String(i.id_inspectorambiental || i.id_inspector || i.id || ''),
                 nombre: i.nombre_inspector || i.nombre
             })));
             setTiposMuestreo((tMuestreo || []).map((t: any) => ({
@@ -606,7 +680,6 @@ export const AntecedentesForm = () => {
     };
 
     // Logic: Frecuencia Periodo
-    // Logic: Frecuencia Periodo
     const handlePeriodoChange = (val: string) => {
         setPeriodo(val);
         // Find by normalized ID
@@ -655,10 +728,21 @@ export const AntecedentesForm = () => {
         }
     }, [frecuencia, factor]);
 
+    // Auto-assign Cargo based on Responsable Muestreo (FoxPro LostFocus logic)
+    useEffect(() => {
+        if (responsableMuestreo === 'ADL') {
+            // Auto-assign id_cargo = 53 (Muestreador) when ADL is selected
+            setCargoResponsable('53');
+        } else if (responsableMuestreo === 'Cliente') {
+            // Clear cargo to allow manual selection
+            setCargoResponsable('');
+        }
+    }, [responsableMuestreo]);
+
     // Validation on Focus (FoxPro GotFocus)
     const handlePeriodoFocus = () => {
         if (!puntoMuestreo || puntoMuestreo.trim() === '') {
-            alert('Debes ingresar el dato Punto de Muestreo');
+            showToast({ type: 'warning', message: 'Debes ingresar el dato Punto de Muestreo', duration: 4000 });
             // In React we can't easily force focus back to another element programmatically 
             // without refs, but we can clear the selection or just show the alert.
             // For better UX, we could focus the ref if we had one for puntoMuestreo.
@@ -781,7 +865,7 @@ export const AntecedentesForm = () => {
                 <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#1f2937', marginTop: '0.5rem', marginBottom: '0.5rem', borderBottom: '1px solid #e5e7eb', paddingBottom: '0.2rem' }}>Datos del Servicio</h3>
 
                 {/* Row 1: Objetivo, Responsable, Cargo */}
-                <div className="form-grid-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+                <div className="form-grid-row grid-cols-3">
                     <SearchableSelect
                         label="Objetivo del Muestreo"
                         value={selectedObjetivo}
@@ -829,7 +913,7 @@ export const AntecedentesForm = () => {
                 </div>
 
                 {/* Row 2: Punto, Frec Periodo, Frec Muestreo, Factor, Total */}
-                <div className="form-grid-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: '1rem' }}>
+                <div className="form-grid-row grid-cols-custom-5">
                     <div className="form-group">
                         <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>Punto de Muestreo</label>
                         <input type="text" value={puntoMuestreo} onChange={(e) => setPuntoMuestreo(e.target.value)}
@@ -844,6 +928,7 @@ export const AntecedentesForm = () => {
                                 id: f.id,
                                 nombre: f.nombre_frecuencia
                             })))}
+                            disabled={!puntoMuestreo || puntoMuestreo.trim() === ''}
                         />
                     </div>
                     <div className="form-group">
@@ -864,7 +949,7 @@ export const AntecedentesForm = () => {
                 </div>
 
                 {/* Row 3: Coordenadas Geograficas (Zona), UTM E, UTM S */}
-                <div className="form-grid-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+                <div className="form-grid-row grid-cols-3">
                     <SearchableSelect
                         label="Coordenadas Geogr&aacute;ficas (Zona)"
                         value={zona}
@@ -877,9 +962,10 @@ export const AntecedentesForm = () => {
                         onFocus={() => {
                             // GotFocus Logic: Check Frecuencia Muestreo (Text9)
                             if (!frecuencia || String(frecuencia).trim() === '') {
-                                alert('Debes ingresar el dato Frecuencia Muestreo');
+                                showToast({ type: 'warning', message: 'Debes ingresar el dato Frecuencia Muestreo', duration: 4000 });
                             }
                         }}
+                        disabled={!frecuencia || String(frecuencia).trim() === ''}
                         options={[
                             { id: '18G', nombre: '18G' },
                             { id: '18H', nombre: '18H' },
@@ -905,7 +991,7 @@ export const AntecedentesForm = () => {
                 <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#1f2937', marginTop: '0.5rem', marginBottom: '0.5rem', borderBottom: '1px solid #e5e7eb', paddingBottom: '0.2rem' }}>Clasificaci&oacute;n T&eacute;cnica</h3>
 
                 {/* Row 1: Instrumento Ambiental, Nro, Anio */}
-                <div className="form-grid-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+                <div className="form-grid-row grid-cols-3">
                     <SearchableSelect
                         label="Instrumento Ambiental"
                         value={selectedInstrumento}
@@ -950,26 +1036,19 @@ export const AntecedentesForm = () => {
                             setSelectedComponente(val);
                             setSelectedSubArea(''); // InteractiveChange: Clear Sub Area
                         }}
-                        onFocus={() => {
-                            // GotFocus: Check if Instrumento is selected (or Nro, or just check 'selectedInstrumento' which drives logic)
-                            // User logic said "Text26" (Instrumento or related field). 
-                            // If Instrumento is 'No aplica', this field relies on that decision.
-                            if (!selectedInstrumento || selectedInstrumento === '') {
-                                alert('Debes ingresar el dato Instrumento Ambiental');
-                            }
-                        }}
                         options={componentes.map(c => ({ id: c.id, nombre: c.nombre }))}
+                        disabled={!selectedInstrumento || selectedInstrumento === ''}
                     />
                 </div>
 
                 {/* Row 2: Sub Area */}
-                <div className="form-grid-row" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
+                <div className="form-grid-row grid-cols-1">
                     <SearchableSelect
                         label="Sub &Aacute;rea"
                         value={selectedSubArea}
                         onFocus={() => {
                             if (!selectedComponente || selectedComponente === '') {
-                                alert('Debes ingresar el dato Componente Ambiental');
+                                showToast({ type: 'warning', message: 'Debes ingresar el dato Componente Ambiental', duration: 4000 });
                             }
                         }}
                         onChange={(val) => {
@@ -981,30 +1060,32 @@ export const AntecedentesForm = () => {
                 </div>
 
                 {/* Row 3: Glosa and Counter */}
-                <div className="form-grid-row" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: '1rem', alignItems: 'end' }}>
+                {/* Row 3: Glosa and Counter */}
+                <div className="form-grid-row grid-cols-main-auto" style={{ alignItems: 'end' }}>
                     <div className="form-group">
                         <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>Nombre de la tabla (Glosa)</label>
                         <input
                             type="text"
                             value={glosa}
-                            maxLength={100} // Assuming 100 based on standard legacy behavior or 254. Let's use 100 for safety or ask. FoxPro standard often 254.
-                            // User code: This.MaxLength - LEN. Let's assume 250 safely.
-                            // InteractiveChange logic: Update counter.
+                            maxLength={100}
                             onChange={(e) => {
                                 setGlosa(e.target.value);
                             }}
-                            onFocus={() => {
-                                // GotFocus: Validates Sub Area (Combo10)
-                                if (!selectedSubArea || selectedSubArea === '') {
-                                    alert('Debes ingresar el dato Sub Área');
-                                }
-                            }}
                             onBlur={() => {
                                 // LostFocus: Copy to Page2 (Analysis Tab). 
-                                // Since we are on Page 1, we just ensure the state is consistent.
-                                // In the future, this state 'glosa' will be passed to Page 2.
                             }}
-                            style={{ width: '100%', padding: '6px 10px', fontSize: '0.85rem', border: '1px solid #d1d5db', borderRadius: '6px', outline: 'none', minHeight: '34px' }}
+                            disabled={!selectedSubArea || selectedSubArea === ''}
+                            style={{
+                                width: '100%',
+                                padding: '6px 10px',
+                                fontSize: '0.85rem',
+                                border: '1px solid #d1d5db',
+                                borderRadius: '6px',
+                                outline: 'none',
+                                minHeight: '34px',
+                                backgroundColor: (!selectedSubArea || selectedSubArea === '') ? '#f3f4f6' : 'white',
+                                cursor: (!selectedSubArea || selectedSubArea === '') ? 'not-allowed' : 'text'
+                            }}
                         />
                     </div>
                     {/* Text11: Character Counter */}
@@ -1019,7 +1100,6 @@ export const AntecedentesForm = () => {
                     </div>
                 </div>
 
-                {/* Row 4: ETFA, Inspector */}
                 <div className="form-grid-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                     <SearchableSelect
                         label="¿Es ETFA?"
@@ -1032,8 +1112,12 @@ export const AntecedentesForm = () => {
                         label="Inspector Ambiental"
                         value={selectedInspector}
                         onChange={setSelectedInspector}
-                        options={inspectores.map(i => ({ id: String(i.id), nombre: i.nombre }))}
-                        disabled={true}
+                        options={inspectores.map((i: any) => ({
+                            id: String(i.id_inspectorambiental || i.id || ''),
+                            nombre: i.nombre_inspector || i.nombre || 'Sin Nombre'
+                        }))}
+                        // Enabled if ADL is responsible, or just enabled to allow selection
+                        disabled={responsableMuestreo !== 'ADL'}
                     />
                 </div>
 
@@ -1044,7 +1128,7 @@ export const AntecedentesForm = () => {
                         value={selectedTipoMuestreo}
                         onFocus={() => {
                             if (!glosa || glosa.trim() === '') {
-                                alert('Debes ingresar el dato Nombre de la tabla');
+                                showToast({ type: 'warning', message: 'Debes ingresar el dato Nombre de la tabla', duration: 4000 });
                             }
                         }}
                         onChange={(val) => {
@@ -1052,6 +1136,7 @@ export const AntecedentesForm = () => {
                             setSelectedTipoMuestra(''); // Reset child
                             // Removed duplicate API call - useEffect at line 312 handles this
                         }}
+                        disabled={!glosa || glosa.trim() === ''}
                         options={tiposMuestreo.map(t => ({ id: t.id, nombre: t.nombre }))}
                     />
                     <SearchableSelect
@@ -1059,7 +1144,7 @@ export const AntecedentesForm = () => {
                         value={selectedTipoMuestra}
                         onFocus={() => {
                             if (!selectedTipoMuestreo || selectedTipoMuestreo === '') {
-                                alert('Debes ingresar el dato Tipo de muestreo');
+                                showToast({ type: 'warning', message: 'Debes ingresar el dato Tipo de muestreo', duration: 4000 });
                             }
                         }}
                         onChange={(val) => {
@@ -1071,14 +1156,14 @@ export const AntecedentesForm = () => {
                             id: String(t.id_tipomuestra_ma || t.id || ''),
                             nombre: t.nombre_tipomuestra_ma || t.nombre || t.Nombre || 'Sin Nombre'
                         }))}
-                        disabled={!selectedTipoMuestreo}
+                        disabled={!selectedTipoMuestreo || selectedTipoMuestreo === ''}
                     />
                     <SearchableSelect
                         label="Actividad Muestreo"
                         value={selectedActividad}
                         onFocus={() => {
                             if (!selectedTipoMuestra || selectedTipoMuestra === '') {
-                                alert('Debes ingresar el dato Tipo de muestra');
+                                showToast({ type: 'warning', message: 'Debes ingresar el dato Tipo de muestra', duration: 4000 });
                                 return false;
                             }
                         }}
@@ -1087,31 +1172,22 @@ export const AntecedentesForm = () => {
                             id: String(a.id_actividadmuestreo || a.id || ''),
                             nombre: a.nombre_actividadmuestreo || a.nombre || a.Nombre || 'Sin Nombre'
                         }))}
-                        disabled={!selectedTipoMuestra}
+                        disabled={!selectedTipoMuestra || selectedTipoMuestra === ''}
                     />
                     <div className="form-group">
                         <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>Duraci&oacute;n (Hrs)</label>
-                        <input type="number" value={duracion} onChange={(e) => setDuracion(e.target.value)} disabled={!selectedActividad}
+                        <input type="number" value={duracion} onChange={(e) => setDuracion(e.target.value)} disabled={!selectedActividad || !selectedActividad.trim()}
                             style={{ width: '100%', padding: '6px', fontSize: '0.85rem', border: '1px solid #d1d5db', borderRadius: '6px' }} />
                     </div>
                     <SearchableSelect
                         label="Tipo Descarga"
                         value={selectedTipoDescarga}
                         onChange={setSelectedTipoDescarga}
-                        onFocus={() => {
-                            // Logic: If Monitoreo is NOT Puntual, Duration is required
-                            const monitoreo = tipoMonitoreo || ''; // Use state
-                            if (monitoreo !== 'Puntual') {
-                                if (!duracion || duracion.trim() === '') {
-                                    alert('Debes ingresar el dato Duración muestreo');
-                                    return false;
-                                }
-                            }
-                        }}
                         options={tiposDescarga.map((t: any) => ({
                             id: String(t.id || t.ID || t.id_tipodescarga || ''),
                             nombre: t.nombre || t.Nombre || t.nombre_tipodescarga || 'Sin Nombre'
                         }))}
+                        disabled={tipoMonitoreo !== 'Puntual' && (!duracion || duracion.trim() === '')}
                     />
                 </div>
 
@@ -1123,23 +1199,23 @@ export const AntecedentesForm = () => {
                             type="text"
                             placeholder="https://maps..."
                             value={refGoogle}
-                            onFocus={(e) => {
-                                // Logic: If Monitoreo is NOT Puntual, Tipo Descarga is required
-                                if (tipoMonitoreo !== 'Puntual') {
-                                    if (!selectedTipoDescarga || selectedTipoDescarga === '') {
-                                        alert('Debes ingresar el dato Tipo de descarga');
-                                        e.target.blur(); // Remove focus to enforce "Kick out"
-                                    }
-                                }
-                            }}
                             onChange={(e) => setRefGoogle(e.target.value)}
-                            style={{ width: '100%', padding: '6px', fontSize: '0.85rem', border: '1px solid #d1d5db', borderRadius: '6px' }}
+                            disabled={tipoMonitoreo !== 'Puntual' && (!selectedTipoDescarga || selectedTipoDescarga === '')}
+                            style={{
+                                width: '100%',
+                                padding: '6px',
+                                fontSize: '0.85rem',
+                                border: '1px solid #d1d5db',
+                                borderRadius: '6px',
+                                backgroundColor: (tipoMonitoreo !== 'Puntual' && (!selectedTipoDescarga || selectedTipoDescarga === '')) ? '#f3f4f6' : 'white',
+                                cursor: (tipoMonitoreo !== 'Puntual' && (!selectedTipoDescarga || selectedTipoDescarga === '')) ? 'not-allowed' : 'text'
+                            }}
                         />
                     </div>
                 </div>
 
                 {/* Row 10: Medicion Caudal, Modalidad, Forma Canal, Dispositivo */}
-                <div className="form-grid-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '1rem' }}>
+                <div className="form-grid-row grid-cols-4">
                     <SearchableSelect label="Medici&oacute;n Caudal" value={medicionCaudal} onChange={setMedicionCaudal}
                         options={[
                             { id: 'Automático', nombre: 'Automático' },
@@ -1150,48 +1226,56 @@ export const AntecedentesForm = () => {
                         label="Modalidad"
                         value={selectedModalidad}
                         onChange={setSelectedModalidad}
-                        onFocus={() => {
-                            if (!medicionCaudal || medicionCaudal === '') {
-                                showToast({
-                                    type: 'warning',
-                                    message: 'Debes ingresar el dato Medición caudal',
-                                    duration: 4000
-                                });
-                                return false;
-                            }
-                        }}
                         options={modalidades.map((m: any) => ({
                             id: String(m.id_modalidad || m.id || m.ID || ''),
                             nombre: m.nombre_modalidad || m.nombre || m.Nombre || 'Sin Nombre'
                         }))}
+                        disabled={!medicionCaudal || medicionCaudal === ''}
                     />
-                    <SearchableSelect
-                        label="Forma Canal"
-                        value={formaCanal}
-                        onChange={(val) => {
-                            setFormaCanal(val);
-                        }}
-                        onFocus={() => {
-                            if (!selectedModalidad || selectedModalidad === '') {
-                                showToast({
-                                    type: 'warning',
-                                    message: 'Debes ingresar el dato Modalidad',
-                                    duration: 4000
-                                });
-                                return false;
-                            }
-                        }}
-                        options={formasCanal}
-                    />
-                    <SearchableSelect
-                        label="Dispositivo Hidr&aacute;ulico"
-                        value={dispositivo}
-                        onChange={setDispositivo}
-                        options={dispositivos}
-                    />
+
+                    {/* Group: Forma Canal + Detalle */}
+                    <div>
+                        <SearchableSelect
+                            label="Forma Canal"
+                            value={formaCanal}
+                            onChange={(val) => {
+                                setFormaCanal(val);
+                            }}
+                            options={formasCanal}
+                            disabled={!selectedModalidad || selectedModalidad === ''}
+                        />
+                        <div style={{ marginTop: '4px' }}>
+                            <input
+                                type="text"
+                                placeholder="Detalle Canal"
+                                value={detalleCanal}
+                                onChange={(e) => setDetalleCanal(e.target.value)}
+                                style={{ width: '100%', padding: '6px', fontSize: '0.85rem', border: '1px solid #d1d5db', borderRadius: '6px' }}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Group: Dispositivo + Detalle */}
+                    <div>
+                        <SearchableSelect
+                            label="Dispositivo Hidr&aacute;ulico"
+                            value={dispositivo}
+                            onChange={setDispositivo}
+                            options={dispositivos}
+                        />
+                        <div style={{ marginTop: '4px' }}>
+                            <input
+                                type="text"
+                                placeholder="Detalle Dispositivo"
+                                value={detalleDispositivo}
+                                onChange={(e) => setDetalleDispositivo(e.target.value)}
+                                style={{ width: '100%', padding: '6px', fontSize: '0.85rem', border: '1px solid #d1d5db', borderRadius: '6px' }}
+                            />
+                        </div>
+                    </div>
                 </div>
 
             </div>
         </div>
     );
-};
+});

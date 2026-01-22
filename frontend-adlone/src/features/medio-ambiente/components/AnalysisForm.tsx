@@ -2,7 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useToast } from '../../../contexts/ToastContext';
 import { useCachedCatalogos } from '../hooks/useCachedCatalogos';
 
-export const AnalysisForm = () => {
+interface AnalysisFormProps {
+    savedAnalysis: any[];
+    onSavedAnalysisChange: (newAnalysis: any[]) => void;
+}
+
+export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSavedAnalysisChange }) => {
     const { showToast } = useToast();
     const catalogos = useCachedCatalogos();
 
@@ -30,8 +35,8 @@ export const AnalysisForm = () => {
     // ===== ESTADO: Selección de Análisis =====
     const [selectedAnalysis, setSelectedAnalysis] = useState<Set<string>>(new Set());
 
-    // ===== ESTADO: Análisis Grabados =====
-    const [savedAnalysis, setSavedAnalysis] = useState<any[]>([]);
+    // ===== ESTADO: Análisis Grabados (LIFTED STATE to Props) =====
+    // const [savedAnalysis, setSavedAnalysis] = useState<any[]>([]); // Removed local state
 
     // ===== FUNCIONES: Carga de Catálogos =====
     useEffect(() => {
@@ -229,10 +234,12 @@ export const AnalysisForm = () => {
             };
         });
 
-        setSavedAnalysis([...savedAnalysis, ...newSavedAnalysis]);
+        // setSavedAnalysis([...savedAnalysis, ...newSavedAnalysis]);
+        onSavedAnalysisChange([...savedAnalysis, ...newSavedAnalysis]);
 
-        // Limpiar selección
+        // Limpiar selección y búsqueda
         setSelectedAnalysis(new Set());
+        setSearchText(''); // Limpiar texto de búsqueda
 
         showToast({
             type: 'success',
@@ -243,6 +250,7 @@ export const AnalysisForm = () => {
 
     // Handler para cambios en celdas editables (UF)
     const handleUfChange = (savedId: string, newValue: string) => {
+        /*
         setSavedAnalysis(prev => prev.map(item => {
             if (item.savedId === savedId) {
                 // Allow string to support empty input
@@ -250,11 +258,20 @@ export const AnalysisForm = () => {
             }
             return item;
         }));
+        */
+        const updatedAnalysis = savedAnalysis.map((item: any) => {
+            if (item.savedId === savedId) {
+                return { ...item, uf_individual: newValue };
+            }
+            return item;
+        });
+        onSavedAnalysisChange(updatedAnalysis);
     };
 
     // ===== FUNCIONES: Eliminar Análisis Grabado =====
     const handleDeleteSavedAnalysis = (savedId: string) => {
-        setSavedAnalysis(savedAnalysis.filter(a => a.savedId !== savedId));
+        // setSavedAnalysis(savedAnalysis.filter(a => a.savedId !== savedId));
+        onSavedAnalysisChange(savedAnalysis.filter((a: any) => a.savedId !== savedId));
         showToast({
             type: 'info',
             message: 'Análisis eliminado',
@@ -396,7 +413,7 @@ export const AnalysisForm = () => {
                     </div>
 
                     {/* Campo 4: Tabla de Resultados */}
-                    <div style={{ marginTop: '1rem', maxHeight: '320px', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '6px' }}>
+                    <div style={{ marginTop: '1rem', maxHeight: '320px', overflowY: 'auto', overflowX: 'auto', border: '1px solid #e5e7eb', borderRadius: '6px' }}>
                         <table style={{ width: '100%', fontSize: '0.85rem', borderCollapse: 'collapse' }}>
                             <thead style={{ backgroundColor: '#f9fafb', position: 'sticky', top: 0, zIndex: 1 }}>
                                 <tr>
@@ -705,6 +722,12 @@ export const AnalysisForm = () => {
                     display: grid;
                     grid-template-columns: 1fr 1fr;
                     gap: 1.5rem;
+                }
+
+                @media (max-width: 1023px) {
+                    .analysis-top-section {
+                        grid-template-columns: 1fr;
+                    }
                 }
 
                 .analysis-left-panel,

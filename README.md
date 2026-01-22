@@ -537,3 +537,28 @@ showToast({
 - **Optimized Connection Pool** - 25 conexiones máximas
 
 ---
+
+## 📱 Actualización Mobile & UX (Enero 2026 - Sprint 2)
+
+### 1. Sistema de Drawer (Panel Lateral) Robusto
+Se solucionaron problemas críticos de visualización y comportamiento en dispositivos móviles.
+
+- **Arquitectura CSS Mobile-First**: Reingeniería del archivo de estilos (`MainLayout.css`) reordenando la cascada de reglas (Base -> Mobile Overrides) para garantizar la prioridad correcta en resoluciones pequeñas.
+- **Renderizado Condicional Estricto**: Eliminación de "menús fantasmas" implementando renderizado lógico `{drawerOpen && <Drawer />}` en lugar de solo ocultamiento CSS.
+- **Simetría de Diseño**: Estandarización de anchos para Sidebar (Menú Principal) y Drawer (Submódulos) a **280px** exactos, mejorando la coherencia visual.
+- **Scroll Nativo**: Habilitación de `min-height: 100vh` en el layout móvil para permitir el desplazamiento vertical fluido, corrigiendo el bloqueo de viewport anterior.
+
+### 2. Flujo de Datos "Waterfall" (Antecedentes)
+Para mejorar la usabilidad y prevenir errores de ingreso, se implementó una lógica de dependencias estricta en el formulario.
+
+- **Deshabilitado Proactivo**: Los campos dependientes permanecen bloqueados visualmente (gris/disabled) hasta que se cumple su pre-requisito, reemplazando las antiguas alertas reactivas.
+- **Mapa de Dependencias Implementado**:
+  - `Frecuencia Periodo` 🔒 requiere **Punto de Muestreo**.
+  - `Componente Ambiental` 🔒 requiere **Instrumento Ambiental**.
+  - `Tabla/Glosa` 🔒 requiere **Sub Área**.
+  - `Tipo Descarga` 🔒 requiere **Duración** (si no es monitoreo puntual).
+  - `Ref. Google Maps` 🔒 requiere **Tipo Descarga**.
+  - `Modalidad` 🔒 requiere **Medición Caudal**.
+  - `Forma Canal` 🔒 requiere **Modalidad**.
+
+---

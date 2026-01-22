@@ -1,0 +1,160 @@
+/* ========================================
+   RESPONSIVE FORM GRIDS
+   Utility classes for form field layouts
+   ======================================== */
+
+/* Form grid rows - default desktop layout */
+.form-grid-row {
+    display: grid;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+/* Prevent grid items from overflowing their cells */
+.form-grid-row>div {
+    min-width: 0;
+}
+
+/* Specific grid column configurations */
+.grid-cols-1 {
+    grid-template-columns: 1fr;
+}
+
+.grid-cols-2 {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+.grid-cols-3 {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+.grid-cols-4 {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+.grid-cols-5 {
+    grid-template-columns: repeat(5, 1fr);
+}
+
+/* Custom grid for specific layouts */
+.grid-cols-custom-5 {
+    grid-template-columns: 2fr 1fr 2fr 1fr 1fr;
+}
+
+.grid-cols-custom-2 {
+    grid-template-columns: 1fr 3fr;
+}
+
+.grid-cols-main-auto {
+    grid-template-columns: minmax(0, 1fr) auto;
+}
+
+/* Form group styling */
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.form-group label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 4px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 6px 10px;
+    font-size: 0.85rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    outline: none;
+    min-height: 34px;
+}
+
+.form-group input:disabled,
+.form-group select:disabled,
+.form-group textarea:disabled {
+    background-color: #f3f4f6;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* ========================================
+   RESPONSIVE BREAKPOINTS
+   ======================================== */
+
+/* Tablet: 768px - 1023px */
+@media (max-width: 1023px) {
+
+    /* Reduce complex grids to SINGLE column on tablet to be safe */
+    .grid-cols-4,
+    .grid-cols-5,
+    .grid-cols-custom-5 {
+        grid-template-columns: 1fr;
+    }
+
+    /* Simpler grids can stay as 2 columns */
+    .grid-cols-3 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .grid-cols-custom-2 {
+        grid-template-columns: 1fr;
+        /* Custom 2 usually needs space, so 1 col in tablet */
+    }
+}
+
+/* Mobile: < 768px */
+@media (max-width: 767px) {
+
+    /* All grids become single column */
+    .form-grid-row,
+    .grid-cols-2,
+    .grid-cols-3,
+    .grid-cols-4,
+    .grid-cols-5,
+    .grid-cols-custom-5,
+    .grid-cols-custom-2,
+    .grid-cols-main-auto {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Reduce gap on mobile */
+    .form-grid-row {
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+    }
+
+    /* Increase touch targets */
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        min-height: 44px;
+        /* iOS recommended minimum */
+        font-size: 16px;
+        /* Prevent zoom on iOS */
+        padding: 10px 12px;
+    }
+
+    .form-group label {
+        font-size: 0.8rem;
+        margin-bottom: 6px;
+    }
+}
+
+/* Very small mobile: < 375px */
+@media (max-width: 374px) {
+    .form-grid-row {
+        gap: 0.5rem;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        padding: 8px 10px;
+    }
+}

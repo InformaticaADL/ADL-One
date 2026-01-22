@@ -1,0 +1,9 @@
+import express from 'express';
+import fichaController from '../controllers/ficha.controller.js';
+// import authMiddleware from '../middlewares/auth.middleware.js'; // Uncomment if needed
+
+const router = express.Router();
+
+router.post('/create', fichaController.create);
+
+export default router;

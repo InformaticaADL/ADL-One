@@ -251,3 +251,159 @@
     opacity: 1;
     transform: translateX(0);
 }
+
+/* ========================================
+   RESPONSIVE DESIGN - Mobile & Tablet
+   ======================================== */
+
+/* Tablet: 768px - 1023px */
+@media (max-width: 1023px) {
+    .fichas-ingreso-container {
+        padding: 1rem 1.5rem;
+    }
+
+    .tab-content-area {
+        padding: 1.5rem;
+    }
+
+    .cards-grid {
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+    }
+}
+
+/* Mobile: < 768px */
+@media (max-width: 767px) {
+
+    /* Layout adjustments */
+    .commercial-layout {
+        gap: 1rem;
+    }
+
+    .fichas-ingreso-container {
+        padding: 0.75rem 1rem;
+    }
+
+    /* Header row - stack on very small screens */
+    .header-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .page-title-geo {
+        font-size: 1.4rem;
+    }
+
+    /* Tabs - horizontal scroll on mobile */
+    .tabs-container {
+        justify-content: flex-start;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        /* Firefox */
+        -ms-overflow-style: none;
+        /* IE/Edge */
+        padding-bottom: 0.75rem;
+        margin-bottom: 1rem;
+        flex-wrap: nowrap;
+    }
+
+    .tabs-container::-webkit-scrollbar {
+        display: none;
+        /* Chrome/Safari */
+    }
+
+    .tab-button {
+        padding: 0.5rem 1.25rem;
+        font-size: 0.875rem;
+        flex-shrink: 0;
+        /* Prevent tabs from shrinking */
+    }
+
+    /* Content area */
+    .tab-content-area {
+        padding: 1.25rem;
+        border-radius: 0.75rem;
+        min-height: 300px;
+    }
+
+    /* Form actions - stack buttons vertically */
+    .form-actions {
+        flex-direction: column;
+        gap: 0.75rem;
+        margin-top: 1.25rem;
+        padding-top: 1.25rem;
+    }
+
+    .btn-save {
+        width: 100%;
+        justify-content: center;
+        padding: 0.75rem 2rem;
+        font-size: 1rem;
+    }
+
+    /* Back button */
+    .btn-back {
+        padding: 0.5rem 0.875rem;
+        font-size: 0.875rem;
+    }
+
+    .btn-back svg {
+        width: 1.1rem;
+        height: 1.1rem;
+    }
+
+    /* Cards grid - single column */
+    .cards-grid {
+        grid-template-columns: 1fr;
+        gap: 1.25rem;
+        margin-top: 1rem;
+    }
+
+    .selection-card {
+        padding: 1.5rem;
+    }
+
+    .card-title {
+        font-size: 1.1rem;
+    }
+
+    .card-description {
+        font-size: 0.85rem;
+    }
+
+    .card-icon {
+        width: 45px;
+        height: 45px;
+        font-size: 1.3rem;
+        margin-bottom: 1rem;
+    }
+}
+
+/* Very small mobile: < 375px */
+@media (max-width: 374px) {
+    .page-title-geo {
+        font-size: 1.2rem;
+    }
+
+    .tab-content-area {
+        padding: 1rem;
+    }
+
+    .tab-button {
+        padding: 0.45rem 1rem;
+        font-size: 0.8rem;
+    }
+
+    .btn-save {
+        padding: 0.65rem 1.5rem;
+        font-size: 0.95rem;
+    }
+
+    .selection-card {
+        padding: 1.25rem;
+    }
+}
