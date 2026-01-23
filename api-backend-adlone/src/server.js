@@ -13,6 +13,7 @@ import healthRoutes from './routes/health.routes.js';
 import catalogosRoutes from './routes/catalogos.routes.js';
 import analysisRoutes from './routes/analysis.routes.js';
 import fichaRoutes from './routes/ficha.routes.js';
+import authRoutes from './routes/auth.routes.js';
 
 // Initialize dotenv
 dotenv.config();
@@ -34,6 +35,7 @@ app.use('/api/health', healthRoutes);
 app.use('/api/catalogos', catalogosRoutes);
 app.use('/api/analysis', analysisRoutes);
 app.use('/api/fichas', fichaRoutes);
+app.use('/api/auth', authRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {

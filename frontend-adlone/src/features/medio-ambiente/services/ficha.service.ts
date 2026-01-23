@@ -22,6 +22,14 @@ export const fichaService = {
     getById: async (id: number) => {
         const response = await axiosInstance.get(`/${id}`);
         return response.data;
+    },
+    approve: async (id: number, payload: { observaciones: string, user: { id: number } }) => {
+        const response = await axiosInstance.post(`/${id}/approve`, payload);
+        return response.data;
+    },
+    reject: async (id: number, payload: { observaciones: string, user: { id: number } }) => {
+        const response = await axiosInstance.post(`/${id}/reject`, payload);
+        return response.data;
     }
 
 };

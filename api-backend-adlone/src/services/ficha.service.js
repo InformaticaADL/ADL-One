@@ -1,6 +1,7 @@
 import sql from '../config/database.js';
 import { getConnection } from '../config/database.js';
 import logger from '../utils/logger.js';
+import emailService from './email.service.js';
 
 class FichaIngresoService {
 
@@ -383,6 +384,150 @@ class FichaIngresoService {
             };
         } catch (error) {
             logger.error('Error in getFichaById:', error);
+            throw error;
+        }
+    }
+    async approveFicha(id, data, user) {
+        let pool;
+        let transaction;
+        try {
+            pool = await getConnection();
+            transaction = new sql.Transaction(pool);
+            await transaction.begin();
+
+            const request = new sql.Request(transaction);
+
+            const now = new Date();
+            const fecha = now.toISOString().split('T')[0]; // YYYY-MM-DD
+            const hora = now.toTimeString().split(' ')[0];
+
+            request.input('id', sql.Numeric(10, 0), id);
+            request.input('obs', sql.VarChar(sql.MAX), data.observaciones || '');
+            request.input('userId', sql.Numeric(10, 0), user.id);
+            request.input('fecha', sql.VarChar(10), fecha);
+            request.input('hora', sql.VarChar(8), hora);
+
+            // 1. Update Ficha Encabezado
+            await request.query(`
+                UPDATE App_Ma_FichaIngresoServicio_ENC 
+                SET id_validaciontecnica = 1,
+                    observaciones_jefaturatecnica = @obs,
+                    id_jefaturatecnica = @userId,
+                    fecha_jefaturatecnica = @fecha,
+                    hora_jefaturatecnica = @hora
+                WHERE id_fichaingresoservicio = @id
+            `);
+
+            // 2. Audit Log (Legacy SP: actualiza_auditoria)
+            const auditRequest = new sql.Request(transaction);
+            auditRequest.input('id_ref', sql.Numeric(10, 0), id);
+            auditRequest.input('ref', sql.VarChar(50), 'Ficha Comercial');
+            auditRequest.input('campo', sql.VarChar(50), 'EstadoFicha');
+            auditRequest.input('orig', sql.VarChar(50), ' '); // Dato original
+            auditRequest.input('tipo', sql.VarChar(50), 'JTecnica');
+            auditRequest.input('nval', sql.VarChar(50), 'ACEPTADA'); // New Val
+            auditRequest.input('mot', sql.VarChar(200), 'Fue Aceptada la Ficha Comercial');
+            auditRequest.input('usu', sql.Numeric(10, 0), user.id);
+            auditRequest.input('hr', sql.VarChar(10), hora);
+            auditRequest.input('fec', sql.VarChar(10), fecha);
+
+            await auditRequest.query(`
+                EXEC actualiza_auditoria @id_ref, @ref, @campo, @orig, @tipo, @nval, @mot, @usu, @hr, @fec
+            `);
+
+            await transaction.commit();
+
+            // Send Email asynchronously (Fire and Forget)
+            emailService.sendFichaAceptada({
+                id,
+                usuario: data.usuarioNombre || `Usuario ${user.id}`, // Better to pass name if available
+                observaciones: data.observaciones
+            }).catch(e => logger.error('Error sending approval email:', e));
+
+            return { success: true, message: 'Ficha aceptada correctamente' };
+
+        } catch (error) {
+            if (transaction) await transaction.rollback();
+            logger.error('Error approving ficha:', error);
+            throw error;
+        }
+    }
+    async rejectFicha(id, data, user) {
+        let pool;
+        let transaction;
+        try {
+            pool = await getConnection();
+
+            // 0. Get Creator Email (Before Transaction)
+            const creatorResult = await pool.request()
+                .input('id_ficha', sql.Numeric(10, 0), id)
+                .query(`
+                    SELECT U.correo_electronico 
+                    FROM App_Ma_FichaIngresoServicio_ENC F
+                    INNER JOIN mae_usuario U ON F.id_usuario = U.id_usuario
+                    WHERE F.id_fichaingresoservicio = @id_ficha
+                `);
+
+            const emailCreador = creatorResult.recordset[0]?.correo_electronico;
+
+            transaction = new sql.Transaction(pool);
+            await transaction.begin();
+
+            const request = new sql.Request(transaction);
+
+            const now = new Date();
+            const fecha = now.toISOString().split('T')[0];
+            const hora = now.toTimeString().split(' ')[0];
+
+            request.input('id', sql.Numeric(10, 0), id);
+            request.input('obs', sql.VarChar(sql.MAX), data.observaciones || '');
+            request.input('userId', sql.Numeric(10, 0), user.id);
+            request.input('fecha', sql.VarChar(10), fecha);
+            request.input('hora', sql.VarChar(8), hora);
+
+            // 1. Update Ficha Encabezado (Estado rechazada logic might be just changing valida_tecnica or EstadoFicha text?)
+            // FoxPro parity: Update id_validaciontecnica = 2 (Rejected?) - Assuming 2 based on previous context 
+            await request.query(`
+                UPDATE App_Ma_FichaIngresoServicio_ENC 
+                SET id_validaciontecnica = 2,
+                    observaciones_jefaturatecnica = @obs,
+                    id_jefaturatecnica = @userId,
+                    fecha_jefaturatecnica = @fecha,
+                    hora_jefaturatecnica = @hora
+                WHERE id_fichaingresoservicio = @id
+            `);
+
+            // 2. Audit Log
+            const auditRequest = new sql.Request(transaction);
+            auditRequest.input('id_ref', sql.Numeric(10, 0), id);
+            auditRequest.input('ref', sql.VarChar(50), 'Ficha Comercial');
+            auditRequest.input('campo', sql.VarChar(50), 'EstadoFicha');
+            auditRequest.input('orig', sql.VarChar(50), ' ');
+            auditRequest.input('tipo', sql.VarChar(50), 'JTecnica');
+            auditRequest.input('nval', sql.VarChar(50), 'RECHAZADA');
+            auditRequest.input('mot', sql.VarChar(200), 'Fue Rechazada la Ficha Comercial');
+            auditRequest.input('usu', sql.Numeric(10, 0), user.id);
+            auditRequest.input('hr', sql.VarChar(10), hora);
+            auditRequest.input('fec', sql.VarChar(10), fecha);
+
+            await auditRequest.query(`
+                EXEC actualiza_auditoria @id_ref, @ref, @campo, @orig, @tipo, @nval, @mot, @usu, @hr, @fec
+            `);
+
+            await transaction.commit();
+
+            // Send Email Rejection (Fixed List)
+            emailService.sendFichaRechazada({
+                id,
+                usuario: data.usuarioNombre || `Usuario ${user.id}`,
+                observaciones: data.observaciones
+            }).catch(e => logger.error('Error sending rejection email:', e));
+
+            return { success: true, message: 'Ficha rechazada correctamente' };
+
+        } catch (error) {
+            if (transaction) await transaction.rollback();
+            logger.error('Error rejecting ficha:', error);
             throw error;
         }
     }

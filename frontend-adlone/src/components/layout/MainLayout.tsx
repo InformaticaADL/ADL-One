@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavStore } from '../../store/navStore';
+import { useAuth } from '../../contexts/AuthContext';
 import './MainLayout.css';
 import logoAdl from '../../assets/images/logo-adlone.png';
 
@@ -65,16 +66,16 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
 
 
 
-    // Datos simulados de usuario
-    const user = {
-        name: "Dr. Usuario Prueba",
-        role: "Administrador",
-        avatar: "https://ui-avatars.com/api/?name=Usuario+Prueba&background=1565c0&color=fff"
-    };
+    // Context User
+    const { user, logout } = useAuth();
+
+    // Imagen de perfil fija según requerimiento
+    const profileImage = "https://ui-avatars.com/api/?name=Usuario&background=1565c0&color=fff"; // Placeholder si no hay local
+    // O si tenemos una imagen local importada: import userPlaceholder from '../../assets/images/user-placeholder.png'; 
+    // Por ahora uso la URL generada o un placeholder simple.
 
     const handleLogout = () => {
-        console.log("Cerrando sesión...");
-        window.location.reload();
+        logout();
     };
 
     const handleModuleClick = (mod: any) => {
@@ -236,9 +237,9 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                         tabIndex={0}
                     >
                         <div className="user-profile">
-                            <img src={user.avatar} alt="Avatar" className="user-avatar" />
+                            <img src={profileImage} alt="Avatar" className="user-avatar" />
                             <div className="user-info">
-                                <span className="user-name">{user.name}</span>
+                                <span className="user-name">{user?.name || 'Usuario'}</span>
                             </div>
                             <span className="dropdown-arrow">▼</span>
                         </div>

@@ -1,6 +1,7 @@
 import { MainLayout } from '../components/layout/MainLayout';
 import { useNavStore } from '../store/navStore';
 import { FichasIngresoPage } from '../features/medio-ambiente/pages/FichasIngresoPage';
+import { TecnicaPage } from '../features/medio-ambiente/pages/TecnicaPage';
 
 const DashboardPage = () => {
     const { activeSubmodule } = useNavStore();
@@ -9,6 +10,9 @@ const DashboardPage = () => {
     const renderContent = () => {
         if (activeSubmodule === 'ma-fichas-ingreso') {
             return <FichasIngresoPage />;
+        }
+        if (activeSubmodule === 'ma-tecnica') {
+            return <TecnicaPage onBack={() => { }} />;
         }
 
         // Default Dashboard Content

@@ -6,6 +6,8 @@ const router = express.Router();
 
 router.get('/', fichaController.getAll);
 router.post('/create', fichaController.create);
+router.post('/:id/approve', fichaController.approve);
+router.post('/:id/reject', fichaController.reject);
 router.get('/:id', fichaController.getById);
 
 export default router;

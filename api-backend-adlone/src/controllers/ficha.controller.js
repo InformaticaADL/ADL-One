@@ -35,6 +35,7 @@ class FichaIngresoController {
                 return errorResponse(res, 'ID de ficha requerido', 400);
             }
 
+            logger.info(`Solicitando ficha ID: ${id}`);
             const result = await fichaService.getFichaById(id);
             if (!result) {
                 return errorResponse(res, 'Ficha no encontrada', 404);
@@ -44,6 +45,34 @@ class FichaIngresoController {
         } catch (err) {
             logger.error('Error in getById ficha controller:', err);
             return errorResponse(res, 'Error al recuperar la ficha', 500, err.message);
+        }
+    }
+    async approve(req, res) {
+        try {
+            const { id } = req.params;
+            const { observaciones, user } = req.body;
+            // Use user from body or fallback (security TODO: use req.user from token)
+            const userData = user || { id: 0 };
+
+            const result = await fichaService.approveFicha(id, { observaciones }, userData);
+            return successResponse(res, result, 'Ficha aceptada exitosamente');
+        } catch (err) {
+            logger.error('Error in approve ficha controller:', err);
+            return errorResponse(res, 'Error al aceptar la ficha', 500, err.message);
+        }
+    }
+
+    async reject(req, res) {
+        try {
+            const { id } = req.params;
+            const { observaciones, user } = req.body;
+            const userData = user || { id: 0 };
+
+            const result = await fichaService.rejectFicha(id, { observaciones }, userData);
+            return successResponse(res, result, 'Ficha rechazada exitosamente');
+        } catch (err) {
+            logger.error('Error in reject ficha controller:', err);
+            return errorResponse(res, 'Error al rechazar la ficha', 500, err.message);
         }
     }
 }
