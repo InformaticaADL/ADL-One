@@ -4,6 +4,7 @@ import fichaController from '../controllers/ficha.controller.js';
 
 const router = express.Router();
 
+router.get('/', fichaController.getAll);
 router.post('/create', fichaController.create);
 
 export default router;

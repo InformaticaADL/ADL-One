@@ -4,6 +4,18 @@ import logger from '../utils/logger.js';
 
 class FichaIngresoService {
 
+    async getAllFichas() {
+        try {
+            const pool = await getConnection();
+            // Execute Stored Procedure provided by user
+            const result = await pool.request().execute('MAM_FichaComercial_ConsultaComercial');
+            return result.recordset;
+        } catch (error) {
+            logger.error('Error getting all fichas (MAM_FichaComercial_ConsultaComercial):', error);
+            throw error;
+        }
+    }
+
     async createFicha(data) {
         // data structure: { antecedentes: {}, analisis: [], observaciones: "", user: { id: 1 } }
         const pool = await getConnection();

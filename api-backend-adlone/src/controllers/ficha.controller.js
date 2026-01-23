@@ -3,6 +3,16 @@ import logger from '../utils/logger.js';
 import { successResponse, errorResponse } from '../utils/response.js';
 
 class FichaIngresoController {
+    async getAll(req, res) {
+        try {
+            const result = await fichaService.getAllFichas();
+            return successResponse(res, result, 'Fichas obtenidas exitosamente');
+        } catch (err) {
+            logger.error('Error in getAll fichas controller:', err);
+            return errorResponse(res, 'Error al obtener fichas', 500, err.message);
+        }
+    }
+
     async create(req, res) {
         try {
             // Basic validation
