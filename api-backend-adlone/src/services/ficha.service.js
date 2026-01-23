@@ -340,6 +340,52 @@ class FichaIngresoService {
             throw error;
         }
     }
+    async getFichaById(id) {
+        let pool;
+        try {
+            pool = await getConnection();
+
+            // Execute the 3 SPs in parallel
+            const [encResult, agendaResult, detResult] = await Promise.all([
+                pool.request()
+                    .input('xunafichacomercial', sql.Int, id)
+                    .query('execute MAM_FichaComercial_ConsultaComercial_ENC_unaficha @xunafichacomercial'),
+
+                pool.request()
+                    .input('xunafichacomercial', sql.Int, id)
+                    .query('execute MAM_FichaComercial_ConsultaComercial_Agenda_MUESTREOS_unaficha @xunafichacomercial'),
+
+                pool.request()
+                    .input('xunafichacomercial', sql.Int, id)
+                    .query('execute MAM_FichaComercial_ConsultaComercial_DET_unaficha @xunafichacomercial')
+            ]);
+
+            const encData = encResult.recordset[0] || {};
+            const agendaData = agendaResult.recordset[0] || {};
+            const detData = detResult.recordset || [];
+
+            if (!encData.fichaingresoservicio) {
+                return null;
+            }
+
+            // Combine ENC and AGENDA into a single header object + details
+            return {
+                encabezado: {
+                    ...encData,
+                    ...agendaData // Merge agenda fields
+                },
+                detalles: detData,
+                observaciones: {
+                    comercial: encData.observaciones_comercial,
+                    tecnica: encData.observaciones_jefaturatecnica,
+                    coordinador: encData.observaciones_coordinador
+                }
+            };
+        } catch (error) {
+            logger.error('Error in getFichaById:', error);
+            throw error;
+        }
+    }
 }
 
 export default new FichaIngresoService();

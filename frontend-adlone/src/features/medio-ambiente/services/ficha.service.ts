@@ -18,5 +18,10 @@ export const fichaService = {
     getAll: async () => {
         const response = await axiosInstance.get('/');
         return response.data;
+    },
+    getById: async (id: number) => {
+        const response = await axiosInstance.get(`/${id}`);
+        return response.data;
     }
+
 };

@@ -27,6 +27,25 @@ class FichaIngresoController {
             return errorResponse(res, 'Error al crear la ficha de ingreso', 500, err.message);
         }
     }
+
+    async getById(req, res) {
+        try {
+            const { id } = req.params;
+            if (!id) {
+                return errorResponse(res, 'ID de ficha requerido', 400);
+            }
+
+            const result = await fichaService.getFichaById(id);
+            if (!result) {
+                return errorResponse(res, 'Ficha no encontrada', 404);
+            }
+
+            return successResponse(res, result, 'Ficha recuperada exitosamente');
+        } catch (err) {
+            logger.error('Error in getById ficha controller:', err);
+            return errorResponse(res, 'Error al recuperar la ficha', 500, err.message);
+        }
+    }
 }
 
 export default new FichaIngresoController();

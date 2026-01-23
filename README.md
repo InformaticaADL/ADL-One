@@ -562,3 +562,29 @@ Para mejorar la usabilidad y prevenir errores de ingreso, se implementó una ló
   - `Forma Canal` 🔒 requiere **Modalidad**.
 
 ---
+
+### 3. Consulta y Gestión Comercial
+
+Nuevo módulo para listar, filtrar y visualizar el estado de las Fichas Comerciales.
+
+#### Características:
+- **Vista de Consulta**: Tabla de alta densidad optimizada para grandes volúmenes de datos.
+- **Filtros Dinámicos**: Búsqueda instantánea por ID de ficha y rangos de fecha.
+- **UI Adaptativa**:
+  - Tabla inmutable: Altura fija de 10 filas (con relleno automático) para evitar saltos de layout.
+  - Diseño responsivo: Modos desktop (expandido al 98%) y mobile (tarjetas).
+  - Paginación integrada sin márgenes desperdiciados.
+- **Integración Backend**: Conexión directa a Stored Procedure `MAM_FichaComercial_ConsultaComercial` optimizado.
+
+### 4. Visualización de Ficha Comercial (ReadOnly)
+
+Implementación de la vista de detalle para consultar toda la información de una ficha registrada sin riesgo de modificación involuntaria.
+
+#### Características:
+- **Diseño Espejo**: Replica exactamente la estructura, grilla y orden de campos del formulario de creación (`AntecedentesForm`), garantizando familiaridad inmediata para el usuario.
+- **Modo Lectura (ReadOnly)**: Componentes visuales idénticos a los inputs de entrada pero estáticos, con estilos de estado "disabled" para indicar inmutabilidad.
+- **Pestañas Sincronizadas**:
+  - **Antecedentes**: Vista completa de metadatos de la ficha.
+  - **Análisis**: Tabla detallada con normativas, límites, errores y laboratorios asignados.
+  - **Observaciones**: Visualización de los tres niveles de comentarios (Comercial, Técnica, Coordinación).
+- **Integración Profunda**: Carga eficiente de datos mediante SP `MAM_FichaComercial_ConsultaComercial_DET_unaficha`, unificando encabezados y detalles en una sola respuesta estructurada.

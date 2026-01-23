@@ -3,6 +3,7 @@ import { AntecedentesForm } from '../components/AntecedentesForm';
 import type { AntecedentesFormHandle } from '../components/AntecedentesForm';
 import { AnalysisForm } from '../components/AnalysisForm';
 import { ObservacionesForm } from '../components/ObservacionesForm';
+import { CommercialDetailView } from '../components/CommercialDetailView';
 import { CatalogosProvider } from '../context/CatalogosContext';
 import { useCachedCatalogos } from '../hooks/useCachedCatalogos'; // Import Hook
 import { ToastProvider, useToast } from '../../../contexts/ToastContext';
@@ -334,7 +335,7 @@ const CommercialMenu = ({ onCreate, onConsult, onBack }: { onCreate: () => void,
 }
 
 // --- Consultar Fichas Component (Updated with Backend Logic & SP Columns) ---
-const ConsultarFichasView = ({ onBackToMenu }: { onBackToMenu: () => void }) => {
+const ConsultarFichasView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () => void, onViewDetail: (id: number) => void }) => {
     // Hooks
 
 
@@ -571,7 +572,7 @@ const ConsultarFichasView = ({ onBackToMenu }: { onBackToMenu: () => void }) => 
                                         <td data-label="Acciones" style={{ textAlign: 'center', whiteSpace: 'nowrap', padding: '6px' }}>
                                             <button
                                                 title="Ver Detalle"
-                                                onClick={() => console.log('View detail:', ficha.id_fichaingresoservicio)}
+                                                onClick={() => onViewDetail(ficha.id_fichaingresoservicio || ficha.fichaingresoservicio)}
                                                 style={{
                                                     border: 'none',
                                                     background: 'none',
@@ -619,7 +620,13 @@ const ConsultarFichasView = ({ onBackToMenu }: { onBackToMenu: () => void }) => 
 
 // --- Main Orchestrator ---
 const ComercialPageContent: React.FC<Props> = ({ onBack }) => {
-    const [viewMode, setViewMode] = useState<'menu' | 'create' | 'consult'>('menu');
+    const [viewMode, setViewMode] = useState<'menu' | 'create' | 'consult' | 'consult-detail'>('menu');
+    const [selectedFichaId, setSelectedFichaId] = useState<number | null>(null);
+
+    const handleViewDetail = (id: number) => {
+        setSelectedFichaId(id);
+        setViewMode('consult-detail');
+    };
 
     if (viewMode === 'menu') {
         return (
@@ -636,7 +643,21 @@ const ComercialPageContent: React.FC<Props> = ({ onBack }) => {
     }
 
     if (viewMode === 'consult') {
-        return <ConsultarFichasView onBackToMenu={() => setViewMode('menu')} />;
+        return (
+            <ConsultarFichasView
+                onBackToMenu={() => setViewMode('menu')}
+                onViewDetail={handleViewDetail}
+            />
+        );
+    }
+
+    if (viewMode === 'consult-detail' && selectedFichaId) {
+        return (
+            <CommercialDetailView
+                fichaId={selectedFichaId}
+                onBack={() => setViewMode('consult')}
+            />
+        );
     }
 
     return null;
