@@ -14,5 +14,9 @@ export const fichaService = {
     create: async (data: any) => {
         const response = await axiosInstance.post('/create', data);
         return response.data;
+    },
+    getAll: async () => {
+        const response = await axiosInstance.get('/');
+        return response.data;
     }
 };
