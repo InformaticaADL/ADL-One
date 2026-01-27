@@ -8,6 +8,7 @@ import { ToastProvider } from '../../../contexts/ToastContext';
 import { ToastContainer } from '../../../components/Toast/Toast';
 import { fichaService } from '../services/ficha.service';
 import '../styles/FichasIngreso.css';
+import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 
 interface Props {
     onBack: () => void;
@@ -19,6 +20,16 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
     const [searchId, setSearchId] = useState('');
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
+
+    // Filters
+    const [searchEstado, setSearchEstado] = useState('');
+    const [searchTipo, setSearchTipo] = useState('');
+    const [searchEmpresaFacturar, setSearchEmpresaFacturar] = useState('');
+    const [searchEmpresaServicio, setSearchEmpresaServicio] = useState('');
+    const [searchCentro, setSearchCentro] = useState('');
+    const [searchObjetivo, setSearchObjetivo] = useState('');
+    const [searchSubArea, setSearchSubArea] = useState('');
+    const [searchUsuario, setSearchUsuario] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [loading, setLoading] = useState(true);
     const [fichas, setFichas] = useState<any[]>([]);
@@ -50,16 +61,57 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
         loadFichas();
     }, []);
 
+    // Derived unique values for datalists
+    const getUniqueValues = (key: string) => {
+        const values = new Set<string>();
+        fichas.forEach(f => {
+            if (f[key]) values.add(String(f[key]).trim());
+        });
+        return Array.from(values).sort();
+    };
+
+    const uniqueEstados = React.useMemo(() => getUniqueValues('estado_ficha'), [fichas]);
+    const uniqueTipos = React.useMemo(() => getUniqueValues('tipo_fichaingresoservicio'), [fichas]);
+    const uniqueEmpFacturar = React.useMemo(() => getUniqueValues('empresa_facturar'), [fichas]);
+    const uniqueEmpServicio = React.useMemo(() => getUniqueValues('empresa_servicio'), [fichas]);
+    const uniqueCentros = React.useMemo(() => getUniqueValues('centro'), [fichas]);
+    const uniqueObjetivos = React.useMemo(() => getUniqueValues('nombre_objetivomuestreo_ma'), [fichas]);
+    const uniqueSubAreas = React.useMemo(() => getUniqueValues('nombre_subarea'), [fichas]);
+    const uniqueUsuarios = React.useMemo(() => getUniqueValues('nombre_usuario'), [fichas]);
+
     const handleClearFilters = () => {
         setSearchId('');
         setDateFrom('');
         setDateTo('');
+        setSearchEstado('');
+        setSearchTipo('');
+        setSearchEmpresaFacturar('');
+        setSearchEmpresaServicio('');
+        setSearchCentro('');
+        setSearchObjetivo('');
+        setSearchSubArea('');
+        setSearchUsuario('');
     };
 
     // Filter Logic
     const filteredFichas = fichas.filter(f => {
         const displayId = f.fichaingresoservicio || f.id_fichaingresoservicio || '';
         const matchId = searchId ? String(displayId).includes(searchId) : true;
+
+        // Helper for case-insensitive check
+        const check = (val: string, search: string) => {
+            if (!search) return true;
+            return (val || '').toString().toLowerCase().includes(search.toLowerCase());
+        };
+
+        const matchEstado = check(f.estado_ficha, searchEstado);
+        const matchTipo = check(f.tipo_fichaingresoservicio, searchTipo);
+        const matchEmpresaFacturar = check(f.empresa_facturar, searchEmpresaFacturar);
+        const matchEmpresaServicio = check(f.empresa_servicio, searchEmpresaServicio);
+        const matchCentro = check(f.centro, searchCentro);
+        const matchObjetivo = check(f.nombre_objetivomuestreo_ma, searchObjetivo);
+        const matchSubArea = check(f.nombre_subarea, searchSubArea);
+        const matchUsuario = check(f.nombre_usuario, searchUsuario);
 
         let matchDate = true;
         if (dateFrom || dateTo) {
@@ -84,7 +136,7 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
             }
         }
 
-        return matchId && matchDate;
+        return matchId && matchDate && matchEstado && matchTipo && matchEmpresaFacturar && matchEmpresaServicio && matchCentro && matchObjetivo && matchSubArea && matchUsuario;
     });
 
     // Pagination Logic
@@ -124,73 +176,121 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
             {/* Filters */}
             <div style={{
                 backgroundColor: 'white',
-                padding: '1.5rem',
+                padding: '1rem',
                 borderRadius: '12px',
-                marginBottom: '1.5rem',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                display: 'flex',
-                gap: '1.5rem',
-                alignItems: 'end',
-                flexWrap: 'wrap'
+                marginBottom: '1rem',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
             }}>
-                <div className="form-group" style={{ flex: '0 0 120px' }}>
-                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>
-                        N° Ficha
-                    </label>
-                    <input
-                        type="text"
-                        placeholder="Ej: 105"
-                        value={searchId}
-                        onChange={(e) => setSearchId(e.target.value)}
-                        style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.85rem' }}
-                    />
-                </div>
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+                    gap: '0.8rem',
+                    alignItems: 'end'
+                }}>
+                    <div className="form-group">
+                        <label style={{ fontSize: '0.7rem', fontWeight: 600, color: '#374151', marginBottom: '2px', display: 'block' }}>N° Ficha</label>
+                        <input type="text" placeholder="Buscar..." value={searchId} onChange={(e) => setSearchId(e.target.value)} style={{ width: '100%', padding: '5px 8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.75rem', height: '30px' }} />
+                    </div>
 
-                <div className="form-group" style={{ flex: '0 0 140px' }}>
-                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>
-                        Fecha Desde
-                    </label>
-                    <input
-                        type="date"
-                        value={dateFrom}
-                        onChange={(e) => setDateFrom(e.target.value)}
-                        style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.85rem' }}
+                    <SearchableSelect
+                        label="Estado"
+                        placeholder="Estado..."
+                        value={searchEstado}
+                        onChange={setSearchEstado}
+                        options={uniqueEstados.map(val => ({ id: val, nombre: val }))}
                     />
-                </div>
 
-                <div className="form-group" style={{ flex: '0 0 140px' }}>
-                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>
-                        Fecha Hasta
-                    </label>
-                    <input
-                        type="date"
-                        value={dateTo}
-                        onChange={(e) => setDateTo(e.target.value)}
-                        style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.85rem' }}
+                    <div className="form-group">
+                        <label style={{ fontSize: '0.7rem', fontWeight: 600, color: '#374151', marginBottom: '2px', display: 'block' }}>Fecha Desde</label>
+                        <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} style={{ width: '100%', padding: '5px 8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.75rem', height: '30px' }} />
+                    </div>
+
+                    <div className="form-group">
+                        <label style={{ fontSize: '0.7rem', fontWeight: 600, color: '#374151', marginBottom: '2px', display: 'block' }}>Fecha Hasta</label>
+                        <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} style={{ width: '100%', padding: '5px 8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.75rem', height: '30px' }} />
+                    </div>
+
+                    <SearchableSelect
+                        label="Tipo"
+                        placeholder="Tipo..."
+                        value={searchTipo}
+                        onChange={setSearchTipo}
+                        options={uniqueTipos.map(val => ({ id: val, nombre: val }))}
                     />
-                </div>
 
-                <div style={{ flex: '0 0 auto', paddingBottom: '1px', display: 'flex', gap: '0.5rem' }}>
-                    <button
-                        onClick={handleClearFilters}
-                        style={{
-                            padding: '6px 10px',
-                            height: '34px',
-                            backgroundColor: 'white',
-                            border: '1px solid #d1d5db',
-                            borderRadius: '0.5rem',
-                            color: '#6b7280',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            fontWeight: 500,
-                            fontSize: '0.85rem'
-                        }}
-                        title="Limpiar Filtros"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
-                    </button>
+                    <SearchableSelect
+                        label="E. Facturar"
+                        placeholder="Empresa..."
+                        value={searchEmpresaFacturar}
+                        onChange={setSearchEmpresaFacturar}
+                        options={uniqueEmpFacturar.map(val => ({ id: val, nombre: val }))}
+                    />
+
+                    <SearchableSelect
+                        label="E. Servicio"
+                        placeholder="Empresa..."
+                        value={searchEmpresaServicio}
+                        onChange={setSearchEmpresaServicio}
+                        options={uniqueEmpServicio.map(val => ({ id: val, nombre: val }))}
+                    />
+
+                    <SearchableSelect
+                        label="Fuente Emisora"
+                        placeholder="Centro..."
+                        value={searchCentro}
+                        onChange={setSearchCentro}
+                        options={uniqueCentros.map(val => ({ id: val, nombre: val }))}
+                    />
+
+                    <SearchableSelect
+                        label="Objetivo"
+                        placeholder="Objetivo..."
+                        value={searchObjetivo}
+                        onChange={setSearchObjetivo}
+                        options={uniqueObjetivos.map(val => ({ id: val, nombre: val }))}
+                    />
+
+                    <SearchableSelect
+                        label="Sub Área"
+                        placeholder="Sub Área..."
+                        value={searchSubArea}
+                        onChange={setSearchSubArea}
+                        options={uniqueSubAreas.map(val => ({ id: val, nombre: val }))}
+                    />
+
+                    <SearchableSelect
+                        label="Usuario"
+                        placeholder="Usuario..."
+                        value={searchUsuario}
+                        onChange={setSearchUsuario}
+                        options={uniqueUsuarios.map(val => ({ id: val, nombre: val }))}
+                    />
+
+                    <div style={{ display: 'flex', alignItems: 'end' }}>
+                        <button
+                            onClick={handleClearFilters}
+                            style={{
+                                padding: '5px 10px',
+                                height: '30px',
+                                width: '100%',
+                                backgroundColor: 'white',
+                                border: '1px solid #d1d5db',
+                                borderRadius: '6px',
+                                color: '#6b7280',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '0.5rem',
+                                fontWeight: 500,
+                                fontSize: '0.75rem'
+                            }}
+                            title="Limpiar Filtros"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                            Limpiar
+                        </button>
+                    </div>
                 </div>
             </div>
 

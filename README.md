@@ -140,6 +140,15 @@ Módulo avanzado para la gestión de agendas de muestreo, asignación de persona
 - **Integridad de Datos**: Correcciones en procedimientos almacenados (`MAM_FichaComercial_ConsultaCoordinadorDetalle`) para asegurar la consistencia del campo Coordinador.
 - **Experiencia de Usuario**: Redirect automático tras guardado y carga de datos existentes para edición.
 
+### 6. Estandarización de Filtros Avanzados (UI/UX) 🔍
+Unificación de la experiencia de búsqueda y filtrado en todos los módulos de gestión (Comercial, Coordinación, Técnica, Asignación).
+- **Componente SearchableSelect**: Nuevo componente reutilizable con búsqueda integrada y autocompletado dinámico.
+- **Funcionalidad de Limpieza**: 
+  - Botón "Limpiar Todo" global.
+  - **Limpieza Individual (X)**: Permite borrar filtros específicos sin afectar al resto de la selección.
+- **Grillas Responsivas**: Layout estandarizado estilo "Nueva Ficha" para una interfaz limpia y consistente.
+- **Ordenamiento Inteligente**: En el módulo de Asignación, las fichas se ordenan automáticamente por urgencia (Por Asignar > Pendiente > Ejecutado).
+
 ---
 
 ## 🔧 Configuración para Desarrollo

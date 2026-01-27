@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { fichaService } from '../services/ficha.service';
 import '../styles/FichasIngreso.css';
+import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 
 interface Props {
     onBackToMenu: () => void;
@@ -9,8 +10,16 @@ interface Props {
 
 export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssignment }) => {
     // State
-    const [filterDate, setFilterDate] = useState('');
-    const [filterText, setFilterText] = useState(''); // "campo de texto, que traera de la base de datos"
+    // State
+    const [searchId, setSearchId] = useState('');
+    const [searchEstado, setSearchEstado] = useState('');
+    const [searchMonitoreo, setSearchMonitoreo] = useState('');
+    const [searchEmpresaFacturar, setSearchEmpresaFacturar] = useState('');
+    const [searchEmpresaServicio, setSearchEmpresaServicio] = useState('');
+    const [searchCentro, setSearchCentro] = useState('');
+    const [searchObjetivo, setSearchObjetivo] = useState('');
+    const [searchSubArea, setSearchSubArea] = useState('');
+    const [searchSync, setSearchSync] = useState('');
 
     // Pagination state
     const [currentPage, setCurrentPage] = useState(1);
@@ -43,29 +52,116 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
         loadFichas();
     }, []);
 
+    // Derived unique values
+    const getUniqueValues = (key: string) => {
+        const values = new Set<string>();
+        fichas.forEach(f => {
+            if (f[key]) values.add(String(f[key]).trim());
+        });
+        return Array.from(values).sort();
+    };
+
+    const uniqueEstados = React.useMemo(() => {
+        const v1 = getUniqueValues('nombre_estadomuestreo');
+        return v1.length > 0 ? v1 : getUniqueValues('estado_ficha');
+    }, [fichas]);
+
+    const uniqueMonitoreo = React.useMemo(() => {
+        const v1 = getUniqueValues('nombre_frecuencia');
+        return v1.length > 0 ? v1 : getUniqueValues('frecuencia');
+    }, [fichas]);
+    const uniqueEmpFacturar = React.useMemo(() => getUniqueValues('empresa_facturar'), [fichas]);
+    // Try both field names for empresa servicio
+    const uniqueEmpServicio = React.useMemo(() => {
+        const set = new Set<string>();
+        fichas.forEach(f => {
+            const val = f.empresa_servicio || f.nombre_empresaservicios;
+            if (val) set.add(String(val).trim());
+        });
+        return Array.from(set).sort();
+    }, [fichas]);
+
+    // Try both field names for centro
+    const uniqueCentros = React.useMemo(() => {
+        const set = new Set<string>();
+        fichas.forEach(f => {
+            const val = f.centro || f.nombre_centro;
+            if (val) set.add(String(val).trim());
+        });
+        return Array.from(set).sort();
+    }, [fichas]);
+
+    const uniqueObjetivos = React.useMemo(() => getUniqueValues('nombre_objetivomuestreo_ma'), [fichas]);
+
+    // Try both field names for subarea
+    const uniqueSubAreas = React.useMemo(() => {
+        const set = new Set<string>();
+        fichas.forEach(f => {
+            const val = f.subarea || f.nombre_subarea;
+            if (val) set.add(String(val).trim());
+        });
+        return Array.from(set).sort();
+    }, [fichas]);
+
+    const handleClearFilters = () => {
+        setSearchId('');
+        setSearchEstado('');
+        setSearchMonitoreo('');
+        setSearchEmpresaFacturar('');
+        setSearchEmpresaServicio('');
+        setSearchCentro('');
+        setSearchObjetivo('');
+        setSearchSubArea('');
+        setSearchSync('');
+    };
+
     // Filter Logic
     const filteredFichas = fichas.filter(f => {
-        // Basic filtering example (can be expanded based on "text field" purpose)
-        const matchesText = filterText
-            ? Math.random() > -1 // Placeholder logic
-            && (
-                String(f.fichaingresoservicio || '').includes(filterText) ||
-                String(f.nombre_empresa || '').toLowerCase().includes(filterText.toLowerCase()) ||
-                String(f.nombre_centro || '').toLowerCase().includes(filterText.toLowerCase())
-            )
-            : true;
+        const displayId = f.fichaingresoservicio || f.id_fichaingresoservicio || '';
+        const matchId = searchId ? String(displayId).includes(searchId) : true;
 
-        const matchesDate = filterDate
-            ? f.fecha_muestreo === filterDate
-            || (f.fecha && f.fecha.includes(filterDate))
-            : true;
+        // Helper for check
+        const check = (val: string, search: string) => {
+            if (!search) return true;
+            return (val || '').toString().toLowerCase().includes(search.toLowerCase());
+        };
 
-        return matchesText && matchesDate;
+        const matchEstado = check(f.nombre_estadomuestreo || f.estado_ficha, searchEstado);
+        const matchMonitoreo = check(f.nombre_frecuencia || f.frecuencia, searchMonitoreo);
+        const matchEmpFacturar = check(f.empresa_facturar, searchEmpresaFacturar);
+        const matchEmpServicio = check(f.empresa_servicio || f.nombre_empresaservicios, searchEmpresaServicio);
+        const matchCentro = check(f.centro || f.nombre_centro, searchCentro);
+        const matchObjetivo = check(f.nombre_objetivomuestreo_ma, searchObjetivo);
+        const matchSubArea = check(f.subarea || f.nombre_subarea, searchSubArea);
+
+        let matchSync = true;
+        if (searchSync) {
+            const isSync = f.sincronizado === 'S';
+            if (searchSync === 'SI' && !isSync) matchSync = false;
+            if (searchSync === 'NO' && isSync) matchSync = false;
+        }
+
+        return matchId && matchEstado && matchMonitoreo && matchEmpFacturar && matchEmpServicio && matchCentro && matchObjetivo && matchSubArea && matchSync;
+    });
+
+    // Sorting Logic: Por Asignar -> Pendiente -> Ejecutado -> Others
+    const getStatusPriority = (status: string) => {
+        const s = (status || '').toUpperCase();
+        if (s.includes('POR ASIGNAR')) return 1;
+        if (s.includes('PENDIENTE')) return 2;
+        if (s.includes('EJECUTADO') || s.includes('VIGENTE') || s.includes('EMITIDA')) return 3;
+        return 4;
+    };
+
+    const sortedFichas = [...filteredFichas].sort((a, b) => {
+        const statusA = a.nombre_estadomuestreo || a.estado_ficha || '';
+        const statusB = b.nombre_estadomuestreo || b.estado_ficha || '';
+        return getStatusPriority(statusA) - getStatusPriority(statusB);
     });
 
     // Pagination Logic
-    const totalPages = Math.ceil(filteredFichas.length / itemsPerPage);
-    const displayedFichas = filteredFichas.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+    const totalPages = Math.ceil(sortedFichas.length / itemsPerPage);
+    const displayedFichas = sortedFichas.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
     const emptyRows = itemsPerPage - displayedFichas.length;
 
     const goToPage = (page: number) => {
@@ -95,40 +191,114 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                 <h2 className="page-title-geo">Planificación y Asignación</h2>
             </div>
 
-            {/* Top Inputs Section */}
+            {/* Filters */}
             <div style={{
                 backgroundColor: 'white',
-                padding: '1.5rem',
+                padding: '1rem',
                 borderRadius: '12px',
-                marginBottom: '1.5rem',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                display: 'flex',
-                gap: '2rem',
-                alignItems: 'end'
+                marginBottom: '1rem',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
             }}>
-                <div className="form-group" style={{ flex: '0 0 200px' }}>
-                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>
-                        Selección de Fecha
-                    </label>
-                    <input
-                        type="date"
-                        value={filterDate}
-                        onChange={(e) => setFilterDate(e.target.value)}
-                        style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #d1d5db' }}
-                    />
-                </div>
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+                    gap: '0.8rem',
+                    alignItems: 'end'
+                }}>
+                    <div className="form-group">
+                        <label style={{ fontSize: '0.7rem', fontWeight: 600, color: '#374151', marginBottom: '2px', display: 'block' }}>N° Ficha</label>
+                        <input type="text" placeholder="Buscar..." value={searchId} onChange={(e) => setSearchId(e.target.value)} style={{ width: '100%', padding: '5px 8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.75rem', height: '30px' }} />
+                    </div>
 
-                <div className="form-group" style={{ flex: '1', maxWidth: '400px' }}>
-                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>
-                        Búsqueda (Filtro)
-                    </label>
-                    <input
-                        type="text"
-                        placeholder="Buscar..."
-                        value={filterText}
-                        onChange={(e) => setFilterText(e.target.value)}
-                        style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #d1d5db' }}
+                    <SearchableSelect
+                        label="Estado"
+                        placeholder="Estado..."
+                        value={searchEstado}
+                        onChange={setSearchEstado}
+                        options={uniqueEstados.map(val => ({ id: val, nombre: val }))}
                     />
+
+                    <SearchableSelect
+                        label="Monitoreo"
+                        placeholder="Frecuencia..."
+                        value={searchMonitoreo}
+                        onChange={setSearchMonitoreo}
+                        options={uniqueMonitoreo.map(val => ({ id: val, nombre: val }))}
+                    />
+
+                    <SearchableSelect
+                        label="E. Facturar"
+                        placeholder="Empresa..."
+                        value={searchEmpresaFacturar}
+                        onChange={setSearchEmpresaFacturar}
+                        options={uniqueEmpFacturar.map(val => ({ id: val, nombre: val }))}
+                    />
+
+                    <SearchableSelect
+                        label="E. Servicio"
+                        placeholder="Empresa..."
+                        value={searchEmpresaServicio}
+                        onChange={setSearchEmpresaServicio}
+                        options={uniqueEmpServicio.map(val => ({ id: val, nombre: val }))}
+                    />
+
+                    <SearchableSelect
+                        label="Fuente Emisora"
+                        placeholder="Centro..."
+                        value={searchCentro}
+                        onChange={setSearchCentro}
+                        options={uniqueCentros.map(val => ({ id: val, nombre: val }))}
+                    />
+
+                    <SearchableSelect
+                        label="Obj. Muestreo"
+                        placeholder="Objetivo..."
+                        value={searchObjetivo}
+                        onChange={setSearchObjetivo}
+                        options={uniqueObjetivos.map(val => ({ id: val, nombre: val }))}
+                    />
+
+                    <SearchableSelect
+                        label="Sub Área"
+                        placeholder="Sub Área..."
+                        value={searchSubArea}
+                        onChange={setSearchSubArea}
+                        options={uniqueSubAreas.map(val => ({ id: val, nombre: val }))}
+                    />
+
+                    <SearchableSelect
+                        label="Sync"
+                        placeholder="Sync..."
+                        value={searchSync}
+                        onChange={setSearchSync}
+                        options={[{ id: 'SI', nombre: 'SI' }, { id: 'NO', nombre: 'NO' }]}
+                    />
+
+                    <div style={{ display: 'flex', alignItems: 'end' }}>
+                        <button
+                            onClick={handleClearFilters}
+                            style={{
+                                padding: '5px 10px',
+                                height: '30px',
+                                width: '100%',
+                                backgroundColor: 'white',
+                                border: '1px solid #d1d5db',
+                                borderRadius: '6px',
+                                color: '#6b7280',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '0.5rem',
+                                fontWeight: 500,
+                                fontSize: '0.75rem'
+                            }}
+                            title="Limpiar Filtros"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                            Limpiar
+                        </button>
+                    </div>
                 </div>
             </div>
 
