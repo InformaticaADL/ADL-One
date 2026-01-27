@@ -237,4 +237,18 @@ export const catalogosService = {
             return response.data.data;
         });
     },
+
+    getMuestreadores: async (): Promise<any[]> => {
+        return deduplicatedRequest('muestreadores', async () => {
+            const response = await axiosInstance.get('/muestreadores');
+            return response.data.data;
+        });
+    },
+
+    getCoordinadores: async (): Promise<any[]> => {
+        return deduplicatedRequest('coordinadores', async () => {
+            const response = await axiosInstance.get('/coordinadores');
+            return response.data.data;
+        });
+    },
 };

@@ -2,6 +2,7 @@ import { MainLayout } from '../components/layout/MainLayout';
 import { useNavStore } from '../store/navStore';
 import { FichasIngresoPage } from '../features/medio-ambiente/pages/FichasIngresoPage';
 import { TecnicaPage } from '../features/medio-ambiente/pages/TecnicaPage';
+import { CoordinacionPage } from '../features/medio-ambiente/pages/CoordinacionPage';
 
 const DashboardPage = () => {
     const { activeSubmodule } = useNavStore();
@@ -13,6 +14,9 @@ const DashboardPage = () => {
         }
         if (activeSubmodule === 'ma-tecnica') {
             return <TecnicaPage onBack={() => { }} />;
+        }
+        if (activeSubmodule === 'ma-coordinacion') {
+            return <CoordinacionPage onBack={() => { }} />;
         }
 
         // Default Dashboard Content

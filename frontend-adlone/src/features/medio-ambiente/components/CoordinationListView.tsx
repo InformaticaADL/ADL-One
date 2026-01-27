@@ -1,20 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { CoordinacionDetailView } from '../components/CoordinacionDetailView';
-import { AssignmentListView } from '../components/AssignmentListView';
-import { AssignmentDetailView } from '../components/AssignmentDetailView';
-
-import { CatalogosProvider } from '../context/CatalogosContext';
-import { ToastProvider } from '../../../contexts/ToastContext';
-import { ToastContainer } from '../../../components/Toast/Toast';
 import { fichaService } from '../services/ficha.service';
 import '../styles/FichasIngreso.css';
 
 interface Props {
-    onBack: () => void;
+    onBackToMenu: () => void;
+    onViewDetail: (id: number) => void;
 }
 
-// --- Coordination List Component (Existing) ---
-const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () => void, onViewDetail: (id: number) => void }) => {
+export const CoordinationListView: React.FC<Props> = ({ onBackToMenu, onViewDetail }) => {
     // State
     const [searchId, setSearchId] = useState('');
     const [dateFrom, setDateFrom] = useState('');
@@ -31,7 +24,6 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
         const loadFichas = async () => {
             setLoading(true);
             try {
-                // Fetch All Fichas (Same Service)
                 const response = await fichaService.getAll();
                 let data = [];
                 if (Array.isArray(response)) data = response;
@@ -90,8 +82,6 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
     // Pagination Logic
     const totalPages = Math.ceil(filteredFichas.length / itemsPerPage);
     const displayedFichas = filteredFichas.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-    // Calculate empty rows for fixed height
     const emptyRows = itemsPerPage - displayedFichas.length;
 
     const goToPage = (page: number) => {
@@ -100,7 +90,7 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
         }
     };
 
-    // Style for cells
+    // Style
     const cellStyle: React.CSSProperties = {
         whiteSpace: 'nowrap',
         overflow: 'hidden',
@@ -118,11 +108,11 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
                     </svg>
                     Volver al Menú
                 </button>
-                <h2 className="page-title-geo">Gestión Coordinación</h2>
+                <h2 className="page-title-geo">Consultar Fichas Coordinación</h2>
             </div>
 
             {/* Filters */}
-            <div style={{
+            <div className="filters-container" style={{
                 backgroundColor: 'white',
                 padding: '1.5rem',
                 borderRadius: '12px',
@@ -244,27 +234,26 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
                                         <td data-label="Usuario" style={cellStyle}>{ficha.nombre_usuario || '-'}</td>
                                         <td data-label="Acciones" style={{ textAlign: 'center', whiteSpace: 'nowrap', padding: '6px' }}>
                                             <button
-                                                title="Gestionar Ficha"
+                                                title="Ver Detalle"
                                                 onClick={() => onViewDetail(ficha.id_fichaingresoservicio || ficha.fichaingresoservicio)}
                                                 style={{
                                                     border: 'none',
                                                     background: 'none',
-                                                    color: '#8b5cf6', // Purple for coordination
+                                                    color: '#3b82f6',
                                                     cursor: 'pointer',
                                                     padding: '2px',
                                                     display: 'inline-flex',
                                                     alignItems: 'center',
                                                     justifyContent: 'center'
                                                 }}
-                                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3e8ff'}
+                                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#eff6ff'}
                                                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                                             >
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                                             </button>
                                         </td>
                                     </tr>
                                 ))}
-                                {/* Empty Rows Filling */}
                                 {Array.from({ length: Math.max(0, emptyRows) }).map((_, i) => (
                                     <tr key={`empty-${i}`} style={{ borderBottom: '1px solid #e5e7eb', height: '36px' }}>
                                         <td colSpan={11}>&nbsp;</td>
@@ -273,7 +262,6 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
                             </tbody>
                         </table>
 
-                        {/* Pagination Controls */}
                         <div className="pagination-controls" style={{ marginTop: '0' }}>
                             <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
                                 Mostrando {filteredFichas.length > 0 ? ((currentPage - 1) * itemsPerPage) + 1 : 0} a {Math.min(currentPage * itemsPerPage, filteredFichas.length)} de {filteredFichas.length} registros
@@ -288,151 +276,5 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
                 )}
             </div>
         </div>
-    );
-};
-
-// --- Main Orchestrator ---
-const CoordinacionPageContent: React.FC<Props> = ({ onBack }) => {
-    // Modes: 'menu', 'list_consultar', 'detail_consultar', 'list_assign', 'detail_assign'
-    const [mode, setMode] = useState<string>('menu');
-    const [selectedFichaId, setSelectedFichaId] = useState<number | null>(null);
-
-    // Navigation Handlers
-    const goToListConsultar = () => setMode('list_consultar');
-    const goToListAssign = () => setMode('list_assign');
-
-    const goToDetailConsultar = (id: number) => {
-        setSelectedFichaId(id);
-        setMode('detail_consultar');
-    };
-
-    const goToDetailAssign = (id: number) => {
-        setSelectedFichaId(id);
-        setMode('detail_assign');
-    };
-
-    // Render Logic
-    if (mode === 'detail_consultar' && selectedFichaId) {
-        return (
-            <CoordinacionDetailView
-                fichaId={selectedFichaId}
-                onBack={() => setMode('list_consultar')}
-            />
-        );
-    }
-
-    if (mode === 'detail_assign' && selectedFichaId) {
-        return (
-            <AssignmentDetailView
-                fichaId={selectedFichaId}
-                onBack={() => setMode('list_assign')}
-            />
-        );
-    }
-
-    if (mode === 'list_consultar') {
-        return (
-            <CoordinacionListView
-                onBackToMenu={() => setMode('menu')}
-                onViewDetail={goToDetailConsultar}
-            />
-        );
-    }
-
-    if (mode === 'list_assign') {
-        return (
-            <AssignmentListView
-                onBackToMenu={() => setMode('menu')}
-                onViewAssignment={goToDetailAssign}
-            />
-        );
-    }
-
-    // Default: Menu
-    return (
-        <div className="fichas-ingreso-container commercial-layout">
-            <div className="header-row">
-                <button onClick={onBack} className="btn-back">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-                    </svg>
-                    Volver
-                </button>
-                <h2 className="page-title-geo">Gestión Coordinación</h2>
-            </div>
-
-            <div style={{
-                flex: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '2rem'
-            }}>
-                <h1 style={{ fontSize: '1.8rem', color: '#1f2937', marginBottom: '3rem', fontWeight: 600 }}>
-                    Seleccione una opción
-                </h1>
-
-                <div className="cards-grid" style={{ width: '100%', maxWidth: '900px' }}>
-
-                    {/* Consultar Ficha Card */}
-                    <div
-                        onClick={goToListConsultar}
-                        className="selection-card"
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.transform = 'translateY(-5px)';
-                            e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)';
-                            e.currentTarget.style.borderColor = '#8b5cf6';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.transform = 'translateY(0)';
-                            e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)';
-                            e.currentTarget.style.borderColor = '#e5e7eb';
-                        }}
-                    >
-                        <div className="card-icon" style={{ backgroundColor: '#f5f3ff', color: '#7c3aed' }}>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                        </div>
-                        <h3 className="card-title">Consultar Fichas</h3>
-                        <p className="card-description">Visualizar y gestionar fichas de ingreso, antecedentes y observaciones.</p>
-                    </div>
-
-                    {/* Asignación Card */}
-                    <div
-                        onClick={goToListAssign}
-                        className="selection-card"
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.transform = 'translateY(-5px)';
-                            e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)';
-                            e.currentTarget.style.borderColor = '#3b82f6';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.transform = 'translateY(0)';
-                            e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)';
-                            e.currentTarget.style.borderColor = '#e5e7eb';
-                        }}
-                    >
-                        <div className="card-icon" style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                        </div>
-                        <h3 className="card-title">Asignación Fechas</h3>
-                        <p className="card-description">Programar fechas de muestreo y asignar muestreadores responsables.</p>
-                    </div>
-
-                </div>
-            </div>
-        </div>
-    );
-};
-
-// --- Export with Providers ---
-export const CoordinacionPage: React.FC<Props> = (props) => {
-    return (
-        <ToastProvider>
-            <CatalogosProvider>
-                <CoordinacionPageContent {...props} />
-            </CatalogosProvider>
-            <ToastContainer />
-        </ToastProvider>
     );
 };

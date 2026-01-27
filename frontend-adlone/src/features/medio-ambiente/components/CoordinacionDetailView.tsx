@@ -9,17 +9,16 @@ interface Props {
     onBack: () => void;
 }
 
-export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
+export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
     const { showToast } = useToast();
     const { user } = useAuth(); // Auth context
 
-    // ... (state lines)
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'antecedentes' | 'analisis' | 'observaciones'>('antecedentes');
     const [data, setData] = useState<any>(null);
 
-    // Editable State
-    const [tecnicaObs, setTecnicaObs] = useState('');
+    // Editable State for Coordinacion
+    const [coordinacionObs, setCoordinacionObs] = useState('');
     const [actionLoading, setActionLoading] = useState(false);
 
     useEffect(() => {
@@ -27,76 +26,63 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
             if (!fichaId) return;
             setLoading(true);
             try {
-                // Ensure we call the service which should return { encabezado, detalles, observaciones }
+                // Return structure: flat (observaciones_coordinador, observaciones_jefaturatecnica, etc.)
                 const response = await fichaService.getById(fichaId);
-                console.log("Ficha Data Received:", response); // DEBUG LOG
-
-                // Handle unwrapping of API response
                 const fichaData = response.data || response;
                 setData(fichaData);
 
-                // If existing observations, populate local state
-                // Attempt to read from flat structure (observaciones_jefaturatecnica) or fallback
-                const existingObs = fichaData.observaciones_jefaturatecnica || (fichaData.observaciones && fichaData.observaciones.tecnica) || '';
+                // Populate local state from existing observations
+                // Look for 'observaciones_coordinador' on the flat object
+                const existingObs = fichaData.observaciones_coordinador || (fichaData.observaciones && fichaData.observaciones.coordinacion) || '';
                 if (existingObs) {
-                    setTecnicaObs(existingObs);
+                    setCoordinacionObs(existingObs);
                 }
             } catch (error) {
                 console.error("Error loading ficha:", error);
                 showToast({ type: 'error', message: "Error al cargar ficha" });
-                // Optional: onBack(); 
             } finally {
                 setLoading(false);
             }
         };
 
         loadFicha();
-    }, [fichaId]);
+    }, [fichaId, showToast]);
 
     const handleAccept = async () => {
-        if (!window.confirm('¿Está seguro de ACEPTAR esta ficha?')) return;
+        if (!window.confirm('¿Está seguro de ACEPTAR esta ficha (Guardar observaciones)?')) return;
         setActionLoading(true);
         try {
-            console.log('Aceptando ficha:', fichaId, 'Obs:', tecnicaObs, 'User:', user?.id);
-            await fichaService.approve(fichaId, {
-                observaciones: tecnicaObs,
+            // Need a specific endpoint/method for Coordinacion approval or just saving obs
+            // Assuming fichaService.approveCoordinacion exists or we use a generic update
+            // If strictly following the pattern:
+            await fichaService.approveCoordinacion(fichaId, {
+                observaciones: coordinacionObs,
                 user: { id: user?.id || 0 }
             });
-            showToast({ type: 'success', message: 'Ficha ACEPTADA correctamente' });
+            showToast({ type: 'success', message: 'Observaciones guardadas correctamente' });
+            // Optional: stay or go back? Usually stay or refresh
             setTimeout(() => {
-                onBack();
-            }, 1500);
+                onBack(); // Or reload
+            }, 1000);
         } catch (error) {
             console.error(error);
-            showToast({ type: 'error', message: 'Error al aceptar ficha' });
+            showToast({ type: 'error', message: 'Error al guardar observaciones' });
         } finally {
             setActionLoading(false);
         }
     };
 
     const handleReject = async () => {
-        if (!tecnicaObs.trim()) {
-            showToast({ type: 'warning', message: 'Debe ingresar una observación para rechazar' });
-            return;
-        }
-        if (!window.confirm('¿Está seguro de RECHAZAR esta ficha?')) return;
+        if (!window.confirm('¿Está seguro de LIMPIAR las observaciones?')) return;
+        setCoordinacionObs('');
+        // If "Reject" implies clearing database value:
+        /*
         setActionLoading(true);
         try {
-            console.log('Rechazando ficha:', fichaId, 'Obs:', tecnicaObs, 'User:', user?.id);
-            await fichaService.reject(fichaId, {
-                observaciones: tecnicaObs,
-                user: { id: user?.id || 0 }
-            });
-            showToast({ type: 'info', message: 'Ficha RECHAZADA correctamente' });
-            setTimeout(() => {
-                onBack();
-            }, 1500);
-        } catch (error) {
-            console.error(error);
-            showToast({ type: 'error', message: 'Error al rechazar ficha' });
-        } finally {
-            setActionLoading(false);
-        }
+             await fichaService.rejectCoordinacion(fichaId, { ... });
+             showToast({ type: 'info', message: 'Observaciones limpiadas' });
+        } catch(e) { ... } finally { setActionLoading(false); }
+        */
     };
 
     if (loading) {
@@ -113,7 +99,7 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
 
     const enc = data;
     const det = data.detalles || [];
-    const obs = data.observaciones || {};
+    // Data is flat now, so access directly from keys or optional nested objects
 
     // Helper Component for Static Fields
     const StaticField = ({ label, value, fullWidth = false }: { label: string, value: any, fullWidth?: boolean }) => (
@@ -189,7 +175,7 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                     Volver al Listado
                 </button>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '1rem' }}>
-                    <h2 className="page-title-geo">Gestión Técnica - Ficha N° {enc.fichaingresoservicio}</h2>
+                    <h2 className="page-title-geo">Gestión Coordinación - Ficha N° {enc.fichaingresoservicio}</h2>
                     <span style={{
                         fontSize: '0.85rem',
                         padding: '2px 8px',
@@ -213,7 +199,7 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
             <div className="tab-content-areaWrapper" style={{ padding: '0.5rem' }}>
                 <div className="tab-content-area" style={{ display: 'block' }}>
 
-                    {/* ANTECEDENTES TAB (IGUAL QUE COMERCIAL) */}
+                    {/* ANTECEDENTES TAB (Identical to Technical/Commercial) */}
                     {activeTab === 'antecedentes' && (
                         <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: '1fr' }}>
                             <div className="form-grid-row grid-cols-4">
@@ -306,7 +292,7 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                         </div>
                     )}
 
-                    {/* ANALISIS TAB (IGUAL QUE COMERCIAL) */}
+                    {/* ANALISIS TAB */}
                     {activeTab === 'analisis' && (
                         <div>
                             {/* Same Layout as AnalysisForm Top Section */}
@@ -380,12 +366,13 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                         </div>
                     )}
 
-                    {/* OBSERVACIONES TAB (MODIFICADO PARA TECNICA) */}
+                    {/* OBSERVACIONES TAB (COORDINACION) */}
                     {activeTab === 'observaciones' && (
                         <div style={{ display: 'grid', gap: '2rem' }}>
                             <ReadOnlyObservationArea label="Observaciones Comercial" value={enc.observaciones_comercial} />
+                            <ReadOnlyObservationArea label="Observaciones Área Técnica" value={enc.observaciones_jefaturatecnica} />
 
-                            {/* TECNICA EDITABLE ROW */}
+                            {/* COORDINACION EDITABLE ROW */}
                             <div style={{
                                 padding: '1.5rem',
                                 border: '1px solid #e5e7eb',
@@ -395,25 +382,25 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                 maxWidth: '800px',
                                 margin: '0 auto',
                                 width: '100%',
-                                borderLeft: '4px solid #3b82f6', // Highlight technical area
+                                borderLeft: '4px solid #8b5cf6', // Highlight coordination (purple)
                                 display: 'grid',
                                 gridTemplateColumns: 'minmax(0, 1fr) auto', // Input | Actions
                                 gap: '1.5rem'
                             }}>
                                 <div className="form-group">
                                     <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#111827', marginBottom: '8px', display: 'block' }}>
-                                        Observaciones Área Técnica (Editable)
+                                        Observaciones Coordinación (Editable)
                                     </label>
                                     <textarea
-                                        value={tecnicaObs}
-                                        onChange={(e) => setTecnicaObs(e.target.value)}
-                                        placeholder="Ingrese sus observaciones técnicas aquí..."
+                                        value={coordinacionObs}
+                                        onChange={(e) => setCoordinacionObs(e.target.value)}
+                                        placeholder="Ingrese observaciones de coordinación aquí..."
                                         rows={6}
                                         style={{
                                             width: '100%',
                                             padding: '10px',
                                             fontSize: '0.9rem',
-                                            border: '1px solid #3b82f6', // Active border
+                                            border: '1px solid #8b5cf6', // Active border
                                             borderRadius: '6px',
                                             resize: 'vertical',
                                             fontFamily: 'inherit',
@@ -423,7 +410,7 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                         }}
                                     />
                                     <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '4px', textAlign: 'right' }}>
-                                        {tecnicaObs.length} caracteres
+                                        {coordinacionObs.length} caracteres
                                     </div>
                                 </div>
 
@@ -476,7 +463,6 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                 </div>
                             </div>
 
-                            <ReadOnlyObservationArea label="Observaciones Coordinación" value={enc.observaciones_coordinador} />
                         </div>
                     )}
 

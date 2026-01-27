@@ -91,6 +91,62 @@ Correo automático Sistema ADLSoft - ADL Diagnostic Chile SpA`;
         // We probably don't need the extensive BCC list for individual rejections, but can add if needed
         return this.sendEmail({ to: emailCreador, subject, text: body });
     }
+
+    /**
+     * Send notification for Coordination Accepted Ficha
+     * @param {Object} params
+     * @param {number} params.id - Ficha ID
+     * @param {string} params.usuario - Coordinator Name
+     * @param {string} params.observaciones - Coordination Observations
+     */
+    async sendCoordinacionAceptada({ id, usuario, observaciones }) {
+        const recipients = process.env.EMAIL_TO_LIST; // Development: vremolcoy@adldiagnostic.cl
+        const bcc = process.env.EMAIL_BCC_LIST;
+
+        const timestamp = new Date().toLocaleString('es-CL');
+        const subject = `ADLSoft: ACEPTADA Ficha Comercial N°: ${id} - Usuario: ${usuario} - ${timestamp}`;
+
+        const body =
+            `FICHA COMERCIAL N°: ${id}
+
+ESTADO            : ACEPTADA
+USUARIO           : ${usuario}
+OBSERVACIONES     : ${observaciones || 'Sin observaciones'}
+
+Correo automático Sistema ADLSoft - ADL Diagnostic Chile SpA`;
+
+        logger.info(`Sending Coordination Approval Email for Ficha ${id}`);
+        return this.sendEmail({ to: recipients, bcc, subject, text: body });
+    }
+
+    /**
+     * Send notification for Coordination Review (Send to Technical)
+     * @param {Object} params
+     * @param {number} params.id - Ficha ID
+     * @param {string} params.usuario - Coordinator Name
+     * @param {string} params.observaciones - Coordination Observations
+     */
+    async sendCoordinacionRevisar({ id, usuario, observaciones }) {
+        // In production: pflores@adldiagnostic.cl (Technical Manager)
+        // In development: vremolcoy@adldiagnostic.cl
+        const recipients = process.env.EMAIL_TO_LIST;
+        const bcc = process.env.EMAIL_BCC_LIST;
+
+        const timestamp = new Date().toLocaleString('es-CL');
+        const subject = `ADLSoft: REVISAR Ficha Comercial N°: ${id} - ${timestamp}`;
+
+        const body =
+            `FICHA COMERCIAL N°: ${id}
+
+ESTADO            : REVISAR
+USUARIO           : ${usuario}
+OBSERVACIONES     : ${observaciones || 'Sin observaciones'}
+
+Correo automático Sistema ADLSoft - ADL Diagnostic Chile SpA`;
+
+        logger.info(`Sending Coordination Review Email for Ficha ${id}`);
+        return this.sendEmail({ to: recipients, bcc, subject, text: body });
+    }
 }
 
 export default new EmailService();

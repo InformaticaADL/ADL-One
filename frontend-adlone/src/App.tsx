@@ -1,5 +1,6 @@
 import DashboardPage from './pages/DashboardPage';
 import LoginPage from './pages/LoginPage';
+import { CoordinacionPage } from './features/medio-ambiente/pages/CoordinacionPage';
 import './App.css';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider, useToast } from './contexts/ToastContext';

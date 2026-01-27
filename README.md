@@ -130,6 +130,16 @@ Sistema de alertas automáticas para mantener informados a los involucrados en e
 - **State Integrity**: Restauración de variables de estado críticas en formularios complejos (`ReferenceError`).
 - **Database Alignment**: Corrección de discrepancias en nombres de columnas (`id_cargo` vs `mam_cargo`).
 
+### 5. Módulo de Planificación y Asignación (Medio Ambiente) 🗓️
+Módulo avanzado para la gestión de agendas de muestreo, asignación de personal y equipos.
+- **Visualización Integral**: Tabla detallada con información de fichas, estados, fechas y responsables.
+- **Asignación Masiva e Individual**: Herramientas para asignar muestreadores (Instalación/Retiro) de forma eficiente.
+- **Lógica de Guardado Inteligente (UPSERT)**: 
+  - Prevención de duplicados en agenda (`App_Ma_Agenda_MUESTREOS`).
+  - Actualización dinámica de resultados (`App_Ma_Resultados`) y equipos (`App_Ma_Equipos_MUESTREOS`).
+- **Integridad de Datos**: Correcciones en procedimientos almacenados (`MAM_FichaComercial_ConsultaCoordinadorDetalle`) para asegurar la consistencia del campo Coordinador.
+- **Experiencia de Usuario**: Redirect automático tras guardado y carga de datos existentes para edición.
+
 ---
 
 ## 🔧 Configuración para Desarrollo

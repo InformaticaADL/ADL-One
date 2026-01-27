@@ -24,5 +24,7 @@ router.get('/cargos', catalogosController.getCargos);
 router.get('/frecuencias-periodo', catalogosController.getFrecuenciasPeriodo);
 router.get('/formas-canal', catalogosController.getFormasCanal);
 router.get('/dispositivos-hidraulicos', catalogosController.getDispositivosHidraulicos);
+router.get('/muestreadores', catalogosController.getMuestreadores);
+router.get('/coordinadores', catalogosController.getCoordinadores);
 
 export default router;

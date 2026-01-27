@@ -292,4 +292,26 @@ export const catalogosService = {
       throw error;
     }
   },
+
+  getMuestreadores: async () => {
+    try {
+      const pool = await getConnection();
+      const result = await pool.request().query("SELECT id_muestreador, nombre_muestreador FROM mae_muestreador ORDER BY nombre_muestreador");
+      return result.recordset;
+    } catch (error) {
+      logger.error('Error in getMuestreadores:', error);
+      throw error;
+    }
+  },
+
+  getCoordinadores: async () => {
+    try {
+      const pool = await getConnection();
+      const result = await pool.request().execute('consulta_coordinador');
+      return result.recordset;
+    } catch (error) {
+      logger.error('Error in getCoordinadores:', error);
+      throw error;
+    }
+  },
 };

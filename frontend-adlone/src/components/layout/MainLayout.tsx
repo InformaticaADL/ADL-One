@@ -42,7 +42,9 @@ const MODULES = [
 // Simulamos Submódulos 
 const SUBMODULES_MOCK: Record<string, any[]> = {
     'medio_ambiente': [
-        { id: 'ma-fichas-ingreso', label: 'Fichas de ingreso' }
+        { id: 'ma-fichas-ingreso', label: 'Fichas de ingreso' },
+        { id: 'ma-tecnica', label: 'Gestión Técnica' },
+        { id: 'ma-coordinacion', label: 'Coordinación' }
     ],
     // Agregamos datos para GEM para evitar menú vacío
     'gem': [

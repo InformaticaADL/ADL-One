@@ -47,11 +47,11 @@ class FichaIngresoController {
             return errorResponse(res, 'Error al recuperar la ficha', 500, err.message);
         }
     }
+
     async approve(req, res) {
         try {
             const { id } = req.params;
             const { observaciones, user } = req.body;
-            // Use user from body or fallback (security TODO: use req.user from token)
             const userData = user || { id: 0 };
 
             const result = await fichaService.approveFicha(id, { observaciones }, userData);
@@ -73,6 +73,85 @@ class FichaIngresoController {
         } catch (err) {
             logger.error('Error in reject ficha controller:', err);
             return errorResponse(res, 'Error al rechazar la ficha', 500, err.message);
+        }
+    }
+
+    async approveCoordinacion(req, res) {
+        try {
+            const { id } = req.params;
+            const { observaciones, user } = req.body;
+            const userData = user || { id: 0 };
+
+            const result = await fichaService.approveCoordinacion(id, { observaciones }, userData);
+            return successResponse(res, result, 'Ficha aceptada por coordinación exitosamente');
+        } catch (err) {
+            logger.error('Error in approveCoordinacion controller:', err);
+            return errorResponse(res, 'Error al aceptar la ficha desde coordinación', 500, err.message);
+        }
+    }
+
+    async reviewCoordinacion(req, res) {
+        try {
+            const { id } = req.params;
+            const { observaciones, user } = req.body;
+            const userData = user || { id: 0 };
+
+            const result = await fichaService.reviewCoordinacion(id, { observaciones }, userData);
+            return successResponse(res, result, 'Ficha enviada a revisión exitosamente');
+        } catch (err) {
+            logger.error('Error in reviewCoordinacion controller:', err);
+            return errorResponse(res, 'Error al enviar la ficha a revisión', 500, err.message);
+        }
+    }
+
+    async updateAgenda(req, res) {
+        try {
+            const { id } = req.params;
+            const { idMuestreador, fecha, observaciones, user } = req.body;
+            const userData = user || { id: 0 };
+
+            const result = await fichaService.updateAgenda(id, { idMuestreador, fecha, observaciones }, userData);
+            return successResponse(res, result, 'Agenda actualizada correctamente');
+        } catch (err) {
+            logger.error('Error in updateAgenda controller:', err);
+            return errorResponse(res, 'Error al actualizar agenda', 500, err.message);
+        }
+    }
+
+    async getForAssignment(req, res) {
+        try {
+            const result = await fichaService.getForAssignment();
+            return successResponse(res, result, 'Fichas para asignación obtenidas exitosamente');
+        } catch (err) {
+            logger.error('Error in getForAssignment controller:', err);
+            return errorResponse(res, 'Error al obtener fichas para asignación', 500, err.message);
+        }
+    }
+
+    async getAssignmentDetail(req, res) {
+        try {
+            const { id } = req.params;
+            const { idEstadoMuestreo } = req.query; // Optional query param
+
+            // Default to '1' (Por Asignar) if not provided, or handle logic
+            const estado = idEstadoMuestreo ? parseInt(idEstadoMuestreo) : 1;
+
+            const result = await fichaService.getForAssignmentDetail(id, estado);
+            return successResponse(res, result, 'Detalle de asignación obtenido exitosamente');
+        } catch (err) {
+            logger.error('Error in getAssignmentDetail controller:', err);
+            return errorResponse(res, 'Error al obtener detalle de asignación', 500, err.message);
+        }
+    }
+
+    async batchUpdateAgenda(req, res) {
+        try {
+            const userData = req.body.user || { id: 0 };
+            const result = await fichaService.batchUpdateAgenda(req.body, userData);
+            return successResponse(res, result, 'Asignaciones actualizadas exitosamente');
+        } catch (err) {
+            logger.error('Error in batchUpdateAgenda controller:', err);
+            return errorResponse(res, 'Error al actualizar asignaciones', 500, err.message);
         }
     }
 }

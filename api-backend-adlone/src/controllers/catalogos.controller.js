@@ -170,4 +170,20 @@ export const catalogosController = {
             return errorResponse(res, error.message, 500);
         }
     },
+    getMuestreadores: async (req, res) => {
+        try {
+            const data = await catalogosService.getMuestreadores();
+            return successResponse(res, data, 'Muestreadores retrieved successfully');
+        } catch (error) {
+            return errorResponse(res, error.message, 500);
+        }
+    },
+    getCoordinadores: async (req, res) => {
+        try {
+            const data = await catalogosService.getCoordinadores();
+            return successResponse(res, data, 'Coordinadores retrieved successfully');
+        } catch (error) {
+            return errorResponse(res, error.message, 500);
+        }
+    },
 };

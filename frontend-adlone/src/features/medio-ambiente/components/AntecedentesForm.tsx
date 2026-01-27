@@ -1247,7 +1247,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, {}>((props, r
                         <div style={{ marginTop: '4px' }}>
                             <input
                                 type="text"
-                                placeholder="Detalle Canal"
+                                placeholder="Medida Canal"
                                 value={detalleCanal}
                                 onChange={(e) => setDetalleCanal(e.target.value)}
                                 style={{ width: '100%', padding: '6px', fontSize: '0.85rem', border: '1px solid #d1d5db', borderRadius: '6px' }}
@@ -1266,7 +1266,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, {}>((props, r
                         <div style={{ marginTop: '4px' }}>
                             <input
                                 type="text"
-                                placeholder="Detalle Dispositivo"
+                                placeholder="Medida Dispositivo"
                                 value={detalleDispositivo}
                                 onChange={(e) => setDetalleDispositivo(e.target.value)}
                                 style={{ width: '100%', padding: '6px', fontSize: '0.85rem', border: '1px solid #d1d5db', borderRadius: '6px' }}

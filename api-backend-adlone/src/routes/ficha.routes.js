@@ -5,9 +5,15 @@ import fichaController from '../controllers/ficha.controller.js';
 const router = express.Router();
 
 router.get('/', fichaController.getAll);
+router.get('/for-assignment', fichaController.getForAssignment);
 router.post('/create', fichaController.create);
 router.post('/:id/approve', fichaController.approve);
 router.post('/:id/reject', fichaController.reject);
+router.post('/:id/approve-coordinacion', fichaController.approveCoordinacion);
+router.post('/:id/review-coordinacion', fichaController.reviewCoordinacion);
+router.get('/:id/assignment-detail', fichaController.getAssignmentDetail);
 router.get('/:id', fichaController.getById);
+router.post('/batch-agenda', fichaController.batchUpdateAgenda);
+router.post('/:id/agenda', fichaController.updateAgenda);
 
 export default router;

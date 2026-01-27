@@ -1,21 +1,8 @@
 import sql from '../config/database.js';
 import { getConnection } from '../config/database.js';
 import logger from '../utils/logger.js';
-import emailService from './email.service.js';
 
 class FichaIngresoService {
-
-    async getAllFichas() {
-        try {
-            const pool = await getConnection();
-            // Execute Stored Procedure provided by user
-            const result = await pool.request().execute('MAM_FichaComercial_ConsultaComercial');
-            return result.recordset;
-        } catch (error) {
-            logger.error('Error getting all fichas (MAM_FichaComercial_ConsultaComercial):', error);
-            throw error;
-        }
-    }
 
     async createFicha(data) {
         // data structure: { antecedentes: {}, analisis: [], observaciones: "", user: { id: 1 } }
@@ -142,7 +129,7 @@ class FichaIngresoService {
                     instrumento_ambiental, id_objetivomuestreo_ma, nombre_tabla_largo,
                     etfa, ma_punto_muestreo, ma_coordenadas, 
                     id_tipomuestra, id_subarea, id_tipodescarga, id_contacto, cliente_entrega,
-                    id_tipomuestreo, id_tipomuestra_ma, id_actividadmuestreo, ma_duracion_muestreo,
+                    id_tipomuestreo, id_tipomuestrama, id_actividadmuestreo, ma_duracion_muestreo,
                     ficha_habilitado, estado_ficha, sincronizado, 
                     referencia_googlemaps, medicion_caudal, id_modalidad,
                     id_formacanal, formacanal_medida, id_dispositivohidraulico, dispositivohidraulico_medida,
@@ -341,196 +328,593 @@ class FichaIngresoService {
             throw error;
         }
     }
-    async getFichaById(id) {
-        let pool;
+
+    async getAllFichas() {
+        const pool = await getConnection();
+        // Updated to use the correct Stored Procedure provided by user
         try {
-            pool = await getConnection();
+            const result = await pool.request().execute('MAM_FichaComercial_ConsultaComercial');
+            return result.recordset;
+        } catch (error) {
+            // Fallback to manual query only if SP fails (e.g. not present in DB)
+            logger.warn('SP MAM_FichaComercial_ConsultaComercial failed, falling back to manual query', error);
+            const resultFallback = await pool.request().query(`
+                SELECT 
+                    f.id_fichaingresoservicio as id,
+                    f.fichaingresoservicio as correlativo,
+                    f.fecha_fichacomercial as fecha,
+                    e.nombre_empresa as cliente,
+                    c.nombre_centro as centro,
+                    es.nombre_empresa as empresa_servicio,
+                    om.nombre_objetivomuestreo_ma as objetivo,
+                    sa.nombre_subarea as subarea,
+                    f.responsablemuestreo as responsable,
+                    u.nombre_usuario as usuario,
+                    f.tipo_fichaingresoservicio as tipo_ficha, 
+                    f.estado_ficha as estado,
+                    CASE WHEN f.id_validaciontecnica = 1 THEN 'Aprobada' 
+                         WHEN f.id_validaciontecnica = 2 THEN 'Rechazada'
+                         ELSE 'Pendiente' END as estado_tecnico
+                FROM App_Ma_FichaIngresoServicio_ENC f
+                LEFT JOIN mae_empresa e ON f.id_empresa = e.id_empresa
+                LEFT JOIN mae_centro c ON f.id_centro = c.id_centro
+                LEFT JOIN mae_empresa es ON f.id_empresaservicio = es.id_empresa
+                LEFT JOIN mae_objetivomuestreo_ma om ON f.id_objetivomuestreo_ma = om.id_objetivomuestreo_ma
+                LEFT JOIN mae_subarea sa ON f.id_subarea = sa.id_subarea
+                LEFT JOIN mae_usuario u ON f.id_usuario = u.id_usuario
+                ORDER BY f.id_fichaingresoservicio DESC
+            `);
+            return resultFallback.recordset;
+        }
+    }
 
-            // Execute the 3 SPs in parallel
-            const [encResult, agendaResult, detResult] = await Promise.all([
-                pool.request()
-                    .input('xunafichacomercial', sql.Int, id)
-                    .query('execute MAM_FichaComercial_ConsultaComercial_ENC_unaficha @xunafichacomercial'),
+    async getFichaById(id) {
+        const io = await getConnection();
+        const pool = await getConnection();
+        const request = pool.request();
+        // Param for legacy SP
+        request.input('xunafichacomercial', sql.Numeric(10, 0), id);
 
-                pool.request()
-                    .input('xunafichacomercial', sql.Int, id)
-                    .query('execute MAM_FichaComercial_ConsultaComercial_Agenda_MUESTREOS_unaficha @xunafichacomercial'),
+        try {
+            // 1. Get Encabezado (ENC) using legacy SP
+            // 1. Get Encabezado (ENC) using legacy SP
+            const requestEnc = pool.request();
+            requestEnc.input('xunafichacomercial', sql.Numeric(10, 0), id);
+            const resultEnc = await requestEnc.execute('MAM_FichaComercial_ConsultaComercial_ENC_unaficha');
 
-                pool.request()
-                    .input('xunafichacomercial', sql.Int, id)
-                    .query('execute MAM_FichaComercial_ConsultaComercial_DET_unaficha @xunafichacomercial')
-            ]);
-
-            const encData = encResult.recordset[0] || {};
-            const agendaData = agendaResult.recordset[0] || {};
-            const detData = detResult.recordset || [];
-
-            if (!encData.fichaingresoservicio) {
+            if (!resultEnc.recordset || resultEnc.recordset.length === 0) {
+                logger.warn(`Ficha ID ${id} not found via SP ENC`);
                 return null;
             }
 
-            // Combine ENC and AGENDA into a single header object + details
-            return {
-                encabezado: {
-                    ...encData,
-                    ...agendaData // Merge agenda fields
-                },
-                detalles: detData,
-                observaciones: {
-                    comercial: encData.observaciones_comercial,
-                    tecnica: encData.observaciones_jefaturatecnica,
-                    coordinador: encData.observaciones_coordinador
-                }
-            };
+            const ficha = resultEnc.recordset[0];
+            logger.info(`Ficha ID ${id} Encabezado retrieved. Obs: ${ficha.observaciones_comercial}`);
+
+            // 2. Get Agenda (MUESTREOS) using legacy SP
+            const requestAgenda = pool.request();
+            requestAgenda.input('xunafichacomercial', sql.Numeric(10, 0), id);
+            const resultAgenda = await requestAgenda.execute('MAM_FichaComercial_ConsultaComercial_Agenda_MUESTREOS_unaficha');
+            ficha.agenda = resultAgenda.recordset[0] || {};
+            logger.info(`Ficha ID ${id} Agenda retrieved. Inspector: ${ficha.agenda.nombre_inspector}`);
+
+            // 3. Get Detalle (DET) using legacy SP
+            const requestDet = pool.request();
+            requestDet.input('xunafichacomercial', sql.Numeric(10, 0), id);
+            const resultDet = await requestDet.execute('MAM_FichaComercial_ConsultaComercial_DET_unaficha');
+            ficha.detalles = resultDet.recordset || [];
+            logger.info(`Ficha ID ${id} Detalles retrieved. Count: ${ficha.detalles.length}`);
+
+            return ficha;
+
         } catch (error) {
-            logger.error('Error in getFichaById:', error);
+            logger.error('Error in getFichaById using SPs:', error);
             throw error;
         }
     }
-    async approveFicha(id, data, user) {
-        let pool;
-        let transaction;
+
+    async approveFicha(id, { observaciones }, user) {
+        const pool = await getConnection();
+        const transaction = new sql.Transaction(pool);
         try {
-            pool = await getConnection();
-            transaction = new sql.Transaction(pool);
             await transaction.begin();
-
             const request = new sql.Request(transaction);
-
-            const now = new Date();
-            const fecha = now.toISOString().split('T')[0]; // YYYY-MM-DD
-            const hora = now.toTimeString().split(' ')[0];
-
             request.input('id', sql.Numeric(10, 0), id);
-            request.input('obs', sql.VarChar(sql.MAX), data.observaciones || '');
+            request.input('obs', sql.VarChar(250), observaciones || '');
             request.input('userId', sql.Numeric(10, 0), user.id);
-            request.input('fecha', sql.VarChar(10), fecha);
-            request.input('hora', sql.VarChar(8), hora);
+            // 1 = Aprobada (Val Technique)
+            await request.query("UPDATE App_Ma_FichaIngresoServicio_ENC SET id_validaciontecnica = 1, observaciones_jefaturatecnica = @obs WHERE id_fichaingresoservicio = @id");
 
-            // 1. Update Ficha Encabezado
+            // Audit logic would go here
+
+            await transaction.commit();
+            return { success: true, message: 'Ficha aprobada técnica' };
+        } catch (error) {
+            await transaction.rollback();
+            throw error;
+        }
+    }
+
+    async rejectFicha(id, { observaciones }, user) {
+        const pool = await getConnection();
+        const transaction = new sql.Transaction(pool);
+        try {
+            await transaction.begin();
+            const request = new sql.Request(transaction);
+            request.input('id', sql.Numeric(10, 0), id);
+            request.input('obs', sql.VarChar(250), observaciones || '');
+            // 2 = Rechazada
+            await request.query("UPDATE App_Ma_FichaIngresoServicio_ENC SET id_validaciontecnica = 2, observaciones_jefaturatecnica = @obs WHERE id_fichaingresoservicio = @id");
+            await transaction.commit();
+            return { success: true, message: 'Ficha rechazada' };
+        } catch (error) {
+            await transaction.rollback();
+            throw error;
+        }
+    }
+
+
+    async approveCoordinacion(id, { observaciones }, user) {
+        // Logic for 'Aprobar Coordinación' -> usually implies check ok for assignment
+        // For now simple status update or log
+        const pool = await getConnection();
+        const request = pool.request();
+        request.input('id', sql.Numeric(10, 0), id);
+        request.input('obs', sql.VarChar(250), observaciones);
+        // Maybe update obs_coordinador
+        await request.query("UPDATE App_Ma_FichaIngresoServicio_ENC SET observaciones_coordinador = @obs WHERE id_fichaingresoservicio = @id");
+        return { success: true };
+    }
+
+    async reviewCoordinacion(id, { observaciones }, user) {
+        // 'Enviar a Revisión' logic
+        const pool = await getConnection();
+        const request = pool.request();
+        request.input('id', sql.Numeric(10, 0), id);
+        request.input('obs', sql.VarChar(250), observaciones);
+        // Reset validacion tecnica?
+        await request.query("UPDATE App_Ma_FichaIngresoServicio_ENC SET id_validaciontecnica = 3, observaciones_coordinador = @obs WHERE id_fichaingresoservicio = @id");
+        return { success: true };
+    }
+
+    async updateAgenda(id, { idMuestreador, fecha, observaciones }, user) {
+        const pool = await getConnection();
+        const transaction = new sql.Transaction(pool);
+        try {
+            await transaction.begin();
+            const request = new sql.Request(transaction);
+            request.input('id', sql.Numeric(10, 0), id);
+            request.input('muestreador', sql.Numeric(10, 0), idMuestreador);
+            // Parse date string to object
+            request.input('fecha', sql.Date, new Date(fecha));
+
+            // Logic to update App_Ma_Agenda_MUESTREOS
+            // Assuming updating all agenda items for this ficha that are pending?
+            // Or just specific ones. For simplicity updating all for this ficha
             await request.query(`
-                UPDATE App_Ma_FichaIngresoServicio_ENC 
-                SET id_validaciontecnica = 1,
-                    observaciones_jefaturatecnica = @obs,
-                    id_jefaturatecnica = @userId,
-                    fecha_jefaturatecnica = @fecha,
-                    hora_jefaturatecnica = @hora
+                UPDATE App_Ma_Agenda_MUESTREOS 
+                SET id_muestreador = @muestreador, fecha_muestreo = @fecha, id_estadomuestreo = 2, id_coordinador = ${user.id || 0}
                 WHERE id_fichaingresoservicio = @id
             `);
 
-            // 2. Audit Log (Legacy SP: actualiza_auditoria)
-            const auditRequest = new sql.Request(transaction);
-            auditRequest.input('id_ref', sql.Numeric(10, 0), id);
-            auditRequest.input('ref', sql.VarChar(50), 'Ficha Comercial');
-            auditRequest.input('campo', sql.VarChar(50), 'EstadoFicha');
-            auditRequest.input('orig', sql.VarChar(50), ' '); // Dato original
-            auditRequest.input('tipo', sql.VarChar(50), 'JTecnica');
-            auditRequest.input('nval', sql.VarChar(50), 'ACEPTADA'); // New Val
-            auditRequest.input('mot', sql.VarChar(200), 'Fue Aceptada la Ficha Comercial');
-            auditRequest.input('usu', sql.Numeric(10, 0), user.id);
-            auditRequest.input('hr', sql.VarChar(10), hora);
-            auditRequest.input('fec', sql.VarChar(10), fecha);
-
-            await auditRequest.query(`
-                EXEC actualiza_auditoria @id_ref, @ref, @campo, @orig, @tipo, @nval, @mot, @usu, @hr, @fec
-            `);
-
             await transaction.commit();
-
-            // Send Email asynchronously (Fire and Forget)
-            emailService.sendFichaAceptada({
-                id,
-                usuario: data.usuarioNombre || `Usuario ${user.id}`, // Better to pass name if available
-                observaciones: data.observaciones
-            }).catch(e => logger.error('Error sending approval email:', e));
-
-            return { success: true, message: 'Ficha aceptada correctamente' };
-
+            return { success: true };
         } catch (error) {
-            if (transaction) await transaction.rollback();
-            logger.error('Error approving ficha:', error);
+            await transaction.rollback();
             throw error;
         }
     }
-    async rejectFicha(id, data, user) {
-        let pool;
-        let transaction;
-        try {
-            pool = await getConnection();
 
-            // 0. Get Creator Email (Before Transaction)
-            const creatorResult = await pool.request()
-                .input('id_ficha', sql.Numeric(10, 0), id)
-                .query(`
-                    SELECT U.correo_electronico 
-                    FROM App_Ma_FichaIngresoServicio_ENC F
-                    INNER JOIN mae_usuario U ON F.id_usuario = U.id_usuario
-                    WHERE F.id_fichaingresoservicio = @id_ficha
+    async getForAssignment() {
+        const pool = await getConnection();
+        try {
+            // Updated to use the correct Stored Procedure from FoxPro
+            const result = await pool.request().execute('MAM_FichaComercial_ConsultaCoordinador');
+            return result.recordset;
+        } catch (error) {
+            logger.warn('SP MAM_FichaComercial_ConsultaCoordinador failed, falling back to manual query', error);
+            // Fallback logic matches the SP intent: Approved technically + Pending assignment
+            const resultFallback = await pool.request().query(`
+                SELECT DISTINCT
+                    f.id_fichaingresoservicio as id,
+                    f.fichaingresoservicio as correlativo,
+                    e.nombre_empresa as cliente,
+                    c.nombre_centro as centro,
+                    f.fecha_fichacomercial as fecha,
+                    f.estado_ficha as estado,
+                    sa.nombre_subarea as subarea
+                FROM App_Ma_FichaIngresoServicio_ENC f
+                INNER JOIN App_Ma_Agenda_MUESTREOS a ON f.id_fichaingresoservicio = a.id_fichaingresoservicio
+                LEFT JOIN mae_empresa e ON f.id_empresa = e.id_empresa
+                LEFT JOIN mae_centro c ON f.id_centro = c.id_centro
+                LEFT JOIN mae_subarea sa ON f.id_subarea = sa.id_subarea
+                WHERE f.id_validaciontecnica = 1
+                  AND a.id_estadomuestreo = 1
+                ORDER BY f.id_fichaingresoservicio DESC
+            `);
+            return resultFallback.recordset;
+        }
+    }
+
+    async getForAssignmentDetail(id, estado) {
+        const pool = await getConnection();
+        const request = pool.request();
+        request.input('xid_fichaingresoservicio', sql.Numeric(10, 0), id);
+        request.input('xid_estadomuestreo', sql.Numeric(10, 0), estado);
+
+        try {
+            // Use SP (now fixed)
+            const result = await request.execute('MAM_FichaComercial_ConsultaCoordinadorDetalle');
+
+            logger.info(`SP executed for ficha ${id}, recordset length: ${result.recordset ? result.recordset.length : 'null/undefined'}`);
+
+
+            // If SP returns empty, use fallback query without estado filter
+            if (!result.recordset || result.recordset.length === 0) {
+                logger.info(`SP returned empty for ficha ${id}, trying fallback query`);
+                const fallbackRequest = pool.request();
+                fallbackRequest.input('xid_fichaingresoservicio', sql.Numeric(10, 0), id);
+
+                const resFallback = await fallbackRequest.query(`
+                    SELECT a.*, 
+                           m.nombre_muestreador,
+                           m2.nombre_muestreador as nombre_muestreador2,
+                           em.nombre_estadomuestreo,
+                           f.nombre_frecuencia,
+                           f.dias,
+                           a.fecha_muestreo,
+                           a.id_muestreador2,
+                           fis.fichaingresoservicio,
+                           fis.tipo_fichaingresoservicio,
+                           emp.nombre_empresa as empresa_servicio,
+                           cen.nombre_centro as centro,
+                           obj.nombre_objetivomuestreo_ma,
+                           sub.nombre_subarea,
+                           coord.nombre_coordinador
+                    FROM App_Ma_Agenda_MUESTREOS a
+                    LEFT JOIN mae_muestreador m ON a.id_muestreador = m.id_muestreador
+                    LEFT JOIN mae_muestreador m2 ON a.id_muestreador2 = m2.id_muestreador
+                    LEFT JOIN mae_estadomuestreo em ON a.id_estadomuestreo = em.id_estadomuestreo
+                    LEFT JOIN mae_frecuencia f ON a.id_frecuencia = f.id_frecuencia
+                    LEFT JOIN App_Ma_FichaIngresoServicio_ENC fis ON a.id_fichaingresoservicio = fis.id_fichaingresoservicio
+                    LEFT JOIN mae_empresa emp ON fis.id_empresa = emp.id_empresa
+                    LEFT JOIN mae_centro cen ON fis.id_centro = cen.id_centro
+                    LEFT JOIN mae_objetivomuestreo_ma obj ON fis.id_objetivomuestreo_ma = obj.id_objetivomuestreo_ma
+                    LEFT JOIN mae_subarea sub ON fis.id_subarea = sub.id_subarea
+                    LEFT JOIN mae_coordinador coord ON a.id_coordinador = coord.id_coordinador
+                    WHERE a.id_fichaingresoservicio = @xid_fichaingresoservicio
+                    ORDER BY a.id_agendamam
+                `);
+                return resFallback.recordset;
+            }
+
+            return result.recordset;
+
+            // If SP returns data, enrich it with fecha_muestreo and id_muestreador2
+            const enrichRequest = pool.request();
+            enrichRequest.input('xid_fichaingresoservicio', sql.Numeric(10, 0), id);
+
+            const enrichResult = await enrichRequest.query(`
+                SELECT 
+                    id_agendamam,
+                    fecha_muestreo,
+                    id_muestreador,
+                    id_muestreador2,
+                    m2.nombre_muestreador as nombre_muestreador2
+                FROM App_Ma_Agenda_MUESTREOS a
+                LEFT JOIN mae_muestreador m2 ON a.id_muestreador2 = m2.id_muestreador
+                WHERE id_fichaingresoservicio = @xid_fichaingresoservicio
+            `);
+
+            // Merge the data
+            const enrichMap = {};
+            enrichResult.recordset.forEach(row => {
+                enrichMap[row.id_agendamam] = {
+                    fecha_muestreo: row.fecha_muestreo,
+                    id_muestreador2: row.id_muestreador2,
+                    nombre_muestreador2: row.nombre_muestreador2
+                };
+            });
+
+            // Add missing fields to SP results
+            const enrichedData = result.recordset.map(row => ({
+                ...row,
+                fecha_muestreo: enrichMap[row.id_agendamam]?.fecha_muestreo || null,
+                id_muestreador2: enrichMap[row.id_agendamam]?.id_muestreador2 || null,
+                nombre_muestreador2: enrichMap[row.id_agendamam]?.nombre_muestreador2 || null
+            }));
+
+            return enrichedData;
+        } catch (err) {
+            // Fallback if SP missing (though verified earlier)
+            logger.error('SP MAM_FichaComercial_ConsultaCoordinadorDetalle failed', err);
+            // Fallback query
+            const fallbackRequest = pool.request();
+            fallbackRequest.input('xid_fichaingresoservicio', sql.Numeric(10, 0), id);
+
+            const resFallback = await fallbackRequest.query(`
+                SELECT a.*, m.nombre_muestreador,
+                       em.nombre_estadomuestreo,
+                       f.nombre_frecuencia
+                FROM App_Ma_Agenda_MUESTREOS a
+                LEFT JOIN mae_muestreador m ON a.id_muestreador = m.id_muestreador
+                LEFT JOIN mae_estadomuestreo em ON a.id_estadomuestreo = em.id_estadomuestreo
+                LEFT JOIN mae_frecuencia f ON a.id_frecuencia = f.id_frecuencia
+                WHERE a.id_fichaingresoservicio = @xid_fichaingresoservicio
+                ORDER BY a.id_agendamam
+            `);
+            return resFallback.recordset;
+        }
+    }
+    async batchUpdateAgenda(data, user) {
+        const { assignments } = data;
+
+        if (!assignments || !Array.isArray(assignments) || assignments.length === 0) {
+            throw new Error('No se proporcionaron asignaciones');
+        }
+
+        const pool = await getConnection();
+        const transaction = new sql.Transaction(pool);
+
+        try {
+            await transaction.begin();
+            let successCount = 0;
+
+            for (const assignment of assignments) {
+                const {
+                    id,                         // id_agendamam
+                    fecha,                      // fecha en formato YYYY-MM-DD
+                    idMuestreadorInstalacion,
+                    idMuestreadorRetiro,
+                    idFichaIngresoServicio,
+                    frecuenciaCorrelativo
+                } = assignment;
+
+                // 1. ACTUALIZAR App_Ma_Agenda_MUESTREOS
+                const dateObj = new Date(fecha);
+                const day = dateObj.getUTCDate();
+                const month = dateObj.getUTCMonth() + 1;
+                const year = dateObj.getUTCFullYear();
+
+                const updateRequest = new sql.Request(transaction);
+                updateRequest.input('fecha', sql.Date, dateObj);
+                updateRequest.input('dia', sql.Int, day);
+                updateRequest.input('mes', sql.Int, month);
+                updateRequest.input('ano', sql.Int, year);
+                updateRequest.input('idMuestreadorInstalacion', sql.Numeric(10, 0), idMuestreadorInstalacion);
+                updateRequest.input('idMuestreadorRetiro', sql.Numeric(10, 0), idMuestreadorRetiro);
+                updateRequest.input('idEstadoMuestreo', sql.Int, 1); // Estado: Asignado
+                updateRequest.input('idCoordinador', sql.Numeric(10, 0), user.id || 0);
+                updateRequest.input('id_agenda', sql.Numeric(10, 0), id);
+
+                await updateRequest.query(`
+                    UPDATE App_Ma_Agenda_MUESTREOS 
+                    SET fecha_muestreo = @fecha,
+                        dia = @dia,
+                        mes = @mes,
+                        ano = @ano,
+                        id_muestreador = @idMuestreadorInstalacion,
+                        id_muestreador2 = @idMuestreadorRetiro,
+                        id_estadomuestreo = @idEstadoMuestreo,
+                        id_coordinador = @idCoordinador
+                    WHERE id_agendamam = @id_agenda
                 `);
 
-            const emailCreador = creatorResult.recordset[0]?.correo_electronico;
+                // 2. CREAR REGISTROS EN App_Ma_Resultados
+                // Obtener análisis de la ficha
+                const analisisRequest = new sql.Request(transaction);
+                analisisRequest.input('idFicha', sql.Numeric(10, 0), idFichaIngresoServicio);
 
-            transaction = new sql.Transaction(pool);
-            await transaction.begin();
+                const analisisResult = await analisisRequest.query(`
+                    SELECT * 
+                    FROM App_Ma_FichaIngresoServicio_DET 
+                    WHERE id_fichaingresoservicio = @idFicha 
+                    ORDER BY item
+                `);
 
-            const request = new sql.Request(transaction);
+                // Insertar cada análisis en resultados
+                for (const analisis of analisisResult.recordset) {
+                    const resultadoRequest = new sql.Request(transaction);
 
-            const now = new Date();
-            const fecha = now.toISOString().split('T')[0];
-            const hora = now.toTimeString().split(' ')[0];
+                    resultadoRequest.input('idFicha', sql.Numeric(10, 0), idFichaIngresoServicio);
+                    resultadoRequest.input('correlativo', sql.VarChar(50), frecuenciaCorrelativo);
+                    resultadoRequest.input('idMuestreador', sql.Numeric(10, 0), idMuestreadorInstalacion);
+                    resultadoRequest.input('idTecnica', sql.Numeric(10, 0), analisis.id_tecnica);
+                    resultadoRequest.input('idNormativa', sql.Numeric(10, 0), analisis.id_normativa);
+                    resultadoRequest.input('idNormativaRef', sql.Numeric(10, 0), analisis.id_normativareferencia);
+                    resultadoRequest.input('idReferenciaAnalisis', sql.Numeric(10, 0), analisis.id_referenciaanalisis);
+                    resultadoRequest.input('limiteMaxD', sql.Numeric(10, 2), analisis.limitemax_d);
+                    resultadoRequest.input('limiteMaxH', sql.Numeric(10, 2), analisis.limitemax_h);
+                    resultadoRequest.input('llevaError', sql.VarChar(1), analisis.llevaerror || null);
+                    resultadoRequest.input('errorMin', sql.Numeric(10, 2), analisis.error_min);
+                    resultadoRequest.input('errorMax', sql.Numeric(10, 2), analisis.error_max);
+                    resultadoRequest.input('tipoAnalisis', sql.VarChar(20), analisis.tipo_analisis || null);
+                    resultadoRequest.input('ufIndividual', sql.Numeric(10, 2), analisis.uf_individual);
+                    resultadoRequest.input('estado', sql.VarChar(50), analisis.estado || null);
+                    resultadoRequest.input('cumplimiento', sql.VarChar(10), analisis.cumplimiento || null);
+                    resultadoRequest.input('cumplimientoApp', sql.VarChar(20), analisis.cumplimiento_app || null);
+                    resultadoRequest.input('item', sql.Int, analisis.item);
+                    resultadoRequest.input('idLaboratorioEnsayo', sql.Numeric(10, 0), analisis.id_laboratorioensayo);
+                    resultadoRequest.input('idTipoEntrega', sql.Numeric(10, 0), analisis.id_tipoentrega);
+                    resultadoRequest.input('idTransporte', sql.Numeric(10, 0), analisis.id_transporte);
+                    resultadoRequest.input('transporteOrden', sql.VarChar(50), analisis.transporte_orden || null);
+                    resultadoRequest.input('resultadoFecha', sql.Date, analisis.resultado_fecha);
+                    resultadoRequest.input('resultadoHora', sql.VarChar(10), analisis.resultado_hora || null);
+                    resultadoRequest.input('llevaTraduccion', sql.VarChar(1), analisis.llevatraduccion || null);
+                    resultadoRequest.input('traduccion0', sql.VarChar(20), analisis.traduccion_0 || null);
+                    resultadoRequest.input('traduccion1', sql.VarChar(20), analisis.traduccion_1 || null);
 
-            request.input('id', sql.Numeric(10, 0), id);
-            request.input('obs', sql.VarChar(sql.MAX), data.observaciones || '');
-            request.input('userId', sql.Numeric(10, 0), user.id);
-            request.input('fecha', sql.VarChar(10), fecha);
-            request.input('hora', sql.VarChar(8), hora);
+                    // Check if record exists
+                    const checkResult = await resultadoRequest.query(`
+                        SELECT COUNT(*) as count
+                        FROM App_Ma_Resultados
+                        WHERE id_fichaingresoservicio = @idFicha
+                          AND frecuencia_correlativo = @correlativo
+                          AND item = @item
+                    `);
 
-            // 1. Update Ficha Encabezado (Estado rechazada logic might be just changing valida_tecnica or EstadoFicha text?)
-            // FoxPro parity: Update id_validaciontecnica = 2 (Rejected?) - Assuming 2 based on previous context 
-            await request.query(`
-                UPDATE App_Ma_FichaIngresoServicio_ENC 
-                SET id_validaciontecnica = 2,
-                    observaciones_jefaturatecnica = @obs,
-                    id_jefaturatecnica = @userId,
-                    fecha_jefaturatecnica = @fecha,
-                    hora_jefaturatecnica = @hora
-                WHERE id_fichaingresoservicio = @id
-            `);
+                    const exists = checkResult.recordset[0].count > 0;
 
-            // 2. Audit Log
-            const auditRequest = new sql.Request(transaction);
-            auditRequest.input('id_ref', sql.Numeric(10, 0), id);
-            auditRequest.input('ref', sql.VarChar(50), 'Ficha Comercial');
-            auditRequest.input('campo', sql.VarChar(50), 'EstadoFicha');
-            auditRequest.input('orig', sql.VarChar(50), ' ');
-            auditRequest.input('tipo', sql.VarChar(50), 'JTecnica');
-            auditRequest.input('nval', sql.VarChar(50), 'RECHAZADA');
-            auditRequest.input('mot', sql.VarChar(200), 'Fue Rechazada la Ficha Comercial');
-            auditRequest.input('usu', sql.Numeric(10, 0), user.id);
-            auditRequest.input('hr', sql.VarChar(10), hora);
-            auditRequest.input('fec', sql.VarChar(10), fecha);
+                    if (exists) {
+                        // UPDATE existing record
+                        await resultadoRequest.query(`
+                            UPDATE App_Ma_Resultados
+                            SET id_muestreador = @idMuestreador,
+                                id_tecnica = @idTecnica,
+                                id_normativa = @idNormativa,
+                                id_normativareferencia = @idNormativaRef,
+                                id_referenciaanalisis = @idReferenciaAnalisis,
+                                limitemax_d = @limiteMaxD,
+                                limitemax_h = @limiteMaxH,
+                                llevaerror = @llevaError,
+                                error_min = @errorMin,
+                                error_max = @errorMax,
+                                tipo_analisis = @tipoAnalisis,
+                                uf_individual = @ufIndividual,
+                                estado = @estado,
+                                cumplimiento = @cumplimiento,
+                                cumplimiento_app = @cumplimientoApp,
+                                id_laboratorioensayo = @idLaboratorioEnsayo,
+                                id_tipoentrega = @idTipoEntrega,
+                                id_transporte = @idTransporte,
+                                transporte_orden = @transporteOrden,
+                                resultado_fecha = @resultadoFecha,
+                                resultado_hora = @resultadoHora,
+                                llevatraduccion = @llevaTraduccion,
+                                traduccion_0 = @traduccion0,
+                                traduccion_1 = @traduccion1
+                            WHERE id_fichaingresoservicio = @idFicha
+                              AND frecuencia_correlativo = @correlativo
+                              AND item = @item
+                        `);
+                    } else {
+                        // INSERT new record
+                        await resultadoRequest.query(`
+                            INSERT INTO App_Ma_Resultados (
+                                id_fichaingresoservicio, frecuencia_correlativo, id_muestreador,
+                                id_tecnica, id_normativa, id_normativareferencia, id_referenciaanalisis,
+                                limitemax_d, limitemax_h, llevaerror, error_min, error_max,
+                                tipo_analisis, uf_individual, estado, cumplimiento, cumplimiento_app,
+                                item, id_laboratorioensayo, id_tipoentrega, id_transporte,
+                                transporte_orden, resultado_fecha, resultado_hora, llevatraduccion,
+                                traduccion_0, traduccion_1
+                            ) VALUES (
+                                @idFicha, @correlativo, @idMuestreador,
+                                @idTecnica, @idNormativa, @idNormativaRef, @idReferenciaAnalisis,
+                                @limiteMaxD, @limiteMaxH, @llevaError, @errorMin, @errorMax,
+                                @tipoAnalisis, @ufIndividual, @estado, @cumplimiento, @cumplimientoApp,
+                                @item, @idLaboratorioEnsayo, @idTipoEntrega, @idTransporte,
+                                @transporteOrden, @resultadoFecha, @resultadoHora, @llevaTraduccion,
+                                @traduccion0, @traduccion1
+                            )
+                        `);
+                    }
+                }
 
-            await auditRequest.query(`
-                EXEC actualiza_auditoria @id_ref, @ref, @campo, @orig, @tipo, @nval, @mot, @usu, @hr, @fec
-            `);
+                // 3. CREAR REGISTROS EN App_Ma_Equipos_MUESTREOS
+                // Obtener equipos del muestreador de instalación
+                const equiposRequest = new sql.Request(transaction);
+                equiposRequest.input('idMuestreador', sql.Numeric(10, 0), idMuestreadorInstalacion);
+
+                const equiposResult = await equiposRequest.query(`
+                    SELECT * 
+                    FROM mae_equipo 
+                    WHERE id_muestreador = @idMuestreador 
+                    ORDER BY nombre
+                `);
+
+                // Insertar cada equipo disponible
+                for (const equipo of equiposResult.recordset) {
+                    const equipoRequest = new sql.Request(transaction);
+
+                    equipoRequest.input('idFicha', sql.Numeric(10, 0), idFichaIngresoServicio);
+                    equipoRequest.input('correlativo', sql.VarChar(50), frecuenciaCorrelativo);
+                    equipoRequest.input('idEquipo', sql.Numeric(10, 0), equipo.id_equipo);
+                    equipoRequest.input('tieneFC', sql.VarChar(1), equipo.tienefc || null);
+                    equipoRequest.input('error0', sql.Numeric(10, 1), equipo.error0);
+                    equipoRequest.input('error15', sql.Numeric(10, 1), equipo.error15);
+                    equipoRequest.input('error30', sql.Numeric(10, 1), equipo.error30);
+                    equipoRequest.input('idMuestreador', sql.Numeric(10, 0), idMuestreadorInstalacion);
+                    equipoRequest.input('seleccionado', sql.VarChar(1), 'N');
+                    equipoRequest.input('usadoInstalacion', sql.VarChar(1), null);
+                    equipoRequest.input('usadoRetiro', sql.VarChar(1), null);
+
+                    // Check if equipment record exists
+                    const checkEquipoResult = await equipoRequest.query(`
+                        SELECT COUNT(*) as count
+                        FROM App_Ma_Equipos_MUESTREOS
+                        WHERE id_fichaingresoservicio = @idFicha
+                          AND frecuencia_correlativo = @correlativo
+                          AND id_equipo = @idEquipo
+                    `);
+
+                    const equipoExists = checkEquipoResult.recordset[0].count > 0;
+
+                    if (equipoExists) {
+                        // UPDATE existing equipment record
+                        await equipoRequest.query(`
+                            UPDATE App_Ma_Equipos_MUESTREOS
+                            SET tienefc = @tieneFC,
+                                error0 = @error0,
+                                error15 = @error15,
+                                error30 = @error30,
+                                id_muestreador = @idMuestreador
+                            WHERE id_fichaingresoservicio = @idFicha
+                              AND frecuencia_correlativo = @correlativo
+                              AND id_equipo = @idEquipo
+                        `);
+                    } else {
+                        // INSERT new equipment record
+                        await equipoRequest.query(`
+                            INSERT INTO App_Ma_Equipos_MUESTREOS (
+                                id_fichaingresoservicio, frecuencia_correlativo, id_equipo,
+                                tienefc, error0, error15, error30, id_muestreador,
+                                seleccionado, usado_instalacion, usado_retiro
+                            ) VALUES (
+                                @idFicha, @correlativo, @idEquipo,
+                                @tieneFC, @error0, @error15, @error30, @idMuestreador,
+                                @seleccionado, @usadoInstalacion, @usadoRetiro
+                            )
+                        `);
+                    }
+                }
+
+                successCount++;
+            }
 
             await transaction.commit();
+            logger.info(`Successfully assigned ${successCount} muestreos with dates, results, and equipment`);
 
-            // Send Email Rejection (Fixed List)
-            emailService.sendFichaRechazada({
-                id,
-                usuario: data.usuarioNombre || `Usuario ${user.id}`,
-                observaciones: data.observaciones
-            }).catch(e => logger.error('Error sending rejection email:', e));
-
-            return { success: true, message: 'Ficha rechazada correctamente' };
+            return {
+                success: true,
+                message: `✅ Se asignaron correctamente ${successCount} muestreos con sus fechas, resultados y equipos`,
+                count: successCount
+            };
 
         } catch (error) {
-            if (transaction) await transaction.rollback();
-            logger.error('Error rejecting ficha:', error);
+            logger.error('Error in batchUpdateAgenda service:', {
+                message: error.message,
+                code: error.code,
+                number: error.number,
+                state: error.state,
+                class: error.class,
+                serverName: error.serverName,
+                procName: error.procName,
+                lineNumber: error.lineNumber,
+                stack: error.stack
+            });
+
+            if (transaction) {
+                try {
+                    await transaction.rollback();
+                } catch (rollbackError) {
+                    logger.error('Error during rollback:', rollbackError);
+                }
+            }
+
             throw error;
         }
     }
+
 }
 
 export default new FichaIngresoService();

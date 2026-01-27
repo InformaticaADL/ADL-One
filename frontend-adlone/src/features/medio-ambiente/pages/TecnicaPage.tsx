@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { TechnicalDetailView } from '../components/TechnicalDetailView';
 import { CatalogosProvider } from '../context/CatalogosContext';
-import { ToastProvider, useToast } from '../../../contexts/ToastContext';
+import { ToastProvider } from '../../../contexts/ToastContext';
 import { ToastContainer } from '../../../components/Toast/Toast';
 import { fichaService } from '../services/ficha.service';
 import '../styles/FichasIngreso.css';
@@ -109,11 +109,13 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
         <div className="fichas-ingreso-container commercial-layout">
             {/* Header */}
             <div className="header-row">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    {/* Only show Back button if onBackToMenu is provided/useful. For main page, maybe not needed if menu handles it? */}
-                    {/* <button onClick={onBackToMenu} className="btn-back">...</button> */}
-                    <h2 className="page-title-geo">Gestión Técnica</h2>
-                </div>
+                <button onClick={onBackToMenu} className="btn-back">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+                    </svg>
+                    Volver
+                </button>
+                <h2 className="page-title-geo">Gestión Técnica</h2>
             </div>
 
             {/* Filters */}

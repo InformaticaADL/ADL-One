@@ -24,6 +24,9 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                     setData(response.data);
                 } else if (response && response.encabezado) {
                     setData(response);
+                } else if (response && response.fichaingresoservicio) {
+                    // Direct object from SP (new structure)
+                    setData(response);
                 } else {
                     showToast({ type: 'error', message: 'No se pudo cargar la ficha' });
                 }
@@ -48,7 +51,10 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
 
     if (!data) return null;
 
-    const { encabezado: enc, detalles: det, observaciones: obs } = data;
+    // Destructure based on the flat structure from SP
+    const enc = data;
+    const det = data.detalles || [];
+    // Observations are on enc directly now
 
     // Helper Component for Static Fields
     const StaticField = ({ label, value, fullWidth = false }: { label: string, value: any, fullWidth?: boolean }) => (
@@ -114,6 +120,16 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
         </div>
     );
 
+    // Guard clause if enc is null (still loading or error)
+    if (!enc) {
+        return (
+            <div className="flex justify-center items-center h-64">
+                <div className="text-gray-500">Cargando información de la ficha...</div>
+            </div>
+        );
+    }
+
+
     return (
         <div className="fichas-ingreso-container commercial-layout">
             <div className="header-row">
@@ -142,7 +158,7 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
             <div className="tabs-container">
                 <button className={`tab-button ${activeTab === 'antecedentes' ? 'active' : ''}`} onClick={() => setActiveTab('antecedentes')}>Antecedentes</button>
                 <button className={`tab-button ${activeTab === 'analisis' ? 'active' : ''}`} onClick={() => setActiveTab('analisis')}>Análisis</button>
-                <button className={`tab-button ${activeTab === 'observaciones' ? 'active' : ''}`} onClick={() => setActiveTab('observaciones')}>Observaciones</button>
+                <button className={`tab-button ${activeTab === 'observaciones' ? 'active' : ''}`} onClick={() => setActiveTab('observaciones')}>Observaciones / Validación</button>
             </div>
 
             <div className="tab-content-areaWrapper" style={{ padding: '0.5rem' }}>
@@ -178,7 +194,8 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
 
                             <div className="form-grid-row grid-cols-4">
                                 <StaticField label="¿Es ETFA?" value={enc.etfa === 'S' || enc.etfa === true ? 'Si' : 'No'} />
-                                <StaticField label="Inspector Ambiental" value={enc.nombre_inspector} />
+                                {/* Updated to use enc.agenda?.nombre_inspector */}
+                                <StaticField label="Inspector Ambiental" value={enc.agenda?.nombre_inspector || '-'} />
                                 <div style={{ gridColumn: 'span 2' }}>
                                     <StaticField label="Punto de Muestreo" value={enc.ma_punto_muestreo} fullWidth />
                                 </div>
@@ -190,13 +207,13 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                 </div>
                             </div>
 
-                            {/* Block 2: Frecuencia */}
+                            {/* Block 2: Frecuencia - Updated to use enc.agenda fields */}
                             <div style={{ marginTop: '1rem', marginBottom: '0.5rem', borderBottom: '1px solid #e5e7eb' }}></div>
                             <div className="form-grid-row grid-cols-4">
-                                <StaticField label="Frecuencia" value={enc.frecuencia} />
-                                <StaticField label="Periodo" value={enc.nombre_frecuencia} />
-                                <StaticField label="Multiplicado Por" value={enc.frecuencia_factor} />
-                                <StaticField label="Total Servicios" value={enc.total_servicios} />
+                                <StaticField label="Frecuencia" value={enc.agenda?.frecuencia || '-'} />
+                                <StaticField label="Periodo" value={enc.agenda?.nombre_frecuencia || '-'} />
+                                <StaticField label="Multiplicado Por" value={enc.agenda?.frecuencia_factor || '-'} />
+                                <StaticField label="Total Servicios" value={enc.agenda?.total_servicios || '-'} />
                             </div>
 
                             {/* Block 3: Detalles Muestra */}
@@ -284,27 +301,26 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                         <tbody>
                                             {det.map((row: any, i: number) => {
                                                 const analysisName = row.nombre_tecnica || row.nombre_determinacion || row.nombre_examen || row.nombre_analisis || '-';
-                                                const errorYes = ['S', 's', 'Y', 'y', true].includes(row.llevaerror);
 
                                                 return (
-                                                    <tr key={i} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                                                        <td style={{ padding: '8px', fontWeight: 500 }}>{analysisName}</td>
-                                                        <td style={{ padding: '8px' }}>{row.tipo_analisis || row.nombre_tipomuestra}</td>
-                                                        <td style={{ padding: '8px', textAlign: 'right' }}>{row.limitemax_d ?? '-'}</td>
-                                                        <td style={{ padding: '8px', textAlign: 'right' }}>{row.limitemax_h ?? '-'}</td>
-                                                        <td style={{ padding: '8px', textAlign: 'right' }}>{errorYes ? 'Sí' : 'No'}</td>
-                                                        <td style={{ padding: '8px', textAlign: 'right' }}>{row.error_min ?? '-'}</td>
-                                                        <td style={{ padding: '8px', textAlign: 'right' }}>{row.error_max ?? '-'}</td>
-                                                        <td style={{ padding: '8px' }}>{row.nombre_tipoentrega || row.nombre_entrega}</td>
-                                                        <td style={{ padding: '8px', textAlign: 'right' }}>{row.uf_individual || row.uf || 0}</td>
-                                                        <td style={{ padding: '8px' }}>{row.nombre_laboratorioensayo || row.nombre_laboratorio || row.laboratorio || '-'}</td>
+                                                    <tr key={i} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                                                        <td style={{ padding: '8px' }}>{analysisName}</td>
+                                                        <td style={{ padding: '8px' }}>{row.nombre_tipomuestra}</td>
+                                                        <td style={{ padding: '8px', textAlign: 'right' }}>{row.limitemax_d}</td>
+                                                        <td style={{ padding: '8px', textAlign: 'right' }}>{row.limitemax_h}</td>
+                                                        <td style={{ padding: '8px', textAlign: 'right' }}>{row.llevaerror || row.llevaerror === 'S' || row.llevaerror === true ? 'Sí' : 'No'}</td>
+                                                        <td style={{ padding: '8px', textAlign: 'right' }}>{row.error_min}</td>
+                                                        <td style={{ padding: '8px', textAlign: 'right' }}>{row.error_max}</td>
+                                                        <td style={{ padding: '8px' }}>{row.nombre_tipoentrega || '-'}</td>
+                                                        <td style={{ padding: '8px', textAlign: 'right' }}>{row.uf_individual}</td>
+                                                        <td style={{ padding: '8px' }}>{row.id_laboratorioensayo ? 'Enviado' : 'Interno'}</td>
                                                     </tr>
                                                 );
                                             })}
                                             {det.length === 0 && (
                                                 <tr>
-                                                    <td colSpan={10} style={{ textAlign: 'center', padding: '2rem', color: '#6b7280' }}>
-                                                        No hay análisis registrados.
+                                                    <td colSpan={10} style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af' }}>
+                                                        No hay análisis registrados para esta ficha.
                                                     </td>
                                                 </tr>
                                             )}
@@ -315,12 +331,12 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                         </div>
                     )}
 
-                    {/* OBSERVACIONES TAB */}
+                    {/* OBSERVACIONES TAB - Updated to map correct fields */}
                     {activeTab === 'observaciones' && (
-                        <div style={{ display: 'grid', gap: '2rem' }}>
-                            <ObservationArea label="Observaciones Comercial (Ingresadas)" value={obs.comercial} />
-                            <ObservationArea label="Observaciones Área Técnica" value={obs.tecnica} />
-                            <ObservationArea label="Observaciones Coordinación" value={obs.coordinador} />
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                            <ObservationArea label="Observaciones Comercial / Atención Cliente" value={enc.observaciones_comercial} />
+                            <ObservationArea label="Validación Técnica / Coordinación" value={enc.observaciones_jefaturatecnica} />
+                            <ObservationArea label="Observaciones Coordinador" value={enc.observaciones_coordinador} />
                         </div>
                     )}
 
@@ -328,4 +344,4 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
             </div>
         </div>
     );
-};
+}
