@@ -30,13 +30,12 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
     // ===== ESTADO: Configuración =====
     const [tipoMuestra, setTipoMuestra] = useState<string>('');
     const [labDerivado, setLabDerivado] = useState<string>('');
+    const [labDerivado2, setLabDerivado2] = useState<string>(''); // Nuevo estado
+    const [showLab2, setShowLab2] = useState<boolean>(false); // Nuevo estado
     const [tipoEntrega, setTipoEntrega] = useState<string>('');
 
     // ===== ESTADO: Selección de Análisis =====
     const [selectedAnalysis, setSelectedAnalysis] = useState<Set<string>>(new Set());
-
-    // ===== ESTADO: Análisis Grabados (LIFTED STATE to Props) =====
-    // const [savedAnalysis, setSavedAnalysis] = useState<any[]>([]); // Removed local state
 
     // ===== FUNCIONES: Carga de Catálogos =====
     useEffect(() => {
@@ -49,7 +48,6 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
         try {
             const data = await catalogos.getNormativas();
             setNormativas(data || []);
-            // console.log('✅ Normativas loaded:', data?.length);
         } catch (error) {
             console.error('Error loading normativas:', error);
             showToast({ type: 'error', message: 'Error al cargar normativas' });
@@ -79,12 +77,10 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
     // ===== FUNCIONES: Cascadas =====
     useEffect(() => {
         if (normativa) {
-            // Auto-load referencias when normativa changes to prevent double-click issue
             loadReferencias(normativa);
             setReferencia('');
         } else {
             setReferencias([]);
-            // setReferencia(''); // Already handled in state update
         }
     }, [normativa]);
 
@@ -117,6 +113,12 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
         }
     };
 
+    // ===== FUNCIONES: Filtrado =====
+    const filteredAnalysis = analysisResults.filter(analysis =>
+        analysis.nombre_tecnica?.toLowerCase().includes(searchText.toLowerCase()) ||
+        analysis.id_referenciaanalisis?.toString().includes(searchText)
+    );
+
     // ===== FUNCIONES: Selección de Análisis =====
     const handleSelectAll = () => {
         const allIds = new Set(filteredAnalysis.map(a => a.id_referenciaanalisis));
@@ -136,12 +138,6 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
         }
         setSelectedAnalysis(newSelection);
     };
-
-    // ===== FUNCIONES: Filtrado =====
-    const filteredAnalysis = analysisResults.filter(analysis =>
-        analysis.nombre_tecnica?.toLowerCase().includes(searchText.toLowerCase()) ||
-        analysis.id_referenciaanalisis?.toString().includes(searchText)
-    );
 
     // ===== FUNCIONES: Grabar Análisis =====
     const handleSaveAnalysis = () => {
@@ -173,50 +169,70 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
             return;
         }
 
+        // Validación Lab 2
+        if (showLab2 && !labDerivado2 && tipoMuestra === 'Laboratorio') {
+            showToast({
+                type: 'warning',
+                message: 'Has marcado Segundo Laboratorio pero no has seleccionado ninguno',
+                duration: 4000
+            });
+            return;
+        }
+
         // Obtener datos detallados de catálogos seleccionados
-        // Corrección: Asegurar comparación de tipos (String vs Number)
         const selectedTipoEntregaObj = tiposEntrega.find((t: any) => String(t.id_tipoentrega) === String(tipoEntrega));
-        // Nota: labDerivado puede ser '' si es Terreno, find retornará undefined
         const selectedLabObj = laboratorios.find((l: any) => String(l.id_laboratorioensayo) === String(labDerivado));
+        const selectedLabObj2 = laboratorios.find((l: any) => String(l.id_laboratorioensayo) === String(labDerivado2)); // Nuevo obj
 
         // Agregar análisis seleccionados a la tabla de guardados
-        // Mapeo basado en lógica FoxPro (det_fichacomercial)
         const newSavedAnalysis = Array.from(selectedAnalysis).map((id, index) => {
             const analysis = analysisResults.find(a => a.id_referenciaanalisis === id);
 
-            // Determinar valores condicionales para Laboratorio
             let idLaboratorio = 0;
             let nombreLaboratorio = '';
+            let idLaboratorio2 = 0; // Nuevo
+            let nombreLaboratorio2 = ''; // Nuevo
 
             if (tipoMuestra === 'Terreno') {
                 nombreLaboratorio = '';
                 idLaboratorio = 0;
+                // Lab2 logic for Terreno? Usually none.
+                idLaboratorio2 = 0;
+                nombreLaboratorio2 = '';
             } else {
                 nombreLaboratorio = selectedLabObj?.nombre_laboratorioensayo || '';
                 idLaboratorio = selectedLabObj?.id_laboratorioensayo || 0;
+
+                if (showLab2) {
+                    nombreLaboratorio2 = selectedLabObj2?.nombre_laboratorioensayo || '';
+                    idLaboratorio2 = selectedLabObj2?.id_laboratorioensayo || 0;
+                }
             }
 
             return {
-                ...analysis, // Mantener datos originales por si acaso
+                ...analysis,
 
-                // Campos det_fichacomercial
                 nombre_tecnica: analysis.nombre_tecnica,
-                tipo_analisis: tipoMuestra, // Combo3.Value
-                limitemax_d: analysis.limitemax_d, // Direct mapping from API
-                limitemax_h: analysis.limitemax_h, // Direct mapping from API
+                tipo_analisis: tipoMuestra,
+                limitemax_d: analysis.limitemax_d,
+                limitemax_h: analysis.limitemax_h,
                 llevaerror: analysis.llevaerror,
                 error_min: analysis.error_min,
                 error_max: analysis.error_max,
                 nombre_tipoentrega: selectedTipoEntregaObj?.nombre_tipoentrega || '',
-                uf_individual: 0, // Not in API, defaulting to 0 as in FoxPro
+                uf_individual: 0,
                 nombre_laboratorioensayo: nombreLaboratorio,
                 id_laboratorioensayo: idLaboratorio,
-                item: savedAnalysis.length + index + 1, // Sequential
+                // New Fields
+                nombre_laboratorioensayo_2: nombreLaboratorio2,
+                id_laboratorioensayo_2: idLaboratorio2,
+
+                item: savedAnalysis.length + index + 1,
                 id_tecnica: analysis.id_tecnica,
                 estado: '',
                 cumplimiento: '',
                 cumplimiento_app: '',
-                id_tipoentrega: selectedTipoEntregaObj?.id_tipoentrega || tipoEntrega, // Prefer obj id or fallback
+                id_tipoentrega: selectedTipoEntregaObj?.id_tipoentrega || tipoEntrega,
                 id_transporte: 0,
                 nombre_transporte: '',
                 transporte_orden: '',
@@ -229,17 +245,21 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                 traduccion_0: analysis.traduccion_0,
                 traduccion_1: analysis.traduccion_1,
 
-                // Metadata frontend
                 savedId: `${id}-${Date.now()}`
             };
         });
 
-        // setSavedAnalysis([...savedAnalysis, ...newSavedAnalysis]);
         onSavedAnalysisChange([...savedAnalysis, ...newSavedAnalysis]);
 
-        // Limpiar selección y búsqueda
         setSelectedAnalysis(new Set());
-        setSearchText(''); // Limpiar texto de búsqueda
+        setSearchText('');
+
+        // Resetear campos de configuración tras grabar exitosamente
+        setTipoMuestra('');
+        setLabDerivado('');
+        setLabDerivado2('');
+        setShowLab2(false);
+        setTipoEntrega('');
 
         showToast({
             type: 'success',
@@ -250,15 +270,6 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
 
     // Handler para cambios en celdas editables (UF)
     const handleUfChange = (savedId: string, newValue: string) => {
-        /*
-        setSavedAnalysis(prev => prev.map(item => {
-            if (item.savedId === savedId) {
-                // Allow string to support empty input
-                return { ...item, uf_individual: newValue };
-            }
-            return item;
-        }));
-        */
         const updatedAnalysis = savedAnalysis.map((item: any) => {
             if (item.savedId === savedId) {
                 return { ...item, uf_individual: newValue };
@@ -270,7 +281,6 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
 
     // ===== FUNCIONES: Eliminar Análisis Grabado =====
     const handleDeleteSavedAnalysis = (savedId: string) => {
-        // setSavedAnalysis(savedAnalysis.filter(a => a.savedId !== savedId));
         onSavedAnalysisChange(savedAnalysis.filter((a: any) => a.savedId !== savedId));
         showToast({
             type: 'info',
@@ -278,6 +288,8 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
             duration: 3000
         });
     };
+
+    // ... (inside JSX) ...
 
     return (
         <div className="analysis-form-container">
@@ -531,7 +543,7 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                         <select
                             value={labDerivado}
                             onChange={(e) => setLabDerivado(e.target.value)}
-                            disabled={!referencia || tipoMuestra !== 'Laboratorio'} // Habilitado solo con referencia Y Tipo Muestra = Laboratorio
+                            disabled={!referencia || tipoMuestra !== 'Laboratorio'}
                             style={{
                                 width: '100%',
                                 padding: '6px 10px',
@@ -548,6 +560,67 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                                 </option>
                             ))}
                         </select>
+
+                        {/* Checkbox Lab 2 - Improved UI */}
+                        <div style={{
+                            marginTop: '12px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'flex-start',
+                            gap: '8px',
+                            padding: '4px 0'
+                        }}>
+                            <input
+                                type="checkbox"
+                                id="chkLab2"
+                                checked={showLab2}
+                                onChange={(e) => setShowLab2(e.target.checked)}
+                                disabled={!referencia || tipoMuestra !== 'Laboratorio'}
+                                style={{
+                                    cursor: 'pointer',
+                                    width: '18px',
+                                    height: '18px',
+                                    margin: 0 // Reset margin
+                                }}
+                            />
+                            <label
+                                htmlFor="chkLab2"
+                                style={{
+                                    fontSize: '0.85rem',
+                                    color: '#4b5563',
+                                    cursor: 'pointer',
+                                    userSelect: 'none'
+                                }}
+                            >
+                                Añadir segundo laboratorio
+                            </label>
+                        </div>
+
+                        {/* Campo Lab 2 (Condicional) */}
+                        {showLab2 && (
+                            <div style={{ marginTop: '8px' }}>
+                                <select
+                                    value={labDerivado2}
+                                    onChange={(e) => setLabDerivado2(e.target.value)}
+                                    disabled={!referencia || tipoMuestra !== 'Laboratorio'}
+                                    style={{
+                                        width: '100%',
+                                        padding: '6px 10px',
+                                        fontSize: '0.85rem',
+                                        border: '1px solid #d1d5db',
+                                        borderRadius: '6px',
+                                        backgroundColor: (referencia && tipoMuestra === 'Laboratorio') ? 'white' : '#f3f4f6'
+                                    }}
+                                >
+                                    <option value="">Seleccione segundo laboratorio...</option>
+                                    {laboratorios.map((l: any) => (
+                                        <option key={`2-${l.id_laboratorioensayo}`} value={l.id_laboratorioensayo}>
+                                            {l.nombre_laboratorioensayo}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
                     </div>
 
                     {/* Campo 7: Tipo de Entrega */}
@@ -677,7 +750,14 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                                                     }}
                                                 />
                                             </td>
-                                            <td style={{ padding: '8px' }}>{analysis.nombre_laboratorioensayo || '-'}</td>
+                                            <td style={{ padding: '8px' }}>
+                                                <div>{analysis.nombre_laboratorioensayo || '-'}</div>
+                                                {analysis.nombre_laboratorioensayo_2 && (
+                                                    <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+                                                        + {analysis.nombre_laboratorioensayo_2}
+                                                    </div>
+                                                )}
+                                            </td>
                                             <td style={{ padding: '8px', textAlign: 'center' }}>
                                                 <button
                                                     onClick={() => handleDeleteSavedAnalysis(analysis.savedId)}

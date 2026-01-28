@@ -82,7 +82,7 @@ class FichaIngresoService {
 
             // Fix: id_tipomuestreo was missing input? No it was there.
             requestEnc.input('id_tipomuestreo', sql.Numeric(10, 0), valNum(ant.selectedTipoMuestreo));
-            requestEnc.input('id_tipomuestrama', sql.Numeric(10, 0), valNum(ant.selectedTipoMuestra));
+            requestEnc.input('id_tipomuestra_ma', sql.Numeric(10, 0), valNum(ant.selectedTipoMuestra)); // Corrected column name
             requestEnc.input('id_actividad', sql.Numeric(10, 0), valNum(ant.selectedActividad));
             requestEnc.input('duracion', sql.VarChar(10), valStr(ant.duracion, 10));
 
@@ -91,6 +91,9 @@ class FichaIngresoService {
             requestEnc.input('id_modalidad', sql.Numeric(10, 0), valNum(ant.selectedModalidad));
             requestEnc.input('id_formacanal', sql.Numeric(10, 0), valNum(ant.formaCanal));
             requestEnc.input('formacanal_medida', sql.VarChar(50), valStr(ant.detalleCanal, 50));
+            requestEnc.input('id_dispositivohidraulico', sql.Numeric(10, 0), valNum(ant.dispositivo));
+            requestEnc.input('dispositivohidraulico_medida', sql.VarChar(50), valStr(ant.detalleDispositivo, 50));
+
             // ... (previous inputs)
             requestEnc.input('id_disp', sql.Numeric(10, 0), valNum(ant.dispositivo));
             requestEnc.input('disp_medida', sql.VarChar(50), valStr(ant.detalleDispositivo, 50));
@@ -129,7 +132,7 @@ class FichaIngresoService {
                     instrumento_ambiental, id_objetivomuestreo_ma, nombre_tabla_largo,
                     etfa, ma_punto_muestreo, ma_coordenadas, 
                     id_tipomuestra, id_subarea, id_tipodescarga, id_contacto, cliente_entrega,
-                    id_tipomuestreo, id_tipomuestrama, id_actividadmuestreo, ma_duracion_muestreo,
+                    id_tipomuestreo, id_tipomuestra_ma, id_actividadmuestreo, ma_duracion_muestreo,
                     ficha_habilitado, estado_ficha, sincronizado, 
                     referencia_googlemaps, medicion_caudal, id_modalidad,
                     id_formacanal, formacanal_medida, id_dispositivohidraulico, dispositivohidraulico_medida,
@@ -145,7 +148,7 @@ class FichaIngresoService {
                     @instrumento, @id_objetivo, @nombre_tabla,
                     @etfa, @punto_muestreo, @coordenadas,
                     @id_tipomuestra, @id_subarea, @id_tipodescarga, @id_contacto, @cliente_entrega,
-                    @id_tipomuestreo, @id_tipomuestrama, @id_actividad, @duracion,
+                    @id_tipomuestreo, @id_tipomuestra_ma, @id_actividad, @duracion,
                     'S', 'VIGENTE', 'N',
                     @ref_google, @medicion_caudal, @id_modalidad,
                     @id_formacanal, @formacanal_medida, @id_disp, @disp_medida,
@@ -190,6 +193,13 @@ class FichaIngresoService {
                         idLab = 0;
                     }
                     requestDet.input('id_laboratorio', sql.Numeric(10, 0), idLab);
+                    // NEW: Secondary Laboratory
+                    let idLab2 = valNum(row.id_laboratorioensayo_2);
+                    if (row.tipo_analisis && row.tipo_analisis.trim() === 'Terreno') {
+                        idLab2 = 0;
+                    }
+                    requestDet.input('id_laboratorio_2', sql.Numeric(10, 0), idLab2 || 0);
+
                     requestDet.input('id_tipoentrega', sql.Numeric(10, 0), valNum(row.id_tipoentrega));
 
                     requestDet.input('res_fecha', sql.Date, new Date('1900-01-01'));
@@ -207,14 +217,14 @@ class FichaIngresoService {
                         INSERT INTO App_Ma_FichaIngresoServicio_DET (
                             id_fichaingresoservicio, id_tecnica, id_normativa, id_normativareferencia, id_referenciaanalisis,
                             limitemax_d, limitemax_h, llevaerror, error_min, error_max,
-                            tipo_analisis, uf_individual, item, id_laboratorioensayo, id_tipoentrega,
+                            tipo_analisis, uf_individual, item, id_laboratorioensayo, id_laboratorioensayo_2, id_tipoentrega,
                             id_transporte, transporte_orden, resultado_fecha, resultado_hora,
                             llevatraduccion, traduccion_0, traduccion_1,
                             estado, cumplimiento, cumplimiento_app
                         ) VALUES (
                             @id_ficha, @id_tecnica, @id_normativa, @id_normativareferencia, @id_referenciaanalisis,
                             @limitemax_d, @limitemax_h, @llevaerror, @error_min, @error_max,
-                            @tipo_analisis, @uf, @item, @id_laboratorio, @id_tipoentrega,
+                            @tipo_analisis, @uf, @item, @id_laboratorio, @id_laboratorio_2, @id_tipoentrega,
                             @id_transporte, @transporte_orden, @res_fecha, @res_hora,
                             @llevatrad, @trad_0, @trad_1,
                             '', '', ''
@@ -402,6 +412,9 @@ class FichaIngresoService {
             requestDet.input('xunafichacomercial', sql.Numeric(10, 0), id);
             const resultDet = await requestDet.execute('MAM_FichaComercial_ConsultaComercial_DET_unaficha');
             ficha.detalles = resultDet.recordset || [];
+
+            ficha.detalles = resultDet.recordset || [];
+
             logger.info(`Ficha ID ${id} Detalles retrieved. Count: ${ficha.detalles.length}`);
 
             return ficha;

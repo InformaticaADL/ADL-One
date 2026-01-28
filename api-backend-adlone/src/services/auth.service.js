@@ -32,13 +32,30 @@ class AuthService {
                     throw new Error('Usuario deshabilitado'); // Handler controller will catch
                 }
 
+                // --- RBAC Implementation ---
+                // Fetch User Permissions from DB
+                // Join: Usuario -> rel_usuario_rol -> rel_rol_permiso -> mae_permiso
+                const permissionsQuery = await pool.request()
+                    .input('userId', sql.Numeric(10, 0), user.id_usuario)
+                    .query(`
+                        SELECT DISTINCT p.codigo
+                        FROM mae_permiso p
+                        INNER JOIN rel_rol_permiso rp ON p.id_permiso = rp.id_permiso
+                        INNER JOIN rel_usuario_rol ur ON rp.id_rol = ur.id_rol
+                        WHERE ur.id_usuario = @userId
+                    `);
+
+                const permissions = permissionsQuery.recordset.map(row => row.codigo);
+                // ---------------------------
+
                 // Generate Token
                 const token = jwt.sign(
                     {
                         id: user.id_usuario,
                         username: user.nombre_usuario,
                         name: user.usuario,
-                        role: user.mam_cargo
+                        role: user.mam_cargo,
+                        permissions: permissions // Add permissions to token (Optional, good for client-side checks)
                     },
                     JWT_SECRET,
                     { expiresIn: '12h' }
@@ -51,7 +68,8 @@ class AuthService {
                         username: user.nombre_usuario,
                         name: user.usuario,
                         email: user.correo_electronico,
-                        role: user.mam_cargo
+                        role: user.mam_cargo,
+                        permissions: permissions // Return to client for Context
                     }
                 };
             }

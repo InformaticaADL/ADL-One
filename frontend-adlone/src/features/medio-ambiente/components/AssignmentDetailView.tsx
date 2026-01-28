@@ -4,6 +4,7 @@ import { fichaService } from '../services/ficha.service';
 import { useCatalogos } from '../context/CatalogosContext';
 import { catalogosService } from '../services/catalogos.service';
 import { useToast } from '../../../contexts/ToastContext';
+import { useAuth } from '../../../contexts/AuthContext';
 
 interface Props {
     fichaId: number;
@@ -14,6 +15,7 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
     // Context & Services
     const { getCatalogo } = useCatalogos();
     const { showToast } = useToast();
+    const { user } = useAuth();
 
     // State
     const [rows, setRows] = useState<any[]>([]);
@@ -55,11 +57,34 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                     data.forEach((row: any) => {
                         // Load existing dates
                         if (row.fecha_muestreo && row.fecha_muestreo !== '  /  /    ' && row.fecha_muestreo !== '01/01/1900') {
-                            // SP returns date in DD/MM/YYYY format, convert to YYYY-MM-DD
-                            const dateParts = row.fecha_muestreo.split('/');
-                            if (dateParts.length === 3) {
-                                const [day, month, year] = dateParts;
-                                existingDates[row.id_agendamam] = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+                            let dateStr = '';
+
+                            if (typeof row.fecha_muestreo === 'string') {
+                                if (row.fecha_muestreo.includes('T')) {
+                                    // Handle ISO string (e.g., 2024-01-27T00:00:00.000Z)
+                                    dateStr = row.fecha_muestreo.split('T')[0];
+                                } else if (row.fecha_muestreo.includes('/')) {
+                                    // Handle legacy format DD/MM/YYYY
+                                    const dateParts = row.fecha_muestreo.split('/');
+                                    if (dateParts.length === 3) {
+                                        const [day, month, year] = dateParts;
+                                        dateStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+                                    }
+                                } else if (row.fecha_muestreo.includes('-')) {
+                                    // Handle simple YYYY-MM-DD
+                                    dateStr = row.fecha_muestreo;
+                                }
+                            } else if (row.fecha_muestreo instanceof Date) {
+                                // Handle Date object (common in mssql driver results)
+                                const d = row.fecha_muestreo;
+                                const year = d.getFullYear();
+                                const month = String(d.getMonth() + 1).padStart(2, '0');
+                                const day = String(d.getDate()).padStart(2, '0');
+                                dateStr = `${year}-${month}-${day}`;
+                            }
+
+                            if (dateStr) {
+                                existingDates[row.id_agendamam] = dateStr;
                             }
                         }
 
@@ -101,7 +126,6 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
         }
     }, [fichaId, getCatalogo]);
 
-    // Handlers
     const handleMuestreadorInstalacionChange = (rowId: number, muestreadorId: number) => {
         setMuestreadorInstalacion(prev => ({
             ...prev,
@@ -178,7 +202,7 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
 
             const response = await fichaService.batchUpdateAgenda({
                 assignments,
-                user: { id: 0 }
+                user: user ? { id: user.id } : { id: 0 }
             });
 
             // Display success message from backend
@@ -228,22 +252,22 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                     <input
                         type="text"
                         value={dbFieldValue}
-                        readOnly
-                        placeholder="Frecuencia..."
+                        disabled
                         style={{
                             width: '100%',
                             padding: '0.5rem',
                             borderRadius: '6px',
-                            border: '1px solid #e5e7eb',
-                            backgroundColor: '#f9fafb',
-                            color: '#6b7280'
+                            border: '1px solid #d1d5db',
+                            backgroundColor: '#f3f4f6',
+                            color: '#6b7280',
+                            fontSize: '0.9rem'
                         }}
                     />
                 </div>
 
-                <div className="form-group" style={{ flex: '0 0 180px' }}>
+                <div className="form-group" style={{ flex: '0 0 160px' }}>
                     <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>
-                        Selección de fecha
+                        Fecha Inicial
                     </label>
                     <input
                         type="date"
@@ -254,38 +278,30 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                             padding: '0.5rem',
                             borderRadius: '6px',
                             border: '1px solid #d1d5db',
-                            backgroundColor: '#fff',
-                            color: '#1f2937'
+                            fontSize: '0.9rem'
                         }}
                     />
                 </div>
 
                 <div className="form-group" style={{ flex: '0 0 auto' }}>
-                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>
-                        &nbsp;
-                    </label>
                     <button
                         onClick={handleCalculateDates}
-                        disabled={!selectedDate || rows.length === 0 || loading}
+                        disabled={!selectedDate}
                         className="btn-secondary"
                         style={{
-                            backgroundColor: (!selectedDate || rows.length === 0) ? '#9ca3af' : '#10b981',
-                            color: 'white',
-                            padding: '0.6rem 1.2rem',
-                            borderRadius: '8px',
-                            fontWeight: 600,
-                            border: 'none',
-                            cursor: (!selectedDate || rows.length === 0) ? 'not-allowed' : 'pointer',
-                            fontSize: '0.85rem',
-                            whiteSpace: 'nowrap'
+                            padding: '0.6rem 1rem',
+                            height: '38px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem'
                         }}
                     >
-                        📅 Calcular Fechas
+                        ⚡ Calcular Fechas
                     </button>
                 </div>
 
-                {/* Bulk Assignment for Muestreador Instalación */}
-                <div className="form-group" style={{ flex: '0 0 200px', marginLeft: '1rem' }}>
+                {/* Bulk Assignment for Muestreador Instalacion */}
+                <div className="form-group" style={{ flex: '0 0 200px' }}>
                     <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>
                         Asignar M. Instalación a Todos
                     </label>
@@ -298,7 +314,7 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                 const newRetiro: { [key: number]: number } = {};
                                 rows.forEach(row => {
                                     newInstalacion[row.id_agendamam] = muestreadorId;
-                                    newRetiro[row.id_agendamam] = muestreadorId;
+                                    newRetiro[row.id_agendamam] = muestreadorRetiro[row.id_agendamam] || muestreadorId;
                                 });
                                 setMuestreadorInstalacion(newInstalacion);
                                 setMuestreadorRetiro(newRetiro);
@@ -471,7 +487,7 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                             </td>
                                             <td style={{ padding: '6px 8px', whiteSpace: 'nowrap', backgroundColor: '#fffbeb', textAlign: 'center' }}>
                                                 <select
-                                                    value={muestreadorInstalacion[row.id_agendamam] || ''}
+                                                    value={muestreadorInstalacion[row.id_agendamam] ?? ''}
                                                     onChange={(e) => handleMuestreadorInstalacionChange(row.id_agendamam, Number(e.target.value))}
                                                     style={{
                                                         padding: '3px 5px',
@@ -492,7 +508,7 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                             </td>
                                             <td style={{ padding: '6px 8px', whiteSpace: 'nowrap', backgroundColor: '#fffbeb', textAlign: 'center' }}>
                                                 <select
-                                                    value={muestreadorRetiro[row.id_agendamam] || ''}
+                                                    value={muestreadorRetiro[row.id_agendamam] ?? ''}
                                                     onChange={(e) => handleMuestreadorRetiroChange(row.id_agendamam, Number(e.target.value))}
                                                     style={{
                                                         padding: '3px 5px',
@@ -514,13 +530,6 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                         </tr>
                                     );
                                 })}
-                                {rows.length === 0 && (
-                                    <tr>
-                                        <td colSpan={12} style={{ textAlign: 'center', padding: '1rem', fontStyle: 'italic' }}>
-                                            No se encontraron asignaciones pendientes.
-                                        </td>
-                                    </tr>
-                                )}
                             </tbody>
                         </table>
                     </div>

@@ -14,6 +14,8 @@ import catalogosRoutes from './routes/catalogos.routes.js';
 import analysisRoutes from './routes/analysis.routes.js';
 import fichaRoutes from './routes/ficha.routes.js';
 import authRoutes from './routes/auth.routes.js';
+import rbacRoutes from './routes/rbac.routes.js';
+import adminRoutes from './routes/admin.routes.js';
 
 // Initialize dotenv
 dotenv.config();
@@ -36,6 +38,9 @@ app.use('/api/catalogos', catalogosRoutes);
 app.use('/api/analysis', analysisRoutes);
 app.use('/api/fichas', fichaRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/rbac', rbacRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {

@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useNavStore } from '../../store/navStore';
 import { useAuth } from '../../contexts/AuthContext';
 import './MainLayout.css';
 import logoAdl from '../../assets/images/logo-adlone.png';
+import logoUser from '../../assets/images/logo_user.png';
 
 // Módulos reales de ADL One
 const MODULES = [
@@ -15,7 +16,7 @@ const MODULES = [
     { id: 'bacteriologia', label: 'Bacteriología', icon: '🦠' },
     { id: 'screening', label: 'Screening', icon: '🔎' },
     { id: 'derivaciones', label: 'Derivaciones', icon: '📬' },
-    { id: 'medio_ambiente', label: 'Medio Ambiente', icon: '🌿' },
+    { id: 'medio_ambiente', label: 'Medio Ambiente', icon: '🌿' }, // Could add MA_ACCESO here too if desired, but user asked about Admin
     { id: 'atl', label: 'ATL', icon: '⚖️' },
     { id: 'id', label: 'I+D', icon: '💡' },
     { id: 'pve', label: 'PVE', icon: '🩺' },
@@ -30,7 +31,7 @@ const MODULES = [
     // Grupo 2: Gestión
     { id: 'facturacion', label: 'Facturación', icon: '💲' },
     { id: 'estadistica', label: 'Estadística', icon: '📊' },
-    { id: 'admin_informacion', label: 'Admin. Información', icon: '📂' },
+    { id: 'admin_informacion', label: 'Admin. Información', icon: '📂', permission: 'MA_ADMIN_ACCESO' }, // Added permission
 
     // Separador
     { id: 'div2', type: 'divider', label: '', icon: '' },
@@ -42,10 +43,9 @@ const MODULES = [
 // Simulamos Submódulos 
 const SUBMODULES_MOCK: Record<string, any[]> = {
     'medio_ambiente': [
-        { id: 'ma-fichas-ingreso', label: 'Fichas de ingreso' },
-        { id: 'ma-tecnica', label: 'Gestión Técnica' },
-        { id: 'ma-coordinacion', label: 'Coordinación' }
+        { id: 'ma-fichas-ingreso', label: 'Fichas de ingreso', permission: 'MA_ACCESO' },
     ],
+    'administracion': [], // Now empty, managed via AdminInfoHub
     // Agregamos datos para GEM para evitar menú vacío
     'gem': [
         { category: 'Gestión GEM' },
@@ -66,15 +66,12 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
     const [showProfileMenu, setShowProfileMenu] = useState(false);
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
-
-
     // Context User
-    const { user, logout } = useAuth();
+    const { user, logout, hasPermission } = useAuth();
 
     // Imagen de perfil fija según requerimiento
-    const profileImage = "https://ui-avatars.com/api/?name=Usuario&background=1565c0&color=fff"; // Placeholder si no hay local
-    // O si tenemos una imagen local importada: import userPlaceholder from '../../assets/images/user-placeholder.png'; 
-    // Por ahora uso la URL generada o un placeholder simple.
+    // Imagen de perfil fija según requerimiento
+    const profileImage = logoUser;
 
     const handleLogout = () => {
         logout();
@@ -92,8 +89,6 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
         // Abrir drawer si tiene submódulos
         if (SUBMODULES_MOCK[mod.id]) {
             setDrawerOpen(true);
-            // En móvil, si abrimos drawer, podemos cerrar el sidebar para dar foco al drawer,
-            // o mantenerlo. Si el drawer cubre todo, da igual. Cerremos el sidebar por limpieza.
             setMobileSidebarOpen(false);
         } else {
             setDrawerOpen(false);
@@ -107,10 +102,6 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
 
     const handleSubmoduleClick = (item: any) => {
         setActiveSubmodule(item.id);
-        // El store tiene logica para cerrar drawer si se desea, o lo hacemos aqui explicito
-        // Segun requerimiento: "al seleccionar, cerrar drawer".
-        // En useNavStore puse: setActiveSubmodule: (submoduleId) => set({ activeSubmodule: submoduleId, drawerOpen: false }),
-        // Así que solo llamar a setActiveSubmodule cierra el drawer y fija el id.
     };
 
     return (
@@ -119,18 +110,16 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
             <aside className={`app-sidebar ${mobileSidebarOpen ? 'mobile-open' : ''}`}>
                 <div className="sidebar-header">
                     <img src={logoAdl} alt="ADL Logo" className="sidebar-logo" />
-                    {/* Botón cerrar sidebar en móvil (opcional pero útil) */}
                     <button
                         className="btn-close-sidebar-mobile"
                         onClick={() => setMobileSidebarOpen(false)}
-                        style={{ display: 'none' }} // Se mostrará por CSS en móvil
                     >✕</button>
                 </div>
 
                 <div className="sidebar-menu">
                     <div style={{ padding: '0 0.8rem 0.5rem', fontSize: '0.7rem', fontWeight: 'bold', color: '#a1a1aa', letterSpacing: '0.5px' }}>UNIDADES</div>
 
-                    {MODULES.map((mod) => (
+                    {MODULES.filter(mod => !mod.permission || hasPermission(mod.permission)).map((mod) => (
                         mod.type === 'divider' ? (
                             <div key={mod.id} style={{ height: '1px', backgroundColor: '#e4e4e7', margin: '0.5rem 1rem' }} />
                         ) : (
@@ -148,16 +137,14 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
             </aside>
 
             {/* Backdrop para Sidebar Móvil */}
-            {/* Backdrop para Sidebar Móvil */}
             <div
                 className={`sidebar-backdrop ${mobileSidebarOpen ? 'visible' : ''}`}
                 onClick={() => setMobileSidebarOpen(false)}
             ></div>
 
-            {/* --- RENDERIZADO CONDICIONAL DEL DRAWER (Fix Definitivo Visual) --- */}
+            {/* --- RENDERIZADO CONDICIONAL DEL DRAWER --- */}
             {drawerOpen && (
                 <>
-                    {/* Drawer (Siempre 'open' porque solo existe si es true) */}
                     <div className="module-drawer open">
                         <div className="drawer-header">
                             <div className="drawer-title">{MODULES.find(m => m.id === activeModule)?.label}</div>
@@ -172,7 +159,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     color: '#52525b',
-                                    flexShrink: 0, /* Prevent shrinking */
+                                    flexShrink: 0,
                                     zIndex: 50
                                 }}
                                 type="button"
@@ -186,19 +173,21 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                         </div>
                         <div className="drawer-content">
                             {getSubmodules().length > 0 ? (
-                                getSubmodules().map((item, index) => (
-                                    item.category ? (
-                                        <div key={index} className="submodule-category">{item.category}</div>
-                                    ) : (
-                                        <div
-                                            key={item.id}
-                                            className={`submodule-item ${activeSubmodule === item.id ? 'active' : ''}`}
-                                            onClick={() => handleSubmoduleClick(item)}
-                                        >
-                                            {item.label}
-                                        </div>
-                                    )
-                                ))
+                                getSubmodules()
+                                    .filter(item => !item.permission || hasPermission(item.permission))
+                                    .map((item, index) => (
+                                        item.category ? (
+                                            <div key={index} className="submodule-category">{item.category}</div>
+                                        ) : (
+                                            <div
+                                                key={item.id}
+                                                className={`submodule-item ${activeSubmodule === item.id ? 'active' : ''}`}
+                                                onClick={() => handleSubmoduleClick(item)}
+                                            >
+                                                {item.label}
+                                            </div>
+                                        )
+                                    ))
                             ) : (
                                 <div style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af', fontSize: '0.9rem' }}>
                                     <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📭</div>
@@ -208,7 +197,6 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                         </div>
                     </div>
 
-                    {/* Backdrop */}
                     <div className="drawer-backdrop visible" onClick={() => setDrawerOpen(false)}></div>
                 </>
             )}
@@ -216,7 +204,6 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
             {/* --- Header Superior --- */}
             <header className="app-header">
                 <div className="header-left">
-                    {/* Hamburger Menu Button for Mobile */}
                     <button
                         className="hamburger-menu"
                         onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}

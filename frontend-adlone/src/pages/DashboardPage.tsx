@@ -4,8 +4,16 @@ import { FichasIngresoPage } from '../features/medio-ambiente/pages/FichasIngres
 import { TecnicaPage } from '../features/medio-ambiente/pages/TecnicaPage';
 import { CoordinacionPage } from '../features/medio-ambiente/pages/CoordinacionPage';
 
+import { RolesPage } from '../features/admin/pages/RolesPage';
+import { AdminInfoHub } from '../features/admin/pages/AdminInfoHub';
+import { InformaticaHub } from '../features/admin/pages/InformaticaHub';
+import { UserRolesPage } from '../features/admin/pages/UserRolesPage';
+import { AdminMaHub } from '../features/admin/pages/AdminMaHub';
+import { MuestreadoresPage } from '../features/admin/pages/MuestreadoresPage';
+import { EquiposPage } from '../features/admin/pages/EquiposPage';
+
 const DashboardPage = () => {
-    const { activeSubmodule } = useNavStore();
+    const { activeModule, activeSubmodule, setActiveSubmodule } = useNavStore();
 
     // Renderizador de contenido dinámico
     const renderContent = () => {
@@ -17,6 +25,44 @@ const DashboardPage = () => {
         }
         if (activeSubmodule === 'ma-coordinacion') {
             return <CoordinacionPage onBack={() => { }} />;
+        }
+
+
+        // Module: Admin información
+        if (activeModule === 'admin_informacion') {
+            if (activeSubmodule === 'informatica') {
+                return (
+                    <InformaticaHub
+                        onNavigate={(view) => setActiveSubmodule(view)}
+                        onBack={() => setActiveSubmodule('')}
+                    />
+                );
+            }
+            if (activeSubmodule === 'admin-roles') {
+                return <RolesPage onBack={() => setActiveSubmodule('informatica')} />;
+            }
+            if (activeSubmodule === 'admin-users') {
+                return <UserRolesPage onBack={() => setActiveSubmodule('informatica')} />;
+            }
+
+            // Module: Admin MA
+            if (activeSubmodule === 'medio_ambiente') {
+                return (
+                    <AdminMaHub
+                        onNavigate={(view) => setActiveSubmodule(view)}
+                        onBack={() => setActiveSubmodule('')}
+                    />
+                );
+            }
+            if (activeSubmodule === 'admin-muestreadores') {
+                return <MuestreadoresPage onBack={() => setActiveSubmodule('medio_ambiente')} />;
+            }
+            if (activeSubmodule === 'admin-equipos') {
+                return <EquiposPage onBack={() => setActiveSubmodule('medio_ambiente')} />;
+            }
+
+            // Default: Show Main Hub
+            return <AdminInfoHub onNavigate={(areaId) => setActiveSubmodule(areaId)} />;
         }
 
         // Default Dashboard Content

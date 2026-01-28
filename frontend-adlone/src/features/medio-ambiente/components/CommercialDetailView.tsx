@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { fichaService } from '../services/ficha.service';
 import { useToast } from '../../../contexts/ToastContext';
+import { useCachedCatalogos } from '../hooks/useCachedCatalogos';
 import '../styles/FichasIngreso.css';
 
 interface Props {
@@ -10,40 +11,63 @@ interface Props {
 
 export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
     const { showToast } = useToast();
+    const catalogos = useCachedCatalogos();
+
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'antecedentes' | 'analisis' | 'observaciones'>('antecedentes');
     const [data, setData] = useState<any>(null);
+    const [laboratorios, setLaboratorios] = useState<any[]>([]);
 
     useEffect(() => {
-        const loadToView = async () => {
+        const loadData = async () => {
             if (!fichaId) return;
             setLoading(true);
             try {
-                const response = await fichaService.getById(fichaId);
-                if (response && response.success && response.data) {
-                    setData(response.data);
-                } else if (response && response.encabezado) {
-                    setData(response);
-                } else if (response && response.fichaingresoservicio) {
-                    // Direct object from SP (new structure)
-                    setData(response);
-                } else {
-                    showToast({ type: 'error', message: 'No se pudo cargar la ficha' });
+                // Parallel fetch: Ficha data + Labs catalog
+                const [fichaResponse, labsData] = await Promise.all([
+                    fichaService.getById(fichaId),
+                    catalogos.getLaboratorios()
+                ]);
+
+                // Handle different response structures for Ficha
+                let fichaData = null;
+                if (fichaResponse && fichaResponse.success && fichaResponse.data) {
+                    fichaData = fichaResponse.data;
+                } else if (fichaResponse && fichaResponse.encabezado) {
+                    fichaData = fichaResponse;
+                } else if (fichaResponse && fichaResponse.fichaingresoservicio) {
+                    fichaData = fichaResponse;
                 }
+
+                if (fichaData) {
+                    setData(fichaData);
+                } else {
+                    showToast({ type: 'error', message: 'No se pudo cargar la ficha (datos inválidos)' });
+                }
+
+                setLaboratorios(labsData || []);
+
             } catch (error) {
-                console.error("Error loading ficha:", error);
-                showToast({ type: 'error', message: 'Error al cargar los detalles de la ficha' });
+                console.error("Error loading ficha or catalogs:", error);
+                showToast({ type: 'error', message: "Error al cargar datos" });
             } finally {
                 setLoading(false);
             }
         };
 
-        loadToView();
+        loadData();
     }, [fichaId, showToast]);
+
+    // Helper to get Lab Name
+    const getLabName = (id: any) => {
+        if (!id) return null;
+        const lab = laboratorios.find(l => l.id_laboratorioensayo === id || l.id_laboratorioensayo === Number(id));
+        return lab ? lab.nombre_laboratorioensayo : null;
+    };
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-64">
+            <div className="loading-container-fullscreen">
                 <div className="text-gray-500 font-medium">Cargando ficha {fichaId}...</div>
             </div>
         );
@@ -295,17 +319,27 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                 <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #e5e7eb' }}>Error Max</th>
                                                 <th style={{ padding: '8px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>Tipo Entrega</th>
                                                 <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #e5e7eb' }}>Valor U.F.</th>
-                                                <th style={{ padding: '8px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>Lab. Derivado</th>
+                                                <th style={{ padding: '8px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>Lab. Principal</th>
+                                                <th style={{ padding: '8px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>Lab. Secundario</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {det.map((row: any, i: number) => {
                                                 const analysisName = row.nombre_tecnica || row.nombre_determinacion || row.nombre_examen || row.nombre_analisis || '-';
 
+                                                // Resolve Names
+                                                const labPrincipalName = getLabName(row.id_laboratorioensayo);
+
+                                                // Check both possible property names for secondary lab
+                                                const idLab2 = row.id_laboratorioensayo_2 || row.id_laboratorioensayo2;
+                                                const labSecundarioName = getLabName(idLab2);
+
+                                                const tipoMuestra = row.nombre_tipomuestra || row.tipo_analisis || row.tipo_muestra || row.tipomuestra || '-';
+
                                                 return (
                                                     <tr key={i} style={{ borderBottom: '1px solid #e5e7eb' }}>
                                                         <td style={{ padding: '8px' }}>{analysisName}</td>
-                                                        <td style={{ padding: '8px' }}>{row.nombre_tipomuestra}</td>
+                                                        <td style={{ padding: '8px' }}>{tipoMuestra}</td>
                                                         <td style={{ padding: '8px', textAlign: 'right' }}>{row.limitemax_d}</td>
                                                         <td style={{ padding: '8px', textAlign: 'right' }}>{row.limitemax_h}</td>
                                                         <td style={{ padding: '8px', textAlign: 'right' }}>{row.llevaerror || row.llevaerror === 'S' || row.llevaerror === true ? 'Sí' : 'No'}</td>
@@ -313,7 +347,12 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                         <td style={{ padding: '8px', textAlign: 'right' }}>{row.error_max}</td>
                                                         <td style={{ padding: '8px' }}>{row.nombre_tipoentrega || '-'}</td>
                                                         <td style={{ padding: '8px', textAlign: 'right' }}>{row.uf_individual}</td>
-                                                        <td style={{ padding: '8px' }}>{row.id_laboratorioensayo ? 'Enviado' : 'Interno'}</td>
+                                                        <td style={{ padding: '8px' }}>
+                                                            {labPrincipalName || (row.id_laboratorioensayo ? 'Enviado' : 'Interno')}
+                                                        </td>
+                                                        <td style={{ padding: '8px' }}>
+                                                            {labSecundarioName || (idLab2 ? 'Enviado (Sec)' : '-')}
+                                                        </td>
                                                     </tr>
                                                 );
                                             })}

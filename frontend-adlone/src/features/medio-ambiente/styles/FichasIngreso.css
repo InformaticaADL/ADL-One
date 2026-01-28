@@ -607,3 +607,41 @@
         margin-top: 2px;
     }
 }
+
+/* ========================================
+   NEW: Observation & Action Row (Responsive)
+   ======================================== */
+.observation-action-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 1.5rem;
+    max-width: 800px;
+    margin: 0 auto;
+    width: 100%;
+    background-color: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e5e7eb;
+}
+
+@media (max-width: 768px) {
+    .observation-action-row {
+        display: flex;
+        flex-direction: column;
+        padding: 1rem;
+        gap: 1rem;
+    }
+}
+
+/* ========================================
+   NEW: Fullscreen Loading (Prevents Flicker)
+   ======================================== */
+.loading-container-fullscreen {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 80vh;
+    background-color: transparent;
+    width: 100%;
+}

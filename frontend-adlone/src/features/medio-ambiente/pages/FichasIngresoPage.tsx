@@ -11,17 +11,35 @@ import { ComercialPage } from './ComercialPage';
 import { TecnicaPage } from './TecnicaPage';
 import { CoordinacionPage } from './CoordinacionPage';
 
+import { ProtectedContent } from '../../../components/auth/ProtectedContent';
+
 export const FichasIngresoPage = () => {
     const [selectedOption, setSelectedOption] = useState<string | null>(null);
 
+    // Enforce permission even if state was somehow set (extra safety, though UI hiding is primary)
+    // Actually, ProtectedContent handles the view, but if we want to prevent rendering the page component:
+    // We can rely on the buttons being hidden.
+
     if (selectedOption === 'comercial') {
-        return <ComercialPage onBack={() => setSelectedOption(null)} />;
+        return (
+            <ProtectedContent permission="MA_COMERCIAL_ACCESO" fallback={<div>No tiene permisos</div>}>
+                <ComercialPage onBack={() => setSelectedOption(null)} />
+            </ProtectedContent>
+        );
     }
     if (selectedOption === 'tecnica') {
-        return <TecnicaPage onBack={() => setSelectedOption(null)} />;
+        return (
+            <ProtectedContent permission="MA_TECNICA_ACCESO" fallback={<div>No tiene permisos</div>}>
+                <TecnicaPage onBack={() => setSelectedOption(null)} />
+            </ProtectedContent>
+        );
     }
     if (selectedOption === 'coordinacion') {
-        return <CoordinacionPage onBack={() => setSelectedOption(null)} />;
+        return (
+            <ProtectedContent permission="MA_COORDINACION_ACCESO" fallback={<div>No tiene permisos</div>}>
+                <CoordinacionPage onBack={() => setSelectedOption(null)} />
+            </ProtectedContent>
+        );
     }
 
     return (
@@ -32,29 +50,35 @@ export const FichasIngresoPage = () => {
             </header>
 
             <div className="cards-grid">
-                <SelectionCard
-                    title="Comercial"
-                    description="Gestión de cotizaciones, clientes y oportunidades comerciales para medio ambiente."
-                    icon="💼"
-                    color="#1565c0" // Azul ADL
-                    onClick={() => setSelectedOption('comercial')}
-                />
+                <ProtectedContent permission="MA_COMERCIAL_ACCESO">
+                    <SelectionCard
+                        title="Comercial"
+                        description="Gestión de cotizaciones, clientes y oportunidades comerciales para medio ambiente."
+                        icon="💼"
+                        color="#1565c0" // Azul ADL
+                        onClick={() => setSelectedOption('comercial')}
+                    />
+                </ProtectedContent>
 
-                <SelectionCard
-                    title="Área Técnica"
-                    description="Ingreso de muestras técnicas, control de parámetros y gestión de análisis de laboratorio."
-                    icon="🧪"
-                    color="#2e7d32" // Verde Técnico
-                    onClick={() => setSelectedOption('tecnica')}
-                />
+                <ProtectedContent permission="MA_TECNICA_ACCESO">
+                    <SelectionCard
+                        title="Área Técnica"
+                        description="Ingreso de muestras técnicas, control de parámetros y gestión de análisis de laboratorio."
+                        icon="🧪"
+                        color="#2e7d32" // Verde Técnico
+                        onClick={() => setSelectedOption('tecnica')}
+                    />
+                </ProtectedContent>
 
-                <SelectionCard
-                    title="Coordinación"
-                    description="Planificación de muestreos, logística de retiro y coordinación de personal en terreno."
-                    icon="📅"
-                    color="#f57c00" // Naranja ADL
-                    onClick={() => setSelectedOption('coordinacion')}
-                />
+                <ProtectedContent permission="MA_COORDINACION_ACCESO">
+                    <SelectionCard
+                        title="Coordinación"
+                        description="Planificación de muestreos, logística de retiro y coordinación de personal en terreno."
+                        icon="📅"
+                        color="#f57c00" // Naranja ADL
+                        onClick={() => setSelectedOption('coordinacion')}
+                    />
+                </ProtectedContent>
             </div>
         </div>
     );

@@ -149,6 +149,16 @@ Unificación de la experiencia de búsqueda y filtrado en todos los módulos de 
 - **Grillas Responsivas**: Layout estandarizado estilo "Nueva Ficha" para una interfaz limpia y consistente.
 - **Ordenamiento Inteligente**: En el módulo de Asignación, las fichas se ordenan automáticamente por urgencia (Por Asignar > Pendiente > Ejecutado).
 
+### 7. Mejoras de UI/UX y Estabilidad Móvil (Responsividad) 📱
+Focalización en la experiencia de usuario en dispositivos móviles y tablets.
+- **Eliminación de Flickers**: Implementación de estados de carga "full-screen" para evitar parpadeos visuales en transiciones de navegación.
+- **Layouts Adaptables**: 
+  - Las vistas de detalle (Técnica, Coordinación) ahora apilan verticalmente los campos de observación y botones de acción en móviles.
+  - Ajuste de márgenes y paddings en modales y tablas para evitar desbordes.
+- **Fix Visual Dashboard**: Corrección de fondo morado persistente mediante limpieza de estilos globales legacy en `App.css`.
+- **Identidad de Usuario**: Personalización de avatar de usuario (`logo_user.png`) con ajustes de `object-fit` para visualización perfecta en el header.
+- **Tablas Compactas**: Optimización de `AssignmentListView` y otras tablas para visualización tipo "Tarjeta" en pantallas pequeñas.
+
 ---
 
 ## 🔧 Configuración para Desarrollo

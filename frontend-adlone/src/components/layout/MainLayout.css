@@ -128,6 +128,10 @@
 }
 
 /* --- Header Superior --- */
+.btn-close-sidebar-mobile {
+    display: none;
+}
+
 .app-header {
     grid-area: header;
     background-color: #ffffff;
@@ -174,8 +178,10 @@
     width: 32px;
     height: 32px;
     border-radius: 50%;
-    object-fit: cover;
+    object-fit: contain;
     border: 1px solid #e4e4e7;
+    padding: 2px;
+    background-color: white;
 }
 
 .user-name {
@@ -392,6 +398,7 @@
         height: auto;
         /* Enable scrolling */
         overflow-x: hidden;
+        background-color: var(--color-bg-light);
     }
 
     /* Hide sidebar on mobile */

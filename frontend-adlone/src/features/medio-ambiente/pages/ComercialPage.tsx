@@ -5,7 +5,6 @@ import { AnalysisForm } from '../components/AnalysisForm';
 import { ObservacionesForm } from '../components/ObservacionesForm';
 import { CommercialDetailView } from '../components/CommercialDetailView';
 import { CatalogosProvider } from '../context/CatalogosContext';
-import { useCachedCatalogos } from '../hooks/useCachedCatalogos'; // Import Hook
 import { ToastProvider, useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { ToastContainer } from '../../../components/Toast/Toast';
@@ -639,7 +638,7 @@ const ConsultarFichasView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () 
                             </thead>
                             <tbody style={{ fontSize: '10px' }}>
                                 {displayedFichas.map((ficha, idx) => (
-                                    <tr key={idx} style={{ borderBottom: '1px solid #e5e7eb', height: '36px' }}>
+                                    <tr key={idx} style={{ borderBottom: '1px solid #e5e7eb' }}>
                                         <td data-label="N° Ficha" style={{ fontWeight: 600, ...cellStyle }}>{ficha.fichaingresoservicio || '-'}</td>
                                         <td data-label="Estado" style={cellStyle}>
                                             <span style={{

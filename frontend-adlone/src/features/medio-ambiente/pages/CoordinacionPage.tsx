@@ -318,7 +318,7 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
                             </thead>
                             <tbody style={{ fontSize: '10px' }}>
                                 {displayedFichas.map((ficha, idx) => (
-                                    <tr key={idx} style={{ borderBottom: '1px solid #e5e7eb', height: '36px' }}>
+                                    <tr key={idx} style={{ borderBottom: '1px solid #e5e7eb' }}>
                                         <td data-label="N° Ficha" style={{ fontWeight: 600, ...cellStyle }}>{ficha.fichaingresoservicio || '-'}</td>
                                         <td data-label="Estado" style={cellStyle}>
                                             <span style={{

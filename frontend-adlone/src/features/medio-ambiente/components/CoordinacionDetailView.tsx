@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { fichaService } from '../services/ficha.service';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useCachedCatalogos } from '../hooks/useCachedCatalogos';
 import '../styles/FichasIngreso.css';
 
 interface Props {
@@ -9,17 +10,118 @@ interface Props {
     onBack: () => void;
 }
 
+// Inline Confirmation Modal
+interface ConfirmationModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onConfirm: () => void;
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    isDestructive?: boolean;
+}
+
+const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
+    isOpen, onClose, onConfirm, title, message,
+    confirmText = 'Confirmar', cancelText = 'Cancelar', isDestructive = false
+}) => {
+    if (!isOpen) return null;
+
+    return (
+        <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999
+        }}>
+            <div style={{
+                backgroundColor: 'white',
+                borderRadius: '12px',
+                padding: '24px',
+                maxWidth: '400px',
+                width: '100%',
+                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+            }}>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#111827', marginBottom: '8px' }}>
+                    {title}
+                </h3>
+                <p style={{ color: '#4b5563', marginBottom: '24px', fontSize: '0.95rem' }}>
+                    {message}
+                </p>
+                <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                    <button
+                        onClick={onClose}
+                        style={{
+                            padding: '8px 16px',
+                            backgroundColor: 'white',
+                            color: '#374151',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '6px',
+                            fontWeight: 500,
+                            cursor: 'pointer'
+                        }}
+                    >
+                        {cancelText}
+                    </button>
+                    <button
+                        onClick={() => {
+                            onConfirm();
+                            onClose();
+                        }}
+                        style={{
+                            padding: '8px 16px',
+                            backgroundColor: isDestructive ? '#dc2626' : '#16a34a',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontWeight: 500,
+                            cursor: 'pointer'
+                        }}
+                    >
+                        {confirmText}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
     const { showToast } = useToast();
     const { user } = useAuth(); // Auth context
+    const catalogos = useCachedCatalogos();
 
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'antecedentes' | 'analisis' | 'observaciones'>('antecedentes');
     const [data, setData] = useState<any>(null);
+    const [laboratorios, setLaboratorios] = useState<any[]>([]);
 
     // Editable State for Coordinacion
     const [coordinacionObs, setCoordinacionObs] = useState('');
     const [actionLoading, setActionLoading] = useState(false);
+
+    // Modal State
+    const [modalConfig, setModalConfig] = useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+        onConfirm: () => void;
+        isDestructive?: boolean;
+        confirmText?: string;
+    }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        onConfirm: () => { },
+        isDestructive: false
+    });
 
     useEffect(() => {
         const loadFicha = async () => {
@@ -27,9 +129,15 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
             setLoading(true);
             try {
                 // Return structure: flat (observaciones_coordinador, observaciones_jefaturatecnica, etc.)
-                const response = await fichaService.getById(fichaId);
+                // Parallel fetch: Ficha + Labs
+                const [response, labsData] = await Promise.all([
+                    fichaService.getById(fichaId),
+                    catalogos.getLaboratorios()
+                ]);
+
                 const fichaData = response.data || response;
                 setData(fichaData);
+                setLaboratorios(labsData || []);
 
                 // Populate local state from existing observations
                 // Look for 'observaciones_coordinador' on the flat object
@@ -48,8 +156,14 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
         loadFicha();
     }, [fichaId, showToast]);
 
-    const handleAccept = async () => {
-        if (!window.confirm('¿Está seguro de ACEPTAR esta ficha (Guardar observaciones)?')) return;
+    // Helper to get Lab Name
+    const getLabName = (id: any) => {
+        if (!id) return null;
+        const lab = laboratorios.find((l: any) => l.id_laboratorioensayo === id || l.id_laboratorioensayo === Number(id));
+        return lab ? lab.nombre_laboratorioensayo : null;
+    };
+
+    const executeAccept = async () => {
         setActionLoading(true);
         try {
             // Need a specific endpoint/method for Coordinacion approval or just saving obs
@@ -72,22 +186,36 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
         }
     };
 
-    const handleReject = async () => {
-        if (!window.confirm('¿Está seguro de LIMPIAR las observaciones?')) return;
+    const handleAcceptClick = () => {
+        setModalConfig({
+            isOpen: true,
+            title: 'Guardar Observaciones',
+            message: '¿Está seguro de guardar las observaciones de coordinación?',
+            onConfirm: executeAccept,
+            isDestructive: false,
+            confirmText: 'Guardar'
+        });
+    };
+
+    const executeReject = async () => {
         setCoordinacionObs('');
-        // If "Reject" implies clearing database value:
-        /*
-        setActionLoading(true);
-        try {
-             await fichaService.rejectCoordinacion(fichaId, { ... });
-             showToast({ type: 'info', message: 'Observaciones limpiadas' });
-        } catch(e) { ... } finally { setActionLoading(false); }
-        */
+        showToast({ type: 'info', message: 'Observaciones limpiadas (Localmente)' });
+    };
+
+    const handleRejectClick = () => {
+        setModalConfig({
+            isOpen: true,
+            title: 'Limpiar Observaciones',
+            message: '¿Está seguro de LIMPIAR el campo de observaciones? Esto borrará el texto actual.',
+            onConfirm: executeReject,
+            isDestructive: true,
+            confirmText: 'Limpiar'
+        });
     };
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-64">
+            <div className="loading-container-fullscreen">
                 <div className="text-gray-500 font-medium">Cargando ficha {fichaId}...</div>
             </div>
         );
@@ -167,6 +295,16 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
 
     return (
         <div className="fichas-ingreso-container commercial-layout">
+            <ConfirmationModal
+                isOpen={modalConfig.isOpen}
+                onClose={() => setModalConfig(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={modalConfig.onConfirm}
+                title={modalConfig.title}
+                message={modalConfig.message}
+                isDestructive={modalConfig.isDestructive}
+                confirmText={modalConfig.confirmText}
+            />
+
             <div className="header-row">
                 <button onClick={onBack} className="btn-back">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -329,13 +467,18 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
                                                 <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #e5e7eb' }}>Error Max</th>
                                                 <th style={{ padding: '8px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>Tipo Entrega</th>
                                                 <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #e5e7eb' }}>Valor U.F.</th>
-                                                <th style={{ padding: '8px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>Lab. Derivado</th>
+                                                <th style={{ padding: '8px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>Lab. Principal</th>
+                                                <th style={{ padding: '8px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>Lab. Secundario</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {det.map((row: any, i: number) => {
                                                 const analysisName = row.nombre_tecnica || row.nombre_determinacion || row.nombre_examen || row.nombre_analisis || '-';
                                                 const errorYes = ['S', 's', 'Y', 'y', true].includes(row.llevaerror);
+
+                                                // Resolve Names
+                                                const labPrincipalName = getLabName(row.id_laboratorioensayo);
+                                                const labSecundarioName = getLabName(row.id_laboratorioensayo_2);
 
                                                 return (
                                                     <tr key={i} style={{ borderBottom: '1px solid #f3f4f6' }}>
@@ -348,7 +491,12 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
                                                         <td style={{ padding: '8px', textAlign: 'right' }}>{row.error_max ?? '-'}</td>
                                                         <td style={{ padding: '8px' }}>{row.nombre_tipoentrega || row.nombre_entrega}</td>
                                                         <td style={{ padding: '8px', textAlign: 'right' }}>{row.uf_individual || row.uf || 0}</td>
-                                                        <td style={{ padding: '8px' }}>{row.nombre_laboratorioensayo || row.nombre_laboratorio || row.laboratorio || '-'}</td>
+                                                        <td style={{ padding: '8px' }}>
+                                                            {labPrincipalName || (row.id_laboratorioensayo ? 'Enviado' : 'Interno')}
+                                                        </td>
+                                                        <td style={{ padding: '8px' }}>
+                                                            {labSecundarioName || (row.id_laboratorioensayo_2 ? 'Enviado (Sec)' : '-')}
+                                                        </td>
                                                     </tr>
                                                 );
                                             })}
@@ -373,21 +521,10 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
                             <ReadOnlyObservationArea label="Observaciones Área Técnica" value={enc.observaciones_jefaturatecnica} />
 
                             {/* COORDINACION EDITABLE ROW */}
-                            <div style={{
-                                padding: '1.5rem',
-                                border: '1px solid #e5e7eb',
-                                borderRadius: '8px',
-                                backgroundColor: 'white',
-                                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-                                maxWidth: '800px',
-                                margin: '0 auto',
-                                width: '100%',
-                                borderLeft: '4px solid #8b5cf6', // Highlight coordination (purple)
-                                display: 'grid',
-                                gridTemplateColumns: 'minmax(0, 1fr) auto', // Input | Actions
-                                gap: '1.5rem'
+                            <div className="observation-action-row" style={{
+                                borderLeft: '4px solid #8b5cf6' // Keep specific color inline
                             }}>
-                                <div className="form-group">
+                                <div className="form-group" style={{ width: '100%' }}>
                                     <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#111827', marginBottom: '8px', display: 'block' }}>
                                         Observaciones Coordinación (Editable)
                                     </label>
@@ -416,7 +553,7 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
 
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1.8rem' }}>
                                     <button
-                                        onClick={handleAccept}
+                                        onClick={handleAcceptClick}
                                         disabled={actionLoading}
                                         style={{
                                             padding: '8px 16px',
@@ -439,7 +576,7 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
                                     </button>
 
                                     <button
-                                        onClick={handleReject}
+                                        onClick={handleRejectClick}
                                         disabled={actionLoading}
                                         style={{
                                             padding: '8px 16px',
@@ -458,7 +595,7 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
                                             opacity: actionLoading ? 0.7 : 1
                                         }}
                                     >
-                                        <span>❌ Rechazar</span>
+                                        <span>❌ Limpiar</span>
                                     </button>
                                 </div>
                             </div>

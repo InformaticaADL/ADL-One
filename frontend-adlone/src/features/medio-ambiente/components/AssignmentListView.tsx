@@ -325,7 +325,7 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                             </thead>
                             <tbody style={{ fontSize: '10px' }}>
                                 {displayedFichas.map((row, idx) => (
-                                    <tr key={idx} style={{ borderBottom: '1px solid #e5e7eb', height: '36px' }}>
+                                    <tr key={idx} style={{ borderBottom: '1px solid #e5e7eb' }}>
                                         <td style={{ fontWeight: 600, ...cellStyle }}>{row.fichaingresoservicio || row.id_fichaingresoservicio}</td>
 
                                         <td style={cellStyle}>

@@ -8,6 +8,7 @@ interface User {
     name: string;
     email: string;
     role: number;
+    permissions?: string[]; // RBAC Permissions
 }
 
 interface AuthContextType {
@@ -17,6 +18,7 @@ interface AuthContextType {
     logout: () => void;
     isAuthenticated: boolean;
     loading: boolean;
+    hasPermission: (permission: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -49,8 +51,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (response.data && response.data.success) {
                 const { token, user } = response.data.data;
                 setToken(token);
+                // Ensure permissions are present
                 setUser(user);
                 localStorage.setItem('token', token);
+                // Store full user object including permissions
                 localStorage.setItem('user', JSON.stringify(user));
             } else {
                 throw new Error(response.data.message || 'Error al iniciar sesión');
@@ -62,11 +66,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const logout = () => {
-        setUser(null);
         setToken(null);
+        setUser(null);
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        window.location.href = '/login'; // Force reload/redirect
+        // No reloading needed, App.tsx handles the view switch via isAuthenticated
+    };
+
+    // RBAC Helper
+    const hasPermission = (permissionCode: string): boolean => {
+        if (!user) return false;
+        // If user is Admin (role==1 usually), allow all. Adjust logic as needed.
+        // For now, strict check against permissions array.
+        // Also check if permissions is undefined (e.g. old session), default to false.
+        const perms = user.permissions || [];
+        return perms.includes(permissionCode);
     };
 
     return (
@@ -75,12 +89,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             token,
             login,
             logout,
-            isAuthenticated: !!user,
-            loading
+            isAuthenticated: !!token,
+            loading,
+            hasPermission
         }}>
             {children}
         </AuthContext.Provider>
     );
+
 };
 
 export const useAuth = () => {
