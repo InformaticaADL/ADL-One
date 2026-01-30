@@ -157,6 +157,15 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
         padding: '6px 8px'
     };
 
+    // Label style
+    const labelStyle: React.CSSProperties = {
+        fontSize: '0.7rem',
+        fontWeight: 600,
+        color: '#374151',
+        marginBottom: '2px',
+        display: 'block'
+    };
+
     return (
         <div className="fichas-ingreso-container commercial-layout">
             {/* Header */}
@@ -263,7 +272,8 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
                         options={uniqueUsuarios.map(val => ({ id: val, nombre: val }))}
                     />
 
-                    <div style={{ display: 'flex', alignItems: 'end' }}>
+                    <div className="form-group">
+                        <label style={{ ...labelStyle, visibility: 'hidden' }}>Limpiar</label>
                         <button
                             onClick={handleClearFilters}
                             style={{
@@ -317,14 +327,34 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
                                 {displayedFichas.map((ficha, idx) => (
                                     <tr key={idx} style={{ borderBottom: '1px solid #e5e7eb' }}>
                                         <td data-label="N° Ficha" style={{ fontWeight: 600, ...cellStyle }}>{ficha.fichaingresoservicio || '-'}</td>
-                                        <td data-label="Estado" style={cellStyle}>
+                                        <td data-label="Estado" style={{ ...cellStyle, whiteSpace: 'normal', overflow: 'visible', textOverflow: 'clip', minWidth: '120px' }}>
                                             <span style={{
                                                 padding: '1px 6px',
                                                 borderRadius: '9999px',
                                                 fontSize: '9px',
                                                 fontWeight: 600,
-                                                backgroundColor: (ficha.estado_ficha || '').includes('Borrador') ? '#f3f4f6' : (ficha.estado_ficha || '').includes('Emitida') || (ficha.estado_ficha || '').includes('VIGENTE') ? '#dcfce7' : '#fee2e2',
-                                                color: (ficha.estado_ficha || '').includes('Borrador') ? '#4b5563' : (ficha.estado_ficha || '').includes('Emitida') || (ficha.estado_ficha || '').includes('VIGENTE') ? '#166534' : '#991b1b'
+                                                backgroundColor: (() => {
+                                                    const est = (ficha.estado_ficha || '').toUpperCase();
+                                                    if (est.includes('RECHAZADA')) return '#fee2e2'; // Rojo
+                                                    if (est.includes('PENDIENTE TÉCNICA')) return '#fef3c7'; // Amarillo/Naranja
+                                                    if (est.includes('PENDIENTE COORDINACIÓN')) return '#dbeafe'; // Azul
+                                                    if (est.includes('REVISAR')) return '#fee2e2'; // Rojo
+                                                    if (est.includes('EN PROCESO')) return '#dcfce7'; // Verde
+                                                    if (est.includes('BORRADOR')) return '#f3f4f6'; // Gris
+                                                    if (est.includes('VIGENTE')) return '#dcfce7'; // Verde (Legacy)
+                                                    return '#f3f4f6'; // Default Gris
+                                                })(),
+                                                color: (() => {
+                                                    const est = (ficha.estado_ficha || '').toUpperCase();
+                                                    if (est.includes('RECHAZADA')) return '#991b1b';
+                                                    if (est.includes('PENDIENTE TÉCNICA')) return '#92400e';
+                                                    if (est.includes('PENDIENTE COORDINACIÓN')) return '#1e40af';
+                                                    if (est.includes('REVISAR')) return '#991b1b';
+                                                    if (est.includes('EN PROCESO')) return '#166534';
+                                                    if (est.includes('BORRADOR')) return '#4b5563';
+                                                    if (est.includes('VIGENTE')) return '#166534';
+                                                    return '#4b5563';
+                                                })()
                                             }}>
                                                 {ficha.estado_ficha || '-'}
                                             </span>

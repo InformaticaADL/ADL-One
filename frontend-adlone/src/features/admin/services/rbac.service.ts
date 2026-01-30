@@ -22,6 +22,21 @@ export interface User {
     id_usuario: number;
     nombre_usuario: string;
     nombre_real: string;
+    correo_electronico?: string;
+    habilitado?: string;
+}
+
+export interface CreateUserData {
+    nombre_usuario: string;
+    nombre_real: string;
+    correo_electronico?: string;
+    clave_usuario: string;
+}
+
+export interface UpdateUserData {
+    nombre_usuario: string;
+    nombre_real: string;
+    correo_electronico?: string;
 }
 
 class RbacService {
@@ -83,6 +98,38 @@ class RbacService {
     async assignRolesToUser(userId: number, roleIds: number[]): Promise<void> {
         await axios.post(`${API_CONFIG.getBaseURL()}/api/rbac/users/${userId}/roles`, {
             roleIds
+        }, this.getConfig());
+    }
+
+    async getUsersByRole(roleId: number): Promise<User[]> {
+        const response = await axios.get(`${API_CONFIG.getBaseURL()}/api/rbac/roles/${roleId}/users`, this.getConfig());
+        return response.data.data;
+    }
+
+    // === User CRUD ===
+    async getAllUsersWithStatus(): Promise<User[]> {
+        const response = await axios.get(`${API_CONFIG.getBaseURL()}/api/rbac/users/all`, this.getConfig());
+        return response.data.data;
+    }
+
+    async createUser(userData: CreateUserData): Promise<User> {
+        const response = await axios.post(`${API_CONFIG.getBaseURL()}/api/rbac/users/create`, userData, this.getConfig());
+        return response.data.data;
+    }
+
+    async updateUser(userId: number, userData: UpdateUserData): Promise<void> {
+        await axios.put(`${API_CONFIG.getBaseURL()}/api/rbac/users/${userId}`, userData, this.getConfig());
+    }
+
+    async updateUserPassword(userId: number, newPassword: string): Promise<void> {
+        await axios.put(`${API_CONFIG.getBaseURL()}/api/rbac/users/${userId}/password`, {
+            new_password: newPassword
+        }, this.getConfig());
+    }
+
+    async toggleUserStatus(userId: number, habilitado: boolean): Promise<void> {
+        await axios.put(`${API_CONFIG.getBaseURL()}/api/rbac/users/${userId}/status`, {
+            habilitado
         }, this.getConfig());
     }
 }

@@ -19,6 +19,10 @@ export const fichaService = {
         const response = await axiosInstance.post('/create', data);
         return response.data;
     },
+    update: async (id: number, data: any) => {
+        const response = await axiosInstance.post(`/${id}/update`, data);
+        return response.data;
+    },
     getById: async (id: number) => {
         const response = await axiosInstance.get(`/${id}`);
         return response.data;
@@ -64,5 +68,9 @@ export const fichaService = {
     }) => {
         const response = await axiosInstance.post('/batch-agenda', data);
         return response.data.data; // Access nested data from successResponse wrapper
+    },
+    getHistorial: async (id: number) => {
+        const response = await axiosInstance.get(`/${id}/historial`);
+        return response.data.data;
     }
 };

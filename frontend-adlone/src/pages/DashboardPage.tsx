@@ -7,10 +7,12 @@ import { CoordinacionPage } from '../features/medio-ambiente/pages/CoordinacionP
 import { RolesPage } from '../features/admin/pages/RolesPage';
 import { AdminInfoHub } from '../features/admin/pages/AdminInfoHub';
 import { InformaticaHub } from '../features/admin/pages/InformaticaHub';
+import { UsersManagementPage } from '../features/admin/pages/UsersManagementPage';
 import { UserRolesPage } from '../features/admin/pages/UserRolesPage';
 import { AdminMaHub } from '../features/admin/pages/AdminMaHub';
 import { MuestreadoresPage } from '../features/admin/pages/MuestreadoresPage';
 import { EquiposPage } from '../features/admin/pages/EquiposPage';
+import { NotificationsPage } from '../features/admin/pages/NotificationsPage';
 
 const DashboardPage = () => {
     const { activeModule, activeSubmodule, setActiveSubmodule } = useNavStore();
@@ -42,7 +44,13 @@ const DashboardPage = () => {
                 return <RolesPage onBack={() => setActiveSubmodule('informatica')} />;
             }
             if (activeSubmodule === 'admin-users') {
+                return <UsersManagementPage onBack={() => setActiveSubmodule('informatica')} />;
+            }
+            if (activeSubmodule === 'admin-user-roles') {
                 return <UserRolesPage onBack={() => setActiveSubmodule('informatica')} />;
+            }
+            if (activeSubmodule === 'admin-notifications') {
+                return <NotificationsPage onBack={() => setActiveSubmodule('informatica')} />;
             }
 
             // Module: Admin MA

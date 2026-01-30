@@ -103,7 +103,12 @@ class RbacService {
     async getAllUsers() {
         try {
             const pool = await getConnection();
-            const result = await pool.request().query('SELECT id_usuario, nombre_usuario, usuario as nombre_real FROM mae_usuario');
+            const result = await pool.request().query(`
+                SELECT id_usuario, nombre_usuario, usuario as nombre_real, correo_electronico 
+                FROM mae_usuario 
+                WHERE habilitado = 'S'
+                ORDER BY nombre_usuario
+            `);
             return result.recordset;
         } catch (error) {
             logger.error('Error getting all users:', error);
@@ -159,6 +164,144 @@ class RbacService {
             }
         } catch (error) {
             logger.error('Error assigning roles to user:', error);
+            throw error;
+        }
+    }
+
+    async getUsersByRole(roleId) {
+        try {
+            const pool = await getConnection();
+            const result = await pool.request()
+                .input('roleId', sql.Numeric(10, 0), roleId)
+                .query(`
+                    SELECT u.id_usuario, u.nombre_usuario, u.usuario as nombre_real, u.correo_electronico
+                    FROM rel_usuario_rol rel
+                    JOIN mae_usuario u ON rel.id_usuario = u.id_usuario
+                    WHERE rel.id_rol = @roleId AND u.habilitado = 'S'
+                    ORDER BY u.nombre_usuario
+                `);
+            return result.recordset;
+        } catch (error) {
+            logger.error('Error getting users by role:', error);
+            throw error;
+        }
+    }
+
+    // === User CRUD ===
+    async getAllUsersWithStatus() {
+        try {
+            const pool = await getConnection();
+            const result = await pool.request().query(`
+                SELECT id_usuario, nombre_usuario, usuario as nombre_real, 
+                       correo_electronico, mam_cargo, habilitado
+                FROM mae_usuario 
+                ORDER BY nombre_usuario
+            `);
+            return result.recordset;
+        } catch (error) {
+            logger.error('Error getting all users with status:', error);
+            throw error;
+        }
+    }
+
+    async createUser(userData) {
+        try {
+            const pool = await getConnection();
+
+            // Generate ID manually (legacy table without IDENTITY)
+            const idResult = await pool.request()
+                .query('SELECT ISNULL(MAX(id_usuario), 0) + 1 AS newId FROM mae_usuario');
+            const newId = idResult.recordset[0].newId;
+
+            const result = await pool.request()
+                .input('id', sql.Numeric(10, 0), newId)
+                .input('nombreUsuario', sql.VarChar(50), userData.nombre_usuario)
+                .input('nombreReal', sql.VarChar(100), userData.nombre_real)
+                .input('correo', sql.VarChar(100), userData.correo_electronico)
+                .input('clave', sql.VarChar(50), userData.clave_usuario)
+                .input('habilitado', sql.Char(1), 'S')
+                .query(`
+                    INSERT INTO mae_usuario (id_usuario, nombre_usuario, usuario, correo_electronico, clave_usuario, habilitado)
+                    OUTPUT INSERTED.id_usuario, INSERTED.nombre_usuario, INSERTED.usuario, 
+                           INSERTED.correo_electronico, INSERTED.habilitado
+                    VALUES (@id, @nombreUsuario, @nombreReal, @correo, @clave, @habilitado)
+                `);
+            return result.recordset[0];
+        } catch (error) {
+            logger.error('Error creating user:', error);
+            throw error;
+        }
+    }
+
+    async updateUser(userId, userData) {
+        try {
+            const pool = await getConnection();
+            const result = await pool.request()
+                .input('userId', sql.Numeric(10, 0), userId)
+                .input('nombreUsuario', sql.VarChar(50), userData.nombre_usuario)
+                .input('nombreReal', sql.VarChar(100), userData.nombre_real)
+                .input('correo', sql.VarChar(100), userData.correo_electronico)
+                .query(`
+                    UPDATE mae_usuario 
+                    SET nombre_usuario = @nombreUsuario,
+                        usuario = @nombreReal,
+                        correo_electronico = @correo
+                    WHERE id_usuario = @userId
+                `);
+
+            if (result.rowsAffected[0] === 0) {
+                throw new Error('Usuario no encontrado');
+            }
+
+            return { success: true };
+        } catch (error) {
+            logger.error('Error updating user:', error);
+            throw error;
+        }
+    }
+
+    async updateUserPassword(userId, newPassword) {
+        try {
+            const pool = await getConnection();
+            const result = await pool.request()
+                .input('userId', sql.Numeric(10, 0), userId)
+                .input('newPassword', sql.VarChar(50), newPassword)
+                .query(`
+                    UPDATE mae_usuario 
+                    SET clave_usuario = @newPassword
+                    WHERE id_usuario = @userId
+                `);
+
+            if (result.rowsAffected[0] === 0) {
+                throw new Error('Usuario no encontrado');
+            }
+
+            return { success: true };
+        } catch (error) {
+            logger.error('Error updating user password:', error);
+            throw error;
+        }
+    }
+
+    async toggleUserStatus(userId, newStatus) {
+        try {
+            const pool = await getConnection();
+            const result = await pool.request()
+                .input('userId', sql.Numeric(10, 0), userId)
+                .input('habilitado', sql.Char(1), newStatus ? 'S' : 'N')
+                .query(`
+                    UPDATE mae_usuario 
+                    SET habilitado = @habilitado
+                    WHERE id_usuario = @userId
+                `);
+
+            if (result.rowsAffected[0] === 0) {
+                throw new Error('Usuario no encontrado');
+            }
+
+            return { success: true };
+        } catch (error) {
+            logger.error('Error toggling user status:', error);
             throw error;
         }
     }

@@ -16,6 +16,7 @@ import fichaRoutes from './routes/ficha.routes.js';
 import authRoutes from './routes/auth.routes.js';
 import rbacRoutes from './routes/rbac.routes.js';
 import adminRoutes from './routes/admin.routes.js';
+import notificationRoutes from './routes/notification.routes.js';
 
 // Initialize dotenv
 dotenv.config();
@@ -41,6 +42,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/rbac', rbacRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {

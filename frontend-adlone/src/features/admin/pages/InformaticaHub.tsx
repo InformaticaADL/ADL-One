@@ -9,7 +9,9 @@ interface Props {
 export const InformaticaHub: React.FC<Props> = ({ onNavigate, onBack }) => {
     const OPTIONS = [
         { id: 'admin-roles', label: 'Gestión de Roles', icon: '🛡️', description: 'Definir perfiles y permisos del sistema.' },
-        { id: 'admin-users', label: 'Gestión de Usuarios', icon: '👥', description: 'Asignar roles a los usuarios.' },
+        { id: 'admin-users', label: 'Gestión de Usuarios', icon: '👤', description: 'Crear, editar y administrar usuarios.' },
+        { id: 'admin-user-roles', label: 'Asignación de Roles', icon: '👥', description: 'Asignar roles a los usuarios.' },
+        { id: 'admin-notifications', label: 'Notificaciones', icon: '🔔', description: 'Configurar eventos y destinatarios de correo.' },
     ];
 
     return (

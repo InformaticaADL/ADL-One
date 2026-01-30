@@ -12,6 +12,7 @@ router.post('/:id/reject', fichaController.reject);
 router.post('/:id/approve-coordinacion', fichaController.approveCoordinacion);
 router.post('/:id/review-coordinacion', fichaController.reviewCoordinacion);
 router.get('/:id/assignment-detail', fichaController.getAssignmentDetail);
+router.get('/:id/historial', fichaController.getHistorial);
 router.get('/:id', fichaController.getById);
 router.post('/batch-agenda', fichaController.batchUpdateAgenda);
 router.post('/:id/agenda', fichaController.updateAgenda);

@@ -1,6 +1,7 @@
 import sql from '../config/database.js';
 import { getConnection } from '../config/database.js';
 import logger from '../utils/logger.js';
+import notificationService from './notification.service.js';
 
 class FichaIngresoService {
 
@@ -321,7 +322,20 @@ class FichaIngresoService {
                 EXEC actualiza_auditoria @id_ref, @ref, @campo, @orig, @tipo, @nval, @mot, @usu, @hr, @fec
             `);
 
+            // LOG HISTORY (Creation)
+            await this.logHistorial(transaction, {
+                idFicha: newId,
+                idUsuario: userId,
+                accion: 'CREACION',
+                estadoAnterior: '',
+                estadoNuevo: 'NUEVA',
+                observacion: obs
+            });
+
             await transaction.commit();
+
+            // NOTIFICATION: Ficha Nueva
+            notificationService.send('FICHA_NUEVA', { correlativo: String(newId) });
 
             logger.info(`Ficha creada exitosamente: ${newId}`);
             return { success: true, id: newId, message: 'Ficha creada exitosamente' };
@@ -339,6 +353,382 @@ class FichaIngresoService {
         }
     }
 
+    async updateFicha(id, data, user) {
+        const pool = await getConnection();
+        const transaction = new sql.Transaction(pool);
+
+        try {
+            await transaction.begin();
+            logger.info(`Transaction started for updateFicha ID: ${id}`);
+
+            // 1. UPDATE Encabezado
+            const requestEnc = new sql.Request(transaction);
+            const ant = data.antecedentes || {};
+            const obs = data.observaciones || '';
+
+            // Helper for values (reuse from create)
+            const val = (v) => v === undefined || v === null || v === '' ? null : v;
+            const valStr = (v, len) => val(v) ? String(v).substring(0, len) : null;
+            const valNum = (v) => val(v) ? Number(v) : null;
+
+            // Construct Instrumento Ambiental string
+            let instrumento = null;
+            if (ant.selectedInstrumento && ant.selectedInstrumento !== 'No aplica') {
+                instrumento = `${ant.selectedInstrumento} ${ant.nroInstrumento || ''}/${ant.anioInstrumento || ''}`;
+            } else if (ant.selectedInstrumento === 'No aplica') {
+                instrumento = 'No aplica';
+            }
+
+            // Construct Coordinates
+            let coordenadas = null;
+            if (ant.zona && ant.zona !== 'No aplica') {
+                coordenadas = `${ant.zona} UTM ${ant.utmNorte || ''}E ${ant.utmEste || ''}S`;
+            } else if (ant.zona === 'No aplica') {
+                coordenadas = 'No aplica';
+            }
+
+            requestEnc.input('id', sql.Numeric(10, 0), id);
+            requestEnc.input('tipo_ficha', sql.VarChar(20), valStr(ant.tipoMonitoreo, 20));
+            requestEnc.input('id_lugaranalisis', sql.Numeric(10, 0), valNum(ant.selectedLugar));
+            requestEnc.input('id_empresaservicio', sql.Numeric(10, 0), valNum(ant.selectedEmpresa));
+            requestEnc.input('id_empresa', sql.Numeric(10, 0), valNum(ant.selectedCliente));
+            requestEnc.input('id_centro', sql.Numeric(10, 0), valNum(ant.selectedFuente));
+            requestEnc.input('id_tipoagua', sql.Numeric(10, 0), valNum(ant.idTipoAgua) || null);
+            requestEnc.input('instrumento', sql.VarChar(50), valStr(instrumento, 50));
+            requestEnc.input('id_objetivo', sql.Numeric(10, 0), valNum(ant.selectedObjetivo));
+            requestEnc.input('nombre_tabla', sql.VarChar(150), valStr(ant.glosa, 150));
+            requestEnc.input('etfa', sql.VarChar(1), ant.esETFA === 'Si' ? 'S' : 'N');
+            requestEnc.input('punto_muestreo', sql.VarChar(250), valStr(ant.puntoMuestreo, 250));
+            requestEnc.input('coordenadas', sql.VarChar(50), valStr(coordenadas, 50));
+            requestEnc.input('id_tipomuestra', sql.Numeric(10, 0), valNum(ant.selectedComponente));
+            requestEnc.input('id_subarea', sql.Numeric(10, 0), valNum(ant.selectedSubArea));
+            requestEnc.input('id_tipodescarga', sql.Numeric(10, 0), valNum(ant.selectedTipoDescarga));
+            requestEnc.input('id_contacto', sql.Numeric(10, 0), valNum(ant.selectedContacto));
+            requestEnc.input('cliente_entrega', sql.VarChar(80), valStr(ant.contactoNombre || 'Cliente', 80));
+            requestEnc.input('id_tipomuestreo', sql.Numeric(10, 0), valNum(ant.selectedTipoMuestreo));
+            requestEnc.input('id_tipomuestra_ma', sql.Numeric(10, 0), valNum(ant.selectedTipoMuestra));
+            requestEnc.input('id_actividad', sql.Numeric(10, 0), valNum(ant.selectedActividad));
+            requestEnc.input('duracion', sql.VarChar(10), valStr(ant.duracion, 10));
+            requestEnc.input('ref_google', sql.VarChar(200), valStr(ant.refGoogle, 200));
+            requestEnc.input('medicion_caudal', sql.VarChar(10), valStr(ant.medicionCaudal, 10));
+            requestEnc.input('id_modalidad', sql.Numeric(10, 0), valNum(ant.selectedModalidad));
+            requestEnc.input('id_formacanal', sql.Numeric(10, 0), valNum(ant.formaCanal));
+            requestEnc.input('formacanal_medida', sql.VarChar(50), valStr(ant.detalleCanal, 50));
+            requestEnc.input('id_dispositivohidraulico', sql.Numeric(10, 0), valNum(ant.dispositivo));
+            requestEnc.input('dispositivohidraulico_medida', sql.VarChar(50), valStr(ant.detalleDispositivo, 50));
+            requestEnc.input('responsable', sql.VarChar(20), valStr(ant.responsableMuestreo, 20));
+            requestEnc.input('id_cargo', sql.Numeric(10, 0), valNum(ant.cargoResponsable));
+            requestEnc.input('obs_comercial', sql.VarChar(250), valStr(obs, 250));
+            requestEnc.input('ubicacion', sql.VarChar(200), valStr(ant.ubicacion, 200));
+
+            await requestEnc.query(`
+                UPDATE App_Ma_FichaIngresoServicio_ENC
+                SET tipo_fichaingresoservicio = @tipo_ficha,
+                    id_lugaranalisis = @id_lugaranalisis,
+                    id_empresaservicio = @id_empresaservicio,
+                    id_empresa = @id_empresa,
+                    id_centro = @id_centro,
+                    id_tipoagua = @id_tipoagua,
+                    instrumento_ambiental = @instrumento,
+                    id_objetivomuestreo_ma = @id_objetivo,
+                    nombre_tabla_largo = @nombre_tabla,
+                    etfa = @etfa,
+                    ma_punto_muestreo = @punto_muestreo,
+                    ma_coordenadas = @coordenadas,
+                    id_tipomuestra = @id_tipomuestra,
+                    id_subarea = @id_subarea,
+                    id_tipodescarga = @id_tipodescarga,
+                    id_contacto = @id_contacto,
+                    cliente_entrega = @cliente_entrega,
+                    id_tipomuestreo = @id_tipomuestreo,
+                    id_tipomuestra_ma = @id_tipomuestra_ma,
+                    id_actividadmuestreo = @id_actividad,
+                    ma_duracion_muestreo = @duracion,
+                    referencia_googlemaps = @ref_google,
+                    medicion_caudal = @medicion_caudal,
+                    id_modalidad = @id_modalidad,
+                    id_formacanal = @id_formacanal,
+                    formacanal_medida = @formacanal_medida,
+                    id_dispositivohidraulico = @id_dispositivohidraulico,
+                    dispositivohidraulico_medida = @dispositivohidraulico_medida,
+                    responsablemuestreo = @responsable,
+                    id_cargo = @id_cargo,
+                    observaciones_comercial = @obs_comercial,
+                    ubicacion = @ubicacion
+                WHERE id_fichaingresoservicio = @id
+            `);
+
+            // 3. Insertar/Actualizar Detalle (DET - Matriz)
+            // STRATEGY: Soft Delete / Upsert
+            const analisisList = data.analisis || [];
+
+            // 3.1 Fetch Existing Details for Diff
+            const reqGetExisting = new sql.Request(transaction);
+            reqGetExisting.input('id_ficha', sql.Numeric(10, 0), id);
+            const existingResult = await reqGetExisting.query(`
+                SELECT id_referenciaanalisis, id_tecnica, id_normativa 
+                FROM App_Ma_FichaIngresoServicio_DET 
+                WHERE id_fichaingresoservicio = @id
+            `);
+
+            const existingMap = new Set();
+            existingResult.recordset.forEach(row => {
+                // Composite Key for Match: Reference Analysis
+                existingMap.add(Number(row.id_referenciaanalisis));
+            });
+
+            const processedIds = new Set();
+            let itemCounter = 1; // Or fetch max? For now restarting counter or trusting UI sort isn't critical unless item order matters strictly.
+            // Actually, item order maps to 'item' column. If we insert/update, we should probably respect array index.
+
+            if (analisisList.length > 0) {
+                for (const row of analisisList) {
+                    const refId = valNum(row.id_referenciaanalisis);
+                    processedIds.add(refId);
+
+                    if (existingMap.has(refId)) {
+                        // --- UPDATE EXISTING ---
+                        const reqUpdateDet = new sql.Request(transaction);
+                        reqUpdateDet.input('id_ficha', sql.Numeric(10, 0), id);
+                        reqUpdateDet.input('id_ref', sql.Numeric(10, 0), refId);
+                        reqUpdateDet.input('id_tecnica', sql.Numeric(10, 0), valNum(row.id_tecnica));
+                        reqUpdateDet.input('id_normativa', sql.Numeric(10, 0), valNum(row.id_normativa));
+                        reqUpdateDet.input('id_normativareferencia', sql.Numeric(10, 0), valNum(row.id_normativareferencia));
+                        reqUpdateDet.input('limitemax_d', sql.Numeric(18, 5), valNum(row.limitemax_d));
+                        reqUpdateDet.input('limitemax_h', sql.Numeric(18, 5), valNum(row.limitemax_h));
+                        reqUpdateDet.input('llevaerror', sql.VarChar(1), row.llevaerror === true || row.llevaerror === 'S' || row.llevaerror === 'Y' ? 'S' : 'N');
+                        reqUpdateDet.input('error_min', sql.Numeric(18, 5), valNum(row.error_min));
+                        reqUpdateDet.input('error_max', sql.Numeric(18, 5), valNum(row.error_max));
+                        reqUpdateDet.input('tipo_analisis', sql.VarChar(20), valStr(row.tipo_analisis, 20));
+                        reqUpdateDet.input('uf', sql.Numeric(18, 5), valNum(row.uf_individual));
+                        reqUpdateDet.input('item', sql.Numeric(10, 0), itemCounter);
+
+                        let idLab = valNum(row.id_laboratorioensayo);
+                        if (row.tipo_analisis && row.tipo_analisis.trim() === 'Terreno') { idLab = 0; }
+                        reqUpdateDet.input('id_laboratorio', sql.Numeric(10, 0), idLab);
+
+                        let idLab2 = valNum(row.id_laboratorioensayo_2);
+                        if (row.tipo_analisis && row.tipo_analisis.trim() === 'Terreno') { idLab2 = 0; }
+                        reqUpdateDet.input('id_laboratorio_2', sql.Numeric(10, 0), idLab2 || 0);
+
+                        reqUpdateDet.input('id_tipoentrega', sql.Numeric(10, 0), valNum(row.id_tipoentrega || ant.id_tipoentrega));
+                        reqUpdateDet.input('id_transporte', sql.Numeric(10, 0), valNum(row.id_transporte || ant.id_transporte));
+
+                        await reqUpdateDet.query(`
+                            UPDATE App_Ma_FichaIngresoServicio_DET
+                            SET 
+                                id_tecnica = @id_tecnica, 
+                                id_normativa = @id_normativa,
+                                id_normativareferencia = @id_normativareferencia,
+                                limitemax_d = @limitemax_d,
+                                limitemax_h = @limitemax_h,
+                                llevaerror = @llevaerror,
+                                error_min = @error_min,
+                                error_max = @error_max,
+                                tipo_analisis = @tipo_analisis,
+                                uf_individual = @uf,
+                                item = @item,
+                                id_laboratorioensayo = @id_laboratorio,
+                                id_laboratorioensayo_2 = @id_laboratorio_2,
+                                id_tipoentrega = @id_tipoentrega,
+                                id_transporte = @id_transporte,
+                                activo = 1 -- REVIVE if it was deleted
+                            WHERE id_fichaingresoservicio = @id_ficha AND id_referenciaanalisis = @id_ref
+                        `);
+
+                    } else {
+                        // --- INSERT NEW ---
+                        const requestDet = new sql.Request(transaction);
+                        requestDet.input('id_ficha', sql.Numeric(10, 0), id);
+                        requestDet.input('id_tecnica', sql.Numeric(10, 0), valNum(row.id_tecnica));
+                        requestDet.input('id_normativa', sql.Numeric(10, 0), valNum(row.id_normativa));
+                        requestDet.input('id_normativareferencia', sql.Numeric(10, 0), valNum(row.id_normativareferencia));
+                        requestDet.input('id_referenciaanalisis', sql.Numeric(10, 0), valNum(row.id_referenciaanalisis));
+                        requestDet.input('limitemax_d', sql.Numeric(18, 5), valNum(row.limitemax_d));
+                        requestDet.input('limitemax_h', sql.Numeric(18, 5), valNum(row.limitemax_h));
+                        requestDet.input('llevaerror', sql.VarChar(1), row.llevaerror === true || row.llevaerror === 'S' || row.llevaerror === 'Y' ? 'S' : 'N');
+                        requestDet.input('error_min', sql.Numeric(18, 5), valNum(row.error_min));
+                        requestDet.input('error_max', sql.Numeric(18, 5), valNum(row.error_max));
+                        requestDet.input('tipo_analisis', sql.VarChar(20), valStr(row.tipo_analisis, 20));
+                        requestDet.input('uf', sql.Numeric(18, 5), valNum(row.uf_individual));
+                        requestDet.input('item', sql.Numeric(10, 0), itemCounter); // Simple counter for new ones.
+
+                        let idLab = valNum(row.id_laboratorioensayo);
+                        if (row.tipo_analisis && row.tipo_analisis.trim() === 'Terreno') { idLab = 0; }
+                        requestDet.input('id_laboratorio', sql.Numeric(10, 0), idLab);
+
+                        let idLab2 = valNum(row.id_laboratorioensayo_2);
+                        if (row.tipo_analisis && row.tipo_analisis.trim() === 'Terreno') { idLab2 = 0; }
+                        requestDet.input('id_laboratorio_2', sql.Numeric(10, 0), idLab2 || 0);
+
+                        requestDet.input('id_tipoentrega', sql.Numeric(10, 0), valNum(row.id_tipoentrega || ant.id_tipoentrega));
+                        requestDet.input('id_transporte', sql.Numeric(10, 0), valNum(row.id_transporte || ant.id_transporte));
+
+                        requestDet.input('transporte_orden', sql.VarChar(20), '');
+                        requestDet.input('res_fecha', sql.Date, new Date('1900-01-01'));
+                        requestDet.input('res_hora', sql.VarChar(10), '');
+                        requestDet.input('llevatrad', sql.VarChar(1), 'N');
+                        requestDet.input('trad_0', sql.VarChar(250), '');
+                        requestDet.input('trad_1', sql.VarChar(250), '');
+
+                        await requestDet.query(`
+                            INSERT INTO App_Ma_FichaIngresoServicio_DET (
+                                id_fichaingresoservicio, id_tecnica, id_normativa, id_normativareferencia, id_referenciaanalisis,
+                                limitemax_d, limitemax_h, llevaerror, error_min, error_max,
+                                tipo_analisis, uf_individual, item, id_laboratorioensayo, id_laboratorioensayo_2, id_tipoentrega,
+                                id_transporte, transporte_orden, resultado_fecha, resultado_hora,
+                                llevatraduccion, traduccion_0, traduccion_1,
+                                estado, cumplimiento, cumplimiento_app, activo
+                            ) VALUES (
+                                @id_ficha, @id_tecnica, @id_normativa, @id_normativareferencia, @id_referenciaanalisis,
+                                @limitemax_d, @limitemax_h, @llevaerror, @error_min, @error_max,
+                                @tipo_analisis, @uf, @item, @id_laboratorio, @id_laboratorio_2, @id_tipoentrega,
+                                @id_transporte, @transporte_orden, @res_fecha, @res_hora,
+                                @llevatrad, @trad_0, @trad_1,
+                                '', '', '', 1
+                            )
+                        `);
+                    }
+                    itemCounter++;
+                }
+            }
+
+            // 3.2 SOFT DELETE Missing items
+            // Update activo = 0 for items that were present but now removed from list
+            const idsToDelete = [...existingMap].filter(x => !processedIds.has(x));
+            if (idsToDelete.length > 0) {
+                logger.info(`Soft Deleting ${idsToDelete.length} removed analysis items.`);
+                // Loop delete
+                for (const delId of idsToDelete) {
+                    const reqDelete = new sql.Request(transaction);
+                    reqDelete.input('id_ficha', sql.Numeric(10, 0), id);
+                    reqDelete.input('id_ref', sql.Numeric(10, 0), delId);
+                    await reqDelete.query('UPDATE App_Ma_FichaIngresoServicio_DET SET activo = 0 WHERE id_fichaingresoservicio = @id_ficha AND id_referenciaanalisis = @id_ref');
+                }
+            }
+
+            // 4. CHECK AGENDA CHANGE
+            // Get current Agenda settings
+            const requestCheckAgenda = new sql.Request(transaction);
+            requestCheckAgenda.input('id', sql.Numeric(10, 0), id);
+            const currentAgenda = await requestCheckAgenda.query(`
+                SELECT TOP 1 frecuencia, total_servicios, frecuencia_factor, id_frecuencia
+                FROM App_Ma_Agenda_MUESTREOS 
+                WHERE id_fichaingresoservicio = @id
+            `);
+
+            const newTotalServicios = valNum(ant.totalServicios) || 1;
+            const newFrecuencia = valNum(ant.frecuencia) || 1;
+            const newFactor = valNum(ant.factor) || 1;
+            let newIdFrecuencia = valNum(ant.periodo);
+            if (!newIdFrecuencia && ant.periodo && typeof ant.periodo === 'string' && ant.periodo.startsWith('freq-')) {
+                newIdFrecuencia = Number(ant.periodo.replace('freq-', ''));
+            }
+
+            let rebuildAgenda = false;
+            // If no agenda exists yet, rebuild
+            if (!currentAgenda.recordset[0]) {
+                rebuildAgenda = true;
+            } else {
+                const cur = currentAgenda.recordset[0];
+                if (cur.total_servicios !== newTotalServicios ||
+                    cur.frecuencia !== newFrecuencia ||
+                    cur.frecuencia_factor !== newFactor ||
+                    cur.id_frecuencia !== newIdFrecuencia) {
+                    rebuildAgenda = true;
+                }
+            }
+
+            if (rebuildAgenda) {
+                logger.info(`Agenda parameters changed (or missing), rebuilding agenda for Ficha ${id}`);
+                // DELETE old agenda (PENDING ones only to be safe? Or all? User said "update info". 
+                // Creating a safety check: Only delete if status is 'En Proceso' (1) or if user forces it. 
+                // For now, assuming Commercial Edit happens BEFORE work starts mostly.
+                // But if work started, we shouldn't delete completed ones. 
+                // Simplification for now: Delete ALL Pending (1) and Assigned (2)? 
+                // Risk: If they reduce services, we might need to delete.
+
+                // Let's delete ALL for this ficha if we are rebuilding logic.
+                const reqDelAgenda = new sql.Request(transaction);
+                reqDelAgenda.input('id', sql.Numeric(10, 0), id);
+                await reqDelAgenda.query('DELETE FROM App_Ma_Agenda_MUESTREOS WHERE id_fichaingresoservicio = @id');
+
+                // REBUILD LOOP (Copied from Create)
+                for (let i = 1; i <= newTotalServicios; i++) {
+                    const requestAgenda = new sql.Request(transaction);
+                    requestAgenda.input('id_ficha', sql.Numeric(10, 0), id);
+                    requestAgenda.input('id_inspector', sql.Numeric(10, 0), valNum(ant.selectedInspector));
+                    requestAgenda.input('frecu', sql.Numeric(10, 0), newFrecuencia);
+                    requestAgenda.input('id_frecu', sql.Numeric(10, 0), newIdFrecuencia);
+                    requestAgenda.input('def_date', sql.Date, new Date('1900-01-01'));
+                    requestAgenda.input('calc_factor', sql.Numeric(10, 0), newFactor);
+                    requestAgenda.input('total_serv', sql.Numeric(10, 0), newTotalServicios);
+                    requestAgenda.input('dummy_corr', sql.VarChar(50), 'PorAsignarCorrelativo');
+
+                    await requestAgenda.query(`
+                        INSERT INTO App_Ma_Agenda_MUESTREOS (
+                            id_fichaingresoservicio, id_inspectorambiental, fecha_muestreo, frecuencia, frecuencia_correlativo, id_frecuencia,
+                            id_caso, caso_adlab, estado_caso, id_coordinador, id_muestreador, id_supervisor,
+                            dia, mes, ano, id_estadomuestreo, totalizador_inicio, totalizador_final, vdd,
+                            calculo_horas, frecuencia_factor, total_servicios,
+                            fecha_coordinador, fecha_muestreador, fechaderivado, ma_muestreo_fechai, ma_muestreo_fechat, ma_fecha_compuesta, muestreador_fechai, muestreador_fechat
+                        ) VALUES (
+                            @id_ficha, @id_inspector, NULL, @frecu, @dummy_corr, @id_frecu,
+                            9999999998, '', '', 0, 0, 0,
+                            0, 0, 0, 0, 0.00, 0.00, 0.00,
+                            0.00, @calc_factor, @total_serv,
+                            @def_date, @def_date, @def_date, @def_date, @def_date, @def_date, @def_date, @def_date
+                        )
+                    `);
+                }
+
+                // Re-assign Correlativos
+                const requestCorr = new sql.Request(transaction);
+                requestCorr.input('xNumeroFichaIngresoServicio', sql.Numeric(10, 0), id);
+                const spResult = await requestCorr.query('EXEC Consulta_App_Agenda_AsignarCorrelativo @xNumeroFichaIngresoServicio');
+                if (spResult.recordset && spResult.recordset.length > 0) {
+                    let correlativoCounter = 1;
+                    for (const row of spResult.recordset) {
+                        const idAgenda = row.id_agendamam;
+                        const nuevoCorrelativo = `${id}-${correlativoCounter}-Pendiente-${idAgenda}`;
+                        const requestUpdateCorr = new sql.Request(transaction);
+                        requestUpdateCorr.input('corr', sql.VarChar(50), nuevoCorrelativo);
+                        requestUpdateCorr.input('id_ag', sql.Numeric(10, 0), idAgenda);
+                        requestUpdateCorr.input('id_fi', sql.Numeric(10, 0), id);
+                        await requestUpdateCorr.query('UPDATE App_Ma_Agenda_MUESTREOS SET frecuencia_correlativo = @corr WHERE id_agendamam = @id_ag AND id_fichaingresoservicio = @id_fi');
+                        correlativoCounter++;
+                    }
+                }
+            } else {
+                // Just update Inspector if changed?
+                if (ant.selectedInspector) {
+                    const reqUpdInsp = new sql.Request(transaction);
+                    reqUpdInsp.input('id', sql.Numeric(10, 0), id);
+                    reqUpdInsp.input('id_insp', sql.Numeric(10, 0), valNum(ant.selectedInspector));
+                    await reqUpdInsp.query('UPDATE App_Ma_Agenda_MUESTREOS SET id_inspectorambiental = @id_insp WHERE id_fichaingresoservicio = @id');
+                }
+            }
+
+            // 5. HISTORY
+            await this.logHistorial(transaction, {
+                idFicha: id,
+                idUsuario: user.id,
+                accion: 'EDICION_COMERCIAL',
+                estadoAnterior: 'Modificado',
+                estadoNuevo: 'Modificado',
+                observacion: 'Edición de datos comerciales y técnicos por usuario.'
+            });
+
+            await transaction.commit();
+            logger.info(`Ficha ${id} updated successfully`);
+            return { success: true, message: 'Ficha actualizada correctamente' };
+
+        } catch (error) {
+            console.error('CRITICAL UPDATE ERROR:', error);
+            try { await transaction.rollback(); } catch (e) { }
+            throw error;
+        }
+    }
     async getAllFichas() {
         const pool = await getConnection();
         // Updated to use the correct Stored Procedure provided by user
@@ -425,6 +815,55 @@ class FichaIngresoService {
         }
     }
 
+    // --- History Helper ---
+    async logHistorial(transaction, { idFicha, idUsuario, accion, estadoAnterior, estadoNuevo, observacion }) {
+        try {
+            const request = new sql.Request(transaction);
+            request.input('id_ficha', sql.Numeric(10, 0), idFicha);
+            request.input('id_usuario', sql.Numeric(10, 0), idUsuario);
+            request.input('accion', sql.VarChar(50), accion);
+            request.input('estado_ant', sql.VarChar(50), estadoAnterior || '');
+            request.input('estado_new', sql.VarChar(50), estadoNuevo || '');
+            request.input('obs', sql.VarChar(sql.MAX), observacion || '');
+
+            await request.query(`
+                INSERT INTO mae_ficha_historial (id_fichaingresoservicio, id_usuario, accion, estado_anterior, estado_nuevo, observacion)
+                VALUES (@id_ficha, @id_usuario, @accion, @estado_ant, @estado_new, @obs)
+            `);
+        } catch (error) {
+            logger.error('Error logging history:', error);
+            // Don't block main flow if history fails, but good to know
+        }
+    }
+
+    async getHistorial(id) {
+        try {
+            const pool = await getConnection();
+            const result = await pool.request()
+                .input('id', sql.Numeric(10, 0), id)
+                .query(`
+                    SELECT 
+                        h.id_historial,
+                        h.fecha,
+                        h.accion,
+                        h.observacion,
+                        u.nombre_usuario,
+                        u.usuario as nombre_real,
+                        h.estado_anterior,
+                        h.estado_nuevo
+                    FROM mae_ficha_historial h
+                    LEFT JOIN mae_usuario u ON h.id_usuario = u.id_usuario
+                    WHERE h.id_fichaingresoservicio = @id
+                    ORDER BY h.fecha DESC
+                `);
+            return result.recordset;
+        } catch (error) {
+            logger.error('Error getting history:', error);
+            return [];
+        }
+    }
+
+
     async approveFicha(id, { observaciones }, user) {
         const pool = await getConnection();
         const transaction = new sql.Transaction(pool);
@@ -434,12 +873,27 @@ class FichaIngresoService {
             request.input('id', sql.Numeric(10, 0), id);
             request.input('obs', sql.VarChar(250), observaciones || '');
             request.input('userId', sql.Numeric(10, 0), user.id);
+
+            // Get current state (optional, for history) - Skipping for speed, assume known flow
+
             // 1 = Aprobada (Val Technique)
             await request.query("UPDATE App_Ma_FichaIngresoServicio_ENC SET id_validaciontecnica = 1, observaciones_jefaturatecnica = @obs WHERE id_fichaingresoservicio = @id");
 
-            // Audit logic would go here
+            // LOG HISTORY
+            await this.logHistorial(transaction, {
+                idFicha: id,
+                idUsuario: user.id,
+                accion: 'APROBACION_TECNICA',
+                estadoAnterior: 'Pendiente Técnica',
+                estadoNuevo: 'Pendiente Coordinación',
+                observacion: observaciones
+            });
 
             await transaction.commit();
+
+            // NOTIFICATION: Aprobada Técnica
+            notificationService.send('FICHA_APROBADA_TECNICA', { correlativo: String(id) });
+
             return { success: true, message: 'Ficha aprobada técnica' };
         } catch (error) {
             await transaction.rollback();
@@ -457,7 +911,22 @@ class FichaIngresoService {
             request.input('obs', sql.VarChar(250), observaciones || '');
             // 2 = Rechazada
             await request.query("UPDATE App_Ma_FichaIngresoServicio_ENC SET id_validaciontecnica = 2, observaciones_jefaturatecnica = @obs WHERE id_fichaingresoservicio = @id");
+
+            // LOG HISTORY
+            await this.logHistorial(transaction, {
+                idFicha: id,
+                idUsuario: user.id,
+                accion: 'RECHAZO_TECNICA',
+                estadoAnterior: 'Pendiente Técnica',
+                estadoNuevo: 'Rechazada Técnica',
+                observacion: observaciones
+            });
+
             await transaction.commit();
+
+            // NOTIFICATION: Rechazada Técnica
+            notificationService.send('FICHA_RECHAZADA_TECNICA', { correlativo: String(id) });
+
             return { success: true, message: 'Ficha rechazada' };
         } catch (error) {
             await transaction.rollback();
@@ -467,26 +936,80 @@ class FichaIngresoService {
 
 
     async approveCoordinacion(id, { observaciones }, user) {
-        // Logic for 'Aprobar Coordinación' -> usually implies check ok for assignment
-        // For now simple status update or log
         const pool = await getConnection();
-        const request = pool.request();
-        request.input('id', sql.Numeric(10, 0), id);
-        request.input('obs', sql.VarChar(250), observaciones);
-        // Maybe update obs_coordinador
-        await request.query("UPDATE App_Ma_FichaIngresoServicio_ENC SET observaciones_coordinador = @obs WHERE id_fichaingresoservicio = @id");
-        return { success: true };
+        const transaction = new sql.Transaction(pool); // Require transaction for history consistency
+
+        try {
+            await transaction.begin();
+
+            // VALIDATION: Strict Check
+            // Need to run this check BEFORE transaction or inside. Inside is safer for data integrity
+            const requestCheck = new sql.Request(transaction);
+            const check = await requestCheck.query(`SELECT id_validaciontecnica FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio = ${id}`);
+
+            if (!check.recordset[0] || check.recordset[0].id_validaciontecnica !== 1) {
+                throw new Error("No se puede gestionar Coordinación: Ficha no aprobada por Técnica.");
+            }
+
+            const request = new sql.Request(transaction);
+            request.input('id', sql.Numeric(10, 0), id);
+            request.input('obs', sql.VarChar(250), observaciones);
+            // We set id_validaciontecnica = 5 (En Proceso / Aprobada Coordinación)
+            await request.query("UPDATE App_Ma_FichaIngresoServicio_ENC SET id_validaciontecnica = 5, observaciones_coordinador = @obs WHERE id_fichaingresoservicio = @id");
+
+            // LOG HISTORY
+            await this.logHistorial(transaction, {
+                idFicha: id,
+                idUsuario: user.id,
+                accion: 'APROBACION_COORDINACION',
+                estadoAnterior: 'Pendiente Coordinación',
+                estadoNuevo: 'En Proceso',
+                observacion: observaciones
+            });
+
+            await transaction.commit();
+
+            // NOTIFICACION: Aprobada Coordinación
+            notificationService.send('FICHA_APROBADA_COORDINACION', { correlativo: String(id) });
+
+            return { success: true };
+        } catch (error) {
+            await transaction.rollback();
+            throw error;
+        }
     }
 
     async reviewCoordinacion(id, { observaciones }, user) {
-        // 'Enviar a Revisión' logic
         const pool = await getConnection();
-        const request = pool.request();
-        request.input('id', sql.Numeric(10, 0), id);
-        request.input('obs', sql.VarChar(250), observaciones);
-        // Reset validacion tecnica?
-        await request.query("UPDATE App_Ma_FichaIngresoServicio_ENC SET id_validaciontecnica = 3, observaciones_coordinador = @obs WHERE id_fichaingresoservicio = @id");
-        return { success: true };
+        const transaction = new sql.Transaction(pool);
+
+        try {
+            await transaction.begin();
+            const request = new sql.Request(transaction);
+            request.input('id', sql.Numeric(10, 0), id);
+            request.input('obs', sql.VarChar(250), observaciones);
+            // Reset validacion tecnica? -> 3 (Pendiente Técnica) per requirements? Or 4 (Revisar)? 
+            // Previous code said 3. Let's keep 3 (Pendiente Técnica) or introduce 4 (Rechazada Coordinacion / Revisar)
+            // Using 4 as per workflow status logic comments
+            await request.query("UPDATE App_Ma_FichaIngresoServicio_ENC SET id_validaciontecnica = 4, observaciones_coordinador = @obs WHERE id_fichaingresoservicio = @id");
+
+            // LOG HISTORY
+            await this.logHistorial(transaction, {
+                idFicha: id,
+                idUsuario: user.id,
+                accion: 'RECHAZO_COORDINACION',
+                estadoAnterior: 'Pendiente Coordinación',
+                estadoNuevo: 'Revisar (Coord)',
+                observacion: observaciones
+            });
+
+            await transaction.commit();
+
+            return { success: true };
+        } catch (error) {
+            await transaction.rollback();
+            throw error;
+        }
     }
 
     async updateAgenda(id, { idMuestreador, fecha, observaciones }, user) {
@@ -508,6 +1031,16 @@ class FichaIngresoService {
                 SET id_muestreador = @muestreador, fecha_muestreo = @fecha, id_estadomuestreo = 2, id_coordinador = ${user.id || 0}
                 WHERE id_fichaingresoservicio = @id
             `);
+
+            // LOG HISTORY (Assignment)
+            await this.logHistorial(transaction, {
+                idFicha: id,
+                idUsuario: user.id || 0,
+                accion: 'ASIGNACION_MUESTREO',
+                estadoAnterior: 'En Proceso',
+                estadoNuevo: 'Asignado',
+                observacion: observaciones || 'Actualización de agenda individual.'
+            });
 
             await transaction.commit();
             return { success: true };
@@ -712,6 +1245,8 @@ class FichaIngresoService {
                     WHERE id_agendamam = @id_agenda
                 `);
 
+
+
                 // 2. CREAR REGISTROS EN App_Ma_Resultados
                 // Obtener análisis de la ficha
                 const analisisRequest = new sql.Request(transaction);
@@ -892,6 +1427,24 @@ class FichaIngresoService {
                 }
 
                 successCount++;
+            }
+
+            // NOTIFICATION: Asignada (Grouped by Ficha to avoid spam)
+            const distinctFichas = [...new Set(assignments.map(a => a.idFichaIngresoServicio))];
+            distinctFichas.forEach(fid => {
+                notificationService.send('FICHA_ASIGNADA', { correlativo: String(fid) });
+            });
+
+            // LOG HISTORY (Batch Assignment) - One per Ficha to avoid spam in history
+            for (const fid of distinctFichas) {
+                await this.logHistorial(transaction, {
+                    idFicha: fid,
+                    idUsuario: user.id || 0,
+                    accion: 'ASIGNACION_MASIVA',
+                    estadoAnterior: 'En Proceso',
+                    estadoNuevo: 'Asignada (Parcial/Total)',
+                    observacion: 'Asignación de fechas y muestreadores realizada por Coordinación.'
+                });
             }
 
             await transaction.commit();

@@ -32,4 +32,15 @@ router.get('/users/:userId/roles', rbacController.getUserRoles);
 // POST /users/1/roles { roleIds: [1, 2] }
 router.post('/users/:userId/roles', rbacController.assignRoles);
 
+// GET /roles/:roleId/users - Get all users belonging to a role
+router.get('/roles/:roleId/users', rbacController.getUsersByRole);
+
+// === User CRUD ===
+router.get('/users/all', rbacController.getAllUsersWithStatus); // Get all users with status
+router.post('/users/create', rbacController.createUser); // Create new user
+router.put('/users/:userId', rbacController.updateUser); // Update user info
+router.put('/users/:userId/password', rbacController.updateUserPassword); // Update password
+router.put('/users/:userId/status', rbacController.toggleUserStatus); // Enable/disable user
+
+
 export default router;

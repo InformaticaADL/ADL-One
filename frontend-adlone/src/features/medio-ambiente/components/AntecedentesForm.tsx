@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useRef, useImperativeHandle, forwardRef } from 'react';
+﻿import { useEffect, useState, useRef, useImperativeHandle, forwardRef } from 'react';
 import { useCachedCatalogos } from '../hooks/useCachedCatalogos';
 import type { LugarAnalisis, EmpresaServicio, Cliente, Contacto, Centro } from '../services/catalogos.service';
 import { useToast } from '../../../contexts/ToastContext';
@@ -58,7 +58,8 @@ const ReadOnlyField = ({ label, value }: { label: string, value: string }) => (
     </div>
 );
 
-export const AntecedentesForm = forwardRef<AntecedentesFormHandle, {}>((props, ref) => {
+export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData?: any }>((props, ref) => {
+    const { initialData } = props;
     // Initialize cached catalogos hook
     const catalogos = useCachedCatalogos();
 
@@ -150,6 +151,114 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, {}>((props, r
     // Extra state for id_tipo_agua (separate from the display string)
     const [idTipoAgua, setIdTipoAgua] = useState<number | null>(null);
 
+    // Track if we're currently hydrating from initialData to prevent cascade clearing
+    const isHydrating = useRef(false);
+    const hasHydrated = useRef(false);
+
+    // Debug: Track component mount/unmount
+    useEffect(() => {
+        console.log('🟢 AntecedentesForm MOUNTED');
+        return () => {
+            console.log('🔴 AntecedentesForm UNMOUNTED');
+        };
+    }, []);
+
+    // Initial Data Hydration
+    useEffect(() => {
+        if (initialData && !hasHydrated.current) {
+            console.log('Hydrating AntecedentesForm with:', initialData);
+            console.log('🔍 Frecuencia fields:', {
+                frecuencia: initialData.frecuencia,
+                factor: initialData.factor,
+                periodo: initialData.periodo,
+                totalServicios: initialData.totalServicios
+            });
+            console.log('🔍 Instrumento fields:', {
+                selectedInstrumento: initialData.selectedInstrumento,
+                nroInstrumento: initialData.nroInstrumento,
+                anioInstrumento: initialData.anioInstrumento
+            });
+            hasHydrated.current = true; // Mark as hydrated
+            isHydrating.current = true; // Set flag to prevent cascade clearing
+            setTipoMonitoreo(initialData.tipoMonitoreo || '');
+            setSelectedLugar(String(initialData.selectedLugar || ''));
+            setSelectedEmpresa(String(initialData.selectedEmpresa || ''));
+            setSelectedCliente(String(initialData.selectedCliente || ''));
+
+            // Pending dependent fields set (handled by smart cascades largely, but we set values too)
+            setSelectedFuente(String(initialData.selectedFuente || ''));
+            setSelectedContacto(String(initialData.selectedContacto || ''));
+            setSelectedObjetivo(String(initialData.selectedObjetivo || ''));
+
+            setUbicacion(initialData.ubicacion || '');
+            setComuna(initialData.comuna || '');
+            setRegion(initialData.region || '');
+            setTipoAgua(initialData.tipoAgua || '');
+            setIdTipoAgua(initialData.idTipoAgua || null);
+            setCodigo(initialData.codigo || '');
+
+            setGlosa(initialData.glosa || '');
+            setEsETFA(initialData.esETFA || 'No');
+            setPuntoMuestreo(initialData.puntoMuestreo || '');
+            setZona(initialData.zona || '');
+            setUtmNorte(initialData.utmNorte || '');
+            setUtmEste(initialData.utmEste || '');
+
+            setSelectedComponente(String(initialData.selectedComponente || ''));
+            setSelectedSubArea(String(initialData.selectedSubArea || ''));
+
+            // Instrument
+            setSelectedInstrumento(initialData.selectedInstrumento || '');
+            setNroInstrumento(initialData.nroInstrumento || '');
+            setAnioInstrumento(initialData.anioInstrumento || '');
+
+            setSelectedInspector(String(initialData.selectedInspector || ''));
+
+            // Block 4
+            setResponsableMuestreo(initialData.responsableMuestreo || 'ADL');
+            setCargoResponsable(String(initialData.cargoResponsable || ''));
+            setSelectedTipoMuestreo(String(initialData.selectedTipoMuestreo || ''));
+            setSelectedTipoMuestra(String(initialData.selectedTipoMuestra || ''));
+            setSelectedActividad(String(initialData.selectedActividad || ''));
+            setDuracion(initialData.duracion || '');
+            setSelectedTipoDescarga(String(initialData.selectedTipoDescarga || ''));
+            setRefGoogle(initialData.refGoogle || '');
+            setMedicionCaudal(initialData.medicionCaudal || '');
+            setSelectedModalidad(String(initialData.selectedModalidad || ''));
+
+            // Block 5
+            setFormaCanal(String(initialData.formaCanal || ''));
+            setDetalleCanal(initialData.detalleCanal || '');
+            setDispositivo(String(initialData.dispositivo || ''));
+            setDetalleDispositivo(initialData.detalleDispositivo || '');
+
+            // Agenda
+            setFrecuencia(String(initialData.frecuencia || ''));
+            setFactor(String(initialData.factor || '1'));
+            setPeriodo(String(initialData.periodo || ''));
+            setTotalServicios(String(initialData.totalServicios || ''));
+
+            // Log state after hydration to verify values are set
+            setTimeout(() => {
+                console.log('📊 State after hydration:', {
+                    selectedInstrumento,
+                    nroInstrumento,
+                    anioInstrumento,
+                    frecuencia,
+                    factor,
+                    periodo,
+                    totalServicios
+                });
+            }, 100);
+
+            // NOTE: isHydrating flag will be disabled when catalogs finish loading
+            // See loadCatalogosComplementarios() -> "All catalogs loaded successfully"
+        } else if (!initialData) {
+            // Reset hasHydrated when initialData becomes null (exiting edit mode)
+            hasHydrated.current = false;
+        }
+    }, [initialData]);
+
     // Expose data via ref
     useImperativeHandle(ref, () => ({
         getData: () => {
@@ -217,17 +326,44 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, {}>((props, r
 
     // Cascade: Monitoreo -> Sede
     useEffect(() => {
+        console.log('🔄 [Cascade] tipoMonitoreo changed:', tipoMonitoreo, 'isHydrating:', isHydrating.current);
+        // Skip clearing if we're hydrating
+        if (isHydrating.current) {
+            console.log('⏸️ [Cascade] Skipping tipoMonitoreo cascade (hydrating)');
+            return;
+        }
+
+        // Hydration Guard
+        if (initialData && initialData.tipoMonitoreo === tipoMonitoreo && initialData.selectedLugar === selectedLugar) {
+            console.log('⏸️ [Cascade] Skipping tipoMonitoreo cascade (matches initialData)');
+            return;
+        }
+
         if (!tipoMonitoreo) setSelectedLugar('');
     }, [tipoMonitoreo]);
 
     // Cascade: Cliente -> Fuente Emisora & Contacto & Objetivo
     useEffect(() => {
-        setFuentesEmisoras([]);
-        setSelectedFuente('');
-        setContactos([]);
-        setSelectedContacto('');
-        setObjetivos([]); // Reset Objetivos
-        setSelectedObjetivo('');
+        console.log('🔄 [Cascade] selectedCliente changed:', selectedCliente, 'isHydrating:', isHydrating.current);
+        // Skip clearing if we're hydrating
+        if (isHydrating.current) {
+            console.log('⏸️ [Cascade] Skipping selectedCliente cascade (hydrating)');
+            return;
+        }
+
+        // Hydration Check: If we are matching initial Data, don't wipe dependent fields
+        const isRestoring = initialData && String(initialData.selectedCliente) === String(selectedCliente);
+        console.log('🔍 [Cascade] selectedCliente isRestoring:', isRestoring, 'initialData.selectedCliente:', initialData?.selectedCliente);
+
+        if (!isRestoring) {
+            console.log('🗑️ [Cascade] Clearing fuentes, contactos, objetivos');
+            setFuentesEmisoras([]);
+            setSelectedFuente('');
+            setContactos([]);
+            setSelectedContacto('');
+            setObjetivos([]); // Reset Objetivos
+            setSelectedObjetivo('');
+        }
 
         if (selectedCliente) {
             loadFuentesEmisoras(Number(selectedCliente));
@@ -238,8 +374,18 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, {}>((props, r
 
     // Cascade: Componente -> SubArea
     useEffect(() => {
-        setSubAreas([]);
-        setSelectedSubArea('');
+        console.log('🔄 [Cascade] selectedComponente changed:', selectedComponente, 'isHydrating:', isHydrating.current);
+        if (isHydrating.current) {
+            console.log('⏸️ [Cascade] Skipping selectedComponente cascade (hydrating)');
+            return;
+        }
+        const isRestoring = initialData && String(initialData.selectedComponente) === String(selectedComponente);
+        console.log('🔍 [Cascade] selectedComponente isRestoring:', isRestoring);
+        if (!isRestoring) {
+            console.log('🗑️ [Cascade] Clearing subAreas');
+            setSubAreas([]);
+            setSelectedSubArea('');
+        }
         if (selectedComponente) {
             loadSubAreas(selectedComponente);
         }
@@ -247,8 +393,12 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, {}>((props, r
 
     // Cascade: Tipo Muestreo -> Tipo Muestra
     useEffect(() => {
-        setTiposMuestra([]);
-        setSelectedTipoMuestra('');
+        if (isHydrating.current) return;
+        const isRestoring = initialData && String(initialData.selectedTipoMuestreo) === String(selectedTipoMuestreo);
+        if (!isRestoring) {
+            setTiposMuestra([]);
+            setSelectedTipoMuestra('');
+        }
         if (selectedTipoMuestreo) {
             loadTiposMuestra(selectedTipoMuestreo);
         }
@@ -256,8 +406,12 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, {}>((props, r
 
     // Cascade: Tipo Muestra -> Actividad
     useEffect(() => {
-        setActividades([]);
-        setSelectedActividad('');
+        if (isHydrating.current) return;
+        const isRestoring = initialData && String(initialData.selectedTipoMuestra) === String(selectedTipoMuestra);
+        if (!isRestoring) {
+            setActividades([]);
+            setSelectedActividad('');
+        }
         if (selectedTipoMuestra) {
             loadActividades(selectedTipoMuestra);
         }
@@ -266,6 +420,9 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, {}>((props, r
 
     // Auto-population
     useEffect(() => {
+        // Skip auto-population during hydration to preserve loaded values
+        if (isHydrating.current) return;
+
         if (selectedFuente) {
             const fuente = fuentesEmisoras.find(f => f.id.toString() === selectedFuente);
             if (fuente) {
@@ -281,7 +438,8 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, {}>((props, r
                 setIdTipoAgua(idTipo);
                 setCodigo(fuente.codigo || '');
             }
-        } else {
+        } else if (!initialData) {
+            // Only clear if we're not in edit mode (no initialData)
             setUbicacion('');
             setComuna('');
             setRegion('');
@@ -443,6 +601,46 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, {}>((props, r
 
             console.log('✅ All catalogs loaded successfully.');
 
+            // If we're in edit mode (hydrating), load dependent catalogs before disabling flag
+            if (isHydrating.current && initialData) {
+                console.log('📦 Loading dependent catalogs for edit mode...');
+
+                // Load dependent catalogs based on initialData
+                const dependentLoads: Promise<void>[] = [];
+
+                if (initialData.selectedCliente) {
+                    dependentLoads.push(
+                        loadFuentesEmisoras(Number(initialData.selectedCliente)),
+                        loadContactos(Number(initialData.selectedCliente)),
+                        loadObjetivos(Number(initialData.selectedCliente))
+                    );
+                }
+
+                if (initialData.selectedComponente) {
+                    dependentLoads.push(loadSubAreas(String(initialData.selectedComponente)));
+                }
+
+                if (initialData.selectedTipoMuestreo) {
+                    dependentLoads.push(loadTiposMuestra(String(initialData.selectedTipoMuestreo)));
+                }
+
+                if (initialData.selectedTipoMuestra) {
+                    dependentLoads.push(loadActividades(String(initialData.selectedTipoMuestra)));
+                }
+
+                // Wait for all dependent catalogs to load
+                await Promise.all(dependentLoads);
+                console.log('✅ Dependent catalogs loaded successfully');
+
+                // NOW it's safe to disable hydration flag
+                console.log('🔓 Disabling hydration flag - all catalogs loaded');
+                isHydrating.current = false;
+            } else if (isHydrating.current) {
+                // Not in edit mode but flag is still set (shouldn't happen)
+                console.log('🔓 Disabling hydration flag - catalogs loaded');
+                isHydrating.current = false;
+            }
+
         } catch (error) {
             console.error("Error loading complementarios", error);
             setCatalogErrors(prev => ({ ...prev, complementarios: 'Error al cargar catálogos' }));
@@ -506,13 +704,17 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, {}>((props, r
 
     // Reactive Glosa Logic
     useEffect(() => {
+        // Skip during hydration to preserve loaded value
+        if (isHydrating.current) return;
+
         if (selectedSubArea && selectedFuente && selectedObjetivo) {
             const fuenteName = fuentesEmisoras.find(f => String(f.id) === selectedFuente)?.nombre || '';
             const objName = objetivos.find(o => String(o.id) === selectedObjetivo)?.nombre || '';
             if (fuenteName && objName) {
                 setGlosa(`${fuenteName.trim()} - ${objName.trim()}`);
             }
-        } else if (!selectedSubArea) {
+        } else if (!selectedSubArea && !initialData) {
+            // Only clear if not in edit mode
             setGlosa('');
         }
     }, [selectedSubArea, selectedFuente, selectedObjetivo, fuentesEmisoras, objetivos]);

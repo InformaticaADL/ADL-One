@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { fichaService } from '../services/ficha.service';
+import { ObservacionesForm } from './ObservacionesForm';
+import { ObservationTimeline } from './ObservationTimeline';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useCachedCatalogos } from '../hooks/useCachedCatalogos';
@@ -122,6 +124,18 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
         onConfirm: () => { },
         isDestructive: false
     });
+
+
+
+    // Memoize timeline creation data (MOVED TO TOP LEVEL TO AVOID HOOK ORDER VIOLATION)
+    const timelineCreationData = useMemo(() => {
+        if (!data) return undefined;
+        return {
+            date: data.fecha_fichacomercial || new Date().toISOString(),
+            user: data.responsablemuestreo || 'Comercial',
+            observation: data.observaciones_comercial || ''
+        };
+    }, [data]);
 
     useEffect(() => {
         const loadFicha = async () => {
@@ -256,42 +270,7 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
         </div>
     );
 
-    // Helper for ReadOnly Observation
-    const ReadOnlyObservationArea = ({ label, value }: { label: string, value: string }) => (
-        <div style={{
-            padding: '1.5rem',
-            border: '1px solid #e5e7eb',
-            borderRadius: '8px',
-            backgroundColor: 'white',
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-            maxWidth: '800px',
-            margin: '0 auto',
-            width: '100%'
-        }}>
-            <div className="form-group">
-                <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '8px', display: 'block' }}>
-                    {label}
-                </label>
-                <textarea
-                    readOnly
-                    value={value || ''}
-                    rows={6}
-                    style={{
-                        width: '100%',
-                        padding: '10px',
-                        fontSize: '0.9rem',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '6px',
-                        resize: 'none',
-                        fontFamily: 'inherit',
-                        minHeight: '120px',
-                        backgroundColor: '#f9fafb',
-                        color: '#374151'
-                    }}
-                />
-            </div>
-        </div>
-    );
+
 
     return (
         <div className="fichas-ingreso-container commercial-layout">
@@ -516,90 +495,74 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
 
                     {/* OBSERVACIONES TAB (COORDINACION) */}
                     {activeTab === 'observaciones' && (
-                        <div style={{ display: 'grid', gap: '2rem' }}>
-                            <ReadOnlyObservationArea label="Observaciones Comercial" value={enc.observaciones_comercial} />
-                            <ReadOnlyObservationArea label="Observaciones Área Técnica" value={enc.observaciones_jefaturatecnica} />
+                        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+                            <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#374151', marginBottom: '1rem' }}>Línea de Tiempo</h3>
+                            <ObservationTimeline
+                                fichaId={fichaId}
+                                creationData={timelineCreationData}
+                            />
 
-                            {/* COORDINACION EDITABLE ROW */}
-                            <div className="observation-action-row" style={{
-                                borderLeft: '4px solid #8b5cf6' // Keep specific color inline
-                            }}>
-                                <div className="form-group" style={{ width: '100%' }}>
-                                    <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#111827', marginBottom: '8px', display: 'block' }}>
-                                        Observaciones Coordinación (Editable)
-                                    </label>
-                                    <textarea
+                            <div style={{ marginTop: '2rem', borderTop: '1px solid #e5e7eb', paddingTop: '2rem' }}>
+                                <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#374151', marginBottom: '1rem' }}>Mi Gestión (Coordinación)</h3>
+                                <div className="observation-action-row" style={{
+                                    borderLeft: '4px solid #8b5cf6',
+                                    paddingLeft: '1rem'
+                                }}>
+                                    <ObservacionesForm
+                                        label="Observaciones Coordinación"
                                         value={coordinacionObs}
-                                        onChange={(e) => setCoordinacionObs(e.target.value)}
+                                        onChange={setCoordinacionObs}
+                                        readOnly={false}
                                         placeholder="Ingrese observaciones de coordinación aquí..."
-                                        rows={6}
-                                        style={{
-                                            width: '100%',
-                                            padding: '10px',
-                                            fontSize: '0.9rem',
-                                            border: '1px solid #8b5cf6', // Active border
-                                            borderRadius: '6px',
-                                            resize: 'vertical',
-                                            fontFamily: 'inherit',
-                                            minHeight: '120px',
-                                            backgroundColor: 'white',
-                                            color: '#111827'
-                                        }}
-                                    />
-                                    <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '4px', textAlign: 'right' }}>
-                                        {coordinacionObs.length} caracteres
-                                    </div>
-                                </div>
-
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1.8rem' }}>
-                                    <button
-                                        onClick={handleAcceptClick}
-                                        disabled={actionLoading}
-                                        style={{
-                                            padding: '8px 16px',
-                                            backgroundColor: '#10b981',
-                                            color: 'white',
-                                            border: 'none',
-                                            borderRadius: '6px',
-                                            cursor: actionLoading ? 'wait' : 'pointer',
-                                            fontWeight: 600,
-                                            fontSize: '0.9rem',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            gap: '6px',
-                                            minWidth: '120px',
-                                            opacity: actionLoading ? 0.7 : 1
-                                        }}
                                     >
-                                        <span>✅ Aceptar</span>
-                                    </button>
+                                        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem', maxWidth: '1200px', margin: '1rem auto 0' }}>
+                                            <button
+                                                onClick={handleAcceptClick}
+                                                disabled={actionLoading}
+                                                style={{
+                                                    padding: '8px 24px',
+                                                    backgroundColor: '#10b981',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                    borderRadius: '6px',
+                                                    cursor: actionLoading ? 'wait' : 'pointer',
+                                                    fontWeight: 600,
+                                                    fontSize: '0.9rem',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '8px',
+                                                    opacity: actionLoading ? 0.7 : 1,
+                                                    boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                                                }}
+                                            >
+                                                <span>✅ Aceptar</span>
+                                            </button>
 
-                                    <button
-                                        onClick={handleRejectClick}
-                                        disabled={actionLoading}
-                                        style={{
-                                            padding: '8px 16px',
-                                            backgroundColor: '#ef4444',
-                                            color: 'white',
-                                            border: 'none',
-                                            borderRadius: '6px',
-                                            cursor: actionLoading ? 'wait' : 'pointer',
-                                            fontWeight: 600,
-                                            fontSize: '0.9rem',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            gap: '6px',
-                                            minWidth: '120px',
-                                            opacity: actionLoading ? 0.7 : 1
-                                        }}
-                                    >
-                                        <span>❌ Limpiar</span>
-                                    </button>
+                                            <button
+                                                onClick={handleRejectClick}
+                                                disabled={actionLoading}
+                                                style={{
+                                                    padding: '8px 24px',
+                                                    backgroundColor: '#ef4444',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                    borderRadius: '6px',
+                                                    cursor: actionLoading ? 'wait' : 'pointer',
+                                                    fontWeight: 600,
+                                                    fontSize: '0.9rem',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '8px',
+                                                    opacity: actionLoading ? 0.7 : 1,
+                                                    boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                                                }}
+                                            >
+                                                <span>❌ Limpiar</span>
+                                            </button>
+                                        </div>
+                                    </ObservacionesForm>
                                 </div>
                             </div>
-
                         </div>
                     )}
 

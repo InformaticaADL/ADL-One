@@ -159,7 +159,26 @@ Focalización en la experiencia de usuario en dispositivos móviles y tablets.
 - **Identidad de Usuario**: Personalización de avatar de usuario (`logo_user.png`) con ajustes de `object-fit` para visualización perfecta en el header.
 - **Tablas Compactas**: Optimización de `AssignmentListView` y otras tablas para visualización tipo "Tarjeta" en pantallas pequeñas.
 
+### 8. Recent Enhancements (January 30, 2026) 🆕
+Focus on data integrity, user experience, and visual tracking of the workflow.
+
+- **Commercial Edit Mode**: 
+  - Enabled full editing capabilities for "Antecedentes" and "Análisis" in `CommercialDetailView`.
+  - Implemented **Soft Delete** for analysis items (`activo = 0`) to preserve historical data integrity.
+  - Added robust **Audit Logging** (`EDICION_COMERCIAL`) tracking user, timestamp, and changes.
+
+- **Observation Timeline (Línea de Tiempo)**:
+  - New visual component `ObservationTimeline.tsx` tracking the entire lifecycle: Creation -> Technical Approval -> Coordination -> Assignment.
+  - Formatted messages to be user-friendly (e.g., "Ficha 61 creada por el Área Comercial").
+  - Optimized performance with `useMemo` and `React.memo` to prevent re-renders and flickering.
+
+- **Critical Fixes & Stability**:
+  - **Hook Order Violation**: Resolved React crashes in Detail Views by ensuring consistent hook execution.
+  - **Data Hydration**: Fixed issue where loading dependent catalogs would clear existing form data (implemented `hydrationEnabled` flag).
+  - **UI Refinements**: Removed default expansion in timeline and improved text readability.
+
 ---
+
 
 ## 🔧 Configuración para Desarrollo
 

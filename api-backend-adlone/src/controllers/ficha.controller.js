@@ -48,6 +48,17 @@ class FichaIngresoController {
         }
     }
 
+    async getHistorial(req, res) {
+        try {
+            const { id } = req.params;
+            const result = await fichaService.getHistorial(id);
+            return successResponse(res, result, 'Historial recuperado exitosamente');
+        } catch (err) {
+            logger.error('Error in getHistorial controller:', err);
+            return errorResponse(res, 'Error al obtener historial', 500, err.message);
+        }
+    }
+
     async approve(req, res) {
         try {
             const { id } = req.params;
