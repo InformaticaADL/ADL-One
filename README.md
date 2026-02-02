@@ -208,3 +208,20 @@ SMTP_PASS=password
 ✅ **Backend**: Node.js + Express (API RESTful, Auth, Email, SQL)
 ✅ **Frontend**: React + TypeScript (Dashboards, Formularios Complejos, Auth)
 ✅ **Base de Datos**: SQL Server (Procedimientos Almacenados, Transacciones)
+
+### 9. UI Standardization & Refactoring (February 2026) 🎨
+Complete alignment of visuals and behavior across Commercial, Technical, and Coordination modules to ensure a consistent user experience.
+
+- **Unified Status System**:
+  - Implemented a single color-coding logic across all list and detail views.
+  - **Colors**: Purple (Programación), Amber (Área Técnica), Blue (Coordinación), Green (Vigente/Finalizado).
+  - **Formatting**: Applied **Title Case** (e.g., "Pendiente Programación") for better readability.
+
+- **Table Layout Optimization**:
+  - **Fixed Layouts**: Standardized column widths (State: 160px, Actions: 50px) to prevent layout shifts.
+  - **Emphasis**: Increased visual hierarchy for the "Estado" column.
+  - **Cleanup**: Removed the "Usuario" column from Technical and Coordination views as requested.
+
+- **Detail View Consistency**:
+  - Aligned header badges in `CommercialDetailView`, `TechnicalDetailView`, and `CoordinacionDetailView` to matching the list view styles exactly.
+

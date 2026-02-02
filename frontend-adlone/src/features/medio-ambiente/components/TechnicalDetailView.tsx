@@ -314,11 +314,33 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                         fontSize: '0.85rem',
                         padding: '2px 8px',
                         borderRadius: '999px',
-                        backgroundColor: (enc.estado_ficha || '').includes('VIGENTE') ? '#dcfce7' : '#fee2e2',
-                        color: (enc.estado_ficha || '').includes('VIGENTE') ? '#166534' : '#991b1b',
+                        ...(() => {
+                            const upperStatus = (enc.estado_ficha || '').toUpperCase();
+                            let bg = '#e5e7eb'; let color = '#374151'; // Default
+
+                            if (upperStatus.includes('RECHAZADA') || upperStatus.includes('ANULADA') || upperStatus.includes('REVISAR')) {
+                                bg = '#fee2e2'; color = '#991b1b'; // Red
+                            } else if (upperStatus.includes('COORDINACIÓN')) {
+                                bg = '#dbeafe'; color = '#1e40af'; // Blue
+                            } else if (upperStatus.includes('PROGRAMACIÓN')) { // Specific check before generic PENDIENTE
+                                bg = '#ede9fe'; color = '#5b21b6'; // Purple
+                            } else if (upperStatus.includes('PENDIENTE') || upperStatus.includes('ÁREA TÉCNICA')) {
+                                bg = '#fef3c7'; color = '#92400e'; // Amber/Orange
+                            } else if (upperStatus.includes('ASIGNAR')) {
+                                bg = '#ffedd5'; color = '#c2410c'; // Orange Intense
+                            } else if (upperStatus.includes('VIGENTE') || upperStatus.includes('APROBADA') || upperStatus.includes('EJECUTADO') || upperStatus.includes('EN PROCESO')) {
+                                bg = '#dcfce7'; color = '#166534'; // Green
+                            } else if (upperStatus.includes('BORRADOR')) {
+                                bg = '#f3f4f6'; color = '#4b5563'; // Gray
+                            }
+                            return { backgroundColor: bg, color: color };
+                        })(),
                         fontWeight: 600
                     }}>
-                        {enc.estado_ficha}
+                        {(() => {
+                            const txt = enc.estado_ficha || '-';
+                            return txt.toLowerCase().split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                        })()}
                     </span>
                 </div>
             </div>
@@ -512,7 +534,6 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
 
                     {activeTab === 'observaciones' && (
                         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-                            <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#374151', marginBottom: '1rem' }}>Línea de Tiempo</h3>
                             <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#374151', marginBottom: '1rem' }}>Línea de Tiempo</h3>
                             <ObservationTimeline
                                 fichaId={fichaId}

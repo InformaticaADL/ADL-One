@@ -10,8 +10,8 @@ const config = {
   user: process.env.DB_USER || 'sa',
   password: process.env.DB_PASSWORD || '',
   options: {
-    encrypt: process.env.DB_ENCRYPT === 'true',
-    trustServerCertificate: process.env.DB_TRUST_SERVER_CERTIFICATE === 'true',
+    encrypt: false,
+    trustServerCertificate: true,
     enableArithAbort: true,
   },
   pool: {

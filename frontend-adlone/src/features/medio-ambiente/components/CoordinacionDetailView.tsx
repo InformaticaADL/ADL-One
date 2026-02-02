@@ -272,6 +272,30 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
 
 
 
+    // Helper for Status Styles (Unified)
+    const getStatusStyle = (status: string) => {
+        const upperStatus = (status || '').toUpperCase();
+        let bg = '#e5e7eb'; let color = '#374151'; // Default
+
+        if (upperStatus.includes('RECHAZADA') || upperStatus.includes('ANULADA') || upperStatus.includes('REVISAR')) {
+            bg = '#fee2e2'; color = '#991b1b'; // Red
+        } else if (upperStatus.includes('COORDINACIÓN')) {
+            bg = '#dbeafe'; color = '#1e40af'; // Blue
+        } else if (upperStatus.includes('PROGRAMACIÓN')) { // Specific check before generic PENDIENTE
+            bg = '#ede9fe'; color = '#5b21b6'; // Purple
+        } else if (upperStatus.includes('PENDIENTE') || upperStatus.includes('ÁREA TÉCNICA')) {
+            bg = '#fef3c7'; color = '#92400e'; // Amber/Orange
+        } else if (upperStatus.includes('ASIGNAR')) {
+            bg = '#ffedd5'; color = '#c2410c'; // Orange Intense
+        } else if (upperStatus.includes('VIGENTE') || upperStatus.includes('APROBADA') || upperStatus.includes('EJECUTADO') || upperStatus.includes('EN PROCESO')) {
+            bg = '#dcfce7'; color = '#166534'; // Green
+        } else if (upperStatus.includes('BORRADOR')) {
+            bg = '#f3f4f6'; color = '#4b5563'; // Gray
+        }
+
+        return { backgroundColor: bg, color };
+    };
+
     return (
         <div className="fichas-ingreso-container commercial-layout">
             <ConfirmationModal
@@ -294,14 +318,16 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '1rem' }}>
                     <h2 className="page-title-geo">Gestión Coordinación - Ficha N° {enc.fichaingresoservicio}</h2>
                     <span style={{
+                        ...getStatusStyle(enc.estado_ficha),
                         fontSize: '0.85rem',
                         padding: '2px 8px',
                         borderRadius: '999px',
-                        backgroundColor: (enc.estado_ficha || '').includes('VIGENTE') ? '#dcfce7' : '#fee2e2',
-                        color: (enc.estado_ficha || '').includes('VIGENTE') ? '#166534' : '#991b1b',
                         fontWeight: 600
                     }}>
-                        {enc.estado_ficha}
+                        {(() => {
+                            const txt = enc.estado_ficha || '-';
+                            return txt.toLowerCase().split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                        })()}
                     </span>
                 </div>
             </div>
@@ -515,23 +541,44 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
                                         readOnly={false}
                                         placeholder="Ingrese observaciones de coordinación aquí..."
                                     >
+                                        {/* Validation Alert */}
+                                        {data?.id_validaciontecnica !== 1 && (
+                                            <div style={{
+                                                marginBottom: '1rem',
+                                                padding: '0.75rem',
+                                                backgroundColor: '#fffbeb',
+                                                border: '1px solid #fcd34d',
+                                                borderRadius: '6px',
+                                                color: '#b45309',
+                                                fontSize: '0.9rem',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '0.5rem'
+                                            }}>
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                                </svg>
+                                                <strong>Atención:</strong> Esta ficha no cuenta con Aprobación Técnica (Estado 1). Las acciones están deshabilitadas.
+                                            </div>
+                                        )}
+
                                         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem', maxWidth: '1200px', margin: '1rem auto 0' }}>
                                             <button
                                                 onClick={handleAcceptClick}
-                                                disabled={actionLoading}
+                                                disabled={actionLoading || data?.id_validaciontecnica !== 1}
                                                 style={{
                                                     padding: '8px 24px',
-                                                    backgroundColor: '#10b981',
+                                                    backgroundColor: data?.id_validaciontecnica !== 1 ? '#9ca3af' : '#10b981',
                                                     color: 'white',
                                                     border: 'none',
                                                     borderRadius: '6px',
-                                                    cursor: actionLoading ? 'wait' : 'pointer',
+                                                    cursor: (actionLoading || data?.id_validaciontecnica !== 1) ? 'not-allowed' : 'pointer',
                                                     fontWeight: 600,
                                                     fontSize: '0.9rem',
                                                     display: 'flex',
                                                     alignItems: 'center',
                                                     gap: '8px',
-                                                    opacity: actionLoading ? 0.7 : 1,
+                                                    opacity: (actionLoading || data?.id_validaciontecnica !== 1) ? 0.7 : 1,
                                                     boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
                                                 }}
                                             >
@@ -540,24 +587,24 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
 
                                             <button
                                                 onClick={handleRejectClick}
-                                                disabled={actionLoading}
+                                                disabled={actionLoading || data?.id_validaciontecnica !== 1}
                                                 style={{
                                                     padding: '8px 24px',
-                                                    backgroundColor: '#ef4444',
+                                                    backgroundColor: data?.id_validaciontecnica !== 1 ? '#9ca3af' : '#ef4444',
                                                     color: 'white',
                                                     border: 'none',
                                                     borderRadius: '6px',
-                                                    cursor: actionLoading ? 'wait' : 'pointer',
+                                                    cursor: (actionLoading || data?.id_validaciontecnica !== 1) ? 'not-allowed' : 'pointer',
                                                     fontWeight: 600,
                                                     fontSize: '0.9rem',
                                                     display: 'flex',
                                                     alignItems: 'center',
                                                     gap: '8px',
-                                                    opacity: actionLoading ? 0.7 : 1,
+                                                    opacity: (actionLoading || data?.id_validaciontecnica !== 1) ? 0.7 : 1,
                                                     boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
                                                 }}
                                             >
-                                                <span>❌ Limpiar</span>
+                                                <span>❌ Rechazar</span>
                                             </button>
                                         </div>
                                     </ObservacionesForm>

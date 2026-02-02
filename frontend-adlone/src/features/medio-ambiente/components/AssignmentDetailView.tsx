@@ -23,6 +23,10 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
     const [saving, setSaving] = useState(false);
     const [muestreadores, setMuestreadores] = useState<any[]>([]);
 
+    // Status Validation
+    const [fichaStatus, setFichaStatus] = useState<number | null>(null);
+    const [statusLoading, setStatusLoading] = useState(true);
+
     // Muestreador assignments per row
     const [muestreadorInstalacion, setMuestreadorInstalacion] = useState<Record<number, number>>({});
     const [muestreadorRetiro, setMuestreadorRetiro] = useState<Record<number, number>>({});
@@ -110,8 +114,26 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
         }
     };
 
+    // Check Ficha Status for Validation
+    const checkStatus = async () => {
+        setStatusLoading(true);
+        try {
+            // We reuse getById to get the ENC info, specifically id_validaciontecnica
+            // Or we can assume list passed it? No, safer to fetch source of truth.
+            const ficha = await fichaService.getById(fichaId);
+            if (ficha) {
+                setFichaStatus(ficha.id_validaciontecnica);
+            }
+        } catch (error) {
+            console.error("Error checking ficha status", error);
+        } finally {
+            setStatusLoading(false);
+        }
+    }
+
     useEffect(() => {
         const loadInitialData = async () => {
+            await checkStatus();
             await loadAssignmentData();
             try {
                 const mData = await getCatalogo('muestreadores', () => catalogosService.getMuestreadores());
@@ -232,6 +254,30 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                 </button>
                 <h2 className="page-title-geo">Formulario de Asignación - Ficha {fichaId}</h2>
             </div>
+
+            {/* Status Validation Banner */}
+            {!statusLoading && fichaStatus !== 6 && fichaStatus !== 5 && (
+                <div style={{
+                    marginBottom: '1.5rem',
+                    padding: '1rem',
+                    backgroundColor: '#fffbeb',
+                    border: '1px solid #fcd34d',
+                    borderRadius: '8px',
+                    color: '#92400e',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                }}>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <div>
+                        <strong style={{ display: 'block', marginBottom: '2px' }}>Modo Solo Lectura</strong>
+                        Esta ficha no se encuentra en estado <strong>Pendiente Programación (6)</strong> ni <strong>En Proceso (5)</strong>. Requiere aprobación de Coordinación.
+                    </div>
+                </div>
+            )}
 
             {/* Top Inputs Section */}
             <div style={{
@@ -397,6 +443,12 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                     >
                         {saving ? 'Guardando...' : '💾 Guardar Asignación'}
                     </button>
+                    {/* Read Only message for button tooltip alternative */}
+                    {(!statusLoading && fichaStatus !== 6 && fichaStatus !== 5) && (
+                        <div style={{ fontSize: '0.7rem', color: '#ef4444', marginTop: '4px', textAlign: 'center' }}>
+                            Bloqueado por estado
+                        </div>
+                    )}
                 </div>
             </div>
 

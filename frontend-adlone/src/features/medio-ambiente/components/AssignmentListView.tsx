@@ -19,7 +19,6 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
     const [searchCentro, setSearchCentro] = useState('');
     const [searchObjetivo, setSearchObjetivo] = useState('');
     const [searchSubArea, setSearchSubArea] = useState('');
-    const [searchSync, setSearchSync] = useState('');
 
     // Pagination state
     const [currentPage, setCurrentPage] = useState(1);
@@ -112,7 +111,6 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
         setSearchCentro('');
         setSearchObjetivo('');
         setSearchSubArea('');
-        setSearchSync('');
     };
 
     // Filter Logic
@@ -134,14 +132,7 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
         const matchObjetivo = check(f.nombre_objetivomuestreo_ma, searchObjetivo);
         const matchSubArea = check(f.subarea || f.nombre_subarea, searchSubArea);
 
-        let matchSync = true;
-        if (searchSync) {
-            const isSync = f.sincronizado === 'S';
-            if (searchSync === 'SI' && !isSync) matchSync = false;
-            if (searchSync === 'NO' && isSync) matchSync = false;
-        }
-
-        return matchId && matchEstado && matchMonitoreo && matchEmpFacturar && matchEmpServicio && matchCentro && matchObjetivo && matchSubArea && matchSync;
+        return matchId && matchEstado && matchMonitoreo && matchEmpFacturar && matchEmpServicio && matchCentro && matchObjetivo && matchSubArea;
     });
 
     // Sorting Logic: Por Asignar -> Pendiente -> Ejecutado -> Others
@@ -266,13 +257,7 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                         options={uniqueSubAreas.map(val => ({ id: val, nombre: val }))}
                     />
 
-                    <SearchableSelect
-                        label="Sync"
-                        placeholder="Sync..."
-                        value={searchSync}
-                        onChange={setSearchSync}
-                        options={[{ id: 'SI', nombre: 'SI' }, { id: 'NO', nombre: 'NO' }]}
-                    />
+
 
                     <div style={{ display: 'flex', alignItems: 'end' }}>
                         <button
@@ -313,13 +298,12 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                                 <tr style={{ backgroundColor: '#f9fafb', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6b7280' }}>
                                     <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>N°Ficha</th>
                                     <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>Estado</th>
-                                    <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>Monitoreo</th>
+                                    <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>Frecuencia</th>
                                     <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>E.Facturar</th>
                                     <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>E.Servicio</th>
                                     <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>Fuente Emisora</th>
                                     <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>Obj.Muestreo</th>
                                     <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>Sub Área</th>
-                                    <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>Sync</th>
                                     <th style={{ padding: '8px', whiteSpace: 'nowrap', textAlign: 'center' }}>Acción</th>
                                 </tr>
                             </thead>
@@ -367,18 +351,7 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                                         <td style={cellStyle}>{row.nombre_objetivomuestreo_ma || '-'}</td>
                                         <td style={cellStyle}>{row.subarea || row.nombre_subarea || '-'}</td>
 
-                                        <td style={cellStyle}>
-                                            <span style={{
-                                                padding: '1px 6px',
-                                                borderRadius: '9999px',
-                                                fontSize: '9px',
-                                                fontWeight: 600,
-                                                backgroundColor: row.sincronizado === 'S' ? '#dcfce7' : '#fee2e2',
-                                                color: row.sincronizado === 'S' ? '#166534' : '#991b1b'
-                                            }}>
-                                                {row.sincronizado === 'S' ? 'SI' : 'NO'}
-                                            </span>
-                                        </td>
+
 
                                         <td style={{ textAlign: 'center', whiteSpace: 'nowrap', padding: '6px' }}>
                                             <button

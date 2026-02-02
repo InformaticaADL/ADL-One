@@ -371,6 +371,30 @@ class FichaIngresoService {
             const valStr = (v, len) => val(v) ? String(v).substring(0, len) : null;
             const valNum = (v) => val(v) ? Number(v) : null;
 
+            // 0. CHECK & RESET STATUS IF REJECTED
+            // If Ficha is Rejected (2 - Tech, 4 - Coord), reset to 3 (Pendiente Tech)
+            const reqCheckStatus = new sql.Request(transaction);
+            const currentStatusRes = await reqCheckStatus.query(`SELECT id_validaciontecnica, fichaingresoservicio FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio = ${id}`);
+            if (currentStatusRes.recordset[0]) {
+                const currentStatus = currentStatusRes.recordset[0].id_validaciontecnica;
+                if (currentStatus === 2 || currentStatus === 4) {
+                    const reqReset = new sql.Request(transaction);
+                    await reqReset.query(`UPDATE App_Ma_FichaIngresoServicio_ENC SET id_validaciontecnica = 3, estado_ficha = 'PENDIENTE ÁREA TÉCNICA' WHERE id_fichaingresoservicio = ${id}`);
+
+                    logger.info(`Ficha ${id} Status Reset from ${currentStatus} to 3 (Restart Flow)`);
+
+                    // Log History
+                    await this.logHistorial(transaction, {
+                        idFicha: id,
+                        idUsuario: user.id,
+                        accion: 'REINICIO_FLUJO',
+                        estadoAnterior: currentStatus === 2 ? 'RECHAZADA ÁREA TÉCNICA' : 'RECHAZADA ÁREA COORDINACIÓN',
+                        estadoNuevo: 'PENDIENTE ÁREA TÉCNICA',
+                        observacion: 'Re-inicio de flujo tras edición comercial.'
+                    });
+                }
+            }
+
             // Construct Instrumento Ambiental string
             let instrumento = null;
             if (ant.selectedInstrumento && ant.selectedInstrumento !== 'No aplica') {
@@ -404,32 +428,32 @@ class FichaIngresoService {
             requestEnc.input('id_subarea', sql.Numeric(10, 0), valNum(ant.selectedSubArea));
             requestEnc.input('id_tipodescarga', sql.Numeric(10, 0), valNum(ant.selectedTipoDescarga));
             requestEnc.input('id_contacto', sql.Numeric(10, 0), valNum(ant.selectedContacto));
-            requestEnc.input('cliente_entrega', sql.VarChar(80), valStr(ant.contactoNombre || 'Cliente', 80));
+            requestEnc.input('cliente_entrega', sql.VarChar(100), valStr(ant.clienteEntrega, 100)); // Assuming this field exists
             requestEnc.input('id_tipomuestreo', sql.Numeric(10, 0), valNum(ant.selectedTipoMuestreo));
             requestEnc.input('id_tipomuestra_ma', sql.Numeric(10, 0), valNum(ant.selectedTipoMuestra));
             requestEnc.input('id_actividad', sql.Numeric(10, 0), valNum(ant.selectedActividad));
-            requestEnc.input('duracion', sql.VarChar(10), valStr(ant.duracion, 10));
-            requestEnc.input('ref_google', sql.VarChar(200), valStr(ant.refGoogle, 200));
-            requestEnc.input('medicion_caudal', sql.VarChar(10), valStr(ant.medicionCaudal, 10));
+            requestEnc.input('duracion', sql.VarChar(50), valStr(ant.duracion, 50));
+            requestEnc.input('ref_google', sql.VarChar(500), valStr(ant.refGoogle, 500));
+            requestEnc.input('medicion_caudal', sql.VarChar(2), ant.medicionCaudal ? 'Si' : 'No');
             requestEnc.input('id_modalidad', sql.Numeric(10, 0), valNum(ant.selectedModalidad));
-            requestEnc.input('id_formacanal', sql.Numeric(10, 0), valNum(ant.formaCanal));
-            requestEnc.input('formacanal_medida', sql.VarChar(50), valStr(ant.detalleCanal, 50));
-            requestEnc.input('id_dispositivohidraulico', sql.Numeric(10, 0), valNum(ant.dispositivo));
-            requestEnc.input('dispositivohidraulico_medida', sql.VarChar(50), valStr(ant.detalleDispositivo, 50));
-            requestEnc.input('responsable', sql.VarChar(20), valStr(ant.responsableMuestreo, 20));
-            requestEnc.input('id_cargo', sql.Numeric(10, 0), valNum(ant.cargoResponsable));
-            requestEnc.input('obs_comercial', sql.VarChar(250), valStr(obs, 250));
+            requestEnc.input('id_formacanal', sql.Numeric(10, 0), valNum(ant.selectedFormaCanal));
+            requestEnc.input('formacanal_medida', sql.VarChar(100), valStr(ant.medidasCanal, 100));
+            requestEnc.input('id_dispositivohidraulico', sql.Numeric(10, 0), valNum(ant.selectedDispositivo));
+            requestEnc.input('dispositivohidraulico_medida', sql.VarChar(100), valStr(ant.medidasDispositivo, 100));
+            requestEnc.input('responsable', sql.VarChar(100), valStr(ant.responsableMuestreo, 100));
+            requestEnc.input('id_cargo', sql.Numeric(10, 0), valNum(ant.selectedCargo));
+            requestEnc.input('obs_comercial', sql.VarChar(sql.MAX), valStr(obs, 4000));
             requestEnc.input('ubicacion', sql.VarChar(200), valStr(ant.ubicacion, 200));
 
             await requestEnc.query(`
-                UPDATE App_Ma_FichaIngresoServicio_ENC
+                UPDATE App_Ma_FichaIngresoServicioEncabezado
                 SET tipo_fichaingresoservicio = @tipo_ficha,
                     id_lugaranalisis = @id_lugaranalisis,
-                    id_empresaservicio = @id_empresaservicio,
+                    id_empresaservicios = @id_empresaservicio,
                     id_empresa = @id_empresa,
                     id_centro = @id_centro,
                     id_tipoagua = @id_tipoagua,
-                    instrumento_ambiental = @instrumento,
+                    nombre_instrumentoambiental = @instrumento,
                     id_objetivomuestreo_ma = @id_objetivo,
                     nombre_tabla_largo = @nombre_tabla,
                     etfa = @etfa,
@@ -439,7 +463,7 @@ class FichaIngresoService {
                     id_subarea = @id_subarea,
                     id_tipodescarga = @id_tipodescarga,
                     id_contacto = @id_contacto,
-                    cliente_entrega = @cliente_entrega,
+                    nombre_contacto = NULL, -- Or update based on selectedContacto lookups if needed, but usually ID is enough
                     id_tipomuestreo = @id_tipomuestreo,
                     id_tipomuestra_ma = @id_tipomuestra_ma,
                     id_actividadmuestreo = @id_actividad,
@@ -469,7 +493,7 @@ class FichaIngresoService {
                 SELECT id_referenciaanalisis, id_tecnica, id_normativa 
                 FROM App_Ma_FichaIngresoServicio_DET 
                 WHERE id_fichaingresoservicio = @id
-            `);
+                `);
 
             const existingMap = new Set();
             existingResult.recordset.forEach(row => {
@@ -516,25 +540,25 @@ class FichaIngresoService {
 
                         await reqUpdateDet.query(`
                             UPDATE App_Ma_FichaIngresoServicio_DET
-                            SET 
-                                id_tecnica = @id_tecnica, 
-                                id_normativa = @id_normativa,
-                                id_normativareferencia = @id_normativareferencia,
-                                limitemax_d = @limitemax_d,
-                                limitemax_h = @limitemax_h,
-                                llevaerror = @llevaerror,
-                                error_min = @error_min,
-                                error_max = @error_max,
-                                tipo_analisis = @tipo_analisis,
-                                uf_individual = @uf,
-                                item = @item,
-                                id_laboratorioensayo = @id_laboratorio,
-                                id_laboratorioensayo_2 = @id_laboratorio_2,
-                                id_tipoentrega = @id_tipoentrega,
-                                id_transporte = @id_transporte,
-                                activo = 1 -- REVIVE if it was deleted
+            SET
+            id_tecnica = @id_tecnica,
+                id_normativa = @id_normativa,
+                id_normativareferencia = @id_normativareferencia,
+                limitemax_d = @limitemax_d,
+                limitemax_h = @limitemax_h,
+                llevaerror = @llevaerror,
+                error_min = @error_min,
+                error_max = @error_max,
+                tipo_analisis = @tipo_analisis,
+                uf_individual = @uf,
+                item = @item,
+                id_laboratorioensayo = @id_laboratorio,
+                id_laboratorioensayo_2 = @id_laboratorio_2,
+                id_tipoentrega = @id_tipoentrega,
+                id_transporte = @id_transporte,
+                activo = 1 -- REVIVE if it was deleted
                             WHERE id_fichaingresoservicio = @id_ficha AND id_referenciaanalisis = @id_ref
-                        `);
+                `);
 
                     } else {
                         // --- INSERT NEW ---
@@ -572,21 +596,21 @@ class FichaIngresoService {
                         requestDet.input('trad_1', sql.VarChar(250), '');
 
                         await requestDet.query(`
-                            INSERT INTO App_Ma_FichaIngresoServicio_DET (
-                                id_fichaingresoservicio, id_tecnica, id_normativa, id_normativareferencia, id_referenciaanalisis,
-                                limitemax_d, limitemax_h, llevaerror, error_min, error_max,
-                                tipo_analisis, uf_individual, item, id_laboratorioensayo, id_laboratorioensayo_2, id_tipoentrega,
-                                id_transporte, transporte_orden, resultado_fecha, resultado_hora,
-                                llevatraduccion, traduccion_0, traduccion_1,
-                                estado, cumplimiento, cumplimiento_app, activo
-                            ) VALUES (
-                                @id_ficha, @id_tecnica, @id_normativa, @id_normativareferencia, @id_referenciaanalisis,
-                                @limitemax_d, @limitemax_h, @llevaerror, @error_min, @error_max,
-                                @tipo_analisis, @uf, @item, @id_laboratorio, @id_laboratorio_2, @id_tipoentrega,
-                                @id_transporte, @transporte_orden, @res_fecha, @res_hora,
-                                @llevatrad, @trad_0, @trad_1,
-                                '', '', '', 1
-                            )
+                            INSERT INTO App_Ma_FichaIngresoServicio_DET(
+                    id_fichaingresoservicio, id_tecnica, id_normativa, id_normativareferencia, id_referenciaanalisis,
+                    limitemax_d, limitemax_h, llevaerror, error_min, error_max,
+                    tipo_analisis, uf_individual, item, id_laboratorioensayo, id_laboratorioensayo_2, id_tipoentrega,
+                    id_transporte, transporte_orden, resultado_fecha, resultado_hora,
+                    llevatraduccion, traduccion_0, traduccion_1,
+                    estado, cumplimiento, cumplimiento_app, activo
+                ) VALUES(
+                    @id_ficha, @id_tecnica, @id_normativa, @id_normativareferencia, @id_referenciaanalisis,
+                    @limitemax_d, @limitemax_h, @llevaerror, @error_min, @error_max,
+                    @tipo_analisis, @uf, @item, @id_laboratorio, @id_laboratorio_2, @id_tipoentrega,
+                    @id_transporte, @transporte_orden, @res_fecha, @res_hora,
+                    @llevatrad, @trad_0, @trad_1,
+                    '', '', '', 1
+                )
                         `);
                     }
                     itemCounter++;
@@ -615,7 +639,7 @@ class FichaIngresoService {
                 SELECT TOP 1 frecuencia, total_servicios, frecuencia_factor, id_frecuencia
                 FROM App_Ma_Agenda_MUESTREOS 
                 WHERE id_fichaingresoservicio = @id
-            `);
+                `);
 
             const newTotalServicios = valNum(ant.totalServicios) || 1;
             const newFrecuencia = valNum(ant.frecuencia) || 1;
@@ -640,7 +664,7 @@ class FichaIngresoService {
             }
 
             if (rebuildAgenda) {
-                logger.info(`Agenda parameters changed (or missing), rebuilding agenda for Ficha ${id}`);
+                logger.info(`Agenda parameters changed(or missing), rebuilding agenda for Ficha ${id}`);
                 // DELETE old agenda (PENDING ones only to be safe? Or all? User said "update info". 
                 // Creating a safety check: Only delete if status is 'En Proceso' (1) or if user forces it. 
                 // For now, assuming Commercial Edit happens BEFORE work starts mostly.
@@ -666,19 +690,19 @@ class FichaIngresoService {
                     requestAgenda.input('dummy_corr', sql.VarChar(50), 'PorAsignarCorrelativo');
 
                     await requestAgenda.query(`
-                        INSERT INTO App_Ma_Agenda_MUESTREOS (
-                            id_fichaingresoservicio, id_inspectorambiental, fecha_muestreo, frecuencia, frecuencia_correlativo, id_frecuencia,
-                            id_caso, caso_adlab, estado_caso, id_coordinador, id_muestreador, id_supervisor,
-                            dia, mes, ano, id_estadomuestreo, totalizador_inicio, totalizador_final, vdd,
-                            calculo_horas, frecuencia_factor, total_servicios,
-                            fecha_coordinador, fecha_muestreador, fechaderivado, ma_muestreo_fechai, ma_muestreo_fechat, ma_fecha_compuesta, muestreador_fechai, muestreador_fechat
-                        ) VALUES (
-                            @id_ficha, @id_inspector, NULL, @frecu, @dummy_corr, @id_frecu,
-                            9999999998, '', '', 0, 0, 0,
-                            0, 0, 0, 0, 0.00, 0.00, 0.00,
-                            0.00, @calc_factor, @total_serv,
-                            @def_date, @def_date, @def_date, @def_date, @def_date, @def_date, @def_date, @def_date
-                        )
+                        INSERT INTO App_Ma_Agenda_MUESTREOS(
+                    id_fichaingresoservicio, id_inspectorambiental, fecha_muestreo, frecuencia, frecuencia_correlativo, id_frecuencia,
+                    id_caso, caso_adlab, estado_caso, id_coordinador, id_muestreador, id_supervisor,
+                    dia, mes, ano, id_estadomuestreo, totalizador_inicio, totalizador_final, vdd,
+                    calculo_horas, frecuencia_factor, total_servicios,
+                    fecha_coordinador, fecha_muestreador, fechaderivado, ma_muestreo_fechai, ma_muestreo_fechat, ma_fecha_compuesta, muestreador_fechai, muestreador_fechat
+                ) VALUES(
+                    @id_ficha, @id_inspector, NULL, @frecu, @dummy_corr, @id_frecu,
+                    9999999998, '', '', 0, 0, 0,
+                    0, 0, 0, 0, 0.00, 0.00, 0.00,
+                    0.00, @calc_factor, @total_serv,
+                    @def_date, @def_date, @def_date, @def_date, @def_date, @def_date, @def_date, @def_date
+                )
                     `);
                 }
 
@@ -690,7 +714,7 @@ class FichaIngresoService {
                     let correlativoCounter = 1;
                     for (const row of spResult.recordset) {
                         const idAgenda = row.id_agendamam;
-                        const nuevoCorrelativo = `${id}-${correlativoCounter}-Pendiente-${idAgenda}`;
+                        const nuevoCorrelativo = `${id} -${correlativoCounter} -Pendiente - ${idAgenda} `;
                         const requestUpdateCorr = new sql.Request(transaction);
                         requestUpdateCorr.input('corr', sql.VarChar(50), nuevoCorrelativo);
                         requestUpdateCorr.input('id_ag', sql.Numeric(10, 0), idAgenda);
@@ -739,20 +763,20 @@ class FichaIngresoService {
             // Fallback to manual query only if SP fails (e.g. not present in DB)
             logger.warn('SP MAM_FichaComercial_ConsultaComercial failed, falling back to manual query', error);
             const resultFallback = await pool.request().query(`
-                SELECT 
-                    f.id_fichaingresoservicio as id,
-                    f.fichaingresoservicio as correlativo,
-                    f.fecha_fichacomercial as fecha,
-                    e.nombre_empresa as cliente,
-                    c.nombre_centro as centro,
-                    es.nombre_empresa as empresa_servicio,
-                    om.nombre_objetivomuestreo_ma as objetivo,
-                    sa.nombre_subarea as subarea,
-                    f.responsablemuestreo as responsable,
-                    u.nombre_usuario as usuario,
-                    f.tipo_fichaingresoservicio as tipo_ficha, 
-                    f.estado_ficha as estado,
-                    CASE WHEN f.id_validaciontecnica = 1 THEN 'Aprobada' 
+            SELECT
+            f.id_fichaingresoservicio as id,
+                f.fichaingresoservicio as correlativo,
+                f.fecha_fichacomercial as fecha,
+                e.nombre_empresa as cliente,
+                c.nombre_centro as centro,
+                es.nombre_empresa as empresa_servicio,
+                om.nombre_objetivomuestreo_ma as objetivo,
+                sa.nombre_subarea as subarea,
+                f.responsablemuestreo as responsable,
+                u.nombre_usuario as usuario,
+                f.tipo_fichaingresoservicio as tipo_ficha,
+                f.estado_ficha as estado,
+                CASE WHEN f.id_validaciontecnica = 1 THEN 'Aprobada' 
                          WHEN f.id_validaciontecnica = 2 THEN 'Rechazada'
                          ELSE 'Pendiente' END as estado_tecnico
                 FROM App_Ma_FichaIngresoServicio_ENC f
@@ -788,14 +812,37 @@ class FichaIngresoService {
             }
 
             const ficha = resultEnc.recordset[0];
-            logger.info(`Ficha ID ${id} Encabezado retrieved. Obs: ${ficha.observaciones_comercial}`);
+            // PATCH: Fetch real status from 'mae_validaciontecnica' (Correct source for Ficha Status).
+            // Mapping it to 'nombre_estadomuestreo' to force Frontend display priority.
+            try {
+                const patchReq = pool.request();
+                patchReq.input('pid', sql.Numeric(10, 0), id);
+                const patchRes = await patchReq.query(`
+                    SELECT vt.nombre_validaciontecnica
+                    FROM App_Ma_FichaIngresoServicio_ENC f 
+                    LEFT JOIN mae_validaciontecnica vt ON f.id_validaciontecnica = vt.id_validaciontecnica 
+                    WHERE f.id_fichaingresoservicio = @pid
+                `);
+
+                if (patchRes.recordset.length > 0) {
+                    const extra = patchRes.recordset[0];
+                    if (extra.nombre_validaciontecnica) {
+                        ficha.nombre_estadomuestreo = extra.nombre_validaciontecnica;
+                        ficha.nombre_validaciontecnica = extra.nombre_validaciontecnica; // Update both for consistency
+                    }
+                }
+            } catch (errPatch) {
+                logger.warn('Failed to patch nombre_validaciontecnica:', errPatch);
+            }
+
+            logger.info(`Ficha ID ${id} Encabezado retrieved.Obs: ${ficha.observaciones_comercial} `);
 
             // 2. Get Agenda (MUESTREOS) using legacy SP
             const requestAgenda = pool.request();
             requestAgenda.input('xunafichacomercial', sql.Numeric(10, 0), id);
             const resultAgenda = await requestAgenda.execute('MAM_FichaComercial_ConsultaComercial_Agenda_MUESTREOS_unaficha');
             ficha.agenda = resultAgenda.recordset[0] || {};
-            logger.info(`Ficha ID ${id} Agenda retrieved. Inspector: ${ficha.agenda.nombre_inspector}`);
+            logger.info(`Ficha ID ${id} Agenda retrieved.Inspector: ${ficha.agenda.nombre_inspector} `);
 
             // 3. Get Detalle (DET) using legacy SP
             const requestDet = pool.request();
@@ -804,8 +851,59 @@ class FichaIngresoService {
             ficha.detalles = resultDet.recordset || [];
 
             ficha.detalles = resultDet.recordset || [];
+            logger.info(`Ficha ID ${id} Detalles retrieved.Count: ${ficha.detalles.length} `);
 
-            logger.info(`Ficha ID ${id} Detalles retrieved. Count: ${ficha.detalles.length}`);
+            // 4. PARITY CHECK: Fetch raw params directly from tables to ensure Edit Mode works
+            // Legacy SPs might exclude columns needed for React Edit
+            try {
+                const parityCheck = await pool.request().input('id', sql.Numeric(10, 0), id).query(`
+                    SELECT TOP 1
+                        e.instrumento_ambiental,
+                        e.id_empresaservicio,
+                        e.ma_punto_muestreo,
+                        e.ma_coordenadas,
+                        e.tipo_fichaingresoservicio,
+                        e.id_lugaranalisis,
+                        e.id_tipoagua,
+                        e.ubicacion,
+                        e.nombre_tabla_largo,
+                        a.frecuencia,
+                        a.total_servicios,
+                        a.frecuencia_factor,
+                        a.id_frecuencia
+                    FROM App_Ma_FichaIngresoServicio_ENC e
+                    LEFT JOIN App_Ma_Agenda_MUESTREOS a ON e.id_fichaingresoservicio = a.id_fichaingresoservicio
+                    WHERE e.id_fichaingresoservicio = @id
+                `);
+
+                if (parityCheck.recordset.length > 0) {
+                    const raw = parityCheck.recordset[0];
+
+                    // Merge raw data into ficha (Encabezado)
+                    ficha.instrumento_ambiental = ficha.instrumento_ambiental || raw.instrumento_ambiental;
+                    // Note: DB column is id_empresaservicio (singular), but frontend/params might expect plural key if legacy SP returned it.
+                    // We map it to id_empresaservicios (plural) which is what CommercialDetailView expects (line 60).
+                    ficha.id_empresaservicios = ficha.id_empresaservicios || raw.id_empresaservicio;
+
+                    ficha.ma_punto_muestreo = ficha.ma_punto_muestreo || raw.ma_punto_muestreo;
+                    ficha.ma_coordenadas = ficha.ma_coordenadas || raw.ma_coordenadas;
+                    ficha.tipo_fichaingresoservicio = ficha.tipo_fichaingresoservicio || raw.tipo_fichaingresoservicio;
+                    ficha.id_lugaranalisis = ficha.id_lugaranalisis || raw.id_lugaranalisis;
+
+                    ficha.id_tipoagua = ficha.id_tipoagua || raw.id_tipoagua;
+                    ficha.ubicacion = ficha.ubicacion || raw.ubicacion;
+                    ficha.nombre_tabla_largo = ficha.nombre_tabla_largo || raw.nombre_tabla_largo;
+
+                    // Merge raw data into ficha.agenda
+                    ficha.agenda = ficha.agenda || {};
+                    ficha.agenda.frecuencia = ficha.agenda.frecuencia || raw.frecuencia;
+                    ficha.agenda.total_servicios = ficha.agenda.total_servicios || raw.total_servicios;
+                    ficha.agenda.frecuencia_factor = ficha.agenda.frecuencia_factor || raw.frecuencia_factor;
+                    ficha.agenda.id_frecuencia = ficha.agenda.id_frecuencia || raw.id_frecuencia;
+                }
+            } catch (parityError) {
+                logger.warn('Parity check failed:', parityError);
+            }
 
             return ficha;
 
@@ -827,9 +925,9 @@ class FichaIngresoService {
             request.input('obs', sql.VarChar(sql.MAX), observacion || '');
 
             await request.query(`
-                INSERT INTO mae_ficha_historial (id_fichaingresoservicio, id_usuario, accion, estado_anterior, estado_nuevo, observacion)
-                VALUES (@id_ficha, @id_usuario, @accion, @estado_ant, @estado_new, @obs)
-            `);
+                INSERT INTO mae_ficha_historial(id_fichaingresoservicio, id_usuario, accion, estado_anterior, estado_nuevo, observacion)
+            VALUES(@id_ficha, @id_usuario, @accion, @estado_ant, @estado_new, @obs)
+                `);
         } catch (error) {
             logger.error('Error logging history:', error);
             // Don't block main flow if history fails, but good to know
@@ -842,15 +940,15 @@ class FichaIngresoService {
             const result = await pool.request()
                 .input('id', sql.Numeric(10, 0), id)
                 .query(`
-                    SELECT 
-                        h.id_historial,
-                        h.fecha,
-                        h.accion,
-                        h.observacion,
-                        u.nombre_usuario,
-                        u.usuario as nombre_real,
-                        h.estado_anterior,
-                        h.estado_nuevo
+            SELECT
+            h.id_historial,
+                h.fecha,
+                h.accion,
+                h.observacion,
+                u.nombre_usuario,
+                u.usuario as nombre_real,
+                h.estado_anterior,
+                h.estado_nuevo
                     FROM mae_ficha_historial h
                     LEFT JOIN mae_usuario u ON h.id_usuario = u.id_usuario
                     WHERE h.id_fichaingresoservicio = @id
@@ -945,7 +1043,7 @@ class FichaIngresoService {
             // VALIDATION: Strict Check
             // Need to run this check BEFORE transaction or inside. Inside is safer for data integrity
             const requestCheck = new sql.Request(transaction);
-            const check = await requestCheck.query(`SELECT id_validaciontecnica FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio = ${id}`);
+            const check = await requestCheck.query(`SELECT id_validaciontecnica FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio = ${id} `);
 
             if (!check.recordset[0] || check.recordset[0].id_validaciontecnica !== 1) {
                 throw new Error("No se puede gestionar Coordinación: Ficha no aprobada por Técnica.");
@@ -954,16 +1052,16 @@ class FichaIngresoService {
             const request = new sql.Request(transaction);
             request.input('id', sql.Numeric(10, 0), id);
             request.input('obs', sql.VarChar(250), observaciones);
-            // We set id_validaciontecnica = 5 (En Proceso / Aprobada Coordinación)
-            await request.query("UPDATE App_Ma_FichaIngresoServicio_ENC SET id_validaciontecnica = 5, observaciones_coordinador = @obs WHERE id_fichaingresoservicio = @id");
+            // We set id_validaciontecnica = 6 (Pendiente Programación)
+            await request.query("UPDATE App_Ma_FichaIngresoServicio_ENC SET id_validaciontecnica = 6, estado_ficha = 'PENDIENTE PROGRAMACIÓN', observaciones_coordinador = @obs WHERE id_fichaingresoservicio = @id");
 
             // LOG HISTORY
             await this.logHistorial(transaction, {
                 idFicha: id,
                 idUsuario: user.id,
                 accion: 'APROBACION_COORDINACION',
-                estadoAnterior: 'Pendiente Coordinación',
-                estadoNuevo: 'En Proceso',
+                estadoAnterior: 'Pendiente Coordinación', // Or previous state name
+                estadoNuevo: 'PENDIENTE PROGRAMACIÓN',
                 observacion: observaciones
             });
 
@@ -1030,17 +1128,22 @@ class FichaIngresoService {
                 UPDATE App_Ma_Agenda_MUESTREOS 
                 SET id_muestreador = @muestreador, fecha_muestreo = @fecha, id_estadomuestreo = 2, id_coordinador = ${user.id || 0}
                 WHERE id_fichaingresoservicio = @id
-            `);
+                `);
 
             // LOG HISTORY (Assignment)
             await this.logHistorial(transaction, {
                 idFicha: id,
                 idUsuario: user.id || 0,
                 accion: 'ASIGNACION_MUESTREO',
-                estadoAnterior: 'En Proceso',
-                estadoNuevo: 'Asignado',
+                estadoAnterior: 'Pendiente Programación',
+                estadoNuevo: 'En Proceso',
                 observacion: observaciones || 'Actualización de agenda individual.'
             });
+
+            // UPDATE FICHA STATUS TO 5 (En Proceso)
+            const reqStatus = new sql.Request(transaction);
+            reqStatus.input('id', sql.Numeric(10, 0), id);
+            await reqStatus.query("UPDATE App_Ma_FichaIngresoServicio_ENC SET id_validaciontecnica = 5, estado_ficha = 'EN PROCESO' WHERE id_fichaingresoservicio = @id AND id_validaciontecnica = 6");
 
             await transaction.commit();
             return { success: true };
@@ -1053,31 +1156,12 @@ class FichaIngresoService {
     async getForAssignment() {
         const pool = await getConnection();
         try {
-            // Updated to use the correct Stored Procedure from FoxPro
+            // Updated to use the correct Stored Procedure from FoxPro (Modified via script)
             const result = await pool.request().execute('MAM_FichaComercial_ConsultaCoordinador');
             return result.recordset;
         } catch (error) {
-            logger.warn('SP MAM_FichaComercial_ConsultaCoordinador failed, falling back to manual query', error);
-            // Fallback logic matches the SP intent: Approved technically + Pending assignment
-            const resultFallback = await pool.request().query(`
-                SELECT DISTINCT
-                    f.id_fichaingresoservicio as id,
-                    f.fichaingresoservicio as correlativo,
-                    e.nombre_empresa as cliente,
-                    c.nombre_centro as centro,
-                    f.fecha_fichacomercial as fecha,
-                    f.estado_ficha as estado,
-                    sa.nombre_subarea as subarea
-                FROM App_Ma_FichaIngresoServicio_ENC f
-                INNER JOIN App_Ma_Agenda_MUESTREOS a ON f.id_fichaingresoservicio = a.id_fichaingresoservicio
-                LEFT JOIN mae_empresa e ON f.id_empresa = e.id_empresa
-                LEFT JOIN mae_centro c ON f.id_centro = c.id_centro
-                LEFT JOIN mae_subarea sa ON f.id_subarea = sa.id_subarea
-                WHERE f.id_validaciontecnica = 1
-                  AND a.id_estadomuestreo = 1
-                ORDER BY f.id_fichaingresoservicio DESC
-            `);
-            return resultFallback.recordset;
+            logger.error('SP MAM_FichaComercial_ConsultaCoordinador failed', error);
+            throw error;
         }
     }
 
@@ -1091,7 +1175,7 @@ class FichaIngresoService {
             // Use SP (now fixed)
             const result = await request.execute('MAM_FichaComercial_ConsultaCoordinadorDetalle');
 
-            logger.info(`SP executed for ficha ${id}, recordset length: ${result.recordset ? result.recordset.length : 'null/undefined'}`);
+            logger.info(`SP executed for ficha ${id}, recordset length: ${result.recordset ? result.recordset.length : 'null/undefined'} `);
 
 
             // If SP returns empty, use fallback query without estado filter
@@ -1101,21 +1185,21 @@ class FichaIngresoService {
                 fallbackRequest.input('xid_fichaingresoservicio', sql.Numeric(10, 0), id);
 
                 const resFallback = await fallbackRequest.query(`
-                    SELECT a.*, 
-                           m.nombre_muestreador,
-                           m2.nombre_muestreador as nombre_muestreador2,
-                           em.nombre_estadomuestreo,
-                           f.nombre_frecuencia,
-                           f.dias,
-                           a.fecha_muestreo,
-                           a.id_muestreador2,
-                           fis.fichaingresoservicio,
-                           fis.tipo_fichaingresoservicio,
-                           emp.nombre_empresa as empresa_servicio,
-                           cen.nombre_centro as centro,
-                           obj.nombre_objetivomuestreo_ma,
-                           sub.nombre_subarea,
-                           coord.nombre_coordinador
+                    SELECT a.*,
+                m.nombre_muestreador,
+                m2.nombre_muestreador as nombre_muestreador2,
+                em.nombre_estadomuestreo,
+                f.nombre_frecuencia,
+                f.dias,
+                a.fecha_muestreo,
+                a.id_muestreador2,
+                fis.fichaingresoservicio,
+                fis.tipo_fichaingresoservicio,
+                emp.nombre_empresa as empresa_servicio,
+                cen.nombre_centro as centro,
+                obj.nombre_objetivomuestreo_ma,
+                sub.nombre_subarea,
+                coord.nombre_coordinador
                     FROM App_Ma_Agenda_MUESTREOS a
                     LEFT JOIN mae_muestreador m ON a.id_muestreador = m.id_muestreador
                     LEFT JOIN mae_muestreador m2 ON a.id_muestreador2 = m2.id_muestreador
@@ -1140,16 +1224,16 @@ class FichaIngresoService {
             enrichRequest.input('xid_fichaingresoservicio', sql.Numeric(10, 0), id);
 
             const enrichResult = await enrichRequest.query(`
-                SELECT 
-                    id_agendamam,
-                    fecha_muestreo,
-                    id_muestreador,
-                    id_muestreador2,
-                    m2.nombre_muestreador as nombre_muestreador2
+            SELECT
+            id_agendamam,
+                fecha_muestreo,
+                id_muestreador,
+                id_muestreador2,
+                m2.nombre_muestreador as nombre_muestreador2
                 FROM App_Ma_Agenda_MUESTREOS a
                 LEFT JOIN mae_muestreador m2 ON a.id_muestreador2 = m2.id_muestreador
                 WHERE id_fichaingresoservicio = @xid_fichaingresoservicio
-            `);
+                `);
 
             // Merge the data
             const enrichMap = {};
@@ -1179,15 +1263,15 @@ class FichaIngresoService {
 
             const resFallback = await fallbackRequest.query(`
                 SELECT a.*, m.nombre_muestreador,
-                       em.nombre_estadomuestreo,
-                       f.nombre_frecuencia
+                em.nombre_estadomuestreo,
+                f.nombre_frecuencia
                 FROM App_Ma_Agenda_MUESTREOS a
                 LEFT JOIN mae_muestreador m ON a.id_muestreador = m.id_muestreador
                 LEFT JOIN mae_estadomuestreo em ON a.id_estadomuestreo = em.id_estadomuestreo
                 LEFT JOIN mae_frecuencia f ON a.id_frecuencia = f.id_frecuencia
                 WHERE a.id_fichaingresoservicio = @xid_fichaingresoservicio
                 ORDER BY a.id_agendamam
-            `);
+                `);
             return resFallback.recordset;
         }
     }
@@ -1235,13 +1319,13 @@ class FichaIngresoService {
                 await updateRequest.query(`
                     UPDATE App_Ma_Agenda_MUESTREOS 
                     SET fecha_muestreo = @fecha,
-                        dia = @dia,
-                        mes = @mes,
-                        ano = @ano,
-                        id_muestreador = @idMuestreadorInstalacion,
-                        id_muestreador2 = @idMuestreadorRetiro,
-                        id_estadomuestreo = @idEstadoMuestreo,
-                        id_coordinador = @idCoordinador
+                dia = @dia,
+                mes = @mes,
+                ano = @ano,
+                id_muestreador = @idMuestreadorInstalacion,
+                id_muestreador2 = @idMuestreadorRetiro,
+                id_estadomuestreo = @idEstadoMuestreo,
+                id_coordinador = @idCoordinador
                     WHERE id_agendamam = @id_agenda
                 `);
 
@@ -1253,8 +1337,8 @@ class FichaIngresoService {
                 analisisRequest.input('idFicha', sql.Numeric(10, 0), idFichaIngresoServicio);
 
                 const analisisResult = await analisisRequest.query(`
-                    SELECT * 
-                    FROM App_Ma_FichaIngresoServicio_DET 
+            SELECT *
+                FROM App_Ma_FichaIngresoServicio_DET 
                     WHERE id_fichaingresoservicio = @idFicha 
                     ORDER BY item
                 `);
@@ -1298,7 +1382,7 @@ class FichaIngresoService {
                         WHERE id_fichaingresoservicio = @idFicha
                           AND frecuencia_correlativo = @correlativo
                           AND item = @item
-                    `);
+                `);
 
                     const exists = checkResult.recordset[0].count > 0;
 
@@ -1307,54 +1391,54 @@ class FichaIngresoService {
                         await resultadoRequest.query(`
                             UPDATE App_Ma_Resultados
                             SET id_muestreador = @idMuestreador,
-                                id_tecnica = @idTecnica,
-                                id_normativa = @idNormativa,
-                                id_normativareferencia = @idNormativaRef,
-                                id_referenciaanalisis = @idReferenciaAnalisis,
-                                limitemax_d = @limiteMaxD,
-                                limitemax_h = @limiteMaxH,
-                                llevaerror = @llevaError,
-                                error_min = @errorMin,
-                                error_max = @errorMax,
-                                tipo_analisis = @tipoAnalisis,
-                                uf_individual = @ufIndividual,
-                                estado = @estado,
-                                cumplimiento = @cumplimiento,
-                                cumplimiento_app = @cumplimientoApp,
-                                id_laboratorioensayo = @idLaboratorioEnsayo,
-                                id_tipoentrega = @idTipoEntrega,
-                                id_transporte = @idTransporte,
-                                transporte_orden = @transporteOrden,
-                                resultado_fecha = @resultadoFecha,
-                                resultado_hora = @resultadoHora,
-                                llevatraduccion = @llevaTraduccion,
-                                traduccion_0 = @traduccion0,
-                                traduccion_1 = @traduccion1
+                id_tecnica = @idTecnica,
+                id_normativa = @idNormativa,
+                id_normativareferencia = @idNormativaRef,
+                id_referenciaanalisis = @idReferenciaAnalisis,
+                limitemax_d = @limiteMaxD,
+                limitemax_h = @limiteMaxH,
+                llevaerror = @llevaError,
+                error_min = @errorMin,
+                error_max = @errorMax,
+                tipo_analisis = @tipoAnalisis,
+                uf_individual = @ufIndividual,
+                estado = @estado,
+                cumplimiento = @cumplimiento,
+                cumplimiento_app = @cumplimientoApp,
+                id_laboratorioensayo = @idLaboratorioEnsayo,
+                id_tipoentrega = @idTipoEntrega,
+                id_transporte = @idTransporte,
+                transporte_orden = @transporteOrden,
+                resultado_fecha = @resultadoFecha,
+                resultado_hora = @resultadoHora,
+                llevatraduccion = @llevaTraduccion,
+                traduccion_0 = @traduccion0,
+                traduccion_1 = @traduccion1
                             WHERE id_fichaingresoservicio = @idFicha
                               AND frecuencia_correlativo = @correlativo
                               AND item = @item
-                        `);
+                `);
                     } else {
                         // INSERT new record
                         await resultadoRequest.query(`
-                            INSERT INTO App_Ma_Resultados (
-                                id_fichaingresoservicio, frecuencia_correlativo, id_muestreador,
-                                id_tecnica, id_normativa, id_normativareferencia, id_referenciaanalisis,
-                                limitemax_d, limitemax_h, llevaerror, error_min, error_max,
-                                tipo_analisis, uf_individual, estado, cumplimiento, cumplimiento_app,
-                                item, id_laboratorioensayo, id_tipoentrega, id_transporte,
-                                transporte_orden, resultado_fecha, resultado_hora, llevatraduccion,
-                                traduccion_0, traduccion_1
-                            ) VALUES (
-                                @idFicha, @correlativo, @idMuestreador,
-                                @idTecnica, @idNormativa, @idNormativaRef, @idReferenciaAnalisis,
-                                @limiteMaxD, @limiteMaxH, @llevaError, @errorMin, @errorMax,
-                                @tipoAnalisis, @ufIndividual, @estado, @cumplimiento, @cumplimientoApp,
-                                @item, @idLaboratorioEnsayo, @idTipoEntrega, @idTransporte,
-                                @transporteOrden, @resultadoFecha, @resultadoHora, @llevaTraduccion,
-                                @traduccion0, @traduccion1
-                            )
-                        `);
+                            INSERT INTO App_Ma_Resultados(
+                    id_fichaingresoservicio, frecuencia_correlativo, id_muestreador,
+                    id_tecnica, id_normativa, id_normativareferencia, id_referenciaanalisis,
+                    limitemax_d, limitemax_h, llevaerror, error_min, error_max,
+                    tipo_analisis, uf_individual, estado, cumplimiento, cumplimiento_app,
+                    item, id_laboratorioensayo, id_tipoentrega, id_transporte,
+                    transporte_orden, resultado_fecha, resultado_hora, llevatraduccion,
+                    traduccion_0, traduccion_1
+                ) VALUES(
+                    @idFicha, @correlativo, @idMuestreador,
+                    @idTecnica, @idNormativa, @idNormativaRef, @idReferenciaAnalisis,
+                    @limiteMaxD, @limiteMaxH, @llevaError, @errorMin, @errorMax,
+                    @tipoAnalisis, @ufIndividual, @estado, @cumplimiento, @cumplimientoApp,
+                    @item, @idLaboratorioEnsayo, @idTipoEntrega, @idTransporte,
+                    @transporteOrden, @resultadoFecha, @resultadoHora, @llevaTraduccion,
+                    @traduccion0, @traduccion1
+                )
+                    `);
                     }
                 }
 
@@ -1364,8 +1448,8 @@ class FichaIngresoService {
                 equiposRequest.input('idMuestreador', sql.Numeric(10, 0), idMuestreadorInstalacion);
 
                 const equiposResult = await equiposRequest.query(`
-                    SELECT * 
-                    FROM mae_equipo 
+            SELECT *
+                FROM mae_equipo 
                     WHERE id_muestreador = @idMuestreador 
                     ORDER BY nombre
                 `);
@@ -1393,7 +1477,7 @@ class FichaIngresoService {
                         WHERE id_fichaingresoservicio = @idFicha
                           AND frecuencia_correlativo = @correlativo
                           AND id_equipo = @idEquipo
-                    `);
+                `);
 
                     const equipoExists = checkEquipoResult.recordset[0].count > 0;
 
@@ -1402,26 +1486,26 @@ class FichaIngresoService {
                         await equipoRequest.query(`
                             UPDATE App_Ma_Equipos_MUESTREOS
                             SET tienefc = @tieneFC,
-                                error0 = @error0,
-                                error15 = @error15,
-                                error30 = @error30,
-                                id_muestreador = @idMuestreador
+                error0 = @error0,
+                error15 = @error15,
+                error30 = @error30,
+                id_muestreador = @idMuestreador
                             WHERE id_fichaingresoservicio = @idFicha
                               AND frecuencia_correlativo = @correlativo
                               AND id_equipo = @idEquipo
-                        `);
+                `);
                     } else {
                         // INSERT new equipment record
                         await equipoRequest.query(`
-                            INSERT INTO App_Ma_Equipos_MUESTREOS (
-                                id_fichaingresoservicio, frecuencia_correlativo, id_equipo,
-                                tienefc, error0, error15, error30, id_muestreador,
-                                seleccionado, usado_instalacion, usado_retiro
-                            ) VALUES (
-                                @idFicha, @correlativo, @idEquipo,
-                                @tieneFC, @error0, @error15, @error30, @idMuestreador,
-                                @seleccionado, @usadoInstalacion, @usadoRetiro
-                            )
+                            INSERT INTO App_Ma_Equipos_MUESTREOS(
+                    id_fichaingresoservicio, frecuencia_correlativo, id_equipo,
+                    tienefc, error0, error15, error30, id_muestreador,
+                    seleccionado, usado_instalacion, usado_retiro
+                ) VALUES(
+                    @idFicha, @correlativo, @idEquipo,
+                    @tieneFC, @error0, @error15, @error30, @idMuestreador,
+                    @seleccionado, @usadoInstalacion, @usadoRetiro
+                )
                         `);
                     }
                 }

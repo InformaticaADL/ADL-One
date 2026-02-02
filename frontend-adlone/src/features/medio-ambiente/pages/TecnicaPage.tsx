@@ -26,7 +26,6 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
     const [searchCentro, setSearchCentro] = useState('');
     const [searchObjetivo, setSearchObjetivo] = useState('');
     const [searchSubArea, setSearchSubArea] = useState('');
-    const [searchUsuario, setSearchUsuario] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [loading, setLoading] = useState(true);
     const [fichas, setFichas] = useState<any[]>([]);
@@ -74,7 +73,6 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
     const uniqueCentros = React.useMemo(() => getUniqueValues('centro'), [fichas]);
     const uniqueObjetivos = React.useMemo(() => getUniqueValues('nombre_objetivomuestreo_ma'), [fichas]);
     const uniqueSubAreas = React.useMemo(() => getUniqueValues('nombre_subarea'), [fichas]);
-    const uniqueUsuarios = React.useMemo(() => getUniqueValues('nombre_usuario'), [fichas]);
 
     const handleClearFilters = () => {
         setSearchId('');
@@ -87,7 +85,6 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
         setSearchCentro('');
         setSearchObjetivo('');
         setSearchSubArea('');
-        setSearchUsuario('');
     };
 
     // Filter Logic
@@ -108,7 +105,6 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
         const matchCentro = check(f.centro, searchCentro);
         const matchObjetivo = check(f.nombre_objetivomuestreo_ma, searchObjetivo);
         const matchSubArea = check(f.nombre_subarea, searchSubArea);
-        const matchUsuario = check(f.nombre_usuario, searchUsuario);
 
         let matchDate = true;
         if (dateFrom || dateTo) {
@@ -133,7 +129,7 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
             }
         }
 
-        return matchId && matchDate && matchEstado && matchTipo && matchEmpresaFacturar && matchEmpresaServicio && matchCentro && matchObjetivo && matchSubArea && matchUsuario;
+        return matchId && matchDate && matchEstado && matchTipo && matchEmpresaFacturar && matchEmpresaServicio && matchCentro && matchObjetivo && matchSubArea;
     });
 
     // Pagination Logic
@@ -154,7 +150,7 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
         whiteSpace: 'nowrap',
         overflow: 'hidden',
         textOverflow: 'ellipsis',
-        padding: '6px 8px'
+        padding: '1px 4px'
     };
 
     // Label style
@@ -264,13 +260,7 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
                         options={uniqueSubAreas.map(val => ({ id: val, nombre: val }))}
                     />
 
-                    <SearchableSelect
-                        label="Usuario"
-                        placeholder="Usuario..."
-                        value={searchUsuario}
-                        onChange={setSearchUsuario}
-                        options={uniqueUsuarios.map(val => ({ id: val, nombre: val }))}
-                    />
+
 
                     <div className="form-group">
                         <label style={{ ...labelStyle, visibility: 'hidden' }}>Limpiar</label>
@@ -307,20 +297,19 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
                     <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Cargando fichas...</div>
                 ) : (
                     <>
-                        <table className="compact-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
+                        <table className="compact-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', tableLayout: 'fixed' }}>
                             <thead>
                                 <tr style={{ backgroundColor: '#f9fafb', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6b7280' }}>
-                                    <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>N° Ficha</th>
-                                    <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>Estado</th>
-                                    <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>Fecha</th>
-                                    <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>Tipo</th>
-                                    <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>E. Facturar</th>
-                                    <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>E. Servicio</th>
-                                    <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>Fuente Emisora</th>
-                                    <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>Objetivo</th>
-                                    <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>Sub Área</th>
-                                    <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>Usuario</th>
-                                    <th style={{ padding: '8px', whiteSpace: 'nowrap', textAlign: 'center' }}>Acciones</th>
+                                    <th style={{ padding: '4px', whiteSpace: 'nowrap', width: '50px' }}>N° Ficha</th>
+                                    <th style={{ padding: '4px', whiteSpace: 'nowrap', width: '160px' }}>Estado</th>
+                                    <th style={{ padding: '4px', whiteSpace: 'nowrap', width: '70px' }}>Fecha</th>
+                                    <th style={{ padding: '4px', whiteSpace: 'nowrap', width: '80px' }}>Tipo</th>
+                                    <th style={{ padding: '4px', whiteSpace: 'nowrap' }}>E. Facturar</th>
+                                    <th style={{ padding: '4px', whiteSpace: 'nowrap' }}>E. Servicio</th>
+                                    <th style={{ padding: '4px', whiteSpace: 'nowrap' }}>Fuente Emisora</th>
+                                    <th style={{ padding: '4px', whiteSpace: 'nowrap' }}>Objetivo</th>
+                                    <th style={{ padding: '4px', whiteSpace: 'nowrap' }}>Sub Área</th>
+                                    <th style={{ padding: '4px', whiteSpace: 'nowrap', textAlign: 'center', width: '50px' }}>Acciones</th>
                                 </tr>
                             </thead>
                             <tbody style={{ fontSize: '10px' }}>
@@ -335,28 +324,31 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
                                                 fontWeight: 600,
                                                 backgroundColor: (() => {
                                                     const est = (ficha.estado_ficha || '').toUpperCase();
-                                                    if (est.includes('RECHAZADA')) return '#fee2e2'; // Rojo
-                                                    if (est.includes('PENDIENTE TÉCNICA')) return '#fef3c7'; // Amarillo/Naranja
-                                                    if (est.includes('PENDIENTE COORDINACIÓN')) return '#dbeafe'; // Azul
-                                                    if (est.includes('REVISAR')) return '#fee2e2'; // Rojo
-                                                    if (est.includes('EN PROCESO')) return '#dcfce7'; // Verde
-                                                    if (est.includes('BORRADOR')) return '#f3f4f6'; // Gris
-                                                    if (est.includes('VIGENTE')) return '#dcfce7'; // Verde (Legacy)
-                                                    return '#f3f4f6'; // Default Gris
+                                                    if (est.includes('RECHAZADA') || est.includes('ANULADA') || est.includes('REVISAR')) return '#fee2e2'; // Red
+                                                    if (est.includes('COORDINACIÓN')) return '#dbeafe'; // Blue
+                                                    if (est.includes('PROGRAMACIÓN')) return '#ede9fe'; // Purple
+                                                    if (est.includes('PENDIENTE') || est.includes('ÁREA TÉCNICA')) return '#fef3c7'; // Amber
+                                                    if (est.includes('ASIGNAR')) return '#ffedd5'; // Orange
+                                                    if (est.includes('VIGENTE') || est.includes('APROBADA') || est.includes('EJECUTADO') || est.includes('EN PROCESO')) return '#dcfce7'; // Green
+                                                    if (est.includes('BORRADOR')) return '#f3f4f6'; // Gray
+                                                    return '#f3f4f6'; // Default
                                                 })(),
                                                 color: (() => {
                                                     const est = (ficha.estado_ficha || '').toUpperCase();
-                                                    if (est.includes('RECHAZADA')) return '#991b1b';
-                                                    if (est.includes('PENDIENTE TÉCNICA')) return '#92400e';
-                                                    if (est.includes('PENDIENTE COORDINACIÓN')) return '#1e40af';
-                                                    if (est.includes('REVISAR')) return '#991b1b';
-                                                    if (est.includes('EN PROCESO')) return '#166534';
-                                                    if (est.includes('BORRADOR')) return '#4b5563';
-                                                    if (est.includes('VIGENTE')) return '#166534';
-                                                    return '#4b5563';
+                                                    if (est.includes('RECHAZADA') || est.includes('ANULADA') || est.includes('REVISAR')) return '#991b1b'; // Red
+                                                    if (est.includes('COORDINACIÓN')) return '#1e40af'; // Blue
+                                                    if (est.includes('PROGRAMACIÓN')) return '#5b21b6'; // Purple
+                                                    if (est.includes('PENDIENTE') || est.includes('ÁREA TÉCNICA')) return '#92400e'; // Amber
+                                                    if (est.includes('ASIGNAR')) return '#c2410c'; // Orange
+                                                    if (est.includes('VIGENTE') || est.includes('APROBADA') || est.includes('EJECUTADO') || est.includes('EN PROCESO')) return '#166534'; // Green
+                                                    if (est.includes('BORRADOR')) return '#4b5563'; // Gray
+                                                    return '#4b5563'; // Default
                                                 })()
                                             }}>
-                                                {ficha.estado_ficha || '-'}
+                                                {(() => {
+                                                    const txt = ficha.estado_ficha || '-';
+                                                    return txt.toLowerCase().split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                                                })()}
                                             </span>
                                         </td>
                                         <td data-label="Fecha" style={cellStyle}>{ficha.fecha || '-'}</td>
@@ -367,8 +359,6 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
                                         <td data-label="Fuente Emisora" style={cellStyle} title={ficha.centro}>{ficha.centro || '-'}</td>
                                         <td data-label="Objetivo" style={cellStyle} title={ficha.nombre_objetivomuestreo_ma}>{ficha.nombre_objetivomuestreo_ma || '-'}</td>
                                         <td data-label="Sub Área" style={cellStyle} title={ficha.nombre_subarea}>{ficha.nombre_subarea || '-'}</td>
-
-                                        <td data-label="Usuario" style={cellStyle}>{ficha.nombre_usuario || '-'}</td>
                                         <td data-label="Acciones" style={{ textAlign: 'center', whiteSpace: 'nowrap', padding: '6px' }}>
                                             <button
                                                 title="Gestionar Ficha"
@@ -395,7 +385,7 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
                                 {/* Empty Rows Filling */}
                                 {Array.from({ length: Math.max(0, emptyRows) }).map((_, i) => (
                                     <tr key={`empty-${i}`} style={{ borderBottom: '1px solid #e5e7eb', height: '36px' }}>
-                                        <td colSpan={11}>&nbsp;</td>
+                                        <td colSpan={10}>&nbsp;</td>
                                     </tr>
                                 ))}
                             </tbody>

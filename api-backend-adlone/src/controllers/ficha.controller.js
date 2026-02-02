@@ -165,6 +165,20 @@ class FichaIngresoController {
             return errorResponse(res, 'Error al actualizar asignaciones', 500, err.message);
         }
     }
+    async update(req, res) {
+        try {
+            const { id } = req.params;
+            const updateData = req.body;
+            const userData = req.body.user || { id: 0 }; // Ensure user is passed
+
+            // Call service update method
+            const result = await fichaService.updateFicha(id, updateData, userData);
+            return successResponse(res, result, 'Ficha actualizada exitosamente');
+        } catch (err) {
+            logger.error('Error in update ficha controller:', err);
+            return errorResponse(res, 'Error al actualizar la ficha', 500, err.message);
+        }
+    }
 }
 
 export default new FichaIngresoController();

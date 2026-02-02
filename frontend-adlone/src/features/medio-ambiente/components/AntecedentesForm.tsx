@@ -139,20 +139,21 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
     // --- Block 5 State ---
     const [formasCanal, setFormasCanal] = useState<any[]>([]);
-    const [formaCanal, setFormaCanal] = useState<string>('');
+    const [formaCanal, setFormaCanal] = useState<string>(String(initialData?.formaCanal || ''));
 
-    // Check if detalleCanal exists in original or needs adding. Assuming it needs to be there.
-    const [detalleCanal, setDetalleCanal] = useState<string>('');
+    const [detalleCanal, setDetalleCanal] = useState<string>(initialData?.detalleCanal || '');
 
     const [dispositivos, setDispositivos] = useState<any[]>([]);
-    const [dispositivo, setDispositivo] = useState<string>('');
-    const [detalleDispositivo, setDetalleDispositivo] = useState<string>('');
+    const [dispositivo, setDispositivo] = useState<string>(String(initialData?.dispositivo || ''));
+    const [detalleDispositivo, setDetalleDispositivo] = useState<string>(initialData?.detalleDispositivo || '');
 
     // Extra state for id_tipo_agua (separate from the display string)
-    const [idTipoAgua, setIdTipoAgua] = useState<number | null>(null);
+    const [idTipoAgua, setIdTipoAgua] = useState<number | null>(initialData?.idTipoAgua || null);
 
     // Track if we're currently hydrating from initialData to prevent cascade clearing
-    const isHydrating = useRef(false);
+    // Start as TRUE if initialData exists to block initial cascades
+    const isHydrating = useRef(!!initialData);
+    // Force false initially to ensures backup effect runs if useState misses
     const hasHydrated = useRef(false);
 
     // Debug: Track component mount/unmount
@@ -163,58 +164,38 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
         };
     }, []);
 
-    // Initial Data Hydration
+
+    // Initial Data Hydration - Backup for late props
     useEffect(() => {
         if (initialData && !hasHydrated.current) {
-            console.log('Hydrating AntecedentesForm with:', initialData);
-            console.log('🔍 Frecuencia fields:', {
-                frecuencia: initialData.frecuencia,
-                factor: initialData.factor,
-                periodo: initialData.periodo,
-                totalServicios: initialData.totalServicios
-            });
-            console.log('🔍 Instrumento fields:', {
-                selectedInstrumento: initialData.selectedInstrumento,
-                nroInstrumento: initialData.nroInstrumento,
-                anioInstrumento: initialData.anioInstrumento
-            });
-            hasHydrated.current = true; // Mark as hydrated
-            isHydrating.current = true; // Set flag to prevent cascade clearing
+            console.log('Hydrating AntecedentesForm (Backup Effect)', initialData);
+            isHydrating.current = true;
+
             setTipoMonitoreo(initialData.tipoMonitoreo || '');
             setSelectedLugar(String(initialData.selectedLugar || ''));
             setSelectedEmpresa(String(initialData.selectedEmpresa || ''));
             setSelectedCliente(String(initialData.selectedCliente || ''));
-
-            // Pending dependent fields set (handled by smart cascades largely, but we set values too)
             setSelectedFuente(String(initialData.selectedFuente || ''));
             setSelectedContacto(String(initialData.selectedContacto || ''));
             setSelectedObjetivo(String(initialData.selectedObjetivo || ''));
-
             setUbicacion(initialData.ubicacion || '');
             setComuna(initialData.comuna || '');
             setRegion(initialData.region || '');
             setTipoAgua(initialData.tipoAgua || '');
             setIdTipoAgua(initialData.idTipoAgua || null);
             setCodigo(initialData.codigo || '');
-
             setGlosa(initialData.glosa || '');
             setEsETFA(initialData.esETFA || 'No');
             setPuntoMuestreo(initialData.puntoMuestreo || '');
             setZona(initialData.zona || '');
             setUtmNorte(initialData.utmNorte || '');
             setUtmEste(initialData.utmEste || '');
-
             setSelectedComponente(String(initialData.selectedComponente || ''));
             setSelectedSubArea(String(initialData.selectedSubArea || ''));
-
-            // Instrument
             setSelectedInstrumento(initialData.selectedInstrumento || '');
             setNroInstrumento(initialData.nroInstrumento || '');
             setAnioInstrumento(initialData.anioInstrumento || '');
-
             setSelectedInspector(String(initialData.selectedInspector || ''));
-
-            // Block 4
             setResponsableMuestreo(initialData.responsableMuestreo || 'ADL');
             setCargoResponsable(String(initialData.cargoResponsable || ''));
             setSelectedTipoMuestreo(String(initialData.selectedTipoMuestreo || ''));
@@ -225,41 +206,19 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
             setRefGoogle(initialData.refGoogle || '');
             setMedicionCaudal(initialData.medicionCaudal || '');
             setSelectedModalidad(String(initialData.selectedModalidad || ''));
-
-            // Block 5
             setFormaCanal(String(initialData.formaCanal || ''));
             setDetalleCanal(initialData.detalleCanal || '');
             setDispositivo(String(initialData.dispositivo || ''));
             setDetalleDispositivo(initialData.detalleDispositivo || '');
-
-            // Agenda
             setFrecuencia(String(initialData.frecuencia || ''));
             setFactor(String(initialData.factor || '1'));
             setPeriodo(String(initialData.periodo || ''));
             setTotalServicios(String(initialData.totalServicios || ''));
 
-            // Log state after hydration to verify values are set
-            setTimeout(() => {
-                console.log('📊 State after hydration:', {
-                    selectedInstrumento,
-                    nroInstrumento,
-                    anioInstrumento,
-                    frecuencia,
-                    factor,
-                    periodo,
-                    totalServicios
-                });
-            }, 100);
-
-            // NOTE: isHydrating flag will be disabled when catalogs finish loading
-            // See loadCatalogosComplementarios() -> "All catalogs loaded successfully"
-        } else if (!initialData) {
-            // Reset hasHydrated when initialData becomes null (exiting edit mode)
-            hasHydrated.current = false;
+            hasHydrated.current = true;
+            // Note: isHydrating will be disabled by catalog loader or timeout if needed
         }
     }, [initialData]);
-
-    // Expose data via ref
     useImperativeHandle(ref, () => ({
         getData: () => {
             // Find selected contact name
@@ -353,10 +312,8 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
         // Hydration Check: If we are matching initial Data, don't wipe dependent fields
         const isRestoring = initialData && String(initialData.selectedCliente) === String(selectedCliente);
-        console.log('🔍 [Cascade] selectedCliente isRestoring:', isRestoring, 'initialData.selectedCliente:', initialData?.selectedCliente);
 
         if (!isRestoring) {
-            console.log('🗑️ [Cascade] Clearing fuentes, contactos, objetivos');
             setFuentesEmisoras([]);
             setSelectedFuente('');
             setContactos([]);
@@ -418,10 +375,11 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
     }, [selectedTipoMuestra]);
 
 
-    // Auto-population
+    // Auto-population (Derived Fields)
     useEffect(() => {
-        // Skip auto-population during hydration to preserve loaded values
-        if (isHydrating.current) return;
+        // ALLOW auto-population during hydration because initialData might not have these derived text fields,
+        // or we need to ensure they match the selected Fuente.
+        // if (isHydrating.current) return; <--- REMOVED THIS GUARD
 
         if (selectedFuente) {
             const fuente = fuentesEmisoras.find(f => f.id.toString() === selectedFuente);
@@ -433,8 +391,6 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 // Try to find reasonable ID: id_tipoagua, or parse from somewhere if not present
                 const fuenteAny = fuente as any;
                 const idTipo = fuenteAny.id_tipoagua || fuenteAny.IdTipoAgua || fuenteAny.ID_TIPOAGUA || null;
-                console.log('🔍 DEBUG Fuente Object:', fuenteAny);
-                console.log('🔍 DEBUG idTipoAgua extracted:', idTipo);
                 setIdTipoAgua(idTipo);
                 setCodigo(fuente.codigo || '');
             }
@@ -582,10 +538,19 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
             // Normalize Frecuencias
             const normFreqs = (freqsList || []).map((f: any, index: number) => ({
                 ...f,
-                id: String(f.id_frecuenciaperiodo || f.id || `freq-${index}`),
+                id: String(f.id_frecuenciaperiodo || f.id_frecuencia || f.id || `freq-${index}`),
                 nombre: f.nombre_frecuencia || f.nombre
             }));
             setFrecuenciasOptions(normFreqs);
+
+            // FORCE RE-HYDRATION: Ensure Periodo is selected once options are loaded
+            if (initialData?.periodo) {
+                const pId = String(initialData.periodo);
+                const match = normFreqs.find(f => String(f.id) === pId);
+                if (match) {
+                    setPeriodo(pId);
+                }
+            }
 
             // Formas Canal
             setFormasCanal((formasCanalList || []).map((f: any) => ({
@@ -721,6 +686,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
     // Auto-select Inspector when ETFA becomes Yes
     useEffect(() => {
+        if (isHydrating.current) return;
         if (esETFA === 'Si' && inspectores.length > 0) {
             // Check if current selection is valid
             const isValid = inspectores.some(i => String(i.id) === selectedInspector);
@@ -732,6 +698,9 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
     // Recalculate if user manually edits Freq or Factor (FoxPro enables them)
     useEffect(() => {
+        // ALLOW calculation during hydration to ensure total services is correct
+        // if (isHydrating.current) return; 
+
         if (frecuencia && factor) {
             setTotalServicios(String(Number(frecuencia) * Number(factor)));
         }
@@ -739,6 +708,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
     // Auto-assign Cargo based on Responsable Muestreo (FoxPro LostFocus logic)
     useEffect(() => {
+        if (isHydrating.current) return;
         if (responsableMuestreo === 'ADL') {
             // Auto-assign id_cargo = 53 (Muestreador) when ADL is selected
             setCargoResponsable('53');
@@ -760,6 +730,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
     // Initial auto-selection for ADL Default (FoxPro behavior)
     useEffect(() => {
+        if (isHydrating.current) return;
         if (responsableMuestreo === 'ADL' && cargos.length > 0 && !cargoResponsable) {
             // Force ID 53 if available
             const cargoADL = cargos.find(c => String(c.id) === '53');
@@ -934,8 +905,8 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             value={periodo}
                             onChange={handlePeriodoChange}
                             options={dedupOptions(frecuenciasOptions.map(f => ({
-                                id: f.id,
-                                nombre: f.nombre_frecuencia
+                                id: String(f.id),
+                                nombre: f.nombre || f.nombre_frecuencia || 'Sin Nombre'
                             })))}
                             disabled={!puntoMuestreo || puntoMuestreo.trim() === ''}
                         />
@@ -1018,9 +989,11 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             }
                         }}
                         options={[
-                            { id: 'Res. Exenta N°', nombre: 'Res. Exenta N°' },
-                            { id: 'Res. SISS N°', nombre: 'Res. SISS N°' },
-                            { id: 'RCA N°', nombre: 'RCA N°' },
+                            { id: 'RCA', nombre: 'RCA' },
+                            { id: 'Res. Ex.', nombre: 'Res. Ex.' }, // Matches CommercialDetailView mapping
+                            { id: 'Decreto', nombre: 'Decreto' },
+                            { id: 'Carta', nombre: 'Carta' },
+                            { id: 'Otro', nombre: 'Otro' },
                             { id: 'No aplica', nombre: 'No aplica' }
                         ]}
                     />

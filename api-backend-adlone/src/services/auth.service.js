@@ -9,12 +9,17 @@ const JWT_SECRET = process.env.JWT_SECRET || 'adl-secret-key-2024';
 class AuthService {
     async login(username, password) {
         try {
+            logger.info('AuthService: Getting DB connection...');
+            const startConn = Date.now();
             const pool = await getConnection();
+            logger.info(`AuthService: Connection obtained in ${Date.now() - startConn}ms`);
 
             // Case insensitive comparison for username (SQL Server default collation usually handles this, 
             // but we can enforce it if needed. For now trusting DB collation)
             // Password checked as plain text per requirements/legacy state.
 
+            logger.info('AuthService: Executing User Lookup Query...');
+            const startUserQuery = Date.now();
             const result = await pool.request()
                 .input('username', sql.VarChar, username)
                 .input('password', sql.VarChar, password)
@@ -23,6 +28,7 @@ class AuthService {
                     FROM mae_usuario 
                     WHERE nombre_usuario = @username AND clave_usuario = @password
                 `);
+            logger.info(`AuthService: User Lookup Query executed in ${Date.now() - startUserQuery}ms`);
 
             if (result.recordset.length > 0) {
                 const user = result.recordset[0];
@@ -35,6 +41,8 @@ class AuthService {
                 // --- RBAC Implementation ---
                 // Fetch User Permissions from DB
                 // Join: Usuario -> rel_usuario_rol -> rel_rol_permiso -> mae_permiso
+                logger.info('AuthService: Executing Permissions Query...');
+                const startPermQuery = Date.now();
                 const permissionsQuery = await pool.request()
                     .input('userId', sql.Numeric(10, 0), user.id_usuario)
                     .query(`
@@ -44,6 +52,7 @@ class AuthService {
                         INNER JOIN rel_usuario_rol ur ON rp.id_rol = ur.id_rol
                         WHERE ur.id_usuario = @userId
                     `);
+                logger.info(`AuthService: Permissions Query executed in ${Date.now() - startPermQuery}ms`);
 
                 const permissions = permissionsQuery.recordset.map(row => row.codigo);
                 // ---------------------------

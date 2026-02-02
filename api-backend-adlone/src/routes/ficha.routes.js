@@ -16,5 +16,6 @@ router.get('/:id/historial', fichaController.getHistorial);
 router.get('/:id', fichaController.getById);
 router.post('/batch-agenda', fichaController.batchUpdateAgenda);
 router.post('/:id/agenda', fichaController.updateAgenda);
+router.post('/:id/update', fichaController.update);
 
 export default router;

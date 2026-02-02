@@ -89,12 +89,13 @@ class NotificationService {
                 html: htmlBody
             };
 
-            await transporter.sendMail(mailOptions);
-            logger.info(`Notificación enviada exitosamente para ${eventCode}. TO: ${to}`);
+            // Non-blocking email send
+            transporter.sendMail(mailOptions)
+                .then(() => logger.info(`Notificación enviada exitosamente para ${eventCode}. TO: ${to}`))
+                .catch((error) => logger.error(`Error enviando notificación para ${eventCode}:`, error));
 
         } catch (error) {
-            logger.error(`Error enviando notificación para ${eventCode}:`, error);
-            // No lanzamos error para no interrumpir el flujo principal (ej. la creación de la ficha)
+            logger.error(`Error preparando notificación para ${eventCode}:`, error);
         }
     }
 
