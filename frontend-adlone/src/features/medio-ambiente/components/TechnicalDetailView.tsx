@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { fichaService } from '../services/ficha.service';
 import { ObservacionesForm } from './ObservacionesForm';
 import { ObservationTimeline } from './ObservationTimeline';
+import { WorkflowAlert } from '../../../components/ui/WorkflowAlert';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useCachedCatalogos } from '../hooks/useCachedCatalogos';
@@ -355,6 +356,54 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
             <div className="tab-content-areaWrapper" style={{ padding: '0.5rem' }}>
                 <div className="tab-content-area" style={{ display: 'block' }}>
 
+                    {/* STATUS ALERTS - Todas bloquean botones excepto estados 0 y 3 */}
+                    <div style={{ maxWidth: '800px', margin: '0 auto 1.5rem auto' }}>
+                        {/* Ya procesada por Técnica - Aprobada */}
+                        {data?.id_validaciontecnica === 1 && (
+                            <WorkflowAlert
+                                type="info"
+                                title="Ficha Aprobada por Área Técnica"
+                                message="Esta ficha fue aprobada y enviada a Coordinación. No se puede procesar nuevamente."
+                            />
+                        )}
+
+                        {/* Ya procesada por Técnica - Rechazada */}
+                        {data?.id_validaciontecnica === 2 && (
+                            <WorkflowAlert
+                                type="error"
+                                title="Ficha Rechazada por Área Técnica"
+                                message="Esta ficha fue rechazada y devuelta a Comercial. No se puede procesar nuevamente."
+                            />
+                        )}
+
+                        {/* Bloqueada por Coordinación - Rechazada */}
+                        {data?.id_validaciontecnica === 4 && (
+                            <WorkflowAlert
+                                type="warning"
+                                title="Rechazada por Coordinación"
+                                message="Esta ficha fue rechazada por Coordinación. No se pueden realizar acciones técnicas."
+                            />
+                        )}
+
+                        {/* Bloqueada por Coordinación - Procesada */}
+                        {[5, 6].includes(data?.id_validaciontecnica || 0) && (
+                            <WorkflowAlert
+                                type="info"
+                                title="Gestionada por Coordinación"
+                                message="Esta ficha ya fue procesada por Coordinación. No se pueden realizar acciones técnicas."
+                            />
+                        )}
+
+                        {/* Anulada */}
+                        {data?.id_validaciontecnica === 7 && (
+                            <WorkflowAlert
+                                type="error"
+                                title="Ficha Anulada"
+                                message="Esta ficha ha sido anulada y no se puede procesar."
+                            />
+                        )}
+                    </div>
+
                     {/* ANTECEDENTES TAB (IGUAL QUE COMERCIAL) */}
                     {activeTab === 'antecedentes' && (
                         <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: '1fr' }}>
@@ -556,20 +605,20 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem', maxWidth: '1200px', margin: '1rem auto 0' }}>
                                             <button
                                                 onClick={handleAcceptClick}
-                                                disabled={actionLoading}
+                                                disabled={actionLoading || ![0, 3].includes(data?.id_validaciontecnica || -1)}
                                                 style={{
                                                     padding: '8px 24px',
-                                                    backgroundColor: '#10b981',
+                                                    backgroundColor: ![0, 3].includes(data?.id_validaciontecnica || -1) ? '#9ca3af' : '#10b981',
                                                     color: 'white',
                                                     border: 'none',
                                                     borderRadius: '6px',
-                                                    cursor: actionLoading ? 'wait' : 'pointer',
+                                                    cursor: (actionLoading || ![0, 3].includes(data?.id_validaciontecnica || -1)) ? 'not-allowed' : 'pointer',
                                                     fontWeight: 600,
                                                     fontSize: '0.9rem',
                                                     display: 'flex',
                                                     alignItems: 'center',
                                                     gap: '8px',
-                                                    opacity: actionLoading ? 0.7 : 1,
+                                                    opacity: (actionLoading || ![0, 3].includes(data?.id_validaciontecnica || -1)) ? 0.7 : 1,
                                                     boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
                                                 }}
                                             >
@@ -578,20 +627,20 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
 
                                             <button
                                                 onClick={handleRejectClick}
-                                                disabled={actionLoading}
+                                                disabled={actionLoading || ![0, 3].includes(data?.id_validaciontecnica || -1)}
                                                 style={{
                                                     padding: '8px 24px',
-                                                    backgroundColor: '#ef4444',
+                                                    backgroundColor: ![0, 3].includes(data?.id_validaciontecnica || -1) ? '#9ca3af' : '#ef4444',
                                                     color: 'white',
                                                     border: 'none',
                                                     borderRadius: '6px',
-                                                    cursor: actionLoading ? 'wait' : 'pointer',
+                                                    cursor: (actionLoading || ![0, 3].includes(data?.id_validaciontecnica || -1)) ? 'not-allowed' : 'pointer',
                                                     fontWeight: 600,
                                                     fontSize: '0.9rem',
                                                     display: 'flex',
                                                     alignItems: 'center',
                                                     gap: '8px',
-                                                    opacity: actionLoading ? 0.7 : 1,
+                                                    opacity: (actionLoading || ![0, 3].includes(data?.id_validaciontecnica || -1)) ? 0.7 : 1,
                                                     boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
                                                 }}
                                             >

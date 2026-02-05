@@ -270,6 +270,12 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
             console.log('🔍 DEBUG getData() - selectedInspector:', selectedInspector);
             console.log('🔍 DEBUG getData() - idTipoAgua:', idTipoAgua);
+            console.log('🔍 DEBUG getData() - FREQUENCY DATA:', {
+                frecuencia,
+                factor,
+                periodo,
+                totalServicios
+            });
 
             return data;
         }
@@ -651,19 +657,24 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
     // Logic: Frecuencia Periodo
     const handlePeriodoChange = (val: string) => {
+        console.log('🔄 handlePeriodoChange called with val:', val);
         setPeriodo(val);
         // Find by normalized ID
         const selectedFreq = frecuenciasOptions.find(f => String(f.id) === val);
+        console.log('🔍 selectedFreq found:', selectedFreq);
 
         if (selectedFreq) {
             const cant = String(selectedFreq.cantidad || 1);
             const mult = String(selectedFreq.multiplicadopor || 1);
+            console.log('📊 Setting frecuencia:', cant, 'factor:', mult);
 
             setFrecuencia(cant);
             setFactor(mult);
 
             // Calc Total
             setTotalServicios(String(Number(cant) * Number(mult)));
+        } else {
+            console.warn('⚠️ No matching frequency found for periodo:', val);
         }
     };
 

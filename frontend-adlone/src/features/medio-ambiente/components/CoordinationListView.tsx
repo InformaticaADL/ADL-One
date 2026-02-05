@@ -32,6 +32,18 @@ export const CoordinationListView: React.FC<Props> = ({ onBackToMenu, onViewDeta
 
                 setFichas(data || []);
 
+                // DEBUG: Ver qué datos recibimos para la ficha 70
+                const ficha70 = data.find((f: any) => f.id_fichaingresoservicio === 70 || f.fichaingresoservicio === '70');
+                if (ficha70) {
+                    console.log('🔍 DEBUG Ficha 70 en Coordinación:', {
+                        estado_ficha: ficha70.estado_ficha,
+                        nombre_estadomuestreo: ficha70.nombre_estadomuestreo,
+                        id_estadomuestreo: ficha70.id_estadomuestreo,
+                        id_validaciontecnica: ficha70.id_validaciontecnica,
+                        allKeys: Object.keys(ficha70)
+                    });
+                }
+
             } catch (error) {
                 console.error("Error loading fichas:", error);
             } finally {
@@ -41,6 +53,11 @@ export const CoordinationListView: React.FC<Props> = ({ onBackToMenu, onViewDeta
 
         loadFichas();
     }, []);
+
+    // Reset to page 1 when any filter changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchId, dateFrom, dateTo]);
 
     const handleClearFilters = () => {
         setSearchId('');
@@ -256,7 +273,17 @@ export const CoordinationListView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                                 ))}
                                 {Array.from({ length: Math.max(0, emptyRows) }).map((_, i) => (
                                     <tr key={`empty-${i}`} style={{ borderBottom: '1px solid #e5e7eb', height: '36px' }}>
-                                        <td colSpan={11}>&nbsp;</td>
+                                        <td>&nbsp;</td>
+                                        <td>&nbsp;</td>
+                                        <td>&nbsp;</td>
+                                        <td>&nbsp;</td>
+                                        <td>&nbsp;</td>
+                                        <td>&nbsp;</td>
+                                        <td>&nbsp;</td>
+                                        <td>&nbsp;</td>
+                                        <td>&nbsp;</td>
+                                        <td>&nbsp;</td>
+                                        <td>&nbsp;</td>
                                     </tr>
                                 ))}
                             </tbody>

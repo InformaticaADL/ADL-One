@@ -360,6 +360,11 @@ const ConsultarFichasView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () 
         loadFichas();
     }, []);
 
+    // Reset to page 1 when any filter changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchId, dateFrom, dateTo, searchEstado, searchTipo, searchEmpresaFacturar, searchEmpresaServicio, searchCentro, searchObjetivo, searchSubArea, searchUsuario]);
+
     // Derived unique values for datalists
     const getUniqueValues = (key: string) => {
         const values = new Set<string>();

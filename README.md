@@ -222,6 +222,48 @@ Complete alignment of visuals and behavior across Commercial, Technical, and Coo
   - **Emphasis**: Increased visual hierarchy for the "Estado" column.
   - **Cleanup**: Removed the "Usuario" column from Technical and Coordination views as requested.
 
-- **Detail View Consistency**:
-  - Aligned header badges in `CommercialDetailView`, `TechnicalDetailView`, and `CoordinacionDetailView` to matching the list view styles exactly.
 
+### 10. Workflow Enhancements & Data Integrity (February 5, 2026) 🔄
+Major improvements to workflow validation, data consistency, and user experience across all query tables.
+
+- **Cascade Alert System**:
+  - Implemented context-aware alerts in Technical, Coordination, and Commercial detail views.
+  - **Technical Area**: Blocks actions when status is Approved (1), Rejected (2/4), In Progress (5), Approved by Coordination (6), or Annulled (7).
+  - **Coordination Area**: Blocks actions when status is Draft (0), Rejected (2/4), Pending Technical (3), In Progress (5), Approved (6), or Annulled (7).
+  - **Commercial Area**: Informative alerts only (never blocks actions).
+  - Ensures users cannot perform invalid operations based on current workflow state.
+
+- **Smart Frecuencia Correlativo Management**:
+  - **Automatic Generation**: Removed dependency on unreliable SP, now generates correlativos directly in code.
+  - **Format**: `{id_ficha}-{numero_frecuencia}-{estado}-{id_agenda}` (e.g., `62-1-Pendiente-596`).
+  - **Intelligent Reactivation**: When increasing frequency, reactivates previously annulled (`ANULADA`) agenda items before creating new ones.
+  - **Soft Annulment**: When decreasing frequency, marks excess items as `ANULADA` and updates correlativo to `{id}-{num}-ANULA-{agenda}`.
+  - **Persistence**: Correlativos are maintained during date/sampler assignments.
+  - **Status Sync**: Automatically updates `id_validaciontecnica = 5` (En Proceso) when assignments are made.
+  - **Data Consistency**: Ensures `estado_caso = ''` (empty string) across all operations.
+
+- **Analysis Tab Data Loading Fix**:
+  - Modified SP `MAM_FichaComercial_ConsultaComercial_DET_unaficha` to use `LEFT JOIN` instead of `INNER JOIN`.
+  - Implemented fallback query in `ficha.service.js` if SP fails.
+  - Ensures analysis data loads correctly even when related tables have no matching records.
+
+- **Table Layout & Pagination Improvements** (5 query pages):
+  - **Column Width Stability**: Fixed issue where columns would compress when showing less than 10 rows.
+    - Replaced `colSpan` empty rows with individual `<td>` cells matching column count.
+    - Applied to: AssignmentListView (9 cols), CoordinationListView (11 cols), CoordinacionPage (10 cols).
+  - **Smart Pagination Reset**: Added `useEffect` hooks to reset `currentPage` to 1 when any filter changes.
+    - Prevents empty pages when filtering from high page numbers.
+    - Applied to all query pages: Assignment, Coordination, Commercial, Technical, and CoordinacionPage.
+
+- **Files Modified**:
+  - Backend: `ficha.service.js` (9 changes for correlativo logic)
+  - Frontend: `TechnicalDetailView.tsx`, `CoordinacionDetailView.tsx`, `CommercialDetailView.tsx` (cascade alerts)
+  - Frontend: `AssignmentListView.tsx`, `CoordinationListView.tsx`, `CoordinacionPage.tsx`, `ComercialPage.tsx`, `TecnicaPage.tsx` (table fixes)
+  - Database: SP `MAM_FichaComercial_ConsultaComercial_DET_unaficha` (LEFT JOIN fix)
+
+---
+
+## 📄 Estado del Proyecto
+✅ **Backend**: Node.js + Express (API RESTful, Auth, Email, SQL)
+✅ **Frontend**: React + TypeScript (Dashboards, Formularios Complejos, Auth)
+✅ **Base de Datos**: SQL Server (Procedimientos Almacenados, Transacciones)

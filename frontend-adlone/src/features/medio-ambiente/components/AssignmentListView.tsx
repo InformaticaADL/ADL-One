@@ -41,6 +41,17 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
 
                 setFichas(data || []);
 
+                // DEBUG: Ver qué datos recibimos para la ficha 70
+                const ficha70 = data.find((f: any) => f.id === 70 || f.fichaingresoservicio === '70');
+                if (ficha70) {
+                    console.log('🔍 DEBUG Ficha 70:', {
+                        estado_ficha: ficha70.estado_ficha,
+                        nombre_estadomuestreo: ficha70.nombre_estadomuestreo,
+                        id_estadomuestreo: ficha70.id_estadomuestreo,
+                        allKeys: Object.keys(ficha70)
+                    });
+                }
+
             } catch (error) {
                 console.error("Error loading fichas for assignment:", error);
             } finally {
@@ -50,6 +61,11 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
 
         loadFichas();
     }, []);
+
+    // Reset to page 1 when any filter changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchId, searchEstado, searchMonitoreo, searchEmpresaFacturar, searchEmpresaServicio, searchCentro, searchObjetivo, searchSubArea]);
 
     // Derived unique values
     const getUniqueValues = (key: string) => {
@@ -61,8 +77,8 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
     };
 
     const uniqueEstados = React.useMemo(() => {
-        const v1 = getUniqueValues('nombre_estadomuestreo');
-        return v1.length > 0 ? v1 : getUniqueValues('estado_ficha');
+        const v1 = getUniqueValues('estado_ficha');
+        return v1.length > 0 ? v1 : getUniqueValues('nombre_estadomuestreo');
     }, [fichas]);
 
     const uniqueMonitoreo = React.useMemo(() => {
@@ -124,7 +140,7 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
             return (val || '').toString().toLowerCase().includes(search.toLowerCase());
         };
 
-        const matchEstado = check(f.nombre_estadomuestreo || f.estado_ficha, searchEstado);
+        const matchEstado = check(f.estado_ficha || f.nombre_estadomuestreo, searchEstado);
         const matchMonitoreo = check(f.nombre_frecuencia || f.frecuencia, searchMonitoreo);
         const matchEmpFacturar = check(f.empresa_facturar, searchEmpresaFacturar);
         const matchEmpServicio = check(f.empresa_servicio || f.nombre_empresaservicios, searchEmpresaServicio);
@@ -145,8 +161,8 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
     };
 
     const sortedFichas = [...filteredFichas].sort((a, b) => {
-        const statusA = a.nombre_estadomuestreo || a.estado_ficha || '';
-        const statusB = b.nombre_estadomuestreo || b.estado_ficha || '';
+        const statusA = a.estado_ficha || a.nombre_estadomuestreo || '';
+        const statusB = b.estado_ficha || b.nombre_estadomuestreo || '';
         return getStatusPriority(statusA) - getStatusPriority(statusB);
     });
 
@@ -314,7 +330,7 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
 
                                         <td style={cellStyle}>
                                             {(() => {
-                                                const estado = (row.nombre_estadomuestreo || row.estado_ficha || '').toUpperCase();
+                                                const estado = (row.estado_ficha || row.nombre_estadomuestreo || '').toUpperCase();
                                                 let bgColor = '#f3f4f6'; // Default Gray
                                                 let textColor = '#4b5563';
 
@@ -338,7 +354,7 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                                                         backgroundColor: bgColor,
                                                         color: textColor
                                                     }}>
-                                                        {row.nombre_estadomuestreo || row.estado_ficha || '-'}
+                                                        {row.estado_ficha || row.nombre_estadomuestreo || '-'}
                                                     </span>
                                                 );
                                             })()}
@@ -377,7 +393,15 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                                 ))}
                                 {Array.from({ length: Math.max(0, emptyRows) }).map((_, i) => (
                                     <tr key={`empty-${i}`} style={{ borderBottom: '1px solid #e5e7eb', height: '36px' }}>
-                                        <td colSpan={10}>&nbsp;</td>
+                                        <td>&nbsp;</td>
+                                        <td>&nbsp;</td>
+                                        <td>&nbsp;</td>
+                                        <td>&nbsp;</td>
+                                        <td>&nbsp;</td>
+                                        <td>&nbsp;</td>
+                                        <td>&nbsp;</td>
+                                        <td>&nbsp;</td>
+                                        <td>&nbsp;</td>
                                     </tr>
                                 ))}
                             </tbody>

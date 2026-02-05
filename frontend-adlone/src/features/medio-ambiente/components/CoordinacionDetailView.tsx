@@ -5,6 +5,7 @@ import { ObservationTimeline } from './ObservationTimeline';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useCachedCatalogos } from '../hooks/useCachedCatalogos';
+import { WorkflowAlert } from '../../../components/ui/WorkflowAlert';
 import '../styles/FichasIngreso.css';
 
 interface Props {
@@ -212,18 +213,32 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
     };
 
     const executeReject = async () => {
-        setCoordinacionObs('');
-        showToast({ type: 'info', message: 'Observaciones limpiadas (Localmente)' });
+        setActionLoading(true);
+        try {
+            await fichaService.reviewCoordinacion(fichaId, {
+                observaciones: coordinacionObs,
+                user: { id: user?.id || 0 }
+            });
+            showToast({ type: 'success', message: 'Ficha rechazada correctamente' });
+            setTimeout(() => {
+                onBack();
+            }, 1000);
+        } catch (error) {
+            console.error(error);
+            showToast({ type: 'error', message: 'Error al rechazar ficha' });
+        } finally {
+            setActionLoading(false);
+        }
     };
 
     const handleRejectClick = () => {
         setModalConfig({
             isOpen: true,
-            title: 'Limpiar Observaciones',
-            message: '¿Está seguro de LIMPIAR el campo de observaciones? Esto borrará el texto actual.',
+            title: 'Rechazar Ficha',
+            message: '¿Está seguro de RECHAZAR esta ficha? Volverá a estado de revisión.',
             onConfirm: executeReject,
             isDestructive: true,
-            confirmText: 'Limpiar'
+            confirmText: 'Rechazar'
         });
     };
 
@@ -341,6 +356,54 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
 
             <div className="tab-content-areaWrapper" style={{ padding: '0.5rem' }}>
                 <div className="tab-content-area" style={{ display: 'block' }}>
+
+                    {/* STATUS ALERTS - Todas bloquean botones excepto estado 1 */}
+                    <div style={{ maxWidth: '800px', margin: '0 auto 1.5rem auto' }}>
+                        {/* No puede procesar - Pendiente Técnica */}
+                        {[0, 3].includes(data?.id_validaciontecnica || 0) && (
+                            <WorkflowAlert
+                                type="warning"
+                                title="Pendiente de Aprobación Técnica"
+                                message="Esta ficha aún no ha sido aprobada por el Área Técnica. Las acciones de coordinación están deshabilitadas."
+                            />
+                        )}
+
+                        {/* No puede procesar - Rechazada por Técnica */}
+                        {data?.id_validaciontecnica === 2 && (
+                            <WorkflowAlert
+                                type="error"
+                                title="Rechazada por Área Técnica"
+                                message="Esta ficha fue rechazada por el Área Técnica. No se puede procesar en Coordinación."
+                            />
+                        )}
+
+                        {/* Ya procesada por Coordinación - Rechazada */}
+                        {data?.id_validaciontecnica === 4 && (
+                            <WorkflowAlert
+                                type="error"
+                                title="Ficha Rechazada por Coordinación"
+                                message="Esta ficha fue rechazada y devuelta al Área Técnica. No se puede procesar nuevamente."
+                            />
+                        )}
+
+                        {/* Ya procesada por Coordinación - Aprobada/En Proceso */}
+                        {[5, 6].includes(data?.id_validaciontecnica || 0) && (
+                            <WorkflowAlert
+                                type="info"
+                                title="Gestionada por Coordinación"
+                                message="Esta ficha ya ha sido procesada por Coordinación. No se puede procesar nuevamente."
+                            />
+                        )}
+
+                        {/* Anulada */}
+                        {data?.id_validaciontecnica === 7 && (
+                            <WorkflowAlert
+                                type="error"
+                                title="Ficha Anulada"
+                                message="Esta ficha ha sido anulada y no se puede procesar."
+                            />
+                        )}
+                    </div>
 
                     {/* ANTECEDENTES TAB (Identical to Technical/Commercial) */}
                     {activeTab === 'antecedentes' && (
@@ -538,74 +601,61 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
                                         label="Observaciones Coordinación"
                                         value={coordinacionObs}
                                         onChange={setCoordinacionObs}
-                                        readOnly={false}
+                                        readOnly={data?.id_validaciontecnica !== 1} // Only editable if Pendiente Coordinacion (1)
                                         placeholder="Ingrese observaciones de coordinación aquí..."
                                     >
-                                        {/* Validation Alert */}
-                                        {data?.id_validaciontecnica !== 1 && (
+
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', width: '100%' }}>
+                                            {/* Action Buttons Row */}
                                             <div style={{
-                                                marginBottom: '1rem',
-                                                padding: '0.75rem',
-                                                backgroundColor: '#fffbeb',
-                                                border: '1px solid #fcd34d',
-                                                borderRadius: '6px',
-                                                color: '#b45309',
-                                                fontSize: '0.9rem',
                                                 display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '0.5rem'
+                                                gap: '1rem',
+                                                justifyContent: 'center'
                                             }}>
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
-                                                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                                                </svg>
-                                                <strong>Atención:</strong> Esta ficha no cuenta con Aprobación Técnica (Estado 1). Las acciones están deshabilitadas.
+                                                <button
+                                                    onClick={handleAcceptClick}
+                                                    disabled={actionLoading || data?.id_validaciontecnica !== 1}
+                                                    style={{
+                                                        padding: '8px 24px',
+                                                        backgroundColor: data?.id_validaciontecnica !== 1 ? '#9ca3af' : '#10b981',
+                                                        color: 'white',
+                                                        border: 'none',
+                                                        borderRadius: '6px',
+                                                        cursor: (actionLoading || data?.id_validaciontecnica !== 1) ? 'not-allowed' : 'pointer',
+                                                        fontWeight: 600,
+                                                        fontSize: '0.9rem',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '8px',
+                                                        opacity: (actionLoading || data?.id_validaciontecnica !== 1) ? 0.7 : 1,
+                                                        boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                                                    }}
+                                                >
+                                                    <span>✅ Aceptar</span>
+                                                </button>
+
+                                                <button
+                                                    onClick={handleRejectClick}
+                                                    disabled={actionLoading || data?.id_validaciontecnica !== 1}
+                                                    style={{
+                                                        padding: '8px 24px',
+                                                        backgroundColor: data?.id_validaciontecnica !== 1 ? '#9ca3af' : '#ef4444',
+                                                        color: 'white',
+                                                        border: 'none',
+                                                        borderRadius: '6px',
+                                                        cursor: (actionLoading || data?.id_validaciontecnica !== 1) ? 'not-allowed' : 'pointer',
+                                                        fontWeight: 600,
+                                                        fontSize: '0.9rem',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '8px',
+                                                        opacity: (actionLoading || data?.id_validaciontecnica !== 1) ? 0.7 : 1,
+                                                        boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                                                    }}
+                                                >
+                                                    <span>❌ Rechazar</span>
+                                                </button>
                                             </div>
-                                        )}
-
-                                        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem', maxWidth: '1200px', margin: '1rem auto 0' }}>
-                                            <button
-                                                onClick={handleAcceptClick}
-                                                disabled={actionLoading || data?.id_validaciontecnica !== 1}
-                                                style={{
-                                                    padding: '8px 24px',
-                                                    backgroundColor: data?.id_validaciontecnica !== 1 ? '#9ca3af' : '#10b981',
-                                                    color: 'white',
-                                                    border: 'none',
-                                                    borderRadius: '6px',
-                                                    cursor: (actionLoading || data?.id_validaciontecnica !== 1) ? 'not-allowed' : 'pointer',
-                                                    fontWeight: 600,
-                                                    fontSize: '0.9rem',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '8px',
-                                                    opacity: (actionLoading || data?.id_validaciontecnica !== 1) ? 0.7 : 1,
-                                                    boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
-                                                }}
-                                            >
-                                                <span>✅ Aceptar</span>
-                                            </button>
-
-                                            <button
-                                                onClick={handleRejectClick}
-                                                disabled={actionLoading || data?.id_validaciontecnica !== 1}
-                                                style={{
-                                                    padding: '8px 24px',
-                                                    backgroundColor: data?.id_validaciontecnica !== 1 ? '#9ca3af' : '#ef4444',
-                                                    color: 'white',
-                                                    border: 'none',
-                                                    borderRadius: '6px',
-                                                    cursor: (actionLoading || data?.id_validaciontecnica !== 1) ? 'not-allowed' : 'pointer',
-                                                    fontWeight: 600,
-                                                    fontSize: '0.9rem',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '8px',
-                                                    opacity: (actionLoading || data?.id_validaciontecnica !== 1) ? 0.7 : 1,
-                                                    boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
-                                                }}
-                                            >
-                                                <span>❌ Rechazar</span>
-                                            </button>
                                         </div>
                                     </ObservacionesForm>
                                 </div>

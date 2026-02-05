@@ -3,6 +3,7 @@ import { fichaService } from '../services/ficha.service';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useCachedCatalogos } from '../hooks/useCachedCatalogos';
+import { WorkflowAlert } from '../../../components/ui/WorkflowAlert';
 import '../styles/FichasIngreso.css';
 
 interface Props {
@@ -30,6 +31,9 @@ export const CoordinationDetailView: React.FC<Props> = ({ fichaId, initialTab = 
     const [fechaMuestreo, setFechaMuestreo] = useState('');
     const [actionLoading, setActionLoading] = useState(false);
 
+    // Status Validation
+    const [fichaStatus, setFichaStatus] = useState<number | null>(null);
+
     useEffect(() => {
         const loadFicha = async () => {
             if (!fichaId) return;
@@ -38,6 +42,11 @@ export const CoordinationDetailView: React.FC<Props> = ({ fichaId, initialTab = 
                 const response = await fichaService.getById(fichaId);
                 const fichaData = response.data || response;
                 setData(fichaData);
+
+                // Store status for validation
+                if (fichaData.encabezado?.id_validaciontecnica !== undefined) {
+                    setFichaStatus(fichaData.encabezado.id_validaciontecnica);
+                }
 
                 // Load initial values
                 if (fichaData.observaciones?.coordinador) {
@@ -240,6 +249,15 @@ export const CoordinationDetailView: React.FC<Props> = ({ fichaId, initialTab = 
                     </span>
                 </div>
             </div>
+
+            {/* Status Validation Banner */}
+            {fichaStatus !== null && fichaStatus !== 1 && (
+                <WorkflowAlert
+                    type="warning"
+                    title="Acción Bloqueada"
+                    message="Esta ficha requiere aprobación del Área Técnica antes de que Coordinación pueda aprobar o rechazar. Estado actual no permite esta acción."
+                />
+            )}
 
             {/* Tabs */}
             <div className="tabs-container">
@@ -457,14 +475,14 @@ export const CoordinationDetailView: React.FC<Props> = ({ fichaId, initialTab = 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1.8rem' }}>
                                 <button
                                     onClick={handleAccept}
-                                    disabled={actionLoading}
+                                    disabled={actionLoading || fichaStatus !== 1}
                                     style={{
                                         padding: '8px 16px',
-                                        backgroundColor: '#10b981', // Green
+                                        backgroundColor: (actionLoading || fichaStatus !== 1) ? '#86efac' : '#10b981', // Green
                                         color: 'white',
                                         border: 'none',
                                         borderRadius: '6px',
-                                        cursor: actionLoading ? 'wait' : 'pointer',
+                                        cursor: (actionLoading || fichaStatus !== 1) ? 'not-allowed' : 'pointer',
                                         fontWeight: 600,
                                         fontSize: '0.9rem',
                                         display: 'flex',
@@ -472,7 +490,7 @@ export const CoordinationDetailView: React.FC<Props> = ({ fichaId, initialTab = 
                                         justifyContent: 'center',
                                         gap: '6px',
                                         minWidth: '120px',
-                                        opacity: actionLoading ? 0.7 : 1
+                                        opacity: (actionLoading || fichaStatus !== 1) ? 0.6 : 1
                                     }}
                                 >
                                     <span>✅ Aceptar</span>
@@ -480,14 +498,14 @@ export const CoordinationDetailView: React.FC<Props> = ({ fichaId, initialTab = 
 
                                 <button
                                     onClick={handleReview}
-                                    disabled={actionLoading}
+                                    disabled={actionLoading || fichaStatus !== 1}
                                     style={{
                                         padding: '8px 16px',
-                                        backgroundColor: '#ef4444',
+                                        backgroundColor: (actionLoading || fichaStatus !== 1) ? '#fca5a5' : '#ef4444',
                                         color: 'white',
                                         border: 'none',
                                         borderRadius: '6px',
-                                        cursor: actionLoading ? 'wait' : 'pointer',
+                                        cursor: (actionLoading || fichaStatus !== 1) ? 'not-allowed' : 'pointer',
                                         fontWeight: 600,
                                         fontSize: '0.9rem',
                                         display: 'flex',
@@ -495,11 +513,16 @@ export const CoordinationDetailView: React.FC<Props> = ({ fichaId, initialTab = 
                                         justifyContent: 'center',
                                         gap: '6px',
                                         minWidth: '120px',
-                                        opacity: actionLoading ? 0.7 : 1
+                                        opacity: (actionLoading || fichaStatus !== 1) ? 0.6 : 1
                                     }}
                                 >
                                     <span>🔄 Revisar</span>
                                 </button>
+                                {fichaStatus !== 1 && (
+                                    <div style={{ fontSize: '0.75rem', color: '#dc2626', textAlign: 'center', fontWeight: 500, marginTop: '4px' }}>
+                                        Requiere aprobación de Área Técnica
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
