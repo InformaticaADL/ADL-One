@@ -223,43 +223,43 @@ Complete alignment of visuals and behavior across Commercial, Technical, and Coo
   - **Cleanup**: Removed the "Usuario" column from Technical and Coordination views as requested.
 
 
-### 10. Workflow Enhancements & Data Integrity (February 5, 2026) 🔄
-Major improvements to workflow validation, data consistency, and user experience across all query tables.
+### 10. Mejoras de Flujo de Trabajo e Integridad de Datos (5 de Febrero, 2026) 🔄
+Mejoras importantes en validación de flujo de trabajo, consistencia de datos y experiencia de usuario en todas las tablas de consulta.
 
-- **Cascade Alert System**:
-  - Implemented context-aware alerts in Technical, Coordination, and Commercial detail views.
-  - **Technical Area**: Blocks actions when status is Approved (1), Rejected (2/4), In Progress (5), Approved by Coordination (6), or Annulled (7).
-  - **Coordination Area**: Blocks actions when status is Draft (0), Rejected (2/4), Pending Technical (3), In Progress (5), Approved (6), or Annulled (7).
-  - **Commercial Area**: Informative alerts only (never blocks actions).
-  - Ensures users cannot perform invalid operations based on current workflow state.
+- **Sistema de Alertas en Cascada**:
+  - Implementación de alertas contextuales en vistas de detalle de Área Técnica, Coordinación y Comercial.
+  - **Área Técnica**: Bloquea acciones cuando el estado es Aprobada (1), Rechazada (2/4), En Proceso (5), Aprobada por Coordinación (6) o Anulada (7).
+  - **Área Coordinación**: Bloquea acciones cuando el estado es Borrador (0), Rechazada (2/4), Pendiente Área Técnica (3), En Proceso (5), Aprobada (6) o Anulada (7).
+  - **Área Comercial**: Solo alertas informativas (nunca bloquea acciones).
+  - Asegura que los usuarios no puedan realizar operaciones inválidas según el estado actual del flujo de trabajo.
 
-- **Smart Frecuencia Correlativo Management**:
-  - **Automatic Generation**: Removed dependency on unreliable SP, now generates correlativos directly in code.
-  - **Format**: `{id_ficha}-{numero_frecuencia}-{estado}-{id_agenda}` (e.g., `62-1-Pendiente-596`).
-  - **Intelligent Reactivation**: When increasing frequency, reactivates previously annulled (`ANULADA`) agenda items before creating new ones.
-  - **Soft Annulment**: When decreasing frequency, marks excess items as `ANULADA` and updates correlativo to `{id}-{num}-ANULA-{agenda}`.
-  - **Persistence**: Correlativos are maintained during date/sampler assignments.
-  - **Status Sync**: Automatically updates `id_validaciontecnica = 5` (En Proceso) when assignments are made.
-  - **Data Consistency**: Ensures `estado_caso = ''` (empty string) across all operations.
+- **Gestión Inteligente de Frecuencia Correlativo**:
+  - **Generación Automática**: Eliminada dependencia de SP poco confiable, ahora genera correlativos directamente en código.
+  - **Formato**: `{id_ficha}-{numero_frecuencia}-{estado}-{id_agenda}` (ej: `62-1-Pendiente-596`).
+  - **Reactivación Inteligente**: Al aumentar frecuencia, reactiva ítems de agenda previamente anulados (`ANULADA`) antes de crear nuevos.
+  - **Anulación Suave**: Al reducir frecuencia, marca ítems excedentes como `ANULADA` y actualiza correlativo a `{id}-{num}-ANULA-{agenda}`.
+  - **Persistencia**: Los correlativos se mantienen durante asignaciones de fechas/muestreadores.
+  - **Sincronización de Estado**: Actualiza automáticamente `id_validaciontecnica = 5` (En Proceso) cuando se realizan asignaciones.
+  - **Consistencia de Datos**: Asegura `estado_caso = ''` (string vacío) en todas las operaciones.
 
-- **Analysis Tab Data Loading Fix**:
-  - Modified SP `MAM_FichaComercial_ConsultaComercial_DET_unaficha` to use `LEFT JOIN` instead of `INNER JOIN`.
-  - Implemented fallback query in `ficha.service.js` if SP fails.
-  - Ensures analysis data loads correctly even when related tables have no matching records.
+- **Corrección de Carga de Datos en Pestaña Análisis**:
+  - Modificado SP `MAM_FichaComercial_ConsultaComercial_DET_unaficha` para usar `LEFT JOIN` en lugar de `INNER JOIN`.
+  - Implementada consulta de respaldo en `ficha.service.js` si el SP falla.
+  - Asegura que los datos de análisis se carguen correctamente incluso cuando tablas relacionadas no tienen registros coincidentes.
 
-- **Table Layout & Pagination Improvements** (5 query pages):
-  - **Column Width Stability**: Fixed issue where columns would compress when showing less than 10 rows.
-    - Replaced `colSpan` empty rows with individual `<td>` cells matching column count.
-    - Applied to: AssignmentListView (9 cols), CoordinationListView (11 cols), CoordinacionPage (10 cols).
-  - **Smart Pagination Reset**: Added `useEffect` hooks to reset `currentPage` to 1 when any filter changes.
-    - Prevents empty pages when filtering from high page numbers.
-    - Applied to all query pages: Assignment, Coordination, Commercial, Technical, and CoordinacionPage.
+- **Mejoras de Diseño de Tablas y Paginación** (5 páginas de consulta):
+  - **Estabilidad de Ancho de Columnas**: Corregido problema donde las columnas se comprimían al mostrar menos de 10 filas.
+    - Reemplazadas filas vacías con `colSpan` por celdas `<td>` individuales que coinciden con el número de columnas.
+    - Aplicado a: AssignmentListView (9 cols), CoordinationListView (11 cols), CoordinacionPage (10 cols).
+  - **Reinicio Inteligente de Paginación**: Agregados hooks `useEffect` para reiniciar `currentPage` a 1 cuando cambia cualquier filtro.
+    - Previene páginas vacías al filtrar desde números de página altos.
+    - Aplicado a todas las páginas de consulta: Asignación, Coordinación, Comercial, Técnica y CoordinacionPage.
 
-- **Files Modified**:
-  - Backend: `ficha.service.js` (9 changes for correlativo logic)
-  - Frontend: `TechnicalDetailView.tsx`, `CoordinacionDetailView.tsx`, `CommercialDetailView.tsx` (cascade alerts)
-  - Frontend: `AssignmentListView.tsx`, `CoordinationListView.tsx`, `CoordinacionPage.tsx`, `ComercialPage.tsx`, `TecnicaPage.tsx` (table fixes)
-  - Database: SP `MAM_FichaComercial_ConsultaComercial_DET_unaficha` (LEFT JOIN fix)
+- **Archivos Modificados**:
+  - Backend: `ficha.service.js` (9 cambios para lógica de correlativo)
+  - Frontend: `TechnicalDetailView.tsx`, `CoordinacionDetailView.tsx`, `CommercialDetailView.tsx` (alertas en cascada)
+  - Frontend: `AssignmentListView.tsx`, `CoordinationListView.tsx`, `CoordinacionPage.tsx`, `ComercialPage.tsx`, `TecnicaPage.tsx` (correcciones de tablas)
+  - Base de Datos: SP `MAM_FichaComercial_ConsultaComercial_DET_unaficha` (corrección LEFT JOIN)
 
 ---
 
