@@ -182,7 +182,7 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
         whiteSpace: 'nowrap',
         overflow: 'hidden',
         textOverflow: 'ellipsis',
-        padding: '6px 8px'
+        padding: '1px 4px'
     };
 
     return (
@@ -309,18 +309,18 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                     <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Cargando asignaciones...</div>
                 ) : (
                     <>
-                        <table className="compact-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
+                        <table className="compact-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', tableLayout: 'fixed' }}>
                             <thead>
                                 <tr style={{ backgroundColor: '#f9fafb', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6b7280' }}>
-                                    <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>N°Ficha</th>
-                                    <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>Estado</th>
-                                    <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>Frecuencia</th>
-                                    <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>E.Facturar</th>
-                                    <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>E.Servicio</th>
-                                    <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>Fuente Emisora</th>
-                                    <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>Obj.Muestreo</th>
-                                    <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>Sub Área</th>
-                                    <th style={{ padding: '8px', whiteSpace: 'nowrap', textAlign: 'center' }}>Acción</th>
+                                    <th style={{ padding: '4px', whiteSpace: 'nowrap', width: '50px' }}>N°Ficha</th>
+                                    <th style={{ padding: '4px', whiteSpace: 'nowrap', width: '85px' }}>Estado</th>
+                                    <th style={{ padding: '4px', whiteSpace: 'nowrap', width: '70px' }}>Frecuencia</th>
+                                    <th style={{ padding: '4px', whiteSpace: 'nowrap', width: '120px' }}>E.Facturar</th>
+                                    <th style={{ padding: '4px', whiteSpace: 'nowrap', width: '120px' }}>E.Servicio</th>
+                                    <th style={{ padding: '4px', whiteSpace: 'nowrap', width: '120px' }}>Fuente Emisora</th>
+                                    <th style={{ padding: '4px', whiteSpace: 'nowrap', width: '100px' }}>Obj.Muestreo</th>
+                                    <th style={{ padding: '4px', whiteSpace: 'nowrap', width: '80px' }}>Sub Área</th>
+                                    <th style={{ padding: '4px', whiteSpace: 'nowrap', textAlign: 'center', width: '50px' }}>Acción</th>
                                 </tr>
                             </thead>
                             <tbody style={{ fontSize: '10px' }}>
@@ -328,21 +328,32 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                                     <tr key={idx} style={{ borderBottom: '1px solid #e5e7eb' }}>
                                         <td style={{ fontWeight: 600, ...cellStyle }}>{row.fichaingresoservicio || row.id_fichaingresoservicio}</td>
 
-                                        <td style={cellStyle}>
+                                        <td style={{ ...cellStyle, whiteSpace: 'normal', overflow: 'visible', textOverflow: 'clip', minWidth: '120px' }}>
                                             {(() => {
                                                 const estado = (row.estado_ficha || row.nombre_estadomuestreo || '').toUpperCase();
                                                 let bgColor = '#f3f4f6'; // Default Gray
                                                 let textColor = '#4b5563';
 
-                                                if (estado.includes('POR ASIGNAR')) {
-                                                    bgColor = '#ffedd5'; // Orange
-                                                    textColor = '#c2410c';
-                                                } else if (estado.includes('PENDIENTE')) {
-                                                    bgColor = '#fee2e2'; // Red
+                                                // User Request Mappings
+                                                if (estado.includes('COORDINACIÓN')) {
+                                                    // Pendiente Área Coordinación -> Rojo
+                                                    bgColor = '#fee2e2';
                                                     textColor = '#991b1b';
-                                                } else if (estado.includes('EJECUTADO') || estado.includes('VIGENTE') || estado.includes('EMITIDA')) {
-                                                    bgColor = '#dcfce7'; // Green
+                                                } else if (estado.includes('PROGRAMACIÓN')) {
+                                                    // Pendiente Programación -> Naranjo
+                                                    bgColor = '#ffedd5';
+                                                    textColor = '#9a3412';
+                                                } else if (estado.includes('EN PROCESO') || estado.includes('VIGENTE') || estado.includes('APROBADA') || estado.includes('EJECUTADO')) {
+                                                    // En Proceso -> Verde
+                                                    bgColor = '#dcfce7';
                                                     textColor = '#166534';
+                                                } else if (estado.includes('PENDIENTE') || estado.includes('ÁREA TÉCNICA')) {
+                                                    // Pendiente Técnica -> Amber (Visual distinction)
+                                                    bgColor = '#fef3c7';
+                                                    textColor = '#92400e';
+                                                } else if (estado.includes('RECHAZADA') || estado.includes('ANULADA')) {
+                                                    bgColor = '#fee2e2';
+                                                    textColor = '#991b1b';
                                                 }
 
                                                 return (
@@ -361,9 +372,9 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                                         </td>
 
                                         <td style={cellStyle}>{row.nombre_frecuencia || row.frecuencia || '-'}</td>
-                                        <td style={cellStyle}>{row.empresa_facturar || '-'}</td>
-                                        <td style={cellStyle}>{row.empresa_servicio || row.nombre_empresaservicios || '-'}</td>
-                                        <td style={cellStyle}>{row.centro || row.nombre_centro || '-'}</td>
+                                        <td style={cellStyle} title={row.empresa_facturar}>{row.empresa_facturar || '-'}</td>
+                                        <td style={cellStyle} title={row.empresa_servicio || row.nombre_empresaservicios}>{row.empresa_servicio || row.nombre_empresaservicios || '-'}</td>
+                                        <td style={cellStyle} title={row.centro || row.nombre_centro}>{row.centro || row.nombre_centro || '-'}</td>
                                         <td style={cellStyle}>{row.nombre_objetivomuestreo_ma || '-'}</td>
                                         <td style={cellStyle}>{row.subarea || row.nombre_subarea || '-'}</td>
 

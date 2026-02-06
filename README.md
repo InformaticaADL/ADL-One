@@ -261,6 +261,24 @@ Mejoras importantes en validación de flujo de trabajo, consistencia de datos y 
   - Frontend: `AssignmentListView.tsx`, `CoordinationListView.tsx`, `CoordinacionPage.tsx`, `ComercialPage.tsx`, `TecnicaPage.tsx` (correcciones de tablas)
   - Base de Datos: SP `MAM_FichaComercial_ConsultaComercial_DET_unaficha` (corrección LEFT JOIN)
 
+### 11. Mejoras en Notificaciones y Diseño de Email (6 de Febrero, 2026) 📧
+Optimización completa del sistema de notificaciones por correo electrónico, enfocándose en diseño corporativo, detalle de información y precisión de datos.
+
+- **Plantillas HTML Dinámicas y Corporativas**:
+    - Implementación de un diseño unificado y profesional con logo corporativo (CID embedding) para compatibilidad con Outlook.
+    - **Placeholders Estandarizados**: `{LOGO_BASE64}`, `{CORRELATIVO}`, `{USUARIO}`, `{FECHA}`.
+    - **Variaciones de Estado**: Colores distintivos según el tipo de evento (Verde/Aprobado, Azul/Información, Rojo/Rechazo).
+
+- **FICHA_ASIGNADA (Mejora Crítica)**:
+    - **Desglose Detallado**: Ahora incluye lista completa de servicios asignados, con nombres de muestreadores (Instalación/Retiro) y fechas específicas.
+    - **Precisión de Fechas**: Corrección de desfase de zona horaria (-1 día) mediante uso estricto de UTC en el backend.
+    - **Atribución Correcta**: Implementación de lógica robusta para identificar al usuario asignador, priorizando "Nombre Completo" > "Login" > "Base de Datos".
+
+- **Correcciones de Layout en Tablas (Frontend)**:
+    - Replica exacta del diseño de "Gestión Coordinación" en "Planificación y Asignación".
+    - **Propiedad Clave**: `table-layout: fixed` aplicada para forzar respeto de anchos de columna.
+    - **Ajuste de Columnas**: N° Ficha (50px), Estado (160px) con ajuste de texto.
+
 ---
 
 ## 📄 Estado del Proyecto

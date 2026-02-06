@@ -309,7 +309,30 @@ class FichaIngresoService {
             logger.info(`Ficha creada con éxito. ID: ${newId}`);
 
             // Notificacion
-            notificationService.send('FICHA_CREADA', { correlativo: String(newId) });
+            const notifDate = new Date();
+            const notifFecha = notifDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
+            const notifHora = notifDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+            // Intentar obtener nombre de usuario, fallback a ID o 'Usuario Sistema'
+            // Intentar obtener nombre de usuario, fallback a ID o 'Usuario Sistema'
+            let notifUser = data.user ? (data.user.nombre_usuario || data.user.usuario || data.user.name) : null;
+
+            if (!notifUser && userId) {
+                try {
+                    const uRes = await new sql.Request(transaction).query(`SELECT nombre_usuario FROM mae_usuario WHERE id_usuario = ${userId}`);
+                    if (uRes.recordset.length > 0) {
+                        notifUser = uRes.recordset[0].nombre_usuario;
+                    }
+                } catch (e) { logger.warn('Could not fetch user name for notif', e); }
+            }
+            notifUser = notifUser || 'Usuario Sistema';
+
+            notificationService.send('FICHA_CREADA', {
+                correlativo: String(newId),
+                usuario: notifUser,
+                fecha: notifFecha,
+                hora: notifHora,
+                observacion: obs || 'Sin observaciones'
+            });
 
             return { success: true, id: newId, message: 'Ficha creada correctamente' };
 
@@ -1117,7 +1140,7 @@ class FichaIngresoService {
             // Get current state (optional, for history) - Skipping for speed, assume known flow
 
             // 1 = Aprobada (Val Technique)
-            await request.query("UPDATE App_Ma_FichaIngresoServicio_ENC SET id_validaciontecnica = 1, observaciones_jefaturatecnica = @obs WHERE id_fichaingresoservicio = @id");
+            await request.query("UPDATE App_Ma_FichaIngresoServicio_ENC SET id_validaciontecnica = 1, estado_ficha = 'Pendiente Área Coordinación', observaciones_jefaturatecnica = @obs WHERE id_fichaingresoservicio = @id");
 
             // LOG HISTORY
             await this.logHistorial(transaction, {
@@ -1132,7 +1155,28 @@ class FichaIngresoService {
             await transaction.commit();
 
             // NOTIFICATION: Aprobada Técnica
-            notificationService.send('FICHA_APROBADA_TECNICA', { correlativo: String(id) });
+            const notifDate = new Date();
+            const notifFecha = notifDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
+
+            let notifUser = user ? (user.nombre_usuario || user.usuario || user.name) : null;
+
+            // Should fetch real name if missing?
+            if (!notifUser && user && user.id) {
+                try {
+                    const uRes = await new sql.Request(transaction).query(`SELECT nombre_usuario FROM mae_usuario WHERE id_usuario = ${user.id}`);
+                    if (uRes.recordset.length > 0) {
+                        notifUser = uRes.recordset[0].nombre_usuario;
+                    }
+                } catch (e) { logger.warn('Could not fetch user name for notif', e); }
+            }
+            notifUser = notifUser || 'Jefatura Técnica';
+
+            notificationService.send('FICHA_APROBADA_TECNICA', {
+                correlativo: String(id),
+                usuario: notifUser,
+                fecha: notifFecha,
+                observacion: observaciones || 'Validación técnica conforme.'
+            });
 
             return { success: true, message: 'Ficha aprobada técnica' };
         } catch (error) {
@@ -1150,7 +1194,7 @@ class FichaIngresoService {
             request.input('id', sql.Numeric(10, 0), id);
             request.input('obs', sql.VarChar(250), observaciones || '');
             // 2 = Rechazada
-            await request.query("UPDATE App_Ma_FichaIngresoServicio_ENC SET id_validaciontecnica = 2, observaciones_jefaturatecnica = @obs WHERE id_fichaingresoservicio = @id");
+            await request.query("UPDATE App_Ma_FichaIngresoServicio_ENC SET id_validaciontecnica = 2, estado_ficha = 'Rechazada Técnica', observaciones_jefaturatecnica = @obs WHERE id_fichaingresoservicio = @id");
 
             // LOG HISTORY
             await this.logHistorial(transaction, {
@@ -1165,7 +1209,27 @@ class FichaIngresoService {
             await transaction.commit();
 
             // NOTIFICATION: Rechazada Técnica
-            notificationService.send('FICHA_RECHAZADA_TECNICA', { correlativo: String(id) });
+            const notifDate = new Date();
+            const notifFecha = notifDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
+
+            let notifUser = user ? (user.nombre_usuario || user.usuario || user.name) : null;
+
+            if (!notifUser && user && user.id) {
+                try {
+                    const uRes = await new sql.Request(transaction).query(`SELECT nombre_usuario FROM mae_usuario WHERE id_usuario = ${user.id}`);
+                    if (uRes.recordset.length > 0) {
+                        notifUser = uRes.recordset[0].nombre_usuario;
+                    }
+                } catch (e) { logger.warn('Could not fetch user name for notif', e); }
+            }
+            notifUser = notifUser || 'Jefatura Técnica';
+
+            notificationService.send('FICHA_RECHAZADA_TECNICA', {
+                correlativo: String(id),
+                usuario: notifUser,
+                fecha: notifFecha,
+                observacion: observaciones || 'Sin motivo especificado'
+            });
 
             return { success: true, message: 'Ficha rechazada' };
         } catch (error) {
@@ -1210,7 +1274,27 @@ class FichaIngresoService {
             await transaction.commit();
 
             // NOTIFICACION: Aprobada Coordinación
-            notificationService.send('FICHA_APROBADA_COORDINACION', { correlativo: String(id) });
+            const notifDate = new Date();
+            const notifFecha = notifDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
+
+            let notifUser = user ? (user.nombre_usuario || user.usuario || user.name) : null;
+
+            if (!notifUser && user && user.id) {
+                try {
+                    const uRes = await new sql.Request(transaction).query(`SELECT nombre_usuario FROM mae_usuario WHERE id_usuario = ${user.id}`);
+                    if (uRes.recordset.length > 0) {
+                        notifUser = uRes.recordset[0].nombre_usuario;
+                    }
+                } catch (e) { logger.warn('Could not fetch user name for notif', e); }
+            }
+            notifUser = notifUser || 'Coordinación';
+
+            notificationService.send('FICHA_APROBADA_COORDINACION', {
+                correlativo: String(id),
+                usuario: notifUser,
+                fecha: notifFecha,
+                observacion: observaciones || 'Validación coordinación conforme.'
+            });
 
             return { success: true };
         } catch (error) {
@@ -1231,8 +1315,9 @@ class FichaIngresoService {
             // Reset validacion tecnica? -> 3 (Pendiente Técnica) per requirements? Or 4 (Revisar)? 
             // Previous code said 3. Let's keep 3 (Pendiente Técnica) or introduce 4 (Rechazada Coordinacion / Revisar)
             // Using 4 as per workflow status logic comments
-            await request.query("UPDATE App_Ma_FichaIngresoServicio_ENC SET id_validaciontecnica = 4, observaciones_coordinador = @obs WHERE id_fichaingresoservicio = @id");
+            await request.query("UPDATE App_Ma_FichaIngresoServicio_ENC SET id_validaciontecnica = 4, estado_ficha = 'Rechazada Coordinación', observaciones_coordinador = @obs WHERE id_fichaingresoservicio = @id");
 
+            // LOG HISTORY
             // LOG HISTORY
             await this.logHistorial(transaction, {
                 idFicha: id,
@@ -1244,6 +1329,29 @@ class FichaIngresoService {
             });
 
             await transaction.commit();
+
+            // NOTIFICACION: Rechazada Coordinación (Enviada a Revisión)
+            const notifDate = new Date();
+            const notifFecha = notifDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
+
+            let notifUser = user ? (user.nombre_usuario || user.usuario || user.name) : null;
+
+            if (!notifUser && user && user.id) {
+                try {
+                    const uRes = await new sql.Request(transaction).query(`SELECT nombre_usuario FROM mae_usuario WHERE id_usuario = ${user.id}`);
+                    if (uRes.recordset.length > 0) {
+                        notifUser = uRes.recordset[0].nombre_usuario;
+                    }
+                } catch (e) { logger.warn('Could not fetch user name for notif', e); }
+            }
+            notifUser = notifUser || 'Coordinación';
+
+            notificationService.send('FICHA_RECHAZADA_COORDINACION', {
+                correlativo: String(id),
+                usuario: notifUser,
+                fecha: notifFecha,
+                observacion: observaciones || 'Ficha devuelta a revisión técnica.'
+            });
 
             return { success: true };
         } catch (error) {
@@ -1367,6 +1475,7 @@ class FichaIngresoService {
                     LEFT JOIN mae_subarea sub ON fis.id_subarea = sub.id_subarea
                     LEFT JOIN mae_coordinador coord ON a.id_coordinador = coord.id_coordinador
                     WHERE a.id_fichaingresoservicio = @xid_fichaingresoservicio
+                    AND (a.estado_caso IS NULL OR a.estado_caso != 'ANULADA')
                     ORDER BY a.id_agendamam
                 `);
                 return resFallback.recordset;
@@ -1672,11 +1781,102 @@ class FichaIngresoService {
             }
 
             // NOTIFICATION: Asignada (Grouped by Ficha to avoid spam)
-            // NOTIFICATION: Asignada (Grouped by Ficha to avoid spam)
             const distinctFichas = [...new Set(assignments.map(a => a.idFichaIngresoServicio))];
-            distinctFichas.forEach(fid => {
-                notificationService.send('FICHA_ASIGNADA', { correlativo: String(fid) });
-            });
+            const notifDate = new Date();
+            const notifFecha = notifDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
+            const notifHora = notifDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+            // For each ficha, collect detailed service information
+            for (const fid of distinctFichas) {
+                // Query detailed information for this ficha
+                const detailRequest = new sql.Request(transaction);
+                detailRequest.input('fichaId', sql.Numeric(10, 0), fid);
+
+                const detailResult = await detailRequest.query(`
+                    SELECT 
+                        a.id_agendamam,
+                        a.frecuencia_correlativo,
+                        a.fecha_muestreo,
+                        m1.nombre_muestreador as muestreador_instalacion,
+                        m2.nombre_muestreador as muestreador_retiro,
+                        f.nombre_frecuencia,
+                        (SELECT COUNT(*) 
+                         FROM App_Ma_Agenda_MUESTREOS 
+                         WHERE id_fichaingresoservicio = a.id_fichaingresoservicio 
+                           AND (estado_caso IS NULL OR estado_caso != 'ANULADA')) as total_servicios
+                    FROM App_Ma_Agenda_MUESTREOS a
+                    LEFT JOIN mae_muestreador m1 ON a.id_muestreador = m1.id_muestreador
+                    LEFT JOIN mae_muestreador m2 ON a.id_muestreador2 = m2.id_muestreador
+                    LEFT JOIN mae_frecuencia f ON a.id_frecuencia = f.id_frecuencia
+                    WHERE a.id_fichaingresoservicio = @fichaId
+                      AND (a.estado_caso IS NULL OR a.estado_caso != 'ANULADA')
+                    ORDER BY a.frecuencia_correlativo
+                `);
+
+                if (detailResult.recordset.length > 0) {
+                    const firstRow = detailResult.recordset[0];
+                    const tipoFrecuencia = firstRow.nombre_frecuencia || 'No especificada';
+                    const totalServicios = firstRow.total_servicios || 0;
+
+                    // Build services array with detailed information
+                    const servicios = detailResult.recordset.map((row, index) => {
+                        // Extract service number from frecuencia_correlativo (e.g., "72-1-Pendiente-625" -> 1)
+                        const correlativoParts = (row.frecuencia_correlativo || '').split('-');
+                        const numeroServicio = correlativoParts.length >= 2 ? correlativoParts[1] : (index + 1);
+
+                        // Format date (using UTC to avoid timezone offset issues)
+                        let fechaMuestreo = 'No asignada';
+                        if (row.fecha_muestreo) {
+                            const dateObj = new Date(row.fecha_muestreo);
+                            // Use UTC methods to avoid timezone conversion
+                            const year = dateObj.getUTCFullYear();
+                            const month = dateObj.getUTCMonth();
+                            const day = dateObj.getUTCDate();
+
+                            // Create date in local timezone
+                            const localDate = new Date(year, month, day);
+                            fechaMuestreo = localDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
+                        }
+
+                        return {
+                            numero: numeroServicio,
+                            muestreador_instalacion: row.muestreador_instalacion || 'No asignado',
+                            muestreador_retiro: row.muestreador_retiro || 'No asignado',
+                            fecha_muestreo: fechaMuestreo
+                        };
+                    });
+
+                    // Get user name (Robust fallback logic) - Prioritize 'usuario' (Full Name)
+                    let asignadoPor = user.usuario || user.nombre_usuario || user.nombre || user.name;
+
+                    if (!asignadoPor || asignadoPor === 'Sistema' || asignadoPor === 'undefined') {
+                        if (user.id && user.id !== 0) {
+                            try {
+                                const uReq = new sql.Request(transaction);
+                                uReq.input('uid', sql.Numeric(10, 0), user.id);
+                                const uRes = await uReq.query('SELECT usuario FROM mae_usuario WHERE id_usuario = @uid');
+                                if (uRes.recordset.length > 0) {
+                                    asignadoPor = uRes.recordset[0].usuario;
+                                }
+                            } catch (e) {
+                                logger.warn('Failed to fetch user name for assignment notification', e);
+                            }
+                        }
+                    }
+                    asignadoPor = asignadoPor || 'Usuario Sistema';
+
+                    // Send enhanced notification
+                    notificationService.send('FICHA_ASIGNADA', {
+                        correlativo: String(fid),
+                        tipo_frecuencia: tipoFrecuencia,
+                        total_servicios: totalServicios,
+                        servicios: servicios,
+                        asignado_por: asignadoPor,
+                        fecha: notifFecha,
+                        hora_asignacion: notifHora
+                    });
+                }
+            }
 
             // UPDATE Ficha Status to 'En Proceso' (so it moves out of Pendiente Programación)
             if (distinctFichas.length > 0) {

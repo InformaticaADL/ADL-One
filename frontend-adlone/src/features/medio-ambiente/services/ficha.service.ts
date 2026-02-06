@@ -10,6 +10,20 @@ const axiosInstance = axios.create({
     }
 });
 
+// Add request interceptor to inject token
+axiosInstance.interceptors.request.use(
+    (config) => {
+        const token = localStorage.getItem('token');
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+    },
+    (error) => {
+        return Promise.reject(error);
+    }
+);
+
 export const fichaService = {
     getAll: async () => {
         const response = await axiosInstance.get('/');

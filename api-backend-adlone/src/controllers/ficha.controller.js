@@ -20,7 +20,13 @@ class FichaIngresoController {
                 return errorResponse(res, 'Datos incompletos: Faltan antecedentes o análisis', 400);
             }
 
-            const result = await fichaService.createFicha(req.body);
+            // Inject authenticated user if available
+            const data = { ...req.body };
+            if (req.user) {
+                data.user = req.user;
+            }
+
+            const result = await fichaService.createFicha(data);
             return successResponse(res, result, 'Ficha creada exitosamente', 201);
         } catch (err) {
             logger.error('Error in create ficha controller:', err);
@@ -62,8 +68,8 @@ class FichaIngresoController {
     async approve(req, res) {
         try {
             const { id } = req.params;
-            const { observaciones, user } = req.body;
-            const userData = user || { id: 0 };
+            const { observaciones } = req.body;
+            const userData = req.user || req.body.user || { id: 0 };
 
             const result = await fichaService.approveFicha(id, { observaciones }, userData);
             return successResponse(res, result, 'Ficha aceptada exitosamente');
@@ -76,8 +82,8 @@ class FichaIngresoController {
     async reject(req, res) {
         try {
             const { id } = req.params;
-            const { observaciones, user } = req.body;
-            const userData = user || { id: 0 };
+            const { observaciones } = req.body;
+            const userData = req.user || req.body.user || { id: 0 };
 
             const result = await fichaService.rejectFicha(id, { observaciones }, userData);
             return successResponse(res, result, 'Ficha rechazada exitosamente');
@@ -90,8 +96,8 @@ class FichaIngresoController {
     async approveCoordinacion(req, res) {
         try {
             const { id } = req.params;
-            const { observaciones, user } = req.body;
-            const userData = user || { id: 0 };
+            const { observaciones } = req.body;
+            const userData = req.user || req.body.user || { id: 0 };
 
             const result = await fichaService.approveCoordinacion(id, { observaciones }, userData);
             return successResponse(res, result, 'Ficha aceptada por coordinación exitosamente');
@@ -104,8 +110,8 @@ class FichaIngresoController {
     async reviewCoordinacion(req, res) {
         try {
             const { id } = req.params;
-            const { observaciones, user } = req.body;
-            const userData = user || { id: 0 };
+            const { observaciones } = req.body;
+            const userData = req.user || req.body.user || { id: 0 };
 
             const result = await fichaService.reviewCoordinacion(id, { observaciones }, userData);
             return successResponse(res, result, 'Ficha enviada a revisión exitosamente');

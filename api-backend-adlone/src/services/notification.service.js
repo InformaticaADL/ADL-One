@@ -3,8 +3,31 @@ import sql from '../config/database.js';
 import { getConnection } from '../config/database.js';
 import transporter from '../config/mailer.js';
 import logger from '../utils/logger.js';
+import fs from 'fs';
+import path from 'path';
 
 class NotificationService {
+    constructor() {
+        this.logoBuffer = null;
+        this._loadLogo();
+    }
+
+    _loadLogo() {
+        try {
+            // Hardcoded path based on known project structure
+            // Backend: api-backend-adlone
+            // Logo: frontend-adlone/src/assets/images/logo-adlone.png
+            const logoPath = path.resolve(process.cwd(), '../frontend-adlone/src/assets/images/logo-adlone.png');
+            if (fs.existsSync(logoPath)) {
+                this.logoBuffer = fs.readFileSync(logoPath);
+                logger.info('Logo ADL ONE loaded successfully (Buffer) for Email Templates.');
+            } else {
+                logger.warn(`Logo not found at path: ${logoPath}`);
+            }
+        } catch (error) {
+            logger.error('Error loading logo:', error);
+        }
+    }
 
     /**
      * Envía una notificación basada en un evento del sistema.
@@ -81,13 +104,23 @@ class NotificationService {
             }
 
             const mailOptions = {
-                from: process.env.SMTP_FROM || '"ADL One" <noreply@adlone.cl>',
+                from: process.env.EMAIL_FROM || process.env.SMTP_FROM || '"ADL One" <notificaciones@adldiagnostic.cl>',
                 to: to,
                 cc: cc,
                 bcc: bcc,
                 subject: subject,
-                html: htmlBody
+                html: htmlBody,
+                attachments: [] // Initialize attachments array
             };
+
+            // Attach Logo if available
+            if (this.logoBuffer) {
+                mailOptions.attachments.push({
+                    filename: 'logo-adlone.png',
+                    content: this.logoBuffer,
+                    cid: 'logo@adlone.com' // Referenced in HTML as <img src="cid:logo@adlone.com">
+                });
+            }
 
             // Non-blocking email send
             transporter.sendMail(mailOptions)
@@ -122,9 +155,45 @@ class NotificationService {
     _compileTemplate(template, context) {
         if (!template) return '';
         let output = template;
+
+        // 0. Inject Global Defaults (Logo) if not present
+        if (!context.LOGO_BASE64 && this.logoBuffer) {
+            context.LOGO_BASE64 = 'cid:logo@adlone.com';
+        }
+
+        // 1. Force replace LOGO_BASE64 in template first (Global Replace)
+        if (context.LOGO_BASE64) {
+            output = output.split('{LOGO_BASE64}').join(context.LOGO_BASE64);
+        }
+
+        // 2. Handle SERVICIOS_DETALLE (dynamic array processing)
+        if (context.servicios && Array.isArray(context.servicios)) {
+            const serviciosHtml = context.servicios.map((servicio, index) => `
+                <div style="margin-bottom: 15px; padding: 12px; background: white; border-left: 4px solid #0062a8; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <strong style="color: #0062a8; font-size: 14px; font-family: Arial, sans-serif;">Servicio ${servicio.numero}:</strong><br>
+                    <div style="margin-top: 8px; color: #333; font-size: 13px; line-height: 1.6; font-family: Arial, sans-serif;">
+                        <div style="margin-bottom: 4px;">📥 <strong>Instalación:</strong> ${servicio.muestreador_instalacion}</div>
+                        <div style="margin-bottom: 4px;">📤 <strong>Retiro:</strong> ${servicio.muestreador_retiro}</div>
+                        <div>📅 <strong>Fecha muestreo:</strong> ${servicio.fecha_muestreo}</div>
+                    </div>
+                </div>
+            `).join('');
+
+            output = output.split('{SERVICIOS_DETALLE}').join(serviciosHtml);
+        }
+
+        // 3. Replace all other placeholders
         for (const [key, value] of Object.entries(context)) {
-            const placeholder = `{${key}}`;
-            output = output.split(placeholder).join(value || '');
+            // Skip servicios array (already processed)
+            if (key === 'servicios') continue;
+
+            const val = value || '';
+
+            // 1. Try exact match {key}
+            output = output.split(`{${key}}`).join(val);
+
+            // 2. Try Uppercase match {KEY} (Standard SQL Template format)
+            output = output.split(`{${key.toUpperCase()}}`).join(val);
         }
         return output;
     }
