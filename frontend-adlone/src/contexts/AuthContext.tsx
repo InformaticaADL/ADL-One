@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import API_CONFIG from '../config/api.config';
+import { useNavStore } from '../store/navStore';
 
 interface User {
     id: number;
@@ -82,7 +83,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.removeItem('user');
         sessionStorage.removeItem('token');
         sessionStorage.removeItem('user');
-        // No reloading needed, App.tsx handles the view switch via isAuthenticated
+
+        // Reset navigation state to prevent unauthorized access on next login
+        useNavStore.getState().resetNavigation();
     };
 
     // RBAC Helper

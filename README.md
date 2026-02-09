@@ -285,3 +285,33 @@ Optimización completa del sistema de notificaciones por correo electrónico, en
 ✅ **Backend**: Node.js + Express (API RESTful, Auth, Email, SQL)
 ✅ **Frontend**: React + TypeScript (Dashboards, Formularios Complejos, Auth)
 ✅ **Base de Datos**: SQL Server (Procedimientos Almacenados, Transacciones)
+
+### 12. Mejoras en Login y Sesión (Febrero 2026) 🔐
+Optimización de la seguridad y experiencia de usuario en el proceso de autenticación.
+
+- **Funcionalidad "Recuérdame" (Remember Me)**:
+  - Implementación de persistencia opcional de credenciales (email) mediante `localStorage`.
+  - Checkbox interactivo en el formulario de login que permite al usuario decidir si desea mantener su sesión activa por 30 días.
+
+- **Gestión de Sesión Segura**:
+  - Migración a `sessionStorage` como almacenamiento por defecto para tokens JWT.
+  - Mejora la seguridad al asegurar que la sesión se cierre automáticamente al cerrar la pestaña o el navegador, a menos que el usuario haya seleccionado explícitamente "Recuérdame".
+
+- **Recuperación de Contraseña (Forgot Password)**:
+  - Nuevo enlace "¿Olvidaste tu contraseña?" en la pantalla de login.
+  - **Modal Interactivo**: Diseño tipo overlay integrado en la tarjeta de login.
+  - **Identidad Visual**: Cabecera con degradado azul corporativo y botones de acción con acentos naranja (`#ff9800`), alineados con el manual de marca.
+  - Provee información clara de contacto con el área de informática (Email y Teléfono) para restablecimiento de claves.
+
+- **Refinamiento UI/UX**:
+  - Ajustes de espaciado (padding/margins) en el formulario de login para una apariencia más limpia y compacta.
+  - Eliminación de bordes y sombras innecesarias en modales para un look "glassmorphism" moderno.
+
+- **Seguridad de Navegación y Persistencia de Sesión**:
+  - **Reset Automático de Navegación en Logout**: Implementación de función `resetNavigation()` en el store de navegación (Zustand) que se invoca automáticamente al cerrar sesión, previniendo que el siguiente usuario herede la navegación del usuario anterior.
+  - **Guards de Permisos en Rutas**: Validación de permisos basada en RBAC antes de renderizar componentes administrativos en `DashboardPage.tsx`.
+  - **Protección Multicapa**: 
+    - `useEffect` guard que detecta y resetea automáticamente si un usuario sin permisos intenta acceder a módulos restringidos.
+    - Render guard que muestra mensaje "Acceso Denegado" si se intenta renderizar contenido sin autorización.
+  - **Validación por Permisos**: Sistema de control de acceso basado en permisos específicos (`MA_ADMIN_ACCESO`) en lugar de roles genéricos, permitiendo granularidad en el control de acceso.
+

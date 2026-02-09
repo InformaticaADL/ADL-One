@@ -1,5 +1,7 @@
+import { useEffect } from 'react';
 import { MainLayout } from '../components/layout/MainLayout';
 import { useNavStore } from '../store/navStore';
+import { useAuth } from '../contexts/AuthContext';
 import { FichasIngresoPage } from '../features/medio-ambiente/pages/FichasIngresoPage';
 import { TecnicaPage } from '../features/medio-ambiente/pages/TecnicaPage';
 import { CoordinacionPage } from '../features/medio-ambiente/pages/CoordinacionPage';
@@ -15,7 +17,22 @@ import { EquiposPage } from '../features/admin/pages/EquiposPage';
 import { NotificationsPage } from '../features/admin/pages/NotificationsPage';
 
 const DashboardPage = () => {
-    const { activeModule, activeSubmodule, setActiveSubmodule } = useNavStore();
+    const { activeModule, activeSubmodule, setActiveSubmodule, resetNavigation } = useNavStore();
+    const { user, hasPermission } = useAuth();
+
+    // Helper function to check if user is admin
+    const isAdmin = () => {
+        // Check for MA_ADMIN_ACCESO permission (the actual permission code in the database)
+        return hasPermission('MA_ADMIN_ACCESO');
+    };
+
+    // Security Guard: Reset navigation if user doesn't have admin role for admin module
+    useEffect(() => {
+        if (activeModule === 'admin_informacion' && !isAdmin()) {
+            console.warn('Unauthorized access attempt to admin module. Resetting navigation.');
+            resetNavigation();
+        }
+    }, [activeModule, user, resetNavigation]);
 
     // Renderizador de contenido dinámico
     const renderContent = () => {
@@ -32,6 +49,21 @@ const DashboardPage = () => {
 
         // Module: Admin información
         if (activeModule === 'admin_informacion') {
+            // Permission Guard: Validate admin role before rendering
+            if (!isAdmin()) {
+                return (
+                    <div className="dashboard-content" style={{ textAlign: 'center', padding: '3rem' }}>
+                        <h1 style={{ color: '#d32f2f', marginBottom: '1rem' }}>🚫 Acceso Denegado</h1>
+                        <p style={{ color: '#546e7a', fontSize: '1.1rem' }}>
+                            No tienes permisos para acceder a esta sección administrativa.
+                        </p>
+                        <p style={{ color: '#78909c', fontSize: '0.9rem', marginTop: '0.5rem' }}>
+                            Si crees que esto es un error, contacta al administrador del sistema.
+                        </p>
+                    </div>
+                );
+            }
+
             if (activeSubmodule === 'informatica') {
                 return (
                     <InformaticaHub
