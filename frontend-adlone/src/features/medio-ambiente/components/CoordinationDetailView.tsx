@@ -4,6 +4,7 @@ import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useCachedCatalogos } from '../hooks/useCachedCatalogos';
 import { WorkflowAlert } from '../../../components/ui/WorkflowAlert';
+import { ConfirmModal } from '../../../components/common/ConfirmModal';
 import '../styles/FichasIngreso.css';
 
 interface Props {
@@ -33,6 +34,23 @@ export const CoordinationDetailView: React.FC<Props> = ({ fichaId, initialTab = 
 
     // Status Validation
     const [fichaStatus, setFichaStatus] = useState<number | null>(null);
+
+    // Confirm Modal State
+    const [confirmModal, setConfirmModal] = useState<{
+        isOpen: boolean;
+        action: 'ACCEPT' | 'REVIEW' | null;
+        title: string;
+        message: string;
+        confirmColor: string;
+        confirmText: string;
+    }>({
+        isOpen: false,
+        action: null,
+        title: '',
+        message: '',
+        confirmColor: '',
+        confirmText: ''
+    });
 
     useEffect(() => {
         const loadFicha = async () => {
@@ -112,42 +130,55 @@ export const CoordinationDetailView: React.FC<Props> = ({ fichaId, initialTab = 
         }
     };
 
-    // Keep standalone save if needed, or just use handleSaveAgenda for the "Aceptar" button
-    const handleAccept = async () => {
-        if (!window.confirm('¿Está seguro de ACEPTAR la Ficha Comercial?')) return;
-        setActionLoading(true);
-        try {
-            await fichaService.approveCoordinacion(fichaId, {
-                observaciones: coordObs,
-                user: { id: user?.id || 0 }
-            });
-            showToast({ type: 'success', message: 'ACEPTADA la Ficha Comercial y enviado correo' });
-            setTimeout(() => {
-                onBack();
-            }, 1500);
-        } catch (error) {
-            console.error(error);
-            showToast({ type: 'error', message: 'Error al aceptar ficha' });
-        } finally {
-            setActionLoading(false);
-        }
+    const handleAcceptClick = () => {
+        setConfirmModal({
+            isOpen: true,
+            action: 'ACCEPT',
+            title: 'Confirmar Aprobación',
+            message: '¿Está seguro de ACEPTAR esta ficha comercial? Esta acción habilitará la ficha para asignación.',
+            confirmColor: '#10b981', // Green
+            confirmText: 'Aceptar Ficha'
+        });
     };
 
-    const handleReview = async () => {
-        if (!window.confirm('¿Está seguro en enviar a REVISIÓN la Ficha Comercial a Jefatura Técnica?')) return;
+    const handleReviewClick = () => {
+        setConfirmModal({
+            isOpen: true,
+            action: 'REVIEW',
+            title: 'Confirmar Rechazo',
+            message: '¿Está seguro de RECHAZAR esta ficha? Volverá a estado de revisión.',
+            confirmColor: '#ef4444', // Red
+            confirmText: 'Rechazar Ficha'
+        });
+    };
+
+    const handleConfirmAction = async () => {
+        if (!confirmModal.action) return;
+
         setActionLoading(true);
+        setConfirmModal(prev => ({ ...prev, isOpen: false })); // Close modal immediately
+
         try {
-            await fichaService.reviewCoordinacion(fichaId, {
-                observaciones: coordObs,
-                user: { id: user?.id || 0 }
-            });
-            showToast({ type: 'info', message: 'Ficha enviada a REVISIÓN y correo enviado' });
+            if (confirmModal.action === 'ACCEPT') {
+                await fichaService.approveCoordinacion(fichaId, {
+                    observaciones: coordObs,
+                    user: { id: user?.id || 0 }
+                });
+                showToast({ type: 'success', message: 'ACEPTADA la Ficha Comercial y enviado correo' });
+            } else if (confirmModal.action === 'REVIEW') {
+                await fichaService.reviewCoordinacion(fichaId, {
+                    observaciones: coordObs,
+                    user: { id: user?.id || 0 }
+                });
+                showToast({ type: 'info', message: 'Ficha rechazada y enviada a revisión' });
+            }
+
             setTimeout(() => {
                 onBack();
             }, 1500);
         } catch (error) {
             console.error(error);
-            showToast({ type: 'error', message: 'Error al enviar a revisión' });
+            showToast({ type: 'error', message: `Error al procesar la acción: ${confirmModal.action}` });
         } finally {
             setActionLoading(false);
         }
@@ -474,7 +505,7 @@ export const CoordinationDetailView: React.FC<Props> = ({ fichaId, initialTab = 
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1.8rem' }}>
                                 <button
-                                    onClick={handleAccept}
+                                    onClick={handleAcceptClick}
                                     disabled={actionLoading || fichaStatus !== 1}
                                     style={{
                                         padding: '8px 16px',
@@ -497,7 +528,7 @@ export const CoordinationDetailView: React.FC<Props> = ({ fichaId, initialTab = 
                                 </button>
 
                                 <button
-                                    onClick={handleReview}
+                                    onClick={handleReviewClick}
                                     disabled={actionLoading || fichaStatus !== 1}
                                     style={{
                                         padding: '8px 16px',
@@ -516,8 +547,9 @@ export const CoordinationDetailView: React.FC<Props> = ({ fichaId, initialTab = 
                                         opacity: (actionLoading || fichaStatus !== 1) ? 0.6 : 1
                                     }}
                                 >
-                                    <span>🔄 Revisar</span>
+                                    <span>🔄 Rechazar</span>
                                 </button>
+
                                 {fichaStatus !== 1 && (
                                     <div style={{ fontSize: '0.75rem', color: '#dc2626', textAlign: 'center', fontWeight: 500, marginTop: '4px' }}>
                                         Requiere aprobación de Área Técnica
@@ -527,8 +559,18 @@ export const CoordinationDetailView: React.FC<Props> = ({ fichaId, initialTab = 
                         </div>
                     </div>
                 )}
-
             </div>
+
+            {/* CONFIRM MODAL */}
+            <ConfirmModal
+                isOpen={confirmModal.isOpen}
+                title={confirmModal.title}
+                message={confirmModal.message}
+                confirmText={confirmModal.confirmText}
+                confirmColor={confirmModal.confirmColor}
+                onConfirm={handleConfirmAction}
+                onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+            />
         </div>
     );
 };

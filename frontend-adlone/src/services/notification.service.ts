@@ -4,7 +4,7 @@ import API_CONFIG from '../config/api.config';
 const API_URL = '/notifications';
 
 const getAuthHeader = () => {
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     return { headers: { Authorization: `Bearer ${token}` } };
 };
 

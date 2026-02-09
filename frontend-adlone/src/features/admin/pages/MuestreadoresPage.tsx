@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { adminService } from '../../../services/admin.service';
+import { ConfirmModal } from '../../../components/common/ConfirmModal';
 import { MuestreadorModal } from '../components/MuestreadorModal';
 import '../admin.css';
 
@@ -16,6 +17,10 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedMuestreador, setSelectedMuestreador] = useState<any | null>(null);
+
+    // Confirm Modal State
+    const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+    const [muestreadorToDisable, setMuestreadorToDisable] = useState<any | null>(null);
 
     // Image Zoom State
     const [zoomedImage, setZoomedImage] = useState<string | null>(null);
@@ -50,15 +55,22 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
         setIsModalOpen(true);
     };
 
-    const handleDisable = async (m: any) => {
-        if (window.confirm(`¿Está seguro de deshabilitar a ${m.nombre_muestreador}?`)) {
-            try {
-                await adminService.disableMuestreador(m.id_muestreador);
-                fetchData();
-            } catch (error) {
-                console.error(error);
-                alert('Error al deshabilitar');
-            }
+    const handleDisableClick = (m: any) => {
+        setMuestreadorToDisable(m);
+        setIsConfirmModalOpen(true);
+    };
+
+    const confirmDisable = async () => {
+        if (!muestreadorToDisable) return;
+
+        try {
+            await adminService.disableMuestreador(muestreadorToDisable.id_muestreador);
+            fetchData();
+            setIsConfirmModalOpen(false);
+            setMuestreadorToDisable(null);
+        } catch (error) {
+            console.error(error);
+            alert('Error al deshabilitar'); // Keep simple alert for error or use toast if available
         }
     };
 
@@ -177,7 +189,7 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                                             {m.habilitado === 'S' && (
                                                 <button
                                                     className="btn-icon"
-                                                    onClick={() => handleDisable(m)}
+                                                    onClick={() => handleDisableClick(m)}
                                                     title="Deshabilitar"
                                                     style={{ color: '#dc2626', background: '#fef2f2', padding: '6px', borderRadius: '4px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                                 >
@@ -199,6 +211,20 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                 onClose={() => setIsModalOpen(false)}
                 onSave={fetchData}
                 initialData={selectedMuestreador}
+            />
+
+            {/* CONFIRM MODAL */}
+            <ConfirmModal
+                isOpen={isConfirmModalOpen}
+                title="Confirmar Deshabilitación"
+                message={`¿Está seguro de deshabilitar a ${muestreadorToDisable?.nombre_muestreador}? Esta acción impedirá que el muestreador sea asignado a nuevas fichas.`}
+                confirmText="Deshabilitar"
+                confirmColor="#dc2626"
+                onConfirm={confirmDisable}
+                onCancel={() => {
+                    setIsConfirmModalOpen(false);
+                    setMuestreadorToDisable(null);
+                }}
             />
 
             {/* IMAGE ZOOM MODAL */}

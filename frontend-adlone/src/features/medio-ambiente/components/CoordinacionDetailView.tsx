@@ -204,11 +204,11 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
     const handleAcceptClick = () => {
         setModalConfig({
             isOpen: true,
-            title: 'Guardar Observaciones',
-            message: '¿Está seguro de guardar las observaciones de coordinación?',
+            title: 'Confirmar Aprobación',
+            message: '¿Está seguro de ACEPTAR esta ficha técnicamente? Esta acción habilitará la ficha para su programación.',
             onConfirm: executeAccept,
             isDestructive: false,
-            confirmText: 'Guardar'
+            confirmText: 'Aceptar Ficha'
         });
     };
 

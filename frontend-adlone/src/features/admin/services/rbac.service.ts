@@ -42,7 +42,7 @@ export interface UpdateUserData {
 class RbacService {
     // Helper to get headers
     private getConfig() {
-        const token = localStorage.getItem('token');
+        const token = sessionStorage.getItem('token');
         return {
             headers: {
                 'Authorization': token ? `Bearer ${token}` : '',

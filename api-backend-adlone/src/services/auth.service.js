@@ -7,7 +7,7 @@ import logger from '../utils/logger.js';
 const JWT_SECRET = process.env.JWT_SECRET || 'adl-secret-key-2024';
 
 class AuthService {
-    async login(username, password) {
+    async login(username, password, rememberMe) {
         try {
             logger.info('AuthService: Getting DB connection...');
             const startConn = Date.now();
@@ -67,7 +67,7 @@ class AuthService {
                         permissions: permissions // Add permissions to token (Optional, good for client-side checks)
                     },
                     JWT_SECRET,
-                    { expiresIn: '12h' }
+                    { expiresIn: rememberMe ? '30d' : '12h' }
                 );
 
                 return {
