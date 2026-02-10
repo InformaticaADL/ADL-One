@@ -1,73 +1,52 @@
-import axios from 'axios';
-import API_CONFIG from '../../../config/api.config';
+import apiClient from '../../../config/axios.config';
 
-// Create axios instance
-const axiosInstance = axios.create({
-    baseURL: `${API_CONFIG.getBaseURL()}/api/fichas`,
-    timeout: 30000, // 30 seconds for heavier write operations
-    headers: {
-        'Content-Type': 'application/json'
-    }
-});
+// Using centralized apiClient with automatic token injection
 
-// Add request interceptor to inject token
-axiosInstance.interceptors.request.use(
-    (config) => {
-        const token = sessionStorage.getItem('token');
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-    },
-    (error) => {
-        return Promise.reject(error);
-    }
-);
 
 export const fichaService = {
     getAll: async () => {
-        const response = await axiosInstance.get('/');
+        const response = await apiClient.get('/api/fichas/');
         return response.data;
     },
     create: async (data: any) => {
-        const response = await axiosInstance.post('/create', data);
+        const response = await apiClient.post('/api/fichas/create', data);
         return response.data;
     },
     update: async (id: number, data: any, user?: any) => {
         const payload = { ...data, user };
-        const response = await axiosInstance.post(`/${id}/update`, payload);
+        const response = await apiClient.post(`/api/fichas/${id}/update`, payload);
         return response.data;
     },
     getById: async (id: number) => {
-        const response = await axiosInstance.get(`/${id}`);
+        const response = await apiClient.get(`/api/fichas/${id}`);
         return response.data;
     },
     approve: async (id: number, data: any) => {
-        const response = await axiosInstance.post(`/${id}/approve`, data);
+        const response = await apiClient.post(`/api/fichas/${id}/approve`, data);
         return response.data;
     },
     reject: async (id: number, data: any) => {
-        const response = await axiosInstance.post(`/${id}/reject`, data);
+        const response = await apiClient.post(`/api/fichas/${id}/reject`, data);
         return response.data;
     },
     approveCoordinacion: async (id: number, data: any) => {
-        const response = await axiosInstance.post(`/${id}/approve-coordinacion`, data);
+        const response = await apiClient.post(`/api/fichas/${id}/approve-coordinacion`, data);
         return response.data;
     },
     reviewCoordinacion: async (id: number, data: any) => {
-        const response = await axiosInstance.post(`/${id}/review-coordinacion`, data);
+        const response = await apiClient.post(`/api/fichas/${id}/review-coordinacion`, data);
         return response.data;
     },
     updateAgenda: async (id: number, data: any) => {
-        const response = await axiosInstance.post(`/${id}/agenda`, data);
+        const response = await apiClient.post(`/api/fichas/${id}/agenda`, data);
         return response.data;
     },
     getForAssignment: async () => {
-        const response = await axiosInstance.get('/for-assignment');
+        const response = await apiClient.get('/api/fichas/for-assignment');
         return response.data;
     },
     getAssignmentDetail: async (id: number) => {
-        const response = await axiosInstance.get(`/${id}/assignment-detail`);
+        const response = await apiClient.get(`/api/fichas/${id}/assignment-detail`);
         return response.data.data; // Backend wraps in { success, data, message }
     },
     batchUpdateAgenda: async (data: {
@@ -83,11 +62,11 @@ export const fichaService = {
         user?: any,
         observaciones?: string
     }) => {
-        const response = await axiosInstance.post('/batch-agenda', data);
+        const response = await apiClient.post('/api/fichas/batch-agenda', data);
         return response.data.data; // Access nested data from successResponse wrapper
     },
     getHistorial: async (id: number) => {
-        const response = await axiosInstance.get(`/${id}/historial`);
+        const response = await apiClient.get(`/api/fichas/${id}/historial`);
         return response.data.data;
     }
 };

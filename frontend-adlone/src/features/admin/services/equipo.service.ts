@@ -1,21 +1,7 @@
-import axios from 'axios';
-import API_CONFIG from '../../../config/api.config';
+import apiClient from '../../../config/axios.config';
 
-const axiosInstance = axios.create({
-    baseURL: `${API_CONFIG.getBaseURL()}/api/admin/equipos`,
-    headers: {
-        'Content-Type': 'application/json'
-    }
-});
+// No need for custom axios instance - using centralized apiClient with automatic token injection
 
-// Add interceptor to include token
-axiosInstance.interceptors.request.use(config => {
-    const token = localStorage.getItem('token');
-    if (token && config.headers) {
-        config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-});
 
 export interface Equipo {
     id_equipo: number;
@@ -68,49 +54,49 @@ export interface EquiposResponse {
 
 export const equipoService = {
     getEquipos: async (params: any): Promise<EquiposResponse> => {
-        const response = await axiosInstance.get('/', { params });
+        const response = await apiClient.get('/api/admin/equipos/', { params });
         return response.data;
     },
 
     createEquipo: async (data: Partial<Equipo>): Promise<any> => {
-        const response = await axiosInstance.post('/', data);
+        const response = await apiClient.post('/api/admin/equipos/', data);
         return response.data;
     },
 
     getEquipoById: async (id: number): Promise<any> => {
-        const response = await axiosInstance.get(`/${id}`);
+        const response = await apiClient.get(`/api/admin/equipos/${id}`);
         return response.data;
     },
 
     updateEquipo: async (id: number, data: Partial<Equipo>): Promise<any> => {
-        const response = await axiosInstance.put(`/${id}`, data);
+        const response = await apiClient.put(`/api/admin/equipos/${id}`, data);
         return response.data;
     },
 
     deleteEquipo: async (id: number): Promise<any> => {
-        const response = await axiosInstance.delete(`/${id}`);
+        const response = await apiClient.delete(`/api/admin/equipos/${id}`);
         return response.data;
     },
 
     getEquipoHistorial: async (id: number): Promise<any> => {
-        const response = await axiosInstance.get(`/${id}/historial`);
+        const response = await apiClient.get(`/api/admin/equipos/${id}/historial`);
         return response.data;
     },
 
     getNextCorrelativo: async (tipo: string): Promise<any> => {
-        const response = await axiosInstance.get(`/next-correlativo/${encodeURIComponent(tipo)}`);
+        const response = await apiClient.get(`/api/admin/equipos/next-correlativo/${encodeURIComponent(tipo)}`);
         return response.data;
     },
 
     suggestNextCode: async (tipo: string, ubicacion: string, nombre: string = ''): Promise<any> => {
-        const response = await axiosInstance.get('/suggest-code', {
+        const response = await apiClient.get('/api/admin/equipos/suggest-code', {
             params: { tipo, ubicacion, nombre }
         });
         return response.data;
     },
 
     restoreVersion: async (id: number, idHistorial: number): Promise<any> => {
-        const response = await axiosInstance.post(`/${id}/restore/${idHistorial}`);
+        const response = await apiClient.post(`/api/admin/equipos/${id}/restore/${idHistorial}`);
         return response.data;
     }
 };

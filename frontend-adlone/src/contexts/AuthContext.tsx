@@ -52,6 +52,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             if (response.data && response.data.success) {
                 const { token, user } = response.data.data;
+
+                // DEBUG: Log token to verify it's a string
+                console.log('🔍 Login Debug - Token type:', typeof token);
+                console.log('🔍 Login Debug - Token value:', token);
+                console.log('🔍 Login Debug - Remember Me:', rememberMe);
+
                 setToken(token);
                 // Ensure permissions are present
                 setUser(user);
