@@ -49,7 +49,10 @@ export interface EquiposResponse {
         estados: string[];
         sedes: string[];
         nombres: string[];
+        que_mide: string[];
+        unidades: string[];
     };
+
 }
 
 export const equipoService = {

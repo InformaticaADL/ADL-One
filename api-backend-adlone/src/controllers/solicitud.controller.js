@@ -28,8 +28,10 @@ class SolicitudController {
         try {
             const filters = {
                 estado: req.query.estado,
-                usuario_solicita: req.query.solo_mias === 'true' ? req.user?.id : null
+                usuario_solicita: req.query.solo_mias === 'true' ? req.user?.id : null,
+                usuario_excluir: req.query.excluir_mias === 'true' ? req.user?.id : null
             };
+
 
             const solicitudes = await solicitudService.getSolicitudes(filters);
             res.json(solicitudes);

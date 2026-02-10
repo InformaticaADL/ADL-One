@@ -78,18 +78,27 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
     // Fetch notifications
     const fetchNotifications = async () => {
         try {
-            // Depending on user role, we might want different notifications. 
-            // For now, mirroring what was in the pages:
+            const isAdminArea = activeModule === 'admin_informacion';
             const data = await adminService.getSolicitudes({
-                estado: hasPermission('MA_ADMIN_ACCESO') ? 'PENDIENTE' : undefined,
-                solo_mias: !hasPermission('MA_ADMIN_ACCESO')
+                estado: isAdminArea ? 'PENDIENTE' : undefined,
+                solo_mias: !isAdminArea
             });
 
             // Filter strictly for "TODAY" as requested
-            const today = new Date().toLocaleDateString();
-            const todayNotifications = data.filter((sol: any) =>
-                new Date(sol.fecha_solicitud).toLocaleDateString() === today
-            );
+            const today = new Date().toDateString();
+            const todayNotifications = data.filter((sol: any) => {
+                const solDate = new Date(sol.fecha_revision || sol.fecha_solicitud).toDateString();
+                const isToday = solDate === today;
+
+                if (isAdminArea) {
+                    // In admin area, we show pending items
+                    return isToday && sol.estado === 'PENDIENTE';
+                } else {
+                    // In other areas, we show results for the user
+                    const isResult = sol.estado === 'APROBADO' || sol.estado === 'RECHAZADA';
+                    return isToday && isResult;
+                }
+            });
 
             setNotifications(todayNotifications);
         } catch (error) {
@@ -103,7 +112,8 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
             const interval = setInterval(fetchNotifications, 60000); // Poll every minute
             return () => clearInterval(interval);
         }
-    }, [user]);
+    }, [user, activeModule]);
+
 
     // Imagen de perfil fija según requerimiento
     // Imagen de perfil fija según requerimiento
@@ -321,7 +331,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                                 overflow: 'hidden'
                             }}>
                                 <div style={{ padding: '1rem', borderBottom: '1px solid #f1f5f9', fontWeight: 600, fontSize: '0.9rem', color: '#1e293b', display: 'flex', justifyContent: 'space-between' }}>
-                                    <span>Notificaciones de hoy</span>
+                                    <span>{activeModule === 'admin_informacion' ? 'Solicitudes Pendientes' : 'Resultados de Solicitudes'}</span>
                                     <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 400 }}>{new Date().toLocaleDateString()}</span>
                                 </div>
                                 <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
@@ -332,7 +342,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                                     ) : (
                                         notifications
                                             .filter(n => !hiddenNotifications.includes(n.id_solicitud))
-                                            .map((sol, i) => (
+                                            .map((sol) => (
                                                 <div
                                                     key={sol.id_solicitud}
                                                     style={{
@@ -396,6 +406,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                             </div>
                         )}
                     </div>
+
 
                     <div
                         className="user-profile-container"

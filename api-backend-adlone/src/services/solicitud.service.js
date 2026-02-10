@@ -45,6 +45,11 @@ class SolicitudService {
                 whereConditions.push('s.usuario_solicita = @usuario');
                 request.input('usuario', sql.Numeric(10, 0), filters.usuario_solicita);
             }
+            if (filters.usuario_excluir) {
+                whereConditions.push('s.usuario_solicita != @usuarioExcluir');
+                request.input('usuarioExcluir', sql.Numeric(10, 0), filters.usuario_excluir);
+            }
+
 
             if (whereConditions.length > 0) {
                 query += ' WHERE ' + whereConditions.join(' AND ');

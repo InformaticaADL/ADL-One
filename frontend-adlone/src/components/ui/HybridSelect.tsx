@@ -9,17 +9,21 @@ export interface HybridSelectProps {
     name?: string;
     required?: boolean;
     disabled?: boolean;
+    strict?: boolean;
 }
 
 /**
  * A hybrid component that acts as both a text input and a custom dropdown.
- * Mimics the aesthetic of a standard custom select but allows free-text entry.
+ * Mimics the aesthetic of a standard custom select.
+ * If 'strict' is true, it only allows selection from the list (input is readOnly).
  */
 export const HybridSelect: React.FC<HybridSelectProps> = ({
-    label, value, options, onChange, placeholder, name, required, disabled
+    label, value, options, onChange, placeholder, name, required, disabled, strict
 }) => {
     const [isOpen, setIsOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
     const containerRef = useRef<HTMLDivElement>(null);
+    const searchInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -31,13 +35,28 @@ export const HybridSelect: React.FC<HybridSelectProps> = ({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // Filter options based on current input text
-    const filteredOptions = options.filter(opt =>
-        (opt || '').toLowerCase().includes((value || '').toLowerCase())
-    );
+    // Clear search term when closing
+    useEffect(() => {
+        if (!isOpen) setSearchTerm('');
+    }, [isOpen]);
+
+    // Focus search input when opening in strict mode
+    useEffect(() => {
+        if (isOpen && strict && searchInputRef.current) {
+            searchInputRef.current.focus();
+        }
+    }, [isOpen, strict]);
+
+    // Filter options based on:
+    // 1. searchTerm (if strict)
+    // 2. value (if not strict)
+    const filteredOptions = options.filter(opt => {
+        const query = strict ? searchTerm : value;
+        return (opt || '').toLowerCase().includes((query || '').toLowerCase());
+    });
 
     return (
-        <div className="form-group" ref={containerRef} style={{ position: 'relative' }}>
+        <div className="form-group" ref={containerRef} style={{ position: 'relative', width: '100%' }}>
             {label && <label className="form-label">{label}</label>}
             <div style={{ position: 'relative' }}>
                 <input
@@ -45,7 +64,7 @@ export const HybridSelect: React.FC<HybridSelectProps> = ({
                     name={name}
                     value={value}
                     onChange={(e) => {
-                        if (!disabled) {
+                        if (!disabled && !strict) {
                             onChange(e.target.value);
                             setIsOpen(true);
                         }
@@ -57,20 +76,22 @@ export const HybridSelect: React.FC<HybridSelectProps> = ({
                     placeholder={placeholder}
                     autoComplete="off"
                     disabled={disabled}
+                    readOnly={strict}
                     style={{
                         paddingRight: '30px',
-                        cursor: disabled ? 'not-allowed' : 'text',
+                        cursor: disabled ? 'not-allowed' : (strict ? 'pointer' : 'text'),
                         backgroundColor: disabled ? '#f8fafc' : 'white',
                         color: disabled ? '#64748b' : 'inherit',
+                        userSelect: strict ? 'none' : 'auto'
                     }}
                 />
                 <div
-                    onClick={() => setIsOpen(!isOpen)}
+                    onClick={() => !disabled && setIsOpen(!isOpen)}
                     style={{
                         position: 'absolute',
                         right: '10px',
                         top: '50%',
-                        cursor: 'pointer',
+                        cursor: disabled ? 'not-allowed' : 'pointer',
                         color: '#9ca3af',
                         fontSize: '0.7rem',
                         userSelect: 'none',
@@ -94,35 +115,54 @@ export const HybridSelect: React.FC<HybridSelectProps> = ({
                     borderRadius: '8px',
                     boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
                     marginTop: '4px',
-                    maxHeight: '200px',
-                    overflowY: 'auto'
+                    maxHeight: '300px',
+                    overflowY: 'auto',
+                    padding: strict ? '8px' : '0'
                 }}>
-                    {options.length === 0 ? (
+                    {strict && (
+                        <div style={{ position: 'sticky', top: 0, background: 'white', paddingBottom: '8px', marginBottom: '4px', borderBottom: '1px solid #f3f4f6' }}>
+                            <input
+                                ref={searchInputRef}
+                                type="text"
+                                className="form-input"
+                                placeholder="Buscar..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                style={{ fontSize: '0.85rem', padding: '6px 10px', height: 'auto' }}
+                            />
+                        </div>
+                    )}
+
+                    {filteredOptions.length === 0 ? (
                         <div style={{ padding: '0.5rem 1rem', color: '#9ca3af', fontStyle: 'italic', fontSize: '0.875rem' }}>
                             Sin opciones encontradas
                         </div>
-                    ) : (filteredOptions.length > 0 ? filteredOptions : options).map((opt) => (
-                        <div
-                            key={opt}
-                            onClick={() => {
-                                onChange(opt);
-                                setIsOpen(false);
-                            }}
-                            style={{
-                                padding: '8px 12px',
-                                cursor: 'pointer',
-                                fontSize: '0.85rem',
-                                color: '#374151',
-                                borderBottom: '1px solid #f3f4f6',
-                                backgroundColor: value === opt ? '#f3f4f6' : 'transparent'
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
-                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = value === opt ? '#f3f4f6' : 'transparent'}
-                        >
-                            {opt}
-                        </div>
-                    ))}
-                    {filteredOptions.length === 0 && (
+                    ) : (
+                        filteredOptions.map((opt) => (
+                            <div
+                                key={opt}
+                                onClick={() => {
+                                    onChange(opt);
+                                    setIsOpen(false);
+                                }}
+                                style={{
+                                    padding: '8px 12px',
+                                    cursor: 'pointer',
+                                    fontSize: '0.85rem',
+                                    color: '#374151',
+                                    borderRadius: '4px',
+                                    backgroundColor: value === opt ? '#eff6ff' : 'transparent',
+                                    borderBottom: strict ? 'none' : '1px solid #f3f4f6'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = value === opt ? '#eff6ff' : '#f9fafb'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = value === opt ? '#eff6ff' : 'transparent'}
+                            >
+                                {opt}
+                            </div>
+                        ))
+                    )}
+
+                    {!strict && filteredOptions.length === 0 && value.trim() !== '' && (
                         <div style={{ padding: '8px 12px', fontSize: '0.8rem', color: '#9ca3af', fontStyle: 'italic' }}>
                             Presione Enter para usar "{value}"
                         </div>

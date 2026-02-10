@@ -84,31 +84,48 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const filterMenuRef = React.useRef<HTMLDivElement>(null);
 
     React.useEffect(() => {
-        if (showConfirmAltaModal && equipoAltaPending?.datos_json?.motivo) {
-            const motive = equipoAltaPending.datos_json.motivo;
-            const code = (equipoAltaPending as any).codigo;
+        if (showConfirmAltaModal) {
+            // Priority 1: Specific motive extraction (existing logic)
+            if (equipoAltaPending?.datos_json?.motivo) {
+                const motive = equipoAltaPending.datos_json.motivo;
+                const code = (equipoAltaPending as any).codigo;
 
-            if (code && motive) {
-                // Escapar caracteres especiales del código para usar en regex
-                const escapedCode = code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                // Buscar el código seguido de ":" y luego una fecha (DD/MM/YYYY o YYYY-MM-DD o DD-MM-YYYY)
-                const regex = new RegExp(`${escapedCode}:\\s*(\\d{2}[/\\-]\\d{2}[/\\-]\\d{4}|\\d{4}[/\\-]\\d{2}[/\\-]\\d{2})`, 'i');
-                const match = motive.match(regex);
+                if (code && motive) {
+                    const escapedCode = code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const regex = new RegExp(`${escapedCode}:\\s*(\\d{2}[/\\-]\\d{2}[/\\-]\\d{4}|\\d{4}[/\\-]\\d{2}[/\\-]\\d{2})`, 'i');
+                    const match = motive.match(regex);
 
-                if (match && match[1]) {
-                    let datePart = match[1].replace(/\//g, '-');
-                    // Si el formato es DD-MM-YYYY, convertir a YYYY-MM-DD
-                    if (/^\d{2}-\d{2}-\d{4}$/.test(datePart)) {
-                        const [d, m, y] = datePart.split('-');
-                        datePart = `${y}-${m}-${d}`;
+                    if (match && match[1]) {
+                        let datePart = match[1].replace(/\//g, '-');
+                        if (/^\d{2}-\d{2}-\d{4}$/.test(datePart)) {
+                            const [d, m, y] = datePart.split('-');
+                            datePart = `${y}-${m}-${d}`;
+                        }
+                        setReactivationVigencia(datePart);
+                        return; // Found via motive, done.
                     }
-                    setReactivationVigencia(datePart);
                 }
             }
-        } else if (!showConfirmAltaModal) {
+
+            // Priority 2: Specific equipment 'vigencia' in the equipos_alta array (new multi-vigencia logic)
+            if (equipoAltaPending?.id && equipoAltaPending?.datos_json?.equipos_alta) {
+                const specificEq = equipoAltaPending.datos_json.equipos_alta.find((e: any) => String(e.id) === String(equipoAltaPending.id));
+                if (specificEq?.vigencia) {
+                    setReactivationVigencia(specificEq.vigencia);
+                    return;
+                }
+            }
+
+            // Priority 3: General 'vigencia' field in request JSON (fallback)
+            if (equipoAltaPending?.datos_json?.vigencia) {
+                setReactivationVigencia(equipoAltaPending.datos_json.vigencia);
+            }
+
+        } else {
             setReactivationVigencia('');
         }
     }, [showConfirmAltaModal, equipoAltaPending]);
+
 
     React.useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -192,10 +209,12 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
 
     const loadSolicitudes = async () => {
         try {
-            // Fetch only PENDING solicitudes for the admin to process
+            // Fetch PENDING solicitudes for the admin to process
             const data = await adminService.getSolicitudes({ estado: 'PENDIENTE' });
             setSolicitudesRealizadas(data);
         } catch (error) {
+
+
             console.error("Error loading solicitudes:", error);
         }
     };
@@ -561,24 +580,36 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                 <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
                             </svg>
                             Solicitudes
-                            {solicitudesRealizadas.filter(s => s.estado === 'PENDIENTE' && !hiddenNotifications.includes(s.id_solicitud)).length > 0 && (
-                                <span style={{
-                                    background: '#ef4444',
-                                    color: 'white',
-                                    fontSize: '0.7rem',
-                                    fontWeight: 'bold',
-                                    minWidth: '18px',
-                                    height: '18px',
-                                    borderRadius: '10px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    padding: '0 5px',
-                                    marginLeft: '4px'
-                                }}>
-                                    {solicitudesRealizadas.filter(s => s.estado === 'PENDIENTE' && !hiddenNotifications.includes(s.id_solicitud)).length}
-                                </span>
-                            )}
+                            {solicitudesRealizadas.filter(s => {
+                                const isPending = s.estado === 'PENDIENTE';
+                                const isNotHidden = !hiddenNotifications.includes(s.id_solicitud);
+                                const solDateStr = new Date(s.fecha_solicitud).toDateString();
+                                const todayStr = new Date().toDateString();
+                                return isPending && isNotHidden && solDateStr === todayStr;
+                            }).length > 0 && (
+                                    <span style={{
+                                        background: '#ef4444',
+                                        color: 'white',
+                                        fontSize: '0.7rem',
+                                        fontWeight: 'bold',
+                                        minWidth: '18px',
+                                        height: '18px',
+                                        borderRadius: '10px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        padding: '0 5px',
+                                        marginLeft: '4px'
+                                    }}>
+                                        {solicitudesRealizadas.filter(s => {
+                                            const isPending = s.estado === 'PENDIENTE';
+                                            const isNotHidden = !hiddenNotifications.includes(s.id_solicitud);
+                                            const solDateStr = new Date(s.fecha_solicitud).toDateString();
+                                            const todayStr = new Date().toDateString();
+                                            return isPending && isNotHidden && solDateStr === todayStr;
+                                        }).length}
+                                    </span>
+                                )}
                         </button>
 
                         {showSolicitudes && (
@@ -598,15 +629,29 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                 <div style={{ padding: '1rem', borderBottom: '1px solid #f3f4f6', fontWeight: 600, fontSize: '0.9rem', color: '#374151' }}>
                                     Solicitudes Pendientes
                                 </div>
-                                <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
-                                    {solicitudesRealizadas.filter(s => s.estado === 'PENDIENTE' && !hiddenNotifications.includes(s.id_solicitud)).length === 0 ? (
-                                        <div style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>
-                                            <div style={{ fontSize: '2rem', marginBottom: '0.5rem', opacity: 0.5 }}>📬</div>
-                                            No hay tareas pendientes.
+                                <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                                    {solicitudesRealizadas.filter(s => {
+                                        const isPending = s.estado === 'PENDIENTE';
+                                        const isNotHidden = !hiddenNotifications.includes(s.id_solicitud);
+                                        const solDateStr = new Date(s.fecha_solicitud).toDateString();
+                                        const todayStr = new Date().toDateString();
+                                        return isPending && isNotHidden && solDateStr === todayStr;
+                                    }).length === 0 ? (
+                                        <div style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af', fontSize: '0.85rem' }}>
+                                            No hay solicitudes pendientes hoy.
                                         </div>
                                     ) : (
                                         solicitudesRealizadas
-                                            .filter(s => s.estado === 'PENDIENTE' && !hiddenNotifications.includes(s.id_solicitud))
+                                            .filter(s => {
+                                                const isPending = s.estado === 'PENDIENTE';
+                                                const isNotHidden = !hiddenNotifications.includes(s.id_solicitud);
+                                                const date = new Date(s.fecha_solicitud);
+                                                const today = new Date();
+                                                const isToday = date.getDate() === today.getDate() &&
+                                                    date.getMonth() === today.getMonth() &&
+                                                    date.getFullYear() === today.getFullYear();
+                                                return isPending && isNotHidden && isToday;
+                                            })
                                             .map((sol) => (
                                                 <div
                                                     key={sol.id_solicitud}
@@ -879,7 +924,14 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                                 <div key={eq.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem', background: eq.procesado ? '#f0fdf4' : '#f8fafc', borderRadius: '6px', border: eq.procesado ? '1px solid #bbf7d0' : '1px solid #e2e8f0', opacity: eq.procesado ? 0.7 : 1 }}>
                                                     <span style={{ fontWeight: 600, color: eq.procesado ? '#166534' : '#1e293b' }}>{eq.nombre}</span>
                                                     {!eq.procesado ? (
-                                                        <button onClick={() => { setEquipoBajaPending(eq); setShowConfirmBajaModal(true); }} className="btn-danger" style={{ fontSize: '0.7rem', padding: '2px 8px' }}>BAJA</button>
+                                                        <button onClick={() => {
+                                                            setEquipoBajaPending({
+                                                                ...eq,
+                                                                id_solicitud: reviewSolicitud.id_solicitud,
+                                                                datos_json: reviewSolicitud.datos_json
+                                                            });
+                                                            setShowConfirmBajaModal(true);
+                                                        }} className="btn-danger" style={{ fontSize: '0.7rem', padding: '2px 8px' }}>BAJA</button>
                                                     ) : (
                                                         <span style={{ fontSize: '0.7rem', color: '#16a34a', fontWeight: 700 }}>PROCESADO</span>
                                                     )}

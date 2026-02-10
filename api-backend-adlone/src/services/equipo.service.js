@@ -114,29 +114,40 @@ export const equipoService = {
 
             // 3. Get unique types and states based on current OTHER filters
             const getCatalogs = async (currentSede) => {
-                let typesQuery = 'SELECT DISTINCT tipoequipo as tipo FROM mae_equipo WHERE tipoequipo IS NOT NULL';
+                let typesQuery = 'SELECT DISTINCT tipoequipo as tipo FROM mae_equipo WHERE tipoequipo IS NOT NULL AND LEN(TRIM(tipoequipo)) > 0';
+
+
                 let statesQuery = 'SELECT DISTINCT CASE WHEN habilitado = \'S\' THEN \'Activo\' ELSE \'Inactivo\' END as estado FROM mae_equipo WHERE 1=1';
-                let sedesQuery = 'SELECT DISTINCT sede FROM mae_equipo WHERE sede IS NOT NULL AND sede != \'\'';
-                let namesQuery = 'SELECT DISTINCT nombre FROM mae_equipo WHERE nombre IS NOT NULL';
+                let sedesQuery = 'SELECT DISTINCT sede FROM mae_equipo WHERE sede IS NOT NULL AND LEN(TRIM(sede)) > 0';
+                let namesQuery = 'SELECT DISTINCT nombre FROM mae_equipo WHERE nombre IS NOT NULL AND LEN(TRIM(nombre)) > 0';
+                let queMideQuery = 'SELECT DISTINCT que_mide FROM mae_equipo WHERE que_mide IS NOT NULL AND LEN(TRIM(que_mide)) > 0';
+                let unidadesQuery = 'SELECT DISTINCT unidad_medida_textual as unidad FROM mae_equipo WHERE unidad_medida_textual IS NOT NULL AND LEN(TRIM(unidad_medida_textual)) > 0';
 
                 if (currentSede && currentSede !== 'Todos') {
                     typesQuery += ` AND sede = '${currentSede}'`;
                     statesQuery += ` AND sede = '${currentSede}'`;
                     namesQuery += ` AND sede = '${currentSede}'`;
+                    queMideQuery += ` AND sede = '${currentSede}'`;
+                    unidadesQuery += ` AND sede = '${currentSede}'`;
                 }
 
-                const [tRes, sRes, lRes, nRes] = await Promise.all([
+                const [tRes, sRes, lRes, nRes, qRes, uRes] = await Promise.all([
                     pool.request().query(typesQuery),
                     pool.request().query(statesQuery),
                     pool.request().query(sedesQuery),
-                    pool.request().query(namesQuery)
+                    pool.request().query(namesQuery),
+                    pool.request().query(queMideQuery),
+                    pool.request().query(unidadesQuery)
                 ]);
                 return {
                     tipos: tRes.recordset.map(r => r.tipo).sort(),
                     estados: sRes.recordset.map(r => r.estado).sort(),
                     sedes: lRes.recordset.map(r => r.sede).sort(),
-                    nombres: nRes.recordset.map(r => r.nombre).sort()
+                    nombres: nRes.recordset.map(r => r.nombre).sort(),
+                    que_mide: qRes.recordset.map(r => r.que_mide).sort(),
+                    unidades: uRes.recordset.map(r => r.unidad).sort()
                 };
+
             };
 
             const catalogs = await getCatalogs(sede);

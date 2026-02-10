@@ -27,7 +27,7 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
 
     // List of equipment for bulk deletion / reactivation
     const [equiposBaja, setEquiposBaja] = useState<{ id: string; nombre: string }[]>([]);
-    const [equiposAlta, setEquiposAlta] = useState<{ id: string; nombre: string; datos_originales?: Equipo }[]>([]);
+    const [equiposAlta, setEquiposAlta] = useState<{ id: string; nombre: string; vigencia: string; datos_originales?: Equipo }[]>([]);
 
     // History of user's own requests
     const [history, setHistory] = useState<any[]>([]);
@@ -36,6 +36,8 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
     // Catalogs for dynamic selectors
     const [tiposCatalogo, setTiposCatalogo] = useState<string[]>([]);
     const [nombresCatalogo, setNombresCatalogo] = useState<string[]>([]);
+    const [sedesCatalogo, setSedesCatalogo] = useState<string[]>([]);
+
 
     // Form Data
     const [formData, setFormData] = useState({
@@ -79,7 +81,9 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
             if (equiposRes.catalogs) {
                 setTiposCatalogo(equiposRes.catalogs.tipos || []);
                 setNombresCatalogo(equiposRes.catalogs.nombres || []);
+                setSedesCatalogo(equiposRes.catalogs.sedes || []);
             }
+
 
             // For Alta we might need responsible list (muestreadores)
             const mueRes = await adminService.getMuestreadores('', 'ACTIVOS');
@@ -254,24 +258,38 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
                                 <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
                             </svg>
                             Notificaciones
-                            {history.filter(s => (s.estado === 'APROBADO' || s.estado === 'RECHAZADA') && !hiddenNotifications.includes(s.id_solicitud)).length > 0 && (
-                                <span style={{
-                                    background: '#ef4444',
-                                    color: 'white',
-                                    fontSize: '0.7rem',
-                                    fontWeight: 'bold',
-                                    minWidth: '18px',
-                                    height: '18px',
-                                    borderRadius: '10px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    padding: '0 5px',
-                                    marginLeft: '4px'
-                                }}>
-                                    {history.filter(s => (s.estado === 'APROBADO' || s.estado === 'RECHAZADA') && !hiddenNotifications.includes(s.id_solicitud)).length}
-                                </span>
-                            )}
+                            {history.filter(s => {
+                                const isResult = s.estado === 'APROBADO' || s.estado === 'RECHAZADA';
+                                const isNotHidden = !hiddenNotifications.includes(s.id_solicitud);
+                                const solDateStr = new Date(s.fecha_revision || s.fecha_solicitud).toDateString();
+                                const todayStr = new Date().toDateString();
+                                return isResult && isNotHidden && solDateStr === todayStr;
+                            }).length > 0 && (
+
+                                    <span style={{
+                                        background: '#ef4444',
+                                        color: 'white',
+                                        fontSize: '0.7rem',
+                                        fontWeight: 'bold',
+                                        minWidth: '18px',
+                                        height: '18px',
+                                        borderRadius: '10px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        padding: '0 5px',
+                                        marginLeft: '4px'
+                                    }}>
+                                        {history.filter(s => {
+                                            const isResult = s.estado === 'APROBADO' || s.estado === 'RECHAZADA';
+                                            const isNotHidden = !hiddenNotifications.includes(s.id_solicitud);
+                                            const solDateStr = new Date(s.fecha_revision || s.fecha_solicitud).toDateString();
+                                            const todayStr = new Date().toDateString();
+                                            return isResult && isNotHidden && solDateStr === todayStr;
+                                        }).length}
+
+                                    </span>
+                                )}
                         </button>
 
                         {showNotifications && (
@@ -292,13 +310,26 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
                                     Resultados de Solicitudes
                                 </div>
                                 <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                                    {history.filter(s => (s.estado === 'APROBADO' || s.estado === 'RECHAZADA') && !hiddenNotifications.includes(s.id_solicitud)).length === 0 ? (
+                                    {history.filter(s => {
+                                        const isResult = s.estado === 'APROBADO' || s.estado === 'RECHAZADA';
+                                        const isNotHidden = !hiddenNotifications.includes(s.id_solicitud);
+                                        const solDateStr = new Date(s.fecha_revision || s.fecha_solicitud).toDateString();
+                                        const todayStr = new Date().toDateString();
+                                        return isResult && isNotHidden && solDateStr === todayStr;
+                                    }).length === 0 ? (
                                         <div style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af', fontSize: '0.85rem' }}>
-                                            No tienes nuevas notificaciones.
+                                            No tienes nuevas notificaciones hoy.
                                         </div>
                                     ) : (
                                         history
-                                            .filter(s => (s.estado === 'APROBADO' || s.estado === 'RECHAZADA') && !hiddenNotifications.includes(s.id_solicitud))
+                                            .filter(s => {
+                                                const isResult = s.estado === 'APROBADO' || s.estado === 'RECHAZADA';
+                                                const isNotHidden = !hiddenNotifications.includes(s.id_solicitud);
+                                                const solDateStr = new Date(s.fecha_revision || s.fecha_solicitud).toDateString();
+                                                const todayStr = new Date().toDateString();
+                                                return isResult && isNotHidden && solDateStr === todayStr;
+                                            })
+
                                             .map((sol) => (
                                                 <div
                                                     key={sol.id_solicitud}
@@ -327,7 +358,7 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
                                                         </span>
                                                     </div>
                                                     <div style={{ fontSize: '0.7rem', color: '#6b7280' }}>
-                                                        {new Date(sol.updated_at || sol.fecha_solicitud).toLocaleDateString()} • Ver detalle
+                                                        {new Date(sol.fecha_revision || sol.fecha_solicitud).toLocaleDateString()} • Ver detalle
                                                     </div>
                                                     <button
                                                         onClick={(e) => {
@@ -510,6 +541,7 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
                                                     setEquiposAlta(prev => [...prev, {
                                                         id: String(eq.id_equipo),
                                                         nombre: `${eq.nombre} (${eq.codigo})`,
+                                                        vigencia: '',
                                                         datos_originales: eq
                                                     }]);
                                                 }
@@ -560,6 +592,7 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
                                                     setFormData(prev => ({ ...prev, nombre: '', codigo: '' }));
                                                 }}
                                                 options={tiposCatalogo.length > 0 ? tiposCatalogo : ['Analizador', 'Balanza', 'Cámara Fotográfica', 'Centrífuga', 'GPS', 'Instrumento', 'Medidor', 'Multiparámetro', 'Phmetro', 'Sonda']}
+                                                strict={true}
                                                 required
                                             />
                                         </div>
@@ -576,24 +609,22 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
                                                     // we'll filter by matching the equipment list directly
                                                     return equipos.some(e => e.tipo === formData.tipo && e.nombre === n);
                                                 })}
+                                                strict={true}
                                                 required
                                             />
                                         </div>
                                         <div className="form-group">
-                                            <label className="form-label">Ubicación</label>
-                                            <select
-                                                name="ubicacion"
+                                            <HybridSelect
+                                                label="Ubicación"
+                                                placeholder="Seleccione ubicación..."
                                                 value={formData.ubicacion}
-                                                onChange={handleChange}
-                                                className="form-input"
+                                                onChange={(val) => handleSelectChange('ubicacion', val)}
+                                                options={sedesCatalogo.length > 0 ? sedesCatalogo : ['AY', 'VI', 'PM', 'PA', 'PV', 'CH', 'CM', 'CN', 'Terreno']}
+                                                strict={true}
                                                 required
-                                            >
-                                                <option value="">Seleccione ubicación...</option>
-                                                {['AY', 'VI', 'PM', 'PA', 'PV', 'CH', 'CM', 'CN', 'Terreno'].map(u => (
-                                                    <option key={u} value={u}>{u}</option>
-                                                ))}
-                                            </select>
+                                            />
                                         </div>
+
                                         <div className="form-group">
                                             <HybridSelect
                                                 label="Responsable"
@@ -608,6 +639,7 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
                                                     }));
                                                 }}
                                                 options={muestreadores.map(m => m.nombre_muestreador)}
+                                                strict={true}
                                                 required
                                             />
                                         </div>
@@ -641,57 +673,75 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
                                 ) : (
                                     altaSubtype === 'ACTIVAR' && (
                                         <>
-                                            {/* List of selected equipment for activation */}
+                                            {/* List of selected equipment for activation with individual vigencia */}
                                             {equiposAlta.length > 0 && (
-                                                <div style={{ gridColumn: 'span 2', marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                                    <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: 600, color: '#4b5563' }}>Equipos seleccionados para reactivación:</p>
-                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                                                        {equiposAlta.map(eq => (
+                                                <div style={{ gridColumn: 'span 2', marginTop: '1rem' }}>
+                                                    <p style={{ margin: '0 0 1rem 0', fontSize: '0.85rem', fontWeight: 600, color: '#4b5563' }}>Equipos seleccionados y fecha de vigencia:</p>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                                        {equiposAlta.map((eq, idx) => (
                                                             <div key={eq.id} style={{
-                                                                background: '#f0fdf4',
-                                                                color: '#166534',
-                                                                padding: '4px 10px',
+                                                                background: '#f8fafc',
+                                                                padding: '0.25rem 0.5rem',
                                                                 borderRadius: '6px',
-                                                                fontSize: '0.85rem',
+                                                                border: '1px solid #e2e8f0',
                                                                 display: 'flex',
                                                                 alignItems: 'center',
-                                                                gap: '6px',
-                                                                border: '1px solid #bbf7d0'
+                                                                gap: '0.75rem',
+                                                                boxShadow: 'none',
+                                                                marginBottom: '2px'
                                                             }}>
-                                                                <span>{eq.nombre}</span>
+                                                                <div style={{ flex: 1, fontWeight: 600, color: '#334155', fontSize: '0.75rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                                    {eq.nombre}
+                                                                </div>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                                                    <span style={{ fontSize: '0.6rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Vig:</span>
+                                                                    <input
+                                                                        type="date"
+                                                                        value={eq.vigencia}
+                                                                        onChange={(e) => {
+                                                                            const newV = e.target.value;
+                                                                            setEquiposAlta(prev => prev.map((p, i) => i === idx ? { ...p, vigencia: newV } : p));
+                                                                        }}
+                                                                        className="form-input"
+                                                                        style={{ padding: '2px 4px', fontSize: '0.7rem', height: '24px', width: '110px' }}
+                                                                        required
+                                                                    />
+                                                                </div>
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => setEquiposAlta(prev => prev.filter(p => p.id !== eq.id))}
-                                                                    style={{ background: 'none', border: 'none', color: '#166534', cursor: 'pointer', padding: 0 }}
+                                                                    style={{
+                                                                        background: 'none',
+                                                                        border: 'none',
+                                                                        color: '#ef4444',
+                                                                        cursor: 'pointer',
+                                                                        padding: '2px',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'center',
+                                                                        opacity: 0.7
+                                                                    }}
                                                                 >
-                                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                                                                 </button>
                                                             </div>
+
                                                         ))}
                                                     </div>
                                                 </div>
                                             )}
 
-                                            <div className="form-group" style={{ gridColumn: 'span 2', marginTop: '1rem' }}>
-                                                <label className="form-label">Explique motivo de activación</label>
-                                                <textarea
-                                                    name="motivo"
-                                                    value={formData.motivo}
-                                                    onChange={handleChange}
-                                                    className="form-input"
-                                                    placeholder="Ej: El equipo ha sido reparado y calibrado. Requiere cambio de sede a Puerto Montt..."
-                                                    style={{ height: '100px', resize: 'vertical' }}
-                                                />
-                                            </div>
+
 
                                             <div style={{ gridColumn: 'span 2', display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
                                                 <button
                                                     type="submit"
-                                                    disabled={loading || equiposAlta.length === 0}
+                                                    disabled={loading || equiposAlta.length === 0 || equiposAlta.some(eq => !eq.vigencia)}
                                                     style={{
-                                                        background: (loading || equiposAlta.length === 0)
+                                                        background: (loading || equiposAlta.length === 0 || equiposAlta.some(eq => !eq.vigencia))
                                                             ? '#cbd5e1'
                                                             : 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
+
                                                         padding: '0.8rem 2.5rem',
                                                         borderRadius: '10px',
                                                         color: 'white',
@@ -764,20 +814,17 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
                                     </>
                                 )}
                                 <div className="form-group">
-                                    <label className="form-label">Nueva Ubicación</label>
-                                    <select
-                                        name="nueva_ubicacion"
+                                    <HybridSelect
+                                        label="Nueva Ubicación"
+                                        placeholder="Seleccione ubicación..."
                                         value={formData.nueva_ubicacion}
-                                        onChange={handleChange}
-                                        className="form-input"
+                                        onChange={(val) => handleSelectChange('nueva_ubicacion', val)}
+                                        options={sedesCatalogo.length > 0 ? sedesCatalogo : ['AY', 'VI', 'PM', 'PA', 'CM', 'CN', 'Terreno']}
+                                        strict={true}
                                         required
-                                    >
-                                        <option value="">Seleccione ubicación...</option>
-                                        {['AY', 'VI', 'PM', 'PA', 'CM', 'CN', 'Terreno'].map(u => (
-                                            <option key={u} value={u}>{u}</option>
-                                        ))}
-                                    </select>
+                                    />
                                 </div>
+
                                 <div className="form-group">
                                     <HybridSelect
                                         label="Nuevo Responsable"
@@ -797,6 +844,7 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
                                                 return !currentEq || Number(m.id_muestreador) !== Number(currentEq.id_muestreador);
                                             })
                                             .map(m => m.nombre_muestreador)}
+                                        strict={true}
                                         required
                                     />
                                 </div>

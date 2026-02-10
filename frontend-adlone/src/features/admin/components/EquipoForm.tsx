@@ -24,6 +24,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData }) =
         correlativo: 0,
         equipo_asociado: '', // Empty for new equipment
         tiene_fc: 'NO',
+
         visible_muestreador: 'NO',
         informe: 'NO',
         que_mide: '',
@@ -46,7 +47,16 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData }) =
     const [requestedChanges, setRequestedChanges] = useState<any>(null);
     const [generatingCode, setGeneratingCode] = useState(false);
     const [namesOptions, setNamesOptions] = useState<string[]>([]);
+    const [tipoOptions, setTipoOptions] = useState<string[]>([]);
+
+    const [queMideOptions, setQueMideOptions] = useState<string[]>([]);
+    const [unidadesOptions, setUnidadesOptions] = useState<string[]>([]);
+    const [sedeOptions, setSedeOptions] = useState<string[]>([]);
+    const [estadoOptions, setEstadoOptions] = useState<string[]>([]);
     const [nameToSigla, setNameToSigla] = useState<Record<string, string>>({});
+
+
+
     const { showToast } = useToast();
 
     // Fetch equipment names when Tipo changes
@@ -64,12 +74,13 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData }) =
                         const template = res.data.find((e: Equipo) => e.que_mide || e.unidad_medida_textual);
 
                         res.data.forEach((e: Equipo) => {
-                            if (e.nombre) {
-                                namesSet.add(e.nombre);
+                            if (e.nombre && e.nombre.trim().length > 0) {
+                                namesSet.add(e.nombre.trim());
                                 if (e.sigla) {
                                     siglaMap[e.nombre] = e.sigla;
                                 }
                             }
+
                         });
 
                         setNamesOptions(Array.from(namesSet).sort());
@@ -103,15 +114,41 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData }) =
     }, [formData.tipo]);
 
     useEffect(() => {
-        const fetchMuestreadores = async () => {
+        const fetchMuestreadoresAndCatalogs = async () => {
             try {
-                const res = await adminService.getMuestreadores('', 'ACTIVOS');
-                setMuestreadores(res.data || []);
+                // Fetch muestreadores
+                const [mRes, eRes] = await Promise.all([
+                    adminService.getMuestreadores('', 'ACTIVOS'),
+                    equipoService.getEquipos({ limit: 1 }) // Get catalogs from any request
+                ]);
+
+                setMuestreadores(mRes.data || []);
+
+                if (eRes.catalogs?.tipos) {
+                    // Rigorous filter for empty/whitespace types
+                    setTipoOptions(eRes.catalogs.tipos.filter((t: string) => t && typeof t === 'string' && t.trim().length > 0));
+                }
+                if (eRes.catalogs?.que_mide) {
+                    setQueMideOptions(eRes.catalogs.que_mide.filter((t: string) => t && typeof t === 'string' && t.trim().length > 0));
+                }
+                if (eRes.catalogs?.unidades) {
+                    setUnidadesOptions(eRes.catalogs.unidades.filter((t: string) => t && typeof t === 'string' && t.trim().length > 0));
+                }
+                if (eRes.catalogs?.sedes) {
+                    setSedeOptions(eRes.catalogs.sedes.filter((t: string) => t && typeof t === 'string' && t.trim().length > 0));
+                }
+                if (eRes.catalogs?.estados) {
+                    setEstadoOptions(eRes.catalogs.estados.filter((t: string) => t && typeof t === 'string' && t.trim().length > 0));
+                }
+
+
+
+
             } catch (err) {
-                console.error('Error loading muestreadores', err);
+                console.error('Error loading initial catalogs', err);
             }
         };
-        fetchMuestreadores();
+        fetchMuestreadoresAndCatalogs();
 
         if (initialData) {
             const isTraspaso = initialData.requestId && initialData.id_equipo;
@@ -254,9 +291,10 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData }) =
     };
 
     // Matching logic for UI highlighting (optional)
-    const matchingVersion = React.useMemo(() => {
+    const matchingVersion = React.useMemo<EquipoHistorial | null>(() => {
         return null; // Simplified: we no longer need to track a "pending" match for the save button
     }, []);
+
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value, type } = e.target;
@@ -347,7 +385,6 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData }) =
                 equipo_asociado: formData.equipo_asociado === 'No Aplica' ? 0 : Number(formData.equipo_asociado)
             };
 
-            const targetVersionId = matchingVersion?.id_historial;
 
             if (initialData?.id_equipo) {
                 await equipoService.updateEquipo(initialData.id_equipo, dataToSend);
@@ -603,55 +640,45 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData }) =
                     <div className="form-row">
                         <div className="form-group">
                             <label className="form-label">Tipo</label>
-                            <select
+                            <HybridSelect
+                                label=""
                                 name="tipo"
                                 value={formData.tipo || ''}
-                                onChange={handleChange}
-                                className="form-input"
-                                required
+                                options={tipoOptions.length > 0 ? tipoOptions : ['Analizador', 'Balanza', 'Cámara Fotográfica', 'Centrífuga', 'GPS', 'Instrumento', 'Medidor', 'Multiparámetro', 'Phmetro', 'Sonda']}
+                                onChange={(val) => handleChange({ target: { name: 'tipo', value: val } } as any)}
                                 disabled={!!initialData?.id_equipo}
-                                style={initialData?.id_equipo ? { backgroundColor: '#f8fafc', color: '#64748b', cursor: 'not-allowed' } : {}}
-                            >
-                                <option value="" disabled>Seleccione Tipo...</option>
-                                <option value="Medidor de pH y Temperatura">Medidor de pH y Temperatura</option>
-                                <option value="Medidor de Oxígeno">Medidor de Oxígeno</option>
-                                <option value="Conductímetro">Conductímetro</option>
-                                <option value="Turbidímetro">Turbidímetro</option>
-                                <option value="Multiparamétrico">Multiparamétrico</option>
-                            </select>
+                                placeholder="Seleccione Tipo..."
+                                strict={true}
+                                required
+                            />
                         </div>
                         <div className="form-group">
                             <label className="form-label">Ubicación (Sede)</label>
-                            <select
+                            <HybridSelect
+                                label=""
                                 name="ubicacion"
                                 value={formData.ubicacion || ''}
-                                onChange={handleChange}
-                                className="form-input"
+                                options={sedeOptions.length > 0 ? sedeOptions : ['PM', 'AY', 'VI', 'PA', 'PV', 'CH']}
+                                onChange={(val) => handleChange({ target: { name: 'ubicacion', value: val } } as any)}
+                                placeholder="Seleccione Ubicación..."
+                                strict={true}
                                 required
-                            >
-                                <option value="" disabled>Seleccione Ubicación...</option>
-                                <option value="PM">PM</option>
-                                <option value="AY">AY</option>
-                                <option value="VI">VI</option>
-                                <option value="PA">PA</option>
-                                <option value="PV">PV</option>
-                                <option value="CH">CH</option>
-                            </select>
+                            />
                         </div>
                         <div className="form-group">
                             <label className="form-label">Estado</label>
-                            <select
+                            <HybridSelect
+                                label=""
                                 name="estado"
                                 value={formData.estado || ''}
-                                onChange={handleChange}
-                                className="form-input"
+                                options={estadoOptions.length > 0 ? estadoOptions : ['Activo', 'Inactivo']}
+                                onChange={(val) => handleChange({ target: { name: 'estado', value: val } } as any)}
+                                placeholder="Seleccione Estado..."
+                                strict={true}
                                 required
-                            >
-                                <option value="" disabled>Seleccione Estado...</option>
-                                <option value="Activo">Activo</option>
-                                <option value="Inactivo">Inactivo</option>
-                            </select>
+                            />
                         </div>
+
                     </div>
                 </div>
 
@@ -674,7 +701,8 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData }) =
                                         handleChange({ target: { name: 'sigla', value: newSigla } } as any);
                                     }
                                 }}
-                                placeholder="Seleccione o escriba..."
+                                placeholder="Seleccione..."
+                                strict={true}
                                 required
                             />
                         </div>
@@ -710,9 +738,11 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData }) =
                                 value={formData.sigla || ''}
                                 onChange={handleChange}
                                 className="form-input"
-                                readOnly={!!initialData?.id_equipo}
-                                style={initialData?.id_equipo ? { backgroundColor: '#f8fafc', color: '#64748b', cursor: 'not-allowed' } : {}}
+                                readOnly={true}
+                                style={{ backgroundColor: '#f8fafc', color: '#64748b', cursor: 'not-allowed' }}
                             />
+
+
                         </div>
                         <div className="form-group">
                             <label className="form-label">Correlativo</label>
@@ -746,21 +776,25 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData }) =
                         </div>
                         <div className="form-group">
                             <label className="form-label">Asignado a (Muestreador)</label>
-                            <select
+                            <HybridSelect
+                                label=""
                                 name="id_muestreador"
-                                value={formData.id_muestreador || ''}
-                                onChange={handleChange}
-                                className="form-input"
-                            >
-                                <option value="" disabled>Seleccione Muestreador...</option>
-                                <option value="0">-- Sin Asignar --</option>
-                                {muestreadores.map(m => (
-                                    <option key={m.id_muestreador} value={m.id_muestreador}>
-                                        {m.nombre_muestreador}
-                                    </option>
-                                ))}
-                            </select>
+                                value={muestreadores.find(m => String(m.id_muestreador) === String(formData.id_muestreador))?.nombre_muestreador || ''}
+                                options={muestreadores.map(m => m.nombre_muestreador)}
+                                onChange={(val) => {
+                                    const matching = muestreadores.find(m => m.nombre_muestreador === val);
+                                    handleChange({
+                                        target: {
+                                            name: 'id_muestreador',
+                                            value: matching ? matching.id_muestreador : (val === '-- Sin Asignar --' ? '0' : val)
+                                        }
+                                    } as any);
+                                }}
+                                placeholder="Seleccione Muestreador..."
+                                strict={true}
+                            />
                         </div>
+
                         <div className="form-group">
                             <label className="form-label">Equipo Asociado (ID)</label>
                             <input
@@ -828,24 +862,29 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData }) =
                     <div className="form-row">
                         <div className="form-group">
                             <label className="form-label">Qué Mide</label>
-                            <input
-                                type="text"
+                            <HybridSelect
+                                label=""
                                 name="que_mide"
                                 value={formData.que_mide || ''}
-                                onChange={handleChange}
-                                className="form-input"
+                                options={queMideOptions.length > 0 ? queMideOptions : ['pH', 'Conductividad', 'Temperatura', 'Oxígeno Disuelto', 'Turbiedad', 'Salinidad', 'Presión Atmosférica', 'Humedad Relativa', 'Nivel Freático']}
+                                onChange={(val) => handleChange({ target: { name: 'que_mide', value: val } } as any)}
+                                placeholder="Seleccione..."
+                                strict={true}
                             />
                         </div>
                         <div className="form-group">
                             <label className="form-label">Unidad de Medida (Textual)</label>
-                            <input
-                                type="text"
+                            <HybridSelect
+                                label=""
                                 name="unidad_medida_textual"
                                 value={formData.unidad_medida_textual || ''}
-                                onChange={handleChange}
-                                className="form-input"
+                                options={unidadesOptions.length > 0 ? unidadesOptions : ['pH', 'µS/cm', '°C', 'mg/L', 'UNT', '%', 'hPa', 'm', 'm.s.n.m.']}
+                                onChange={(val) => handleChange({ target: { name: 'unidad_medida_textual', value: val } } as any)}
+                                placeholder="Seleccione..."
+                                strict={true}
                             />
                         </div>
+
                     </div>
                     <div className="form-row">
                         <div className="form-group">
