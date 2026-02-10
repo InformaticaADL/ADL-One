@@ -2,12 +2,15 @@ import { getConnection } from '../config/database.js';
 import sql from 'mssql';
 import jwt from 'jsonwebtoken';
 import logger from '../utils/logger.js';
+import dotenv from 'dotenv';
 
-// Secret key should be in .env, using default for now
-const JWT_SECRET = process.env.JWT_SECRET || 'adl-secret-key-2024';
+// Ensure environment variables are loaded
+dotenv.config();
 
 class AuthService {
     async login(username, password) {
+        const secret = process.env.JWT_SECRET || 'adl-secret-key-2024';
+        logger.info(`AuthService Debug: Signing with Secret First: ${secret[0]}, Last: ${secret[secret.length - 1]}, Len: ${secret.length}`);
         try {
             logger.info('AuthService: Getting DB connection...');
             const startConn = Date.now();
@@ -66,7 +69,7 @@ class AuthService {
                         role: user.mam_cargo,
                         permissions: permissions // Add permissions to token (Optional, good for client-side checks)
                     },
-                    JWT_SECRET,
+                    secret,
                     { expiresIn: '12h' }
                 );
 

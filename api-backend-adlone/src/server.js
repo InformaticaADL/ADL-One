@@ -1,8 +1,11 @@
+import dotenv from 'dotenv';
+// Initialize dotenv at the very beginning
+dotenv.config();
+
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
-import dotenv from 'dotenv';
 import { getConnection } from './config/database.js';
 import logger from './utils/logger.js';
 import { requestLogger } from './middlewares/logger.middleware.js';
@@ -17,9 +20,6 @@ import authRoutes from './routes/auth.routes.js';
 import rbacRoutes from './routes/rbac.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
-
-// Initialize dotenv
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -85,7 +85,8 @@ const startServer = async () => {
             logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
             logger.info(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
             logger.info(`📊 Database: ${process.env.DB_DATABASE || 'Not configured'}`);
-            logger.info(`🔐 JWT: ${process.env.JWT_SECRET ? 'Configured' : 'Not configured'}`);
+            const secret = process.env.JWT_SECRET;
+            logger.info(`🔐 JWT Status: ${secret ? 'Configured' : 'Not configured'} (Length: ${secret ? secret.length : 0})`);
             logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
         });
     } catch (error) {

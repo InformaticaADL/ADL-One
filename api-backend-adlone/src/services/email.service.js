@@ -1,5 +1,8 @@
 import nodemailer from 'nodemailer';
 import logger from '../utils/logger.js';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 class EmailService {
     constructor() {

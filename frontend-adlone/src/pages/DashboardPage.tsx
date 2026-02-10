@@ -3,6 +3,7 @@ import { useNavStore } from '../store/navStore';
 import { FichasIngresoPage } from '../features/medio-ambiente/pages/FichasIngresoPage';
 import { TecnicaPage } from '../features/medio-ambiente/pages/TecnicaPage';
 import { CoordinacionPage } from '../features/medio-ambiente/pages/CoordinacionPage';
+import { SolicitudesMaPage } from '../features/medio-ambiente/pages/SolicitudesMaPage';
 
 import { RolesPage } from '../features/admin/pages/RolesPage';
 import { AdminInfoHub } from '../features/admin/pages/AdminInfoHub';
@@ -27,6 +28,9 @@ const DashboardPage = () => {
         }
         if (activeSubmodule === 'ma-coordinacion') {
             return <CoordinacionPage onBack={() => { }} />;
+        }
+        if (activeSubmodule === 'ma-solicitudes') {
+            return <SolicitudesMaPage onBack={() => setActiveSubmodule('')} />;
         }
 
 

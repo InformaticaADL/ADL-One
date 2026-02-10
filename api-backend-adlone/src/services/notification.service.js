@@ -90,7 +90,7 @@ class NotificationService {
             };
 
             // Non-blocking email send
-            transporter.sendMail(mailOptions)
+            transporter().sendMail(mailOptions)
                 .then(() => logger.info(`Notificación enviada exitosamente para ${eventCode}. TO: ${to}`))
                 .catch((error) => logger.error(`Error enviando notificación para ${eventCode}:`, error));
 

@@ -30,4 +30,27 @@ export const adminService = {
         const response = await axios.delete(`${API_CONFIG.getBaseURL()}/api/admin/muestreadores/${id}`, getAuthHeader());
         return response.data;
     },
+
+    // --- SOLICITUDES ---
+    createSolicitud: async (data: any) => {
+        const response = await axios.post(`${API_CONFIG.getBaseURL()}/api/admin/solicitudes`, data, getAuthHeader());
+        return response.data;
+    },
+
+    getSolicitudes: async (params?: { estado?: string; solo_mias?: boolean }) => {
+        const response = await axios.get(`${API_CONFIG.getBaseURL()}/api/admin/solicitudes`, {
+            params,
+            ...getAuthHeader()
+        });
+        return response.data;
+    },
+
+    updateSolicitudStatus: async (id: number, estado: string, feedback: string, datos_json?: any) => {
+        const response = await axios.put(`${API_CONFIG.getBaseURL()}/api/admin/solicitudes/${id}/status`, {
+            estado,
+            feedback_admin: feedback,
+            datos_json
+        }, getAuthHeader());
+        return response.data;
+    },
 };

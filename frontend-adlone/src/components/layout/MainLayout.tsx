@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useNavStore } from '../../store/navStore';
 import { useAuth } from '../../contexts/AuthContext';
+import { adminService } from '../../services/admin.service';
+import { useEffect } from 'react';
 import './MainLayout.css';
 import logoAdl from '../../assets/images/logo-adlone.png';
 import logoUser from '../../assets/images/logo_user.png';
@@ -44,6 +46,7 @@ const MODULES = [
 const SUBMODULES_MOCK: Record<string, any[]> = {
     'medio_ambiente': [
         { id: 'ma-fichas-ingreso', label: 'Fichas de ingreso', permission: 'MA_ACCESO' },
+        { id: 'ma-solicitudes', label: 'Realizar Solicitudes', permission: 'MA_ACCESO' },
     ],
     'administracion': [], // Now empty, managed via AdminInfoHub
     // Agregamos datos para GEM para evitar menú vacío
@@ -64,10 +67,43 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
     const { activeModule, activeSubmodule, drawerOpen, setActiveModule, setActiveSubmodule, setDrawerOpen } = useNavStore();
 
     const [showProfileMenu, setShowProfileMenu] = useState(false);
+    const [showNotifications, setShowNotifications] = useState(false);
+    const [notifications, setNotifications] = useState<any[]>([]);
+    const [hiddenNotifications, setHiddenNotifications] = useState<number[]>([]);
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
     // Context User
     const { user, logout, hasPermission } = useAuth();
+
+    // Fetch notifications
+    const fetchNotifications = async () => {
+        try {
+            // Depending on user role, we might want different notifications. 
+            // For now, mirroring what was in the pages:
+            const data = await adminService.getSolicitudes({
+                estado: hasPermission('MA_ADMIN_ACCESO') ? 'PENDIENTE' : undefined,
+                solo_mias: !hasPermission('MA_ADMIN_ACCESO')
+            });
+
+            // Filter strictly for "TODAY" as requested
+            const today = new Date().toLocaleDateString();
+            const todayNotifications = data.filter((sol: any) =>
+                new Date(sol.fecha_solicitud).toLocaleDateString() === today
+            );
+
+            setNotifications(todayNotifications);
+        } catch (error) {
+            console.error("Error fetching global notifications:", error);
+        }
+    };
+
+    useEffect(() => {
+        if (user) {
+            fetchNotifications();
+            const interval = setInterval(fetchNotifications, 60000); // Poll every minute
+            return () => clearInterval(interval);
+        }
+    }, [user]);
 
     // Imagen de perfil fija según requerimiento
     // Imagen de perfil fija según requerimiento
@@ -219,6 +255,148 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                 </div>
 
                 <div className="header-right">
+                    {/* Notifications Icon */}
+                    <div
+                        className="notification-container"
+                        style={{ position: 'relative', marginRight: '1rem' }}
+                        tabIndex={0}
+                        onBlur={() => setTimeout(() => setShowNotifications(false), 200)}
+                    >
+                        <button
+                            className="btn-icon-header"
+                            onClick={() => setShowNotifications(!showNotifications)}
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                color: '#64748b',
+                                display: 'flex',
+                                alignItems: 'center',
+                                padding: '8px',
+                                borderRadius: '50%',
+                                transition: 'background-color 0.2s'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                            </svg>
+                            {notifications.filter(n => !hiddenNotifications.includes(n.id_solicitud)).length > 0 && (
+                                <span style={{
+                                    position: 'absolute',
+                                    top: '4px',
+                                    right: '4px',
+                                    background: '#ef4444',
+                                    color: 'white',
+                                    fontSize: '0.65rem',
+                                    fontWeight: 'bold',
+                                    minWidth: '16px',
+                                    height: '16px',
+                                    borderRadius: '8px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    padding: '0 4px',
+                                    border: '2px solid white'
+                                }}>
+                                    {notifications.filter(n => !hiddenNotifications.includes(n.id_solicitud)).length}
+                                </span>
+                            )}
+                        </button>
+
+                        {showNotifications && (
+                            <div className="notifications-dropdown" style={{
+                                position: 'absolute',
+                                top: '100%',
+                                right: 0,
+                                width: '320px',
+                                backgroundColor: 'white',
+                                borderRadius: '12px',
+                                boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)',
+                                border: '1px solid #e2e8f0',
+                                marginTop: '0.5rem',
+                                zIndex: 1000,
+                                overflow: 'hidden'
+                            }}>
+                                <div style={{ padding: '1rem', borderBottom: '1px solid #f1f5f9', fontWeight: 600, fontSize: '0.9rem', color: '#1e293b', display: 'flex', justifyContent: 'space-between' }}>
+                                    <span>Notificaciones de hoy</span>
+                                    <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 400 }}>{new Date().toLocaleDateString()}</span>
+                                </div>
+                                <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
+                                    {notifications.filter(n => !hiddenNotifications.includes(n.id_solicitud)).length === 0 ? (
+                                        <div style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>
+                                            No hay notificaciones para hoy
+                                        </div>
+                                    ) : (
+                                        notifications
+                                            .filter(n => !hiddenNotifications.includes(n.id_solicitud))
+                                            .map((sol, i) => (
+                                                <div
+                                                    key={sol.id_solicitud}
+                                                    style={{
+                                                        padding: '0.75rem 1rem',
+                                                        borderBottom: '1px solid #f8fafc',
+                                                        cursor: 'pointer',
+                                                        backgroundColor: 'transparent',
+                                                        transition: 'background-color 0.2s',
+                                                        position: 'relative'
+                                                    }}
+                                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                >
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem', paddingRight: '1.5rem' }}>
+                                                        <span style={{
+                                                            fontSize: '0.6rem',
+                                                            fontWeight: 'bold',
+                                                            background: sol.tipo_solicitud === 'ALTA' ? '#dcfce7' : sol.tipo_solicitud === 'TRASPASO' ? '#dbeafe' : '#fee2e2',
+                                                            color: sol.tipo_solicitud === 'ALTA' ? '#166534' : sol.tipo_solicitud === 'TRASPASO' ? '#1e40af' : '#991b1b',
+                                                            padding: '1px 5px',
+                                                            borderRadius: '3px'
+                                                        }}>{sol.tipo_solicitud}</span>
+                                                        <span style={{ fontWeight: 600, color: '#334155', fontSize: '0.8rem' }}>
+                                                            {sol.tipo_solicitud === 'ALTA' ? (sol.datos_json?.nombre || 'Equipo') :
+                                                                sol.tipo_solicitud === 'BAJA' ? (sol.datos_json?.codigo || 'Baja') :
+                                                                    (sol.datos_json?.codigo || 'Traspaso')}
+                                                        </span>
+                                                    </div>
+                                                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                                                        {sol.nombre_solicitante || 'Usuario'} • {new Date(sol.fecha_solicitud).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    </div>
+
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setHiddenNotifications(prev => [...prev, sol.id_solicitud]);
+                                                        }}
+                                                        style={{
+                                                            position: 'absolute',
+                                                            top: '0.75rem',
+                                                            right: '0.5rem',
+                                                            background: 'none',
+                                                            border: 'none',
+                                                            color: '#cbd5e1',
+                                                            cursor: 'pointer',
+                                                            padding: '4px',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            borderRadius: '4px'
+                                                        }}
+                                                        onMouseEnter={(e) => e.currentTarget.style.color = '#94a3b8'}
+                                                        onMouseLeave={(e) => e.currentTarget.style.color = '#cbd5e1'}
+                                                    >
+                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                                    </button>
+                                                </div>
+                                            ))
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
                     <div
                         className="user-profile-container"
                         onClick={() => setShowProfileMenu(!showProfileMenu)}

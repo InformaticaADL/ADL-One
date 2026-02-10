@@ -225,3 +225,24 @@ Complete alignment of visuals and behavior across Commercial, Technical, and Coo
 - **Detail View Consistency**:
   - Aligned header badges in `CommercialDetailView`, `TechnicalDetailView`, and `CoordinacionDetailView` to matching the list view styles exactly.
 
+### 10. Módulo de Gestión de Equipos y Solicitudes (Medio Ambiente) �
+Se desarrolló un ecosistema completo para la gestión del inventario de equipos y el flujo de solicitudes desde terreno.
+
+- **Saturación y Tipos de Solicitud**: 
+  - Gestión centralizada de solicitudes de tipo **ALTA** (nuevos equipos), **TRASPASO** (cambio de ubicación/responsable) y **BAJA** (retiro de inventario).
+  - Formularios dinámicos que adaptan sus campos según el tipo de solicitud seleccionada por el usuario.
+- **Flujo de Aprobación Administrativa**: 
+  - Interfaz de "Review" para administradores que permite validar los datos enviados por Medio Ambiente antes de impactar el inventario real.
+  - Implementación de un proceso de aprobación simplificado para **ALTA** mediante diálogos de confirmación directa.
+- **Control de Versiones y Trazabilidad**:
+  - Sistema de **Snapshots** automáticos: cada edición guarda la versión anterior en `mae_equipo_historial` para permitir auditoría y restauración.
+  - Preservación obligatoria de la primera versión del equipo para trazabilidad histórica.
+- **Lógica de Generación de Códigos**: 
+  - Cálculo automático de Siglas y Correlativos basados en el Tipo de Equipo y Sede.
+  - Actualización dinámica del sufijo del código al realizar traspasos de ubicación.
+
+### 11. Mejoras Funcionales y de Seguridad (Febrero 2026) 🔒
+- **Manejo Automático de Errores 401**: Interceptor Axios global que gestiona sesiones expiradas, redirigiendo al usuario al login de forma segura.
+- **Autocompletado Inteligente (Smart Fill)**: 
+  - Al crear o aprobar un equipo, el sistema detecta equipos "plantilla" del mismo tipo para auto-poblar campos técnicos como **"Qué Mide"** y **"Unidad de Medida"**.
+  - Mejora significativa en la velocidad de ingreso de datos y reducción de errores humanos.

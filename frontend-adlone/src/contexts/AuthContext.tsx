@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import API_CONFIG from '../config/api.config';
 
@@ -65,13 +65,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
-    const logout = () => {
+    const logout = useCallback(() => {
         setToken(null);
         setUser(null);
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        // No reloading needed, App.tsx handles the view switch via isAuthenticated
-    };
+        delete axios.defaults.headers.common['Authorization'];
+    }, []);
+
+    // Interceptor para manejar errores 401 (No autorizado) globalmente
+    useEffect(() => {
+        const interceptor = axios.interceptors.response.use(
+            (response) => response,
+            (error) => {
+                // Verificar si es un error 401 o 403
+                if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+                    // Evitar loop infinito si el error viene del login
+                    if (!error.config.url.includes('/auth/login')) {
+                        console.warn('Sesión expirada o no autorizada. Cerrando sesión...');
+                        logout();
+                    }
+                }
+                return Promise.reject(error);
+            }
+        );
+
+        // Limpiar interceptor al desmontar
+        return () => {
+            axios.interceptors.response.eject(interceptor);
+        };
+    }, [logout]);
 
     // RBAC Helper
     const hasPermission = (permissionCode: string): boolean => {

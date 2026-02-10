@@ -29,6 +29,19 @@
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
+/* Hide scrollbars globally but keep functionality */
+::-webkit-scrollbar {
+    width: 0px;
+    background: transparent;
+}
+
+* {
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
+}
+
 /* --- Sidebar Lateral --- */
 .app-sidebar {
     grid-area: sidebar;

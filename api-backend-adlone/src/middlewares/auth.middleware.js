@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { errorResponse } from '../utils/response.js';
+import logger from '../utils/logger.js';
 
 /**
  * Authentication middleware
@@ -11,24 +12,38 @@ export const authenticate = (req, res, next) => {
         const authHeader = req.headers.authorization;
 
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            logger.warn('Auth Middleware: No Bearer token provided');
             return errorResponse(res, 'No token provided', 401);
         }
 
         const token = authHeader.substring(7); // Remove 'Bearer ' prefix
 
         // Verify token
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        try {
+            const secret = process.env.JWT_SECRET;
+            if (!secret) {
+                logger.error('Auth Middleware: CRITICAL - JWT_SECRET is not defined in process.env');
+            } else {
+                // Log safe snippet of secret for debugging (first and last char)
+                logger.info(`Auth Debug: Secret First: ${secret[0]}, Last: ${secret[secret.length - 1]}, Len: ${secret.length}`);
+            }
 
-        // Attach user info to request
-        req.user = decoded;
+            const decoded = jwt.verify(token, secret);
+            // Attach user info to request
+            req.user = decoded;
+            next();
+        } catch (verifyError) {
+            logger.error(`Auth Middleware: JWT Verification Error: ${verifyError.message}`);
 
-        next();
-    } catch (error) {
-        if (error.name === 'JsonWebTokenError') {
-            return errorResponse(res, 'Invalid token', 401);
-        } else if (error.name === 'TokenExpiredError') {
-            return errorResponse(res, 'Token expired', 401);
+            if (verifyError.name === 'JsonWebTokenError') {
+                return errorResponse(res, 'Invalid token', 401);
+            } else if (verifyError.name === 'TokenExpiredError') {
+                return errorResponse(res, 'Token expired', 401);
+            }
+            throw verifyError;
         }
+    } catch (error) {
+        logger.error('Auth Middleware: General error:', error);
         return errorResponse(res, 'Authentication failed', 401);
     }
 };

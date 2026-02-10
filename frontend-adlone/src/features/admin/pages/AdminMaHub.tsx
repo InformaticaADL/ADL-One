@@ -10,6 +10,7 @@ export const AdminMaHub: React.FC<Props> = ({ onNavigate, onBack }) => {
     const OPTIONS = [
         { id: 'admin-muestreadores', label: 'Muestreadores', icon: '🧑‍🔬', description: 'Gestión de muestreadores activos, firmas y datos.' },
         { id: 'admin-equipos', label: 'Equipos', icon: '⚗️', description: 'Gestión de equipos, códigos y vencimientos de calibración.' },
+        { id: 'ma-solicitudes', label: 'Realizar Solicitudes', icon: '📝', description: 'Creación de solicitudes de alta, traspaso y baja de equipos.' },
     ];
 
     return (
