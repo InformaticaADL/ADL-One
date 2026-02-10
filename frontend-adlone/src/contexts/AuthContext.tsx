@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import API_CONFIG from '../config/api.config';
+import { useNavStore } from '../store/navStore';
 
 interface User {
     id: number;
@@ -14,7 +15,7 @@ interface User {
 interface AuthContextType {
     user: User | null;
     token: string | null;
-    login: (username: string, pass: string) => Promise<void>;
+    login: (username: string, pass: string, rememberMe?: boolean) => Promise<void>;
     logout: () => void;
     isAuthenticated: boolean;
     loading: boolean;
@@ -28,10 +29,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [token, setToken] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
 
-    // Initialize state from LocalStorage
+    // Initialize state from Storage (Local or Session)
     useEffect(() => {
-        const storedToken = localStorage.getItem('token');
-        const storedUser = localStorage.getItem('user');
+        const storedToken = localStorage.getItem('token') || sessionStorage.getItem('token');
+        const storedUser = localStorage.getItem('user') || sessionStorage.getItem('user');
 
         if (storedToken && storedUser) {
             setToken(storedToken);
@@ -41,11 +42,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setLoading(false);
     }, []);
 
-    const login = async (username: string, pass: string) => {
+    const login = async (username: string, pass: string, rememberMe: boolean = false) => {
         try {
             const response = await axios.post(`${API_CONFIG.getBaseURL()}/api/auth/login`, {
                 username,
-                password: pass
+                password: pass,
+                rememberMe
             });
 
             if (response.data && response.data.success) {
@@ -53,9 +55,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 setToken(token);
                 // Ensure permissions are present
                 setUser(user);
-                localStorage.setItem('token', token);
-                // Store full user object including permissions
-                localStorage.setItem('user', JSON.stringify(user));
+
+                if (rememberMe) {
+                    sessionStorage.removeItem('token'); // Clear session to avoid conflict
+                    sessionStorage.removeItem('user');
+                    localStorage.setItem('token', token);
+                    localStorage.setItem('user', JSON.stringify(user));
+                } else {
+                    localStorage.removeItem('token'); // Clear persistent to avoid conflict
+                    localStorage.removeItem('user');
+                    sessionStorage.setItem('token', token);
+                    sessionStorage.setItem('user', JSON.stringify(user));
+                }
             } else {
                 throw new Error(response.data.message || 'Error al iniciar sesión');
             }
@@ -70,7 +81,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(null);
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('user');
         delete axios.defaults.headers.common['Authorization'];
+
+        // Reset navigation state to prevent unauthorized access on next login
+        useNavStore.getState().resetNavigation();
     }, []);
 
     // Interceptor para manejar errores 401 (No autorizado) globalmente

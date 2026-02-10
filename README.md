@@ -222,8 +222,98 @@ Complete alignment of visuals and behavior across Commercial, Technical, and Coo
   - **Emphasis**: Increased visual hierarchy for the "Estado" column.
   - **Cleanup**: Removed the "Usuario" column from Technical and Coordination views as requested.
 
-- **Detail View Consistency**:
-  - Aligned header badges in `CommercialDetailView`, `TechnicalDetailView`, and `CoordinacionDetailView` to matching the list view styles exactly.
+
+### 10. Mejoras de Flujo de Trabajo e Integridad de Datos (5 de Febrero, 2026) 🔄
+Mejoras importantes en validación de flujo de trabajo, consistencia de datos y experiencia de usuario en todas las tablas de consulta.
+
+- **Sistema de Alertas en Cascada**:
+  - Implementación de alertas contextuales en vistas de detalle de Área Técnica, Coordinación y Comercial.
+  - **Área Técnica**: Bloquea acciones cuando el estado es Aprobada (1), Rechazada (2/4), En Proceso (5), Aprobada por Coordinación (6) o Anulada (7).
+  - **Área Coordinación**: Bloquea acciones cuando el estado es Borrador (0), Rechazada (2/4), Pendiente Área Técnica (3), En Proceso (5), Aprobada (6) o Anulada (7).
+  - **Área Comercial**: Solo alertas informativas (nunca bloquea acciones).
+  - Asegura que los usuarios no puedan realizar operaciones inválidas según el estado actual del flujo de trabajo.
+
+- **Gestión Inteligente de Frecuencia Correlativo**:
+  - **Generación Automática**: Eliminada dependencia de SP poco confiable, ahora genera correlativos directamente en código.
+  - **Formato**: `{id_ficha}-{numero_frecuencia}-{estado}-{id_agenda}` (ej: `62-1-Pendiente-596`).
+  - **Reactivación Inteligente**: Al aumentar frecuencia, reactiva ítems de agenda previamente anulados (`ANULADA`) antes de crear nuevos.
+  - **Anulación Suave**: Al reducir frecuencia, marca ítems excedentes como `ANULADA` y actualiza correlativo a `{id}-{num}-ANULA-{agenda}`.
+  - **Persistencia**: Los correlativos se mantienen durante asignaciones de fechas/muestreadores.
+  - **Sincronización de Estado**: Actualiza automáticamente `id_validaciontecnica = 5` (En Proceso) cuando se realizan asignaciones.
+  - **Consistencia de Datos**: Asegura `estado_caso = ''` (string vacío) en todas las operaciones.
+
+- **Corrección de Carga de Datos en Pestaña Análisis**:
+  - Modificado SP `MAM_FichaComercial_ConsultaComercial_DET_unaficha` para usar `LEFT JOIN` en lugar de `INNER JOIN`.
+  - Implementada consulta de respaldo en `ficha.service.js` si el SP falla.
+  - Asegura que los datos de análisis se carguen correctamente incluso cuando tablas relacionadas no tienen registros coincidentes.
+
+- **Mejoras de Diseño de Tablas y Paginación** (5 páginas de consulta):
+  - **Estabilidad de Ancho de Columnas**: Corregido problema donde las columnas se comprimían al mostrar menos de 10 filas.
+    - Reemplazadas filas vacías con `colSpan` por celdas `<td>` individuales que coinciden con el número de columnas.
+    - Aplicado a: AssignmentListView (9 cols), CoordinationListView (11 cols), CoordinacionPage (10 cols).
+  - **Reinicio Inteligente de Paginación**: Agregados hooks `useEffect` para reiniciar `currentPage` a 1 cuando cambia cualquier filtro.
+    - Previene páginas vacías al filtrar desde números de página altos.
+    - Aplicado a todas las páginas de consulta: Asignación, Coordinación, Comercial, Técnica y CoordinacionPage.
+
+- **Archivos Modificados**:
+  - Backend: `ficha.service.js` (9 cambios para lógica de correlativo)
+  - Frontend: `TechnicalDetailView.tsx`, `CoordinacionDetailView.tsx`, `CommercialDetailView.tsx` (alertas en cascada)
+  - Frontend: `AssignmentListView.tsx`, `CoordinationListView.tsx`, `CoordinacionPage.tsx`, `ComercialPage.tsx`, `TecnicaPage.tsx` (correcciones de tablas)
+  - Base de Datos: SP `MAM_FichaComercial_ConsultaComercial_DET_unaficha` (corrección LEFT JOIN)
+
+### 11. Mejoras en Notificaciones y Diseño de Email (6 de Febrero, 2026) 📧
+Optimización completa del sistema de notificaciones por correo electrónico, enfocándose en diseño corporativo, detalle de información y precisión de datos.
+
+- **Plantillas HTML Dinámicas y Corporativas**:
+    - Implementación de un diseño unificado y profesional con logo corporativo (CID embedding) para compatibilidad con Outlook.
+    - **Placeholders Estandarizados**: `{LOGO_BASE64}`, `{CORRELATIVO}`, `{USUARIO}`, `{FECHA}`.
+    - **Variaciones de Estado**: Colores distintivos según el tipo de evento (Verde/Aprobado, Azul/Información, Rojo/Rechazo).
+
+- **FICHA_ASIGNADA (Mejora Crítica)**:
+    - **Desglose Detallado**: Ahora incluye lista completa de servicios asignados, con nombres de muestreadores (Instalación/Retiro) y fechas específicas.
+    - **Precisión de Fechas**: Corrección de desfase de zona horaria (-1 día) mediante uso estricto de UTC en el backend.
+    - **Atribución Correcta**: Implementación de lógica robusta para identificar al usuario asignador, priorizando "Nombre Completo" > "Login" > "Base de Datos".
+
+- **Correcciones de Layout en Tablas (Frontend)**:
+    - Replica exacta del diseño de "Gestión Coordinación" en "Planificación y Asignación".
+    - **Propiedad Clave**: `table-layout: fixed` aplicada para forzar respeto de anchos de columna.
+    - **Ajuste de Columnas**: N° Ficha (50px), Estado (160px) con ajuste de texto.
+
+---
+
+## 📄 Estado del Proyecto
+✅ **Backend**: Node.js + Express (API RESTful, Auth, Email, SQL)
+✅ **Frontend**: React + TypeScript (Dashboards, Formularios Complejos, Auth)
+✅ **Base de Datos**: SQL Server (Procedimientos Almacenados, Transacciones)
+
+### 12. Mejoras en Login y Sesión (Febrero 2026) 🔐
+Optimización de la seguridad y experiencia de usuario en el proceso de autenticación.
+
+- **Funcionalidad "Recuérdame" (Remember Me)**:
+  - Implementación de persistencia opcional de credenciales (email) mediante `localStorage`.
+  - Checkbox interactivo en el formulario de login que permite al usuario decidir si desea mantener su sesión activa por 30 días.
+
+- **Gestión de Sesión Segura**:
+  - Migración a `sessionStorage` como almacenamiento por defecto para tokens JWT.
+  - Mejora la seguridad al asegurar que la sesión se cierre automáticamente al cerrar la pestaña o el navegador, a menos que el usuario haya seleccionado explícitamente "Recuérdame".
+
+- **Recuperación de Contraseña (Forgot Password)**:
+  - Nuevo enlace "¿Olvidaste tu contraseña?" en la pantalla de login.
+  - **Modal Interactivo**: Diseño tipo overlay integrado en la tarjeta de login.
+  - **Identidad Visual**: Cabecera con degradado azul corporativo y botones de acción con acentos naranja (`#ff9800`), alineados con el manual de marca.
+  - Provee información clara de contacto con el área de informática (Email y Teléfono) para restablecimiento de claves.
+
+- **Refinamiento UI/UX**:
+  - Ajustes de espaciado (padding/margins) en el formulario de login para una apariencia más limpia y compacta.
+  - Eliminación de bordes y sombras innecesarias en modales para un look "glassmorphism" moderno.
+
+- **Seguridad de Navegación y Persistencia de Sesión**:
+  - **Reset Automático de Navegación en Logout**: Implementación de función `resetNavigation()` en el store de navegación (Zustand) que se invoca automáticamente al cerrar sesión, previniendo que el siguiente usuario herede la navegación del usuario anterior.
+  - **Guards de Permisos en Rutas**: Validación de permisos basada en RBAC antes de renderizar componentes administrativos en `DashboardPage.tsx`.
+  - **Protección Multicapa**: 
+    - `useEffect` guard que detecta y resetea automáticamente si un usuario sin permisos intenta acceder a módulos restringidos.
+    - Render guard que muestra mensaje "Acceso Denegado" si se intenta renderizar contenido sin autorización.
+  - **Validación por Permisos**: Sistema de control de acceso basado en permisos específicos (`MA_ADMIN_ACCESO`) en lugar de roles genéricos, permitiendo granularidad en el control de acceso.
 
 ### 10. Módulo de Gestión de Equipos y Solicitudes (Medio Ambiente) �
 Se desarrolló un ecosistema completo para la gestión del inventario de equipos y el flujo de solicitudes desde terreno.

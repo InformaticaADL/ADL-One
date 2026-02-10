@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { fichaService } from '../services/ficha.service';
 import { ObservacionesForm } from './ObservacionesForm';
 import { ObservationTimeline } from './ObservationTimeline';
+import { WorkflowAlert } from '../../../components/ui/WorkflowAlert'; // Import WorkflowAlert
 import { AntecedentesForm, type AntecedentesFormHandle } from './AntecedentesForm'; // Import Form
 import { AnalysisForm } from './AnalysisForm'; // Import Form
 import { ConfirmModal } from '../../../components/common/ConfirmModal'; // Import ConfirmModal
@@ -138,7 +139,8 @@ const mapToAntecedentes = (enc: any, agenda: any) => {
 export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
     const { showToast } = useToast();
     const catalogos = useCachedCatalogos();
-    const { hasPermission } = useAuth(); // Auth hook
+    const auth = useAuth(); // Auth hook - get full object
+    const { hasPermission } = auth; // Destructure hasPermission for existing code
 
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'antecedentes' | 'analisis' | 'observaciones'>('antecedentes');
@@ -308,7 +310,9 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
 
         try {
             setLoading(true);
-            const response = await fichaService.update(fichaId, payload);
+            // FIX: Include user from authStore
+            const currentUser = auth?.user;
+            const response = await fichaService.update(fichaId, payload, currentUser);
             if (response && response.success) {
                 showToast({ type: 'success', message: 'Ficha actualizada correctamente' });
                 setIsEditing(false);
@@ -556,6 +560,65 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
 
             <div className="tab-content-areaWrapper" style={{ padding: '0.5rem' }}>
                 <div className="tab-content-area" style={{ display: 'block' }}>
+
+                    {/* Alertas informativas del flujo - NUNCA bloquean edición */}
+                    <div style={{ maxWidth: '800px', margin: '0 auto 1.5rem auto' }}>
+                        {data?.id_validaciontecnica === 3 && (
+                            <WorkflowAlert
+                                type="info"
+                                title="Pendiente de Aprobación Técnica"
+                                message="Esta ficha está en revisión por el Área Técnica."
+                            />
+                        )}
+
+                        {data?.id_validaciontecnica === 1 && (
+                            <WorkflowAlert
+                                type="info"
+                                title="Aprobada por Área Técnica"
+                                message="Esta ficha fue aprobada por Técnica y está en revisión de Coordinación."
+                            />
+                        )}
+
+                        {data?.id_validaciontecnica === 2 && (
+                            <WorkflowAlert
+                                type="warning"
+                                title="Rechazada por Área Técnica"
+                                message="Esta ficha fue rechazada por el Área Técnica. Puede realizar las correcciones necesarias y reenviarla."
+                            />
+                        )}
+
+                        {data?.id_validaciontecnica === 4 && (
+                            <WorkflowAlert
+                                type="warning"
+                                title="Rechazada por Coordinación"
+                                message="Esta ficha fue rechazada por Coordinación. Puede realizar las correcciones necesarias y reenviarla."
+                            />
+                        )}
+
+                        {data?.id_validaciontecnica === 5 && (
+                            <WorkflowAlert
+                                type="success"
+                                title="En Proceso"
+                                message="Esta ficha tiene fechas y muestreadores asignados."
+                            />
+                        )}
+
+                        {data?.id_validaciontecnica === 6 && (
+                            <WorkflowAlert
+                                type="success"
+                                title="Aprobada por Coordinación"
+                                message="Esta ficha fue aprobada y está pendiente de programación."
+                            />
+                        )}
+
+                        {data?.id_validaciontecnica === 7 && (
+                            <WorkflowAlert
+                                type="error"
+                                title="Ficha Anulada"
+                                message="Esta ficha ha sido anulada."
+                            />
+                        )}
+                    </div>
 
                     {/* ANTECEDENTES TAB */}
                     {/* If editing, we keep it mounted (via display style) if active or just always if editing? 

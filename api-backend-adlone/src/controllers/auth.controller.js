@@ -5,13 +5,13 @@ import logger from '../utils/logger.js';
 class AuthController {
     async login(req, res) {
         try {
-            const { username, password } = req.body;
+            const { username, password, rememberMe } = req.body;
 
             if (!username || !password) {
                 return errorResponse(res, 'Usuario y contraseña son requeridos', 400);
             }
 
-            const result = await authService.login(username, password);
+            const result = await authService.login(username, password, rememberMe);
 
             if (result) {
                 return successResponse(res, result, 'Login exitoso');

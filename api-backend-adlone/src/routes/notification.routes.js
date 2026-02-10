@@ -10,4 +10,9 @@ router.get('/events/:eventId/recipients', authenticate, notificationController.g
 router.post('/events/:eventId/recipients', authenticate, notificationController.addRecipient);
 router.delete('/recipients/:id', authenticate, notificationController.removeRecipient);
 
+// Test endpoints
+router.get('/test/smtp', authenticate, notificationController.testSMTP);
+router.post('/test/send', authenticate, notificationController.sendTestNotification);
+router.post('/test/html', authenticate, notificationController.testCustomHTML);
+
 export default router;

@@ -8,7 +8,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 class AuthService {
-    async login(username, password) {
+    async login(username, password, rememberMe) {
         const secret = process.env.JWT_SECRET || 'adl-secret-key-2024';
         logger.info(`AuthService Debug: Signing with Secret First: ${secret[0]}, Last: ${secret[secret.length - 1]}, Len: ${secret.length}`);
         try {
@@ -70,7 +70,7 @@ class AuthService {
                         permissions: permissions // Add permissions to token (Optional, good for client-side checks)
                     },
                     secret,
-                    { expiresIn: '12h' }
+                    { expiresIn: rememberMe ? '30d' : '12h' }
                 );
 
                 return {

@@ -105,14 +105,19 @@ export const ObservationTimeline: React.FC<ObservationTimelineProps> = ({ fichaI
     const humanizeAction = (action: string): string => {
         const actionMap: Record<string, string> = {
             'aprobacion_tecnica': 'aprobada por el Área Técnica',
-            'aprobacion_coordinacion': 'aprobada por Coordinación',
+            'aprobacion_coordinacion': 'aprobada por el Área Coordinación',
             'rechazo_tecnica': 'rechazada por el Área Técnica',
-            'rechazo_coordinacion': 'rechazada por Coordinación',
-            'asignacion_muestreador': 'asignación masiva',
+            'rechazo_coordinacion': 'rechazada por el Área Coordinación',
+            'asignacion_muestreador': 'programación realizada por el Área Coordinación',
+            'ASIGNACION_MASIVA': 'programación realizada por el Área Coordinación',
+            'ASIGNACION_MUESTREO': 'programación realizada por el Área Coordinación',
             'revision': 'en revisión',
             'creacion': 'creada por el Área Comercial',
+            'CREACION_FICHA': 'creada por el Área Comercial',
             'actualizacion': 'actualizada',
-            'FICHA CREADA': 'creada por el Área Comercial'
+            'FICHA CREADA': 'creada por el Área Comercial',
+            'EDICION_POR_AREA_COMERCIAL': 'editada por el Área Comercial',
+            'EDICION_COMERCIAL': 'editada por el Área Comercial'
         };
 
         // Try exact match first

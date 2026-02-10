@@ -5,6 +5,7 @@ import { useCatalogos } from '../context/CatalogosContext';
 import { catalogosService } from '../services/catalogos.service';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
+import { WorkflowAlert } from '../../../components/ui/WorkflowAlert';
 
 interface Props {
     fichaId: number;
@@ -119,9 +120,17 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
         setStatusLoading(true);
         try {
             // We reuse getById to get the ENC info, specifically id_validaciontecnica
-            // Or we can assume list passed it? No, safer to fetch source of truth.
-            const ficha = await fichaService.getById(fichaId);
+            const response = await fichaService.getById(fichaId);
+            // Backend returns {success, message, data: {...}}
+            const ficha = response.data || response;
+
             if (ficha) {
+                console.log('[AssignmentDetailView] Ficha Status Debug:', {
+                    id_validaciontecnica: ficha.id_validaciontecnica,
+                    type: typeof ficha.id_validaciontecnica,
+                    estado_ficha: ficha.estado_ficha,
+                    fullResponse: response
+                });
                 setFichaStatus(ficha.id_validaciontecnica);
             }
         } catch (error) {
@@ -224,7 +233,8 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
 
             const response = await fichaService.batchUpdateAgenda({
                 assignments,
-                user: user ? { id: user.id } : { id: 0 }
+                user: user ? { id: user.id } : { id: 0 },
+                observaciones: 'Fechas y muestreadores asignados, ficha lista para ser ejecutada.'
             });
 
             // Display success message from backend
@@ -257,26 +267,11 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
 
             {/* Status Validation Banner */}
             {!statusLoading && fichaStatus !== 6 && fichaStatus !== 5 && (
-                <div style={{
-                    marginBottom: '1.5rem',
-                    padding: '1rem',
-                    backgroundColor: '#fffbeb',
-                    border: '1px solid #fcd34d',
-                    borderRadius: '8px',
-                    color: '#92400e',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.75rem',
-                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-                }}>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                    <div>
-                        <strong style={{ display: 'block', marginBottom: '2px' }}>Modo Solo Lectura</strong>
-                        Esta ficha no se encuentra en estado <strong>Pendiente Programación (6)</strong> ni <strong>En Proceso (5)</strong>. Requiere aprobación de Coordinación.
-                    </div>
-                </div>
+                <WorkflowAlert
+                    type="warning"
+                    title="Acción Bloqueada"
+                    message="Esta ficha requiere aprobación del Área de Coordinación antes de asignar fechas y muestreadores. Estado actual no permite esta acción."
+                />
             )}
 
             {/* Top Inputs Section */}
@@ -332,14 +327,16 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                 <div className="form-group" style={{ flex: '0 0 auto' }}>
                     <button
                         onClick={handleCalculateDates}
-                        disabled={!selectedDate}
+                        disabled={!selectedDate || (fichaStatus !== 6 && fichaStatus !== 5)}
                         className="btn-secondary"
                         style={{
                             padding: '0.6rem 1rem',
                             height: '38px',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '0.5rem'
+                            gap: '0.5rem',
+                            opacity: (!selectedDate || (fichaStatus !== 6 && fichaStatus !== 5)) ? 0.5 : 1,
+                            cursor: (!selectedDate || (fichaStatus !== 6 && fichaStatus !== 5)) ? 'not-allowed' : 'pointer'
                         }}
                     >
                         ⚡ Calcular Fechas
@@ -426,27 +423,27 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                 <div className="form-group" style={{ flex: '0 0 auto', marginLeft: 'auto' }}>
                     <button
                         onClick={handleSaveAssignment}
-                        disabled={saving || loading}
+                        disabled={saving || loading || (fichaStatus !== 6 && fichaStatus !== 5)}
                         className="btn-primary"
                         style={{
-                            backgroundColor: saving ? '#a78bfa' : '#8b5cf6',
+                            backgroundColor: (saving || (fichaStatus !== 6 && fichaStatus !== 5)) ? '#a78bfa' : '#8b5cf6',
                             color: 'white',
                             padding: '0.6rem 1.5rem',
                             borderRadius: '8px',
                             fontWeight: 600,
                             border: 'none',
-                            cursor: saving ? 'not-allowed' : 'pointer',
+                            cursor: (saving || (fichaStatus !== 6 && fichaStatus !== 5)) ? 'not-allowed' : 'pointer',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '0.5rem'
+                            gap: '0.5rem',
+                            opacity: (fichaStatus !== 6 && fichaStatus !== 5) ? 0.6 : 1
                         }}
                     >
                         {saving ? 'Guardando...' : '💾 Guardar Asignación'}
                     </button>
-                    {/* Read Only message for button tooltip alternative */}
                     {(!statusLoading && fichaStatus !== 6 && fichaStatus !== 5) && (
-                        <div style={{ fontSize: '0.7rem', color: '#ef4444', marginTop: '4px', textAlign: 'center' }}>
-                            Bloqueado por estado
+                        <div style={{ fontSize: '0.75rem', color: '#dc2626', marginTop: '4px', textAlign: 'center', fontWeight: 500 }}>
+                            Requiere aprobación de Coordinación
                         </div>
                     )}
                 </div>
