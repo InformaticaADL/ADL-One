@@ -98,7 +98,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
 
 export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
     const { showToast } = useToast();
-    const { user } = useAuth(); // Auth context
+    const { user, hasPermission } = useAuth(); // Auth context
     const catalogos = useCachedCatalogos();
 
     // ... (state lines)
@@ -599,54 +599,56 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                         label="Observaciones Área Técnica"
                                         value={tecnicaObs}
                                         onChange={setTecnicaObs}
-                                        readOnly={false}
-                                        placeholder="Ingrese sus observaciones técnicas aquí..."
+                                        readOnly={!hasPermission('MA_TECNICA_APROBAR')}
+                                        placeholder={hasPermission('MA_TECNICA_APROBAR') ? "Ingrese sus observaciones técnicas aquí..." : "No tiene permisos para editar observaciones"}
                                     >
-                                        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem', maxWidth: '1200px', margin: '1rem auto 0' }}>
-                                            <button
-                                                onClick={handleAcceptClick}
-                                                disabled={actionLoading || ![0, 3].includes(data?.id_validaciontecnica || -1)}
-                                                style={{
-                                                    padding: '8px 24px',
-                                                    backgroundColor: ![0, 3].includes(data?.id_validaciontecnica || -1) ? '#9ca3af' : '#10b981',
-                                                    color: 'white',
-                                                    border: 'none',
-                                                    borderRadius: '6px',
-                                                    cursor: (actionLoading || ![0, 3].includes(data?.id_validaciontecnica || -1)) ? 'not-allowed' : 'pointer',
-                                                    fontWeight: 600,
-                                                    fontSize: '0.9rem',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '8px',
-                                                    opacity: (actionLoading || ![0, 3].includes(data?.id_validaciontecnica || -1)) ? 0.7 : 1,
-                                                    boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
-                                                }}
-                                            >
-                                                <span>✅ Aceptar Ficha</span>
-                                            </button>
+                                        {hasPermission('MA_TECNICA_APROBAR') && (
+                                            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem', maxWidth: '1200px', margin: '1rem auto 0' }}>
+                                                <button
+                                                    onClick={handleAcceptClick}
+                                                    disabled={actionLoading || ![0, 3].includes(data?.id_validaciontecnica || -1)}
+                                                    style={{
+                                                        padding: '8px 24px',
+                                                        backgroundColor: ![0, 3].includes(data?.id_validaciontecnica || -1) ? '#9ca3af' : '#10b981',
+                                                        color: 'white',
+                                                        border: 'none',
+                                                        borderRadius: '6px',
+                                                        cursor: (actionLoading || ![0, 3].includes(data?.id_validaciontecnica || -1)) ? 'not-allowed' : 'pointer',
+                                                        fontWeight: 600,
+                                                        fontSize: '0.9rem',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '8px',
+                                                        opacity: (actionLoading || ![0, 3].includes(data?.id_validaciontecnica || -1)) ? 0.7 : 1,
+                                                        boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                                                    }}
+                                                >
+                                                    <span>✅ Aceptar Ficha</span>
+                                                </button>
 
-                                            <button
-                                                onClick={handleRejectClick}
-                                                disabled={actionLoading || ![0, 3].includes(data?.id_validaciontecnica || -1)}
-                                                style={{
-                                                    padding: '8px 24px',
-                                                    backgroundColor: ![0, 3].includes(data?.id_validaciontecnica || -1) ? '#9ca3af' : '#ef4444',
-                                                    color: 'white',
-                                                    border: 'none',
-                                                    borderRadius: '6px',
-                                                    cursor: (actionLoading || ![0, 3].includes(data?.id_validaciontecnica || -1)) ? 'not-allowed' : 'pointer',
-                                                    fontWeight: 600,
-                                                    fontSize: '0.9rem',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '8px',
-                                                    opacity: (actionLoading || ![0, 3].includes(data?.id_validaciontecnica || -1)) ? 0.7 : 1,
-                                                    boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
-                                                }}
-                                            >
-                                                <span>❌ Rechazar Ficha</span>
-                                            </button>
-                                        </div>
+                                                <button
+                                                    onClick={handleRejectClick}
+                                                    disabled={actionLoading || ![0, 3].includes(data?.id_validaciontecnica || -1)}
+                                                    style={{
+                                                        padding: '8px 24px',
+                                                        backgroundColor: ![0, 3].includes(data?.id_validaciontecnica || -1) ? '#9ca3af' : '#ef4444',
+                                                        color: 'white',
+                                                        border: 'none',
+                                                        borderRadius: '6px',
+                                                        cursor: (actionLoading || ![0, 3].includes(data?.id_validaciontecnica || -1)) ? 'not-allowed' : 'pointer',
+                                                        fontWeight: 600,
+                                                        fontSize: '0.9rem',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '8px',
+                                                        opacity: (actionLoading || ![0, 3].includes(data?.id_validaciontecnica || -1)) ? 0.7 : 1,
+                                                        boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                                                    }}
+                                                >
+                                                    <span>❌ Rechazar Ficha</span>
+                                                </button>
+                                            </div>
+                                        )}
                                     </ObservacionesForm>
                                 </div>
                             </div>

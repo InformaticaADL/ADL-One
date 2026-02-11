@@ -8,9 +8,11 @@ interface Props {
     onCancel: () => void;
     onSave: () => void;
     initialData?: (Equipo & { requestId?: number }) | null;
+    pendingRequests?: any[];
+    onRefreshSolicitudes?: () => void;
 }
 
-export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData }) => {
+export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pendingRequests = [], onRefreshSolicitudes }) => {
     // Initial State
     const [formData, setFormData] = useState<any>({
         codigo: '',
@@ -54,6 +56,9 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData }) =
     const [sedeOptions, setSedeOptions] = useState<string[]>([]);
     const [estadoOptions, setEstadoOptions] = useState<string[]>([]);
     const [nameToSigla, setNameToSigla] = useState<Record<string, string>>({});
+    const [rejectingSolicitud, setRejectingSolicitud] = useState<any>(null);
+    const [adminFeedback, setAdminFeedback] = useState('');
+    const [processingAction, setProcessingAction] = useState(false);
 
 
 
@@ -428,6 +433,110 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData }) =
         }
     };
 
+    const handleApproveAction = async (sol: any) => {
+        setProcessingAction(true);
+        try {
+            if (sol.tipo_solicitud === 'TRASPASO') {
+                const datos = sol.datos_json;
+                // Formatear fecha si es necesario
+                let formattedDate = formData.vigencia;
+                if (datos.vigencia) {
+                    if (datos.vigencia.includes('/')) {
+                        const [day, month, year] = datos.vigencia.split('/');
+                        formattedDate = `${year}-${month}-${day}`;
+                    } else {
+                        formattedDate = datos.vigencia;
+                    }
+                }
+
+                const updatedData = {
+                    ...formData,
+                    ubicacion: datos.nueva_ubicacion || formData.ubicacion,
+                    id_muestreador: datos.nuevo_responsable_id || formData.id_muestreador,
+                    vigencia: formattedDate
+                };
+
+                await equipoService.updateEquipo(formData.id_equipo, updatedData);
+                await adminService.updateSolicitudStatus(sol.id_solicitud, 'APROBADO', 'Aprobado desde formulario de equipo');
+
+                showToast({ type: 'success', message: 'Traspaso aprobado y equipo actualizado' });
+                if (onRefreshSolicitudes) onRefreshSolicitudes();
+                onSave(); // Refrescar lista y cerrar
+            }
+            else if (sol.tipo_solicitud === 'BAJA') {
+                await equipoService.deleteEquipo(formData.id_equipo);
+
+                // Si la solicitud tiene múltiples equipos, marcar este como procesado
+                let updatedDatosJson = sol.datos_json;
+                if (sol.datos_json?.equipos_baja) {
+                    const updatedBajas = sol.datos_json.equipos_baja.map((eb: any) =>
+                        String(eb.id) === String(formData.id_equipo) ? { ...eb, procesado: true } : eb
+                    );
+                    updatedDatosJson = { ...sol.datos_json, equipos_baja: updatedBajas };
+
+                    const allProcesado = updatedBajas.every((eb: any) => eb.procesado);
+                    if (allProcesado) {
+                        await adminService.updateSolicitudStatus(sol.id_solicitud, 'APROBADO', 'Todos los equipos dados de baja', updatedDatosJson);
+                    } else {
+                        // Actualizar solo el JSON para mantener el progreso
+                        await adminService.updateSolicitudStatus(sol.id_solicitud, 'PENDIENTE', 'Baja parcial procesada', updatedDatosJson);
+                    }
+                } else {
+                    await adminService.updateSolicitudStatus(sol.id_solicitud, 'APROBADO', 'Baja aprobada');
+                }
+
+                showToast({ type: 'success', message: 'Baja procesada correctamente' });
+                if (onRefreshSolicitudes) onRefreshSolicitudes();
+                onSave();
+            }
+            else if (sol.tipo_solicitud === 'ALTA' && sol.datos_json?.isReactivation) {
+                // Reactivación
+                await equipoService.updateEquipo(formData.id_equipo, { ...formData, estado: 'Activo' });
+
+                let updatedDatosJson = sol.datos_json;
+                if (sol.datos_json?.equipos_alta) {
+                    const updatedAltas = sol.datos_json.equipos_alta.map((ea: any) =>
+                        String(ea.id) === String(formData.id_equipo) ? { ...ea, procesado: true } : ea
+                    );
+                    updatedDatosJson = { ...sol.datos_json, equipos_alta: updatedAltas };
+
+                    const allProcesado = updatedAltas.every((ea: any) => ea.procesado);
+                    if (allProcesado) {
+                        await adminService.updateSolicitudStatus(sol.id_solicitud, 'APROBADO', 'Todos los equipos reactivados', updatedDatosJson);
+                    } else {
+                        await adminService.updateSolicitudStatus(sol.id_solicitud, 'PENDIENTE', 'Reactivación parcial procesada', updatedDatosJson);
+                    }
+                }
+
+                showToast({ type: 'success', message: 'Equipo reactivado correctamente' });
+                if (onRefreshSolicitudes) onRefreshSolicitudes();
+                onSave();
+            }
+        } catch (err) {
+            console.error(err);
+            showToast({ type: 'error', message: 'Error al procesar la acción' });
+        } finally {
+            setProcessingAction(false);
+        }
+    };
+
+    const confirmReject = async () => {
+        if (!rejectingSolicitud) return;
+        setProcessingAction(true);
+        try {
+            await adminService.updateSolicitudStatus(rejectingSolicitud.id_solicitud, 'RECHAZADO', adminFeedback || 'Solicitud rechazada por el administrador');
+            showToast({ type: 'info', message: 'Solicitud rechazada' });
+            if (onRefreshSolicitudes) onRefreshSolicitudes();
+            setRejectingSolicitud(null);
+            setAdminFeedback('');
+        } catch (err) {
+            console.error(err);
+            showToast({ type: 'error', message: 'Error al rechazar solicitud' });
+        } finally {
+            setProcessingAction(false);
+        }
+    };
+
     return (
         <div className="card admin-card" style={{ background: '#f4f4f5' }}>
             <div className="card-header" style={{
@@ -486,6 +595,104 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData }) =
 
             <form onSubmit={handleSubmit} className="admin-form">
                 {error && <div className="error-message mb-4">{error}</div>}
+
+                {/* Integrated Pending Requests Section */}
+                {pendingRequests.length > 0 && (
+                    <div style={{
+                        marginBottom: '2rem',
+                        background: '#fff7ed',
+                        border: '1px solid #ffedd5',
+                        borderRadius: '12px',
+                        overflow: 'hidden'
+                    }}>
+                        <div style={{
+                            background: '#ffedd5',
+                            padding: '0.75rem 1.25rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            color: '#9a3412',
+                            fontWeight: 700,
+                            fontSize: '0.9rem'
+                        }}>
+                            <span style={{ fontSize: '1.2rem' }}>⚠️</span>
+                            SOLICITUDES PENDIENTES PARA ESTE EQUIPO
+                        </div>
+                        <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                            {pendingRequests.map(sol => (
+                                <div key={sol.id_solicitud} style={{
+                                    background: 'white',
+                                    padding: '1rem',
+                                    borderRadius: '8px',
+                                    border: '1px solid #fed7aa',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center'
+                                }}>
+                                    <div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                                            <span style={{
+                                                fontSize: '0.7rem',
+                                                fontWeight: 'bold',
+                                                padding: '2px 8px',
+                                                borderRadius: '4px',
+                                                background: sol.tipo_solicitud === 'ALTA' ? '#dcfce7' : sol.tipo_solicitud === 'TRASPASO' ? '#dbeafe' : '#fee2e2',
+                                                color: sol.tipo_solicitud === 'ALTA' ? '#166534' : sol.tipo_solicitud === 'TRASPASO' ? '#1e40af' : '#991b1b'
+                                            }}>
+                                                {sol.tipo_solicitud}
+                                            </span>
+                                            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                                                {new Date(sol.fecha_solicitud).toLocaleDateString()}
+                                            </span>
+                                        </div>
+                                        <div style={{ fontSize: '0.9rem', color: '#1e293b' }}>
+                                            <strong>Motivo:</strong> {sol.datos_json?.motivo || 'Sin motivo'}
+                                        </div>
+                                        <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                                            Solicitado por: {sol.nombre_solicitante}
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleApproveAction(sol)}
+                                            disabled={processingAction}
+                                            style={{
+                                                padding: '0.5rem 1rem',
+                                                background: '#16a34a',
+                                                color: 'white',
+                                                border: 'none',
+                                                borderRadius: '6px',
+                                                fontSize: '0.8rem',
+                                                fontWeight: 600,
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            {processingAction ? '...' : 'Aprobar'}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setRejectingSolicitud(sol)}
+                                            disabled={processingAction}
+                                            style={{
+                                                padding: '0.5rem 1rem',
+                                                background: 'white',
+                                                color: '#dc2626',
+                                                border: '1px solid #fecaca',
+                                                borderRadius: '6px',
+                                                fontSize: '0.8rem',
+                                                fontWeight: 600,
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            Rechazar
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {/* Requested Changes Banner */}
                 {initialData?.requestId && requestedChanges && (
@@ -1016,6 +1223,61 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData }) =
                                 }}
                             >
                                 {matchingVersion ? 'Habilitar' : 'Confirmar'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Reject Prompt Modal */}
+            {rejectingSolicitud && (
+                <div className="modal-overlay" style={{ zIndex: 11000 }}>
+                    <div className="modal-content" style={{ maxWidth: '400px' }}>
+                        <div className="modal-header" style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
+                            <h3 className="modal-title" style={{ margin: 0, color: '#1e293b' }}>Rechazar Solicitud</h3>
+                        </div>
+                        <div className="modal-body">
+                            <p style={{ fontSize: '0.9rem', marginBottom: '1.5rem', color: '#475569', lineHeight: 1.5 }}>
+                                ¿Está seguro de rechazar la solicitud de <strong>{rejectingSolicitud.tipo_solicitud}</strong> enviada por {rejectingSolicitud.nombre_solicitante}?
+                            </p>
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.5rem', color: '#334155' }}>Feedback para el solicitante:</label>
+                                <textarea
+                                    value={adminFeedback}
+                                    onChange={(e) => setAdminFeedback(e.target.value)}
+                                    placeholder="Indique brevemente el motivo del rechazo..."
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.75rem',
+                                        borderRadius: '8px',
+                                        border: '1px solid #cbd5e1',
+                                        minHeight: '100px',
+                                        fontSize: '0.9rem',
+                                        outline: 'none',
+                                        transition: 'border-color 0.2s',
+                                        boxSizing: 'border-box'
+                                    }}
+                                />
+                            </div>
+                        </div>
+                        <div className="modal-footer" style={{ border: 'none', display: 'flex', gap: '0.75rem' }}>
+                            <button className="btn-cancel" onClick={() => { setRejectingSolicitud(null); setAdminFeedback(''); }} disabled={processingAction} style={{ flex: 1 }}>Cancelar</button>
+                            <button
+                                className="btn-danger"
+                                onClick={confirmReject}
+                                disabled={processingAction}
+                                style={{
+                                    flex: 1,
+                                    background: '#dc2626',
+                                    color: 'white',
+                                    border: 'none',
+                                    padding: '0.625rem',
+                                    borderRadius: '6px',
+                                    fontWeight: 600,
+                                    cursor: processingAction ? 'not-allowed' : 'pointer'
+                                }}
+                            >
+                                {processingAction ? 'Procesando...' : 'Confirmar Rechazo'}
                             </button>
                         </div>
                     </div>

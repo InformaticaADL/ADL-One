@@ -121,10 +121,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // RBAC Helper
     const hasPermission = (permissionCode: string): boolean => {
         if (!user) return false;
-        // If user is Admin (role==1 usually), allow all. Adjust logic as needed.
-        // For now, strict check against permissions array.
-        // Also check if permissions is undefined (e.g. old session), default to false.
         const perms = user.permissions || [];
+        // Super Admin access: if they have MA_ADMIN_ACCESO, they can do anything
+        if (perms.includes('MA_ADMIN_ACCESO')) return true;
+        // Specific permission
         return perms.includes(permissionCode);
     };
 

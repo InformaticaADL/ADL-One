@@ -27,7 +27,7 @@ class AuthService {
                 .input('username', sql.VarChar, username)
                 .input('password', sql.VarChar, password)
                 .query(`
-                    SELECT id_usuario, nombre_usuario, usuario, mam_cargo, correo_electronico, habilitado
+                    SELECT id_usuario, nombre_usuario, usuario, mam_cargo, correo_electronico, habilitado, seccion
                     FROM mae_usuario 
                     WHERE nombre_usuario = @username AND clave_usuario = @password
                 `);
@@ -58,7 +58,9 @@ class AuthService {
                 logger.info(`AuthService: Permissions Query executed in ${Date.now() - startPermQuery}ms`);
 
                 const permissions = permissionsQuery.recordset.map(row => row.codigo);
-                // ---------------------------
+
+                // --- Section-based Automated Permissions (REMOVED) ---
+                // We now rely solely on DB roles/permissions as per requirements.
 
                 // Generate Token
                 const token = jwt.sign(

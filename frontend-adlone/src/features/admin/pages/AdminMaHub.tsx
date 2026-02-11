@@ -1,4 +1,5 @@
 import React from 'react';
+import { useAuth } from '../../../contexts/AuthContext';
 import '../admin.css';
 
 interface Props {
@@ -7,11 +8,20 @@ interface Props {
 }
 
 export const AdminMaHub: React.FC<Props> = ({ onNavigate, onBack }) => {
+    const { hasPermission } = useAuth();
+
     const OPTIONS = [
-        { id: 'admin-muestreadores', label: 'Muestreadores', icon: '🧑‍🔬', description: 'Gestión de muestreadores activos, firmas y datos.' },
-        { id: 'admin-equipos', label: 'Equipos', icon: '⚗️', description: 'Gestión de equipos, códigos y vencimientos de calibración.' },
-        { id: 'ma-solicitudes', label: 'Realizar Solicitudes', icon: '📝', description: 'Creación de solicitudes de alta, traspaso y baja de equipos.' },
+        { id: 'admin-muestreadores', label: 'Muestreadores', icon: '🧑‍🔬', description: 'Gestión de muestreadores activos, firmas y datos.', permission: 'AI_MA_MUESTREADORES' },
+        { id: 'admin-equipos', label: 'Equipos', icon: '⚗️', description: 'Gestión de equipos, códigos y vencimientos de calibración.', permission: 'AI_MA_EQUIPOS' },
+        { id: 'ma-solicitudes', label: 'Realizar Solicitudes', icon: '📝', description: 'Creación de solicitudes de alta, traspaso y baja de equipos.', permission: 'AI_MA_SOLICITUDES' },
     ];
+
+    const visibleOptions = OPTIONS.filter(opt => {
+        if (opt.id === 'ma-solicitudes') {
+            return hasPermission('AI_MA_SOLICITUDES') || hasPermission('MA_ADMIN_ACCESO');
+        }
+        return hasPermission(opt.permission);
+    });
 
     return (
         <div className="admin-container">
@@ -31,7 +41,7 @@ export const AdminMaHub: React.FC<Props> = ({ onNavigate, onBack }) => {
             </div>
 
             <div className="hub-grid">
-                {OPTIONS.map((opt) => (
+                {visibleOptions.map((opt) => (
                     <div
                         key={opt.id}
                         onClick={() => onNavigate(opt.id)}

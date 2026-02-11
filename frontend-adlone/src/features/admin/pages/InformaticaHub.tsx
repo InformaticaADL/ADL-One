@@ -1,4 +1,5 @@
 import React from 'react';
+import { useAuth } from '../../../contexts/AuthContext';
 import '../admin.css';
 
 interface Props {
@@ -7,12 +8,16 @@ interface Props {
 }
 
 export const InformaticaHub: React.FC<Props> = ({ onNavigate, onBack }) => {
+    const { hasPermission } = useAuth();
+
     const OPTIONS = [
-        { id: 'admin-roles', label: 'Gestión de Roles', icon: '🛡️', description: 'Definir perfiles y permisos del sistema.' },
-        { id: 'admin-users', label: 'Gestión de Usuarios', icon: '👤', description: 'Crear, editar y administrar usuarios.' },
-        { id: 'admin-user-roles', label: 'Asignación de Roles', icon: '👥', description: 'Asignar roles a los usuarios.' },
-        { id: 'admin-notifications', label: 'Notificaciones', icon: '🔔', description: 'Configurar eventos y destinatarios de correo.' },
+        { id: 'admin-roles', label: 'Gestión de Roles', icon: '🛡️', description: 'Definir perfiles y permisos del sistema.', permission: 'AI_INF_ROLES' },
+        { id: 'admin-users', label: 'Gestión de Usuarios', icon: '👤', description: 'Crear, editar y administrar usuarios.', permission: 'AI_INF_USERS' },
+        { id: 'admin-user-roles', label: 'Asignación de Roles', icon: '👥', description: 'Asignar roles a los usuarios.', permission: 'AI_INF_ROLES' }, // Reuse roles perm or distinct? user-roles is usually roles+users
+        { id: 'admin-notifications', label: 'Notificaciones', icon: '🔔', description: 'Configurar eventos y destinatarios de correo.', permission: 'AI_INF_NOTIF' },
     ];
+
+    const visibleOptions = OPTIONS.filter(opt => hasPermission(opt.permission));
 
     return (
         <div className="admin-container">
@@ -32,7 +37,7 @@ export const InformaticaHub: React.FC<Props> = ({ onNavigate, onBack }) => {
             </div>
 
             <div className="hub-grid">
-                {OPTIONS.map((opt) => (
+                {visibleOptions.map((opt) => (
                     <div
                         key={opt.id}
                         onClick={() => onNavigate(opt.id)}

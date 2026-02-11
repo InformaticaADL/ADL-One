@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useToast } from '../../../contexts/ToastContext';
+import { useNavStore } from '../../../store/navStore';
+import { useAuth } from '../../../contexts/AuthContext';
 import { adminService } from '../../../services/admin.service';
 import { equipoService } from '../../admin/services/equipo.service';
 import type { Equipo } from '../../admin/services/equipo.service';
@@ -19,7 +21,6 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
     const [loading, setLoading] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
     const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
-    const [showNotifications, setShowNotifications] = useState(false);
 
     // Data for selectors
     const [equipos, setEquipos] = useState<Equipo[]>([]);
@@ -31,7 +32,12 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
 
     // History of user's own requests
     const [history, setHistory] = useState<any[]>([]);
-    const [hiddenNotifications, setHiddenNotifications] = useState<number[]>([]);
+    const [showPendingList, setShowPendingList] = useState(false);
+    const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+
+    const { pendingRequestId, setPendingRequestId } = useNavStore();
+    const { hasPermission } = useAuth();
+    const isMAMan = hasPermission('AI_MA_EQUIPOS') || hasPermission('AI_MA_SOLICITUDES');
 
     // Catalogs for dynamic selectors
     const [tiposCatalogo, setTiposCatalogo] = useState<string[]>([]);
@@ -64,10 +70,17 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
 
     const loadHistory = async () => {
         try {
-            const data = await adminService.getSolicitudes({ solo_mias: true });
-            setHistory(data);
+            // Load user's own history (Results: Approved/Rejected)
+            const ownData = await adminService.getSolicitudes({ solo_mias: true });
+            setHistory(ownData);
+
+            // Load all pending requests for the section (if manager) or own
+            const pendingParams = isMAMan ? { estado: 'PENDIENTE' } : { estado: 'PENDIENTE', solo_mias: true };
+            const pendingData = await adminService.getSolicitudes(pendingParams);
+            setPendingRequests(pendingData);
+
         } catch (error) {
-            console.error("Error loading user history:", error);
+            console.error("Error loading history/pending:", error);
         }
     };
 
@@ -109,6 +122,17 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
         loadInitialData();
     }, []);
 
+    // Handle automatic selection reactively whenever pendingRequestId changes
+    useEffect(() => {
+        if (pendingRequestId && (history.length > 0 || pendingRequests.length > 0)) {
+            const found = [...history, ...pendingRequests].find(s => String(s.id_solicitud) === String(pendingRequestId));
+            if (found) {
+                setSelectedRequest(found);
+                setPendingRequestId(null);
+            }
+        }
+    }, [pendingRequestId, history, pendingRequests, setPendingRequestId]);
+
     useEffect(() => {
         if (type === 'ALTA' && altaSubtype === 'ACTIVAR' && equiposAlta.length > 0) {
             const currentMotivo = formData.motivo || '';
@@ -116,7 +140,7 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
             // Collect codes that are not already in the motive
             const newCodes = equiposAlta
                 .map(eq => eq.datos_originales?.codigo)
-                .filter(code => code && !currentMotivo.includes(`${code}:`));
+                .filter(code => code && !currentMotivo.includes(`${code}: `));
 
             if (newCodes.length > 0) {
                 const prefix = currentMotivo.length > 0 && !currentMotivo.endsWith('\n') ? '\n' : '';
@@ -233,7 +257,7 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
     return (
         <div className="admin-container">
             <div className="admin-header-section" style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', marginBottom: '2rem' }}>
-                <div style={{ justifySelf: 'start' }}>
+                <div style={{ justifySelf: 'start', display: 'flex', gap: '1rem', alignItems: 'center' }}>
                     {onBack && (
                         <button onClick={onBack} className="btn-back" style={{ margin: 0 }}>
                             <span className="icon-circle">←</span> Volver
@@ -247,139 +271,110 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
                 </div>
 
                 <div style={{ justifySelf: 'end', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <div className="notification-container" style={{ position: 'relative' }} tabIndex={0} onBlur={() => setTimeout(() => setShowNotifications(false), 200)}>
+                    <div style={{ position: 'relative' }}>
                         <button
-                            className="btn-secondary"
-                            onClick={() => setShowNotifications(!showNotifications)}
-                            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', position: 'relative' }}
+                            className={`btn-pending-requests ${showPendingList ? 'active' : ''}`}
+                            onClick={() => setShowPendingList(!showPendingList)}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                padding: '0.5rem 0.75rem',
+                                borderRadius: '8px',
+                                border: '1px solid #e2e8f0',
+                                background: showPendingList ? '#f1f5f9' : 'white',
+                                color: '#475569',
+                                fontSize: '0.9rem',
+                                fontWeight: 500,
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                height: '38px'
+                            }}
                         >
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
                                 <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
                             </svg>
-                            Notificaciones
-                            {history.filter(s => {
-                                const isResult = s.estado === 'APROBADO' || s.estado === 'RECHAZADA';
-                                const isNotHidden = !hiddenNotifications.includes(s.id_solicitud);
-                                const solDateStr = new Date(s.fecha_revision || s.fecha_solicitud).toDateString();
-                                const todayStr = new Date().toDateString();
-                                return isResult && isNotHidden && solDateStr === todayStr;
-                            }).length > 0 && (
-
-                                    <span style={{
-                                        background: '#ef4444',
-                                        color: 'white',
-                                        fontSize: '0.7rem',
-                                        fontWeight: 'bold',
-                                        minWidth: '18px',
-                                        height: '18px',
-                                        borderRadius: '10px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        padding: '0 5px',
-                                        marginLeft: '4px'
-                                    }}>
-                                        {history.filter(s => {
-                                            const isResult = s.estado === 'APROBADO' || s.estado === 'RECHAZADA';
-                                            const isNotHidden = !hiddenNotifications.includes(s.id_solicitud);
-                                            const solDateStr = new Date(s.fecha_revision || s.fecha_solicitud).toDateString();
-                                            const todayStr = new Date().toDateString();
-                                            return isResult && isNotHidden && solDateStr === todayStr;
-                                        }).length}
-
-                                    </span>
-                                )}
+                            Pendientes
+                            {pendingRequests.length > 0 && (
+                                <span style={{
+                                    background: '#ef4444',
+                                    color: 'white',
+                                    fontSize: '0.7rem',
+                                    padding: '1px 5px',
+                                    borderRadius: '10px',
+                                    minWidth: '18px',
+                                    textAlign: 'center'
+                                }}>
+                                    {pendingRequests.length}
+                                </span>
+                            )}
                         </button>
 
-                        {showNotifications && (
-                            <div className="notifications-dropdown" style={{
+                        {showPendingList && (
+                            <div className="pending-dropdown animate-fade-in" style={{
                                 position: 'absolute',
-                                top: '100%',
+                                top: 'calc(100% + 8px)',
                                 right: 0,
-                                width: '300px',
-                                backgroundColor: 'white',
+                                width: '320px',
+                                background: 'white',
                                 borderRadius: '12px',
-                                boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
-                                border: '1px solid #e5e7eb',
-                                marginTop: '0.5rem',
+                                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                                border: '1px solid #e2e8f0',
                                 zIndex: 1000,
                                 overflow: 'hidden'
                             }}>
-                                <div style={{ padding: '1rem', borderBottom: '1px solid #f3f4f6', fontWeight: 600, fontSize: '0.9rem', color: '#374151' }}>
-                                    Resultados de Solicitudes
+                                <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9', fontWeight: 600, fontSize: '0.85rem', color: '#1e293b' }}>
+                                    Solicitudes Pendientes
                                 </div>
                                 <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                                    {history.filter(s => {
-                                        const isResult = s.estado === 'APROBADO' || s.estado === 'RECHAZADA';
-                                        const isNotHidden = !hiddenNotifications.includes(s.id_solicitud);
-                                        const solDateStr = new Date(s.fecha_revision || s.fecha_solicitud).toDateString();
-                                        const todayStr = new Date().toDateString();
-                                        return isResult && isNotHidden && solDateStr === todayStr;
-                                    }).length === 0 ? (
-                                        <div style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af', fontSize: '0.85rem' }}>
-                                            No tienes nuevas notificaciones hoy.
+                                    {pendingRequests.length === 0 ? (
+                                        <div style={{ padding: '1.5rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>
+                                            No hay solicitudes pendientes
                                         </div>
                                     ) : (
-                                        history
-                                            .filter(s => {
-                                                const isResult = s.estado === 'APROBADO' || s.estado === 'RECHAZADA';
-                                                const isNotHidden = !hiddenNotifications.includes(s.id_solicitud);
-                                                const solDateStr = new Date(s.fecha_revision || s.fecha_solicitud).toDateString();
-                                                const todayStr = new Date().toDateString();
-                                                return isResult && isNotHidden && solDateStr === todayStr;
-                                            })
-
-                                            .map((sol) => (
-                                                <div
-                                                    key={sol.id_solicitud}
-                                                    style={{
-                                                        padding: '0.75rem 1rem',
-                                                        borderBottom: '1px solid #f9fafb',
-                                                        cursor: 'pointer',
-                                                        transition: 'background-color 0.2s',
-                                                        position: 'relative'
-                                                    }}
-                                                    onClick={() => { setSelectedRequest(sol); setShowNotifications(false); }}
-                                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f8fafc'}
-                                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                                                >
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem', paddingRight: '1.5rem' }}>
-                                                        <span style={{
-                                                            fontSize: '0.6rem',
-                                                            fontWeight: 'bold',
-                                                            background: sol.estado === 'APROBADO' ? '#dcfce7' : '#fee2e2',
-                                                            color: sol.estado === 'APROBADO' ? '#166534' : '#991b1b',
-                                                            padding: '1px 5px',
-                                                            borderRadius: '3px'
-                                                        }}>{sol.estado}</span>
-                                                        <span style={{ fontWeight: 600, color: '#374151', fontSize: '0.8rem' }}>
-                                                            {sol.tipo_solicitud}: {sol.tipo_solicitud === 'ALTA' ? sol.datos_json.nombre : sol.datos_json.codigo}
-                                                        </span>
-                                                    </div>
-                                                    <div style={{ fontSize: '0.7rem', color: '#6b7280' }}>
-                                                        {new Date(sol.fecha_revision || sol.fecha_solicitud).toLocaleDateString()} • Ver detalle
-                                                    </div>
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setHiddenNotifications(prev => [...prev, sol.id_solicitud]);
-                                                        }}
-                                                        style={{
-                                                            position: 'absolute',
-                                                            top: '0.75rem',
-                                                            right: '0.5rem',
-                                                            background: 'none',
-                                                            border: 'none',
-                                                            color: '#d1d5db',
-                                                            cursor: 'pointer',
-                                                            padding: '4px'
-                                                        }}
-                                                    >
-                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                                                    </button>
+                                        pendingRequests.map((sol) => (
+                                            <div
+                                                key={sol.id_solicitud}
+                                                className="pending-item"
+                                                style={{
+                                                    padding: '0.75rem 1rem',
+                                                    borderBottom: '1px solid #f8fafc',
+                                                    cursor: 'pointer',
+                                                    transition: 'background-color 0.2s'
+                                                }}
+                                                onClick={() => {
+                                                    setSelectedRequest(sol);
+                                                    setShowPendingList(false);
+                                                }}
+                                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                            >
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                                                    <span style={{
+                                                        fontSize: '0.65rem',
+                                                        fontWeight: 'bold',
+                                                        padding: '1px 5px',
+                                                        borderRadius: '4px',
+                                                        background: sol.tipo_solicitud === 'ALTA' ? '#dcfce7' : sol.tipo_solicitud === 'TRASPASO' ? '#dbeafe' : '#fee2e2',
+                                                        color: sol.tipo_solicitud === 'ALTA' ? '#166534' : sol.tipo_solicitud === 'TRASPASO' ? '#1e40af' : '#991b1b'
+                                                    }}>
+                                                        {sol.tipo_solicitud}
+                                                    </span>
+                                                    <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+                                                        {new Date(sol.fecha_solicitud).toLocaleDateString()}
+                                                    </span>
                                                 </div>
-                                            ))
+                                                <div style={{ fontWeight: 600, fontSize: '0.8rem', color: '#334155' }}>
+                                                    {sol.tipo_solicitud === 'ALTA' ? (sol.datos_json?.nombre || 'Equipo') :
+                                                        sol.tipo_solicitud === 'BAJA' ? (sol.datos_json?.codigo || 'Baja') :
+                                                            (sol.datos_json?.codigo || 'Traspaso')}
+                                                </div>
+                                                <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                                                    Solicitado por: {sol.nombre_solicitante || 'Usuario'}
+                                                </div>
+                                            </div>
+                                        ))
                                     )}
                                 </div>
                             </div>
@@ -428,7 +423,7 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
                                     backgroundColor: isActive ? activeColor : '#f3f4f6',
                                     color: isActive ? 'white' : '#64748b',
                                     flex: 1,
-                                    boxShadow: isActive ? `0 4px 6px -1px ${activeColor}40` : 'none',
+                                    boxShadow: isActive ? `0 4px 6px - 1px ${activeColor} 40` : 'none',
                                     transform: isActive ? 'scale(1.02)' : 'scale(1)'
                                 }}
                             >
@@ -552,7 +547,7 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
                                                     return (e.estado?.toLowerCase() === 'inactivo' || (e as any).habilitado === 'N') &&
                                                         !equiposAlta.find(a => a.id === idStr);
                                                 })
-                                                .map(e => ({ id: String(e.id_equipo), nombre: `${e.codigo} - ${e.nombre}` }))}
+                                                .map(e => ({ id: String(e.id_equipo), nombre: `${e.codigo} - ${e.nombre} ` }))}
                                         />
                                     </div>
                                 )}
@@ -769,7 +764,7 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
                                         placeholder="Busque equipo por nombre o código..."
                                         value={formData.id_equipo}
                                         onChange={(val) => handleSelectChange('id_equipo', val)}
-                                        options={equipos.map(e => ({ id: String(e.id_equipo), nombre: `${e.codigo} - ${e.nombre}` }))}
+                                        options={equipos.map(e => ({ id: String(e.id_equipo), nombre: `${e.codigo} - ${e.nombre} ` }))}
                                     />
                                 </div>
 
@@ -893,7 +888,7 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
                                                     !equiposBaja.find(b => b.id === idStr) &&
                                                     !pendingBajaIds.includes(idStr);
                                             })
-                                            .map(e => ({ id: String(e.id_equipo), nombre: `${e.codigo} - ${e.nombre}` }))}
+                                            .map(e => ({ id: String(e.id_equipo), nombre: `${e.codigo} - ${e.nombre} ` }))}
                                     />
 
                                     {/* List of selected equipment */}
@@ -973,7 +968,6 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
                     ) : (
                         history
                             .filter(s => s.tipo_solicitud === type)
-                            .slice(0, 5)
                             .map((sol) => (
                                 <div key={sol.id_solicitud}
                                     onClick={() => setSelectedRequest(sol)}
@@ -1020,7 +1014,7 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
                                             <div style={{ fontSize: '0.8rem', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                                 <span>Enviado: {new Date(sol.fecha_solicitud).toLocaleDateString()}</span>
                                                 <span>•</span>
-                                                <span className={`status-pill status-${sol.estado.toLowerCase()}`} style={{ fontSize: '0.7rem', padding: '1px 8px' }}>
+                                                <span className={`status - pill status - ${sol.estado.toLowerCase()} `} style={{ fontSize: '0.7rem', padding: '1px 8px' }}>
                                                     {sol.estado}
                                                 </span>
                                             </div>
@@ -1076,23 +1070,39 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
                 <div className="modal-overlay" style={{ zIndex: 10001 }}>
                     <div className="modal-content" style={{ maxWidth: '500px' }}>
                         <div className="modal-header" style={{
-                            background: selectedRequest.tipo_solicitud === 'ALTA' ? 'linear-gradient(135deg, #22c55e, #16a34a)' :
-                                selectedRequest.tipo_solicitud === 'TRASPASO' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' :
-                                    'linear-gradient(135deg, #ef4444, #dc2626)',
+                            background: selectedRequest.estado === 'APROBADO' ? 'linear-gradient(135deg, #22c55e, #16a34a)' :
+                                selectedRequest.estado === 'RECHAZADA' ? 'linear-gradient(135deg, #ef4444, #dc2626)' :
+                                    selectedRequest.tipo_solicitud === 'ALTA' ? 'linear-gradient(135deg, #22c55e, #16a34a)' :
+                                        selectedRequest.tipo_solicitud === 'TRASPASO' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' :
+                                            'linear-gradient(135deg, #ef4444, #dc2626)',
                             color: 'white',
                             padding: '1.25rem',
                             borderTopLeftRadius: '12px',
-                            borderTopRightRadius: '12px'
+                            borderTopRightRadius: '12px',
+                            textAlign: 'center'
                         }}>
-                            <h3 className="modal-title" style={{ color: 'white', margin: 0 }}>Detalle de Solicitud: {selectedRequest.tipo_solicitud} {selectedRequest.datos_json?.isReactivation ? '(Reactivación)' : ''}</h3>
+                            {selectedRequest.estado !== 'PENDIENTE' ? (
+                                <>
+                                    <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>
+                                        {selectedRequest.estado === 'APROBADO' ? '✓' : '✕'}
+                                    </div>
+                                    <h3 className="modal-title" style={{ color: 'white', margin: 0 }}>
+                                        ¡Solicitud {selectedRequest.estado === 'APROBADO' ? 'Aprobada' : 'Rechazada'}!
+                                    </h3>
+                                </>
+                            ) : (
+                                <h3 className="modal-title" style={{ color: 'white', margin: 0 }}>
+                                    Detalle de Solicitud: {selectedRequest.tipo_solicitud}
+                                </h3>
+                            )}
                         </div>
                         <div className="modal-body" style={{ padding: '1.5rem' }}>
                             <div style={{ display: 'grid', gap: '1rem' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f3f4f6', paddingBottom: '0.5rem' }}>
                                     <span style={{ color: '#6b7280', fontSize: '0.9rem' }}>Estado:</span>
-                                    <span className={`status-pill ${selectedRequest.estado === 'APROBADO' ? 'status-active' :
+                                    <span className={`status - pill ${selectedRequest.estado === 'APROBADO' ? 'status-active' :
                                         selectedRequest.estado === 'PENDIENTE' ? 'status-pending' : 'status-inactive'
-                                        }`} style={{ padding: '2px 10px', fontSize: '0.8rem' }}>
+                                        } `} style={{ padding: '2px 10px', fontSize: '0.8rem' }}>
                                         {selectedRequest.estado}
                                     </span>
                                 </div>
@@ -1132,7 +1142,7 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
                                                                         background: isProcesado ? '#f0fdf4' : 'white',
                                                                         padding: '4px 8px',
                                                                         borderRadius: '4px',
-                                                                        border: `1px solid ${isProcesado ? '#bbf7d0' : '#e5e7eb'}`
+                                                                        border: `1px solid ${isProcesado ? '#bbf7d0' : '#e5e7eb'} `
                                                                     }}>
                                                                         {isProcesado ? (
                                                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
@@ -1188,7 +1198,7 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
                                                                         background: isProcesado ? '#f0fdf4' : 'white',
                                                                         padding: '4px 8px',
                                                                         borderRadius: '4px',
-                                                                        border: `1px solid ${isProcesado ? '#bbf7d0' : '#e5e7eb'}`
+                                                                        border: `1px solid ${isProcesado ? '#bbf7d0' : '#e5e7eb'} `
                                                                     }}>
                                                                         {isProcesado ? (
                                                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
@@ -1238,7 +1248,7 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
                                             background: selectedRequest.estado === 'RECHAZADA' ? '#fff1f2' : '#f0fdf4',
                                             padding: '1.25rem',
                                             borderRadius: '10px',
-                                            border: `2px solid ${selectedRequest.estado === 'RECHAZADA' ? '#fecaca' : '#bbf7d0'}`,
+                                            border: `2px solid ${selectedRequest.estado === 'RECHAZADA' ? '#fecaca' : '#bbf7d0'} `,
                                             color: selectedRequest.estado === 'RECHAZADA' ? '#991b1b' : '#166534',
                                             fontSize: '0.95rem',
                                             fontStyle: 'italic',

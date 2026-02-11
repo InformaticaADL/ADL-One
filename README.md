@@ -315,7 +315,7 @@ Optimización de la seguridad y experiencia de usuario en el proceso de autentic
     - Render guard que muestra mensaje "Acceso Denegado" si se intenta renderizar contenido sin autorización.
   - **Validación por Permisos**: Sistema de control de acceso basado en permisos específicos (`MA_ADMIN_ACCESO`) en lugar de roles genéricos, permitiendo granularidad en el control de acceso.
 
-### 10. Módulo de Gestión de Equipos y Solicitudes (Medio Ambiente) �
+### 13. Módulo de Gestión de Equipos y Solicitudes (Medio Ambiente) 🏗️
 Se desarrolló un ecosistema completo para la gestión del inventario de equipos y el flujo de solicitudes desde terreno.
 
 - **Saturación y Tipos de Solicitud**: 
@@ -331,8 +331,22 @@ Se desarrolló un ecosistema completo para la gestión del inventario de equipos
   - Cálculo automático de Siglas y Correlativos basados en el Tipo de Equipo y Sede.
   - Actualización dinámica del sufijo del código al realizar traspasos de ubicación.
 
-### 11. Mejoras Funcionales y de Seguridad (Febrero 2026) 🔒
+### 14. Mejoras Funcionales y de Seguridad (Febrero 2026) 🔒
 - **Manejo Automático de Errores 401**: Interceptor Axios global que gestiona sesiones expiradas, redirigiendo al usuario al login de forma segura.
 - **Autocompletado Inteligente (Smart Fill)**: 
   - Al crear o aprobar un equipo, el sistema detecta equipos "plantilla" del mismo tipo para auto-poblar campos técnicos como **"Qué Mide"** y **"Unidad de Medida"**.
   - Mejora significativa en la velocidad de ingreso de datos y reducción de errores humanos.
+
+### 15. Notificaciones Proactivas y Gestión Integrada (Febrero 2026) 🔔
+Optimización del flujo de aprobación y comunicación entre el área de Medio Ambiente y Calidad.
+
+- **Gestión Directa desde el Formulario**: 
+  - El `EquipoForm` integra ahora una sección de **Solicitudes Pendientes**. Los administradores pueden procesar (Aprobar/Rechazar) cambios de ubicación, bajas o reactivaciones sin salir de la ficha del equipo.
+  - Al aprobar, los datos se sincronizan y guardan automáticamente, eliminando redundancias.
+- **Centro de Notificaciones Inteligente**:
+  - **Redirección por Rol**: Las notificaciones redirigen al usuario según su necesidad comercial (`ma-solicitudes` para gestores) o administrativa (`gc-equipos` para revisores).
+  - **Persistencia de Feedback**: Los resultados de las solicitudes se mantienen en la campana del solicitante con el motivo detallado de aprobación o rechazo.
+- **Seguridad y Limpieza de Permisos**:
+  - Remoción definitiva de permisos obsoletos (`AI_MA_NOTIF_REC/ENV`), consolidando el acceso mediante subpermisos granulares.
+- **Prevención de Inconsistencias**:
+  - Iconos de alerta `⚠️` y mensajes dinámicos que informan sobre trámites en curso para evitar ediciones conflictivas.

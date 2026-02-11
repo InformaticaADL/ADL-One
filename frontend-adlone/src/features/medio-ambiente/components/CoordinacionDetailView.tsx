@@ -98,7 +98,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
 
 export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
     const { showToast } = useToast();
-    const { user } = useAuth(); // Auth context
+    const { user, hasPermission } = useAuth(); // Auth context
     const catalogos = useCachedCatalogos();
 
     const [loading, setLoading] = useState(true);
@@ -601,62 +601,63 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
                                         label="Observaciones Coordinación"
                                         value={coordinacionObs}
                                         onChange={setCoordinacionObs}
-                                        readOnly={data?.id_validaciontecnica !== 1} // Only editable if Pendiente Coordinacion (1)
-                                        placeholder="Ingrese observaciones de coordinación aquí..."
+                                        readOnly={data?.id_validaciontecnica !== 1 || !hasPermission('MA_COORDINACION_APROBAR')}
+                                        placeholder={hasPermission('MA_COORDINACION_APROBAR') ? "Ingrese observaciones de coordinación aquí..." : "No tiene permisos para editar observaciones"}
                                     >
+                                        {hasPermission('MA_COORDINACION_APROBAR') && (
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', width: '100%' }}>
+                                                {/* Action Buttons Row */}
+                                                <div style={{
+                                                    display: 'flex',
+                                                    gap: '1rem',
+                                                    justifyContent: 'center'
+                                                }}>
+                                                    <button
+                                                        onClick={handleAcceptClick}
+                                                        disabled={actionLoading || data?.id_validaciontecnica !== 1}
+                                                        style={{
+                                                            padding: '8px 24px',
+                                                            backgroundColor: data?.id_validaciontecnica !== 1 ? '#9ca3af' : '#10b981',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            borderRadius: '6px',
+                                                            cursor: (actionLoading || data?.id_validaciontecnica !== 1) ? 'not-allowed' : 'pointer',
+                                                            fontWeight: 600,
+                                                            fontSize: '0.9rem',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '8px',
+                                                            opacity: (actionLoading || data?.id_validaciontecnica !== 1) ? 0.7 : 1,
+                                                            boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                                                        }}
+                                                    >
+                                                        <span>✅ Aceptar</span>
+                                                    </button>
 
-                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', width: '100%' }}>
-                                            {/* Action Buttons Row */}
-                                            <div style={{
-                                                display: 'flex',
-                                                gap: '1rem',
-                                                justifyContent: 'center'
-                                            }}>
-                                                <button
-                                                    onClick={handleAcceptClick}
-                                                    disabled={actionLoading || data?.id_validaciontecnica !== 1}
-                                                    style={{
-                                                        padding: '8px 24px',
-                                                        backgroundColor: data?.id_validaciontecnica !== 1 ? '#9ca3af' : '#10b981',
-                                                        color: 'white',
-                                                        border: 'none',
-                                                        borderRadius: '6px',
-                                                        cursor: (actionLoading || data?.id_validaciontecnica !== 1) ? 'not-allowed' : 'pointer',
-                                                        fontWeight: 600,
-                                                        fontSize: '0.9rem',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '8px',
-                                                        opacity: (actionLoading || data?.id_validaciontecnica !== 1) ? 0.7 : 1,
-                                                        boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
-                                                    }}
-                                                >
-                                                    <span>✅ Aceptar</span>
-                                                </button>
-
-                                                <button
-                                                    onClick={handleRejectClick}
-                                                    disabled={actionLoading || data?.id_validaciontecnica !== 1}
-                                                    style={{
-                                                        padding: '8px 24px',
-                                                        backgroundColor: data?.id_validaciontecnica !== 1 ? '#9ca3af' : '#ef4444',
-                                                        color: 'white',
-                                                        border: 'none',
-                                                        borderRadius: '6px',
-                                                        cursor: (actionLoading || data?.id_validaciontecnica !== 1) ? 'not-allowed' : 'pointer',
-                                                        fontWeight: 600,
-                                                        fontSize: '0.9rem',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '8px',
-                                                        opacity: (actionLoading || data?.id_validaciontecnica !== 1) ? 0.7 : 1,
-                                                        boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
-                                                    }}
-                                                >
-                                                    <span>❌ Rechazar</span>
-                                                </button>
+                                                    <button
+                                                        onClick={handleRejectClick}
+                                                        disabled={actionLoading || data?.id_validaciontecnica !== 1}
+                                                        style={{
+                                                            padding: '8px 24px',
+                                                            backgroundColor: data?.id_validaciontecnica !== 1 ? '#9ca3af' : '#ef4444',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            borderRadius: '6px',
+                                                            cursor: (actionLoading || data?.id_validaciontecnica !== 1) ? 'not-allowed' : 'pointer',
+                                                            fontWeight: 600,
+                                                            fontSize: '0.9rem',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '8px',
+                                                            opacity: (actionLoading || data?.id_validaciontecnica !== 1) ? 0.7 : 1,
+                                                            boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                                                        }}
+                                                    >
+                                                        <span>❌ Rechazar</span>
+                                                    </button>
+                                                </div>
                                             </div>
-                                        </div>
+                                        )}
                                     </ObservacionesForm>
                                 </div>
                             </div>

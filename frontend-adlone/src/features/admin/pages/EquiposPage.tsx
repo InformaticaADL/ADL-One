@@ -3,6 +3,8 @@ import { equipoService, type Equipo } from '../services/equipo.service';
 import { adminService } from '../../../services/admin.service';
 import { EquipoForm } from '../components/EquipoForm';
 import { useToast } from '../../../contexts/ToastContext';
+
+import { useNavStore } from '../../../store/navStore';
 import '../admin.css';
 
 // --- Componente CustomSelect Animado ---
@@ -66,11 +68,9 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     // View State
     const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
     const [selectedEquipo, setSelectedEquipo] = useState<Equipo | null>(null);
-    const [showSolicitudes, setShowSolicitudes] = useState(false);
     const [solicitudesRealizadas, setSolicitudesRealizadas] = useState<any[]>([]);
     const [showMobileFilters, setShowMobileFilters] = useState(false);
     const [reviewSolicitud, setReviewSolicitud] = useState<any | null>(null);
-    const [hiddenNotifications, setHiddenNotifications] = useState<number[]>([]);
     const [processingAction, setProcessingAction] = useState(false);
     const [adminFeedback, setAdminFeedback] = useState('');
     const [showConfirmBajaModal, setShowConfirmBajaModal] = useState(false);
@@ -79,6 +79,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const [equipoAltaPending, setEquipoAltaPending] = useState<{ id: string; nombre: string; codigo: string; originalId: number; datos_json?: any; id_solicitud?: number } | null>(null);
     const [reactivationVigencia, setReactivationVigencia] = useState<string>('');
     const [highlightedId, setHighlightedId] = useState<number | null>(null);
+    const [showPendingList, setShowPendingList] = useState(false);
+
     const { showToast } = useToast();
     const [isSearchExpanded, setIsSearchExpanded] = useState(false);
     const filterMenuRef = React.useRef<HTMLDivElement>(null);
@@ -136,6 +138,23 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [showMobileFilters]);
+
+    const handleNotificationClick = async (sol: any) => {
+        setReviewSolicitud(sol);
+        setAdminFeedback('');
+    };
+
+    // Notification link logic
+    const { pendingRequestId, setPendingRequestId, hideNotification } = useNavStore();
+    useEffect(() => {
+        if (pendingRequestId && solicitudesRealizadas.length > 0) {
+            const sol = solicitudesRealizadas.find(s => s.id_solicitud === pendingRequestId);
+            if (sol) {
+                handleNotificationClick(sol);
+                setPendingRequestId(null); // Clear once handled
+            }
+        }
+    }, [pendingRequestId, solicitudesRealizadas]);
 
     // Table State
     const [equipos, setEquipos] = useState<Equipo[]>([]);
@@ -203,6 +222,26 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     };
 
     const handleEdit = (equipo: Equipo) => {
+        const pending = solicitudesRealizadas.find(sol => {
+            if (sol.estado !== 'PENDIENTE') return false;
+            const datos = sol.datos_json || {};
+            if (sol.tipo_solicitud === 'TRASPASO' && String(datos.id_equipo) === String(equipo.id_equipo)) return true;
+            if (sol.tipo_solicitud === 'BAJA' && datos.equipos_baja && Array.isArray(datos.equipos_baja)) {
+                return datos.equipos_baja.some((eb: any) => String(eb.id) === String(equipo.id_equipo));
+            }
+            if (sol.tipo_solicitud === 'ALTA' && datos.isReactivation && datos.equipos_alta && Array.isArray(datos.equipos_alta)) {
+                return datos.equipos_alta.some((ea: any) => String(ea.id) === String(equipo.id_equipo));
+            }
+            return false;
+        });
+
+        if (pending) {
+            showToast({
+                type: 'warning',
+                message: `Atención: Este equipo tiene una solicitud de ${pending.tipo_solicitud} PENDIENTE: ${pending.datos_json?.motivo || 'Sin motivo especificado'}`,
+                duration: 8000
+            });
+        }
         setSelectedEquipo(equipo);
         setViewMode('form');
     };
@@ -223,17 +262,39 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         loadSolicitudes();
     }, []);
 
+    const getPendingRequestsForEquipo = (equipoId: number) => {
+        if (!solicitudesRealizadas || solicitudesRealizadas.length === 0) return [];
+
+        return solicitudesRealizadas.filter(sol => {
+            if (sol.estado !== 'PENDIENTE') return false;
+
+            const datos = sol.datos_json || {};
+
+            // TRASPASO: uses id_equipo
+            if (sol.tipo_solicitud === 'TRASPASO' && String(datos.id_equipo) === String(equipoId)) {
+                return true;
+            }
+
+            // BAJA: uses equipos_baja list
+            if (sol.tipo_solicitud === 'BAJA' && datos.equipos_baja && Array.isArray(datos.equipos_baja)) {
+                return datos.equipos_baja.some((eb: any) => String(eb.id) === String(equipoId));
+            }
+
+            // ALTA (Reactivation): uses equipos_alta list
+            if (sol.tipo_solicitud === 'ALTA' && datos.isReactivation && datos.equipos_alta && Array.isArray(datos.equipos_alta)) {
+                return datos.equipos_alta.some((ea: any) => String(ea.id) === String(equipoId));
+            }
+
+            return false;
+        });
+    };
+
     const handleFormSave = () => {
         setViewMode('list');
         fetchData();
         loadSolicitudes();
     };
 
-    const handleNotificationClick = async (sol: any) => {
-        setShowSolicitudes(false);
-        setReviewSolicitud(sol);
-        setAdminFeedback('');
-    };
 
     const handleReject = async () => {
         if (!reviewSolicitud) return;
@@ -251,6 +312,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         try {
             await adminService.updateSolicitudStatus(reviewSolicitud.id_solicitud, 'RECHAZADA', adminFeedback);
             showToast({ type: 'success', message: 'Solicitud rechazada correctamente', duration: 5000 });
+            hideNotification(reviewSolicitud.id_solicitud); // Persistent dismissal
             setReviewSolicitud(null);
             loadSolicitudes();
         } catch (error) {
@@ -290,9 +352,12 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                         id_solicitud: reviewSolicitud.id_solicitud
                     });
                     setShowConfirmAltaModal(true);
-                    setReviewSolicitud(null); // Close background modal
+                    hideNotification(reviewSolicitud.id_solicitud);
+                    setReviewSolicitud(null);
+                    // Close background modal
                 } else {
                     showToast({ type: 'info', message: 'Rellene los campos para continuar', duration: 5000 });
+                    hideNotification(reviewSolicitud.id_solicitud);
                     setReviewSolicitud(null);
                     setSelectedEquipo({
                         ...reviewSolicitud.datos_json,
@@ -360,6 +425,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                         adminFeedback || 'Reactivación completada',
                         updatedDatosJson
                     );
+                    hideNotification(equipoAltaPending.id_solicitud!);
                     setReviewSolicitud(null);
                 } else {
                     await adminService.updateSolicitudStatus(
@@ -378,6 +444,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                     'APROBADO',
                     adminFeedback || 'Equipo reactivado correctamente'
                 );
+                hideNotification(equipoAltaPending.id_solicitud!);
             }
 
             showToast({ type: 'success', message: `Equipo ${equipoAltaPending.nombre} reactivado`, duration: 5000 });
@@ -440,6 +507,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 adminFeedback || 'Todos los equipos han sido reactivados',
                 updatedDatosJson
             );
+            hideNotification(reviewSolicitud.id_solicitud);
 
             showToast({ type: 'success', message: `${pendingEquipos.length} equipos reactivados correctamente`, duration: 5000 });
             setReviewSolicitud(null);
@@ -479,6 +547,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 showToast({ type: 'success', message: 'Solicitud de baja completada' });
                 setAdminFeedback('');
                 setReviewSolicitud(null);
+                hideNotification(equipoBajaPending.id_solicitud!);
             } else {
                 await adminService.updateSolicitudStatus(
                     equipoBajaPending.id_solicitud!,
@@ -518,6 +587,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 equipos_baja: updatedEquiposBaja
             };
             await adminService.updateSolicitudStatus(reviewSolicitud.id_solicitud, 'APROBADO', adminFeedback || 'Todos los equipos han sido dados de baja', updatedDatosJson);
+            hideNotification(reviewSolicitud.id_solicitud);
             showToast({ type: 'success', message: `${pendingEquipos.length} equipos dados de baja correctamente`, duration: 5000 });
             setReviewSolicitud(null);
             loadSolicitudes();
@@ -548,6 +618,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                     initialData={selectedEquipo}
                     onCancel={() => setViewMode('list')}
                     onSave={handleFormSave}
+                    pendingRequests={selectedEquipo ? getPendingRequestsForEquipo(selectedEquipo.id_equipo) : []}
+                    onRefreshSolicitudes={loadSolicitudes}
                 />
             </div>
         );
@@ -569,143 +641,109 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                     <h1 className="admin-title" style={{ margin: 0, fontSize: '1.5rem' }}>Gestión de Equipos</h1>
                 </div>
                 <div style={{ justifySelf: 'end' }}>
-                    <div className="notification-container" style={{ position: 'relative' }} tabIndex={0} onBlur={() => setTimeout(() => setShowSolicitudes(false), 200)}>
+                    <div style={{ position: 'relative' }}>
                         <button
-                            className="btn-secondary"
-                            onClick={() => setShowSolicitudes(!showSolicitudes)}
-                            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', position: 'relative' }}
+                            className={`btn-pending-requests ${showPendingList ? 'active' : ''}`}
+                            onClick={() => setShowPendingList(!showPendingList)}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                padding: '0.5rem 0.75rem',
+                                borderRadius: '8px',
+                                border: '1px solid #e2e8f0',
+                                background: showPendingList ? '#f1f5f9' : 'white',
+                                color: '#475569',
+                                fontSize: '0.9rem',
+                                fontWeight: 500,
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                            }}
                         >
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
                                 <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
                             </svg>
                             Solicitudes
-                            {solicitudesRealizadas.filter(s => {
-                                const isPending = s.estado === 'PENDIENTE';
-                                const isNotHidden = !hiddenNotifications.includes(s.id_solicitud);
-                                const solDateStr = new Date(s.fecha_solicitud).toDateString();
-                                const todayStr = new Date().toDateString();
-                                return isPending && isNotHidden && solDateStr === todayStr;
-                            }).length > 0 && (
-                                    <span style={{
-                                        background: '#ef4444',
-                                        color: 'white',
-                                        fontSize: '0.7rem',
-                                        fontWeight: 'bold',
-                                        minWidth: '18px',
-                                        height: '18px',
-                                        borderRadius: '10px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        padding: '0 5px',
-                                        marginLeft: '4px'
-                                    }}>
-                                        {solicitudesRealizadas.filter(s => {
-                                            const isPending = s.estado === 'PENDIENTE';
-                                            const isNotHidden = !hiddenNotifications.includes(s.id_solicitud);
-                                            const solDateStr = new Date(s.fecha_solicitud).toDateString();
-                                            const todayStr = new Date().toDateString();
-                                            return isPending && isNotHidden && solDateStr === todayStr;
-                                        }).length}
-                                    </span>
-                                )}
+                            {solicitudesRealizadas.length > 0 && (
+                                <span style={{
+                                    background: '#ef4444',
+                                    color: 'white',
+                                    fontSize: '0.7rem',
+                                    padding: '1px 5px',
+                                    borderRadius: '10px',
+                                    minWidth: '18px',
+                                    textAlign: 'center'
+                                }}>
+                                    {solicitudesRealizadas.length}
+                                </span>
+                            )}
                         </button>
 
-                        {showSolicitudes && (
-                            <div className="notifications-dropdown" style={{
+                        {showPendingList && (
+                            <div className="pending-dropdown animate-fade-in" style={{
                                 position: 'absolute',
-                                top: '100%',
+                                top: 'calc(100% + 8px)',
                                 right: 0,
                                 width: '320px',
-                                backgroundColor: 'white',
+                                background: 'white',
                                 borderRadius: '12px',
-                                boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
-                                border: '1px solid #e5e7eb',
-                                marginTop: '0.5rem',
+                                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                                border: '1px solid #e2e8f0',
                                 zIndex: 1000,
                                 overflow: 'hidden'
                             }}>
-                                <div style={{ padding: '1rem', borderBottom: '1px solid #f3f4f6', fontWeight: 600, fontSize: '0.9rem', color: '#374151' }}>
-                                    Solicitudes Pendientes
+                                <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9', fontWeight: 600, fontSize: '0.85rem', color: '#1e293b' }}>
+                                    Lista de Pendientes
                                 </div>
-                                <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                                    {solicitudesRealizadas.filter(s => {
-                                        const isPending = s.estado === 'PENDIENTE';
-                                        const isNotHidden = !hiddenNotifications.includes(s.id_solicitud);
-                                        const solDateStr = new Date(s.fecha_solicitud).toDateString();
-                                        const todayStr = new Date().toDateString();
-                                        return isPending && isNotHidden && solDateStr === todayStr;
-                                    }).length === 0 ? (
-                                        <div style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af', fontSize: '0.85rem' }}>
-                                            No hay solicitudes pendientes hoy.
+                                <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                                    {solicitudesRealizadas.length === 0 ? (
+                                        <div style={{ padding: '1.5rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>
+                                            No hay solicitudes pendientes
                                         </div>
                                     ) : (
-                                        solicitudesRealizadas
-                                            .filter(s => {
-                                                const isPending = s.estado === 'PENDIENTE';
-                                                const isNotHidden = !hiddenNotifications.includes(s.id_solicitud);
-                                                const date = new Date(s.fecha_solicitud);
-                                                const today = new Date();
-                                                const isToday = date.getDate() === today.getDate() &&
-                                                    date.getMonth() === today.getMonth() &&
-                                                    date.getFullYear() === today.getFullYear();
-                                                return isPending && isNotHidden && isToday;
-                                            })
-                                            .map((sol) => (
-                                                <div
-                                                    key={sol.id_solicitud}
-                                                    style={{
-                                                        padding: '1rem',
-                                                        borderBottom: '1px solid #f9fafb',
-                                                        cursor: 'pointer',
-                                                        transition: 'background-color 0.2s',
-                                                        position: 'relative'
-                                                    }}
-                                                    onClick={() => { handleNotificationClick(sol); setShowSolicitudes(false); }}
-                                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f8fafc'}
-                                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                                                >
-                                                    <div style={{ paddingRight: '1.5rem' }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                                                            <span style={{
-                                                                fontSize: '0.6rem',
-                                                                fontWeight: 'bold',
-                                                                background: sol.tipo_solicitud === 'ALTA' ? '#dcfce7' : sol.tipo_solicitud === 'TRASPASO' ? '#dbeafe' : '#fee2e2',
-                                                                color: sol.tipo_solicitud === 'ALTA' ? '#166534' : sol.tipo_solicitud === 'TRASPASO' ? '#1e40af' : '#991b1b',
-                                                                padding: '1px 5px',
-                                                                borderRadius: '3px'
-                                                            }}>{sol.tipo_solicitud}</span>
-                                                            <span style={{ fontWeight: 600, color: '#111827', fontSize: '0.85rem' }}>
-                                                                {sol.tipo_solicitud === 'ALTA' ? (sol.datos_json?.nombre || 'Equipo') :
-                                                                    sol.tipo_solicitud === 'BAJA' ? (sol.datos_json?.codigo || '') :
-                                                                        (sol.datos_json?.codigo || '')}
-                                                            </span>
-                                                        </div>
-                                                        <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                                                            {sol.nombre_solicitante} • {new Date(sol.fecha_solicitud).toLocaleDateString()}
-                                                        </div>
-                                                    </div>
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setHiddenNotifications(prev => [...prev, sol.id_solicitud]);
-                                                        }}
-                                                        style={{
-                                                            position: 'absolute',
-                                                            top: '1rem',
-                                                            right: '0.5rem',
-                                                            background: 'none',
-                                                            border: 'none',
-                                                            color: '#d1d5db',
-                                                            cursor: 'pointer',
-                                                            padding: '4px'
-                                                        }}
-                                                    >
-                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                                                    </button>
+                                        solicitudesRealizadas.map((sol) => (
+                                            <div
+                                                key={sol.id_solicitud}
+                                                className="pending-item"
+                                                style={{
+                                                    padding: '0.75rem 1rem',
+                                                    borderBottom: '1px solid #f8fafc',
+                                                    cursor: 'pointer',
+                                                    transition: 'background-color 0.2s'
+                                                }}
+                                                onClick={() => {
+                                                    handleNotificationClick(sol);
+                                                    setShowPendingList(false);
+                                                }}
+                                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                            >
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                                                    <span style={{
+                                                        fontSize: '0.65rem',
+                                                        fontWeight: 'bold',
+                                                        padding: '1px 5px',
+                                                        borderRadius: '4px',
+                                                        background: sol.tipo_solicitud === 'ALTA' ? '#dcfce7' : sol.tipo_solicitud === 'TRASPASO' ? '#dbeafe' : '#fee2e2',
+                                                        color: sol.tipo_solicitud === 'ALTA' ? '#166534' : sol.tipo_solicitud === 'TRASPASO' ? '#1e40af' : '#991b1b'
+                                                    }}>
+                                                        {sol.tipo_solicitud}
+                                                    </span>
+                                                    <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+                                                        {new Date(sol.fecha_solicitud).toLocaleDateString()}
+                                                    </span>
                                                 </div>
-                                            ))
+                                                <div style={{ fontWeight: 600, fontSize: '0.8rem', color: '#334155' }}>
+                                                    {sol.tipo_solicitud === 'ALTA' ? (sol.datos_json?.nombre || 'Equipo') :
+                                                        sol.tipo_solicitud === 'BAJA' ? (sol.datos_json?.codigo || 'Baja') :
+                                                            (sol.datos_json?.codigo || 'Traspaso')}
+                                                </div>
+                                                <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                                                    Solicitado por: {sol.nombre_solicitante || 'Usuario'}
+                                                </div>
+                                            </div>
+                                        ))
                                     )}
                                 </div>
                             </div>
@@ -839,7 +877,18 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                 <tr
                                     key={equipo.id_equipo}
                                     className={highlightedId === equipo.id_equipo ? 'row-highlighted' : ''}
-                                    onClick={() => setHighlightedId(equipo.id_equipo)}
+                                    onClick={() => {
+                                        setHighlightedId(equipo.id_equipo);
+                                        const pendingList = getPendingRequestsForEquipo(equipo.id_equipo);
+                                        if (pendingList.length > 0) {
+                                            const pending = pendingList[0];
+                                            showToast({
+                                                type: 'warning',
+                                                message: `Solicitud de ${pending.tipo_solicitud} Pendiente: ${pending.datos_json?.motivo || 'Sin motivo especificado'}`,
+                                                duration: 8000
+                                            });
+                                        }
+                                    }}
                                     style={{
                                         cursor: 'pointer',
                                         opacity: equipo.estado?.toLowerCase() === 'inactivo' ? 0.6 : 1,
@@ -848,7 +897,14 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                     }}
                                 >
                                     <td style={{ whiteSpace: 'nowrap', textAlign: 'center' }}><span className="code-badge">{equipo.codigo}</span></td>
-                                    <td style={{ fontWeight: 500, whiteSpace: 'nowrap', textAlign: 'center' }}>{equipo.nombre}</td>
+                                    <td style={{ fontWeight: 500, whiteSpace: 'nowrap', textAlign: 'center' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                                            {equipo.nombre}
+                                            {getPendingRequestsForEquipo(equipo.id_equipo).length > 0 && (
+                                                <span title="Solicitud Pendiente" style={{ cursor: 'help' }}>⚠️</span>
+                                            )}
+                                        </div>
+                                    </td>
                                     <td style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>{equipo.tipo}</td>
                                     <td style={{ textAlign: 'center' }}>{equipo.ubicacion}</td>
                                     <td style={{ textAlign: 'center' }}>

@@ -21,15 +21,20 @@ const DashboardPage = () => {
     const { activeModule, activeSubmodule, setActiveSubmodule, resetNavigation } = useNavStore();
     const { user, hasPermission } = useAuth();
 
-    // Helper function to check if user is admin
-    const isAdmin = () => {
-        // Check for MA_ADMIN_ACCESO permission (the actual permission code in the database)
-        return hasPermission('MA_ADMIN_ACCESO');
+    // Helper function to check if user has ANY admin info access
+    const hasAdminAccess = () => {
+        return hasPermission('MA_ADMIN_ACCESO') || hasPermission('AI_ACCESO') ||
+            [
+                'AI_GEM_ACCESO', 'AI_MA_ACCESO', 'AI_INF_ACCESO', 'AI_NEC_ACCESO',
+                'AI_MIC_ACCESO', 'AI_BM_ACCESO', 'AI_CC_ACCESO', 'AI_BAC_ACCESO',
+                'AI_SCR_ACCESO', 'AI_DER_ACCESO', 'AI_ATL_ACCESO', 'AI_ID_ACCESO',
+                'AI_PVE_ACCESO', 'AI_COM_ACCESO', 'AI_GC_ACCESO', 'AI_ADM_ACCESO'
+            ].some(p => hasPermission(p));
     };
 
     // Security Guard: Reset navigation if user doesn't have admin role for admin module
     useEffect(() => {
-        if (activeModule === 'admin_informacion' && !isAdmin()) {
+        if (activeModule === 'admin_informacion' && !hasAdminAccess()) {
             console.warn('Unauthorized access attempt to admin module. Resetting navigation.');
             resetNavigation();
         }
@@ -47,14 +52,33 @@ const DashboardPage = () => {
             return <CoordinacionPage onBack={() => { }} />;
         }
         if (activeSubmodule === 'ma-solicitudes') {
+            if (!hasPermission('AI_MA_SOLICITUDES') && !hasPermission('MA_ADMIN_ACCESO')) {
+                return (
+                    <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
+                        <h2>Acceso Restringido</h2>
+                        <p>No tienes los permisos necesarios para realizar solicitudes de equipos.</p>
+                    </div>
+                );
+            }
             return <SolicitudesMaPage onBack={() => setActiveSubmodule('')} />;
+        }
+        if (activeSubmodule === 'gc-equipos') {
+            if (!hasPermission('AI_GC_ACCESO') && !hasPermission('AI_GC_EQUIPOS')) {
+                return (
+                    <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
+                        <h2>Acceso Restringido</h2>
+                        <p>No tienes los permisos necesarios para gestionar esta sección.</p>
+                    </div>
+                );
+            }
+            return <EquiposPage onBack={() => setActiveSubmodule('')} />;
         }
 
 
         // Module: Admin información
         if (activeModule === 'admin_informacion') {
-            // Permission Guard: Validate admin role before rendering
-            if (!isAdmin()) {
+            // Permission Guard: Validate admin access before rendering
+            if (!hasAdminAccess()) {
                 return (
                     <div className="dashboard-content" style={{ textAlign: 'center', padding: '3rem' }}>
                         <h1 style={{ color: '#d32f2f', marginBottom: '1rem' }}>🚫 Acceso Denegado</h1>
@@ -68,41 +92,62 @@ const DashboardPage = () => {
                 );
             }
 
-            if (activeSubmodule === 'informatica') {
-                return (
-                    <InformaticaHub
-                        onNavigate={(view) => setActiveSubmodule(view)}
-                        onBack={() => setActiveSubmodule('')}
-                    />
-                );
-            }
-            if (activeSubmodule === 'admin-roles') {
-                return <RolesPage onBack={() => setActiveSubmodule('informatica')} />;
-            }
-            if (activeSubmodule === 'admin-users') {
-                return <UsersManagementPage onBack={() => setActiveSubmodule('informatica')} />;
-            }
-            if (activeSubmodule === 'admin-user-roles') {
-                return <UserRolesPage onBack={() => setActiveSubmodule('informatica')} />;
-            }
-            if (activeSubmodule === 'admin-notifications') {
-                return <NotificationsPage onBack={() => setActiveSubmodule('informatica')} />;
+            // Case: Informatica Area
+            const informaticaViews = ['informatica', 'admin-roles', 'admin-users', 'admin-user-roles', 'admin-notifications'];
+            if (informaticaViews.includes(activeSubmodule)) {
+                if (!hasPermission('AI_INF_ACCESO')) {
+                    return <AdminInfoHub onNavigate={(areaId) => setActiveSubmodule(areaId)} />;
+                }
+
+                if (activeSubmodule === 'informatica') {
+                    return (
+                        <InformaticaHub
+                            onNavigate={(view) => setActiveSubmodule(view)}
+                            onBack={() => setActiveSubmodule('')}
+                        />
+                    );
+                }
+                if (activeSubmodule === 'admin-roles') {
+                    if (!hasPermission('AI_INF_ROLES')) return <InformaticaHub onNavigate={(view) => setActiveSubmodule(view)} onBack={() => setActiveSubmodule('')} />;
+                    return <RolesPage onBack={() => setActiveSubmodule('informatica')} />;
+                }
+                if (activeSubmodule === 'admin-users') {
+                    if (!hasPermission('AI_INF_USERS')) return <InformaticaHub onNavigate={(view) => setActiveSubmodule(view)} onBack={() => setActiveSubmodule('')} />;
+                    return <UsersManagementPage onBack={() => setActiveSubmodule('informatica')} />;
+                }
+                if (activeSubmodule === 'admin-user-roles') {
+                    if (!hasPermission('AI_INF_ROLES')) return <InformaticaHub onNavigate={(view) => setActiveSubmodule(view)} onBack={() => setActiveSubmodule('')} />;
+                    return <UserRolesPage onBack={() => setActiveSubmodule('informatica')} />;
+                }
+                if (activeSubmodule === 'admin-notifications') {
+                    if (!hasPermission('AI_INF_NOTIF')) return <InformaticaHub onNavigate={(view) => setActiveSubmodule(view)} onBack={() => setActiveSubmodule('')} />;
+                    return <NotificationsPage onBack={() => setActiveSubmodule('informatica')} />;
+                }
             }
 
-            // Module: Admin MA
-            if (activeSubmodule === 'medio_ambiente') {
-                return (
-                    <AdminMaHub
-                        onNavigate={(view) => setActiveSubmodule(view)}
-                        onBack={() => setActiveSubmodule('')}
-                    />
-                );
-            }
-            if (activeSubmodule === 'admin-muestreadores') {
-                return <MuestreadoresPage onBack={() => setActiveSubmodule('medio_ambiente')} />;
-            }
-            if (activeSubmodule === 'admin-equipos') {
-                return <EquiposPage onBack={() => setActiveSubmodule('medio_ambiente')} />;
+            // Case: Medio Ambiente Area
+            const maViews = ['medio_ambiente', 'admin-muestreadores', 'admin-equipos'];
+            if (maViews.includes(activeSubmodule)) {
+                if (!hasPermission('AI_MA_ACCESO')) {
+                    return <AdminInfoHub onNavigate={(areaId) => setActiveSubmodule(areaId)} />;
+                }
+
+                if (activeSubmodule === 'medio_ambiente') {
+                    return (
+                        <AdminMaHub
+                            onNavigate={(view) => setActiveSubmodule(view)}
+                            onBack={() => setActiveSubmodule('')}
+                        />
+                    );
+                }
+                if (activeSubmodule === 'admin-muestreadores') {
+                    if (!hasPermission('AI_MA_MUESTREADORES')) return <AdminMaHub onNavigate={(view) => setActiveSubmodule(view)} onBack={() => setActiveSubmodule('')} />;
+                    return <MuestreadoresPage onBack={() => setActiveSubmodule('medio_ambiente')} />;
+                }
+                if (activeSubmodule === 'admin-equipos') {
+                    if (!hasPermission('AI_MA_EQUIPOS')) return <AdminMaHub onNavigate={(view) => setActiveSubmodule(view)} onBack={() => setActiveSubmodule('')} />;
+                    return <EquiposPage onBack={() => setActiveSubmodule('medio_ambiente')} />;
+                }
             }
 
             // Default: Show Main Hub

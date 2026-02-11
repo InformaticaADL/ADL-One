@@ -89,6 +89,18 @@ class NotificationService {
                 }
             }
 
+            // 3.1. Destinatarios Directos (Nuevos: por email pasado por parámetro)
+            if (context.directEmails) {
+                const emails = Array.isArray(context.directEmails) ? context.directEmails : [context.directEmails];
+                emails.forEach(email => this._addEmail(emailList, 'TO', email));
+            }
+
+            // 3.1. Destinatarios por Permiso (Nuevo requerimiento dinámico)
+            if (context.permissionRecibir) {
+                const permissionUsers = await this._getUsersByPermission(pool, context.permissionRecibir);
+                permissionUsers.forEach(email => this._addEmail(emailList, 'TO', email));
+            }
+
             // 4. Compilar Asunto y Cuerpo (Simple Replace por ahora)
             const subject = this._compileTemplate(event.asunto_template, context);
             const htmlBody = this._compileTemplate(event.cuerpo_template_html || '<p>Notificación del Sistema ADL One</p>', context);
@@ -150,6 +162,30 @@ class NotificationService {
                 WHERE rel.id_rol = @roleId AND u.habilitado = 'S' AND u.correo_electronico IS NOT NULL AND u.correo_electronico <> ''
             `);
         return result.recordset.map(row => row.email);
+    }
+
+    /**
+     * Obtiene los correos de todos los usuarios que tienen un permiso específico a través de sus roles.
+     * @param {object} pool - Pool de conexión.
+     * @param {string} permissionCode - Código del permiso (ej: 'AI_MA_NOTIF_REC').
+     */
+    async _getUsersByPermission(pool, permissionCode) {
+        try {
+            const result = await pool.request()
+                .input('permCode', sql.VarChar(50), permissionCode)
+                .query(`
+                    SELECT DISTINCT u.correo_electronico
+                    FROM mae_usuario u
+                    JOIN rel_usuario_rol ur ON u.id_usuario = ur.id_usuario
+                    JOIN rel_rol_permiso rp ON ur.id_rol = rp.id_rol
+                    JOIN mae_permiso p ON rp.id_permiso = p.id_permiso
+                    WHERE p.codigo = @permCode AND u.habilitado = 'S' AND u.correo_electronico IS NOT NULL AND u.correo_electronico <> ''
+                `);
+            return result.recordset.map(r => r.correo_electronico);
+        } catch (error) {
+            logger.error(`Error fetching users with permission ${permissionCode}:`, error);
+            return [];
+        }
     }
 
     _compileTemplate(template, context) {

@@ -28,6 +28,7 @@ class SolicitudService {
             let query = `
                 SELECT s.*, 
                        u_sol.nombre_usuario as nombre_solicitante,
+                       u_sol.seccion as seccion_solicitante,
                        u_rev.nombre_usuario as nombre_revisor
                 FROM mae_solicitud_equipo s
                 LEFT JOIN mae_usuario u_sol ON s.usuario_solicita = u_sol.id_usuario
@@ -48,6 +49,20 @@ class SolicitudService {
             if (filters.usuario_excluir) {
                 whereConditions.push('s.usuario_solicita != @usuarioExcluir');
                 request.input('usuarioExcluir', sql.Numeric(10, 0), filters.usuario_excluir);
+            }
+            if (filters.secciones && filters.secciones.length > 0) {
+                const sectionParams = filters.secciones.map((s, i) => `@sec${i}`).join(',');
+                let sectionClause = `u_sol.seccion IN (${sectionParams})`;
+
+                if (filters.siempre_incluir_usuario) {
+                    sectionClause = `(${sectionClause} OR s.usuario_solicita = @incluirUsuario)`;
+                    request.input('incluirUsuario', sql.Numeric(10, 0), filters.siempre_incluir_usuario);
+                }
+
+                whereConditions.push(sectionClause);
+                filters.secciones.forEach((s, i) => {
+                    request.input(`sec${i}`, sql.VarChar(20), s);
+                });
             }
 
 
@@ -71,6 +86,17 @@ class SolicitudService {
     async updateStatus(id, status, feedback, adminId, datos_json = null) {
         try {
             const pool = await getConnection();
+
+            // 1. Get Solicitante details and Request Type before updating
+            const solInfo = await pool.request()
+                .input('id', sql.Numeric(10, 0), id)
+                .query(`
+                    SELECT s.usuario_solicita, s.tipo_solicitud, u.correo_electronico, u.nombre_usuario
+                    FROM mae_solicitud_equipo s
+                    JOIN mae_usuario u ON s.usuario_solicita = u.id_usuario
+                    WHERE s.id_solicitud = @id
+                `);
+
             let query = `
                 UPDATE mae_solicitud_equipo 
                 SET estado = @status, 
@@ -93,6 +119,7 @@ class SolicitudService {
             query += ` WHERE id_solicitud = @id`;
 
             await request.query(query);
+
             return { success: true };
         } catch (error) {
             logger.error('Error updating solicitud status:', error);

@@ -33,7 +33,7 @@ const MODULES = [
     // Grupo 2: Gestión
     { id: 'facturacion', label: 'Facturación', icon: '💲' },
     { id: 'estadistica', label: 'Estadística', icon: '📊' },
-    { id: 'admin_informacion', label: 'Admin. Información', icon: '📂', permission: 'MA_ADMIN_ACCESO' }, // Added permission
+    { id: 'admin_informacion', label: 'Admin. Información', icon: '📂', permission: 'AI_ACCESO' }, // Broad access
 
     // Separador
     { id: 'div2', type: 'divider', label: '', icon: '' },
@@ -46,7 +46,7 @@ const MODULES = [
 const SUBMODULES_MOCK: Record<string, any[]> = {
     'medio_ambiente': [
         { id: 'ma-fichas-ingreso', label: 'Fichas de ingreso', permission: 'MA_ACCESO' },
-        { id: 'ma-solicitudes', label: 'Realizar Solicitudes', permission: 'MA_ACCESO' },
+        { id: 'ma-solicitudes', label: 'Realizar Solicitudes', permission: 'AI_MA_SOLICITUDES' },
     ],
     'administracion': [], // Now empty, managed via AdminInfoHub
     // Agregamos datos para GEM para evitar menú vacío
@@ -55,6 +55,10 @@ const SUBMODULES_MOCK: Record<string, any[]> = {
         { id: 'gem-dashboard', label: 'Dashboard General' },
         { id: 'gem-reportes', label: 'Reportes Consolidados' },
         { id: 'gem-config', label: 'Configuración' }
+    ],
+    'gestion_calidad': [
+        { id: 'gc-equipos', label: 'Equipos', permission: 'AI_GC_ACCESO' }, // Broad access
+        { id: 'gc-equipos', label: 'Equipos', permission: 'AI_GC_EQUIPOS' }, // Specific role
     ]
 };
 
@@ -64,45 +68,178 @@ interface MainLayoutProps {
 
 export const MainLayout = ({ children }: MainLayoutProps) => {
     // Usamos el store global en lugar de useState local
-    const { activeModule, activeSubmodule, drawerOpen, setActiveModule, setActiveSubmodule, setDrawerOpen } = useNavStore();
+    const { activeModule, activeSubmodule, drawerOpen, setActiveModule, setActiveSubmodule, setDrawerOpen, setPendingRequestId, hiddenNotifications, hideNotification } = useNavStore();
 
     const [showProfileMenu, setShowProfileMenu] = useState(false);
     const [showNotifications, setShowNotifications] = useState(false);
     const [notifications, setNotifications] = useState<any[]>([]);
-    const [hiddenNotifications, setHiddenNotifications] = useState<number[]>([]);
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+    const [selectedNotification, setSelectedNotification] = useState<any | null>(null);
 
     // Context User
     const { user, logout, hasPermission } = useAuth();
 
+    // Permissions for "Gestión de Equipos" (Admins/Approvers)
+    const isGCMan = hasPermission('AI_GC_ACCESO') || hasPermission('AI_GC_EQUIPOS');
+    const isMAMan = hasPermission('AI_MA_EQUIPOS') || hasPermission('AI_MA_SOLICITUDES');
+    const isINFMan = hasPermission('AI_INF_NOTIF');
+    const isSuper = hasPermission('MA_ADMIN_ACCESO');
+
+    const isManagementUser = isGCMan || isMAMan || isINFMan || isSuper;
+
     // Fetch notifications
     const fetchNotifications = async () => {
         try {
-            const isAdminArea = activeModule === 'admin_informacion';
-            const data = await adminService.getSolicitudes({
-                estado: isAdminArea ? 'PENDIENTE' : undefined,
-                solo_mias: !isAdminArea
+            // isAdminArea is true if in the general admin hub OR specific management areas like Quality Control
+
+            // Permissions for "Área de Solicitudes" (Requesters/Users)
+
+            const solicitudesData = await adminService.getSolicitudes({
+                estado: undefined, // Fetch all to decide in frontend
+                solo_mias: !isManagementUser // If not manager/approver, only show mine
             });
 
-            // Filter strictly for "TODAY" as requested
-            const today = new Date().toDateString();
-            const todayNotifications = data.filter((sol: any) => {
-                const solDate = new Date(sol.fecha_revision || sol.fecha_solicitud).toDateString();
-                const isToday = solDate === today;
+            console.log("Bell Debug - Raw Solicitudes:", solicitudesData);
+            console.log("Bell Debug - Current User ID:", user?.id);
+            console.log("Bell Debug - Hidden Notifications:", hiddenNotifications);
 
-                if (isAdminArea) {
-                    // In admin area, we show pending items
-                    return isToday && sol.estado === 'PENDIENTE';
-                } else {
-                    // In other areas, we show results for the user
-                    const isResult = sol.estado === 'APROBADO' || sol.estado === 'RECHAZADA';
-                    return isToday && isResult;
+            // 1. Filter Equipment Requests
+            const filteredEquipos = solicitudesData.filter((sol: any) => {
+                const isPending = sol.estado === 'PENDIENTE';
+                const isResult = sol.estado === 'APROBADO' || sol.estado === 'RECHAZADA' || sol.estado === 'RECHAZADO';
+                const sec = sol.seccion_solicitante;
+                const isMaSection = ['GEM', 'GER', 'MAM', 'MA', 'Medio Ambiente', 'AY', 'VI', 'PM', 'PA', 'CH', 'CM', 'CN', 'Terreno'].includes(sec);
+
+                if (isPending) {
+                    // 1. Global Managers (SuperAdmin or Quality Control) see everything pending
+                    if (isSuper || isGCMan) return true;
+
+                    // 2. Area Managers/Users with Receive OR Send permission see Area sections
+                    if (isMAMan && isMaSection) return true;
+
+                    // 3. ICT Managers
+                    if (isINFMan && sec === 'INF') return true;
+
+                    // 4. Default: Requesters see their own pending items
+                    return String(sol.usuario_solicita) === String(user?.id);
                 }
+
+                if (isResult) {
+                    const isMyOwn = String(sol.usuario_solicita) === String(user?.id);
+
+                    if (!isMyOwn) return false;
+
+                    // Results are only for TODAY as requested by user
+                    if (!sol.fecha_revision) {
+                        console.log(`Bell Debug - Solicitud ${sol.id_solicitud} excluded: No revision date`);
+                        return false;
+                    }
+
+                    try {
+                        const revDate = new Date(sol.fecha_revision);
+                        const today = new Date();
+
+                        const isSameDay = revDate.getDate() === today.getDate() &&
+                            revDate.getMonth() === today.getMonth() &&
+                            revDate.getFullYear() === today.getFullYear();
+
+                        console.log(`Bell Debug - Result ${sol.id_solicitud}: rev=${revDate.toLocaleDateString()}, today=${today.toLocaleDateString()}, isSameDay=${isSameDay}`);
+
+                        return isSameDay;
+                    } catch (e) {
+                        return false;
+                    }
+                }
+
+                console.log(`Bell Debug - Solicitud ${sol.id_solicitud} excluded: state=${sol.estado}`);
+                return false;
             });
 
-            setNotifications(todayNotifications);
+            console.log("Bell Debug - Final count:", filteredEquipos.length);
+
+            // 3. Map to common shape
+            const equipmentNotifs = filteredEquipos.map((e: any) => {
+                const isMyOwn = String(e.usuario_solicita) === String(user?.id);
+                const isPending = e.estado === 'PENDIENTE';
+                const isManagerReview = isManagementUser && isPending && !isMyOwn;
+
+                let tag = e.tipo_solicitud;
+                let tagColor = e.tipo_solicitud === 'ALTA' ? '#dcfce7' : e.tipo_solicitud === 'TRASPASO' ? '#dbeafe' : '#fee2e2';
+                let tagTextColor = e.tipo_solicitud === 'ALTA' ? '#166534' : e.tipo_solicitud === 'TRASPASO' ? '#1e40af' : '#991b1b';
+
+                if (!isManagerReview) {
+                    // Requester view or Manager seeing their own result: prioritize STATUS
+                    if (isPending) {
+                        tag = 'PENDIENTE';
+                        tagColor = '#fef3c7';
+                        tagTextColor = '#92400e';
+                    } else {
+                        const isApproved = e.estado === 'APROBADO';
+                        tag = isApproved ? 'APROBADA' : 'RECHAZADA';
+                        tagColor = isApproved ? '#dcfce7' : '#fee2e2';
+                        tagTextColor = isApproved ? '#166534' : '#991b1b';
+                    }
+                }
+
+                const typeLabel = e.tipo_solicitud === 'ALTA' ? 'Alta' : e.tipo_solicitud === 'TRASPASO' ? 'Traspaso' : 'Baja';
+
+                return {
+                    id: `${e.id_solicitud}-${e.estado}`, // ID único por estado para invalidar descartes previos
+                    type: 'EQUIPO',
+                    title: e.tipo_solicitud === 'ALTA' ? (e.datos_json?.nombre || 'Equipo') :
+                        e.tipo_solicitud === 'BAJA' ? (e.datos_json?.codigo || 'Baja') :
+                            (e.datos_json?.codigo || 'Traspaso'),
+                    subtitle: isPending
+                        ? `${typeLabel} • ${e.nombre_solicitante || 'Usuario'} • ${new Date(e.fecha_solicitud).toLocaleDateString()}`
+                        : `${typeLabel} • ${e.nombre_revisor || 'Revisor'} • ${new Date(e.fecha_revision).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+                    tag,
+                    tagColor,
+                    tagTextColor,
+                    original: e
+                };
+            });
+
+            const fichaNotifs: any[] = []; // Explicitly removed as per user request
+
+            setNotifications([...equipmentNotifs, ...fichaNotifs]);
         } catch (error) {
             console.error("Error fetching global notifications:", error);
+        }
+    };
+
+    const handleNotificationClick = (item: any) => {
+        // 1. Initial State
+        setShowNotifications(false);
+
+        // 2. Routing and Marking as Read
+        if (item.type === 'EQUIPO') {
+            const sol = item.original;
+            if (sol.estado === 'PENDIENTE') {
+                // Actionable item: Do NOT hide notification
+                if (sol.seccion_solicitante === 'INF') {
+                    setActiveModule('informatica');
+                } else if (['GES', 'GEM', 'GER', 'MAM', 'MA', 'Medio Ambiente', 'AY', 'VI', 'PM', 'PA', 'CH', 'CM', 'CN', 'Terreno'].includes(sol.seccion_solicitante)) {
+                    // Decide redirection: Approvers (Global Quality Control or Admin) vs Requesters (MA users)
+                    const isApprover = hasPermission('AI_GC_ACCESO') || hasPermission('AI_GC_EQUIPOS') || hasPermission('MA_ADMIN_ACCESO');
+                    const sub = isApprover ? 'gc-equipos' : 'ma-solicitudes';
+
+                    setActiveModule('admin_informacion');
+                    setActiveSubmodule(sub);
+                    setPendingRequestId(sol.id_solicitud);
+                } else {
+                    setActiveModule('admin_informacion');
+                    setPendingRequestId(sol.id_solicitud);
+                }
+            } else {
+                // Result item: Hide notification + Show Modal
+                hideNotification(item.id);
+                setSelectedNotification(sol);
+            }
+        }
+        else if (item.type === 'FICHA') {
+            // Actionable item: Do NOT hide notification
+            setActiveModule('medio_ambiente');
+            setActiveSubmodule('ma-fichas-ingreso');
         }
     };
 
@@ -122,6 +259,24 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
     const handleLogout = () => {
         logout();
     };
+
+    const canAccessModule = (module: any) => {
+        if (!module.permission) return true;
+        // hasPermission now internally handles Super Admin (MA_ADMIN_ACCESO) bypass
+        if (hasPermission(module.permission)) return true;
+        // Special case for AI: Any area access grants hub access
+        if (module.id === 'admin_informacion') {
+            return [
+                'AI_GEM_ACCESO', 'AI_MA_ACCESO', 'AI_INF_ACCESO', 'AI_NEC_ACCESO',
+                'AI_MIC_ACCESO', 'AI_BM_ACCESO', 'AI_CC_ACCESO', 'AI_BAC_ACCESO',
+                'AI_SCR_ACCESO', 'AI_DER_ACCESO', 'AI_ATL_ACCESO', 'AI_ID_ACCESO',
+                'AI_PVE_ACCESO', 'AI_COM_ACCESO', 'AI_GC_ACCESO', 'AI_ADM_ACCESO'
+            ].some(p => hasPermission(p));
+        }
+        return false;
+    };
+
+    const visibleModules = MODULES.filter(m => m.type === 'divider' || canAccessModule(m));
 
     const handleModuleClick = (mod: any) => {
         if (mod.type === 'divider') return;
@@ -165,7 +320,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                 <div className="sidebar-menu">
                     <div style={{ padding: '0 0.8rem 0.5rem', fontSize: '0.7rem', fontWeight: 'bold', color: '#a1a1aa', letterSpacing: '0.5px' }}>UNIDADES</div>
 
-                    {MODULES.filter(mod => !mod.permission || hasPermission(mod.permission)).map((mod) => (
+                    {visibleModules.map((mod) => (
                         mod.type === 'divider' ? (
                             <div key={mod.id} style={{ height: '1px', backgroundColor: '#e4e4e7', margin: '0.5rem 1rem' }} />
                         ) : (
@@ -220,7 +375,12 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                         <div className="drawer-content">
                             {getSubmodules().length > 0 ? (
                                 getSubmodules()
-                                    .filter(item => !item.permission || hasPermission(item.permission))
+                                    .filter(item => {
+                                        if (item.id === 'ma-solicitudes') {
+                                            return hasPermission('AI_MA_SOLICITUDES') || hasPermission('AI_MA_NOTIF_ENV') || hasPermission('MA_ADMIN_ACCESO');
+                                        }
+                                        return !item.permission || hasPermission(item.permission);
+                                    })
                                     .map((item, index) => (
                                         item.category ? (
                                             <div key={index} className="submodule-category">{item.category}</div>
@@ -293,7 +453,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
                                 <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
                             </svg>
-                            {notifications.filter(n => !hiddenNotifications.includes(n.id_solicitud)).length > 0 && (
+                            {notifications.filter(n => !hiddenNotifications.includes(String(n.id))).length > 0 && (
                                 <span style={{
                                     position: 'absolute',
                                     top: '4px',
@@ -311,7 +471,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                                     padding: '0 4px',
                                     border: '2px solid white'
                                 }}>
-                                    {notifications.filter(n => !hiddenNotifications.includes(n.id_solicitud)).length}
+                                    {notifications.filter(n => !hiddenNotifications.includes(String(n.id))).length}
                                 </span>
                             )}
                         </button>
@@ -331,20 +491,22 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                                 overflow: 'hidden'
                             }}>
                                 <div style={{ padding: '1rem', borderBottom: '1px solid #f1f5f9', fontWeight: 600, fontSize: '0.9rem', color: '#1e293b', display: 'flex', justifyContent: 'space-between' }}>
-                                    <span>{activeModule === 'admin_informacion' ? 'Solicitudes Pendientes' : 'Resultados de Solicitudes'}</span>
+                                    <span>{notifications.some(n => n.tag === 'PENDIENTE' || !['APROBADA', 'RECHAZADA'].includes(n.tag))
+                                        ? 'Solicitudes Pendientes'
+                                        : 'Notificaciones de Usuario'}</span>
                                     <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 400 }}>{new Date().toLocaleDateString()}</span>
                                 </div>
                                 <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
-                                    {notifications.filter(n => !hiddenNotifications.includes(n.id_solicitud)).length === 0 ? (
+                                    {notifications.filter(n => !hiddenNotifications.includes(String(n.id))).length === 0 ? (
                                         <div style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>
-                                            No hay notificaciones para hoy
+                                            No hay notificaciones pendientes
                                         </div>
                                     ) : (
                                         notifications
-                                            .filter(n => !hiddenNotifications.includes(n.id_solicitud))
-                                            .map((sol) => (
+                                            .filter(n => !hiddenNotifications.includes(String(n.id)))
+                                            .map((item) => (
                                                 <div
-                                                    key={sol.id_solicitud}
+                                                    key={item.id}
                                                     style={{
                                                         padding: '0.75rem 1rem',
                                                         borderBottom: '1px solid #f8fafc',
@@ -356,29 +518,33 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                                                     onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
                                                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                                                 >
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem', paddingRight: '1.5rem' }}>
+                                                    <div
+                                                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem', paddingRight: '1.5rem' }}
+                                                        onClick={() => handleNotificationClick(item)}
+                                                    >
                                                         <span style={{
                                                             fontSize: '0.6rem',
                                                             fontWeight: 'bold',
-                                                            background: sol.tipo_solicitud === 'ALTA' ? '#dcfce7' : sol.tipo_solicitud === 'TRASPASO' ? '#dbeafe' : '#fee2e2',
-                                                            color: sol.tipo_solicitud === 'ALTA' ? '#166534' : sol.tipo_solicitud === 'TRASPASO' ? '#1e40af' : '#991b1b',
+                                                            background: item.tagColor,
+                                                            color: item.tagTextColor,
                                                             padding: '1px 5px',
                                                             borderRadius: '3px'
-                                                        }}>{sol.tipo_solicitud}</span>
+                                                        }}>{item.tag}</span>
                                                         <span style={{ fontWeight: 600, color: '#334155', fontSize: '0.8rem' }}>
-                                                            {sol.tipo_solicitud === 'ALTA' ? (sol.datos_json?.nombre || 'Equipo') :
-                                                                sol.tipo_solicitud === 'BAJA' ? (sol.datos_json?.codigo || 'Baja') :
-                                                                    (sol.datos_json?.codigo || 'Traspaso')}
+                                                            {item.title}
                                                         </span>
                                                     </div>
-                                                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                                                        {sol.nombre_solicitante || 'Usuario'} • {new Date(sol.fecha_solicitud).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    <div
+                                                        style={{ fontSize: '0.75rem', color: '#64748b' }}
+                                                        onClick={() => handleNotificationClick(item)}
+                                                    >
+                                                        {item.subtitle}
                                                     </div>
 
                                                     <button
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            setHiddenNotifications(prev => [...prev, sol.id_solicitud]);
+                                                            hideNotification(item.id);
                                                         }}
                                                         style={{
                                                             position: 'absolute',
@@ -431,13 +597,68 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                         )}
                     </div>
                 </div>
-            </header>
+            </header >
 
             {/* --- Contenido Principal --- */}
-            <main className="app-content">
+            < main className="app-content" >
                 {children}
-            </main>
+            </main >
 
-        </div>
+            {/* Modal de Resultado de Solicitud */}
+            {
+                selectedNotification && (
+                    <div className="modal-overlay" style={{ zIndex: 9999 }}>
+                        <div className="modal-content animate-pop-in" style={{ maxWidth: '400px', padding: '2rem', textAlign: 'center' }}>
+                            <div style={{
+                                width: '64px',
+                                height: '64px',
+                                borderRadius: '32px',
+                                background: selectedNotification.estado === 'APROBADO' ? '#dcfce7' : '#fee2e2',
+                                color: selectedNotification.estado === 'APROBADO' ? '#166534' : '#991b1b',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                margin: '0 auto 1.5rem',
+                                fontSize: '2rem'
+                            }}>
+                                {selectedNotification.estado === 'APROBADO' ? '✓' : '✕'}
+                            </div>
+
+                            <h2 style={{ fontSize: '1.5rem', marginBottom: '0.5rem', color: '#1e293b' }}>
+                                Solicitud {selectedNotification.estado === 'APROBADO' ? 'Aprobada' : 'Rechazada'}
+                            </h2>
+                            <p style={{ color: '#64748b', marginBottom: '1.5rem' }}>
+                                Tu solicitud de <strong>{selectedNotification.tipo_solicitud}</strong> para el equipo
+                                <strong> {selectedNotification.datos_json?.codigo || selectedNotification.datos_json?.nombre}</strong> ha sido procesada.
+                            </p>
+
+                            {selectedNotification.feedback_admin && (
+                                <div style={{
+                                    background: '#f8fafc',
+                                    padding: '1rem',
+                                    borderRadius: '8px',
+                                    marginBottom: '1.5rem',
+                                    fontSize: '0.9rem',
+                                    color: '#475569',
+                                    borderLeft: '4px solid #cbd5e1',
+                                    textAlign: 'left'
+                                }}>
+                                    <strong>Comentarios:</strong><br />
+                                    {selectedNotification.feedback_admin}
+                                </div>
+                            )}
+
+                            <button
+                                className="btn-primary"
+                                style={{ width: '100%' }}
+                                onClick={() => setSelectedNotification(null)}
+                            >
+                                Entendido
+                            </button>
+                        </div>
+                    </div>
+                )
+            }
+        </div >
     );
 };
