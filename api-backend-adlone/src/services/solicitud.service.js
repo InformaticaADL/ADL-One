@@ -1,6 +1,7 @@
 import sql from '../config/database.js';
 import { getConnection } from '../config/database.js';
 import logger from '../utils/logger.js';
+import notificationService from './notification.service.js';
 
 class SolicitudService {
     async create(data) {
@@ -15,7 +16,40 @@ class SolicitudService {
                     VALUES (@tipo, 'PENDIENTE', @datos, @usuario, GETDATE());
                     SELECT SCOPE_IDENTITY() AS id;
                 `);
-            return { success: true, id: result.recordset[0].id };
+
+            const newId = result.recordset[0].id;
+
+            // Enviar notificación a administradores
+            try {
+                const userResult = await pool.request()
+                    .input('id', sql.Numeric(10, 0), data.usuario_solicita)
+                    .query("SELECT nombre_usuario FROM mae_usuario WHERE id_usuario = @id");
+
+                const userName = userResult.recordset[0]?.nombre_usuario || 'Usuario';
+
+                let tipoLabel = data.tipo_solicitud;
+                if (tipoLabel === 'ALTA') {
+                    tipoLabel = data.datos_json?.isReactivation ? 'Activación de Equipo' : 'Registro de Nuevo Equipo';
+                } else if (tipoLabel === 'BAJA') {
+                    tipoLabel = 'Baja de Equipo';
+                } else if (tipoLabel === 'TRASPASO') {
+                    tipoLabel = 'Traspaso de Equipo';
+                }
+
+                notificationService.send('SOL_EQUIPO_NUEVA', {
+                    CORRELATIVO: newId,
+                    TIPO_SOLICITUD: tipoLabel,
+                    USUARIO: userName,
+                    FECHA: new Date().toLocaleDateString('es-CL'),
+                    HORA: new Date().toLocaleTimeString('es-CL'),
+                    OBSERVACION: data.datos_json?.motivo || 'Sin observaciones',
+                    equipos: this._getEquiposList(data.tipo_solicitud, data.datos_json)
+                });
+            } catch (notifyError) {
+                logger.error('Error sending new solicitud notification:', notifyError);
+            }
+
+            return { success: true, id: newId };
         } catch (error) {
             logger.error('Error creating solicitud:', error);
             throw error;
@@ -91,7 +125,7 @@ class SolicitudService {
             const solInfo = await pool.request()
                 .input('id', sql.Numeric(10, 0), id)
                 .query(`
-                    SELECT s.usuario_solicita, s.tipo_solicitud, u.correo_electronico, u.nombre_usuario
+                    SELECT s.usuario_solicita, s.tipo_solicitud, s.datos_json, u.correo_electronico, u.nombre_usuario
                     FROM mae_solicitud_equipo s
                     JOIN mae_usuario u ON s.usuario_solicita = u.id_usuario
                     WHERE s.id_solicitud = @id
@@ -120,11 +154,107 @@ class SolicitudService {
 
             await request.query(query);
 
+            // Enviar notificación de resultado al solicitante
+            try {
+                const sol = solInfo.recordset[0];
+                const adminResult = await pool.request()
+                    .input('id', sql.Numeric(10, 0), adminId)
+                    .query("SELECT nombre_usuario FROM mae_usuario WHERE id_usuario = @id");
+
+                const adminName = adminResult.recordset[0]?.nombre_usuario || 'Administrador';
+                const solDatos = JSON.parse(sol.datos_json);
+
+                let eventCode = '';
+                const statusSuffix = status === 'APROBADO' ? 'APR' : 'RECH';
+                const type = sol.tipo_solicitud;
+                let tipoLabel = type;
+
+                if (type === 'TRASPASO') {
+                    eventCode = `SOL_EQUIPO_TRASPASO_${statusSuffix}`;
+                    tipoLabel = 'Traspaso de Equipo';
+                } else if (type === 'BAJA') {
+                    eventCode = `SOL_EQUIPO_BAJA_${statusSuffix}`;
+                    tipoLabel = 'Baja de Equipo';
+                } else if (type === 'ALTA') {
+                    const isReac = solDatos?.isReactivation || false;
+                    eventCode = isReac ? `SOL_EQUIPO_REAC_${statusSuffix}` : `SOL_EQUIPO_ALTA_${statusSuffix}`;
+                    tipoLabel = isReac ? 'Activación de Equipo' : 'Registro de Nuevo Equipo';
+                }
+
+                if (eventCode) {
+                    notificationService.send(eventCode, {
+                        CORRELATIVO: id,
+                        TIPO_SOLICITUD: tipoLabel,
+                        USUARIO: adminName,
+                        FECHA: new Date().toLocaleDateString('es-CL'),
+                        HORA: new Date().toLocaleTimeString('es-CL'),
+                        OBSERVACION: feedback || (status === 'APROBADO' ? 'Aprobado correctamente' : 'Sin motivo especificado'),
+                        directEmails: sol.correo_electronico,
+                        equipos: this._getEquiposList(type, solDatos)
+                    });
+                }
+            } catch (notifyError) {
+                logger.error('Error sending result notification:', notifyError);
+            }
+
             return { success: true };
         } catch (error) {
             logger.error('Error updating solicitud status:', error);
             throw error;
         }
+    }
+
+    _getEquiposList(type, solDatos) {
+        if (!solDatos) return [];
+
+        if (type === 'ALTA') {
+            if (solDatos.isReactivation && solDatos.equipos_alta) {
+                return solDatos.equipos_alta.map(e => ({
+                    nombre: e.nombre,
+                    codigo: e.codigo,
+                    tipo: e.tipo,
+                    marca: e.marca,
+                    modelo: e.modelo,
+                    serie: e.serie,
+                    ubicacion: e.ubicacion,
+                    vigencia: e.vigencia
+                }));
+            } else {
+                return [{
+                    nombre: solDatos.nombre,
+                    codigo: solDatos.correlativo ? `${solDatos.sigla}-${solDatos.correlativo}` : solDatos.codigo,
+                    tipo: solDatos.tipo,
+                    marca: solDatos.marca,
+                    modelo: solDatos.modelo,
+                    serie: solDatos.serie,
+                    ubicacion: solDatos.ubicacion,
+                    vigencia: solDatos.vigencia,
+                    responsable: solDatos.responsable || solDatos.responsable_nombre
+                }];
+            }
+        } else if (type === 'BAJA') {
+            const list = solDatos.equipos_baja || [];
+            return list.map(e => ({
+                nombre: e.nombre,
+                codigo: e.codigo,
+                tipo: e.tipo,
+                marca: e.marca,
+                modelo: e.modelo,
+                serie: e.serie,
+                ubicacion: e.ubicacion
+            }));
+        } else if (type === 'TRASPASO') {
+            return [{
+                nombre: solDatos.equipo_nombre,
+                codigo: solDatos.equipo_codigo,
+                tipo: solDatos.equipo_tipo,
+                ubicacion: solDatos.ubicacion_actual,
+                nueva_ubicacion: solDatos.nueva_ubicacion,
+                responsable: solDatos.nuevo_responsable_nombre,
+                vigencia: solDatos.vigencia
+            }];
+        }
+        return [];
     }
 }
 

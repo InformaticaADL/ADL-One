@@ -218,10 +218,31 @@ class NotificationService {
             output = output.split('{SERVICIOS_DETALLE}').join(serviciosHtml);
         }
 
+        // 2.1 Handle EQUIPOS_DETALLE (dynamic array processing for equipment)
+        if (context.equipos && Array.isArray(context.equipos)) {
+            const equiposHtml = context.equipos.map((equipo, index) => `
+                <div style="margin-bottom: 15px; padding: 12px; background: white; border-left: 4px solid #0062a8; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <strong style="color: #0062a8; font-size: 14px; font-family: Arial, sans-serif;">${equipo.nombre || 'Equipo'}</strong><br>
+                    <div style="margin-top: 8px; color: #333; font-size: 13px; line-height: 1.6; font-family: Arial, sans-serif;">
+                        ${equipo.codigo ? `<div style="margin-bottom: 2px;">🏷️ <strong>Código:</strong> ${equipo.codigo}</div>` : ''}
+                        ${equipo.tipo ? `<div style="margin-bottom: 2px;">🔧 <strong>Tipo:</strong> ${equipo.tipo}</div>` : ''}
+                        ${equipo.marca ? `<div style="margin-bottom: 2px;">🏢 <strong>Marca:</strong> ${equipo.marca} ${equipo.modelo ? `(${equipo.modelo})` : ''}</div>` : ''}
+                        ${equipo.serie ? `<div style="margin-bottom: 2px;">🔢 <strong>Serie:</strong> ${equipo.serie}</div>` : ''}
+                        ${equipo.ubicacion ? `<div style="margin-bottom: 2px;">📍 <strong>Ubicación Actual:</strong> ${equipo.ubicacion}</div>` : ''}
+                        ${equipo.nueva_ubicacion ? `<div style="margin-bottom: 2px;">➡️ <strong>Nueva Ubicación:</strong> ${equipo.nueva_ubicacion}</div>` : ''}
+                        ${equipo.responsable ? `<div style="margin-bottom: 2px;">👤 <strong>Responsable:</strong> ${equipo.responsable}</div>` : ''}
+                        ${equipo.vigencia ? `<div style="margin-bottom: 2px;">📅 <strong>Vigencia:</strong> ${equipo.vigencia}</div>` : ''}
+                    </div>
+                </div>
+            `).join('');
+
+            output = output.split('{EQUIPOS_DETALLE}').join(equiposHtml);
+        }
+
         // 3. Replace all other placeholders
         for (const [key, value] of Object.entries(context)) {
-            // Skip servicios array (already processed)
-            if (key === 'servicios') continue;
+            // Skip servicios and equipos arrays (already processed)
+            if (key === 'servicios' || key === 'equipos') continue;
 
             const val = value || '';
 

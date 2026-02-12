@@ -181,7 +181,12 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                     }
                 }
 
-                const typeLabel = e.tipo_solicitud === 'ALTA' ? 'Alta' : e.tipo_solicitud === 'TRASPASO' ? 'Traspaso' : 'Baja';
+                let typeLabel = e.tipo_solicitud === 'ALTA' ? 'Alta' : e.tipo_solicitud === 'TRASPASO' ? 'Traspaso' : 'Baja';
+                if (e.tipo_solicitud === 'ALTA' && e.datos_json?.isReactivation) {
+                    typeLabel = 'Activación';
+                } else if (e.tipo_solicitud === 'ALTA') {
+                    typeLabel = 'Registro Nuevo';
+                }
 
                 return {
                     id: `${e.id_solicitud}-${e.estado}`, // ID único por estado para invalidar descartes previos
