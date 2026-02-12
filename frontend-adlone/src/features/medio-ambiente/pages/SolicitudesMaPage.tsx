@@ -133,25 +133,7 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
         }
     }, [pendingRequestId, history, pendingRequests, setPendingRequestId]);
 
-    useEffect(() => {
-        if (type === 'ALTA' && altaSubtype === 'ACTIVAR' && equiposAlta.length > 0) {
-            const currentMotivo = formData.motivo || '';
 
-            // Collect codes that are not already in the motive
-            const newCodes = equiposAlta
-                .map(eq => eq.datos_originales?.codigo)
-                .filter(code => code && !currentMotivo.includes(`${code}: `));
-
-            if (newCodes.length > 0) {
-                const prefix = currentMotivo.length > 0 && !currentMotivo.endsWith('\n') ? '\n' : '';
-                const linesToAdd = newCodes.map(code => `${code}: `).join('\n');
-                setFormData(prev => ({
-                    ...prev,
-                    motivo: currentMotivo + prefix + linesToAdd
-                }));
-            }
-        }
-    }, [equiposAlta, type, altaSubtype]);
 
     useEffect(() => {
         const canGenerate = altaSubtype === 'CREAR' &&
@@ -213,7 +195,18 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
                     nuevo_responsable_id: matchingNuevoResponsable?.id_muestreador || null,
                     // If it's BAJA or ALTA Reactivation, we send lists
                     equipos_baja: type === 'BAJA' ? equiposBaja : null,
-                    equipos_alta: (type === 'ALTA' && isReactivation) ? equiposAlta : null
+                    equipos_alta: (type === 'ALTA' && isReactivation) ? equiposAlta : null,
+                    // For Transfer, include current details for email comparison
+                    ...(type === 'TRASPASO' && (() => {
+                        const originalEq = equipos.find(e => String(e.id_equipo) === formData.id_equipo);
+                        return originalEq ? {
+                            equipo_nombre: originalEq.nombre,
+                            equipo_codigo: originalEq.codigo,
+                            equipo_tipo: originalEq.tipo,
+                            ubicacion_actual: originalEq.ubicacion,
+                            responsable_actual: originalEq.nombre_asignado
+                        } : {};
+                    })())
                 }
             };
 
@@ -359,7 +352,7 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
                                                         background: sol.tipo_solicitud === 'ALTA' ? '#dcfce7' : sol.tipo_solicitud === 'TRASPASO' ? '#dbeafe' : '#fee2e2',
                                                         color: sol.tipo_solicitud === 'ALTA' ? '#166534' : sol.tipo_solicitud === 'TRASPASO' ? '#1e40af' : '#991b1b'
                                                     }}>
-                                                        {sol.tipo_solicitud}
+                                                        {sol.tipo_solicitud === 'ALTA' ? (sol.datos_json?.isReactivation ? 'ACTIVACIÓN' : 'CREACIÓN') : sol.tipo_solicitud}
                                                     </span>
                                                     <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
                                                         {new Date(sol.fecha_solicitud).toLocaleDateString()}
@@ -642,6 +635,10 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
                                             <label className="form-label">Fecha de Vigencia</label>
                                             <input type="date" name="vigencia" value={formData.vigencia} onChange={handleChange} className="form-input" required />
                                         </div>
+                                        <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                                            <label className="form-label">Observaciones (Opcional)</label>
+                                            <textarea name="motivo" value={formData.motivo} onChange={handleChange} className="form-input" style={{ height: '80px', resize: 'vertical' }} placeholder="Ingrese cualquier observación relevante..."></textarea>
+                                        </div>
 
                                         <div style={{ gridColumn: 'span 2', display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem', borderTop: '1px solid #f1f5f9', paddingTop: '1.5rem' }}>
                                             <button
@@ -668,6 +665,8 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
                                 ) : (
                                     altaSubtype === 'ACTIVAR' && (
                                         <>
+                                            {/* Selector de Responsable Eliminado por solicitud de usuario */}
+
                                             {/* List of selected equipment for activation with individual vigencia */}
                                             {equiposAlta.length > 0 && (
                                                 <div style={{ gridColumn: 'span 2', marginTop: '1rem' }}>
@@ -727,6 +726,11 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
                                             )}
 
 
+
+                                            <div className="form-group" style={{ gridColumn: 'span 2', marginTop: '1rem' }}>
+                                                <label className="form-label">Observaciones (Opcional)</label>
+                                                <textarea name="motivo" value={formData.motivo} onChange={handleChange} className="form-input" style={{ height: '80px', resize: 'vertical' }} placeholder="Ingrese observaciones adicionales..."></textarea>
+                                            </div>
 
                                             <div style={{ gridColumn: 'span 2', display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
                                                 <button
@@ -843,6 +847,10 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
                                         required
                                     />
                                 </div>
+                                <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                                    <label className="form-label">Observaciones (Opcional)</label>
+                                    <textarea name="motivo" value={formData.motivo} onChange={handleChange} className="form-input" style={{ height: '80px', resize: 'vertical' }} placeholder="Motivo del traspaso u observaciones..."></textarea>
+                                </div>
                                 <div style={{ gridColumn: 'span 2', display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
                                     <button
                                         type="submit"
@@ -877,7 +885,14 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
                                         onChange={(val) => {
                                             const eq = equipos.find(e => String(e.id_equipo) === val);
                                             if (eq && !equiposBaja.find(b => b.id === val)) {
-                                                setEquiposBaja(prev => [...prev, { id: String(eq.id_equipo), nombre: eq.nombre + ' (' + eq.codigo + ')' }]);
+                                                setEquiposBaja(prev => [...prev, {
+                                                    id: String(eq.id_equipo),
+                                                    nombre: eq.nombre,
+                                                    codigo: eq.codigo,
+                                                    tipo: eq.tipo,
+                                                    responsable: eq.nombre_asignado,  // Ensure this field exists in 'equipos'
+                                                    ubicacion: eq.ubicacion
+                                                }]);
                                             }
                                         }}
                                         options={equipos
@@ -923,8 +938,8 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
                                     )}
                                 </div>
                                 <div className="form-group" style={{ gridColumn: 'span 2' }}>
-                                    <label className="form-label">Motivo de la Baja</label>
-                                    <textarea name="motivo" value={formData.motivo} onChange={handleChange} className="form-input" style={{ height: '100px', resize: 'vertical' }} required placeholder="Explique el motivo de la baja del equipo..."></textarea>
+                                    <label className="form-label">Observaciones</label>
+                                    <textarea name="motivo" value={formData.motivo} onChange={handleChange} className="form-input" style={{ height: '100px', resize: 'vertical' }} required placeholder="Explique el motivo de la baja u otras observaciones..."></textarea>
                                 </div>
 
                                 <div style={{ gridColumn: 'span 2', display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
@@ -1009,7 +1024,7 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
                                         </div>
                                         <div>
                                             <div style={{ fontWeight: 600, color: '#111827', fontSize: '0.95rem', marginBottom: '0.15rem' }}>
-                                                {sol.tipo_solicitud === 'ALTA' ? (sol.datos_json.equipos_alta ? `${sol.datos_json.equipos_alta.length} Equipos` : sol.datos_json.nombre) : sol.datos_json.codigo}
+                                                {sol.tipo_solicitud === 'ALTA' ? (sol.datos_json?.isReactivation ? `Activación: ${sol.datos_json.equipos_alta?.length || 1} Equipos` : `Creación: ${sol.datos_json?.nombre || 'Equipo'}`) : (sol.tipo_solicitud === 'TRASPASO' ? `Traspaso: ${sol.datos_json?.equipo_nombre || sol.datos_json?.codigo || 'Equipo'}` : `Baja: ${sol.datos_json?.equipos_baja?.length || 1} Equipos`)}
                                             </div>
                                             <div style={{ fontSize: '0.8rem', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                                 <span>Enviado: {new Date(sol.fecha_solicitud).toLocaleDateString()}</span>
@@ -1092,7 +1107,7 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
                                 </>
                             ) : (
                                 <h3 className="modal-title" style={{ color: 'white', margin: 0 }}>
-                                    Detalle de Solicitud: {selectedRequest.tipo_solicitud}
+                                    Detalle de Solicitud: {selectedRequest.tipo_solicitud === 'ALTA' ? (selectedRequest.datos_json?.isReactivation ? 'Activación' : 'Creación de Equipo') : (selectedRequest.tipo_solicitud === 'TRASPASO' ? 'Traspaso' : 'Baja')}
                                 </h3>
                             )}
                         </div>

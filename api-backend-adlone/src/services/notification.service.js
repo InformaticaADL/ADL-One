@@ -220,24 +220,74 @@ class NotificationService {
 
         // 2.1 Handle EQUIPOS_DETALLE (dynamic array processing for equipment)
         if (context.equipos && Array.isArray(context.equipos)) {
-            const equiposHtml = context.equipos.map((equipo, index) => `
-                <div style="margin-bottom: 15px; padding: 12px; background: white; border-left: 4px solid #0062a8; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                    <strong style="color: #0062a8; font-size: 14px; font-family: Arial, sans-serif;">${equipo.nombre || 'Equipo'}</strong><br>
-                    <div style="margin-top: 8px; color: #333; font-size: 13px; line-height: 1.6; font-family: Arial, sans-serif;">
-                        ${equipo.codigo ? `<div style="margin-bottom: 2px;">🏷️ <strong>Código:</strong> ${equipo.codigo}</div>` : ''}
-                        ${equipo.tipo ? `<div style="margin-bottom: 2px;">🔧 <strong>Tipo:</strong> ${equipo.tipo}</div>` : ''}
-                        ${equipo.marca ? `<div style="margin-bottom: 2px;">🏢 <strong>Marca:</strong> ${equipo.marca} ${equipo.modelo ? `(${equipo.modelo})` : ''}</div>` : ''}
-                        ${equipo.serie ? `<div style="margin-bottom: 2px;">🔢 <strong>Serie:</strong> ${equipo.serie}</div>` : ''}
-                        ${equipo.ubicacion ? `<div style="margin-bottom: 2px;">📍 <strong>Ubicación Actual:</strong> ${equipo.ubicacion}</div>` : ''}
-                        ${equipo.nueva_ubicacion ? `<div style="margin-bottom: 2px;">➡️ <strong>Nueva Ubicación:</strong> ${equipo.nueva_ubicacion}</div>` : ''}
-                        ${equipo.responsable ? `<div style="margin-bottom: 2px;">👤 <strong>Responsable:</strong> ${equipo.responsable}</div>` : ''}
-                        ${equipo.vigencia ? `<div style="margin-bottom: 2px;">📅 <strong>Vigencia:</strong> ${equipo.vigencia}</div>` : ''}
-                    </div>
-                </div>
-            `).join('');
+            const equiposHtml = context.equipos.map((equipo, index) => {
+                if (equipo.isTransfer) {
+                    return `
+                        <div style="margin-bottom: 20px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+                            <div style="background: white; color: #0062a8; padding: 10px 15px; font-weight: bold; font-family: Arial, sans-serif; font-size: 14px; border-bottom: 2px solid #0062a8;">
+                                ${equipo.nombre} <span style="font-weight: normal; color: #555;">(${equipo.codigo})</span>
+                                <div style="font-size: 11px; margin-top: 2px; color: #666; font-weight: normal;">Tipo: ${equipo.tipo}</div>
+                            </div>
+                            <table width="100%" border="0" cellspacing="0" cellpadding="0" style="width:100%; border-collapse: collapse;">
+                                <tr>
+                                    <td width="50%" style="padding: 15px; border-right: 1px solid #e2e8f0; vertical-align: top; background-color: #f8fafc;">
+                                        <div style="color: #64748b; font-size: 11px; text-transform: uppercase; font-weight: bold; margin-bottom: 8px; font-family: Arial;">Datos Actuales (Origen)</div>
+                                        <div style="margin-bottom: 6px; font-family: Arial; font-size: 13px; color: #334155;">
+                                            <div style="color: #94a3b8; font-size: 10px;">Ubicación:</div>
+                                            <strong>${equipo.datos_antiguos?.ubicacion || '-'}</strong>
+                                        </div>
+                                        <div style="font-family: Arial; font-size: 13px; color: #334155;">
+                                            <div style="color: #94a3b8; font-size: 10px;">Responsable:</div>
+                                            <strong>${equipo.datos_antiguos?.responsable || '-'}</strong>
+                                        </div>
+                                    </td>
+                                    <td width="50%" style="padding: 15px; vertical-align: top; background-color: #fff;">
+                                        <div style="color: #0062a8; font-size: 11px; text-transform: uppercase; font-weight: bold; margin-bottom: 8px; font-family: Arial;">Nuevos Datos (Destino)</div>
+                                        <div style="margin-bottom: 6px; font-family: Arial; font-size: 13px; color: #0f172a;">
+                                            <div style="color: #94a3b8; font-size: 10px;">Nueva Ubicación:</div>
+                                            <strong style="color: #0062a8;">${equipo.datos_nuevos?.ubicacion || '-'}</strong>
+                                        </div>
+                                        <div style="font-family: Arial; font-size: 13px; color: #0f172a;">
+                                            <div style="color: #94a3b8; font-size: 10px;">Nuevo Responsable:</div>
+                                            <strong style="color: #0062a8;">${equipo.datos_nuevos?.responsable || '-'}</strong>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    `;
+                } else {
+                    return `
+                        <div style="margin-bottom: 15px; padding: 12px; background: white; border-left: 4px solid #0062a8; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                            <strong style="color: #0062a8; font-size: 14px; font-family: Arial, sans-serif;">${equipo.nombre || 'Equipo'}</strong><br>
+                            <div style="margin-top: 8px; color: #333; font-size: 13px; line-height: 1.6; font-family: Arial, sans-serif;">
+                                ${equipo.codigo ? `<div style="margin-bottom: 2px;">🏷️ <strong>Código:</strong> ${equipo.codigo}</div>` : ''}
+                                ${equipo.tipo ? `<div style="margin-bottom: 2px;">🔧 <strong>Tipo:</strong> ${equipo.tipo}</div>` : ''}
+                                ${equipo.marca ? `<div style="margin-bottom: 2px;">🏢 <strong>Marca:</strong> ${equipo.marca} ${equipo.modelo ? `(${equipo.modelo})` : ''}</div>` : ''}
+                                ${equipo.serie ? `<div style="margin-bottom: 2px;">🔢 <strong>Serie:</strong> ${equipo.serie}</div>` : ''}
+                                ${equipo.ubicacion ? `<div style="margin-bottom: 2px;">📍 <strong>Ubicación Actual:</strong> ${equipo.ubicacion}</div>` : ''}
+                                ${equipo.nueva_ubicacion ? `<div style="margin-bottom: 2px;">➡️ <strong>Nueva Ubicación:</strong> ${equipo.nueva_ubicacion}</div>` : ''}
+                                ${equipo.responsable ? `<div style="margin-bottom: 2px;">👤 <strong>Responsable:</strong> ${equipo.responsable}</div>` : ''}
+                                ${equipo.vigencia ? `<div style="margin-bottom: 2px;">📅 <strong>Vigencia:</strong> ${equipo.vigencia}</div>` : ''}
+                                ${equipo.status ? `<div style="margin-top: 6px; font-size: 11px; color: ${equipo.status === 'RECHAZADO' ? '#dc2626' : '#16a34a'}; font-weight: bold; background: ${equipo.status === 'RECHAZADO' ? '#fee2e2' : '#dcfce7'}; padding: 2px 8px; border-radius: 4px; display: inline-block;">${equipo.status}</div>` : ''}
+                            </div>
+                        </div>
+                    `;
+                }
+            }).join('');
 
             output = output.split('{EQUIPOS_DETALLE}').join(equiposHtml);
         }
+
+        // 2.2 Handle Dynamic Observation Block {BLOQUE_OBSERVACION|Label}
+        output = output.replace(/\{BLOQUE_OBSERVACION\|(.*?)\}/g, (match, label) => {
+            const obs = context.OBSERVACION;
+            // Check if observation exists and is not just "Sin observaciones" or empty
+            if (obs && obs.trim() !== '' && obs.trim().toLowerCase() !== 'sin observaciones' && obs.trim().toLowerCase() !== 'no especificado') {
+                return `<div style="margin-top:30px;padding:15px;background-color:#fffbf5;border-left:4px solid #0062a8;color:#666666;font-size:14px;font-family:Arial,sans-serif;"><strong>${label}:</strong><br>${obs}</div>`;
+            }
+            return '';
+        });
 
         // 3. Replace all other placeholders
         for (const [key, value] of Object.entries(context)) {

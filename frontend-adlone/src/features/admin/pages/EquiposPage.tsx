@@ -72,14 +72,16 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const [showMobileFilters, setShowMobileFilters] = useState(false);
     const [reviewSolicitud, setReviewSolicitud] = useState<any | null>(null);
     const [processingAction, setProcessingAction] = useState(false);
-    const [adminFeedback, setAdminFeedback] = useState('');
     const [showConfirmBajaModal, setShowConfirmBajaModal] = useState(false);
     const [showConfirmAltaModal, setShowConfirmAltaModal] = useState(false); // For Reactivations
     const [equipoBajaPending, setEquipoBajaPending] = useState<{ id: string; nombre: string; datos_json?: any; id_solicitud?: number } | null>(null);
-    const [equipoAltaPending, setEquipoAltaPending] = useState<{ id: string; nombre: string; codigo: string; originalId: number; datos_json?: any; id_solicitud?: number } | null>(null);
+    const [equipoAltaPending, setEquipoAltaPending] = useState<{ id: string; nombre: string; codigo: string; originalId: number; datos_json?: any; id_solicitud?: number; vigencia_propuesta?: string } | null>(null);
     const [reactivationVigencia, setReactivationVigencia] = useState<string>('');
     const [highlightedId, setHighlightedId] = useState<number | null>(null);
     const [showPendingList, setShowPendingList] = useState(false);
+    const [rejectionTarget, setRejectionTarget] = useState<{ type: 'SOLICITUD' | 'ITEM'; equipo?: any; bulkType?: 'ALTA' | 'BAJA' } | null>(null);
+    const [showRejectionReasonModal, setShowRejectionReasonModal] = useState(false);
+    const [localRejectionFeedback, setLocalRejectionFeedback] = useState('');
 
     const { showToast } = useToast();
     const [isSearchExpanded, setIsSearchExpanded] = useState(false);
@@ -140,8 +142,21 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     }, [showMobileFilters]);
 
     const handleNotificationClick = async (sol: any) => {
-        setReviewSolicitud(sol);
-        setAdminFeedback('');
+        const type = sol.tipo_solicitud;
+        const isAltaCreation = type === 'ALTA' && !sol.datos_json?.isReactivation;
+
+        if (isAltaCreation) {
+            // Direct to form
+            setSelectedEquipo({
+                ...sol.datos_json,
+                id_equipo: undefined,
+                requestId: sol.id_solicitud
+            } as any);
+            setViewMode('form');
+        } else {
+            // Show review modal as usual
+            setReviewSolicitud(sol);
+        }
     };
 
     // Notification link logic
@@ -296,23 +311,21 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     };
 
 
-    const handleReject = async () => {
+    const handleOpenGlobalRejection = () => {
         if (!reviewSolicitud) return;
+        setRejectionTarget({ type: 'SOLICITUD' });
+        setLocalRejectionFeedback('');
+        setShowRejectionReasonModal(true);
+    };
 
-        if (!adminFeedback.trim()) {
-            showToast({
-                type: 'error',
-                message: 'Debe ingresar un motivo para rechazar la solicitud',
-                duration: 5000
-            });
-            return;
-        }
+    const handleReject = async (feedback: string) => {
+        if (!reviewSolicitud) return;
 
         setProcessingAction(true);
         try {
-            await adminService.updateSolicitudStatus(reviewSolicitud.id_solicitud, 'RECHAZADA', adminFeedback);
+            await adminService.updateSolicitudStatus(reviewSolicitud.id_solicitud, 'RECHAZADA', feedback);
             showToast({ type: 'success', message: 'Solicitud rechazada correctamente', duration: 5000 });
-            hideNotification(reviewSolicitud.id_solicitud); // Persistent dismissal
+            hideNotification(`${reviewSolicitud.id_solicitud}-PENDIENTE`);
             setReviewSolicitud(null);
             loadSolicitudes();
         } catch (error) {
@@ -349,15 +362,19 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                         codigo: reviewSolicitud.datos_json.codigo || '',
                         originalId: reviewSolicitud.datos_json.id_equipo_original,
                         datos_json: reviewSolicitud.datos_json,
-                        id_solicitud: reviewSolicitud.id_solicitud
+                        id_solicitud: reviewSolicitud.id_solicitud,
+                        vigencia_propuesta: reviewSolicitud.datos_json.vigencia
                     });
+                    if (reviewSolicitud.datos_json.vigencia) {
+                        setReactivationVigencia(reviewSolicitud.datos_json.vigencia);
+                    }
                     setShowConfirmAltaModal(true);
-                    hideNotification(reviewSolicitud.id_solicitud);
+                    hideNotification(`${reviewSolicitud.id_solicitud}-PENDIENTE`);
                     setReviewSolicitud(null);
                     // Close background modal
                 } else {
                     showToast({ type: 'info', message: 'Rellene los campos para continuar', duration: 5000 });
-                    hideNotification(reviewSolicitud.id_solicitud);
+                    hideNotification(`${reviewSolicitud.id_solicitud}-PENDIENTE`);
                     setReviewSolicitud(null);
                     setSelectedEquipo({
                         ...reviewSolicitud.datos_json,
@@ -422,17 +439,21 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                     await adminService.updateSolicitudStatus(
                         equipoAltaPending.id_solicitud!,
                         'APROBADO',
-                        adminFeedback || 'Reactivación completada',
-                        updatedDatosJson
+                        'Reactivación completada',
+                        updatedDatosJson,
+                        equipoAltaPending.id,
+                        'APROBADO'
                     );
-                    hideNotification(equipoAltaPending.id_solicitud!);
+                    hideNotification(`${equipoAltaPending.id_solicitud}-PENDIENTE`);
                     setReviewSolicitud(null);
                 } else {
                     await adminService.updateSolicitudStatus(
                         equipoAltaPending.id_solicitud!,
                         'PENDIENTE',
                         'Reactivación parcial procesada',
-                        updatedDatosJson
+                        updatedDatosJson,
+                        equipoAltaPending.id,
+                        'APROBADO'
                     );
                     // Update local review modal state to show "REACTIVADO" immediately
                     const currentSolicitud = reviewSolicitud || { id_solicitud: equipoAltaPending.id_solicitud, datos_json: equipoAltaPending.datos_json };
@@ -442,13 +463,15 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 await adminService.updateSolicitudStatus(
                     equipoAltaPending.id_solicitud!,
                     'APROBADO',
-                    adminFeedback || 'Equipo reactivado correctamente'
+                    'Equipo reactivado correctamente',
+                    undefined,
+                    equipoAltaPending.id,
+                    'APROBADO'
                 );
-                hideNotification(equipoAltaPending.id_solicitud!);
+                hideNotification(`${equipoAltaPending.id_solicitud}-PENDIENTE`);
             }
 
             showToast({ type: 'success', message: `Equipo ${equipoAltaPending.nombre} reactivado`, duration: 5000 });
-            setAdminFeedback('');
             setEquipoAltaPending(null);
             setShowConfirmAltaModal(false);
             setReactivationVigencia('');
@@ -504,10 +527,10 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
             await adminService.updateSolicitudStatus(
                 reviewSolicitud.id_solicitud,
                 'APROBADO',
-                adminFeedback || 'Todos los equipos han sido reactivados',
+                'Todos los equipos han sido reactivados',
                 updatedDatosJson
             );
-            hideNotification(reviewSolicitud.id_solicitud);
+            hideNotification(`${reviewSolicitud.id_solicitud}-PENDIENTE`);
 
             showToast({ type: 'success', message: `${pendingEquipos.length} equipos reactivados correctamente`, duration: 5000 });
             setReviewSolicitud(null);
@@ -541,19 +564,22 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 await adminService.updateSolicitudStatus(
                     equipoBajaPending.id_solicitud!,
                     'APROBADO',
-                    adminFeedback || 'Baja procesada correctamente',
-                    updatedDatosJson
+                    'Baja procesada correctamente',
+                    updatedDatosJson,
+                    equipoBajaPending.id,
+                    'APROBADO'
                 );
                 showToast({ type: 'success', message: 'Solicitud de baja completada' });
-                setAdminFeedback('');
                 setReviewSolicitud(null);
-                hideNotification(equipoBajaPending.id_solicitud!);
+                hideNotification(`${equipoBajaPending.id_solicitud}-PENDIENTE`);
             } else {
                 await adminService.updateSolicitudStatus(
                     equipoBajaPending.id_solicitud!,
                     'PENDIENTE',
                     'Baja parcial procesada',
-                    updatedDatosJson
+                    updatedDatosJson,
+                    equipoBajaPending.id,
+                    'APROBADO'
                 );
                 // Update local review modal state to show "PROCESADO" immediately
                 setReviewSolicitud((prev: any) => prev ? { ...prev, datos_json: updatedDatosJson } : null);
@@ -586,8 +612,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 ...reviewSolicitud.datos_json,
                 equipos_baja: updatedEquiposBaja
             };
-            await adminService.updateSolicitudStatus(reviewSolicitud.id_solicitud, 'APROBADO', adminFeedback || 'Todos los equipos han sido dados de baja', updatedDatosJson);
-            hideNotification(reviewSolicitud.id_solicitud);
+            await adminService.updateSolicitudStatus(reviewSolicitud.id_solicitud, 'APROBADO', 'Todos los equipos han sido dados de baja', updatedDatosJson);
+            hideNotification(`${reviewSolicitud.id_solicitud}-PENDIENTE`);
             showToast({ type: 'success', message: `${pendingEquipos.length} equipos dados de baja correctamente`, duration: 5000 });
             setReviewSolicitud(null);
             loadSolicitudes();
@@ -600,6 +626,85 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         }
     };
 
+
+    const handleOpenIndividualRejection = (equipo: any, type: 'ALTA' | 'BAJA') => {
+        setRejectionTarget({ type: 'ITEM', equipo, bulkType: type });
+        setLocalRejectionFeedback('');
+        setShowRejectionReasonModal(true);
+    };
+
+    const handleRejectIndividualItem = async (equipo: any, type: 'ALTA' | 'BAJA', feedback: string) => {
+        if (!reviewSolicitud) return;
+
+        setProcessingAction(true);
+        try {
+            const currentSolicitud = reviewSolicitud;
+            const field = type === 'ALTA' ? 'equipos_alta' : 'equipos_baja';
+            const list = currentSolicitud.datos_json?.[field] || [];
+
+            const updatedList = list.map((e: any) =>
+                String(e.id) === String(equipo.id) ? { ...e, procesado: true, rechazado: true } : e
+            );
+
+            const updatedDatosJson = {
+                ...currentSolicitud.datos_json,
+                [field]: updatedList
+            };
+
+            const allProcessed = updatedList.every((e: any) => e.procesado);
+            const anyApproved = updatedList.some((e: any) => e.procesado && !e.rechazado);
+
+            if (allProcessed) {
+                const finalStatus = anyApproved ? 'APROBADO' : 'RECHAZADO';
+                await adminService.updateSolicitudStatus(
+                    currentSolicitud.id_solicitud,
+                    finalStatus,
+                    feedback,
+                    updatedDatosJson,
+                    equipo.id,
+                    'RECHAZADO'
+                );
+                hideNotification(`${currentSolicitud.id_solicitud}-PENDIENTE`);
+                setReviewSolicitud(null);
+            } else {
+                await adminService.updateSolicitudStatus(
+                    currentSolicitud.id_solicitud,
+                    'PENDIENTE',
+                    feedback || 'Rechazo parcial procesado',
+                    updatedDatosJson,
+                    equipo.id,
+                    'RECHAZADO'
+                );
+                setReviewSolicitud({ ...currentSolicitud, datos_json: updatedDatosJson });
+            }
+
+            showToast({ type: 'success', message: `Equipo ${equipo.nombre} rechazado` });
+            loadSolicitudes();
+        } catch (error) {
+            console.error("Error individual rejection:", error);
+            showToast({ type: 'error', message: 'Error al rechazar el equipo' });
+        } finally {
+            setProcessingAction(false);
+        }
+    };
+
+    const confirmRejectWithFeedback = async () => {
+        if (!reviewSolicitud || !rejectionTarget || !localRejectionFeedback.trim()) {
+            showToast({ type: 'warning', message: 'Debe ingresar un motivo para rechazar' });
+            return;
+        }
+
+        const feedback = localRejectionFeedback;
+        setShowRejectionReasonModal(false);
+
+        if (rejectionTarget.type === 'ITEM') {
+            await handleRejectIndividualItem(rejectionTarget.equipo, rejectionTarget.bulkType!, feedback);
+        } else {
+            await handleReject(feedback);
+        }
+        setRejectionTarget(null);
+        setLocalRejectionFeedback('');
+    };
 
     const handleClearFilters = () => {
         setSearchTerm('');
@@ -960,7 +1065,12 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 <div className="modal-overlay" style={{ zIndex: 10002 }}>
                     <div className="modal-content" style={{ maxWidth: '500px' }}>
                         <div className="modal-header">
-                            <h3 className="modal-title">Revisar Solicitud de {reviewSolicitud.tipo_solicitud}</h3>
+                            <h3 className="modal-title">
+                                {reviewSolicitud.tipo_solicitud === 'ALTA' && !reviewSolicitud.datos_json?.isReactivation
+                                    ? 'Revisar Solicitud de Creación de Equipo'
+                                    : `Revisar Solicitud de ${reviewSolicitud.tipo_solicitud === 'ALTA' ? 'Activación' : (reviewSolicitud.tipo_solicitud === 'TRASPASO' ? 'Traspaso' : 'Baja')}`
+                                }
+                            </h3>
                         </div>
                         <div className="modal-body">
                             <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid #e2e8f0' }}>
@@ -977,19 +1087,45 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                                 )}
                                             </div>
                                             {reviewSolicitud.datos_json.equipos_baja.map((eq: any) => (
-                                                <div key={eq.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem', background: eq.procesado ? '#f0fdf4' : '#f8fafc', borderRadius: '6px', border: eq.procesado ? '1px solid #bbf7d0' : '1px solid #e2e8f0', opacity: eq.procesado ? 0.7 : 1 }}>
-                                                    <span style={{ fontWeight: 600, color: eq.procesado ? '#166534' : '#1e293b' }}>{eq.nombre}</span>
+                                                <div key={eq.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem', background: eq.procesado ? (eq.rechazado ? '#fef2f2' : '#f0fdf4') : '#f8fafc', borderRadius: '6px', border: eq.procesado ? (eq.rechazado ? '1px solid #fecaca' : '1px solid #bbf7d0') : '1px solid #e2e8f0', opacity: eq.procesado ? 0.7 : 1 }}>
+                                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                        <span style={{
+                                                            fontWeight: 600,
+                                                            color: eq.procesado ? (eq.rechazado ? '#991b1b' : '#166534') : '#1e293b',
+                                                            textDecoration: eq.procesado ? 'line-through' : 'none'
+                                                        }}>
+                                                            {eq.nombre}
+                                                        </span>
+                                                        <span style={{ fontSize: '0.7rem', color: '#64748b' }}>{eq.codigo}</span>
+                                                    </div>
                                                     {!eq.procesado ? (
-                                                        <button onClick={() => {
-                                                            setEquipoBajaPending({
-                                                                ...eq,
-                                                                id_solicitud: reviewSolicitud.id_solicitud,
-                                                                datos_json: reviewSolicitud.datos_json
-                                                            });
-                                                            setShowConfirmBajaModal(true);
-                                                        }} className="btn-danger" style={{ fontSize: '0.7rem', padding: '2px 8px' }}>BAJA</button>
+                                                        <div style={{ display: 'flex', gap: '0.4rem' }}>
+                                                            <button
+                                                                onClick={() => {
+                                                                    setEquipoBajaPending({
+                                                                        ...eq,
+                                                                        id_solicitud: reviewSolicitud.id_solicitud,
+                                                                        datos_json: reviewSolicitud.datos_json
+                                                                    });
+                                                                    setShowConfirmBajaModal(true);
+                                                                }}
+                                                                className="btn-danger"
+                                                                style={{ fontSize: '0.7rem', padding: '2px 8px', background: '#dc2626' }}
+                                                            >
+                                                                BAJA
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleOpenIndividualRejection(eq, 'BAJA')}
+                                                                className="btn-secondary"
+                                                                style={{ fontSize: '0.7rem', padding: '2px 8px', color: '#dc2626', borderColor: '#fecaca' }}
+                                                            >
+                                                                RECHAZAR
+                                                            </button>
+                                                        </div>
                                                     ) : (
-                                                        <span style={{ fontSize: '0.7rem', color: '#16a34a', fontWeight: 700 }}>PROCESADO</span>
+                                                        <span style={{ fontSize: '0.7rem', color: eq.rechazado ? '#dc2626' : '#16a34a', fontWeight: 700 }}>
+                                                            {eq.rechazado ? 'RECHAZADO' : 'PROCESADO'}
+                                                        </span>
                                                     )}
                                                 </div>
                                             ))}
@@ -1003,23 +1139,56 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                                 )}
                                             </div>
                                             {reviewSolicitud.datos_json.equipos_alta.map((eq: any) => (
-                                                <div key={eq.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem', background: eq.procesado ? '#f0fdf4' : '#f8fafc', borderRadius: '6px', border: eq.procesado ? '1px solid #bbf7d0' : '1px solid #e2e8f0', opacity: eq.procesado ? 0.7 : 1 }}>
-                                                    <span style={{ fontWeight: 600, color: eq.procesado ? '#166534' : '#1e293b' }}>{eq.nombre}</span>
+                                                <div key={eq.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem', background: eq.procesado ? (eq.rechazado ? '#fef2f2' : '#f0fdf4') : '#f8fafc', borderRadius: '6px', border: eq.procesado ? (eq.rechazado ? '1px solid #fecaca' : '1px solid #bbf7d0') : '1px solid #e2e8f0', opacity: eq.procesado ? 0.7 : 1 }}>
+                                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                        <span style={{
+                                                            fontWeight: 600,
+                                                            color: eq.procesado ? (eq.rechazado ? '#991b1b' : '#166534') : '#1e293b',
+                                                            textDecoration: eq.procesado ? 'line-through' : 'none'
+                                                        }}>
+                                                            {eq.nombre}
+                                                        </span>
+                                                        <span style={{ fontSize: '0.7rem', color: '#64748b' }}>{eq.datos_originales?.codigo || eq.codigo}</span>
+                                                        {eq.vigencia && (
+                                                            <span style={{ fontSize: '0.75rem', color: '#16a34a', fontWeight: 700, marginTop: '2px' }}>
+                                                                📅 Vigencia Propuesta: {eq.vigencia}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                     {!eq.procesado ? (
-                                                        <button onClick={() => {
-                                                            setEquipoAltaPending({
-                                                                id: String(eq.id),
-                                                                nombre: eq.nombre,
-                                                                codigo: eq.datos_originales?.codigo || eq.codigo || '',
-                                                                originalId: Number(eq.id),
-                                                                datos_originales: eq.datos_originales,
-                                                                datos_json: reviewSolicitud.datos_json,
-                                                                id_solicitud: reviewSolicitud.id_solicitud
-                                                            } as any);
-                                                            setShowConfirmAltaModal(true);
-                                                        }} className="btn-success" style={{ fontSize: '0.7rem', padding: '2px 8px' }}>ACTIVAR</button>
+                                                        <div style={{ display: 'flex', gap: '0.4rem' }}>
+                                                            <button
+                                                                onClick={() => {
+                                                                    setEquipoAltaPending({
+                                                                        id: String(eq.id),
+                                                                        nombre: eq.nombre,
+                                                                        codigo: eq.datos_originales?.codigo || eq.codigo || '',
+                                                                        originalId: Number(eq.id),
+                                                                        datos_originales: eq.datos_originales,
+                                                                        datos_json: reviewSolicitud.datos_json,
+                                                                        id_solicitud: reviewSolicitud.id_solicitud,
+                                                                        vigencia_propuesta: eq.vigencia
+                                                                    } as any);
+                                                                    if (eq.vigencia) setReactivationVigencia(eq.vigencia);
+                                                                    setShowConfirmAltaModal(true);
+                                                                }}
+                                                                className="btn-success"
+                                                                style={{ fontSize: '0.7rem', padding: '2px 8px', background: '#16a34a' }}
+                                                            >
+                                                                ACTIVAR
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleOpenIndividualRejection(eq, 'ALTA')}
+                                                                className="btn-secondary"
+                                                                style={{ fontSize: '0.7rem', padding: '2px 8px', color: '#dc2626', borderColor: '#fecaca' }}
+                                                            >
+                                                                RECHAZAR
+                                                            </button>
+                                                        </div>
                                                     ) : (
-                                                        <span style={{ fontSize: '0.7rem', color: '#16a34a', fontWeight: 700 }}>REACTIVADO</span>
+                                                        <span style={{ fontSize: '0.7rem', color: eq.rechazado ? '#dc2626' : '#16a34a', fontWeight: 700 }}>
+                                                            {eq.rechazado ? 'RECHAZADO' : 'REACTIVADO'}
+                                                        </span>
                                                     )}
                                                 </div>
                                             ))}
@@ -1027,7 +1196,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                     ) : (
                                         Object.entries(reviewSolicitud.datos_json || {}).map(([key, val]) => {
                                             if (!val || key === 'equipos_baja' || key === 'equipos_alta' || key === 'isReactivation') return null;
-                                            const labels: Record<string, string> = { codigo: 'Código', nombre: 'Nombre', tipo: 'Tipo', ubicacion: 'Ubicación Actual', nueva_ubicacion: 'Nueva Ubicación', responsable: 'Responsable', nuevo_responsable: 'Nuevo Responsable', motivo: 'Motivo', vigencia: 'Vigencia', id_equipo: 'ID Equipo' };
+                                            const labels: Record<string, string> = { codigo: 'Código', nombre: 'Nombre', tipo: 'Tipo', ubicacion: 'Ubicación', nueva_ubicacion: 'Nueva Ubicación', responsable: 'Responsable', nuevo_responsable: 'Nuevo Responsable', motivo: 'Motivo', vigencia: 'Vigencia', id_equipo: 'ID Equipo' };
                                             return (
                                                 <div key={key} style={{ display: 'flex', justifyContent: 'space-between' }}>
                                                     <span style={{ color: '#64748b', fontWeight: 500 }}>{labels[key] || key}:</span>
@@ -1039,23 +1208,6 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                 </div>
                             </div>
 
-                            <div className="form-group" style={{ padding: '0 1.5rem', marginBottom: '1rem' }}>
-                                <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                    <span>Feedback / Observaciones Admin</span>
-                                    <span style={{ fontSize: '0.7rem', color: '#dc2626', fontWeight: 600 }}>* Obligatorio para rechazar</span>
-                                </label>
-                                <textarea
-                                    value={adminFeedback}
-                                    onChange={(e) => setAdminFeedback(e.target.value)}
-                                    placeholder="Ingrese motivo de rechazo o instrucciones..."
-                                    className="form-input"
-                                    style={{
-                                        height: '80px',
-                                        resize: 'vertical',
-                                        borderColor: !adminFeedback.trim() ? '#fecaca' : '#e2e8f0'
-                                    }}
-                                />
-                            </div>
                         </div>
                         <div className="modal-footer">
                             <button className="btn-cancel" onClick={() => setReviewSolicitud(null)} disabled={processingAction}>Cerrar</button>
@@ -1063,13 +1215,9 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                 <div style={{ display: 'flex', gap: '0.75rem' }}>
                                     <button
                                         className="btn-danger"
-                                        onClick={handleReject}
-                                        disabled={processingAction || !adminFeedback.trim()}
-                                        style={{
-                                            minWidth: '100px',
-                                            opacity: !adminFeedback.trim() ? 0.5 : 1,
-                                            cursor: !adminFeedback.trim() ? 'not-allowed' : 'pointer'
-                                        }}
+                                        onClick={handleOpenGlobalRejection}
+                                        disabled={processingAction}
+                                        style={{ minWidth: '100px' }}
                                     >
                                         {processingAction ? '...' : 'Rechazar'}
                                     </button>
@@ -1113,7 +1261,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
 
                             <div style={{ textAlign: 'left', background: '#f9fafb', padding: '1rem', borderRadius: '0.5rem', marginBottom: '1rem' }}>
                                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#374151', marginBottom: '0.5rem' }}>
-                                    {(equipoAltaPending as any).codigo || equipoAltaPending.nombre}: Fecha de Vigencia <span style={{ color: '#ef4444' }}>*</span>
+                                    {(equipoAltaPending as any).codigo || equipoAltaPending.nombre}:{(equipoAltaPending as any).vigencia_propuesta && <span style={{ color: '#16a34a', marginLeft: '8px' }}> (Vigencia Propuesta: {(equipoAltaPending as any).vigencia_propuesta})</span>}
                                 </label>
                                 <input
                                     type="date"
@@ -1158,6 +1306,97 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 </div>
             )}
 
+            {showRejectionReasonModal && (
+                <div className="modal-overlay" style={{ zIndex: 10005 }}>
+                    <div className="modal-content" style={{ maxWidth: '450px' }}>
+                        <div className="modal-header">
+                            <h3 className="modal-title">Motivo de Rechazo</h3>
+                        </div>
+                        <div className="modal-body" style={{ padding: '1.5rem' }}>
+                            <p style={{ fontSize: '0.9rem', color: '#64748b', marginBottom: '1rem' }}>
+                                {rejectionTarget?.type === 'ITEM'
+                                    ? `Indique el motivo por el cual está rechazando el equipo: ${rejectionTarget.equipo?.nombre}`
+                                    : 'Indique el motivo por el cual está rechazando toda la solicitud.'}
+                            </p>
+                            <div className="form-group">
+                                <label className="form-label">Feedback / Observaciones <span style={{ color: '#dc2626' }}>*</span></label>
+                                <textarea
+                                    className="form-input"
+                                    style={{ height: '100px', resize: 'none' }}
+                                    placeholder="Ej: Documentación incompleta, equipo no corresponde..."
+                                    value={localRejectionFeedback}
+                                    onChange={(e) => setLocalRejectionFeedback(e.target.value)}
+                                    autoFocus
+                                />
+                            </div>
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn-cancel" onClick={() => { setShowRejectionReasonModal(false); setRejectionTarget(null); }} disabled={processingAction}>Cancelar</button>
+                            <button
+                                className="btn-danger"
+                                onClick={confirmRejectWithFeedback}
+                                disabled={processingAction || !localRejectionFeedback.trim()}
+                                style={{ opacity: !localRejectionFeedback.trim() ? 0.6 : 1 }}
+                            >
+                                {processingAction ? '...' : 'Confirmar Rechazo'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Loading Overlay */}
+            {processingAction && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    width: '100vw',
+                    height: '100vh',
+                    background: 'rgba(255, 255, 255, 0.8)',
+                    backdropFilter: 'blur(4px)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 10000,
+                    animation: 'fadeIn 0.3s ease'
+                }}>
+                    <style>{`
+                        @keyframes spin {
+                            0% { transform: rotate(0deg); }
+                            100% { transform: rotate(360deg); }
+                        }
+                        @keyframes fadeIn {
+                            from { opacity: 0; }
+                            to { opacity: 1; }
+                        }
+                        @keyframes pulse {
+                            0%, 100% { opacity: 1; transform: scale(1); }
+                            50% { opacity: 0.7; transform: scale(0.98); }
+                        }
+                    `}</style>
+                    <div style={{
+                        width: '50px',
+                        height: '50px',
+                        border: '4px solid #f3f3f3',
+                        borderTop: '4px solid #2563eb',
+                        borderRadius: '50%',
+                        animation: 'spin 1s linear infinite',
+                        marginBottom: '1rem',
+                        boxShadow: '0 4px 10px rgba(37, 99, 235, 0.2)'
+                    }}></div>
+                    <div style={{
+                        fontWeight: 700,
+                        color: '#1e40af',
+                        fontSize: '1.1rem',
+                        letterSpacing: '0.05em',
+                        animation: 'pulse 1.5s ease-in-out infinite'
+                    }}>
+                        PROCESANDO SOLICITUD...
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

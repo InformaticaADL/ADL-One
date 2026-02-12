@@ -357,14 +357,20 @@ export const equipoService = {
         const transaction = new sql.Transaction(pool);
         try {
             await transaction.begin();
+            // 1. Generate new ID manually (Pattern from ficha.service.js)
+            const idResult = await transaction.request()
+                .query('SELECT ISNULL(MAX(id_equipo), 0) + 1 as NewId FROM mae_equipo');
+            const newId = idResult.recordset[0].NewId;
+
             const request = new sql.Request(transaction);
 
             // Bind all inputs
+            request.input('id_equipo', sql.Numeric(10, 0), newId);
             request.input('codigo', sql.VarChar, data.codigo);
             request.input('nombre', sql.VarChar, data.nombre);
             request.input('tipoequipo', sql.VarChar, data.tipo);
             request.input('sede', sql.VarChar, data.ubicacion);
-            request.input('fecha_vigencia', sql.Date, data.vigencia);
+            request.input('fecha_vigencia', sql.Date, parseSqlDate(data.vigencia));
             request.input('id_muestreador', sql.Numeric(10, 0), data.id_muestreador || 0);
             request.input('habilitado', sql.VarChar(1), data.estado === 'Activo' ? 'S' : 'N');
             request.input('sigla', sql.VarChar(10), data.sigla || '');
@@ -383,19 +389,17 @@ export const equipoService = {
 
             const queryMain = `
                 INSERT INTO mae_equipo (
-                    codigo, nombre, tipoequipo, sede, fecha_vigencia, id_muestreador, habilitado,
+                    id_equipo, codigo, nombre, tipoequipo, sede, fecha_vigencia, id_muestreador, habilitado,
                     sigla, correlativo, tienefc, error0, error15, error30, equipo_asociado,
                     observacion, visible_muestreador, que_mide, unidad_medida_textual, unidad_medida_sigla, informe, version
                 ) VALUES (
-                    @codigo, @nombre, @tipoequipo, @sede, @fecha_vigencia, @id_muestreador, @habilitado,
+                    @id_equipo, @codigo, @nombre, @tipoequipo, @sede, @fecha_vigencia, @id_muestreador, @habilitado,
                     @sigla, @correlativo, @tienefc, @error0, @error15, @error30, @equipo_asociado,
                     @observacion, @visible_muestreador, @que_mide, @unidad_medida_textual, @unidad_medida_sigla, @informe, 'v1'
                 );
-                SELECT SCOPE_IDENTITY() as id;
             `;
 
-            const resultMain = await request.query(queryMain);
-            const newId = resultMain.recordset[0].id;
+            await request.query(queryMain);
 
             await transaction.commit();
             return { id: newId, ...data };

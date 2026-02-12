@@ -64,7 +64,7 @@ class SolicitudController {
     async updateStatus(req, res) {
         try {
             const { id } = req.params;
-            const { estado, feedback_admin, datos_json } = req.body;
+            const { estado, feedback_admin, datos_json, id_equipo_procesado, accion_item } = req.body;
             const user = req.user;
             const perms = user?.permissions || [];
 
@@ -81,7 +81,7 @@ class SolicitudController {
 
             const adminId = req.user?.id;
 
-            const result = await solicitudService.updateStatus(id, estado, feedback_admin, adminId, datos_json);
+            const result = await solicitudService.updateStatus(id, estado, feedback_admin, adminId, datos_json, id_equipo_procesado, accion_item);
             res.json(result);
         } catch (error) {
             logger.error('Controller Error updating status:', error);

@@ -49,7 +49,7 @@ class EmailService {
         const bcc = process.env.EMAIL_BCC_LIST;       // BCC List from .env
 
         const timestamp = new Date().toLocaleString('es-CL');
-        const subject = `ADLSoft: ACEPTADA Ficha Comercial N°: ${id} - ${timestamp}`;
+        const subject = `ADLOne: ACEPTADA Ficha Comercial N°: ${id} - ${timestamp}`;
 
         const body =
             `FICHA COMERCIAL N°: ${id}
@@ -57,7 +57,7 @@ ESTADO            : ACEPTADA
 USUARIO           : ${usuario}
 OBSERVACIONES     : ${observaciones || 'Sin observaciones'}
 
-Correo automático Sistema ADLSoft - ADL Diagnostic Chile SpA`;
+Correo automático Sistema ADLOne - ADL Diagnostic Chile SpA`;
 
         logger.info(`Sending Approval Email for Ficha ${id} to ${recipients}`);
         return this.sendEmail({ to: recipients, bcc, subject, text: body });
@@ -78,7 +78,7 @@ Correo automático Sistema ADLSoft - ADL Diagnostic Chile SpA`;
         }
 
         const timestamp = new Date().toLocaleString('es-CL');
-        const subject = `ADLSoft: RECHAZADA Ficha Comercial N°: ${id} - ${timestamp}`;
+        const subject = `ADLOne: RECHAZADA Ficha Comercial N°: ${id} - ${timestamp}`;
 
         const body =
             `FICHA COMERCIAL N°: ${id}
@@ -88,7 +88,7 @@ OBSERVACIONES     : ${observaciones}
 
 Por favor revise las observaciones y corrija la ficha.
 
-Correo automático Sistema ADLSoft - ADL Diagnostic Chile SpA`;
+Correo automático Sistema ADLOne - ADL Diagnostic Chile SpA`;
 
         logger.info(`Sending Rejection Email for Ficha ${id} to Creator ${emailCreador}`);
         // We probably don't need the extensive BCC list for individual rejections, but can add if needed
@@ -107,7 +107,7 @@ Correo automático Sistema ADLSoft - ADL Diagnostic Chile SpA`;
         const bcc = process.env.EMAIL_BCC_LIST;
 
         const timestamp = new Date().toLocaleString('es-CL');
-        const subject = `ADLSoft: ACEPTADA Ficha Comercial N°: ${id} - Usuario: ${usuario} - ${timestamp}`;
+        const subject = `ADLOne: ACEPTADA Ficha Comercial N°: ${id} - Usuario: ${usuario} - ${timestamp}`;
 
         const body =
             `FICHA COMERCIAL N°: ${id}
@@ -116,7 +116,7 @@ ESTADO            : ACEPTADA
 USUARIO           : ${usuario}
 OBSERVACIONES     : ${observaciones || 'Sin observaciones'}
 
-Correo automático Sistema ADLSoft - ADL Diagnostic Chile SpA`;
+Correo automático Sistema ADLOne - ADL Diagnostic Chile SpA`;
 
         logger.info(`Sending Coordination Approval Email for Ficha ${id}`);
         return this.sendEmail({ to: recipients, bcc, subject, text: body });
@@ -136,7 +136,7 @@ Correo automático Sistema ADLSoft - ADL Diagnostic Chile SpA`;
         const bcc = process.env.EMAIL_BCC_LIST;
 
         const timestamp = new Date().toLocaleString('es-CL');
-        const subject = `ADLSoft: REVISAR Ficha Comercial N°: ${id} - ${timestamp}`;
+        const subject = `ADLOne: REVISAR Ficha Comercial N°: ${id} - ${timestamp}`;
 
         const body =
             `FICHA COMERCIAL N°: ${id}
@@ -145,7 +145,7 @@ ESTADO            : REVISAR
 USUARIO           : ${usuario}
 OBSERVACIONES     : ${observaciones || 'Sin observaciones'}
 
-Correo automático Sistema ADLSoft - ADL Diagnostic Chile SpA`;
+Correo automático Sistema ADLOne - ADL Diagnostic Chile SpA`;
 
         logger.info(`Sending Coordination Review Email for Ficha ${id}`);
         return this.sendEmail({ to: recipients, bcc, subject, text: body });

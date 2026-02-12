@@ -164,6 +164,9 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                 const isManagerReview = isManagementUser && isPending && !isMyOwn;
 
                 let tag = e.tipo_solicitud;
+                if (e.tipo_solicitud === 'ALTA') {
+                    tag = e.datos_json?.isReactivation ? 'ACTIVACIÓN' : 'CREACIÓN';
+                }
                 let tagColor = e.tipo_solicitud === 'ALTA' ? '#dcfce7' : e.tipo_solicitud === 'TRASPASO' ? '#dbeafe' : '#fee2e2';
                 let tagTextColor = e.tipo_solicitud === 'ALTA' ? '#166534' : e.tipo_solicitud === 'TRASPASO' ? '#1e40af' : '#991b1b';
 
@@ -181,11 +184,11 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                     }
                 }
 
-                let typeLabel = e.tipo_solicitud === 'ALTA' ? 'Alta' : e.tipo_solicitud === 'TRASPASO' ? 'Traspaso' : 'Baja';
+                let typeLabel = e.tipo_solicitud === 'ALTA' ? 'Solicitud de Creación de Equipo' : e.tipo_solicitud === 'TRASPASO' ? 'Traspaso' : 'Baja';
                 if (e.tipo_solicitud === 'ALTA' && e.datos_json?.isReactivation) {
                     typeLabel = 'Activación';
                 } else if (e.tipo_solicitud === 'ALTA') {
-                    typeLabel = 'Registro Nuevo';
+                    typeLabel = 'Solicitud de Creación de Equipo';
                 }
 
                 return {

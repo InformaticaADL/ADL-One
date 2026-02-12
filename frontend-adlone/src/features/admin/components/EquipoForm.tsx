@@ -3,6 +3,7 @@ import { equipoService, type Equipo, type EquipoHistorial } from '../services/eq
 import { adminService } from '../../../services/admin.service';
 import { useToast } from '../../../contexts/ToastContext';
 import { HybridSelect } from '../../../components/ui/HybridSelect';
+import { useNavStore } from '../../../store/navStore';
 
 interface Props {
     onCancel: () => void;
@@ -59,6 +60,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
     const [rejectingSolicitud, setRejectingSolicitud] = useState<any>(null);
     const [adminFeedback, setAdminFeedback] = useState('');
     const [processingAction, setProcessingAction] = useState(false);
+    const { hideNotification } = useNavStore();
 
 
 
@@ -156,8 +158,9 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         fetchMuestreadoresAndCatalogs();
 
         if (initialData) {
-            const isTraspaso = initialData.requestId && initialData.id_equipo;
-            const isAlta = initialData.requestId && !initialData.id_equipo;
+            const hasValidId = !!initialData.id_equipo && String(initialData.id_equipo) !== '0' && initialData.id_equipo !== 0 && String(initialData.id_equipo) !== 'null';
+            const isTraspaso = initialData.requestId && hasValidId;
+            const isAlta = initialData.requestId && !hasValidId;
 
             const loadAllData = async () => {
                 setLoading(true);
@@ -211,7 +214,8 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                     });
 
                     // Fetch History for Traspaso/Edit
-                    if (baseData.id_equipo) {
+                    const hasValidIdBase = !!baseData.id_equipo && String(baseData.id_equipo) !== '0' && baseData.id_equipo !== 0 && String(baseData.id_equipo) !== 'null';
+                    if (hasValidIdBase) {
                         setLoadingHistory(true);
                         const histRes = await equipoService.getEquipoHistorial(baseData.id_equipo);
                         if (histRes.success) {
@@ -324,7 +328,8 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
     useEffect(() => {
         if (isRestoring) return; // IMPORTANT: Don't overwrite codes/logic if we are previewing a historical version
 
-        const isNew = !initialData?.id_equipo;
+        const hasValidIdInit = !!initialData?.id_equipo && String(initialData.id_equipo) !== '0' && initialData.id_equipo !== 0 && String(initialData.id_equipo) !== 'null';
+        const isNew = !hasValidIdInit;
 
         if (isNew) {
             // Logic for NEW equipment: full code suggestion from backend
@@ -390,9 +395,10 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                 equipo_asociado: formData.equipo_asociado === 'No Aplica' ? 0 : Number(formData.equipo_asociado)
             };
 
+            const hasValidIdInit = !!initialData?.id_equipo && String(initialData.id_equipo) !== '0' && initialData.id_equipo !== 0 && String(initialData.id_equipo) !== 'null';
 
-            if (initialData?.id_equipo) {
-                await equipoService.updateEquipo(initialData.id_equipo, dataToSend);
+            if (hasValidIdInit) {
+                await equipoService.updateEquipo(initialData!.id_equipo, dataToSend);
 
                 // Approve request if applicable
                 if (initialData.requestId) {
@@ -457,7 +463,15 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                 };
 
                 await equipoService.updateEquipo(formData.id_equipo, updatedData);
-                await adminService.updateSolicitudStatus(sol.id_solicitud, 'APROBADO', 'Aprobado desde formulario de equipo');
+                await adminService.updateSolicitudStatus(
+                    sol.id_solicitud,
+                    'APROBADO',
+                    'Aprobado desde formulario de equipo',
+                    undefined,
+                    formData.id_equipo,
+                    'APROBADO'
+                );
+                hideNotification(`${sol.id_solicitud}-PENDIENTE`);
 
                 showToast({ type: 'success', message: 'Traspaso aprobado y equipo actualizado' });
                 if (onRefreshSolicitudes) onRefreshSolicitudes();
@@ -476,13 +490,15 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
 
                     const allProcesado = updatedBajas.every((eb: any) => eb.procesado);
                     if (allProcesado) {
-                        await adminService.updateSolicitudStatus(sol.id_solicitud, 'APROBADO', 'Todos los equipos dados de baja', updatedDatosJson);
+                        await adminService.updateSolicitudStatus(sol.id_solicitud, 'APROBADO', 'Todos los equipos dados de baja', updatedDatosJson, formData.id_equipo, 'APROBADO');
+                        hideNotification(`${sol.id_solicitud}-PENDIENTE`);
                     } else {
                         // Actualizar solo el JSON para mantener el progreso
-                        await adminService.updateSolicitudStatus(sol.id_solicitud, 'PENDIENTE', 'Baja parcial procesada', updatedDatosJson);
+                        await adminService.updateSolicitudStatus(sol.id_solicitud, 'PENDIENTE', 'Baja parcial procesada', updatedDatosJson, formData.id_equipo, 'APROBADO');
                     }
                 } else {
                     await adminService.updateSolicitudStatus(sol.id_solicitud, 'APROBADO', 'Baja aprobada');
+                    hideNotification(`${sol.id_solicitud}-PENDIENTE`);
                 }
 
                 showToast({ type: 'success', message: 'Baja procesada correctamente' });
@@ -502,9 +518,10 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
 
                     const allProcesado = updatedAltas.every((ea: any) => ea.procesado);
                     if (allProcesado) {
-                        await adminService.updateSolicitudStatus(sol.id_solicitud, 'APROBADO', 'Todos los equipos reactivados', updatedDatosJson);
+                        await adminService.updateSolicitudStatus(sol.id_solicitud, 'APROBADO', 'Todos los equipos reactivados', updatedDatosJson, formData.id_equipo, 'APROBADO');
+                        hideNotification(`${sol.id_solicitud}-PENDIENTE`);
                     } else {
-                        await adminService.updateSolicitudStatus(sol.id_solicitud, 'PENDIENTE', 'Reactivación parcial procesada', updatedDatosJson);
+                        await adminService.updateSolicitudStatus(sol.id_solicitud, 'PENDIENTE', 'Reactivación parcial procesada', updatedDatosJson, formData.id_equipo, 'APROBADO');
                     }
                 }
 
@@ -524,11 +541,44 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         if (!rejectingSolicitud) return;
         setProcessingAction(true);
         try {
-            await adminService.updateSolicitudStatus(rejectingSolicitud.id_solicitud, 'RECHAZADO', adminFeedback || 'Solicitud rechazada por el administrador');
-            showToast({ type: 'info', message: 'Solicitud rechazada' });
+            let updatedDatosJson = rejectingSolicitud.datos_json;
+            const isBulk = (rejectingSolicitud.tipo_solicitud === 'BAJA' && rejectingSolicitud.datos_json?.equipos_baja) ||
+                (rejectingSolicitud.tipo_solicitud === 'ALTA' && rejectingSolicitud.datos_json?.isReactivation && rejectingSolicitud.datos_json?.equipos_alta);
+
+            if (isBulk) {
+                const field = rejectingSolicitud.tipo_solicitud === 'BAJA' ? 'equipos_baja' : 'equipos_alta';
+                const updatedList = rejectingSolicitud.datos_json[field].map((e: any) =>
+                    String(e.id) === String(formData.id_equipo) ? { ...e, procesado: true, rechazado: true } : e
+                );
+                updatedDatosJson = { ...rejectingSolicitud.datos_json, [field]: updatedList };
+
+                const allProcessed = updatedList.every((e: any) => e.procesado);
+                const anyApproved = updatedList.some((e: any) => e.procesado && !e.rechazado);
+
+                if (allProcessed) {
+                    const finalStatus = anyApproved ? 'APROBADO' : 'RECHAZADO';
+                    await adminService.updateSolicitudStatus(rejectingSolicitud.id_solicitud, finalStatus, adminFeedback || 'Rechazado desde formulario de equipo', updatedDatosJson, formData.id_equipo, 'RECHAZADO');
+                    hideNotification(`${rejectingSolicitud.id_solicitud}-PENDIENTE`);
+                } else {
+                    await adminService.updateSolicitudStatus(rejectingSolicitud.id_solicitud, 'PENDIENTE', adminFeedback || 'Rechazo parcial procesado', updatedDatosJson, formData.id_equipo, 'RECHAZADO');
+                }
+            } else {
+                await adminService.updateSolicitudStatus(rejectingSolicitud.id_solicitud, 'RECHAZADO', adminFeedback || 'Solicitud rechazada por el administrador', undefined, formData.id_equipo, 'RECHAZADO');
+                hideNotification(`${rejectingSolicitud.id_solicitud}-PENDIENTE`);
+            }
+
+            showToast({ type: 'info', message: 'Solicitud procesada' });
             if (onRefreshSolicitudes) onRefreshSolicitudes();
             setRejectingSolicitud(null);
             setAdminFeedback('');
+            // Si era una baja y fue la que estamos viendo, cerrar el formulario podría ser bueno pero
+            // handleApproveAction llama a onSave(). Hagamos lo mismo si era el último.
+            if (isBulk) {
+                const allProcessed = updatedDatosJson[rejectingSolicitud.tipo_solicitud === 'BAJA' ? 'equipos_baja' : 'equipos_alta'].every((e: any) => e.procesado);
+                if (allProcessed) onSave();
+            } else {
+                onSave();
+            }
         } catch (err) {
             console.error(err);
             showToast({ type: 'error', message: 'Error al rechazar solicitud' });
@@ -560,7 +610,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                     <span>
                         {requestedChanges?.isReactivation
                             ? 'ACTIVACIÓN DE EQUIPO'
-                            : (initialData ? 'Editar Equipo' : 'Nuevo Equipo')
+                            : (initialData?.id_equipo ? 'Editar Equipo' : 'Nuevo Equipo')
                         }
                     </span>
                     {initialData && formData.version && (
@@ -579,17 +629,20 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                 </h3>
 
                 <div style={{ justifySelf: 'end' }}>
-                    {initialData && (
-                        <button
-                            type="button"
-                            className="btn-secondary"
-                            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}
-                            onClick={() => setShowHistory(!showHistory)}
-                        >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                            {showHistory ? 'Ocultar Historial' : 'Ver Historial'}
-                        </button>
-                    )}
+                    {(() => {
+                        const hasId = !!initialData?.id_equipo && String(initialData.id_equipo) !== '0' && initialData.id_equipo !== 0 && String(initialData.id_equipo) !== 'null';
+                        return hasId && (
+                            <button
+                                type="button"
+                                className="btn-secondary"
+                                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}
+                                onClick={() => setShowHistory(!showHistory)}
+                            >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                {showHistory ? 'Ocultar Historial' : 'Ver Historial'}
+                            </button>
+                        )
+                    })()}
                 </div>
             </div>
 
@@ -619,77 +672,118 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                             SOLICITUDES PENDIENTES PARA ESTE EQUIPO
                         </div>
                         <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                            {pendingRequests.map(sol => (
-                                <div key={sol.id_solicitud} style={{
-                                    background: 'white',
-                                    padding: '1rem',
-                                    borderRadius: '8px',
-                                    border: '1px solid #fed7aa',
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center'
-                                }}>
-                                    <div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                                            <span style={{
-                                                fontSize: '0.7rem',
-                                                fontWeight: 'bold',
-                                                padding: '2px 8px',
-                                                borderRadius: '4px',
-                                                background: sol.tipo_solicitud === 'ALTA' ? '#dcfce7' : sol.tipo_solicitud === 'TRASPASO' ? '#dbeafe' : '#fee2e2',
-                                                color: sol.tipo_solicitud === 'ALTA' ? '#166534' : sol.tipo_solicitud === 'TRASPASO' ? '#1e40af' : '#991b1b'
-                                            }}>
-                                                {sol.tipo_solicitud}
-                                            </span>
-                                            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                                                {new Date(sol.fecha_solicitud).toLocaleDateString()}
-                                            </span>
+                            {pendingRequests.map(sol => {
+                                // Check if the current equipment is already processed in this bulk request
+                                let isProcessed = false;
+                                let isRejected = false;
+                                if (sol.tipo_solicitud === 'BAJA' && sol.datos_json?.equipos_baja) {
+                                    const eq = sol.datos_json.equipos_baja.find((e: any) => String(e.id) === String(formData.id_equipo));
+                                    isProcessed = eq?.procesado || false;
+                                    isRejected = eq?.rechazado || false;
+                                } else if (sol.tipo_solicitud === 'ALTA' && sol.datos_json?.isReactivation && sol.datos_json?.equipos_alta) {
+                                    const eq = sol.datos_json.equipos_alta.find((e: any) => String(e.id) === String(formData.id_equipo));
+                                    isProcessed = eq?.procesado || false;
+                                    isRejected = eq?.rechazado || false;
+                                }
+
+                                return (
+                                    <div key={sol.id_solicitud} style={{
+                                        background: isProcessed ? '#f8fafc' : 'white',
+                                        padding: '1rem',
+                                        borderRadius: '8px',
+                                        border: isProcessed ? '1px solid #e2e8f0' : '1px solid #fed7aa',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        opacity: isProcessed ? 0.7 : 1
+                                    }}>
+                                        <div style={{ textDecoration: isProcessed ? 'line-through' : 'none' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                                                <span style={{
+                                                    fontSize: '0.7rem',
+                                                    fontWeight: 'bold',
+                                                    padding: '2px 8px',
+                                                    borderRadius: '4px',
+                                                    background: sol.tipo_solicitud === 'ALTA' ? '#dcfce7' : sol.tipo_solicitud === 'TRASPASO' ? '#dbeafe' : '#fee2e2',
+                                                    color: sol.tipo_solicitud === 'ALTA' ? '#166534' : sol.tipo_solicitud === 'TRASPASO' ? '#1e40af' : '#991b1b'
+                                                }}>
+                                                    {sol.tipo_solicitud === 'ALTA' ? (sol.datos_json?.isReactivation ? 'ACTIVACIÓN' : 'CREACIÓN') : sol.tipo_solicitud}
+                                                </span>
+                                                <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                                                    {new Date(sol.fecha_solicitud).toLocaleDateString()}
+                                                </span>
+                                            </div>
+                                            <div style={{ fontSize: '0.9rem', color: '#1e293b' }}>
+                                                <strong>Motivo:</strong> {sol.datos_json?.motivo || 'Sin motivo'}
+                                            </div>
+                                            {sol.tipo_solicitud === 'ALTA' && sol.datos_json?.isReactivation && sol.datos_json?.equipos_alta && (
+                                                <div style={{ fontSize: '0.8rem', color: '#16a34a', fontWeight: 700, marginTop: '2px' }}>
+                                                    📅 Vigencia Propuesta: {
+                                                        (() => {
+                                                            const item = sol.datos_json.equipos_alta.find((e: any) => String(e.id) === String(formData.id_equipo));
+                                                            return item?.vigencia || 'No especificada';
+                                                        })()
+                                                    }
+                                                </div>
+                                            )}
+                                            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                                                Solicitado por: {sol.nombre_solicitante}
+                                            </div>
                                         </div>
-                                        <div style={{ fontSize: '0.9rem', color: '#1e293b' }}>
-                                            <strong>Motivo:</strong> {sol.datos_json?.motivo || 'Sin motivo'}
-                                        </div>
-                                        <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                                            Solicitado por: {sol.nombre_solicitante}
+                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                            {!isProcessed ? (
+                                                <>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleApproveAction(sol)}
+                                                        disabled={processingAction}
+                                                        style={{
+                                                            padding: '0.5rem 1rem',
+                                                            background: '#16a34a',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            borderRadius: '6px',
+                                                            fontSize: '0.8rem',
+                                                            fontWeight: 600,
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        {processingAction ? '...' : 'Aprobar'}
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setRejectingSolicitud(sol)}
+                                                        disabled={processingAction}
+                                                        style={{
+                                                            padding: '0.5rem 1rem',
+                                                            background: 'white',
+                                                            color: '#dc2626',
+                                                            border: '1px solid #fecaca',
+                                                            borderRadius: '6px',
+                                                            fontSize: '0.8rem',
+                                                            fontWeight: 600,
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        Rechazar
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <span style={{
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: 700,
+                                                    color: isRejected ? '#dc2626' : '#16a34a',
+                                                    background: isRejected ? '#fee2e2' : '#dcfce7',
+                                                    padding: '4px 10px',
+                                                    borderRadius: '6px'
+                                                }}>
+                                                    {isRejected ? 'RECHAZADO' : 'PROCESADO'}
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
-                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleApproveAction(sol)}
-                                            disabled={processingAction}
-                                            style={{
-                                                padding: '0.5rem 1rem',
-                                                background: '#16a34a',
-                                                color: 'white',
-                                                border: 'none',
-                                                borderRadius: '6px',
-                                                fontSize: '0.8rem',
-                                                fontWeight: 600,
-                                                cursor: 'pointer'
-                                            }}
-                                        >
-                                            {processingAction ? '...' : 'Aprobar'}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setRejectingSolicitud(sol)}
-                                            disabled={processingAction}
-                                            style={{
-                                                padding: '0.5rem 1rem',
-                                                background: 'white',
-                                                color: '#dc2626',
-                                                border: '1px solid #fecaca',
-                                                borderRadius: '6px',
-                                                fontSize: '0.8rem',
-                                                fontWeight: 600,
-                                                cursor: 'pointer'
-                                            }}
-                                        >
-                                            Rechazar
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
                 )}
@@ -1229,57 +1323,93 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                 </div>
             )}
 
-            {/* Reject Prompt Modal */}
+            {/* Rejection Reason Modal */}
             {rejectingSolicitud && (
                 <div className="modal-overlay" style={{ zIndex: 11000 }}>
-                    <div className="modal-content" style={{ maxWidth: '400px' }}>
-                        <div className="modal-header" style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
-                            <h3 className="modal-title" style={{ margin: 0, color: '#1e293b' }}>Rechazar Solicitud</h3>
+                    <div className="modal-content" style={{ maxWidth: '450px' }}>
+                        <div className="modal-header">
+                            <h3 className="modal-title">Motivo de Rechazo</h3>
                         </div>
-                        <div className="modal-body">
-                            <p style={{ fontSize: '0.9rem', marginBottom: '1.5rem', color: '#475569', lineHeight: 1.5 }}>
-                                ¿Está seguro de rechazar la solicitud de <strong>{rejectingSolicitud.tipo_solicitud}</strong> enviada por {rejectingSolicitud.nombre_solicitante}?
+                        <div className="modal-body" style={{ padding: '1.5rem' }}>
+                            <p style={{ fontSize: '0.9rem', color: '#64748b', marginBottom: '1rem' }}>
+                                Indique el motivo por el cual está rechazando esta solicitud de <strong>{rejectingSolicitud.tipo_solicitud}</strong> para el equipo {formData.nombre}.
                             </p>
-                            <div style={{ marginBottom: '1.5rem' }}>
-                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.5rem', color: '#334155' }}>Feedback para el solicitante:</label>
+                            <div className="form-group">
+                                <label className="form-label">Feedback / Observaciones <span style={{ color: '#dc2626' }}>*</span></label>
                                 <textarea
+                                    className="form-input"
+                                    style={{ height: '100px', resize: 'none' }}
+                                    placeholder="Ej: Documentación incompleta, equipo no corresponde..."
                                     value={adminFeedback}
                                     onChange={(e) => setAdminFeedback(e.target.value)}
-                                    placeholder="Indique brevemente el motivo del rechazo..."
-                                    style={{
-                                        width: '100%',
-                                        padding: '0.75rem',
-                                        borderRadius: '8px',
-                                        border: '1px solid #cbd5e1',
-                                        minHeight: '100px',
-                                        fontSize: '0.9rem',
-                                        outline: 'none',
-                                        transition: 'border-color 0.2s',
-                                        boxSizing: 'border-box'
-                                    }}
+                                    autoFocus
                                 />
                             </div>
                         </div>
-                        <div className="modal-footer" style={{ border: 'none', display: 'flex', gap: '0.75rem' }}>
-                            <button className="btn-cancel" onClick={() => { setRejectingSolicitud(null); setAdminFeedback(''); }} disabled={processingAction} style={{ flex: 1 }}>Cancelar</button>
+                        <div className="modal-footer">
+                            <button className="btn-cancel" onClick={() => { setRejectingSolicitud(null); setAdminFeedback(''); }} disabled={processingAction}>Cancelar</button>
                             <button
                                 className="btn-danger"
                                 onClick={confirmReject}
-                                disabled={processingAction}
-                                style={{
-                                    flex: 1,
-                                    background: '#dc2626',
-                                    color: 'white',
-                                    border: 'none',
-                                    padding: '0.625rem',
-                                    borderRadius: '6px',
-                                    fontWeight: 600,
-                                    cursor: processingAction ? 'not-allowed' : 'pointer'
-                                }}
+                                disabled={processingAction || !adminFeedback.trim()}
+                                style={{ opacity: !adminFeedback.trim() ? 0.6 : 1 }}
                             >
-                                {processingAction ? 'Procesando...' : 'Confirmar Rechazo'}
+                                {processingAction ? '...' : 'Confirmar Rechazo'}
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Loading Overlay */}
+            {processingAction && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    width: '100vw',
+                    height: '100vh',
+                    background: 'rgba(255, 255, 255, 0.8)',
+                    backdropFilter: 'blur(4px)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 12000,
+                    animation: 'fadeIn 0.3s ease'
+                }}>
+                    <style>{`
+                        @keyframes spin {
+                            0% { transform: rotate(0deg); }
+                            100% { transform: rotate(360deg); }
+                        }
+                        @keyframes fadeIn {
+                            from { opacity: 0; }
+                            to { opacity: 1; }
+                        }
+                        @keyframes pulse {
+                            0%, 100% { opacity: 1; transform: scale(1); }
+                            50% { opacity: 0.7; transform: scale(0.98); }
+                        }
+                    `}</style>
+                    <div style={{
+                        width: '50px',
+                        height: '50px',
+                        border: '4px solid #f3f3f3',
+                        borderTop: '4px solid #2563eb',
+                        borderRadius: '50%',
+                        animation: 'spin 1s linear infinite',
+                        marginBottom: '1rem',
+                        boxShadow: '0 4px 10px rgba(37, 99, 235, 0.2)'
+                    }}></div>
+                    <div style={{
+                        fontWeight: 700,
+                        color: '#1e40af',
+                        fontSize: '1.1rem',
+                        letterSpacing: '0.05em',
+                        animation: 'pulse 1.5s ease-in-out infinite'
+                    }}>
+                        PROCESANDO ACCIÓN...
                     </div>
                 </div>
             )}

@@ -37,11 +37,13 @@ export const adminService = {
         return response.data;
     },
 
-    updateSolicitudStatus: async (id: number, estado: string, feedback: string, datos_json?: any) => {
+    updateSolicitudStatus: async (id: number, estado: string, feedback: string, datos_json?: any, id_equipo_procesado?: string | number, accion_item?: 'APROBADO' | 'RECHAZADO') => {
         const response = await apiClient.put(`/api/admin/solicitudes/${id}/status`, {
             estado,
             feedback_admin: feedback,
-            datos_json
+            datos_json,
+            id_equipo_procesado,
+            accion_item
         });
         return response.data;
     },

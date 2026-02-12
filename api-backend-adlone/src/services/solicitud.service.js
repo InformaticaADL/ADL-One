@@ -29,7 +29,7 @@ class SolicitudService {
 
                 let tipoLabel = data.tipo_solicitud;
                 if (tipoLabel === 'ALTA') {
-                    tipoLabel = data.datos_json?.isReactivation ? 'Activación de Equipo' : 'Registro de Nuevo Equipo';
+                    tipoLabel = data.datos_json?.isReactivation ? 'Activación de Equipo' : 'Solicitud de Creación de Equipo';
                 } else if (tipoLabel === 'BAJA') {
                     tipoLabel = 'Baja de Equipo';
                 } else if (tipoLabel === 'TRASPASO') {
@@ -117,7 +117,7 @@ class SolicitudService {
         }
     }
 
-    async updateStatus(id, status, feedback, adminId, datos_json = null) {
+    async updateStatus(id, status, feedback, adminId, datos_json = null, id_equipo_procesado = null, accion_item = null) {
         try {
             const pool = await getConnection();
 
@@ -162,10 +162,19 @@ class SolicitudService {
                     .query("SELECT nombre_usuario FROM mae_usuario WHERE id_usuario = @id");
 
                 const adminName = adminResult.recordset[0]?.nombre_usuario || 'Administrador';
-                const solDatos = JSON.parse(sol.datos_json);
+                const solDatos = datos_json || JSON.parse(sol.datos_json);
 
                 let eventCode = '';
-                const statusSuffix = status === 'APROBADO' ? 'APR' : 'RECH';
+                // Determine if this is a partial result notification or a final one
+                const effectiveStatus = (status === 'PENDIENTE' && id_equipo_procesado && accion_item)
+                    ? accion_item
+                    : status;
+
+                if (effectiveStatus === 'PENDIENTE') {
+                    return { success: true }; // No notification for plain PENDIENTE update without item
+                }
+
+                const statusSuffix = effectiveStatus === 'APROBADO' ? 'APR' : 'RECH';
                 const type = sol.tipo_solicitud;
                 let tipoLabel = type;
 
@@ -178,7 +187,7 @@ class SolicitudService {
                 } else if (type === 'ALTA') {
                     const isReac = solDatos?.isReactivation || false;
                     eventCode = isReac ? `SOL_EQUIPO_REAC_${statusSuffix}` : `SOL_EQUIPO_ALTA_${statusSuffix}`;
-                    tipoLabel = isReac ? 'Activación de Equipo' : 'Registro de Nuevo Equipo';
+                    tipoLabel = isReac ? 'Activación de Equipo' : 'Solicitud de Creación de Equipo';
                 }
 
                 if (eventCode) {
@@ -189,8 +198,8 @@ class SolicitudService {
                         FECHA: new Date().toLocaleDateString('es-CL'),
                         HORA: new Date().toLocaleTimeString('es-CL'),
                         OBSERVACION: feedback || (status === 'APROBADO' ? 'Aprobado correctamente' : 'Sin motivo especificado'),
-                        directEmails: sol.correo_electronico,
-                        equipos: this._getEquiposList(type, solDatos)
+                        // directEmails: sol.correo_electronico, // DISABLED per user request: only use configured recipients
+                        equipos: this._getEquiposList(type, solDatos, id_equipo_procesado)
                     });
                 }
             } catch (notifyError) {
@@ -204,20 +213,26 @@ class SolicitudService {
         }
     }
 
-    _getEquiposList(type, solDatos) {
+    _getEquiposList(type, solDatos, id_equipo_procesado = null) {
         if (!solDatos) return [];
 
         if (type === 'ALTA') {
             if (solDatos.isReactivation && solDatos.equipos_alta) {
-                return solDatos.equipos_alta.map(e => ({
-                    nombre: e.nombre,
-                    codigo: e.codigo,
-                    tipo: e.tipo,
-                    marca: e.marca,
-                    modelo: e.modelo,
-                    serie: e.serie,
-                    ubicacion: e.ubicacion,
-                    vigencia: e.vigencia
+                let list = solDatos.equipos_alta;
+                if (id_equipo_procesado) {
+                    list = list.filter(e => String(e.id) === String(id_equipo_procesado));
+                }
+                return list.map(e => ({
+                    nombre: e.datos_originales ? e.datos_originales.nombre : e.nombre,
+                    codigo: e.datos_originales ? e.datos_originales.codigo : e.codigo,
+                    tipo: e.datos_originales ? e.datos_originales.tipo : e.tipo,
+                    marca: e.datos_originales ? e.datos_originales.marca : e.marca,
+                    modelo: e.datos_originales ? e.datos_originales.modelo : e.modelo,
+                    serie: e.datos_originales ? e.datos_originales.serie : e.serie,
+                    ubicacion: e.datos_originales ? e.datos_originales.ubicacion : e.ubicacion,
+                    vigencia: e.vigencia,
+                    responsable: solDatos.responsable || solDatos.responsable_nombre,
+                    status: e.rechazado ? 'RECHAZADO' : (e.procesado ? 'APROBADO' : 'PENDIENTE')
                 }));
             } else {
                 return [{
@@ -229,11 +244,15 @@ class SolicitudService {
                     serie: solDatos.serie,
                     ubicacion: solDatos.ubicacion,
                     vigencia: solDatos.vigencia,
-                    responsable: solDatos.responsable || solDatos.responsable_nombre
+                    responsable: solDatos.responsable || solDatos.responsable_nombre,
+                    status: 'PROCESADO'
                 }];
             }
         } else if (type === 'BAJA') {
-            const list = solDatos.equipos_baja || [];
+            let list = solDatos.equipos_baja || [];
+            if (id_equipo_procesado) {
+                list = list.filter(e => String(e.id) === String(id_equipo_procesado));
+            }
             return list.map(e => ({
                 nombre: e.nombre,
                 codigo: e.codigo,
@@ -241,16 +260,24 @@ class SolicitudService {
                 marca: e.marca,
                 modelo: e.modelo,
                 serie: e.serie,
-                ubicacion: e.ubicacion
+                ubicacion: e.ubicacion,
+                responsable: e.responsable,
+                status: e.rechazado ? 'RECHAZADO' : (e.procesado ? 'APROBADO' : 'PENDIENTE')
             }));
         } else if (type === 'TRASPASO') {
             return [{
                 nombre: solDatos.equipo_nombre,
                 codigo: solDatos.equipo_codigo,
                 tipo: solDatos.equipo_tipo,
-                ubicacion: solDatos.ubicacion_actual,
-                nueva_ubicacion: solDatos.nueva_ubicacion,
-                responsable: solDatos.nuevo_responsable_nombre,
+                isTransfer: true,
+                datos_antiguos: {
+                    ubicacion: solDatos.ubicacion_actual,
+                    responsable: solDatos.responsable_actual || 'Sin Asignar'
+                },
+                datos_nuevos: {
+                    ubicacion: solDatos.nueva_ubicacion,
+                    responsable: solDatos.nuevo_responsable_nombre || solDatos.nuevo_responsable
+                },
                 vigencia: solDatos.vigencia
             }];
         }
