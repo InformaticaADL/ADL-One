@@ -633,7 +633,15 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
                                         </div>
                                         <div className="form-group">
                                             <label className="form-label">Fecha de Vigencia</label>
-                                            <input type="date" name="vigencia" value={formData.vigencia} onChange={handleChange} className="form-input" required />
+                                            <input
+                                                type="date"
+                                                name="vigencia"
+                                                value={formData.vigencia}
+                                                onChange={handleChange}
+                                                className="form-input"
+                                                required
+                                                min={new Date().toISOString().split('T')[0]}
+                                            />
                                         </div>
                                         <div className="form-group" style={{ gridColumn: 'span 2' }}>
                                             <label className="form-label">Observaciones (Opcional)</label>
@@ -699,6 +707,7 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack }) => {
                                                                         className="form-input"
                                                                         style={{ padding: '2px 4px', fontSize: '0.7rem', height: '24px', width: '110px' }}
                                                                         required
+                                                                        min={new Date().toISOString().split('T')[0]}
                                                                     />
                                                                 </div>
                                                                 <button

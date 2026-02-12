@@ -96,6 +96,18 @@ export const equipoController = {
         }
     },
 
+
+
+    checkExpiration: async (req, res) => {
+        try {
+            const result = await equipoService.inactivateExpiredEquipos();
+            res.json({ success: true, ...result });
+        } catch (error) {
+            console.error('Controller checkExpiration error:', error);
+            res.status(500).json({ success: false, message: 'Error checking expired equipment' });
+        }
+    },
+
     restoreVersion: async (req, res) => {
         try {
             const { id, idHistorial } = req.params;

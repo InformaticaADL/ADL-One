@@ -978,56 +978,82 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                 <td colSpan={8} className="empty-state">No se encontraron equipos</td>
                             </tr>
                         ) : (
-                            equipos.map((equipo) => (
-                                <tr
-                                    key={equipo.id_equipo}
-                                    className={highlightedId === equipo.id_equipo ? 'row-highlighted' : ''}
-                                    onClick={() => {
-                                        setHighlightedId(equipo.id_equipo);
-                                        const pendingList = getPendingRequestsForEquipo(equipo.id_equipo);
-                                        if (pendingList.length > 0) {
-                                            const pending = pendingList[0];
-                                            showToast({
-                                                type: 'warning',
-                                                message: `Solicitud de ${pending.tipo_solicitud} Pendiente: ${pending.datos_json?.motivo || 'Sin motivo especificado'}`,
-                                                duration: 8000
-                                            });
-                                        }
-                                    }}
-                                    style={{
-                                        cursor: 'pointer',
-                                        opacity: equipo.estado?.toLowerCase() === 'inactivo' ? 0.6 : 1,
-                                        backgroundColor: highlightedId === equipo.id_equipo ? '#eef2ff' : (equipo.estado?.toLowerCase() === 'inactivo' ? '#f9fafb' : 'transparent'),
-                                        borderLeft: highlightedId === equipo.id_equipo ? '4px solid #4f46e5' : 'none'
-                                    }}
-                                >
-                                    <td style={{ whiteSpace: 'nowrap', textAlign: 'center' }}><span className="code-badge">{equipo.codigo}</span></td>
-                                    <td style={{ fontWeight: 500, whiteSpace: 'nowrap', textAlign: 'center' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                                            {equipo.nombre}
-                                            {getPendingRequestsForEquipo(equipo.id_equipo).length > 0 && (
-                                                <span title="Solicitud Pendiente" style={{ cursor: 'help' }}>⚠️</span>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>{equipo.tipo}</td>
-                                    <td style={{ textAlign: 'center' }}>{equipo.ubicacion}</td>
-                                    <td style={{ textAlign: 'center' }}>
-                                        <span className={`status-pill ${equipo.estado?.toLowerCase() === 'activo' ? 'status-active' : 'status-inactive'}`}>
-                                            {equipo.estado}
-                                        </span>
-                                    </td>
-                                    <td style={{ textAlign: 'center' }}>{equipo.vigencia}</td>
-                                    <td style={{ textAlign: 'center' }}>{equipo.nombre_asignado || '---'}</td>
-                                    <td style={{ width: '100px', minWidth: '100px', paddingRight: '2rem' }}>
-                                        <div className="action-buttons" style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
-                                            <button className="btn-action-edit" onClick={() => handleEdit(equipo)}>
-                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4L18.5 2.5z"></path></svg>
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))
+                            equipos.map((equipo) => {
+                                const isInactive = equipo.estado?.toLowerCase() === 'inactivo';
+                                const hasPending = getPendingRequestsForEquipo(equipo.id_equipo).length > 0;
+                                const isSelected = highlightedId === equipo.id_equipo;
+
+                                // Helper for expiration check
+                                const checkIsExpiring = (vigenciaStr?: string) => {
+                                    if (!vigenciaStr) return false;
+                                    const d = new Date(vigenciaStr);
+                                    if (isNaN(d.getTime())) return false;
+                                    const today = new Date();
+                                    const diffTime = d.getTime() - today.getTime();
+                                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                                    return diffDays <= 30;
+                                };
+
+                                const isExpiring = checkIsExpiring(equipo.vigencia);
+
+                                return (
+                                    <tr
+                                        key={equipo.id_equipo}
+                                        className={isSelected ? 'row-highlighted' : ''}
+                                        onClick={() => {
+                                            setHighlightedId(equipo.id_equipo);
+                                            const pendingList = getPendingRequestsForEquipo(equipo.id_equipo);
+                                            if (pendingList.length > 0) {
+                                                const pending = pendingList[0];
+                                                showToast({
+                                                    type: 'warning',
+                                                    message: `Solicitud de ${pending.tipo_solicitud} Pendiente: ${pending.datos_json?.motivo || 'Sin motivo especificado'}`,
+                                                    duration: 8000
+                                                });
+                                            }
+                                        }}
+                                        style={{
+                                            cursor: 'pointer',
+                                            opacity: isInactive ? 0.8 : 1,
+                                            backgroundColor: isSelected
+                                                ? (isInactive ? '#fef2f2' : (hasPending ? '#fff7ed' : '#eef2ff'))
+                                                : (isInactive ? '#f9fafb' : 'transparent'),
+                                            borderLeft: isSelected
+                                                ? (isInactive ? '4px solid #ef4444' : (hasPending ? '4px solid #f97316' : '4px solid #4f46e5'))
+                                                : 'none',
+                                            // Orange line for expiring (inset shadow to coexist with border)
+                                            boxShadow: isExpiring ? 'inset 4px 0 0 0 #f97316' : 'none',
+                                            transition: 'all 0.2s ease'
+                                        }}
+                                    >
+                                        <td style={{ whiteSpace: 'nowrap', textAlign: 'center' }}><span className="code-badge">{equipo.codigo}</span></td>
+                                        <td style={{ fontWeight: 500, whiteSpace: 'nowrap', textAlign: 'center' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                                                {equipo.nombre}
+                                                {getPendingRequestsForEquipo(equipo.id_equipo).length > 0 && (
+                                                    <span title="Solicitud Pendiente" style={{ cursor: 'help' }}>⚠️</span>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>{equipo.tipo}</td>
+                                        <td style={{ textAlign: 'center' }}>{equipo.ubicacion}</td>
+                                        <td style={{ textAlign: 'center' }}>
+                                            <span className={`status-pill ${equipo.estado?.toLowerCase() === 'activo' ? 'status-active' : 'status-inactive'}`}>
+                                                {equipo.estado}
+                                            </span>
+                                        </td>
+                                        <td style={{ textAlign: 'center' }}>{equipo.vigencia}</td>
+                                        <td style={{ textAlign: 'center' }}>{equipo.nombre_asignado || '---'}</td>
+                                        <td style={{ width: '100px', minWidth: '100px', paddingRight: '2rem' }}>
+                                            <div className="action-buttons" style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+                                                <button className="btn-action-edit" onClick={() => handleEdit(equipo)}>
+                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4L18.5 2.5z"></path></svg>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })
                         )}
                     </tbody>
                 </table>

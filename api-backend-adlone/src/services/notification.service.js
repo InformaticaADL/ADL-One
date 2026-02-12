@@ -269,7 +269,34 @@ class NotificationService {
                                 ${equipo.nueva_ubicacion ? `<div style="margin-bottom: 2px;">➡️ <strong>Nueva Ubicación:</strong> ${equipo.nueva_ubicacion}</div>` : ''}
                                 ${equipo.responsable ? `<div style="margin-bottom: 2px;">👤 <strong>Responsable:</strong> ${equipo.responsable}</div>` : ''}
                                 ${equipo.vigencia ? `<div style="margin-bottom: 2px;">📅 <strong>Vigencia:</strong> ${equipo.vigencia}</div>` : ''}
-                                ${equipo.status ? `<div style="margin-top: 6px; font-size: 11px; color: ${equipo.status === 'RECHAZADO' ? '#dc2626' : '#16a34a'}; font-weight: bold; background: ${equipo.status === 'RECHAZADO' ? '#fee2e2' : '#dcfce7'}; padding: 2px 8px; border-radius: 4px; display: inline-block;">${equipo.status}</div>` : ''}
+                                ${(() => {
+                            if (!equipo.status) return '';
+                            let label = equipo.status;
+                            let bg = '#e2e8f0';
+                            let color = '#475569';
+
+                            const s = equipo.status.toUpperCase();
+                            if (s === 'PENDIENTE' || s === 'SOLICITADO') {
+                                label = 'SOLICITADO';
+                                bg = '#dbeafe'; // Blue
+                                color = '#1e40af';
+                            } else if (s === 'APROBADO') {
+                                label = 'APROBADO';
+                                bg = '#dcfce7'; // Green
+                                color = '#166534';
+                            } else if (s === 'RECHAZADO' || s === 'RECHAZADA') {
+                                label = 'RECHAZADA';
+                                bg = '#fee2e2'; // Red
+                                color = '#991b1b';
+                            } else if (s === 'PROCESADO') {
+                                // Keep legacy green if needed, or map to Approved? User asked for specific colors.
+                                // The screenshot showed PROCESADO in Green.
+                                bg = '#dcfce7';
+                                color = '#166534';
+                            }
+
+                            return `<div style="margin-top: 6px; font-size: 11px; color: ${color}; font-weight: bold; background: ${bg}; padding: 2px 8px; border-radius: 4px; display: inline-block;">${label}</div>`;
+                        })()}
                             </div>
                         </div>
                     `;

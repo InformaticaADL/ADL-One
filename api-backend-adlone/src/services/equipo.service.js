@@ -353,6 +353,19 @@ export const equipoService = {
     },
 
     createEquipo: async (data, userId = null) => {
+        // Validate Vigencia
+        if (data.vigencia) {
+            const vigenciaDate = new Date(data.vigencia);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            if (vigenciaDate < today) {
+                const vigenciaStr = vigenciaDate.toISOString().split('T')[0];
+                const todayStr = today.toISOString().split('T')[0];
+                if (vigenciaStr < todayStr) { // Double check with strings to avoid timezone issues
+                    throw new Error('La fecha de vigencia no puede ser anterior a la fecha actual.');
+                }
+            }
+        }
         const pool = await getConnection();
         const transaction = new sql.Transaction(pool);
         try {
@@ -411,6 +424,19 @@ export const equipoService = {
     },
 
     updateEquipo: async (id, data, userId = null) => {
+        // Validate Vigencia
+        if (data.vigencia) {
+            const vigenciaDate = new Date(data.vigencia);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            if (!isNaN(vigenciaDate.getTime())) {
+                const vigenciaStr = vigenciaDate.toISOString().split('T')[0];
+                const todayStr = today.toISOString().split('T')[0];
+                if (vigenciaStr < todayStr) {
+                    throw new Error('La fecha de vigencia no puede ser anterior a la fecha actual.');
+                }
+            }
+        }
         const pool = await getConnection();
         const transaction = new sql.Transaction(pool);
         try {
@@ -820,6 +846,101 @@ export const equipoService = {
         } catch (error) {
             await transaction.rollback();
             logger.error('Error in restoreEquipoVersion service:', error);
+            throw error;
+        }
+    },
+
+    // --- AUTOMATED TASKS ---
+    inactivateExpiredEquipos: async () => {
+        const pool = await getConnection();
+        const transaction = new sql.Transaction(pool);
+        try {
+            await transaction.begin();
+
+            // 1. Find Expired & Active Equipment
+            // Use CAST(GETDATE() AS DATE) to ignore time part, so if expires at 00:00 today, it is expired today?
+            // Actually, usually expiry means "up to and including". So if vigencia is TODAY, it is still valid. 
+            // It expires tomorrow. So find where vigencia < TODAY.
+            const findReq = new sql.Request(transaction);
+            const findQuery = `
+                SELECT id_equipo, nombre, codigo 
+                FROM mae_equipo 
+                WHERE habilitado = 'S' 
+                AND fecha_vigencia < CAST(GETDATE() AS DATE)
+            `;
+            const findRes = await findReq.query(findQuery);
+            const expiredEquipos = findRes.recordset;
+
+            if (expiredEquipos.length === 0) {
+                await transaction.commit();
+                return { processed: 0, message: 'No expired equipment found.' };
+            }
+
+            logger.info(`Found ${expiredEquipos.length} expired equipment to inactivate.`);
+
+            for (const eq of expiredEquipos) {
+                // A. Fetch current for history
+                const curReq = new sql.Request(transaction);
+                curReq.input('id', sql.Int, eq.id_equipo);
+                const curRes = await curReq.query('SELECT * FROM mae_equipo WHERE id_equipo = @id');
+                const current = curRes.recordset[0];
+
+                if (!current) continue;
+
+                // B. Update to Inactive
+                const updReq = new sql.Request(transaction);
+                updReq.input('id', sql.Int, eq.id_equipo);
+                await updReq.query("UPDATE mae_equipo SET habilitado = 'N' WHERE id_equipo = @id");
+
+                // C. Insert into History
+                const histReq = new sql.Request(transaction);
+                histReq.input('id_equipo', sql.Numeric(10, 0), Number(eq.id_equipo));
+                histReq.input('usuario_cambio', sql.Numeric(10, 0), 0); // 0 for System
+                histReq.input('version', sql.VarChar(10), current.version || 'v1');
+
+                // Bind all
+                histReq.input('codigo', sql.VarChar, current.codigo);
+                histReq.input('nombre', sql.VarChar, current.nombre);
+                histReq.input('tipoequipo', sql.VarChar, current.tipoequipo);
+                histReq.input('sede', sql.VarChar, current.sede);
+                histReq.input('fecha_vigencia', sql.Date, current.fecha_vigencia);
+                histReq.input('id_muestreador', sql.Numeric(10, 0), current.id_muestreador || 0);
+                histReq.input('habilitado', sql.VarChar(1), 'N'); // New state
+                histReq.input('sigla', sql.VarChar(10), current.sigla || '');
+                histReq.input('correlativo', sql.Numeric(10, 0), current.correlativo || 0);
+                histReq.input('tienefc', sql.VarChar(1), current.tienefc || 'N');
+                histReq.input('error0', sql.Numeric(10, 1), current.error0 || 0);
+                histReq.input('error15', sql.Numeric(10, 1), current.error15 || 0);
+                histReq.input('error30', sql.Numeric(10, 1), current.error30 || 0);
+                histReq.input('equipo_asociado', sql.VarChar(20), current.equipo_asociado || '0');
+                histReq.input('observacion', sql.VarChar, `[SISTEMA] Inactivación automática por vencimiento. Obs anterior: ${current.observacion || ''}`.substring(0, 500));
+                histReq.input('visible_muestreador', sql.VarChar(1), current.visible_muestreador || 'N');
+                histReq.input('que_mide', sql.VarChar, current.que_mide || '');
+                histReq.input('unidad_medida_textual', sql.VarChar, current.unidad_medida_textual || '');
+                histReq.input('unidad_medida_sigla', sql.VarChar, current.unidad_medida_sigla || '');
+                histReq.input('informe', sql.VarChar(1), current.informe || 'N');
+
+                await histReq.query(`
+                    INSERT INTO mae_equipo_historial (
+                        id_equipo, codigo, nombre, tipoequipo, sede, fecha_vigencia, id_muestreador, habilitado,
+                        sigla, correlativo, tienefc, error0, error15, error30, equipo_asociado,
+                        observacion, visible_muestreador, que_mide, unidad_medida_textual, unidad_medida_sigla, informe, 
+                        usuario_cambio, version, fecha_cambio
+                    ) VALUES (
+                        @id_equipo, @codigo, @nombre, @tipoequipo, @sede, @fecha_vigencia, @id_muestreador, @habilitado,
+                        @sigla, @correlativo, @tienefc, @error0, @error15, @error30, @equipo_asociado,
+                        @observacion, @visible_muestreador, @que_mide, @unidad_medida_textual, @unidad_medida_sigla, @informe, 
+                        @usuario_cambio, @version, GETDATE()
+                    );
+                `);
+            }
+
+            await transaction.commit();
+            return { processed: expiredEquipos.length, message: 'Process completed successfully.' };
+
+        } catch (error) {
+            await transaction.rollback();
+            logger.error('Error in inactivateExpiredEquipos service:', error);
             throw error;
         }
     }

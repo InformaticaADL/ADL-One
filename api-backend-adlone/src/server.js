@@ -22,7 +22,12 @@ import adminRoutes from './routes/admin.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+import { initScheduler } from './utils/scheduler.js';
+
+// Initialize Scheduler
+initScheduler();
+
+const PORT = process.env.PORT || 4000;
 const HOST = process.env.HOST || '0.0.0.0';
 
 // Global Middlewares

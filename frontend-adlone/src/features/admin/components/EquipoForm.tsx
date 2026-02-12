@@ -1073,6 +1073,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                 onChange={handleChange}
                                 className="form-input"
                                 required
+                                min={new Date().toISOString().split('T')[0]}
                             />
                         </div>
                         <div className="form-group">
@@ -1242,6 +1243,26 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                     <button type="button" onClick={onCancel} className="btn-secondary" disabled={loading}>
                         Cancelar
                     </button>
+                    {initialData?.requestId && (!initialData.id_equipo || initialData.id_equipo === 0) && (
+                        <button
+                            type="button"
+                            onClick={() => setRejectingSolicitud({
+                                id_solicitud: initialData.requestId,
+                                tipo_solicitud: 'ALTA',
+                                datos_json: initialData
+                            })}
+                            className="btn-danger"
+                            disabled={loading}
+                            style={{
+                                backgroundColor: '#fee2e2',
+                                color: '#dc2626',
+                                border: '1px solid #fecaca',
+                                marginRight: '0.5rem'
+                            }}
+                        >
+                            Rechazar Solicitud
+                        </button>
+                    )}
                     <button
                         type="submit"
                         className="btn-primary"

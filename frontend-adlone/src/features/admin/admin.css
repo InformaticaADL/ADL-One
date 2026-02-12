@@ -322,6 +322,10 @@
     z-index: 100;
 }
 
+.custom-select-container.open {
+    z-index: 1000;
+}
+
 .custom-select-trigger {
     display: flex;
     align-items: center;

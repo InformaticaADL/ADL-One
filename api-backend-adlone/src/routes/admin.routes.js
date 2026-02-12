@@ -23,6 +23,7 @@ router.put('/equipos/:id', verifyToken, equipoController.updateEquipo);
 router.get('/equipos/:id/historial', verifyToken, equipoController.getEquipoHistorial);
 router.post('/equipos/:id/restore/:idHistorial', verifyToken, equipoController.restoreVersion);
 router.delete('/equipos/:id', verifyToken, equipoController.deleteEquipo);
+router.post('/equipos/check-expiration', verifyToken, equipoController.checkExpiration);
 
 // --- SOLICITUDES ---
 router.post('/solicitudes', verifyToken, solicitudController.create);
