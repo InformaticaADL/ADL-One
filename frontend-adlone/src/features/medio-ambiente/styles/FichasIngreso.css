@@ -645,6 +645,203 @@
     background-color: transparent;
     width: 100%;
 }
+
+/* Alta Option Cards */
+.alta-option-card {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.alta-option-card:hover {
+    transform: translateY(-8px) !important;
+    border-color: #2563eb !important;
+    box-shadow: 0 20px 25px -5px rgba(37, 99, 235, 0.1), 0 10px 10px -5px rgba(37, 99, 235, 0.04) !important;
+    width: 7%;
+}
+
+/* 5. E. Facturar */
+.compact-table th:nth-child(5),
+.compact-table td:nth-child(5) {
+    width: 13%;
+}
+
+/* 6. E. Servicio */
+.compact-table th:nth-child(6),
+.compact-table td:nth-child(6) {
+    width: 13%;
+}
+
+/* 7. Fuente */
+.compact-table th:nth-child(7),
+.compact-table td:nth-child(7) {
+    width: 10%;
+}
+
+/* 8. Objetivo */
+.compact-table th:nth-child(8),
+.compact-table td:nth-child(8) {
+    width: 9%;
+}
+
+/* 9. Sub Area */
+.compact-table th:nth-child(9),
+.compact-table td:nth-child(9) {
+    width: 9%;
+}
+
+/* 10. Usuario */
+.compact-table th:nth-child(10),
+.compact-table td:nth-child(10) {
+    width: 8%;
+    text-align: center;
+}
+
+/* 11. Acciones (Wider to prevent wrapping) */
+.compact-table th:last-child,
+.compact-table td:last-child {
+    width: 10%;
+    /* Increased from 6% to 10% */
+    text-align: center;
+    padding-right: 8px;
+}
+
+/* Pagination */
+.pagination-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 1rem;
+    border-top: 1px solid #e5e7eb;
+    background: #fff;
+}
+
+.pagination-btn {
+    padding: 0.3rem 0.6rem;
+    border: 1px solid #e5e7eb;
+    background: white;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.pagination-btn:hover:not(:disabled) {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+}
+
+.pagination-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Mobile/Tablet Transformation (< 1024px) */
+@media (max-width: 1023px) {
+    .responsive-table-container {
+        border: none;
+        background: transparent;
+        box-shadow: none;
+        overflow: visible;
+    }
+
+    .compact-table,
+    .compact-table tbody,
+    .compact-table tr,
+    .compact-table td {
+        display: block;
+        width: 100%;
+    }
+
+    .compact-table thead {
+        display: none;
+    }
+
+    .compact-table tr {
+        background: white;
+        margin-bottom: 1rem;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        padding: 1rem;
+        border: 1px solid #e5e7eb;
+    }
+
+    .compact-table td {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #f3f4f6;
+        text-align: right;
+        font-size: 0.9rem;
+        max-width: none;
+        height: auto;
+        width: 100% !important;
+        /* Force full width on mobile */
+    }
+
+    .compact-table td:first-child {
+        font-weight: normal;
+        text-align: right;
+    }
+
+    .compact-table td:last-child {
+        border-bottom: none;
+        justify-content: flex-end;
+        padding-top: 1rem;
+        padding-right: 0;
+    }
+
+    .compact-table td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: #6b7280;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        margin-right: 1rem;
+        text-align: left;
+        flex: 1;
+        margin-top: 2px;
+    }
+}
+
+/* ========================================
+   NEW: Observation & Action Row (Responsive)
+   ======================================== */
+.observation-action-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 1.5rem;
+    max-width: 800px;
+    margin: 0 auto;
+    width: 100%;
+    background-color: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e5e7eb;
+}
+
+@media (max-width: 768px) {
+    .observation-action-row {
+        display: flex;
+        flex-direction: column;
+        padding: 1rem;
+        gap: 1rem;
+    }
+}
+
+/* ========================================
+   NEW: Fullscreen Loading (Prevents Flicker)
+   ======================================== */
+.loading-container-fullscreen {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 80vh;
+    background-color: transparent;
+    width: 100%;
+}
+
 /* Alta Option Cards */
 .alta-option-card {
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;

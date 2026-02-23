@@ -597,7 +597,7 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
 
                         {data?.id_validaciontecnica === 5 && (
                             <WorkflowAlert
-                                type="success"
+                                type="info"
                                 title="En Proceso"
                                 message="Esta ficha tiene fechas y muestreadores asignados."
                             />
@@ -605,7 +605,7 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
 
                         {data?.id_validaciontecnica === 6 && (
                             <WorkflowAlert
-                                type="success"
+                                type="info"
                                 title="Aprobada por Coordinación"
                                 message="Esta ficha fue aprobada y está pendiente de programación."
                             />

@@ -350,3 +350,37 @@ Optimización del flujo de aprobación y comunicación entre el área de Medio A
   - Remoción definitiva de permisos obsoletos (`AI_MA_NOTIF_REC/ENV`), consolidando el acceso mediante subpermisos granulares.
 - **Prevención de Inconsistencias**:
   - Iconos de alerta `⚠️` y mensajes dinámicos que informan sobre trámites en curso para evitar ediciones conflictivas.
+
+### 16. UI/UX Refinements & Responsive Header Standardization (February 23, 2026) 🎨📱
+
+Comprehensive visual and layout improvements focused on consistency, mobile usability, and form ergonomics across the Medio Ambiente and Admin modules.
+
+#### Form Layout Improvements (`SolicitudesMaPage`)
+- **Request Type Selector (`tipo-solicitud-grid`)**: Redesigned as a uniform grid (3 cols on mobile, 5 on desktop) with SVG icons per button type, active/inactive states, and standardized button heights (`72px` mobile / `52px` desktop).
+- **Reporte de Problema form**: Custom `prob-tipo-frecuencia-row` wrapper sets `3fr 1fr` columns on mobile so "Tipo de Problema" is wider and "Frecuencia" stays compact.
+- **Solicitud Nuevo Equipo form**: Custom `nuevo-eq-ubicacion-row` wrapper uses `2fr 1fr` columns (`align-items: end`) so "Ubicación" and "Fecha de Vigencia" render side-by-side and bottom-aligned.
+
+#### Tab Button Normalization (`SolicitudesMaPage`)
+- Unified `padding`, `font-size` (`0.85rem`), and border-bottom style across all three tabs: **Pendientes**, **En Revisión**, and **Historial**. Previously they had inconsistent sizes.
+
+#### Responsive Header Pattern — All Hub & Admin Pages
+Introduced a reusable 3-column `responsive-header` layout:
+- **Desktop**: `Volver` button left-aligned | `Title + Subtitle` centered | optional action button right-aligned.
+- **Mobile**: stacks all elements vertically, centered, with `flex-direction: column`.
+
+Applied to the following pages:
+| Page | Volver | Center Title | Right Action |
+|---|---|---|---|
+| `EquiposHub` | Volver a Medio Ambiente | Centro de Equipos | — |
+| `MuestreadoresPage` | Volver | Gestión de Muestreadores | + Nuevo Muestreador |
+| `AdminMaHub` | Volver a Administración | Medio Ambiente | — |
+| `AdminInfoHub` | — | Admin. Información | — |
+| `InformaticaHub` | Volver a Administración | Informática | — |
+| `NotificationEventsPage` | Volver | Configuración de Correos - Paso 1 | — |
+| `NotificationRecipientsPage` | Volver a Eventos | Configuración de Correos - Paso 2 | — |
+
+#### CSS Fixes (`admin.css`)
+- Added `flex-direction: column` and `align-items: center` to `.responsive-header > div` to prevent `h1` and `p` from displaying side-by-side on mobile.
+- Increased mobile gap from `0.25rem` → `0.5rem` and margin-bottom from `0.5rem` → `0.75rem` for better spacing.
+- `.btn-primary` inside `.responsive-header` retains full-width on mobile (matching the established "+ Nuevo Equipo" button style).
+

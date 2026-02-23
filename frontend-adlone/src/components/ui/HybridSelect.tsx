@@ -10,6 +10,7 @@ export interface HybridSelectProps {
     required?: boolean;
     disabled?: boolean;
     strict?: boolean;
+    style?: React.CSSProperties;
 }
 
 /**
@@ -18,7 +19,7 @@ export interface HybridSelectProps {
  * If 'strict' is true, it only allows selection from the list (input is readOnly).
  */
 export const HybridSelect: React.FC<HybridSelectProps> = ({
-    label, value, options, onChange, placeholder, name, required, disabled, strict
+    label, value, options, onChange, placeholder, name, required, disabled, strict, style
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
@@ -82,7 +83,8 @@ export const HybridSelect: React.FC<HybridSelectProps> = ({
                         cursor: disabled ? 'not-allowed' : (strict ? 'pointer' : 'text'),
                         backgroundColor: disabled ? '#f8fafc' : 'white',
                         color: disabled ? '#64748b' : 'inherit',
-                        userSelect: strict ? 'none' : 'auto'
+                        userSelect: strict ? 'none' : 'auto',
+                        ...style
                     }}
                 />
                 <div
@@ -152,10 +154,14 @@ export const HybridSelect: React.FC<HybridSelectProps> = ({
                                     color: '#374151',
                                     borderRadius: '4px',
                                     backgroundColor: value === opt ? '#eff6ff' : 'transparent',
-                                    borderBottom: strict ? 'none' : '1px solid #f3f4f6'
+                                    borderBottom: strict ? 'none' : '1px solid #f3f4f6',
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis'
                                 }}
                                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = value === opt ? '#eff6ff' : '#f9fafb'}
                                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = value === opt ? '#eff6ff' : 'transparent'}
+                                title={opt}
                             >
                                 {opt}
                             </div>

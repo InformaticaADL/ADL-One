@@ -219,7 +219,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: Center;
-    gap: 1rem;
+    gap: 0.75rem;
     text-align: center;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -235,7 +235,7 @@
 
 .card-icon-wrapper {
     font-size: 2.5rem;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0;
 }
 
 .card-title {
@@ -694,6 +694,14 @@
     color: #6b7280;
 }
 
+.recipients-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
 /* --- Status Pills --- */
 .status-pill {
     padding: 0.2rem 0.6rem;
@@ -832,6 +840,11 @@
 /* --- Form Elements in Modals --- */
 .form-group {
     margin-bottom: 1rem;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    height: 100%;
 }
 
 .form-label {
@@ -862,13 +875,33 @@
 
 .form-row {
     display: flex;
+    align-items: flex-end;
     gap: 0.75rem;
     margin-bottom: 0.75rem;
 }
 
-.form-row>.form-group {
-    flex: 1;
-    margin-bottom: 0;
+.checkbox-row {
+    align-items: center !important;
+}
+
+.form-check {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+
+.form-checkbox {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.form-check label {
+    font-size: 0.85rem;
+    color: #374151;
+    cursor: pointer;
+    user-select: none;
 }
 
 /* --- Refined Table Styles (Commercial Look) --- */
@@ -1073,6 +1106,22 @@
     .mobile-hidden {
         display: none !important;
     }
+
+    .form-row {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 1rem !important;
+    }
+
+    .checkbox-row {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 0.75rem !important;
+    }
+
+    .form-check {
+        width: 100%;
+    }
 }
 
 /* Desktop Fixed Container (Applied when not mobile, or default) */
@@ -1098,6 +1147,10 @@
     .status-pill {
         padding: 0.1rem 0.4rem;
         font-size: 0.65rem;
+    }
+
+    .recipients-grid {
+        grid-template-columns: 1fr;
     }
 }
 
@@ -1353,19 +1406,22 @@
         margin-top: 0.25rem !important;
     }
 
+
     /* Centered Header for Phones */
     .responsive-header {
         display: flex !important;
         flex-direction: column !important;
         align-items: center !important;
         text-align: center !important;
-        gap: 1rem !important;
-        margin-bottom: 2rem !important;
+        gap: 0.5rem !important;
+        margin-bottom: 0.75rem !important;
     }
 
     .responsive-header>div {
         width: 100% !important;
         display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
         justify-content: center !important;
     }
 
@@ -1377,4 +1433,359 @@
     .btn-back {
         margin-bottom: 0 !important;
     }
+
+    /* width and font refinements */
+    .admin-container {
+        padding: 0.5rem !important;
+    }
+
+    .table-container {
+        padding: 0 !important;
+    }
+
+    .admin-table td div {
+        font-size: 0.75rem !important;
+    }
+
+    .admin-table td div:last-child {
+        font-size: 0.65rem !important;
+    }
+
+    .admin-content-scroll {
+        padding: 0 0.25rem 0.25rem !important;
+    }
+}
+
+/* Desktop Refinements for Forms */
+@media (min-width: 769px) {
+    .form-row {
+        display: flex !important;
+        gap: 2rem !important;
+        margin-bottom: 1.5rem !important;
+        align-items: flex-start !important;
+    }
+
+    .form-row>.form-group {
+        flex: 1;
+        margin-bottom: 0 !important;
+    }
+
+    .form-section {
+        padding: 1.5rem !important;
+        margin-bottom: 2rem !important;
+    }
+
+    .section-title {
+        font-size: 1.1rem !important;
+        margin-bottom: 1.25rem !important;
+        border-bottom: 1px solid #f3f4f6 !important;
+    }
+
+    .form-label {
+        font-size: 0.85rem !important;
+        margin-bottom: 0.5rem !important;
+        color: #374151 !important;
+        font-weight: 600 !important;
+    }
+
+    .card-header {
+        padding: 1.5rem 2rem !important;
+    }
+
+    .admin-form {
+        padding: 2rem !important;
+    }
+}
+
+/* --- Responsive utility classes for Solicitudes form --- */
+.form-grid-responsive {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem 2rem;
+    align-items: stretch;
+    width: 100%;
+}
+
+.reporte-problema-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem 2rem;
+    align-items: stretch;
+    width: 100%;
+}
+
+.prob-equipo {
+    grid-column: span 2;
+}
+
+/* Wrapper que contiene Tipo de Problema + Frecuencia */
+.prob-tipo-frecuencia-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    align-items: start;
+}
+
+/* Wrapper Ubicación + Fecha Vigencia en Nuevo Equipo */
+.nuevo-eq-ubicacion-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 1.5rem;
+    align-items: end;
+}
+
+.prob-tipo {
+    grid-column: span 1;
+}
+
+.prob-severidad {
+    grid-column: span 1;
+}
+
+.prob-frecuencia {
+    grid-column: span 1;
+}
+
+.prob-afecta {
+    grid-column: span 1;
+}
+
+.prob-desc {
+    grid-column: span 2;
+}
+
+.prob-sintomas {
+    grid-column: span 2;
+}
+
+.prob-actions {
+    grid-column: span 2;
+}
+
+@media (max-width: 1024px) {
+
+    .form-grid-responsive,
+    .reporte-problema-grid {
+        grid-template-columns: 1fr !important;
+        gap: 1.25rem !important;
+    }
+
+    /* En móvil: mantener 2 columnas para Tipo Problema + Frecuencia */
+    .form-grid-responsive:has(.prob-tipo) {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Fila de tipo+frecuencia: mitad y mitad en móvil */
+    .prob-tipo-frecuencia-row {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 0.75rem !important;
+    }
+
+    .prob-tipo,
+    .prob-frecuencia {
+        grid-column: span 1 !important;
+    }
+
+    .quality-card-responsive {
+        flex-direction: column !important;
+        align-items: center !important;
+        gap: 1.25rem !important;
+        padding: 1.5rem !important;
+        text-align: center !important;
+    }
+
+    .quality-card-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .form-actions-stack {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        width: 100% !important;
+    }
+
+    .form-actions-stack button {
+        width: 100% !important;
+        margin-bottom: 0.5rem;
+    }
+}
+
+@media (min-width: 1025px) {
+    .quality-card-content {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 1.25rem;
+    }
+
+    /* En desktop: 5 col, botones más compactos */
+    .tipo-solicitud-grid {
+        grid-template-columns: repeat(5, 1fr) !important;
+        gap: 0.5rem !important;
+    }
+
+    .tipo-solicitud-grid button {
+        height: 52px !important;
+        font-size: 0.68rem !important;
+        padding: 0.5rem 0.35rem !important;
+    }
+
+    .tipo-solicitud-grid button svg {
+        width: 13px !important;
+        height: 13px !important;
+    }
+}
+
+.grid-40-60 {
+    display: grid;
+    grid-template-columns: 4fr 6fr;
+    gap: 1.5rem;
+}
+
+/* --- Animations --- */
+@keyframes dropdownReveal {
+    from {
+        opacity: 0;
+        transform: translateY(-8px) scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.animate-dropdown-reveal {
+    animation: dropdownReveal 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    transform-origin: top right;
+}
+
+/* --- Premium Form Header (Responsive) --- */
+.header-premium-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    padding: 1.5rem;
+    border-bottom: 1px solid #f1f5f9;
+    background: linear-gradient(to bottom, #ffffff, #f8fafc);
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+}
+
+.header-title-area {
+    order: 1;
+    /* Title on top */
+    text-align: center;
+}
+
+.header-actions-area {
+    order: 2;
+    /* Buttons in middle */
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.header-version-area {
+    order: 3;
+    /* Version on bottom */
+    text-align: center;
+}
+
+/* Desktop styles for header */
+@media (min-width: 769px) {
+    .header-premium-container {
+        display: grid;
+        grid-template-columns: minmax(120px, 1fr) minmax(auto, 600px) minmax(120px, 1fr);
+        grid-template-rows: auto auto;
+        flex-direction: row;
+        align-items: center;
+        gap: 0.25rem 2rem;
+        padding: 1.5rem 2.5rem;
+    }
+
+    .header-title-area {
+        grid-column: 2;
+        grid-row: 1;
+        order: 0;
+    }
+
+    .header-version-area {
+        grid-column: 2;
+        grid-row: 2;
+        order: 0;
+        margin-top: 0.25rem;
+    }
+
+    .header-actions-area {
+        display: contents;
+    }
+
+    .header-actions-left {
+        grid-column: 1;
+        grid-row: 1 / span 2;
+        display: flex;
+        justify-content: flex-start;
+    }
+
+    .header-actions-right {
+        grid-column: 3;
+        grid-row: 1 / span 2;
+        display: flex;
+        justify-content: flex-end;
+    }
+}
+
+/* Specific styles for elements inside header */
+.header-title-text {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.025em;
+    line-height: 1.1;
+    margin: 0;
+}
+
+.header-version-pill {
+    display: inline-block;
+    font-size: 0.65rem;
+    background: #10b981;
+    color: white;
+    padding: 3px 12px;
+    border-radius: 100px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+}
+
+.header-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: white;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    transition: all 0.2s ease;
+    font-weight: 600;
+}
+
+@keyframes dropdownRevealCentered {
+    from {
+        opacity: 0;
+        transform: translateY(-8px) translateX(-50%) scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) translateX(-50%) scale(1);
+    }
+}
+
+.animate-dropdown-reveal-centered {
+    animation: dropdownRevealCentered 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    transform-origin: top center;
 }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { SelectionCard } from '../components/SelectionCard';
 import '../styles/FichasIngreso.css';
 

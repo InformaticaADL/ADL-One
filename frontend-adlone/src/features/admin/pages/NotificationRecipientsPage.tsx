@@ -166,23 +166,33 @@ export const NotificationRecipientsPage: React.FC<Props> = ({ event, onBack }) =
 
     return (
         <div className="admin-container">
-            <div className="admin-header-section">
-                <button onClick={onBack} className="btn-back">
-                    <span className="icon-circle">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <line x1="19" y1="12" x2="5" y2="12"></line>
-                            <polyline points="12 19 5 12 12 5"></polyline>
-                        </svg>
-                    </span>
-                    Volver a Eventos
-                </button>
-                <h1 className="admin-title">Configuración de Correos - Paso 2</h1>
-                <p className="admin-subtitle">
-                    Configurando: <span style={{ color: '#3b82f6', fontWeight: 600 }}>{event.codigo_evento}</span> - {event.descripcion}
-                </p>
+            <div className="admin-header-section responsive-header">
+                {/* Izquierda: botón Volver */}
+                <div style={{ justifySelf: 'start' }}>
+                    <button onClick={onBack} className="btn-back">
+                        <span className="icon-circle">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="19" y1="12" x2="5" y2="12"></line>
+                                <polyline points="12 19 5 12 12 5"></polyline>
+                            </svg>
+                        </span>
+                        Volver a Eventos
+                    </button>
+                </div>
+
+                {/* Centro: título + subtítulo */}
+                <div style={{ justifySelf: 'center', textAlign: 'center' }}>
+                    <h1 className="admin-title" style={{ margin: '0 0 0.15rem 0' }}>Configuración de Correos - Paso 2</h1>
+                    <p className="admin-subtitle" style={{ margin: 0 }}>
+                        Configurando: <span style={{ color: '#3b82f6', fontWeight: 600 }}>{event.codigo_evento}</span> - {event.descripcion}
+                    </p>
+                </div>
+
+                {/* Derecha: vacío (balance) */}
+                <div></div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
+            <div className="recipients-grid">
                 {/* Left: Add Recipients */}
                 <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
                     <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#111827', marginBottom: '1rem' }}>

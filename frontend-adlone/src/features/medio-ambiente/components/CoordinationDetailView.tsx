@@ -22,14 +22,13 @@ export const CoordinationDetailView: React.FC<Props> = ({ fichaId, initialTab = 
 
     // State
     const [loading, setLoading] = useState(true);
-    const [muestreadores, setMuestreadores] = useState<any[]>([]);
+    const [_muestreadores, setMuestreadores] = useState<any[]>([]);
     const [activeTab, setActiveTab] = useState<'antecedentes' | 'analisis' | 'observaciones'>(initialTab as any || 'antecedentes');
     const [data, setData] = useState<any>(null);
 
     // Editable State (Coordination)
     const [coordObs, setCoordObs] = useState('');
-    const [selectedMuestreador, setSelectedMuestreador] = useState<number | ''>('');
-    const [fechaMuestreo, setFechaMuestreo] = useState('');
+
     const [actionLoading, setActionLoading] = useState(false);
 
     // Status Validation
@@ -73,18 +72,7 @@ export const CoordinationDetailView: React.FC<Props> = ({ fichaId, initialTab = 
 
                 // Pre-fill Agenda if valid (assuming check enc fields)
                 if (fichaData.encabezado) {
-                    if (fichaData.encabezado.id_muestreador) setSelectedMuestreador(fichaData.encabezado.id_muestreador);
-
-                    // Format date to yyyy-MM-dd
-                    if (fichaData.encabezado.fecha_muestreo) {
-                        const d = new Date(fichaData.encabezado.fecha_muestreo);
-                        if (!isNaN(d.getTime())) {
-                            const year = d.getFullYear();
-                            const month = String(d.getMonth() + 1).padStart(2, '0');
-                            const day = String(d.getDate()).padStart(2, '0');
-                            setFechaMuestreo(`${year}-${month}-${day}`);
-                        }
-                    }
+                    // Muestreador and Date previously used here are removed as they are unused for this view
                 }
 
                 // Load Muestreadores
@@ -106,29 +94,6 @@ export const CoordinationDetailView: React.FC<Props> = ({ fichaId, initialTab = 
         loadFicha();
     }, [fichaId]);
 
-    const handleSaveAgenda = async () => {
-        if (!selectedMuestreador || !fechaMuestreo) {
-            showToast({ type: 'warning', message: 'Debe seleccionar Muestreador y Fecha' });
-            return;
-        }
-
-        setActionLoading(true);
-        try {
-            // Guarda Agenda + Observaciones
-            await fichaService.updateAgenda(fichaId, {
-                idMuestreador: selectedMuestreador,
-                fecha: fechaMuestreo,
-                observaciones: coordObs
-            });
-
-            showToast({ type: 'success', message: 'Ficha aceptada y asignada correctamente' });
-        } catch (error) {
-            console.error(error);
-            showToast({ type: 'error', message: 'Error al actualizar agenda' });
-        } finally {
-            setActionLoading(false);
-        }
-    };
 
     const handleAcceptClick = () => {
         setConfirmModal({

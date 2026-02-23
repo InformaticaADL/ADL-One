@@ -59,6 +59,51 @@ export const adminService = {
         // SP: MAM_Admin_Muestreador_Disable @Id
         await callSP('MAM_Admin_Muestreador_Disable', { Id: id });
         return { success: true };
+    },
+
+    // --- DASHBOARD ---
+    getDashboardStats: async () => {
+        try {
+            const pool = await getConnection();
+
+            // 1. Solicitudes Pendientes
+            const pdRq = pool.request();
+            const pdResult = await pdRq.query(`
+                SELECT count(*) as count 
+                FROM mae_solicitud_equipo 
+                WHERE estado IN ('PENDIENTE', 'PENDIENTE_CALIDAD', 'PENDIENTE_TECNICA', 'EN_REVISION_TECNICA')
+            `);
+            const pendientes = pdResult.recordset[0].count;
+
+            // 2. Muestras Hoy
+            const mhRq = pool.request();
+            const mhResult = await mhRq.query(`
+                SELECT count(*) as count 
+                FROM App_Ma_Agenda_MUESTREOS 
+                WHERE estado_caso != 'ANULADA' 
+                AND CAST(fecha_muestreo as DATE) = CAST(GETDATE() as DATE)
+            `);
+            const muestrasHoy = mhResult.recordset[0].count;
+
+            // 3. Informes por Validar (Using REVISION requests as proxy)
+            const ivRq = pool.request();
+            const ivResult = await ivRq.query(`
+                SELECT count(*) as count 
+                FROM mae_solicitud_equipo 
+                WHERE tipo_solicitud = 'REVISION' 
+                AND estado IN ('PENDIENTE', 'PENDIENTE_TECNICA', 'PENDIENTE_CALIDAD', 'EN_REVISION_TECNICA')
+            `);
+            const informesPorValidar = ivResult.recordset[0].count;
+
+            return {
+                pendientes,
+                muestrasHoy,
+                informesPorValidar
+            };
+        } catch (error) {
+            console.error('Error fetching dashboard stats:', error);
+            throw error;
+        }
     }
 };
 

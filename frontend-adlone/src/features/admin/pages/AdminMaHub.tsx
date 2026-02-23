@@ -12,7 +12,18 @@ export const AdminMaHub: React.FC<Props> = ({ onNavigate, onBack }) => {
 
     const OPTIONS = [
         { id: 'admin-muestreadores', label: 'Muestreadores', icon: '🧑‍🔬', description: 'Gestión de muestreadores activos, firmas y datos.', permission: 'AI_MA_MUESTREADORES' },
-        { id: 'admin-equipos', label: 'Equipos', icon: '⚗️', description: 'Gestión de equipos, códigos y vencimientos de calibración.', permission: 'AI_MA_EQUIPOS' },
+        {
+            id: 'admin-equipos',
+            label: 'Equipos',
+            icon: (
+                <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ fontSize: '42px', lineHeight: '1' }}>🖥️</span>
+                    <span style={{ position: 'absolute', bottom: '-5px', right: '-8px', fontSize: '24px', filter: 'drop-shadow(2px 2px 0 white)' }}>⚙️</span>
+                </div>
+            ),
+            description: 'Gestión de equipos, códigos y vencimientos de calibración.',
+            permission: 'AI_MA_EQUIPOS'
+        },
         { id: 'ma-solicitudes', label: 'Realizar Solicitudes', icon: '📝', description: 'Creación de solicitudes de alta, traspaso y baja de equipos.', permission: 'AI_MA_SOLICITUDES' },
     ];
 
@@ -25,19 +36,28 @@ export const AdminMaHub: React.FC<Props> = ({ onNavigate, onBack }) => {
 
     return (
         <div className="admin-container">
-            <div className="admin-header-section">
-                <button onClick={onBack} className="btn-back">
-                    <span className="icon-circle">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <line x1="19" y1="12" x2="5" y2="12"></line>
-                            <polyline points="12 19 5 12 12 5"></polyline>
-                        </svg>
-                    </span>
-                    Volver a Administración
-                </button>
+            <div className="admin-header-section responsive-header">
+                {/* Izquierda: botón Volver */}
+                <div style={{ justifySelf: 'start' }}>
+                    <button onClick={onBack} className="btn-back">
+                        <span className="icon-circle">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="19" y1="12" x2="5" y2="12"></line>
+                                <polyline points="12 19 5 12 12 5"></polyline>
+                            </svg>
+                        </span>
+                        Volver a Administración
+                    </button>
+                </div>
 
-                <h1 className="admin-title">Medio Ambiente</h1>
-                <p className="admin-subtitle">Gestión de recursos y personal de Medio Ambiente.</p>
+                {/* Centro: título + subtitulo */}
+                <div style={{ justifySelf: 'center', textAlign: 'center' }}>
+                    <h1 className="admin-title" style={{ margin: '0 0 0.15rem 0' }}>Medio Ambiente</h1>
+                    <p className="admin-subtitle" style={{ margin: 0 }}>Gestión de recursos y personal de Medio Ambiente.</p>
+                </div>
+
+                {/* Derecha: vacío (balance) */}
+                <div></div>
             </div>
 
             <div className="hub-grid">

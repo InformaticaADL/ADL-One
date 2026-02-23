@@ -37,11 +37,11 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
     );
 
     return (
-        <div className="form-group" ref={wrapperRef} style={{ position: 'relative' }}>
+        <div className="form-group" ref={wrapperRef} style={{ position: 'relative', width: '100%' }}>
             {label && (
-                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>
-                    {label}
-                    {loading && <span style={{ marginLeft: '8px', fontSize: '0.7rem', color: '#6b7280' }}>⏳ Cargando...</span>}
+                <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>{label}</span>
+                    {loading && <span style={{ fontSize: '0.7rem', color: '#6b7280' }}>⏳ Cargando...</span>}
                 </label>
             )}
             <div
@@ -203,10 +203,14 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
                                         fontSize: '0.85rem',
                                         cursor: 'pointer',
                                         backgroundColor: value === String(opt.id || '') ? '#f3f4f6' : 'transparent',
-                                        color: '#374151'
+                                        color: '#374151',
+                                        whiteSpace: 'nowrap',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis'
                                     }}
                                     onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
                                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = value === String(opt.id || '') ? '#f3f4f6' : 'transparent'}
+                                    title={opt.nombre}
                                 >
                                     {opt.nombre}
                                 </div>

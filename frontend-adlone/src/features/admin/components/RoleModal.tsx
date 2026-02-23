@@ -95,7 +95,7 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
     };
 
 
-    const toggleSelectAllCategory = (category: string, perms: Permission[]) => {
+    const toggleSelectAllCategory = (_category: string, perms: Permission[]) => {
         const allIds = perms.map(p => p.id_permiso);
         const allSelected = allIds.every(id => selectedPermissions.includes(id));
 

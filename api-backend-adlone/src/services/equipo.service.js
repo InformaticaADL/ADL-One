@@ -102,7 +102,8 @@ export const equipoService = {
                     e.que_mide,
                     e.unidad_medida_textual,
                     e.unidad_medida_sigla,
-                    e.informe
+                    e.informe,
+                    e.version
                 FROM mae_equipo e
                 LEFT JOIN mae_muestreador m ON e.id_muestreador = m.id_muestreador
                 ${whereClause}

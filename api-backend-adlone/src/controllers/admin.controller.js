@@ -50,6 +50,17 @@ export const adminController = {
             console.error('Controller disableMuestreador error:', error);
             res.status(500).json({ success: false, message: 'Error al deshabilitar muestreador' });
         }
+    },
+
+    // --- DASHBOARD ---
+    getDashboardStats: async (req, res) => {
+        try {
+            const result = await adminService.getDashboardStats();
+            res.json({ success: true, data: result });
+        } catch (error) {
+            console.error('Controller getDashboardStats error:', error);
+            res.status(500).json({ success: false, message: 'Error al obtener métricas del dashboard' });
+        }
     }
 };
 

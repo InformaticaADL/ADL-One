@@ -78,6 +78,14 @@ class NotificationService {
                 bcc: new Set()
             };
 
+            // REQUERIMIENTO ESTRICTO USUARIO (19-02-2026):
+            // 1. Si NO hay destinatarios configurados en BD -> NO ENVIAR A NADIE (ni siquiera directEmails).
+            // 2. Si HAY destinatarios en BD -> ENVIAR SÓLO A ELLOS (Ignorar directEmails y permisos dinámicos).
+            if (recipients.length === 0) {
+                logger.info(`Notificación CANCELADA para ${eventCode}: No hay destinatarios configurados en el 'Área de Notificaciones'.`);
+                return;
+            }
+
             for (const recipient of recipients) {
                 if (recipient.id_usuario && recipient.user_email) {
                     // Destinatario específico
@@ -89,17 +97,8 @@ class NotificationService {
                 }
             }
 
-            // 3.1. Destinatarios Directos (Nuevos: por email pasado por parámetro)
-            if (context.directEmails) {
-                const emails = Array.isArray(context.directEmails) ? context.directEmails : [context.directEmails];
-                emails.forEach(email => this._addEmail(emailList, 'TO', email));
-            }
-
-            // 3.1. Destinatarios por Permiso (Nuevo requerimiento dinámico)
-            if (context.permissionRecibir) {
-                const permissionUsers = await this._getUsersByPermission(pool, context.permissionRecibir);
-                permissionUsers.forEach(email => this._addEmail(emailList, 'TO', email));
-            }
+            // NOTA: Se han omitido los bloques de 'directEmails' y 'permissionRecibir' por mandato del usuario 
+            // para garantizar que el Administrador tenga el control 100% de quién recibe qué a través de la UI.
 
             // 4. Compilar Asunto y Cuerpo (Simple Replace por ahora)
             const subject = this._compileTemplate(event.asunto_template, context);
@@ -269,6 +268,39 @@ class NotificationService {
                                 ${equipo.nueva_ubicacion ? `<div style="margin-bottom: 2px;">➡️ <strong>Nueva Ubicación:</strong> ${equipo.nueva_ubicacion}</div>` : ''}
                                 ${equipo.responsable ? `<div style="margin-bottom: 2px;">👤 <strong>Responsable:</strong> ${equipo.responsable}</div>` : ''}
                                 ${equipo.vigencia ? `<div style="margin-bottom: 2px;">📅 <strong>Vigencia:</strong> ${equipo.vigencia}</div>` : ''}
+                                
+                                <!-- Detalle específico de Reporte de Problema -->
+                                ${equipo.tipo_problema ? `
+                                    <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #e2e8f0;">
+                                        <div style="margin-bottom: 2px;">⚠️ <strong>Tipo de Problema:</strong> ${equipo.tipo_problema}</div>
+                                        ${equipo.severidad ? `<div style="margin-bottom: 2px;">🔴 <strong>Severidad:</strong> ${equipo.severidad}</div>` : ''}
+                                        ${equipo.frecuencia ? `<div style="margin-bottom: 2px;">🔄 <strong>Frecuencia:</strong> ${equipo.frecuencia}</div>` : ''}
+                                        ${equipo.afecta_mediciones ? `<div style="margin-bottom: 2px;">⚖️ <strong>Afecta Calidad:</strong> ${equipo.afecta_mediciones}</div>` : ''}
+                                        ${equipo.descripcion ? `<div style="margin-top: 5px;">📝 <strong>Descripción:</strong><br><i style="color: #666;">${equipo.descripcion}</i></div>` : ''}
+                                        ${equipo.sintomas ? `<div style="margin-top: 5px;">🔍 <strong>Síntomas Observados:</strong><br><i style="color: #666;">${equipo.sintomas}</i></div>` : ''}
+                                    </div>
+                                ` : ''}
+
+                                <!-- Detalle específico de Equipo Perdido -->
+                                ${equipo.tipo_perdida ? `
+                                    <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #e2e8f0;">
+                                        <div style="margin-bottom: 2px;">🚫 <strong>Tipo de Pérdida:</strong> ${equipo.tipo_perdida}</div>
+                                        ${equipo.fecha_incidente ? `<div style="margin-bottom: 2px;">📅 <strong>Fecha Incidente:</strong> ${equipo.fecha_incidente}</div>` : ''}
+                                        ${equipo.circunstancias ? `<div style="margin-top: 5px;">❓ <strong>Circunstancias:</strong><br><i style="color: #666;">${equipo.circunstancias}</i></div>` : ''}
+                                        ${equipo.acciones_tomadas ? `<div style="margin-top: 5px;">🛠️ <strong>Acciones Tomadas:</strong><br><i style="color: #666;">${equipo.acciones_tomadas}</i></div>` : ''}
+                                    </div>
+                                ` : ''}
+
+                                <!-- Detalle específico de Revisión / Vigencia / Inhabilitado -->
+                                ${equipo.motivo_revision || equipo.nueva_vigencia || equipo.motivo ? `
+                                    <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #e2e8f0;">
+                                        ${equipo.motivo_revision ? `<div style="margin-bottom: 2px;">📋 <strong>Motivo Revisión:</strong> ${equipo.motivo_revision}</div>` : ''}
+                                        ${equipo.urgencia ? `<div style="margin-bottom: 2px;">⚡ <strong>Urgencia:</strong> ${equipo.urgencia}</div>` : ''}
+                                        ${equipo.nueva_vigencia ? `<div style="margin-bottom: 2px;">🆕 <strong>Nueva Vigencia:</strong> ${equipo.nueva_vigencia}</div>` : ''}
+                                        ${equipo.motivo ? `<div style="margin-bottom: 2px;">ℹ️ <strong>Motivo:</strong> ${equipo.motivo}</div>` : ''}
+                                        ${equipo.justificacion ? `<div style="margin-top: 5px;">💡 <strong>Justificación:</strong><br><i style="color: #666;">${equipo.justificacion}</i></div>` : ''}
+                                    </div>
+                                ` : ''}
                                 ${(() => {
                             if (!equipo.status) return '';
                             let label = equipo.status;
@@ -303,7 +335,26 @@ class NotificationService {
                 }
             }).join('');
 
-            output = output.split('{EQUIPOS_DETALLE}').join(equiposHtml);
+            if (output.includes('{EQUIPOS_DETALLE}')) {
+                output = output.split('{EQUIPOS_DETALLE}').join(equiposHtml);
+            } else {
+                // Fallback: Inject at the end of the body or content if placeholder is missing
+                // This ensures old templates still show the equipment list
+                const injectionHtml = `
+                    <div style="margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                        <h3 style="color: #0f172a; font-size: 16px; margin-bottom: 10px;">Detalle de Equipos (Adjunto)</h3>
+                        ${equiposHtml}
+                    </div>
+                `;
+
+                if (output.includes('</body>')) {
+                    output = output.replace('</body>', `${injectionHtml}</body>`);
+                } else if (output.includes('</html>')) {
+                    output = output.replace('</html>', `${injectionHtml}</html>`);
+                } else {
+                    output += injectionHtml;
+                }
+            }
         }
 
         // 2.2 Handle Dynamic Observation Block {BLOQUE_OBSERVACION|Label}

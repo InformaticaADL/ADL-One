@@ -41,9 +41,9 @@ export const AdminInfoHub: React.FC<Props> = ({ onNavigate }) => {
 
     return (
         <div className="admin-container">
-            <div className="admin-header-section">
-                <h1 className="admin-title">Admin. Información</h1>
-                <p className="admin-subtitle">Seleccione un área para gestionar su información.</p>
+            <div className="admin-header-section" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '0.25rem' }}>
+                <h1 className="admin-title" style={{ margin: 0 }}>Admin. Información</h1>
+                <p className="admin-subtitle" style={{ margin: 0 }}>Seleccione un área para gestionar su información.</p>
             </div>
 
             <div className="hub-grid">

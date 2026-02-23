@@ -30,7 +30,7 @@ export const adminService = {
         return response.data;
     },
 
-    getSolicitudes: async (params?: { estado?: string; solo_mias?: boolean }) => {
+    getSolicitudes: async (params?: { estado?: string; solo_mias?: boolean; origen_solicitud?: string; estado_tecnica?: string }) => {
         const response = await apiClient.get('/api/admin/solicitudes', {
             params
         });
@@ -47,4 +47,24 @@ export const adminService = {
         });
         return response.data;
     },
+
+    reviewSolicitudTechnical: async (id: number, estado_tecnica: string, feedback: string, datos_json?: any) => {
+        const response = await apiClient.put(`/api/admin/solicitudes/${id}/technical-review`, {
+            estado_tecnica,
+            feedback,
+            datos_json
+        });
+        return response.data;
+    },
+
+    acceptSolicitudForReview: async (id: number, feedback?: string) => {
+        const response = await apiClient.post(`/api/admin/solicitudes/${id}/accept-review`, { feedback });
+        return response.data;
+    },
+
+    // --- DASHBOARD ---
+    getDashboardStats: async () => {
+        const response = await apiClient.get('/api/admin/dashboard/stats');
+        return response.data;
+    }
 };

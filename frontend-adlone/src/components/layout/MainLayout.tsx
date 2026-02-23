@@ -68,13 +68,14 @@ interface MainLayoutProps {
 
 export const MainLayout = ({ children }: MainLayoutProps) => {
     // Usamos el store global en lugar de useState local
-    const { activeModule, activeSubmodule, drawerOpen, setActiveModule, setActiveSubmodule, setDrawerOpen, setPendingRequestId, hiddenNotifications, hideNotification } = useNavStore();
+    const { activeModule, activeSubmodule, drawerOpen, setActiveModule, setActiveSubmodule, setDrawerOpen, hiddenNotifications, hideNotification } = useNavStore();
 
     const [showProfileMenu, setShowProfileMenu] = useState(false);
     const [showNotifications, setShowNotifications] = useState(false);
     const [notifications, setNotifications] = useState<any[]>([]);
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
     const [selectedNotification, setSelectedNotification] = useState<any | null>(null);
+    const [selectedPendingNotification, setSelectedPendingNotification] = useState<any | null>(null);
 
     // Context User
     const { user, logout, hasPermission } = useAuth();
@@ -105,7 +106,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
 
             // 1. Filter Equipment Requests
             const filteredEquipos = solicitudesData.filter((sol: any) => {
-                const isPending = sol.estado === 'PENDIENTE';
+                const isPending = sol.estado === 'PENDIENTE' || sol.estado === 'PENDIENTE_CALIDAD';
                 const isResult = sol.estado === 'APROBADO' || sol.estado === 'RECHAZADA' || sol.estado === 'RECHAZADO';
                 const sec = sol.seccion_solicitante;
                 const isMaSection = ['GEM', 'GER', 'MAM', 'MA', 'Medio Ambiente', 'AY', 'VI', 'PM', 'PA', 'CH', 'CM', 'CN', 'Terreno'].includes(sec);
@@ -160,7 +161,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
             // 3. Map to common shape
             const equipmentNotifs = filteredEquipos.map((e: any) => {
                 const isMyOwn = String(e.usuario_solicita) === String(user?.id);
-                const isPending = e.estado === 'PENDIENTE';
+                const isPending = e.estado === 'PENDIENTE' || e.estado === 'PENDIENTE_CALIDAD';
                 const isManagerReview = isManagementUser && isPending && !isMyOwn;
 
                 let tag = e.tipo_solicitud;
@@ -222,22 +223,9 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
         // 2. Routing and Marking as Read
         if (item.type === 'EQUIPO') {
             const sol = item.original;
-            if (sol.estado === 'PENDIENTE') {
-                // Actionable item: Do NOT hide notification
-                if (sol.seccion_solicitante === 'INF') {
-                    setActiveModule('informatica');
-                } else if (['GES', 'GEM', 'GER', 'MAM', 'MA', 'Medio Ambiente', 'AY', 'VI', 'PM', 'PA', 'CH', 'CM', 'CN', 'Terreno'].includes(sol.seccion_solicitante)) {
-                    // Decide redirection: Approvers (Global Quality Control or Admin) vs Requesters (MA users)
-                    const isApprover = hasPermission('AI_GC_ACCESO') || hasPermission('AI_GC_EQUIPOS') || hasPermission('MA_ADMIN_ACCESO');
-                    const sub = isApprover ? 'gc-equipos' : 'ma-solicitudes';
-
-                    setActiveModule('admin_informacion');
-                    setActiveSubmodule(sub);
-                    setPendingRequestId(sol.id_solicitud);
-                } else {
-                    setActiveModule('admin_informacion');
-                    setPendingRequestId(sol.id_solicitud);
-                }
+            if (sol.estado === 'PENDIENTE' || sol.estado === 'PENDIENTE_CALIDAD') {
+                // Actionable item: Do NOT hide notification, show details modal instead of routing
+                setSelectedPendingNotification(sol);
             } else {
                 // Result item: Hide notification + Show Modal
                 hideNotification(item.id);
@@ -485,99 +473,90 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                         </button>
 
                         {showNotifications && (
-                            <div className="notifications-dropdown" style={{
-                                position: 'absolute',
-                                top: '100%',
-                                right: 0,
-                                width: '320px',
-                                backgroundColor: 'white',
-                                borderRadius: '12px',
-                                boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)',
-                                border: '1px solid #e2e8f0',
-                                marginTop: '0.5rem',
-                                zIndex: 1000,
-                                overflow: 'hidden'
-                            }}>
-                                <div style={{ padding: '1rem', borderBottom: '1px solid #f1f5f9', fontWeight: 600, fontSize: '0.9rem', color: '#1e293b', display: 'flex', justifyContent: 'space-between' }}>
-                                    <span>{notifications.some(n => n.tag === 'PENDIENTE' || !['APROBADA', 'RECHAZADA'].includes(n.tag))
-                                        ? 'Solicitudes Pendientes'
-                                        : 'Notificaciones de Usuario'}</span>
-                                    <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 400 }}>{new Date().toLocaleDateString()}</span>
-                                </div>
-                                <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
-                                    {notifications.filter(n => !hiddenNotifications.includes(String(n.id))).length === 0 ? (
-                                        <div style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>
-                                            No hay notificaciones pendientes
-                                        </div>
-                                    ) : (
-                                        notifications
-                                            .filter(n => !hiddenNotifications.includes(String(n.id)))
-                                            .map((item) => (
-                                                <div
-                                                    key={item.id}
-                                                    style={{
-                                                        padding: '0.75rem 1rem',
-                                                        borderBottom: '1px solid #f8fafc',
-                                                        cursor: 'pointer',
-                                                        backgroundColor: 'transparent',
-                                                        transition: 'background-color 0.2s',
-                                                        position: 'relative'
-                                                    }}
-                                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
-                                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                                                >
+                            <>
+                                <div className="notifications-backdrop" onClick={() => setShowNotifications(false)} />
+                                <div className="notifications-dropdown">
+                                    <div style={{ padding: '1rem', borderBottom: '1px solid #f1f5f9', fontWeight: 600, fontSize: '0.9rem', color: '#1e293b', display: 'flex', justifyContent: 'space-between' }}>
+                                        <span>{notifications.some(n => n.tag === 'PENDIENTE' || !['APROBADA', 'RECHAZADA'].includes(n.tag))
+                                            ? 'Solicitudes Pendientes'
+                                            : 'Notificaciones de Usuario'}</span>
+                                        <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 400 }}>{new Date().toLocaleDateString()}</span>
+                                    </div>
+                                    <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
+                                        {notifications.filter(n => !hiddenNotifications.includes(String(n.id))).length === 0 ? (
+                                            <div style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>
+                                                No hay notificaciones pendientes
+                                            </div>
+                                        ) : (
+                                            notifications
+                                                .filter(n => !hiddenNotifications.includes(String(n.id)))
+                                                .map((item) => (
                                                     <div
-                                                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem', paddingRight: '1.5rem' }}
-                                                        onClick={() => handleNotificationClick(item)}
-                                                    >
-                                                        <span style={{
-                                                            fontSize: '0.6rem',
-                                                            fontWeight: 'bold',
-                                                            background: item.tagColor,
-                                                            color: item.tagTextColor,
-                                                            padding: '1px 5px',
-                                                            borderRadius: '3px'
-                                                        }}>{item.tag}</span>
-                                                        <span style={{ fontWeight: 600, color: '#334155', fontSize: '0.8rem' }}>
-                                                            {item.title}
-                                                        </span>
-                                                    </div>
-                                                    <div
-                                                        style={{ fontSize: '0.75rem', color: '#64748b' }}
-                                                        onClick={() => handleNotificationClick(item)}
-                                                    >
-                                                        {item.subtitle}
-                                                    </div>
-
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            hideNotification(item.id);
-                                                        }}
+                                                        key={item.id}
                                                         style={{
-                                                            position: 'absolute',
-                                                            top: '0.75rem',
-                                                            right: '0.5rem',
-                                                            background: 'none',
-                                                            border: 'none',
-                                                            color: '#cbd5e1',
+                                                            padding: '0.75rem 1rem',
+                                                            borderBottom: '1px solid #f8fafc',
                                                             cursor: 'pointer',
-                                                            padding: '4px',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'center',
-                                                            borderRadius: '4px'
+                                                            backgroundColor: 'transparent',
+                                                            transition: 'background-color 0.2s',
+                                                            position: 'relative'
                                                         }}
-                                                        onMouseEnter={(e) => e.currentTarget.style.color = '#94a3b8'}
-                                                        onMouseLeave={(e) => e.currentTarget.style.color = '#cbd5e1'}
+                                                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                                                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                                                     >
-                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                                                    </button>
-                                                </div>
-                                            ))
-                                    )}
+                                                        <div
+                                                            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem', paddingRight: '1.5rem' }}
+                                                            onClick={() => handleNotificationClick(item)}
+                                                        >
+                                                            <span style={{
+                                                                fontSize: '0.6rem',
+                                                                fontWeight: 'bold',
+                                                                background: item.tagColor,
+                                                                color: item.tagTextColor,
+                                                                padding: '1px 5px',
+                                                                borderRadius: '3px'
+                                                            }}>{item.tag}</span>
+                                                            <span style={{ fontWeight: 600, color: '#334155', fontSize: '0.8rem' }}>
+                                                                {item.title}
+                                                            </span>
+                                                        </div>
+                                                        <div
+                                                            style={{ fontSize: '0.75rem', color: '#64748b' }}
+                                                            onClick={() => handleNotificationClick(item)}
+                                                        >
+                                                            {item.subtitle}
+                                                        </div>
+
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                hideNotification(item.id);
+                                                            }}
+                                                            style={{
+                                                                position: 'absolute',
+                                                                top: '0.75rem',
+                                                                right: '0.5rem',
+                                                                background: 'none',
+                                                                border: 'none',
+                                                                color: '#cbd5e1',
+                                                                cursor: 'pointer',
+                                                                padding: '4px',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                borderRadius: '4px'
+                                                            }}
+                                                            onMouseEnter={(e) => e.currentTarget.style.color = '#94a3b8'}
+                                                            onMouseLeave={(e) => e.currentTarget.style.color = '#cbd5e1'}
+                                                        >
+                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                                        </button>
+                                                    </div>
+                                                ))
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
+                            </>
                         )}
                     </div>
 
@@ -663,6 +642,101 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                             >
                                 Entendido
                             </button>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* Modal de Detalle de Solicitud Pendiente */}
+            {
+                selectedPendingNotification && (
+                    <div className="modal-overlay" style={{ zIndex: 9999 }}>
+                        <div className="modal-content animate-pop-in" style={{ maxWidth: '500px', padding: '2rem' }}>
+                            <div style={{
+                                width: '64px',
+                                height: '64px',
+                                borderRadius: '32px',
+                                background: '#fef3c7',
+                                color: '#d97706',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                margin: '0 auto 1.5rem',
+                                fontSize: '2rem'
+                            }}>
+                                ℹ️
+                            </div>
+
+                            <h2 style={{ fontSize: '1.5rem', marginBottom: '0.5rem', color: '#1e293b', textAlign: 'center' }}>
+                                Detalle de Solicitud
+                            </h2>
+                            <p style={{ color: '#64748b', marginBottom: '1.5rem', textAlign: 'center' }}>
+                                Revisa los detalles de esta solicitud pendiente.
+                            </p>
+
+                            <div style={{
+                                background: '#f8fafc',
+                                padding: '1.25rem',
+                                borderRadius: '8px',
+                                marginBottom: '1.5rem',
+                                fontSize: '0.9rem',
+                                color: '#334155',
+                                border: '1px solid #e2e8f0'
+                            }}>
+                                <div style={{ display: 'grid', gap: '0.75rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span style={{ fontWeight: 600, color: '#64748b' }}>Tipo:</span>
+                                        <span>{selectedPendingNotification.tipo_solicitud}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span style={{ fontWeight: 600, color: '#64748b' }}>Estado:</span>
+                                        <span style={{
+                                            background: '#fef3c7',
+                                            color: '#92400e',
+                                            padding: '2px 8px',
+                                            borderRadius: '99px',
+                                            fontSize: '0.8rem',
+                                            fontWeight: 600
+                                        }}>{selectedPendingNotification.estado}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span style={{ fontWeight: 600, color: '#64748b' }}>Solicitante:</span>
+                                        <span>{selectedPendingNotification.nombre_solicitante || 'Usuario del sistema'}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span style={{ fontWeight: 600, color: '#64748b' }}>Fecha:</span>
+                                        <span>{new Date(selectedPendingNotification.fecha_solicitud).toLocaleDateString()}</span>
+                                    </div>
+
+                                    <div style={{ height: '1px', background: '#e2e8f0', margin: '0.5rem 0' }}></div>
+
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span style={{ fontWeight: 600, color: '#64748b' }}>Equipo/Referencia:</span>
+                                        <span style={{ fontWeight: 600, textAlign: 'right' }}>
+                                            {selectedPendingNotification.datos_json?.codigo || selectedPendingNotification.datos_json?.nombre || 'N/A'}
+                                        </span>
+                                    </div>
+
+                                    {selectedPendingNotification.datos_json?.motivo && (
+                                        <div style={{ marginTop: '0.5rem' }}>
+                                            <span style={{ display: 'block', fontWeight: 600, color: '#64748b', marginBottom: '0.25rem' }}>Motivo:</span>
+                                            <div style={{ background: 'white', padding: '0.75rem', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
+                                                {selectedPendingNotification.datos_json.motivo}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'center' }}>
+                                <button
+                                    className="btn-primary"
+                                    style={{ padding: '0.5rem 2rem' }}
+                                    onClick={() => setSelectedPendingNotification(null)}
+                                >
+                                    Cerrar
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )

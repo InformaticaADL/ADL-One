@@ -4,11 +4,12 @@ import { adminService } from '../../../services/admin.service';
 import { useToast } from '../../../contexts/ToastContext';
 import { HybridSelect } from '../../../components/ui/HybridSelect';
 import { useNavStore } from '../../../store/navStore';
+import { useAuth } from '../../../contexts/AuthContext';
 
 interface Props {
     onCancel: () => void;
     onSave: () => void;
-    initialData?: (Equipo & { requestId?: number }) | null;
+    initialData?: (Equipo & { requestId?: number; requestStatus?: string }) | null;
     pendingRequests?: any[];
     onRefreshSolicitudes?: () => void;
 }
@@ -36,7 +37,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         error0: 0,
         error15: 0,
         error30: 0,
-        version: 'v1'
+        version: initialData?.version || 'v1'
     });
 
     const [loading, setLoading] = useState(false);
@@ -60,11 +61,17 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
     const [rejectingSolicitud, setRejectingSolicitud] = useState<any>(null);
     const [adminFeedback, setAdminFeedback] = useState('');
     const [processingAction, setProcessingAction] = useState(false);
+    const [attemptedSubmit, setAttemptedSubmit] = useState(false);
+    const [lastRestoredVersion, setLastRestoredVersion] = useState<{ active: string, previous: string } | null>(null);
     const { hideNotification } = useNavStore();
 
 
 
     const { showToast } = useToast();
+    const { hasPermission } = useAuth();
+    const isGCMan = hasPermission('AI_GC_ACCESO') || hasPermission('AI_GC_EQUIPOS');
+    const isMAMan = hasPermission('AI_MA_SOLICITUDES') || hasPermission('AI_MA_EQUIPOS');
+    const isSuper = hasPermission('MA_ADMIN_ACCESO');
 
     // Fetch equipment names when Tipo changes
     useEffect(() => {
@@ -281,11 +288,15 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                     setHistory(histRes.data || []);
                 }
 
+                setLastRestoredVersion({ active: h.version, previous: formData.version });
+
                 showToast({
                     type: 'success',
                     message: `Versión ${h.version} habilitada correctamente. Los datos anteriores se movieron al historial.`,
                     duration: 5000
                 });
+
+                if (onRefreshSolicitudes) onRefreshSolicitudes();
             }
         } catch (err: any) {
             console.error('Error restoring version:', err);
@@ -308,6 +319,8 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value, type } = e.target;
         setIsRestoring(false);
+        // Reset attemptedSubmit when user types to give immediate feedback if they want, 
+        // though keeping it true also works. Let's keep it true for persistence until success.
 
         let finalValue: any = value;
         if (type === 'checkbox') {
@@ -374,6 +387,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         formData.nombre &&
         formData.tipo &&
         formData.ubicacion &&
+        formData.estado &&
         formData.codigo &&
         formData.vigencia &&
         !generatingCode
@@ -381,7 +395,16 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        setShowSaveConfirm(true);
+        setAttemptedSubmit(true);
+        if (isFormValid) {
+            setShowSaveConfirm(true);
+        } else {
+            showToast({
+                type: 'error',
+                message: 'Por favor complete todos los campos obligatorios marcados en rojo',
+                duration: 5000
+            });
+        }
     };
 
     const handleConfirmSave = async () => {
@@ -402,25 +425,45 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
 
                 // Approve request if applicable
                 if (initialData.requestId) {
-                    await adminService.updateSolicitudStatus(initialData.requestId, 'APROBADO', 'Equipo actualizado por administrador');
+                    const needsTechnicalReview = initialData.requestStatus === 'PENDIENTE_TECNICA';
+                    const targetStatus = needsTechnicalReview ? 'PENDIENTE_CALIDAD' : 'APROBADO';
+                    const feedback = needsTechnicalReview ? 'Manual: Actualizado por Área Técnica y derivado a Calidad' : 'Equipo actualizado por administrador';
+
+                    await adminService.updateSolicitudStatus(initialData.requestId, targetStatus, feedback);
+
+                    if (needsTechnicalReview) {
+                        hideNotification(`${initialData.requestId}-PENDIENTE_TECNICA`);
+                    }
                 }
 
                 showToast({
                     type: 'success',
-                    message: initialData.requestId ? 'Equipo actualizado y solicitud aprobada' : 'Equipo actualizado correctamente',
+                    message: initialData.requestId
+                        ? (initialData.requestStatus === 'PENDIENTE_TECNICA' ? 'Equipo actualizado y derivado a Calidad' : 'Equipo actualizado y solicitud aprobada')
+                        : 'Equipo actualizado correctamente',
                     duration: 5000
                 });
             } else {
                 await equipoService.createEquipo(dataToSend);
 
-                // Si viene de una solicitud (ALTA), aprobarla automáticamente
+                // Si viene de una solicitud (ALTA), aprobarla automáticamente o derivar
                 if (initialData && (initialData as any).requestId) {
-                    await adminService.updateSolicitudStatus((initialData as any).requestId, 'APROBADO', 'Equipo creado y registrado por administrador');
+                    const needsTechnicalReview = (initialData as any).requestStatus === 'PENDIENTE_TECNICA';
+                    const targetStatus = needsTechnicalReview ? 'PENDIENTE_CALIDAD' : 'APROBADO';
+                    const feedback = needsTechnicalReview ? 'Manual: Creado por Área Técnica y derivado a Calidad' : 'Equipo creado y registrado por administrador';
+
+                    await adminService.updateSolicitudStatus((initialData as any).requestId, targetStatus, feedback);
+
+                    if (needsTechnicalReview) {
+                        hideNotification(`${(initialData as any).requestId}-PENDIENTE_TECNICA`);
+                    }
                 }
 
                 showToast({
                     type: 'success',
-                    message: (initialData as any)?.requestId ? 'Equipo creado y solicitud aprobada' : 'Equipo creado correctamente',
+                    message: (initialData as any)?.requestId
+                        ? ((initialData as any).requestStatus === 'PENDIENTE_TECNICA' ? 'Equipo creado y derivado a Calidad' : 'Equipo creado y solicitud aprobada')
+                        : 'Equipo creado correctamente',
                     duration: 10000
                 });
             }
@@ -463,17 +506,22 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                 };
 
                 await equipoService.updateEquipo(formData.id_equipo, updatedData);
+
+                const needsTechnicalReview = sol.estado === 'PENDIENTE_TECNICA';
+                const targetStatus = needsTechnicalReview ? 'PENDIENTE_CALIDAD' : 'APROBADO';
+                const feedback = needsTechnicalReview ? 'Derivado a Calidad desde formulario' : 'Aprobado desde formulario de equipo';
+
                 await adminService.updateSolicitudStatus(
                     sol.id_solicitud,
-                    'APROBADO',
-                    'Aprobado desde formulario de equipo',
+                    targetStatus,
+                    feedback,
                     undefined,
                     formData.id_equipo,
                     'APROBADO'
                 );
-                hideNotification(`${sol.id_solicitud}-PENDIENTE`);
+                hideNotification(`${sol.id_solicitud}-${sol.estado}`);
 
-                showToast({ type: 'success', message: 'Traspaso aprobado y equipo actualizado' });
+                showToast({ type: 'success', message: needsTechnicalReview ? 'Solicitud derivada a Calidad' : 'Traspaso aprobado y equipo actualizado' });
                 if (onRefreshSolicitudes) onRefreshSolicitudes();
                 onSave(); // Refrescar lista y cerrar
             }
@@ -589,60 +637,50 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
 
     return (
         <div className="card admin-card" style={{ background: '#f4f4f5' }}>
-            <div className="card-header" style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr auto 1fr',
-                alignItems: 'center',
-                padding: '1rem 1.5rem',
-                borderBottom: '1px solid rgba(0,0,0,0.05)',
-                background: 'white'
-            }}>
-                <div style={{ justifySelf: 'start' }}>
-                    <button type="button" onClick={onCancel} className="btn-back" style={{ margin: 0 }}>
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-                        </svg>
-                        Volver
-                    </button>
-                </div>
-
-                <h3 className="card-title" style={{ margin: 0, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <span>
+            <div className="header-premium-container">
+                <div className="header-title-area">
+                    <h3 className="header-title-text">
                         {requestedChanges?.isReactivation
-                            ? 'ACTIVACIÓN DE EQUIPO'
+                            ? 'Activación de Equipo'
                             : (initialData?.id_equipo ? 'Editar Equipo' : 'Nuevo Equipo')
                         }
-                    </span>
+                    </h3>
+                </div>
+
+                <div className="header-actions-area">
+                    <div className="header-actions-left">
+                        <button type="button" onClick={onCancel} className="btn-back header-btn" style={{ margin: 0, padding: '0.5rem 1rem' }}>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" style={{ width: '16px', height: '16px' }}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+                            </svg>
+                            Volver
+                        </button>
+                    </div>
+
+                    <div className="header-actions-right">
+                        {(() => {
+                            const hasId = !!initialData?.id_equipo && String(initialData.id_equipo) !== '0' && initialData.id_equipo !== 0 && String(initialData.id_equipo) !== 'null';
+                            return hasId && (
+                                <button
+                                    type="button"
+                                    className="btn-secondary header-btn"
+                                    style={{ fontSize: '0.75rem', padding: '0.5rem 1rem' }}
+                                    onClick={() => setShowHistory(!showHistory)}
+                                >
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    Historial
+                                </button>
+                            )
+                        })()}
+                    </div>
+                </div>
+
+                <div className="header-version-area">
                     {initialData && formData.version && (
-                        <span style={{
-                            fontSize: '0.75rem',
-                            background: '#dcfce7',
-                            color: '#166534',
-                            padding: '0.1rem 0.5rem',
-                            borderRadius: '99px',
-                            marginTop: '2px',
-                            fontWeight: 700
-                        }}>
+                        <span className="header-version-pill">
                             Versión Activa: {formData.version}
                         </span>
                     )}
-                </h3>
-
-                <div style={{ justifySelf: 'end' }}>
-                    {(() => {
-                        const hasId = !!initialData?.id_equipo && String(initialData.id_equipo) !== '0' && initialData.id_equipo !== 0 && String(initialData.id_equipo) !== 'null';
-                        return hasId && (
-                            <button
-                                type="button"
-                                className="btn-secondary"
-                                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}
-                                onClick={() => setShowHistory(!showHistory)}
-                            >
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                {showHistory ? 'Ocultar Historial' : 'Ver Historial'}
-                            </button>
-                        )
-                    })()}
                 </div>
             </div>
 
@@ -733,40 +771,91 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                         <div style={{ display: 'flex', gap: '0.5rem' }}>
                                             {!isProcessed ? (
                                                 <>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleApproveAction(sol)}
-                                                        disabled={processingAction}
-                                                        style={{
-                                                            padding: '0.5rem 1rem',
-                                                            background: '#16a34a',
-                                                            color: 'white',
-                                                            border: 'none',
-                                                            borderRadius: '6px',
-                                                            fontSize: '0.8rem',
-                                                            fontWeight: 600,
-                                                            cursor: 'pointer'
-                                                        }}
-                                                    >
-                                                        {processingAction ? '...' : 'Aprobar'}
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setRejectingSolicitud(sol)}
-                                                        disabled={processingAction}
-                                                        style={{
-                                                            padding: '0.5rem 1rem',
-                                                            background: 'white',
-                                                            color: '#dc2626',
-                                                            border: '1px solid #fecaca',
-                                                            borderRadius: '6px',
-                                                            fontSize: '0.8rem',
-                                                            fontWeight: 600,
-                                                            cursor: 'pointer'
-                                                        }}
-                                                    >
-                                                        Rechazar
-                                                    </button>
+                                                    {/* Technical Area or Super can Derive if EN_REVISION_TECNICA (already accepted for review) */}
+                                                    {(sol.estado === 'EN_REVISION_TECNICA' && (isMAMan || isSuper)) && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleApproveAction(sol)}
+                                                            disabled={processingAction}
+                                                            style={{
+                                                                padding: '0.5rem 1rem',
+                                                                background: '#16a34a',
+                                                                color: 'white',
+                                                                border: 'none',
+                                                                borderRadius: '6px',
+                                                                fontSize: '0.8rem',
+                                                                fontWeight: 600,
+                                                                cursor: 'pointer',
+                                                                minWidth: '120px'
+                                                            }}
+                                                        >
+                                                            {processingAction ? '...' : 'Derivar a Calidad'}
+                                                        </button>
+                                                    )}
+                                                    {/* Quality Area or Super can Approve Final if PENDIENTE_CALIDAD */}
+                                                    {(sol.estado === 'PENDIENTE_CALIDAD' && (isGCMan || isSuper)) && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleApproveAction(sol)}
+                                                            disabled={processingAction}
+                                                            style={{
+                                                                padding: '0.5rem 1rem',
+                                                                background: '#16a34a',
+                                                                color: 'white',
+                                                                border: 'none',
+                                                                borderRadius: '6px',
+                                                                fontSize: '0.8rem',
+                                                                fontWeight: 600,
+                                                                cursor: 'pointer',
+                                                                minWidth: '120px'
+                                                            }}
+                                                        >
+                                                            {processingAction ? '...' : 'Aprobar Final'}
+                                                        </button>
+                                                    )}
+                                                    {/* Retrocompatibility/Fallback for PENDIENTE */}
+                                                    {sol.estado === 'PENDIENTE' && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleApproveAction(sol)}
+                                                            disabled={processingAction}
+                                                            style={{
+                                                                padding: '0.5rem 1rem',
+                                                                background: '#16a34a',
+                                                                color: 'white',
+                                                                border: 'none',
+                                                                borderRadius: '6px',
+                                                                fontSize: '0.8rem',
+                                                                fontWeight: 600,
+                                                                cursor: 'pointer'
+                                                            }}
+                                                        >
+                                                            {processingAction ? '...' : 'Aprobar'}
+                                                        </button>
+                                                    )}
+
+                                                    {/* Rechazar button: also gated by permission for the current state */}
+                                                    {((sol.estado === 'PENDIENTE_TECNICA' && (isMAMan || isSuper)) ||
+                                                        (sol.estado === 'PENDIENTE_CALIDAD' && (isGCMan || isSuper)) ||
+                                                        sol.estado === 'PENDIENTE') && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setRejectingSolicitud(sol)}
+                                                                disabled={processingAction}
+                                                                style={{
+                                                                    padding: '0.5rem 1rem',
+                                                                    background: 'white',
+                                                                    color: '#dc2626',
+                                                                    border: '1px solid #fecaca',
+                                                                    borderRadius: '6px',
+                                                                    fontSize: '0.8rem',
+                                                                    fontWeight: 600,
+                                                                    cursor: 'pointer'
+                                                                }}
+                                                            >
+                                                                Rechazar
+                                                            </button>
+                                                        )}
                                                 </>
                                             ) : (
                                                 <span style={{
@@ -868,31 +957,46 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                 <tbody>
                                     {loadingHistory ? (
                                         <tr><td colSpan={7} style={{ textAlign: 'center' }}>Cargando historial...</td></tr>
-                                    ) : history.length === 0 ? (
+                                    ) : history.length === 0 && !lastRestoredVersion ? (
                                         <tr><td colSpan={7} style={{ textAlign: 'center' }}>No hay versiones anteriores.</td></tr>
                                     ) : (
-                                        history.map((h) => {
-                                            const isViewing = matchingVersion && matchingVersion.id_historial === h.id_historial;
+                                        [{
+                                            id_historial: 'current',
+                                            version: formData.version,
+                                            fecha_cambio: new Date().toISOString(),
+                                            nombre_usuario_cambio: 'Actual',
+                                            codigo: formData.codigo,
+                                            nombre: formData.nombre,
+                                            ubicacion: formData.ubicacion,
+                                            isCurrent: true
+                                        }, ...history].map((h: any) => {
+                                            const isCurrent = h.isCurrent;
+                                            const isPreviousRestored = lastRestoredVersion?.previous === h.version;
+
+                                            let bgColor = 'transparent';
+                                            let borderLeftColor = 'none';
+                                            if (isCurrent) {
+                                                bgColor = '#dcfce7';
+                                                borderLeftColor = '4px solid #16a34a';
+                                            } else if (isPreviousRestored) {
+                                                bgColor = '#ffedd5';
+                                                borderLeftColor = '4px solid #ea580c';
+                                            }
+
                                             return (
                                                 <tr key={h.id_historial} style={{
-                                                    backgroundColor: isViewing ? '#eff6ff' : 'transparent',
-                                                    borderLeft: isViewing ? '4px solid #3b82f6' : 'none',
-                                                    transition: 'all 0.2s ease'
+                                                    backgroundColor: bgColor,
+                                                    borderLeft: borderLeftColor,
+                                                    transition: 'all 0.2s ease',
+                                                    textDecoration: (isCurrent || isPreviousRestored) ? 'underline' : 'none'
                                                 }}>
-                                                    <td style={{ fontWeight: 700, color: '#2563eb' }}>
+                                                    <td style={{ fontWeight: 700, color: isCurrent ? '#16a34a' : (isPreviousRestored ? '#ea580c' : '#2563eb') }}>
                                                         {h.version || '---'}
-                                                        {isViewing && (
-                                                            <span style={{
-                                                                marginLeft: '0.4rem',
-                                                                fontSize: '0.6rem',
-                                                                background: '#3b82f6',
-                                                                color: 'white',
-                                                                padding: '1px 3px',
-                                                                borderRadius: '3px',
-                                                                verticalAlign: 'middle'
-                                                            }}>
-                                                                VIENDO
-                                                            </span>
+                                                        {isCurrent && (
+                                                            <span style={{ marginLeft: '0.4rem', fontSize: '0.6rem', background: '#16a34a', color: 'white', padding: '1px 3px', borderRadius: '3px', verticalAlign: 'middle', textDecoration: 'none' }}>ACTIVA</span>
+                                                        )}
+                                                        {isPreviousRestored && (
+                                                            <span style={{ marginLeft: '0.4rem', fontSize: '0.6rem', background: '#ea580c', color: 'white', padding: '1px 3px', borderRadius: '3px', verticalAlign: 'middle', textDecoration: 'none' }}>ANTERIOR</span>
                                                         )}
                                                     </td>
                                                     <td style={{ fontSize: '0.75rem' }}>{new Date(h.fecha_cambio).toLocaleString()}</td>
@@ -901,24 +1005,29 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                                     <td>{h.nombre}</td>
                                                     <td>{h.ubicacion}</td>
                                                     <td>
-                                                        <button
-                                                            type="button"
-                                                            className="btn-primary"
-                                                            disabled={loading}
-                                                            style={{
-                                                                padding: '0.3rem 0.6rem',
-                                                                fontSize: '0.75rem',
-                                                                background: '#2563eb',
-                                                                border: 'none',
-                                                                color: 'white',
-                                                                borderRadius: '4px',
-                                                                opacity: loading ? 0.6 : 1,
-                                                                cursor: loading ? 'not-allowed' : 'pointer'
-                                                            }}
-                                                            onClick={() => handleRestore(h)}
-                                                        >
-                                                            Habilitar
-                                                        </button>
+                                                        {!isCurrent ? (
+                                                            <button
+                                                                type="button"
+                                                                className="btn-primary"
+                                                                disabled={loading}
+                                                                style={{
+                                                                    padding: '0.3rem 0.6rem',
+                                                                    fontSize: '0.75rem',
+                                                                    background: '#2563eb',
+                                                                    border: 'none',
+                                                                    color: 'white',
+                                                                    borderRadius: '4px',
+                                                                    opacity: loading ? 0.6 : 1,
+                                                                    cursor: loading ? 'not-allowed' : 'pointer',
+                                                                    textDecoration: 'none'
+                                                                }}
+                                                                onClick={() => handleRestore(h)}
+                                                            >
+                                                                Habilitar
+                                                            </button>
+                                                        ) : (
+                                                            <span style={{ fontSize: '0.75rem', color: '#16a34a', fontWeight: 700, textDecoration: 'none' }}>Actual</span>
+                                                        )}
                                                     </td>
                                                 </tr>
                                             );
@@ -940,7 +1049,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                     <h4 className="section-title">Clasificación y Estado</h4>
                     <div className="form-row">
                         <div className="form-group">
-                            <label className="form-label">Tipo</label>
+                            <label className="form-label">Tipo <span style={{ color: '#ef4444' }}>*</span></label>
                             <HybridSelect
                                 label=""
                                 name="tipo"
@@ -951,10 +1060,14 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                 placeholder="Seleccione Tipo..."
                                 strict={true}
                                 required
+                                style={{
+                                    border: (attemptedSubmit && !formData.tipo) ? '1.5px solid #ef4444' : undefined,
+                                    borderRadius: (attemptedSubmit && !formData.tipo) ? '0.375rem' : undefined
+                                }}
                             />
                         </div>
                         <div className="form-group">
-                            <label className="form-label">Ubicación (Sede)</label>
+                            <label className="form-label">Ubicación (Sede) <span style={{ color: '#ef4444' }}>*</span></label>
                             <HybridSelect
                                 label=""
                                 name="ubicacion"
@@ -964,10 +1077,14 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                 placeholder="Seleccione Ubicación..."
                                 strict={true}
                                 required
+                                style={{
+                                    border: (attemptedSubmit && !formData.ubicacion) ? '1.5px solid #ef4444' : undefined,
+                                    borderRadius: (attemptedSubmit && !formData.ubicacion) ? '0.375rem' : undefined
+                                }}
                             />
                         </div>
                         <div className="form-group">
-                            <label className="form-label">Estado</label>
+                            <label className="form-label">Estado <span style={{ color: '#ef4444' }}>*</span></label>
                             <HybridSelect
                                 label=""
                                 name="estado"
@@ -977,6 +1094,10 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                 placeholder="Seleccione Estado..."
                                 strict={true}
                                 required
+                                style={{
+                                    border: (attemptedSubmit && !formData.estado) ? '1.5px solid #ef4444' : undefined,
+                                    borderRadius: (attemptedSubmit && !formData.estado) ? '0.375rem' : undefined
+                                }}
                             />
                         </div>
 
@@ -988,7 +1109,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                     <h4 className="section-title">Datos Principales</h4>
                     <div className="form-row">
                         <div className="form-group">
-                            <label className="form-label">Nombre</label>
+                            <label className="form-label">Nombre <span style={{ color: '#ef4444' }}>*</span></label>
                             <HybridSelect
                                 label=""
                                 name="nombre"
@@ -1005,11 +1126,15 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                 placeholder="Seleccione..."
                                 strict={true}
                                 required
+                                style={{
+                                    border: (attemptedSubmit && !formData.nombre) ? '1.5px solid #ef4444' : undefined,
+                                    borderRadius: (attemptedSubmit && !formData.nombre) ? '0.375rem' : undefined
+                                }}
                             />
                         </div>
                         <div className="form-group">
                             <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span>Código</span>
+                                <span>Código <span style={{ color: '#ef4444' }}>*</span></span>
                                 {generatingCode && <span style={{ fontSize: '0.7rem', color: '#2563eb', fontWeight: 600 }}>Generando...</span>}
                             </label>
                             <input
@@ -1022,7 +1147,8 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                     backgroundColor: (generatingCode || formData.codigo) ? '#f8fafc' : 'white',
                                     cursor: generatingCode ? 'wait' : 'default',
                                     color: generatingCode ? '#94a3b8' : '#1e293b',
-                                    fontWeight: formData.codigo ? 700 : 400
+                                    fontWeight: formData.codigo ? 700 : 400,
+                                    border: (attemptedSubmit && !formData.codigo) ? '1.5px solid #ef4444' : undefined
                                 }}
                                 placeholder={generatingCode ? "Generando..." : "Se generará automáticamente"}
                                 readOnly
@@ -1053,7 +1179,12 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                 value={formData.correlativo || 0}
                                 onChange={handleChange}
                                 className="form-input"
-                                style={{ backgroundColor: '#f8fafc', cursor: 'not-allowed', color: '#64748b' }}
+                                style={{
+                                    backgroundColor: '#f8fafc',
+                                    fontWeight: 600,
+                                    border: (attemptedSubmit && !formData.codigo) ? '1.5px solid #ef4444' : undefined
+                                }}
+                                required
                                 readOnly
                             />
                         </div>
@@ -1065,13 +1196,16 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                     <h4 className="section-title">Parametrización</h4>
                     <div className="form-row">
                         <div className="form-group">
-                            <label className="form-label">Vigencia</label>
+                            <label className="form-label">Expiración (Vigencia) <span style={{ color: '#ef4444' }}>*</span></label>
                             <input
                                 type="date"
                                 name="vigencia"
                                 value={formData.vigencia || ''}
                                 onChange={handleChange}
                                 className="form-input"
+                                style={{
+                                    border: (attemptedSubmit && !formData.vigencia) ? '1.5px solid #ef4444' : undefined
+                                }}
                                 required
                                 min={new Date().toISOString().split('T')[0]}
                             />

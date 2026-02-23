@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { MainLayout } from '../components/layout/MainLayout';
 import { useNavStore } from '../store/navStore';
 import { useAuth } from '../contexts/AuthContext';
@@ -15,11 +15,37 @@ import { UserRolesPage } from '../features/admin/pages/UserRolesPage';
 import { AdminMaHub } from '../features/admin/pages/AdminMaHub';
 import { MuestreadoresPage } from '../features/admin/pages/MuestreadoresPage';
 import { EquiposPage } from '../features/admin/pages/EquiposPage';
+import { EquiposHub } from '../features/admin/pages/EquiposHub';
 import { NotificationsPage } from '../features/admin/pages/NotificationsPage';
+import { adminService } from '../services/admin.service';
+import { WeatherClockWidget } from '../components/common/WeatherClockWidget';
 
 const DashboardPage = () => {
     const { activeModule, activeSubmodule, setActiveSubmodule, resetNavigation } = useNavStore();
     const { user, hasPermission } = useAuth();
+
+    // Dashboard Stats State
+    const [stats, setStats] = useState({
+        pendientes: 0,
+        muestrasHoy: 0,
+        informesPorValidar: 0
+    });
+
+    // Fetch Stats
+    useEffect(() => {
+        const fetchStats = async () => {
+            try {
+                // Only fetch if on the main generic dashboard view
+                if (!activeSubmodule && (!activeModule || activeModule === 'admin_informacion')) {
+                    const data = await adminService.getDashboardStats();
+                    if (data) setStats(data);
+                }
+            } catch (error) {
+                console.error("Error fetching dashboard stats:", error);
+            }
+        };
+        fetchStats();
+    }, [activeModule, activeSubmodule]);
 
     // Helper function to check if user has ANY admin info access
     const hasAdminAccess = () => {
@@ -62,6 +88,9 @@ const DashboardPage = () => {
             }
             return <SolicitudesMaPage onBack={() => setActiveSubmodule('')} />;
         }
+        if (activeSubmodule === 'ma-reportes-view') {
+            return <SolicitudesMaPage onBack={() => setActiveSubmodule('admin-equipos')} viewOnly={true} />;
+        }
         if (activeSubmodule === 'gc-equipos') {
             if (!hasPermission('AI_GC_ACCESO') && !hasPermission('AI_GC_EQUIPOS')) {
                 return (
@@ -71,7 +100,8 @@ const DashboardPage = () => {
                     </div>
                 );
             }
-            return <EquiposPage onBack={() => setActiveSubmodule('')} />;
+            // Now renders the Hub to allow access to Reportes and Management
+            return <EquiposHub onNavigate={(view) => setActiveSubmodule(view)} onBack={() => setActiveSubmodule('')} />;
         }
 
 
@@ -126,9 +156,13 @@ const DashboardPage = () => {
             }
 
             // Case: Medio Ambiente Area
-            const maViews = ['medio_ambiente', 'admin-muestreadores', 'admin-equipos'];
+            const maViews = ['medio_ambiente', 'admin-muestreadores', 'admin-equipos', 'admin-equipos-gestion', 'ma-solicitudes', 'ma-reportes-view'];
             if (maViews.includes(activeSubmodule)) {
-                if (!hasPermission('AI_MA_ACCESO')) {
+                // Check if it's a shared view available to Quality (GC)
+                const isSharedView = ['admin-equipos', 'admin-equipos-gestion', 'ma-solicitudes', 'ma-reportes-view'].includes(activeSubmodule);
+                const isQualityUser = hasPermission('AI_GC_ACCESO') || hasPermission('AI_GC_EQUIPOS');
+
+                if (!hasPermission('AI_MA_ACCESO') && !(isSharedView && isQualityUser)) {
                     return <AdminInfoHub onNavigate={(areaId) => setActiveSubmodule(areaId)} />;
                 }
 
@@ -145,8 +179,28 @@ const DashboardPage = () => {
                     return <MuestreadoresPage onBack={() => setActiveSubmodule('medio_ambiente')} />;
                 }
                 if (activeSubmodule === 'admin-equipos') {
-                    if (!hasPermission('AI_MA_EQUIPOS')) return <AdminMaHub onNavigate={(view) => setActiveSubmodule(view)} onBack={() => setActiveSubmodule('')} />;
-                    return <EquiposPage onBack={() => setActiveSubmodule('medio_ambiente')} />;
+                    // Equipos HUB (Selection between Reports and Management)
+                    // Users with MA Access can see this hub
+                    return <EquiposHub onNavigate={(view) => setActiveSubmodule(view)} onBack={() => setActiveSubmodule('medio_ambiente')} />;
+                }
+                if (activeSubmodule === 'admin-equipos-gestion') {
+                    // Actual Management Page
+                    if (!hasPermission('AI_MA_EQUIPOS') && !hasPermission('AI_GC_EQUIPOS') && !hasPermission('AI_GC_ACCESO')) {
+                        return <EquiposHub onNavigate={(view) => setActiveSubmodule(view)} onBack={() => setActiveSubmodule('medio_ambiente')} />;
+                    }
+                    return <EquiposPage onBack={() => setActiveSubmodule('admin-equipos')} />;
+                }
+                if (activeSubmodule === 'ma-reportes-view') {
+                    // Reportes view (Read Only / Vouchers)
+                    if (!hasPermission('AI_MA_EQUIPOS') && !hasPermission('AI_GC_EQUIPOS') && !hasPermission('AI_GC_ACCESO')) {
+                        return <EquiposHub onNavigate={(view) => setActiveSubmodule(view)} onBack={() => setActiveSubmodule('medio_ambiente')} />;
+                    }
+                    return <SolicitudesMaPage onBack={() => setActiveSubmodule('admin-equipos')} viewOnly={true} />;
+                }
+                // Fallback for ma-solicitudes if still needed, or removal if deprecated
+                if (activeSubmodule === 'ma-solicitudes') {
+                    // Management Page (Write access)
+                    return <SolicitudesMaPage onBack={() => setActiveSubmodule('admin-equipos')} />;
                 }
             }
 
@@ -157,8 +211,15 @@ const DashboardPage = () => {
         // Default Dashboard Content
         return (
             <div className="dashboard-content">
-                <h1>Bienvenido a ADL One</h1>
-                <p>Seleccione un módulo del menú lateral para comenzar.</p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '2rem' }}>
+                    <div>
+                        <h1>Bienvenido a ADL One</h1>
+                        <p>Seleccione un módulo del menú lateral para comenzar.</p>
+                    </div>
+                    <div className="mobile-hide">
+                        <WeatherClockWidget />
+                    </div>
+                </div>
 
                 <div style={{
                     marginTop: '2rem',
@@ -166,18 +227,36 @@ const DashboardPage = () => {
                     gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
                     gap: '1.5rem'
                 }}>
-                    {['Solicitudes Pendientes', 'Muestras Hoy', 'Informes por Validar'].map((item) => (
-                        <div key={item} style={{
-                            background: 'white',
-                            padding: '1.5rem',
-                            borderRadius: '1rem',
-                            boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
-                            borderTop: '4px solid #ff9800'
-                        }}>
-                            <h3 style={{ margin: '0 0 0.5rem 0', color: '#546e7a' }}>{item}</h3>
-                            <span style={{ fontSize: '2rem', fontWeight: 'bold', color: '#1565c0' }}>12</span>
-                        </div>
-                    ))}
+                    <div style={{
+                        background: 'white',
+                        padding: '1.5rem',
+                        borderRadius: '1rem',
+                        boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
+                        borderTop: '4px solid #ff9800'
+                    }}>
+                        <h3 style={{ margin: '0 0 0.5rem 0', color: '#546e7a' }}>Solicitudes Pendientes</h3>
+                        <span style={{ fontSize: '2rem', fontWeight: 'bold', color: '#1565c0' }}>{stats.pendientes}</span>
+                    </div>
+                    <div style={{
+                        background: 'white',
+                        padding: '1.5rem',
+                        borderRadius: '1rem',
+                        boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
+                        borderTop: '4px solid #ff9800'
+                    }}>
+                        <h3 style={{ margin: '0 0 0.5rem 0', color: '#546e7a' }}>Muestras Hoy</h3>
+                        <span style={{ fontSize: '2rem', fontWeight: 'bold', color: '#1565c0' }}>{stats.muestrasHoy}</span>
+                    </div>
+                    <div style={{
+                        background: 'white',
+                        padding: '1.5rem',
+                        borderRadius: '1rem',
+                        boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
+                        borderTop: '4px solid #ff9800'
+                    }}>
+                        <h3 style={{ margin: '0 0 0.5rem 0', color: '#546e7a' }}>Informes por Validar</h3>
+                        <span style={{ fontSize: '2rem', fontWeight: 'bold', color: '#1565c0' }}>{stats.informesPorValidar}</span>
+                    </div>
                 </div>
             </div>
         );

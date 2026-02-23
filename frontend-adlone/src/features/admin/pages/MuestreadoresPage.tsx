@@ -76,16 +76,23 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
 
     return (
         <div className="admin-container">
-            <div className="admin-header-section">
-                <button onClick={onBack} className="btn-back">
-                    <span className="icon-circle">←</span>
-                    Volver
-                </button>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem' }}>
-                    <div>
-                        <h1 className="admin-title">Gestión de Muestreadores</h1>
-                        <p className="admin-subtitle">Administra el personal de muestreo y sus firmas.</p>
-                    </div>
+            <div className="admin-header-section responsive-header">
+                {/* Izquierda: botón Volver */}
+                <div style={{ justifySelf: 'start' }}>
+                    <button onClick={onBack} className="btn-back">
+                        <span className="icon-circle">←</span>
+                        Volver
+                    </button>
+                </div>
+
+                {/* Centro: título + subtitulo */}
+                <div style={{ justifySelf: 'center', textAlign: 'center' }}>
+                    <h1 className="admin-title" style={{ margin: '0 0 0.15rem 0' }}>Gestión de Muestreadores</h1>
+                    <p className="admin-subtitle" style={{ margin: 0 }}>Administra el personal de muestreo y sus firmas.</p>
+                </div>
+
+                {/* Derecha: botón Nueva acción */}
+                <div style={{ justifySelf: 'end' }}>
                     <button className="btn-primary" onClick={handleCreate}>
                         + Nuevo Muestreador
                     </button>

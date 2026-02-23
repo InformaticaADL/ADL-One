@@ -74,7 +74,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
     const [fuentesEmisoras, setFuentesEmisoras] = useState<Centro[]>([]);
 
     // Error states for catalogs
-    const [catalogErrors, setCatalogErrors] = useState<{ [key: string]: string | null }>({});
+    const [_catalogErrors, setCatalogErrors] = useState<{ [key: string]: string | null }>({});
 
     // Form State
     const [tipoMonitoreo, setTipoMonitoreo] = useState<string>('');
