@@ -351,36 +351,30 @@ Optimización del flujo de aprobación y comunicación entre el área de Medio A
 - **Prevención de Inconsistencias**:
   - Iconos de alerta `⚠️` y mensajes dinámicos que informan sobre trámites en curso para evitar ediciones conflictivas.
 
-### 16. UI/UX Refinements & Responsive Header Standardization (February 23, 2026) 🎨📱
+### 16. Mejoras de UI/UX y Estandarización de Headers Responsivos (23 de Febrero 2026) 🎨📱
+Mejoras visuales y de layout enfocadas en consistencia, usabilidad móvil y ergonomía de formularios en los módulos de Medio Ambiente y Administración.
 
-Comprehensive visual and layout improvements focused on consistency, mobile usability, and form ergonomics across the Medio Ambiente and Admin modules.
+- **Selector de Tipo de Solicitud (`SolicitudesMaPage`)**:
+  - Rediseño completo como grilla uniforme (3 columnas en móvil, 5 en escritorio).
+  - Íconos SVG representativos por tipo de solicitud, estados activo/inactivo y alturas estandarizadas (`72px` móvil / `52px` escritorio).
 
-#### Form Layout Improvements (`SolicitudesMaPage`)
-- **Request Type Selector (`tipo-solicitud-grid`)**: Redesigned as a uniform grid (3 cols on mobile, 5 on desktop) with SVG icons per button type, active/inactive states, and standardized button heights (`72px` mobile / `52px` desktop).
-- **Reporte de Problema form**: Custom `prob-tipo-frecuencia-row` wrapper sets `3fr 1fr` columns on mobile so "Tipo de Problema" is wider and "Frecuencia" stays compact.
-- **Solicitud Nuevo Equipo form**: Custom `nuevo-eq-ubicacion-row` wrapper uses `2fr 1fr` columns (`align-items: end`) so "Ubicación" and "Fecha de Vigencia" render side-by-side and bottom-aligned.
+- **Layouts de Formulario (Móvil)**:
+  - **Reporte de Problema**: Wrapper `prob-tipo-frecuencia-row` con columnas `3fr 1fr` para que "Tipo de Problema" sea más ancho y "Frecuencia" más compacto.
+  - **Solicitud Nuevo Equipo**: Wrapper `nuevo-eq-ubicacion-row` con columnas `2fr 1fr` y `align-items: end` para que "Ubicación" y "Fecha de Vigencia" queden lado a lado y alineados en la base.
 
-#### Tab Button Normalization (`SolicitudesMaPage`)
-- Unified `padding`, `font-size` (`0.85rem`), and border-bottom style across all three tabs: **Pendientes**, **En Revisión**, and **Historial**. Previously they had inconsistent sizes.
+- **Normalización de Pestañas (`SolicitudesMaPage`)**:
+  - Unificación de `padding`, `font-size` (`0.85rem`) y estilo de borde inferior en las tres pestañas: **Pendientes**, **En Revisión** e **Historial**. Anteriormente tenían tamaños inconsistentes.
 
-#### Responsive Header Pattern — All Hub & Admin Pages
-Introduced a reusable 3-column `responsive-header` layout:
-- **Desktop**: `Volver` button left-aligned | `Title + Subtitle` centered | optional action button right-aligned.
-- **Mobile**: stacks all elements vertically, centered, with `flex-direction: column`.
+- **Patrón `responsive-header` — Todas las Páginas Hub y Admin**:
+  - Nuevo layout de 3 columnas reutilizable: botón **Volver** a la izquierda | **Título + Subtítulo** centrado | acción opcional a la derecha.
+  - En móvil, el CSS colapsa todos los elementos verticalmente y centrados (`flex-direction: column`).
+  - Aplicado a: `EquiposHub`, `MuestreadoresPage`, `AdminMaHub`, `AdminInfoHub`, `InformaticaHub`, `NotificationEventsPage`, `NotificationRecipientsPage`.
 
-Applied to the following pages:
-| Page | Volver | Center Title | Right Action |
-|---|---|---|---|
-| `EquiposHub` | Volver a Medio Ambiente | Centro de Equipos | — |
-| `MuestreadoresPage` | Volver | Gestión de Muestreadores | + Nuevo Muestreador |
-| `AdminMaHub` | Volver a Administración | Medio Ambiente | — |
-| `AdminInfoHub` | — | Admin. Información | — |
-| `InformaticaHub` | Volver a Administración | Informática | — |
-| `NotificationEventsPage` | Volver | Configuración de Correos - Paso 1 | — |
-| `NotificationRecipientsPage` | Volver a Eventos | Configuración de Correos - Paso 2 | — |
+- **Correcciones CSS (`admin.css`)**:
+  - Agrega `flex-direction: column` y `align-items: center` a `.responsive-header > div` para evitar que `h1` y `p` queden en fila horizontal en móvil.
+  - Incremento del gap móvil de `0.25rem` → `0.5rem` y margin-bottom de `0.5rem` → `0.75rem` para mejor separación visual.
 
-#### CSS Fixes (`admin.css`)
-- Added `flex-direction: column` and `align-items: center` to `.responsive-header > div` to prevent `h1` and `p` from displaying side-by-side on mobile.
-- Increased mobile gap from `0.25rem` → `0.5rem` and margin-bottom from `0.5rem` → `0.75rem` for better spacing.
-- `.btn-primary` inside `.responsive-header` retains full-width on mobile (matching the established "+ Nuevo Equipo" button style).
+- **Eliminación del Widget Reloj/Clima**:
+  - Se eliminó el componente `WeatherClockWidget` del Dashboard principal para simplificar la vista de inicio.
+
 

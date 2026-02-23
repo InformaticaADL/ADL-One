@@ -18,7 +18,6 @@ import { EquiposPage } from '../features/admin/pages/EquiposPage';
 import { EquiposHub } from '../features/admin/pages/EquiposHub';
 import { NotificationsPage } from '../features/admin/pages/NotificationsPage';
 import { adminService } from '../services/admin.service';
-import { WeatherClockWidget } from '../components/common/WeatherClockWidget';
 
 const DashboardPage = () => {
     const { activeModule, activeSubmodule, setActiveSubmodule, resetNavigation } = useNavStore();
@@ -211,14 +210,9 @@ const DashboardPage = () => {
         // Default Dashboard Content
         return (
             <div className="dashboard-content">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '2rem' }}>
-                    <div>
-                        <h1>Bienvenido a ADL One</h1>
-                        <p>Seleccione un módulo del menú lateral para comenzar.</p>
-                    </div>
-                    <div className="mobile-hide">
-                        <WeatherClockWidget />
-                    </div>
+                <div>
+                    <h1>Bienvenido a ADL One</h1>
+                    <p>Seleccione un módulo del menú lateral para comenzar.</p>
                 </div>
 
                 <div style={{
