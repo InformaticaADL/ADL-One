@@ -46,24 +46,30 @@ export const RolesPage: React.FC<Props> = ({ onBack }) => {
 
     return (
         <div className="admin-container">
-            <div className="admin-header-section">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
-                        {onBack && (
-                            <button onClick={onBack} className="btn-back">
-                                <span className="icon-circle">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <line x1="19" y1="12" x2="5" y2="12"></line>
-                                        <polyline points="12 19 5 12 12 5"></polyline>
-                                    </svg>
-                                </span>
-                                Volver
-                            </button>
-                        )}
-                        <h1 className="admin-title">Administración de Roles</h1>
-                        <p className="admin-subtitle">Gestiona los perfiles de acceso y permisos del sistema.</p>
-                    </div>
+            <div className="admin-header-section responsive-header">
+                {/* Izquierda: Botón Volver */}
+                <div style={{ justifySelf: 'start' }}>
+                    {onBack && (
+                        <button onClick={onBack} className="btn-back">
+                            <span className="icon-circle">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="19" y1="12" x2="5" y2="12"></line>
+                                    <polyline points="12 19 5 12 12 5"></polyline>
+                                </svg>
+                            </span>
+                            Volver
+                        </button>
+                    )}
+                </div>
 
+                {/* Centro: Título y Subtítulo */}
+                <div style={{ justifySelf: 'center', textAlign: 'center' }}>
+                    <h1 className="admin-title">Administración de Roles</h1>
+                    <p className="admin-subtitle">Gestiona los perfiles de acceso y permisos del sistema.</p>
+                </div>
+
+                {/* Derecha: Acción */}
+                <div style={{ justifySelf: 'end' }}>
                     <button onClick={handleCreate} className="btn-primary">
                         + Nuevo Rol
                     </button>

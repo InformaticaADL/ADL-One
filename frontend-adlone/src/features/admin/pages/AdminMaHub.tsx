@@ -24,7 +24,7 @@ export const AdminMaHub: React.FC<Props> = ({ onNavigate, onBack }) => {
             description: 'Gestión de equipos, códigos y vencimientos de calibración.',
             permission: 'AI_MA_EQUIPOS'
         },
-        { id: 'ma-solicitudes', label: 'Realizar Solicitudes', icon: '📝', description: 'Creación de solicitudes de alta, traspaso y baja de equipos.', permission: 'AI_MA_SOLICITUDES' },
+        { id: 'ma-solicitudes', label: 'Solicitudes', icon: '📝', description: 'Creación de solicitudes de alta, traspaso y baja de equipos.', permission: 'AI_MA_SOLICITUDES' },
     ];
 
     const visibleOptions = OPTIONS.filter(opt => {

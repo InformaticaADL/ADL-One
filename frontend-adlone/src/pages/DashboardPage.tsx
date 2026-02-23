@@ -71,10 +71,10 @@ const DashboardPage = () => {
             return <FichasIngresoPage />;
         }
         if (activeSubmodule === 'ma-tecnica') {
-            return <TecnicaPage onBack={() => { }} />;
+            return <TecnicaPage onBack={() => setActiveSubmodule('medio_ambiente')} />;
         }
         if (activeSubmodule === 'ma-coordinacion') {
-            return <CoordinacionPage onBack={() => { }} />;
+            return <CoordinacionPage onBack={() => setActiveSubmodule('medio_ambiente')} />;
         }
         if (activeSubmodule === 'ma-solicitudes') {
             if (!hasPermission('AI_MA_SOLICITUDES') && !hasPermission('MA_ADMIN_ACCESO')) {
@@ -85,7 +85,7 @@ const DashboardPage = () => {
                     </div>
                 );
             }
-            return <SolicitudesMaPage onBack={() => setActiveSubmodule('')} />;
+            return <SolicitudesMaPage onBack={() => setActiveSubmodule('medio_ambiente')} />;
         }
         if (activeSubmodule === 'ma-reportes-view') {
             return <SolicitudesMaPage onBack={() => setActiveSubmodule('admin-equipos')} viewOnly={true} />;

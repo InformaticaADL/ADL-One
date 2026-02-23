@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavStore } from '../../store/navStore';
 import { useAuth } from '../../contexts/AuthContext';
 import { adminService } from '../../services/admin.service';
@@ -57,8 +57,7 @@ const SUBMODULES_MOCK: Record<string, any[]> = {
         { id: 'gem-config', label: 'Configuración' }
     ],
     'gestion_calidad': [
-        { id: 'gc-equipos', label: 'Equipos', permission: 'AI_GC_ACCESO' }, // Broad access
-        { id: 'gc-equipos', label: 'Equipos', permission: 'AI_GC_EQUIPOS' }, // Specific role
+        { id: 'gc-equipos', label: 'Equipos' }, // Permissions handled in filter logic
     ]
 };
 
@@ -76,6 +75,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
     const [selectedNotification, setSelectedNotification] = useState<any | null>(null);
     const [selectedPendingNotification, setSelectedPendingNotification] = useState<any | null>(null);
+    const notificationRef = useRef<HTMLDivElement>(null);
 
     // Context User
     const { user, logout, hasPermission } = useAuth();
@@ -247,6 +247,22 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
         }
     }, [user, activeModule]);
 
+    // Handle clicks outside notifications
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+                setShowNotifications(false);
+            }
+        };
+
+        if (showNotifications) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [showNotifications]);
+
 
     // Imagen de perfil fija según requerimiento
     // Imagen de perfil fija según requerimiento
@@ -375,6 +391,9 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                                         if (item.id === 'ma-solicitudes') {
                                             return hasPermission('AI_MA_SOLICITUDES') || hasPermission('AI_MA_NOTIF_ENV') || hasPermission('MA_ADMIN_ACCESO');
                                         }
+                                        if (item.id === 'gc-equipos') {
+                                            return hasPermission('AI_GC_ACCESO') || hasPermission('AI_GC_EQUIPOS') || hasPermission('MA_ADMIN_ACCESO');
+                                        }
                                         return !item.permission || hasPermission(item.permission);
                                     })
                                     .map((item, index) => (
@@ -423,14 +442,16 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                 <div className="header-right">
                     {/* Notifications Icon */}
                     <div
+                        ref={notificationRef}
                         className="notification-container"
                         style={{ position: 'relative', marginRight: '1rem' }}
-                        tabIndex={0}
-                        onBlur={() => setTimeout(() => setShowNotifications(false), 200)}
                     >
                         <button
                             className="btn-icon-header"
-                            onClick={() => setShowNotifications(!showNotifications)}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setShowNotifications(!showNotifications);
+                            }}
                             style={{
                                 background: 'none',
                                 border: 'none',
@@ -473,90 +494,87 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                         </button>
 
                         {showNotifications && (
-                            <>
-                                <div className="notifications-backdrop" onClick={() => setShowNotifications(false)} />
-                                <div className="notifications-dropdown">
-                                    <div style={{ padding: '1rem', borderBottom: '1px solid #f1f5f9', fontWeight: 600, fontSize: '0.9rem', color: '#1e293b', display: 'flex', justifyContent: 'space-between' }}>
-                                        <span>{notifications.some(n => n.tag === 'PENDIENTE' || !['APROBADA', 'RECHAZADA'].includes(n.tag))
-                                            ? 'Solicitudes Pendientes'
-                                            : 'Notificaciones de Usuario'}</span>
-                                        <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 400 }}>{new Date().toLocaleDateString()}</span>
-                                    </div>
-                                    <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
-                                        {notifications.filter(n => !hiddenNotifications.includes(String(n.id))).length === 0 ? (
-                                            <div style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>
-                                                No hay notificaciones pendientes
-                                            </div>
-                                        ) : (
-                                            notifications
-                                                .filter(n => !hiddenNotifications.includes(String(n.id)))
-                                                .map((item) => (
-                                                    <div
-                                                        key={item.id}
-                                                        style={{
-                                                            padding: '0.75rem 1rem',
-                                                            borderBottom: '1px solid #f8fafc',
-                                                            cursor: 'pointer',
-                                                            backgroundColor: 'transparent',
-                                                            transition: 'background-color 0.2s',
-                                                            position: 'relative'
-                                                        }}
-                                                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
-                                                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                                                    >
-                                                        <div
-                                                            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem', paddingRight: '1.5rem' }}
-                                                            onClick={() => handleNotificationClick(item)}
-                                                        >
-                                                            <span style={{
-                                                                fontSize: '0.6rem',
-                                                                fontWeight: 'bold',
-                                                                background: item.tagColor,
-                                                                color: item.tagTextColor,
-                                                                padding: '1px 5px',
-                                                                borderRadius: '3px'
-                                                            }}>{item.tag}</span>
-                                                            <span style={{ fontWeight: 600, color: '#334155', fontSize: '0.8rem' }}>
-                                                                {item.title}
-                                                            </span>
-                                                        </div>
-                                                        <div
-                                                            style={{ fontSize: '0.75rem', color: '#64748b' }}
-                                                            onClick={() => handleNotificationClick(item)}
-                                                        >
-                                                            {item.subtitle}
-                                                        </div>
-
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                hideNotification(item.id);
-                                                            }}
-                                                            style={{
-                                                                position: 'absolute',
-                                                                top: '0.75rem',
-                                                                right: '0.5rem',
-                                                                background: 'none',
-                                                                border: 'none',
-                                                                color: '#cbd5e1',
-                                                                cursor: 'pointer',
-                                                                padding: '4px',
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                justifyContent: 'center',
-                                                                borderRadius: '4px'
-                                                            }}
-                                                            onMouseEnter={(e) => e.currentTarget.style.color = '#94a3b8'}
-                                                            onMouseLeave={(e) => e.currentTarget.style.color = '#cbd5e1'}
-                                                        >
-                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                                                        </button>
-                                                    </div>
-                                                ))
-                                        )}
-                                    </div>
+                            <div className="notifications-dropdown">
+                                <div style={{ padding: '1rem', borderBottom: '1px solid #f1f5f9', fontWeight: 600, fontSize: '0.9rem', color: '#1e293b', display: 'flex', justifyContent: 'space-between' }}>
+                                    <span>{notifications.some(n => n.tag === 'PENDIENTE' || !['APROBADA', 'RECHAZADA'].includes(n.tag))
+                                        ? 'Solicitudes Pendientes'
+                                        : 'Notificaciones de Usuario'}</span>
+                                    <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 400 }}>{new Date().toLocaleDateString()}</span>
                                 </div>
-                            </>
+                                <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
+                                    {notifications.filter(n => !hiddenNotifications.includes(String(n.id))).length === 0 ? (
+                                        <div style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>
+                                            No hay notificaciones pendientes
+                                        </div>
+                                    ) : (
+                                        notifications
+                                            .filter(n => !hiddenNotifications.includes(String(n.id)))
+                                            .map((item) => (
+                                                <div
+                                                    key={item.id}
+                                                    style={{
+                                                        padding: '0.75rem 1rem',
+                                                        borderBottom: '1px solid #f8fafc',
+                                                        cursor: 'pointer',
+                                                        backgroundColor: 'transparent',
+                                                        transition: 'background-color 0.2s',
+                                                        position: 'relative'
+                                                    }}
+                                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                >
+                                                    <div
+                                                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem', paddingRight: '1.5rem' }}
+                                                        onClick={() => handleNotificationClick(item)}
+                                                    >
+                                                        <span style={{
+                                                            fontSize: '0.6rem',
+                                                            fontWeight: 'bold',
+                                                            background: item.tagColor,
+                                                            color: item.tagTextColor,
+                                                            padding: '1px 5px',
+                                                            borderRadius: '3px'
+                                                        }}>{item.tag}</span>
+                                                        <span style={{ fontWeight: 600, color: '#334155', fontSize: '0.8rem' }}>
+                                                            {item.title}
+                                                        </span>
+                                                    </div>
+                                                    <div
+                                                        style={{ fontSize: '0.75rem', color: '#64748b' }}
+                                                        onClick={() => handleNotificationClick(item)}
+                                                    >
+                                                        {item.subtitle}
+                                                    </div>
+
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            hideNotification(item.id);
+                                                        }}
+                                                        style={{
+                                                            position: 'absolute',
+                                                            top: '0.75rem',
+                                                            right: '0.5rem',
+                                                            background: 'none',
+                                                            border: 'none',
+                                                            color: '#cbd5e1',
+                                                            cursor: 'pointer',
+                                                            padding: '4px',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            borderRadius: '4px'
+                                                        }}
+                                                        onMouseEnter={(e) => e.currentTarget.style.color = '#94a3b8'}
+                                                        onMouseLeave={(e) => e.currentTarget.style.color = '#cbd5e1'}
+                                                    >
+                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                                    </button>
+                                                </div>
+                                            ))
+                                    )}
+                                </div>
+                            </div>
                         )}
                     </div>
 
@@ -584,12 +602,12 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                         )}
                     </div>
                 </div>
-            </header >
+            </header>
 
             {/* --- Contenido Principal --- */}
-            < main className="app-content" >
+            <main className="app-content">
                 {children}
-            </main >
+            </main>
 
             {/* Modal de Resultado de Solicitud */}
             {
@@ -741,6 +759,6 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                     </div>
                 )
             }
-        </div >
+        </div>
     );
 };

@@ -137,7 +137,7 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
         if (tipo === 'VIGENCIA_PROXIMA') return 'Vigencia Próxima';
         if (tipo === 'EQUIPO_PERDIDO') return 'Baja por Pérdida';
         if (tipo === 'REPORTE_PROBLEMA') return 'Reporte de Problema';
-        if (tipo === 'NUEVO_EQUIPO') return 'Solicitud Nuevo Equipo';
+        if (tipo === 'NUEVO_EQUIPO') return 'Nuevo Equipo';
         if (tipo === 'EQUIPO_DESHABILITADO') return 'Equipo Deshabilitado';
         return tipo.replace(/_/g, ' ');
     };
@@ -850,8 +850,18 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
             <div style={{ padding: '0.25rem 1rem 0', background: 'transparent', zIndex: 10 }}>
                 <div className="admin-header-section responsive-header">
                     <div style={{ justifySelf: 'start' }}>
-                        {onBack && (
-                            <button onClick={onBack} className="btn-back" style={{ margin: 0 }}>
+                        {(onBack || viewMode === 'FORM') && (
+                            <button
+                                onClick={() => {
+                                    if (viewMode === 'FORM') {
+                                        setViewMode('LIST');
+                                    } else if (onBack) {
+                                        onBack();
+                                    }
+                                }}
+                                className="btn-back"
+                                style={{ margin: 0 }}
+                            >
                                 <span className="icon-circle" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
                                 </span> Volver
@@ -959,7 +969,20 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
                         )}
 
                         {/* --- Filter Card: Standardized with toggle logic --- */}
-                        <div className={`filter-card ${showMobileFilters ? 'mobile-expanded' : ''}`} style={{ marginBottom: '0.5rem' }}>
+                        <div className={`filter-card ${showMobileFilters ? 'mobile-expanded' : ''}`} style={{
+                            position: 'sticky',
+                            top: 0,
+                            zIndex: 20,
+                            background: 'white',
+                            borderRadius: '0.5rem',
+                            border: '1px solid #e5e7eb',
+                            boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+                            padding: '0.5rem 1rem',
+                            maxWidth: '1000px',
+                            margin: '0.25rem auto 1rem',
+                            width: '100%',
+                            boxSizing: 'border-box',
+                        }}>
                             <div className="filter-controls-left">
                                 <div className="search-container">
                                     <div
@@ -1032,17 +1055,20 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
+                            </div>{/* end filter-controls-left */}
+                        </div>{/* end filter-card */}
                     </>
                 )}
+                {/* The closing div for the fixed header section */}
             </div>
+
+
 
             {/* --- SECCIÓN SCROLLABLE CONTENT --- */}
             <div className="admin-content-scroll" style={{ flex: 1, overflowY: 'auto', padding: '0 1rem 1rem', background: 'transparent' }}>
 
                 {viewMode === 'LIST' && (
-                    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: 0, width: '100%' }}>
+                    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: 0, width: '100%', maxWidth: '1000px', margin: '0 auto' }}>
                         {activeTab === 'PENDIENTES' && (
                             <div className="animate-fade-in" style={{ width: '100%', minWidth: 0 }}>
                                 {filteredIncoming.length === 0 ? (

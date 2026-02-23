@@ -231,20 +231,30 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
 
     return (
         <div className="admin-container">
-            <div className="admin-header-section">
-                {onBack && (
-                    <button onClick={onBack} className="btn-back">
-                        <span className="icon-circle">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <line x1="19" y1="12" x2="5" y2="12"></line>
-                                <polyline points="12 19 5 12 12 5"></polyline>
-                            </svg>
-                        </span>
-                        Volver
-                    </button>
-                )}
-                <h1 className="admin-title">Gestión de Usuarios</h1>
-                <p className="admin-subtitle">Crear, editar y administrar usuarios del sistema</p>
+            <div className="admin-header-section responsive-header">
+                {/* Izquierda: Botón Volver */}
+                <div style={{ justifySelf: 'start' }}>
+                    {onBack && (
+                        <button onClick={onBack} className="btn-back">
+                            <span className="icon-circle">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="19" y1="12" x2="5" y2="12"></line>
+                                    <polyline points="12 19 5 12 12 5"></polyline>
+                                </svg>
+                            </span>
+                            Volver
+                        </button>
+                    )}
+                </div>
+
+                {/* Centro: Título y Subtítulo */}
+                <div style={{ justifySelf: 'center', textAlign: 'center' }}>
+                    <h1 className="admin-title">Gestión de Usuarios</h1>
+                    <p className="admin-subtitle">Crear, editar y administrar usuarios del sistema</p>
+                </div>
+
+                {/* Derecha: Vacío para balance */}
+                <div style={{ justifySelf: 'end' }}></div>
             </div>
 
             <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', maxWidth: '1400px', margin: '0 auto' }}>

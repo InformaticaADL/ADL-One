@@ -1517,7 +1517,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
             )}
 
             {/* Loading Overlay */}
-            {processingAction && (
+            {(processingAction || loading) && (
                 <div style={{
                     position: 'fixed',
                     top: 0,
@@ -1562,9 +1562,10 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                         color: '#1e40af',
                         fontSize: '1.1rem',
                         letterSpacing: '0.05em',
-                        animation: 'pulse 1.5s ease-in-out infinite'
+                        animation: 'pulse 1.5s ease-in-out infinite',
+                        textTransform: 'uppercase'
                     }}>
-                        PROCESANDO ACCIÓN...
+                        {loading ? 'Guardando cambios...' : 'Procesando acción...'}
                     </div>
                 </div>
             )}

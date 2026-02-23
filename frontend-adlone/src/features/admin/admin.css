@@ -626,9 +626,10 @@
 .admin-table {
     width: 100%;
     border-collapse: collapse;
-    min-width: 1000px;
-    /* Ensure columns don't overflow on top of each other */
+    table-layout: auto;
+    /* No min-width: table fits within its container naturally */
 }
+
 
 .admin-table thead {
     background-color: #f9fafb;
@@ -636,26 +637,27 @@
 }
 
 .admin-table th {
-    padding: 0.75rem 1rem;
-    /* Reduced horizontal padding */
+    padding: 0.5rem 0.6rem;
     text-align: left;
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: 600;
     color: #6b7280;
-    /* gray-500 */
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.04em;
     border-bottom: 1px solid #e5e7eb;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .admin-table td {
-    padding: 1rem 1rem;
-    /* Reduced horizontal padding */
-    font-size: 0.875rem;
-    /* text-sm */
+    padding: 0.65rem 0.6rem;
+    font-size: 0.82rem;
     color: #111827;
-    /* gray-900 */
     border-bottom: 1px solid #e5e7eb;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .admin-table tr:hover {
