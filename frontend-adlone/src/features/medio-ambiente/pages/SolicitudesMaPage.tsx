@@ -342,17 +342,17 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
             // For MA (Technical): ONLY PENDIENTE_TECNICA (PENDIENTE_CALIDAD goes to History)
             // For GC (Quality): ONLY PENDIENTE_CALIDAD
             // Note: If user has both permissions, prioritize MA view (Technical Area)
-            let incomingStatesArr = [];
+            let incomingStatesArr: string[] = [];
 
-            // Prioritize MA (Technical Area) view
-            // If user is MA, they should ONLY see PENDIENTE_TECNICA in Pendientes
-            // PENDIENTE_CALIDAD goes to History for MA users
-            if (isMAMan) {
-                // Technical Area turn: only see items waiting for technical review
-                incomingStatesArr.push('PENDIENTE_TECNICA');
-            } else if (isGCMan || isSuperAdmin) {
-                // Quality/Admin turn: only see items waiting for final validation
-                incomingStatesArr.push('PENDIENTE_CALIDAD');
+            if (isSuperAdmin) {
+                incomingStatesArr.push('PENDIENTE_TECNICA', 'PENDIENTE_CALIDAD');
+            } else {
+                if (isMAMan) {
+                    incomingStatesArr.push('PENDIENTE_TECNICA');
+                }
+                if (isGCMan) {
+                    incomingStatesArr.push('PENDIENTE_CALIDAD');
+                }
             }
 
             const incomingStates = incomingStatesArr.join(',');

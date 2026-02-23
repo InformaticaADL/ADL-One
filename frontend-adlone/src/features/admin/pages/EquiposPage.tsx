@@ -297,14 +297,18 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
             const isSuperAdmin = hasPermission('MA_ADMIN_ACCESO');
 
             // Fetch PENDING solicitudes based on role to maintain separation
-            let targetStates = 'PENDIENTE';
+            let targetStatesArray: string[] = ['PENDIENTE'];
             if (isSuperAdmin) {
-                targetStates = 'PENDIENTE,PENDIENTE_TECNICA,EN_REVISION_TECNICA,EN_REVISION,PENDIENTE_CALIDAD';
-            } else if (isMA) {
-                targetStates = 'PENDIENTE,PENDIENTE_TECNICA,EN_REVISION_TECNICA,EN_REVISION';
-            } else if (isGC) {
-                targetStates = 'PENDIENTE,PENDIENTE_CALIDAD';
+                targetStatesArray.push('PENDIENTE_TECNICA', 'EN_REVISION_TECNICA', 'EN_REVISION', 'PENDIENTE_CALIDAD');
+            } else {
+                if (isMA) {
+                    targetStatesArray.push('PENDIENTE_TECNICA', 'EN_REVISION_TECNICA', 'EN_REVISION');
+                }
+                if (isGC) {
+                    targetStatesArray.push('PENDIENTE_CALIDAD');
+                }
             }
+            const targetStates = targetStatesArray.join(',');
 
             const data = await adminService.getSolicitudes({ estado: targetStates });
 

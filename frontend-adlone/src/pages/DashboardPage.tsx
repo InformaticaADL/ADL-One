@@ -91,7 +91,7 @@ const DashboardPage = () => {
             return <SolicitudesMaPage onBack={() => setActiveSubmodule('admin-equipos')} viewOnly={true} />;
         }
         if (activeSubmodule === 'gc-equipos') {
-            if (!hasPermission('AI_GC_ACCESO') && !hasPermission('AI_GC_EQUIPOS')) {
+            if (!hasPermission('AI_GC_ACCESO') && !hasPermission('AI_GC_EQUIPOS') && !hasPermission('AI_MA_EQUIPOS')) {
                 return (
                     <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
                         <h2>Acceso Restringido</h2>
@@ -101,6 +101,18 @@ const DashboardPage = () => {
             }
             // Now renders the Hub to allow access to Reportes and Management
             return <EquiposHub onNavigate={(view) => setActiveSubmodule(view)} onBack={() => setActiveSubmodule('')} />;
+        }
+
+        if (activeSubmodule === 'admin-equipos-gestion') {
+            if (!hasPermission('AI_MA_EQUIPOS') && !hasPermission('AI_GC_EQUIPOS') && !hasPermission('AI_GC_ACCESO')) {
+                return (
+                    <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
+                        <h2>Acceso Restringido</h2>
+                        <p>No tienes los permisos necesarios para gestionar esta sección.</p>
+                    </div>
+                );
+            }
+            return <EquiposPage onBack={() => setActiveSubmodule(activeModule === 'gestion_calidad' ? 'gc-equipos' : 'admin-equipos')} />;
         }
 
 
@@ -182,13 +194,7 @@ const DashboardPage = () => {
                     // Users with MA Access can see this hub
                     return <EquiposHub onNavigate={(view) => setActiveSubmodule(view)} onBack={() => setActiveSubmodule('medio_ambiente')} />;
                 }
-                if (activeSubmodule === 'admin-equipos-gestion') {
-                    // Actual Management Page
-                    if (!hasPermission('AI_MA_EQUIPOS') && !hasPermission('AI_GC_EQUIPOS') && !hasPermission('AI_GC_ACCESO')) {
-                        return <EquiposHub onNavigate={(view) => setActiveSubmodule(view)} onBack={() => setActiveSubmodule('medio_ambiente')} />;
-                    }
-                    return <EquiposPage onBack={() => setActiveSubmodule('admin-equipos')} />;
-                }
+
                 if (activeSubmodule === 'ma-reportes-view') {
                     // Reportes view (Read Only / Vouchers)
                     if (!hasPermission('AI_MA_EQUIPOS') && !hasPermission('AI_GC_EQUIPOS') && !hasPermission('AI_GC_ACCESO')) {

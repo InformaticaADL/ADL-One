@@ -392,7 +392,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                                             return hasPermission('AI_MA_SOLICITUDES') || hasPermission('AI_MA_NOTIF_ENV') || hasPermission('MA_ADMIN_ACCESO');
                                         }
                                         if (item.id === 'gc-equipos') {
-                                            return hasPermission('AI_GC_ACCESO') || hasPermission('AI_GC_EQUIPOS') || hasPermission('MA_ADMIN_ACCESO');
+                                            return hasPermission('AI_GC_ACCESO') || hasPermission('AI_GC_EQUIPOS') || hasPermission('AI_MA_EQUIPOS') || hasPermission('MA_ADMIN_ACCESO');
                                         }
                                         return !item.permission || hasPermission(item.permission);
                                     })

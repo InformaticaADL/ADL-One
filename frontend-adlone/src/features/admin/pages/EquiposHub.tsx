@@ -45,7 +45,7 @@ export const EquiposHub: React.FC<Props> = ({ onNavigate, onBack }) => {
 
         // Specific checks
         if (opt.permission === 'AI_GC_EQUIPOS') {
-            return hasPermission('AI_GC_EQUIPOS') || hasPermission('AI_GC_ACCESO');
+            return hasPermission('AI_GC_EQUIPOS') || hasPermission('AI_GC_ACCESO') || hasPermission('AI_MA_EQUIPOS');
         }
 
         return hasPermission(opt.permission);
