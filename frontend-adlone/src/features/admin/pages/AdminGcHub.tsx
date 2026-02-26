@@ -8,7 +8,7 @@ interface Props {
     onBack: () => void;
 }
 
-export const EquiposHub: React.FC<Props> = ({ onNavigate, onBack }) => {
+export const AdminGcHub: React.FC<Props> = ({ onNavigate, onBack }) => {
     const { hasPermission } = useAuth();
     const [pendientes, setPendientes] = useState(0);
 
@@ -17,41 +17,27 @@ export const EquiposHub: React.FC<Props> = ({ onNavigate, onBack }) => {
             try {
                 const data = await adminService.getDashboardStats();
                 if (data) {
-                    setPendientes(data.pendientesTecnica || 0);
+                    setPendientes(data.pendientesCalidad || 0);
                 }
             } catch (error) {
                 console.error("Error fetching stats:", error);
             }
         };
         // Only fetch if they have access
-        if (hasPermission('MA_A_GEST_EQUIPO') || hasPermission('AI_MA_SOLICITUDES') || hasPermission('AI_MA_ADMIN_ACCESO')) {
+        if (hasPermission('GC_ACCESO') || hasPermission('GC_EQUIPOS') || hasPermission('AI_MA_ADMIN_ACCESO')) {
             fetchStats();
         }
     }, [hasPermission]);
 
     const OPTIONS = [
         {
-            id: 'ma-reportes-view',
-            label: 'Reportes',
-            icon: (
-                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                    <polyline points="14 2 14 8 20 8"></polyline>
-                    <line x1="16" y1="13" x2="8" y2="13"></line>
-                    <line x1="16" y1="17" x2="8" y2="17"></line>
-                    <polyline points="10 9 9 9 8 9"></polyline>
-                </svg>
-            ),
-            description: 'Visualización de reportes de problemas y bajas por pérdida.',
-            permission: 'MA_A_REPORTES'
-        },
-        {
             id: 'admin-equipos-gestion',
             label: 'Gestión de Equipos',
             icon: (
-                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
-                </svg>
+                <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ fontSize: '42px', lineHeight: '1' }}>🖥️</span>
+                    <span style={{ position: 'absolute', bottom: '-5px', right: '-8px', fontSize: '24px', filter: 'drop-shadow(2px 2px 0 white)' }}>⚙️</span>
+                </div>
             ),
             description: 'Inventario, configuración y mantenimiento de equipos.',
             permission: 'MA_A_GEST_EQUIPO'
@@ -59,21 +45,16 @@ export const EquiposHub: React.FC<Props> = ({ onNavigate, onBack }) => {
     ];
 
     const visibleOptions = OPTIONS.filter(opt => {
-        // Special handling: Admin sees all
-        if (hasPermission('AI_MA_ADMIN_ACCESO')) return true;
-
-        // Specific legacy/shared checks (can be removed if all use individual perms)
-        if (opt.id === 'ma-reportes-view') {
-            return hasPermission('MA_A_REPORTES');
+        if (opt.id === 'admin-equipos-gestion') {
+            return hasPermission('GC_ACCESO') || hasPermission('AI_MA_ADMIN_ACCESO') || hasPermission('GC_EQUIPOS') || hasPermission('MA_A_GEST_EQUIPO');
         }
-
         return hasPermission(opt.permission);
     });
 
     return (
         <div className="admin-container">
             <div className="admin-header-section responsive-header">
-                {/* Columna izquierda: botón Volver */}
+                {/* Izquierda: botón Volver */}
                 <div style={{ justifySelf: 'start' }}>
                     <button onClick={onBack} className="btn-back">
                         <span className="icon-circle">
@@ -82,17 +63,17 @@ export const EquiposHub: React.FC<Props> = ({ onNavigate, onBack }) => {
                                 <polyline points="12 19 5 12 12 5"></polyline>
                             </svg>
                         </span>
-                        Volver a Medio Ambiente
+                        Volver a Administración
                     </button>
                 </div>
 
-                {/* Columna central: título + subtitulo */}
+                {/* Centro: título + subtitulo */}
                 <div style={{ justifySelf: 'center', textAlign: 'center' }}>
-                    <h1 className="admin-title" style={{ margin: '0 0 0.15rem 0' }}>Centro de Equipos</h1>
-                    <p className="admin-subtitle" style={{ margin: 0 }}>Seleccione una acción para continuar.</p>
+                    <h1 className="admin-title" style={{ margin: '0 0 0.15rem 0' }}>Gestión de Calidad</h1>
+                    <p className="admin-subtitle" style={{ margin: 0 }}>Gestión de recursos y validación de calidad.</p>
                 </div>
 
-                {/* Columna derecha: vacía (balance) */}
+                {/* Derecha: vacío (balance) */}
                 <div></div>
             </div>
 
