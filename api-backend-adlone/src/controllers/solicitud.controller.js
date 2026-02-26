@@ -33,8 +33,8 @@ class SolicitudController {
             const perms = user?.permissions || [];
 
             // Verify permission: needs to be Technical Area (or Admin)
-            const isMAMan = perms.includes('AI_MA_SOLICITUDES') || perms.includes('AI_MA_EQUIPOS');
-            const isSAMan = perms.includes('MA_ADMIN_ACCESO');
+            const isMAMan = perms.includes('AI_MA_SOLICITUDES') || perms.includes('AI_MA_EQUIPOS') || perms.includes('MA_SOLICITUDES') || perms.includes('MA_EQUIPOS');
+            const isSAMan = perms.includes('AI_MA_ADMIN_ACCESO') || perms.includes('MA_ADMIN_ACCESO');
 
             if (!isMAMan && !isSAMan) {
                 return res.status(403).json({ message: 'No tiene permisos para revisión técnica' });
@@ -60,16 +60,17 @@ class SolicitudController {
         try {
             const user = req.user;
             const perms = user?.permissions || [];
-            let isSuperAdmin = perms.includes('MA_ADMIN_ACCESO');
-            let isGC = perms.includes('AI_GC_ACCESO') || perms.includes('AI_GC_EQUIPOS');
-            let isMA = perms.includes('AI_MA_SOLICITUDES') || perms.includes('AI_MA_EQUIPOS');
+            let isSuperAdmin = perms.includes('AI_MA_ADMIN_ACCESO') || perms.includes('MA_ADMIN_ACCESO');
+            let isGC = perms.includes('GC_ACCESO') || perms.includes('GC_EQUIPOS');
+            let isMA = perms.includes('AI_MA_SOLICITUDES') || perms.includes('AI_MA_EQUIPOS') || perms.includes('MA_SOLICITUDES') || perms.includes('MA_EQUIPOS');
+            let hasReportPermission = perms.includes('MA_A_REPORTES') || perms.includes('MA_A_REPORTES_DETALLE');
             let allowedSections = [];
 
-            if (!isSuperAdmin && !isGC && req.query.solo_mias !== 'true') {
+            if (!isSuperAdmin && !isGC && !hasReportPermission && req.query.solo_mias !== 'true') {
                 if (isMA) {
                     allowedSections.push('GEM', 'GER', 'MAM', 'MA', 'Medio Ambiente', 'AY', 'VI', 'PM', 'PA', 'CH', 'CM', 'CN', 'Terreno');
                 }
-                if (perms.includes('AI_INF_NOTIF')) allowedSections.push('INF');
+                if (perms.includes('INF_NOTIF')) allowedSections.push('INF');
 
                 // If no permission to see any section, return empty immediately
                 if (allowedSections.length === 0) {
@@ -107,10 +108,10 @@ class SolicitudController {
             const perms = user?.permissions || [];
 
             // Check if user has ANY management permission
-            const isSAMan = perms.includes('MA_ADMIN_ACCESO');
-            const isMAMan = perms.includes('AI_MA_SOLICITUDES') || perms.includes('AI_MA_EQUIPOS') || perms.includes('AI_MA_NOTIF_REC') || perms.includes('AI_MA_NOTIF_ENV');
-            const isGCMan = perms.includes('AI_GC_ACCESO') || perms.includes('AI_GC_EQUIPOS');
-            const isINFMan = perms.includes('AI_INF_NOTIF');
+            const isSAMan = perms.includes('AI_MA_ADMIN_ACCESO') || perms.includes('MA_ADMIN_ACCESO');
+            const isMAMan = perms.includes('AI_MA_SOLICITUDES') || perms.includes('AI_MA_EQUIPOS') || perms.includes('MA_SOLICITUDES') || perms.includes('MA_EQUIPOS') || perms.includes('MA_NOTIF_REC') || perms.includes('MA_NOTIF_ENV');
+            const isGCMan = perms.includes('GC_ACCESO') || perms.includes('GC_EQUIPOS');
+            const isINFMan = perms.includes('INF_NOTIF');
 
             if (!isSAMan && !isMAMan && !isGCMan && !isINFMan) {
                 logger.warn(`User ${user?.id} attempted to update solicitud ${id} without permission`);
@@ -133,8 +134,8 @@ class SolicitudController {
             const user = req.user;
             const perms = user?.permissions || [];
 
-            const isSAMan = perms.includes('MA_ADMIN_ACCESO');
-            const isMAMan = perms.includes('AI_MA_SOLICITUDES') || perms.includes('AI_MA_EQUIPOS');
+            const isSAMan = perms.includes('AI_MA_ADMIN_ACCESO') || perms.includes('MA_ADMIN_ACCESO');
+            const isMAMan = perms.includes('AI_MA_SOLICITUDES') || perms.includes('AI_MA_EQUIPOS') || perms.includes('MA_SOLICITUDES') || perms.includes('MA_EQUIPOS');
 
             if (!isSAMan && !isMAMan) {
                 logger.warn(`User ${user?.id} attempted to accept solicitud ${id} without permission`);
