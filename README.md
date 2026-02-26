@@ -354,27 +354,57 @@ Optimización del flujo de aprobación y comunicación entre el área de Medio A
 ### 16. Mejoras de UI/UX y Estandarización de Headers Responsivos (23 de Febrero 2026) 🎨📱
 Mejoras visuales y de layout enfocadas en consistencia, usabilidad móvil y ergonomía de formularios en los módulos de Medio Ambiente y Administración.
 
-- **Selector de Tipo de Solicitud (`SolicitudesMaPage`)**:
-  - Rediseño completo como grilla uniforme (3 columnas en móvil, 5 en escritorio).
-  - Íconos SVG representativos por tipo de solicitud, estados activo/inactivo y alturas estandarizadas (`72px` móvil / `52px` escritorio).
+### 17. Permisos Granulares y Seguridad de Reportes (26 de Febrero 2026) 🔐📊
+Se implementó un sistema de permisos más fino para el área de reportes y se corrigieron discrepancias de visibilidad en el servidor.
 
-- **Layouts de Formulario (Móvil)**:
-  - **Reporte de Problema**: Wrapper `prob-tipo-frecuencia-row` con columnas `3fr 1fr` para que "Tipo de Problema" sea más ancho y "Frecuencia" más compacto.
-  - **Solicitud Nuevo Equipo**: Wrapper `nuevo-eq-ubicacion-row` con columnas `2fr 1fr` y `align-items: end` para que "Ubicación" y "Fecha de Vigencia" queden lado a lado y alineados en la base.
+- **Nuevos Permisos de Reportes**:
+    - `MA_A_REPORTES_DETALLE`: Permite ver el detalle extendido de una solicitud en la pestaña de reportes.
+    - `MA_A_REPORTES_REVISION`: Permite solicitar revisiones técnicas de reportes existentes.
+    - **Agrupación lógica**: Estos permisos se configuraron en `RoleModal.tsx` para aparecer agrupados bajo "Medio Ambiente" -> "Reportes".
 
-- **Normalización de Pestañas (`SolicitudesMaPage`)**:
-  - Unificación de `padding`, `font-size` (`0.85rem`) y estilo de borde inferior en las tres pestañas: **Pendientes**, **En Revisión** e **Historial**. Anteriormente tenían tamaños inconsistentes.
+- **Corrección de Visibilidad Global (Fix Técnico)**:
+    - Se modificó el controlador `solicitud.controller.js` en el backend.
+    - **El Problema**: Los usuarios del Área Técnica estaban restringidos por sección (sólo veían solicitudes de su área), mientras que Calidad tenía acceso global.
+    - **La Solución**: Se añadió una excepción para que cualquier usuario con permisos de reportes (`MA_A_REPORTES`) se salte el filtrado por sección, garantizando paridad de información entre Calidad y Técnica.
 
-- **Patrón `responsive-header` — Todas las Páginas Hub y Admin**:
-  - Nuevo layout de 3 columnas reutilizable: botón **Volver** a la izquierda | **Título + Subtítulo** centrado | acción opcional a la derecha.
-  - En móvil, el CSS colapsa todos los elementos verticalmente y centrados (`flex-direction: column`).
-  - Aplicado a: `EquiposHub`, `MuestreadoresPage`, `AdminMaHub`, `AdminInfoHub`, `InformaticaHub`, `NotificationEventsPage`, `NotificationRecipientsPage`.
+### 18. Mejoras de UI/UX y Estética Premium (Febrero 2026) ✨🎨
+Refinamiento visual para asegurar una interfaz profesional, centrada y adaptable.
 
-- **Correcciones CSS (`admin.css`)**:
-  - Agrega `flex-direction: column` y `align-items: center` a `.responsive-header > div` para evitar que `h1` y `p` queden en fila horizontal en móvil.
-  - Incremento del gap móvil de `0.25rem` → `0.5rem` y margin-bottom de `0.5rem` → `0.75rem` para mejor separación visual.
+- **Hubs Administrativos Centrados**:
+    - Se corrigió la alineación de las tarjetas en `AdminMaHub.tsx`, `AdminGcHub.tsx` y `EquiposHub.tsx`.
+    - Títulos y badges de "pendientes" ahora aparecen perfectamente centrados respecto al icono, eliminando el sesgo a la izquierda.
+- **Optimización de SolicitudesMaPage**:
+    - Centrado de pestañas y contenedores principales (max-width `1000px`).
+    - Mejora en la visualización de la pestaña de **Reportes y Vouchers** para que sea responsiva y consistente con el diseño de Gestión de Equipos.
+- **Visibilidad Basada en Roles**:
+    - Los badges rojos de "pendientes" en los Hubs ahora son inteligentes: solo muestran conteos relevantes al rol del usuario (Técnica vs. Calidad).
 
-- **Eliminación del Widget Reloj/Clima**:
-  - Se eliminó el componente `WeatherClockWidget` del Dashboard principal para simplificar la vista de inicio.
+### 19. Usabilidad Móvil y Accesibilidad 📱🚀
+- **Filas Cliqueables**: En la gestión de roles, las filas de la tabla ahora son totalmente cliqueables en móviles para abrir el detalle directamente sin depender de botones pequeños.
+- **Ocultamiento Inteligente**: Se implementó la clase `.mobile-hide` para ocultar elementos no críticos (como el widget de clima/reloj previo) en pantallas pequeñas, maximizando el espacio útil.
+- **Botón Limpiar**: Alineación estandarizada del botón "Limpiar" en filtros para mantener la armonía visual en cualquier resolución.
+
+---
+
+## 🏗️ Estructura Detallada del Proyecto (Frontend)
+
+```
+frontend-adlone/
+├── src/
+│   ├── components/          # Componentes comunes (Layouts, UI, Timeline)
+│   ├── features/            # Módulos por área de negocio
+│   │   ├── admin/           # Gestión de Usuarios, Roles, Hubs Administrativos
+│   │   ├── medio-ambiente/  # Solicitudes, Equipos, Reportes y Vouchers
+│   │   ├── comercial/       # Fichas Comerciales y Análisis
+│   │   └── tecnica/         # Validaciones y Flujo Técnico
+│   ├── services/            # Servicios de comunicación con API (Axios)
+│   ├── contexts/            # Contextos de React (Auth, Permisos)
+│   └── store/               # Estados globales con Zustand (NavStore)
+```
+
+## 📄 Estado Final del Proyecto
+✅ **Backend**: Node.js + Express (Bypass de sección para reportes, Snapshot de equipos, Auth JWT)
+✅ **Frontend**: React + TypeScript (Hubs centrados, Permisos granulares, UI Responsiva)
+✅ **Base de Datos**: SQL Server (Auditoría de ediciones, Traspasos, Historial de equipos)
 
 
