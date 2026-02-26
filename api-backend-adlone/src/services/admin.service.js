@@ -66,14 +66,18 @@ export const adminService = {
         try {
             const pool = await getConnection();
 
-            // 1. Solicitudes Pendientes
+            // 1. Solicitudes Pendientes (Totales y Desglosadas)
             const pdRq = pool.request();
             const pdResult = await pdRq.query(`
-                SELECT count(*) as count 
+                SELECT 
+                    SUM(CASE WHEN estado IN ('PENDIENTE', 'PENDIENTE_CALIDAD', 'PENDIENTE_TECNICA', 'EN_REVISION_TECNICA') THEN 1 ELSE 0 END) as pendientesTotales,
+                    SUM(CASE WHEN estado = 'PENDIENTE_CALIDAD' THEN 1 ELSE 0 END) as pendientesCalidad,
+                    SUM(CASE WHEN estado IN ('PENDIENTE_TECNICA', 'EN_REVISION_TECNICA') THEN 1 ELSE 0 END) as pendientesTecnica
                 FROM mae_solicitud_equipo 
-                WHERE estado IN ('PENDIENTE', 'PENDIENTE_CALIDAD', 'PENDIENTE_TECNICA', 'EN_REVISION_TECNICA')
             `);
-            const pendientes = pdResult.recordset[0].count;
+            const pendientes = pdResult.recordset[0].pendientesTotales || 0;
+            const pendientesCalidad = pdResult.recordset[0].pendientesCalidad || 0;
+            const pendientesTecnica = pdResult.recordset[0].pendientesTecnica || 0;
 
             // 2. Muestras Hoy
             const mhRq = pool.request();
@@ -97,6 +101,8 @@ export const adminService = {
 
             return {
                 pendientes,
+                pendientesCalidad,
+                pendientesTecnica,
                 muestrasHoy,
                 informesPorValidar
             };

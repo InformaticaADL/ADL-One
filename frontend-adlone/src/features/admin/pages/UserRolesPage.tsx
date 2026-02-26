@@ -102,8 +102,8 @@ export const UserRolesPage: React.FC<Props> = ({ onBack }) => {
                         {loading ? (
                             <tr>
                                 <td colSpan={3} style={{ textAlign: 'center', padding: '3rem', color: '#6b7280' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem' }}>
-                                        <svg className="spinner" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg>
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+                                        <div style={{ width: '30px', height: '30px', border: '3px solid #e2e8f0', borderTopColor: '#3b82f6', borderRadius: '50%', animation: 'spinner-spin 1s linear infinite' }}></div>
                                         Cargando usuarios...
                                     </div>
                                 </td>

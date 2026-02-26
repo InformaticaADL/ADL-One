@@ -109,6 +109,7 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                         placeholder="Escriba nombre..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
+                        style={{ height: '38px' }}
                     />
                 </div>
                 <div style={{ width: '200px' }}>
@@ -117,6 +118,7 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                         className="form-input"
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value)}
+                        style={{ height: '38px', padding: '0 0.5rem', appearance: 'auto' }}
                     >
                         <option value="ACTIVOS">Solo Activos</option>
                         <option value="INACTIVOS">Solo Inactivos</option>
@@ -139,7 +141,14 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                     </thead>
                     <tbody>
                         {loading ? (
-                            <tr><td colSpan={5} style={{ textAlign: 'center', padding: '3rem', color: '#6b7280' }}>Cargando registros...</td></tr>
+                            <tr>
+                                <td colSpan={5} style={{ height: '300px', border: 'none', textAlign: 'center', verticalAlign: 'middle' }}>
+                                    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+                                        <div style={{ width: '30px', height: '30px', border: '3px solid #e2e8f0', borderTopColor: '#3b82f6', borderRadius: '50%', animation: 'spinner-spin 1s linear infinite' }}></div>
+                                        <span style={{ color: '#64748b', fontSize: '0.9rem', fontWeight: 500 }}>Cargando muestreadores...</span>
+                                    </div>
+                                </td>
+                            </tr>
                         ) : muestreadores.length === 0 ? (
                             <tr><td colSpan={5} style={{ textAlign: 'center', padding: '3rem', color: '#6b7280' }}>No se encontraron muestreadores.</td></tr>
                         ) : (

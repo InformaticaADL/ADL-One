@@ -166,7 +166,7 @@ class NotificationService {
     /**
      * Obtiene los correos de todos los usuarios que tienen un permiso específico a través de sus roles.
      * @param {object} pool - Pool de conexión.
-     * @param {string} permissionCode - Código del permiso (ej: 'AI_MA_NOTIF_REC').
+     * @param {string} permissionCode - Código del permiso (ej: 'MA_SOLICITUDES').
      */
     async _getUsersByPermission(pool, permissionCode) {
         try {

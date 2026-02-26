@@ -503,7 +503,7 @@ const CoordinacionPageContent: React.FC<Props> = ({ onBack }) => {
                 justifyContent: 'center',
                 padding: '2rem'
             }}>
-                <h1 style={{ fontSize: '1.8rem', color: '#1f2937', marginBottom: '3rem', fontWeight: 600 }}>
+                <h1 style={{ fontSize: '1.8rem', color: '#1f2937', marginBottom: '3rem', fontWeight: 600, textAlign: 'center' }}>
                     Seleccione una opción
                 </h1>
 

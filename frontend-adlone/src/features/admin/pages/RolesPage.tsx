@@ -90,18 +90,24 @@ export const RolesPage: React.FC<Props> = ({ onBack }) => {
                         {loading ? (
                             <tr>
                                 <td colSpan={4} className="loading-state">
-                                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                                        <svg className="spinner" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                            <circle cx="12" cy="12" r="10" strokeWidth="4" opacity="0.25"></circle>
-                                            <path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" opacity="0.75" fill="currentColor"></path>
-                                        </svg>
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', padding: '3rem', color: '#6b7280' }}>
+                                        <div style={{ width: '30px', height: '30px', border: '3px solid #e2e8f0', borderTopColor: '#3b82f6', borderRadius: '50%', animation: 'spinner-spin 1s linear infinite' }}></div>
                                         Cargando roles...
                                     </div>
                                 </td>
                             </tr>
                         ) : (
                             roles.map((role) => (
-                                <tr key={role.id_rol}>
+                                <tr
+                                    key={role.id_rol}
+                                    className="mobile-clickable-row"
+                                    onClick={() => {
+                                        // On mobile, clicking the row opens the modal directly
+                                        if (window.innerWidth <= 768) {
+                                            handleEdit(role);
+                                        }
+                                    }}
+                                >
                                     <td>
                                         <div style={{ fontWeight: 500 }}>{role.nombre_rol}</div>
                                     </td>
@@ -123,8 +129,31 @@ export const RolesPage: React.FC<Props> = ({ onBack }) => {
                                     <td style={{ textAlign: 'right' }}>
                                         <button
                                             onClick={() => handleEdit(role)}
-                                            style={{ color: '#4f46e5', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 500 }}
+                                            style={{
+                                                padding: '0.4rem 0.8rem',
+                                                borderRadius: '6px',
+                                                border: '1px solid #c7d2fe',
+                                                background: '#e0e7ff',
+                                                color: '#4338ca',
+                                                fontWeight: 600,
+                                                fontSize: '0.85rem',
+                                                cursor: 'pointer',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '0.4rem',
+                                                transition: 'all 0.2s',
+                                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                            }}
+                                            onMouseEnter={e => {
+                                                e.currentTarget.style.background = '#c7d2fe';
+                                                e.currentTarget.style.borderColor = '#a5b4fc';
+                                            }}
+                                            onMouseLeave={e => {
+                                                e.currentTarget.style.background = '#e0e7ff';
+                                                e.currentTarget.style.borderColor = '#c7d2fe';
+                                            }}
                                         >
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
                                             Editar / Permisos
                                         </button>
                                     </td>

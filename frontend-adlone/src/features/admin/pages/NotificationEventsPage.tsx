@@ -146,8 +146,8 @@ export const NotificationEventsPage: React.FC<Props> = ({ onBack, onSelectEvent 
 
                 {/* Main Content Area */}
                 {loading ? (
-                    <div style={{ textAlign: 'center', padding: '5rem' }}>
-                        <div className="spinner" style={{ margin: '0 auto 1rem' }}></div>
+                    <div style={{ textAlign: 'center', padding: '5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+                        <div style={{ width: '30px', height: '30px', border: '3px solid #e2e8f0', borderTopColor: '#3b82f6', borderRadius: '50%', animation: 'spinner-spin 1s linear infinite' }}></div>
                         <p style={{ color: '#64748b' }}>Cargando eventos de notificación...</p>
                     </div>
                 ) : filteredEvents.length === 0 ? (

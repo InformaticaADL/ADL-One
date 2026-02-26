@@ -11,6 +11,7 @@ import { ToastContainer } from '../../../components/Toast/Toast';
 import { fichaService } from '../services/ficha.service';
 import '../styles/FichasIngreso.css'; // Ensure CSS is imported
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
+import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 
 interface Props {
     onBack: () => void;
@@ -254,32 +255,34 @@ const CommercialMenu = ({ onCreate, onConsult, onBack }: { onCreate: () => void,
                 justifyContent: 'center',
                 padding: '2rem'
             }}>
-                <h1 style={{ fontSize: '1.8rem', color: '#1f2937', marginBottom: '3rem', fontWeight: 600 }}>
+                <h1 style={{ fontSize: '1.8rem', color: '#1f2937', marginBottom: '3rem', fontWeight: 600, textAlign: 'center' }}>
                     Seleccione una opción
                 </h1>
 
                 <div className="cards-grid" style={{ width: '100%', maxWidth: '900px' }}>
                     {/* Nueva Ficha Card */}
-                    <div
-                        onClick={onCreate}
-                        className="selection-card"
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.transform = 'translateY(-5px)';
-                            e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)';
-                            e.currentTarget.style.borderColor = '#3b82f6';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.transform = 'translateY(0)';
-                            e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)';
-                            e.currentTarget.style.borderColor = '#e5e7eb';
-                        }}
-                    >
-                        <div className="card-icon" style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+                    <ProtectedContent permission="MA_COMERCIAL_EDITAR">
+                        <div
+                            onClick={onCreate}
+                            className="selection-card"
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.transform = 'translateY(-5px)';
+                                e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)';
+                                e.currentTarget.style.borderColor = '#3b82f6';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.transform = 'translateY(0)';
+                                e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)';
+                                e.currentTarget.style.borderColor = '#e5e7eb';
+                            }}
+                        >
+                            <div className="card-icon" style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+                            </div>
+                            <h3 className="card-title">Nueva Ficha</h3>
+                            <p className="card-description">Crear una nueva solicitud de análisis desde cero.</p>
                         </div>
-                        <h3 className="card-title">Nueva Ficha</h3>
-                        <p className="card-description">Crear una nueva solicitud de análisis desde cero.</p>
-                    </div>
+                    </ProtectedContent>
 
                     {/* Consultar Ficha Card */}
                     <div

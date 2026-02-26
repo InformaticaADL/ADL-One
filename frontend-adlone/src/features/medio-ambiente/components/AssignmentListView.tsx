@@ -214,7 +214,7 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                 }}>
                     <div className="form-group">
                         <label style={{ fontSize: '0.7rem', fontWeight: 600, color: '#374151', marginBottom: '2px', display: 'block' }}>N° Ficha</label>
-                        <input type="text" placeholder="Buscar..." value={searchId} onChange={(e) => setSearchId(e.target.value)} style={{ width: '100%', padding: '5px 8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.75rem', height: '30px' }} />
+                        <input type="text" placeholder="Buscar..." value={searchId} onChange={(e) => setSearchId(e.target.value)} style={{ width: '100%', padding: '5px 8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.75rem', height: '34px' }} />
                     </div>
 
                     <SearchableSelect
@@ -275,12 +275,13 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
 
 
 
-                    <div style={{ display: 'flex', alignItems: 'end' }}>
+                    <div className="form-group" style={{ marginBottom: '1rem' }}>
+                        <label style={{ fontSize: '0.7rem', color: 'transparent', marginBottom: '2px', display: 'block' }}>&nbsp;</label>
                         <button
                             onClick={handleClearFilters}
                             style={{
                                 padding: '5px 10px',
-                                height: '30px',
+                                height: '34px',
                                 width: '100%',
                                 backgroundColor: 'white',
                                 border: '1px solid #d1d5db',
@@ -306,7 +307,10 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
             {/* Table */}
             <div className="responsive-table-container">
                 {loading ? (
-                    <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Cargando asignaciones...</div>
+                    <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+                        <div style={{ width: '30px', height: '30px', border: '3px solid #e2e8f0', borderTopColor: '#3b82f6', borderRadius: '50%', animation: 'spinner-spin 1s linear infinite' }}></div>
+                        Cargando asignaciones...
+                    </div>
                 ) : (
                     <>
                         <table className="compact-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', tableLayout: 'fixed' }}>

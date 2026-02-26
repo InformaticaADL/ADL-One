@@ -259,64 +259,49 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
 
             <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', maxWidth: '1400px', margin: '0 auto' }}>
                 {/* Filters and Actions */}
-                <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-                    <div style={{ flex: 1, minWidth: '250px' }}>
-                        <input
-                            type="text"
-                            placeholder="🔍 Buscar por nombre, usuario o email..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            style={{
-                                width: '100%',
-                                padding: '10px 12px',
-                                borderRadius: '6px',
-                                border: '1px solid #d1d5db',
-                                fontSize: '0.9rem'
-                            }}
-                        />
+                <div className="filter-card" style={{ marginBottom: '2rem' }}>
+                    <div className="filter-controls-left">
+                        <div className="search-container" style={{ width: '100%', maxWidth: '400px', backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '0 1rem' }}>
+                            <span className="search-icon-main" style={{ color: '#9ca3af', marginRight: '0.5rem' }}>🔍</span>
+                            <input
+                                type="text"
+                                placeholder="Buscar por nombre, usuario o email..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                style={{ width: '100%', border: 'none', background: 'transparent', padding: '0.75rem 0', fontSize: '0.9rem', outline: 'none', color: '#111827' }}
+                            />
+                        </div>
+
+                        <div className="vertical-divider"></div>
+
+                        <div className="filter-group">
+                            <label className="filter-label" style={{ color: '#4b5563', fontSize: '0.85rem', fontWeight: 600 }}>Estado:</label>
+                            <select
+                                className="filter-select"
+                                value={filterStatus}
+                                onChange={(e) => setFilterStatus(e.target.value as any)}
+                                style={{ minWidth: '150px', padding: '0.5rem', borderRadius: '8px', border: '1px solid #e5e7eb', backgroundColor: 'white', color: '#111827', fontSize: '0.9rem', cursor: 'pointer' }}
+                            >
+                                <option value="all">Todos los Estados</option>
+                                <option value="active">Solo Activos</option>
+                                <option value="inactive">Solo Inactivos</option>
+                            </select>
+                        </div>
                     </div>
-                    <select
-                        value={filterStatus}
-                        onChange={(e) => setFilterStatus(e.target.value as any)}
-                        style={{
-                            padding: '10px 12px',
-                            borderRadius: '6px',
-                            border: '1px solid #d1d5db',
-                            fontSize: '0.9rem',
-                            minWidth: '150px'
-                        }}
-                    >
-                        <option value="all">Todos</option>
-                        <option value="active">Activos</option>
-                        <option value="inactive">Inactivos</option>
-                    </select>
+
                     <button
                         onClick={openCreateModal}
-                        style={{
-                            padding: '10px 20px',
-                            backgroundColor: '#3b82f6',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '6px',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            fontSize: '0.9rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px'
-                        }}
+                        className="btn-primary"
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem', whiteSpace: 'nowrap' }}
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <line x1="12" y1="5" x2="12" y2="19"></line>
-                            <line x1="5" y1="12" x2="19" y2="12"></line>
-                        </svg>
-                        Nuevo Usuario
+                        <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>+</span> Nuevo Usuario
                     </button>
                 </div>
 
                 {/* Users Table */}
                 {loading ? (
-                    <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af' }}>
+                    <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+                        <div style={{ width: '30px', height: '30px', border: '3px solid #e2e8f0', borderTopColor: '#3b82f6', borderRadius: '50%', animation: 'spinner-spin 1s linear infinite' }}></div>
                         Cargando usuarios...
                     </div>
                 ) : filteredUsers.length === 0 ? (

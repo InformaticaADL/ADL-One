@@ -8,6 +8,7 @@
     display: grid;
     gap: 1rem;
     margin-bottom: 1rem;
+    align-items: end;
 }
 
 /* Prevent grid items from overflowing their cells */

@@ -122,8 +122,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const hasPermission = (permissionCode: string): boolean => {
         if (!user) return false;
         const perms = user.permissions || [];
-        // Super Admin access: if they have MA_ADMIN_ACCESO, they can do anything
-        if (perms.includes('MA_ADMIN_ACCESO')) return true;
+        // Super Admin access: if they have AI_MA_ADMIN_ACCESO, they can do anything
+        if (perms.includes('AI_MA_ADMIN_ACCESO')) return true;
         // Specific permission
         return perms.includes(permissionCode);
     };

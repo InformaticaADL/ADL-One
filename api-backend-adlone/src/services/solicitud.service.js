@@ -58,9 +58,9 @@ class SolicitudService {
                 // Determine target permission based on origin
                 let targetPermission = null;
                 if (estadoInicial === 'PENDIENTE_TECNICA') {
-                    targetPermission = 'AI_MA_SOLICITUDES'; // Notify Technical Area
+                    targetPermission = 'AI_MA_SOLICITUDES'; // Notify Technical Area (aligned with new RBAC)
                 } else if (estadoInicial === 'PENDIENTE_CALIDAD') {
-                    targetPermission = 'AI_GC_EQUIPOS'; // Notify Quality
+                    targetPermission = 'GC_EQUIPOS'; // Notify Quality
                 }
 
                 // NOVEDAD: Notificar también al muestreador (solicitante) que su solicitud fue recibida

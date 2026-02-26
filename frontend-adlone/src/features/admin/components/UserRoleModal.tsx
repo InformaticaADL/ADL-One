@@ -75,11 +75,11 @@ export const UserRoleModal: React.FC<Props> = ({ user, isOpen, onClose, onSucces
     return (
         <div className="modal-overlay">
             <div className="modal-content">
-                <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h2 className="modal-title">
+                <div className="modal-header" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
+                    <h2 className="modal-title" style={{ textAlign: 'center', margin: 0, width: '100%' }}>
                         Asignar Roles: <span style={{ color: '#2563eb' }}>{user.nombre_real || user.nombre_usuario}</span>
                     </h2>
-                    <button onClick={onClose} className="btn-close" title="Cerrar">×</button>
+                    <button onClick={onClose} className="btn-close" title="Cerrar" style={{ position: 'absolute', right: '1rem' }}>×</button>
                 </div>
 
                 <div className="modal-body">

@@ -69,9 +69,13 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
 
     const { showToast } = useToast();
     const { hasPermission } = useAuth();
-    const isGCMan = hasPermission('AI_GC_ACCESO') || hasPermission('AI_GC_EQUIPOS');
-    const isMAMan = hasPermission('AI_MA_SOLICITUDES') || hasPermission('AI_MA_EQUIPOS');
-    const isSuper = hasPermission('MA_ADMIN_ACCESO');
+    const isGCMan = hasPermission('GC_ACCESO') || hasPermission('GC_EQUIPOS');
+    const isMAMan = hasPermission('AI_MA_SOLICITUDES') || hasPermission('MA_A_GEST_EQUIPO');
+    const isSuper = hasPermission('AI_MA_ADMIN_ACCESO');
+
+    // Granular AI Permissions
+    const canCreateEquipo = hasPermission('AI_MA_CREAR_EQUIPO') || isSuper;
+    const canEditEquipo = hasPermission('AI_MA_EDITAR_EQUIPO') || isSuper;
 
     // Fetch equipment names when Tipo changes
     useEffect(() => {
@@ -1400,11 +1404,12 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                     <button
                         type="submit"
                         className="btn-primary"
-                        disabled={loading || !isFormValid}
+                        disabled={loading || !isFormValid || !(initialData?.id_equipo ? canEditEquipo : canCreateEquipo)}
+                        title={!(initialData?.id_equipo ? canEditEquipo : canCreateEquipo) ? "No tienes permisos para realizar esta acción" : ""}
                         style={{
-                            opacity: (loading || !isFormValid) ? 0.6 : 1,
-                            cursor: (loading || !isFormValid) ? 'not-allowed' : 'pointer',
-                            backgroundColor: (loading || !isFormValid) ? '#94a3b8' : (matchingVersion ? '#3b82f6' : '#10b981'),
+                            opacity: (loading || !isFormValid || !(initialData?.id_equipo ? canEditEquipo : canCreateEquipo)) ? 0.6 : 1,
+                            cursor: (loading || !isFormValid || !(initialData?.id_equipo ? canEditEquipo : canCreateEquipo)) ? 'not-allowed' : 'pointer',
+                            backgroundColor: (loading || !isFormValid || !(initialData?.id_equipo ? canEditEquipo : canCreateEquipo)) ? '#94a3b8' : (matchingVersion ? '#3b82f6' : '#10b981'),
                             border: 'none'
                         }}
                     >
@@ -1415,125 +1420,130 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
 
 
             {/* Custom Save Confirmation Modal */}
-            {showSaveConfirm && (
-                <div className="modal-overlay" style={{ zIndex: 10001 }}>
-                    <div className="modal-content" style={{ maxWidth: '400px', textAlign: 'center' }}>
-                        <div className="modal-body" style={{ padding: '2rem' }}>
-                            <div style={{
-                                width: '60px',
-                                height: '60px',
-                                backgroundColor: matchingVersion ? '#eff6ff' : '#ecfdf5',
-                                borderRadius: '50%',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                margin: '0 auto 1.5rem auto',
-                                color: matchingVersion ? '#3b82f6' : '#10b981'
-                            }}>
-                                {matchingVersion ? (
-                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                ) : (
-                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-                                )}
-                            </div>
-                            <h3 style={{ marginBottom: '1rem', color: '#111827', fontSize: '1.25rem' }}>
-                                {matchingVersion ? `¿Habilitar Versión ${matchingVersion.version}?` : `¿${initialData ? 'Actualizar' : 'Guardar'} datos?`}
-                            </h3>
-                            <p style={{ color: '#6b7280', fontSize: '0.95rem', lineHeight: '1.5' }}>
-                                {matchingVersion ? (
-                                    <>
-                                        Al habilitar la <strong>Versión {matchingVersion.version}</strong>, el estado actual del equipo se guardará automáticamente en el historial antes de restaurar los datos seleccionados.
-                                    </>
-                                ) : (
-                                    `¿Está seguro de que desea ${initialData ? 'actualizar los datos' : 'crear este nuevo equipo'} en el sistema?`
-                                )}
-                            </p>
-                        </div>
-                        <div className="modal-footer" style={{ border: 'none', paddingTop: 0 }}>
-                            <button
-                                type="button"
-                                className="btn-cancel"
-                                onClick={() => setShowSaveConfirm(false)}
-                                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                type="button"
-                                className="btn-primary"
-                                onClick={handleConfirmSave}
-                                style={{
-                                    flex: 1,
-                                    backgroundColor: matchingVersion ? '#3b82f6' : '#2563eb',
+            {
+                showSaveConfirm && (
+                    <div className="modal-overlay" style={{ zIndex: 10001 }}>
+                        <div className="modal-content" style={{ maxWidth: '400px', textAlign: 'center' }}>
+                            <div className="modal-body" style={{ padding: '2rem' }}>
+                                <div style={{
+                                    width: '60px',
+                                    height: '60px',
+                                    backgroundColor: matchingVersion ? '#eff6ff' : '#ecfdf5',
+                                    borderRadius: '50%',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    border: 'none'
-                                }}
-                            >
-                                {matchingVersion ? 'Habilitar' : 'Confirmar'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Rejection Reason Modal */}
-            {rejectingSolicitud && (
-                <div className="modal-overlay" style={{ zIndex: 11000 }}>
-                    <div className="modal-content" style={{ maxWidth: '450px' }}>
-                        <div className="modal-header">
-                            <h3 className="modal-title">Motivo de Rechazo</h3>
-                        </div>
-                        <div className="modal-body" style={{ padding: '1.5rem' }}>
-                            <p style={{ fontSize: '0.9rem', color: '#64748b', marginBottom: '1rem' }}>
-                                Indique el motivo por el cual está rechazando esta solicitud de <strong>{rejectingSolicitud.tipo_solicitud}</strong> para el equipo {formData.nombre}.
-                            </p>
-                            <div className="form-group">
-                                <label className="form-label">Feedback / Observaciones <span style={{ color: '#dc2626' }}>*</span></label>
-                                <textarea
-                                    className="form-input"
-                                    style={{ height: '100px', resize: 'none' }}
-                                    placeholder="Ej: Documentación incompleta, equipo no corresponde..."
-                                    value={adminFeedback}
-                                    onChange={(e) => setAdminFeedback(e.target.value)}
-                                    autoFocus
-                                />
+                                    margin: '0 auto 1.5rem auto',
+                                    color: matchingVersion ? '#3b82f6' : '#10b981'
+                                }}>
+                                    {matchingVersion ? (
+                                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    ) : (
+                                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                                    )}
+                                </div>
+                                <h3 style={{ marginBottom: '1rem', color: '#111827', fontSize: '1.25rem' }}>
+                                    {matchingVersion ? `¿Habilitar Versión ${matchingVersion.version}?` : `¿${initialData ? 'Actualizar' : 'Guardar'} datos?`}
+                                </h3>
+                                <p style={{ color: '#6b7280', fontSize: '0.95rem', lineHeight: '1.5' }}>
+                                    {matchingVersion ? (
+                                        <>
+                                            Al habilitar la <strong>Versión {matchingVersion.version}</strong>, el estado actual del equipo se guardará automáticamente en el historial antes de restaurar los datos seleccionados.
+                                        </>
+                                    ) : (
+                                        `¿Está seguro de que desea ${initialData ? 'actualizar los datos' : 'crear este nuevo equipo'} en el sistema?`
+                                    )}
+                                </p>
+                            </div>
+                            <div className="modal-footer" style={{ border: 'none', paddingTop: 0 }}>
+                                <button
+                                    type="button"
+                                    className="btn-cancel"
+                                    onClick={() => setShowSaveConfirm(false)}
+                                    style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="button"
+                                    className="btn-primary"
+                                    onClick={handleConfirmSave}
+                                    style={{
+                                        flex: 1,
+                                        backgroundColor: matchingVersion ? '#3b82f6' : '#2563eb',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        border: 'none'
+                                    }}
+                                >
+                                    {matchingVersion ? 'Habilitar' : 'Confirmar'}
+                                </button>
                             </div>
                         </div>
-                        <div className="modal-footer">
-                            <button className="btn-cancel" onClick={() => { setRejectingSolicitud(null); setAdminFeedback(''); }} disabled={processingAction}>Cancelar</button>
-                            <button
-                                className="btn-danger"
-                                onClick={confirmReject}
-                                disabled={processingAction || !adminFeedback.trim()}
-                                style={{ opacity: !adminFeedback.trim() ? 0.6 : 1 }}
-                            >
-                                {processingAction ? '...' : 'Confirmar Rechazo'}
-                            </button>
+                    </div>
+                )
+            }
+
+            {/* Rejection Reason Modal */}
+            {
+                rejectingSolicitud && (
+                    <div className="modal-overlay" style={{ zIndex: 11000 }}>
+                        <div className="modal-content" style={{ maxWidth: '450px' }}>
+                            <div className="modal-header">
+                                <h3 className="modal-title">Motivo de Rechazo</h3>
+                            </div>
+                            <div className="modal-body" style={{ padding: '1.5rem' }}>
+                                <p style={{ fontSize: '0.9rem', color: '#64748b', marginBottom: '1rem' }}>
+                                    Indique el motivo por el cual está rechazando esta solicitud de <strong>{rejectingSolicitud.tipo_solicitud}</strong> para el equipo {formData.nombre}.
+                                </p>
+                                <div className="form-group">
+                                    <label className="form-label">Feedback / Observaciones <span style={{ color: '#dc2626' }}>*</span></label>
+                                    <textarea
+                                        className="form-input"
+                                        style={{ height: '100px', resize: 'none' }}
+                                        placeholder="Ej: Documentación incompleta, equipo no corresponde..."
+                                        value={adminFeedback}
+                                        onChange={(e) => setAdminFeedback(e.target.value)}
+                                        autoFocus
+                                    />
+                                </div>
+                            </div>
+                            <div className="modal-footer">
+                                <button className="btn-cancel" onClick={() => { setRejectingSolicitud(null); setAdminFeedback(''); }} disabled={processingAction}>Cancelar</button>
+                                <button
+                                    className="btn-danger"
+                                    onClick={confirmReject}
+                                    disabled={processingAction || !adminFeedback.trim()}
+                                    style={{ opacity: !adminFeedback.trim() ? 0.6 : 1 }}
+                                >
+                                    {processingAction ? '...' : 'Confirmar Rechazo'}
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Loading Overlay */}
-            {(processingAction || loading) && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    width: '100vw',
-                    height: '100vh',
-                    background: 'rgba(255, 255, 255, 0.8)',
-                    backdropFilter: 'blur(4px)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 12000,
-                    animation: 'fadeIn 0.3s ease'
-                }}>
-                    <style>{`
+            {
+                (processingAction || loading) && (
+                    <div style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        width: '100vw',
+                        height: '100vh',
+                        background: 'rgba(255, 255, 255, 0.8)',
+                        backdropFilter: 'blur(4px)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 12000,
+                        animation: 'fadeIn 0.3s ease'
+                    }}>
+                        <style>{`
                         @keyframes spin {
                             0% { transform: rotate(0deg); }
                             100% { transform: rotate(360deg); }
@@ -1547,28 +1557,29 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                             50% { opacity: 0.7; transform: scale(0.98); }
                         }
                     `}</style>
-                    <div style={{
-                        width: '50px',
-                        height: '50px',
-                        border: '4px solid #f3f3f3',
-                        borderTop: '4px solid #2563eb',
-                        borderRadius: '50%',
-                        animation: 'spin 1s linear infinite',
-                        marginBottom: '1rem',
-                        boxShadow: '0 4px 10px rgba(37, 99, 235, 0.2)'
-                    }}></div>
-                    <div style={{
-                        fontWeight: 700,
-                        color: '#1e40af',
-                        fontSize: '1.1rem',
-                        letterSpacing: '0.05em',
-                        animation: 'pulse 1.5s ease-in-out infinite',
-                        textTransform: 'uppercase'
-                    }}>
-                        {loading ? 'Guardando cambios...' : 'Procesando acción...'}
+                        <div style={{
+                            width: '50px',
+                            height: '50px',
+                            border: '4px solid #f3f3f3',
+                            borderTop: '4px solid #2563eb',
+                            borderRadius: '50%',
+                            animation: 'spin 1s linear infinite',
+                            marginBottom: '1rem',
+                            boxShadow: '0 4px 10px rgba(37, 99, 235, 0.2)'
+                        }}></div>
+                        <div style={{
+                            fontWeight: 700,
+                            color: '#1e40af',
+                            fontSize: '1.1rem',
+                            letterSpacing: '0.05em',
+                            animation: 'pulse 1.5s ease-in-out infinite',
+                            textTransform: 'uppercase'
+                        }}>
+                            {loading ? 'Guardando cambios...' : 'Procesando acción...'}
+                        </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 };

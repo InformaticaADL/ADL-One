@@ -9,44 +9,45 @@ import logoUser from '../../assets/images/logo_user.png';
 
 // Módulos reales de ADL One
 const MODULES = [
-    // Grupo 1: Unidades
-    { id: 'gem', label: 'GEM', icon: '🧬' },
-    { id: 'necropsia', label: 'Necropsia', icon: '🐟' },
-    { id: 'microscopia', label: 'Microscopía', icon: '🔬' },
-    { id: 'biologia_molecular', label: 'Biología Molecular', icon: '🧪' },
-    { id: 'cultivo_celular', label: 'Cultivo Celular', icon: '🧫' },
-    { id: 'bacteriologia', label: 'Bacteriología', icon: '🦠' },
-    { id: 'screening', label: 'Screening', icon: '🔎' },
-    { id: 'derivaciones', label: 'Derivaciones', icon: '📬' },
-    { id: 'medio_ambiente', label: 'Medio Ambiente', icon: '🌿' }, // Could add MA_ACCESO here too if desired, but user asked about Admin
-    { id: 'atl', label: 'ATL', icon: '⚖️' },
-    { id: 'id', label: 'I+D', icon: '💡' },
-    { id: 'pve', label: 'PVE', icon: '🩺' },
-    { id: 'informatica', label: 'Informática', icon: '💻' },
-    { id: 'comercial', label: 'Comercial', icon: '📈' },
-    { id: 'gestion_calidad', label: 'Gestión de Calidad', icon: '⭐' },
-    { id: 'administracion', label: 'Administración', icon: '🏢' },
+    { id: 'gem', label: 'GEM', icon: '🧬', group: 'unidades', permission: 'GEM_ACCESO' },
+    { id: 'necropsia', label: 'Necropsia', icon: '🐟', group: 'unidades', permission: 'NEC_ACCESO' },
+    { id: 'microscopia', label: 'Microscopía', icon: '🔬', group: 'unidades', permission: 'MIC_ACCESO' },
+    { id: 'biologia_molecular', label: 'Biología Molecular', icon: '🧪', group: 'unidades', permission: 'BM_ACCESO' },
+    { id: 'cultivo_celular', label: 'Cultivo Celular', icon: '🧫', group: 'unidades', permission: 'CC_ACCESO' },
+    { id: 'bacteriologia', label: 'Bacteriología', icon: '🦠', group: 'unidades', permission: 'BAC_ACCESO' },
+    { id: 'screening', label: 'Screening', icon: '🔎', group: 'unidades', permission: 'SCR_ACCESO' },
+    { id: 'derivaciones', label: 'Derivaciones', icon: '📬', group: 'unidades', permission: 'DER_ACCESO' },
+    { id: 'medio_ambiente', label: 'Medio Ambiente', icon: '🌿', group: 'unidades', permission: ['MA_ACCESO', 'MA_A_GEST_EQUIPO', 'MA_MUESTREADORES', 'AI_MA_SOLICITUDES', 'MA_COMERCIAL_ACCESO', 'MA_A_REPORTES'] },
+    { id: 'atl', label: 'ATL', icon: '⚖️', group: 'unidades', permission: 'ATL_ACCESO' },
+    { id: 'id', label: 'I+D', icon: '💡', group: 'unidades', permission: 'ID_ACCESO' },
+    { id: 'pve', label: 'PVE', icon: '🩺', group: 'unidades', permission: 'PVE_ACCESO' },
+    { id: 'informatica', label: 'Informática', icon: '💻', group: 'unidades', permission: 'INF_ACCESO' },
+    { id: 'comercial', label: 'Comercial', icon: '📈', group: 'unidades', permission: 'COM_ACCESO' },
+    { id: 'gestion_calidad', label: 'Gestión de Calidad', icon: '⭐', group: 'unidades', permission: 'GC_ACCESO' },
+    { id: 'administracion', label: 'Administración', icon: '🏢', group: 'unidades', permission: 'ADM_ACCESO' },
 
     // Separador
     { id: 'div1', type: 'divider', label: '', icon: '' },
 
     // Grupo 2: Gestión
-    { id: 'facturacion', label: 'Facturación', icon: '💲' },
-    { id: 'estadistica', label: 'Estadística', icon: '📊' },
-    { id: 'admin_informacion', label: 'Admin. Información', icon: '📂', permission: 'AI_ACCESO' }, // Broad access
+    { id: 'facturacion', label: 'Facturación', icon: '💲', group: 'gestion', permission: 'FACT_ACCESO' },
+    { id: 'estadistica', label: 'Estadística', icon: '📊', group: 'gestion', permission: 'EST_ACCESO' },
+    { id: 'admin_informacion', label: 'Admin. Información', icon: '📂', group: 'gestion', permission: 'AI_ACCESO' },
 
     // Separador
     { id: 'div2', type: 'divider', label: '', icon: '' },
 
     // Grupo 3: Soporte
-    { id: 'ayuda', label: 'Ayuda', icon: '❓' },
+    { id: 'ayuda', label: 'Ayuda', icon: '❓', group: 'soporte' },
 ];
 
 // Simulamos Submódulos 
 const SUBMODULES_MOCK: Record<string, any[]> = {
     'medio_ambiente': [
-        { id: 'ma-fichas-ingreso', label: 'Fichas de ingreso', permission: 'MA_ACCESO' },
+        { id: 'ma-fichas-ingreso', label: 'Fichas de ingreso', permission: ['MA_COMERCIAL_ACCESO', 'MA_TECNICA_ACCESO', 'MA_COORDINACION_ACCESO'] },
         { id: 'ma-solicitudes', label: 'Realizar Solicitudes', permission: 'AI_MA_SOLICITUDES' },
+        { id: 'ma-reportes-view', label: 'Reportes', permission: 'MA_A_REPORTES' },
+        { id: 'admin-muestreadores', label: 'Gestión de Muestreadores', permission: 'MA_MUESTREADORES' },
     ],
     'administracion': [], // Now empty, managed via AdminInfoHub
     // Agregamos datos para GEM para evitar menú vacío
@@ -57,7 +58,8 @@ const SUBMODULES_MOCK: Record<string, any[]> = {
         { id: 'gem-config', label: 'Configuración' }
     ],
     'gestion_calidad': [
-        { id: 'gc-equipos', label: 'Equipos' }, // Permissions handled in filter logic
+        { id: 'ma-fichas-ingreso', label: 'Fichas de ingreso', permission: ['MA_COMERCIAL_ACCESO', 'MA_TECNICA_ACCESO', 'MA_COORDINACION_ACCESO'] },
+        { id: 'admin-equipos-gestion', label: 'Gestión de Equipos', permission: ['MA_A_GEST_EQUIPO', 'GC_EQUIPOS'] },
     ]
 };
 
@@ -81,10 +83,10 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
     const { user, logout, hasPermission } = useAuth();
 
     // Permissions for "Gestión de Equipos" (Admins/Approvers)
-    const isGCMan = hasPermission('AI_GC_ACCESO') || hasPermission('AI_GC_EQUIPOS');
-    const isMAMan = hasPermission('AI_MA_EQUIPOS') || hasPermission('AI_MA_SOLICITUDES');
-    const isINFMan = hasPermission('AI_INF_NOTIF');
-    const isSuper = hasPermission('MA_ADMIN_ACCESO');
+    const isGCMan = hasPermission('GC_ACCESO') || hasPermission('GC_EQUIPOS');
+    const isMAMan = hasPermission('MA_A_GEST_EQUIPO') || hasPermission('AI_MA_SOLICITUDES');
+    const isINFMan = hasPermission('INF_NOTIF');
+    const isSuper = hasPermission('AI_MA_ADMIN_ACCESO');
 
     const isManagementUser = isGCMan || isMAMan || isINFMan || isSuper;
 
@@ -274,21 +276,20 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
 
     const canAccessModule = (module: any) => {
         if (!module.permission) return true;
-        // hasPermission now internally handles Super Admin (MA_ADMIN_ACCESO) bypass
-        if (hasPermission(module.permission)) return true;
-        // Special case for AI: Any area access grants hub access
-        if (module.id === 'admin_informacion') {
-            return [
-                'AI_GEM_ACCESO', 'AI_MA_ACCESO', 'AI_INF_ACCESO', 'AI_NEC_ACCESO',
-                'AI_MIC_ACCESO', 'AI_BM_ACCESO', 'AI_CC_ACCESO', 'AI_BAC_ACCESO',
-                'AI_SCR_ACCESO', 'AI_DER_ACCESO', 'AI_ATL_ACCESO', 'AI_ID_ACCESO',
-                'AI_PVE_ACCESO', 'AI_COM_ACCESO', 'AI_GC_ACCESO', 'AI_ADM_ACCESO'
-            ].some(p => hasPermission(p));
+
+        // If the permission property is an array, grant access if the user has ANY of them (OR logic)
+        if (Array.isArray(module.permission)) {
+            return module.permission.some((perm: string) => hasPermission(perm));
         }
-        return false;
+
+        // hasPermission now internally handles Super Admin (AI_MA_ADMIN_ACCESO) bypass
+        return hasPermission(module.permission);
     };
 
-    const visibleModules = MODULES.filter(m => m.type === 'divider' || canAccessModule(m));
+    const visibleModules = MODULES.filter(m => m.type !== 'divider' && canAccessModule(m));
+    const unidades = visibleModules.filter(m => m.group === 'unidades');
+    const gestion = visibleModules.filter(m => m.group === 'gestion');
+    const soporte = visibleModules.filter(m => m.group === 'soporte');
 
     const handleModuleClick = (mod: any) => {
         if (mod.type === 'divider') return;
@@ -330,22 +331,55 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                 </div>
 
                 <div className="sidebar-menu">
-                    <div style={{ padding: '0 0.8rem 0.5rem', fontSize: '0.7rem', fontWeight: 'bold', color: '#a1a1aa', letterSpacing: '0.5px' }}>UNIDADES</div>
+                    {unidades.length > 0 && (
+                        <>
+                            <div style={{ padding: '0.8rem 0.8rem 0.5rem', fontSize: '0.7rem', fontWeight: 'bold', color: '#a1a1aa', letterSpacing: '0.5px' }}>UNIDADES</div>
+                            {unidades.map((mod) => (
+                                <div
+                                    key={mod.id}
+                                    className={`menu-item ${activeModule === mod.id ? 'active' : ''}`}
+                                    onClick={() => handleModuleClick(mod)}
+                                >
+                                    <span className="item-icon">{mod.icon}</span>
+                                    <span className="item-label">{mod.label}</span>
+                                </div>
+                            ))}
+                        </>
+                    )}
 
-                    {visibleModules.map((mod) => (
-                        mod.type === 'divider' ? (
-                            <div key={mod.id} style={{ height: '1px', backgroundColor: '#e4e4e7', margin: '0.5rem 1rem' }} />
-                        ) : (
-                            <div
-                                key={mod.id}
-                                className={`menu-item ${activeModule === mod.id ? 'active' : ''}`}
-                                onClick={() => handleModuleClick(mod)}
-                            >
-                                <span className="item-icon">{mod.icon}</span>
-                                <span className="item-label">{mod.label}</span>
-                            </div>
-                        )
-                    ))}
+                    {gestion.length > 0 && (
+                        <>
+                            <div style={{ height: '1px', backgroundColor: '#e4e4e7', margin: '0.5rem 1rem' }} />
+                            <div style={{ padding: '0.8rem 0.8rem 0.5rem', fontSize: '0.7rem', fontWeight: 'bold', color: '#a1a1aa', letterSpacing: '0.5px' }}>GESTIÓN</div>
+                            {gestion.map((mod) => (
+                                <div
+                                    key={mod.id}
+                                    className={`menu-item ${activeModule === mod.id ? 'active' : ''}`}
+                                    onClick={() => handleModuleClick(mod)}
+                                >
+                                    <span className="item-icon">{mod.icon}</span>
+                                    <span className="item-label">{mod.label}</span>
+                                </div>
+                            ))}
+                        </>
+                    )}
+
+                    {soporte.length > 0 && (
+                        <>
+                            <div style={{ height: '1px', backgroundColor: '#e4e4e7', margin: '0.5rem 1rem' }} />
+                            <div style={{ padding: '0.8rem 0.8rem 0.5rem', fontSize: '0.7rem', fontWeight: 'bold', color: '#a1a1aa', letterSpacing: '0.5px' }}>SOPORTE</div>
+                            {soporte.map((mod) => (
+                                <div
+                                    key={mod.id}
+                                    className={`menu-item ${activeModule === mod.id ? 'active' : ''}`}
+                                    onClick={() => handleModuleClick(mod)}
+                                >
+                                    <span className="item-icon">{mod.icon}</span>
+                                    <span className="item-label">{mod.label}</span>
+                                </div>
+                            ))}
+                        </>
+                    )}
                 </div>
             </aside>
 
@@ -389,10 +423,10 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                                 getSubmodules()
                                     .filter(item => {
                                         if (item.id === 'ma-solicitudes') {
-                                            return hasPermission('AI_MA_SOLICITUDES') || hasPermission('AI_MA_NOTIF_ENV') || hasPermission('MA_ADMIN_ACCESO');
+                                            return hasPermission('AI_MA_SOLICITUDES') || hasPermission('AI_MA_NOTIF_ENV') || hasPermission('AI_MA_ADMIN_ACCESO');
                                         }
-                                        if (item.id === 'gc-equipos') {
-                                            return hasPermission('AI_GC_ACCESO') || hasPermission('AI_GC_EQUIPOS') || hasPermission('AI_MA_EQUIPOS') || hasPermission('MA_ADMIN_ACCESO');
+                                        if (Array.isArray(item.permission)) {
+                                            return item.permission.some((p: string) => hasPermission(p));
                                         }
                                         return !item.permission || hasPermission(item.permission);
                                     })
