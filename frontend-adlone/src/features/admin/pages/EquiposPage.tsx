@@ -84,6 +84,9 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const [rejectionTarget, setRejectionTarget] = useState<{ type: 'SOLICITUD' | 'ITEM'; equipo?: any; bulkType?: 'ALTA' | 'BAJA' } | null>(null);
     const [showRejectionReasonModal, setShowRejectionReasonModal] = useState(false);
     const [localRejectionFeedback, setLocalRejectionFeedback] = useState('');
+    const [showStatusConfirmModal, setShowStatusConfirmModal] = useState(false);
+    const [equipoStatusPending, setEquipoStatusPending] = useState<Equipo | null>(null);
+    const [statusObservation, setStatusObservation] = useState('');
 
     const { showToast } = useToast();
     const { hasPermission } = useAuth();
@@ -286,6 +289,50 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         }
         setSelectedEquipo(equipo);
         setViewMode('form');
+    };
+
+    const handleToggleStatus = async (equipo: Equipo) => {
+        setEquipoStatusPending(equipo);
+        setStatusObservation(''); // Always start with an empty box
+        setShowStatusConfirmModal(true);
+    };
+
+    const confirmToggleStatus = async () => {
+        if (!equipoStatusPending) return;
+
+        setProcessingAction(true);
+        try {
+            const newStatus = equipoStatusPending.estado?.toLowerCase() === 'activo' ? 'Inactivo' : 'Activo';
+
+            // Re-fetch latest data to avoid overwriting other fields
+            const response = await equipoService.getEquipoById(equipoStatusPending.id_equipo);
+            const latestData = response.success ? response.data : equipoStatusPending;
+
+            await equipoService.updateEquipo(equipoStatusPending.id_equipo, {
+                ...latestData,
+                estado: newStatus,
+                observacion: statusObservation
+            });
+
+            showToast({
+                type: 'success',
+                message: `Equipo ${equipoStatusPending.nombre} puesto como ${newStatus}`,
+                duration: 5000
+            });
+
+            setShowStatusConfirmModal(false);
+            setEquipoStatusPending(null);
+            setStatusObservation('');
+            fetchData(); // Refresh list
+        } catch (error: any) {
+            console.error('Error toggling status:', error);
+            showToast({
+                type: 'error',
+                message: error.message || 'Error al cambiar el estado del equipo'
+            });
+        } finally {
+            setProcessingAction(false);
+        }
     };
 
     const loadSolicitudes = async () => {
@@ -1250,6 +1297,32 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                                 >
                                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4L18.5 2.5z"></path></svg>
                                                 </button>
+
+                                                <button
+                                                    className={`btn-action-status ${isInactive ? 'to-active' : 'to-inactive'}`}
+                                                    onClick={(e) => { e.stopPropagation(); canEditEquipo && handleToggleStatus(equipo); }}
+                                                    disabled={!canEditEquipo || processingAction}
+                                                    title={!canEditEquipo ? 'No tienes permisos' : (isInactive ? 'Activar Equipo' : 'Desactivar Equipo')}
+                                                    style={{
+                                                        opacity: canEditEquipo ? 1 : 0.4,
+                                                        cursor: canEditEquipo ? 'pointer' : 'not-allowed',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        width: '32px',
+                                                        height: '32px',
+                                                        borderRadius: '6px',
+                                                        border: '1px solid #e5e7eb',
+                                                        backgroundColor: isInactive ? '#f0fdf4' : '#fef2f2',
+                                                        color: isInactive ? '#22c55e' : '#ef4444',
+                                                        transition: 'all 0.2s'
+                                                    }}
+                                                >
+                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                        <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+                                                        <line x1="12" y1="2" x2="12" y2="12"></line>
+                                                    </svg>
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>
@@ -1679,6 +1752,77 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                     style={{ opacity: !localRejectionFeedback.trim() ? 0.6 : 1 }}
                                 >
                                     {processingAction ? '...' : 'Confirmar Rechazo'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            {
+                showStatusConfirmModal && equipoStatusPending && (
+                    <div className="modal-overlay" style={{ zIndex: 10006 }}>
+                        <div className="modal-content" style={{ maxWidth: '400px', textAlign: 'center' }}>
+                            <div className="modal-body" style={{ padding: '2rem' }}>
+                                <div style={{
+                                    width: '60px',
+                                    height: '60px',
+                                    backgroundColor: equipoStatusPending.estado?.toLowerCase() === 'activo' ? '#fef2f2' : '#f0fdf4',
+                                    borderRadius: '50%',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    margin: '0 auto 1.5rem auto',
+                                    color: equipoStatusPending.estado?.toLowerCase() === 'activo' ? '#ef4444' : '#22c55e'
+                                }}>
+                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+                                        <line x1="12" y1="2" x2="12" y2="12"></line>
+                                    </svg>
+                                </div>
+                                <h3 style={{ marginBottom: '1rem', color: '#111827', fontSize: '1.25rem' }}>
+                                    {equipoStatusPending.estado?.toLowerCase() === 'activo' ? '¿Desactivar Equipo?' : '¿Activar Equipo?'}
+                                </h3>
+                                <p style={{ color: '#6b7280', fontSize: '0.95rem', marginBottom: '0.5rem' }}>
+                                    {equipoStatusPending.estado?.toLowerCase() === 'activo'
+                                        ? 'El equipo dejará de estar disponible para su uso.'
+                                        : 'El equipo volverá a estar disponible para su uso.'}
+                                </p>
+                                <p style={{ fontWeight: 700, color: '#111827', marginBottom: '1.5rem' }}>{equipoStatusPending.nombre}</p>
+
+                                <div style={{ textAlign: 'left', marginBottom: '1rem' }}>
+                                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#374151', marginBottom: '0.5rem' }}>
+                                        Observaciones / Motivo
+                                    </label>
+                                    <textarea
+                                        value={statusObservation}
+                                        onChange={(e) => setStatusObservation(e.target.value)}
+                                        placeholder="Indique el motivo del cambio de estado..."
+                                        style={{
+                                            width: '100%',
+                                            padding: '0.625rem',
+                                            borderRadius: '0.375rem',
+                                            border: '1px solid #d1d5db',
+                                            fontSize: '0.875rem',
+                                            minHeight: '80px',
+                                            resize: 'none',
+                                            outline: 'none',
+                                            transition: 'border-color 0.2s'
+                                        }}
+                                        onFocus={(e) => e.target.style.borderColor = '#2563eb'}
+                                        onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
+                                    />
+                                </div>
+                            </div>
+                            <div className="modal-footer" style={{ border: 'none', gap: '0.75rem' }}>
+                                <button className="btn-cancel" onClick={() => { setShowStatusConfirmModal(false); setEquipoStatusPending(null); setStatusObservation(''); }} disabled={processingAction} style={{ flex: 1 }}>Cancelar</button>
+                                <button
+                                    className={equipoStatusPending.estado?.toLowerCase() === 'activo' ? 'btn-danger' : 'btn-success'}
+                                    onClick={confirmToggleStatus}
+                                    disabled={processingAction}
+                                    style={{ flex: 1 }}
+                                >
+                                    {processingAction ? '...' : (equipoStatusPending.estado?.toLowerCase() === 'activo' ? 'Desactivar' : 'Activar')}
                                 </button>
                             </div>
                         </div>

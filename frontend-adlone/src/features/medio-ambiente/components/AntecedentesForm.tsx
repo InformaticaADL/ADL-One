@@ -5,7 +5,6 @@ import { useToast } from '../../../contexts/ToastContext';
 import '../styles/FichasIngreso.css';
 import '../styles/FormGrids.css';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
-
 // Helper to dedup options
 const dedupOptions = (options: { id: string | number; nombre: string }[]) => {
     const seen = new Set();
@@ -136,6 +135,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
     const [medicionCaudal, setMedicionCaudal] = useState<string>('');
     const [modalidades, setModalidades] = useState<any[]>([]);
     const [selectedModalidad, setSelectedModalidad] = useState<string>('');
+
 
     // --- Block 5 State ---
     const [formasCanal, setFormasCanal] = useState<any[]>([]);
@@ -975,6 +975,8 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>UTM (N)</label>
                         <input type="text" value={utmNorte} onChange={(e) => setUtmNorte(e.target.value)} disabled={zona === 'No aplica'}
                             style={{ width: '100%', padding: '6px 10px', fontSize: '0.85rem', border: '1px solid #d1d5db', borderRadius: '6px', outline: 'none', minHeight: '34px', backgroundColor: zona === 'No aplica' ? '#f3f4f6' : 'white' }} />
+                    </div>
+                    <div style={{ width: '100%', minWidth: 0, display: 'flex', alignItems: 'flex-end', paddingBottom: '0' }}>
                     </div>
                 </div>
 

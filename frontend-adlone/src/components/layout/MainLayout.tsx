@@ -166,7 +166,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                 const isPending = e.estado === 'PENDIENTE' || e.estado === 'PENDIENTE_CALIDAD';
                 const isManagerReview = isManagementUser && isPending && !isMyOwn;
 
-                let tag = e.tipo_solicitud;
+                let tag = e.tipo_solicitud?.replace(/_/g, ' ') || 'DESCONOCIDO';
                 if (e.tipo_solicitud === 'ALTA') {
                     tag = e.datos_json?.isReactivation ? 'ACTIVACIÓN' : 'CREACIÓN';
                 }
@@ -187,11 +187,14 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                     }
                 }
 
-                let typeLabel = e.tipo_solicitud === 'ALTA' ? 'Solicitud de Creación de Equipo' : e.tipo_solicitud === 'TRASPASO' ? 'Traspaso' : 'Baja';
+                let typeLabel = e.tipo_solicitud?.replace(/_/g, ' ') || 'Solicitud';
+                // Capitalize correctly (e.g. "REPORTE PROBLEMA" -> "Reporte problema")
+                typeLabel = typeLabel.charAt(0).toUpperCase() + typeLabel.slice(1).toLowerCase();
+
                 if (e.tipo_solicitud === 'ALTA' && e.datos_json?.isReactivation) {
                     typeLabel = 'Activación';
                 } else if (e.tipo_solicitud === 'ALTA') {
-                    typeLabel = 'Solicitud de Creación de Equipo';
+                    typeLabel = 'Creación de equipo';
                 }
 
                 return {
@@ -738,7 +741,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                                 <div style={{ display: 'grid', gap: '0.75rem' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                         <span style={{ fontWeight: 600, color: '#64748b' }}>Tipo:</span>
-                                        <span>{selectedPendingNotification.tipo_solicitud}</span>
+                                        <span>{selectedPendingNotification.tipo_solicitud?.replace(/_/g, ' ') || ''}</span>
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                         <span style={{ fontWeight: 600, color: '#64748b' }}>Estado:</span>
@@ -749,7 +752,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                                             borderRadius: '99px',
                                             fontSize: '0.8rem',
                                             fontWeight: 600
-                                        }}>{selectedPendingNotification.estado}</span>
+                                        }}>{selectedPendingNotification.estado?.replace(/_/g, ' ') || ''}</span>
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                         <span style={{ fontWeight: 600, color: '#64748b' }}>Solicitante:</span>

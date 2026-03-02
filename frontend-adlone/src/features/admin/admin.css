@@ -1694,6 +1694,15 @@
     transform-origin: top right;
 }
 
+/* Fix right-aligned dropdowns on mobile */
+@media (max-width: 768px) {
+    .dropdown-menu {
+        right: -100px !important;
+        /* Shift to the right so it doesn't go off-screen left */
+        max-width: 90vw;
+    }
+}
+
 /* --- Premium Form Header (Responsive) --- */
 .header-premium-container {
     display: flex;

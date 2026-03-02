@@ -91,15 +91,6 @@ const CustomSelect: React.FC<CustomSelectProps> = ({ value, options, onChange, l
 export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false }) => {
     const { showToast } = useToast();
     const { hasPermission, user } = useAuth();
-    const [isReplying, setIsReplying] = useState(false);
-    const [activeTab, setActiveTab] = useState<TabType>(viewOnly ? 'POR_VALIDAR' : 'PENDIENTES');
-    const [viewMode, setViewMode] = useState<'LIST' | 'FORM'>('LIST');
-    const [type, setType] = useState<SolicitudeType>('NUEVO_EQUIPO');
-    const isAlta = type === 'ALTA';
-    const isNuevoEq = type === 'NUEVO_EQUIPO';
-    const [loading, setLoading] = useState(false);
-
-    const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
 
     // Permission checks
     const isGCMan = hasPermission('GC_EQUIPOS') || hasPermission('GC_ACCESO');
@@ -113,6 +104,25 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
     const canAcceptRequest = hasPermission('AI_MA_ACEPTAR_SOLICITUD') || hasPermission('GC_ACEPTAR_SOLICITUD') || isSuperAdmin;
     const canRejectRequest = hasPermission('AI_MA_RECHAZAR_SOLICITUD') || hasPermission('GC_RECHAZAR_SOLICITUD') || isSuperAdmin;
     const canDeriveRequest = hasPermission('AI_MA_DERIVAR_SOLICITUD') || isSuperAdmin;
+
+    const [isReplying, setIsReplying] = useState(false);
+
+    // Default to HISTORIAL if technical user (isMAMan) and not viewOnly
+    const getDefaultTab = (): TabType => {
+        if (viewOnly) return 'POR_VALIDAR';
+        if (isMAMan) return 'HISTORIAL';
+        return 'PENDIENTES';
+    };
+
+    const [activeTab, setActiveTab] = useState<TabType>(getDefaultTab());
+    const [viewMode, setViewMode] = useState<'LIST' | 'FORM'>('LIST');
+    const [type, setType] = useState<SolicitudeType>('NUEVO_EQUIPO');
+    const isAlta = type === 'ALTA';
+    const isNuevoEq = type === 'NUEVO_EQUIPO';
+    const [loading, setLoading] = useState(false);
+
+    const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
+
 
     // Data for selectors
     const [equipos, setEquipos] = useState<Equipo[]>([]);
@@ -158,6 +168,36 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
             case 'RECHAZADO_TECNICA': return 'RECHAZADO TÉCNICA';
             default: return status.replace(/_/g, ' ');
         }
+    };
+
+    const renderEquipmentInfo = (sol: any) => {
+        const data = sol.datos_json;
+        if (!data) return { code: 'N/A', name: 'Sin datos' };
+
+        // Tipos con múltiples equipos
+        if (sol.tipo_solicitud === 'BAJA' && data.equipos_baja?.length > 0) {
+            const first = data.equipos_baja[0];
+            const extra = data.equipos_baja.length - 1;
+            return {
+                code: first.codigo || 'N/A',
+                name: `${first.nombre || 'Sin nombre'}${extra > 0 ? ` (+${extra})` : ''}`
+            };
+        }
+
+        if (sol.tipo_solicitud === 'ALTA' && data.isReactivation && data.equipos_alta?.length > 0) {
+            const first = data.equipos_alta[0];
+            const extra = data.equipos_alta.length - 1;
+            return {
+                code: first.codigo || 'N/A',
+                name: `${first.nombre || 'Sin nombre'}${extra > 0 ? ` (+${extra})` : ''}`
+            };
+        }
+
+        // Caso Traspaso y otros que usan equipo_codigo/equipo_nombre
+        const code = data.codigo || data.equipo_codigo || data.codigo_equipo || 'N/A';
+        const name = data.nombre || data.equipo_nombre || data.nombre_equipo || 'Sin nombre';
+
+        return { code, name };
     };
 
     // Date formatter to handle different formats safely
@@ -253,6 +293,17 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
     const [pendingBajaIds, setPendingBajaIds] = useState<string[]>([]);
     const [generatingCode, setGeneratingCode] = useState(false);
 
+    // Helpers to clear form
+    const resetNewRequestForm = () => {
+        setFormData(INITIAL_FORM_DATA);
+        setEquiposBaja([]);
+        setEquiposAlta([]);
+        setIsReactivation(false);
+        setAltaSubtype(null);
+        setType('NUEVO_EQUIPO');
+        setDirectToQuality(true);
+    };
+
     // Filter and Search State
     const [searchTerm, setSearchTerm] = useState('');
     const [filterTipo, setFilterTipo] = useState('');
@@ -262,6 +313,8 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
     const filterMenuRef = useRef<HTMLDivElement>(null);
     const [showMobileFilters, setShowMobileFilters] = useState(false);
     const [directToQuality, setDirectToQuality] = useState(true);
+    const [showReportsDropdown, setShowReportsDropdown] = useState(false);
+    const reportsMenuRef = useRef<HTMLDivElement>(null);
 
     // --- Filtering Logic ---
     const handleClearFilters = () => {
@@ -273,16 +326,19 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
 
     const hasActiveFilters = searchTerm !== '' || filterTipo !== '' || filterEquipo !== '' || filterStatus !== '';
 
-    // Click outside listener for filters
+    // Click outside listener for filters and drops
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (showMobileFilters && filterMenuRef.current && !filterMenuRef.current.contains(event.target as Node)) {
                 setShowMobileFilters(false);
             }
+            if (showReportsDropdown && reportsMenuRef.current && !reportsMenuRef.current.contains(event.target as Node)) {
+                setShowReportsDropdown(false);
+            }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [showMobileFilters]);
+    }, [showMobileFilters, showReportsDropdown]);
 
     // Helper to check if a request matches the filters
     const matchesFilters = (sol: any) => {
@@ -549,6 +605,7 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
                         responsable: formData.responsable,
                         id_muestreador: formData.id_muestreador || matchingResponsable?.id_muestreador || null,
                         vigencia: formData.vigencia,
+                        motivo: formData.motivo,
                         isReactivation,
                         equipos_alta: isReactivation ? equiposAlta : null
                     };
@@ -689,17 +746,14 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
                 duration: 5000
             });
 
-            setFormData(INITIAL_FORM_DATA);
-            setAltaSubtype(null);
+            resetNewRequestForm();
+            setViewMode('LIST');
 
             if (type === 'BAJA') {
                 const newIds = equiposBaja.map(eb => String(eb.id));
                 setPendingBajaIds(prev => [...prev, ...newIds]);
             }
 
-            setIsReactivation(false);
-            setEquiposBaja([]);
-            setEquiposAlta([]);
             loadHistory();
 
         } catch (error) {
@@ -847,14 +901,26 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
 
     const handleOpenDetails = (request: any, e?: React.MouseEvent) => {
         if (e) e.stopPropagation();
+
+        // Ensure datos_json is an object (it might be a string from backend)
+        if (request && typeof request.datos_json === 'string') {
+            try {
+                request.datos_json = JSON.parse(request.datos_json);
+            } catch (err) {
+                console.error("Error parsing datos_json:", err);
+            }
+        }
+
         setSelectedRequest(request);
 
         // Only show review modal if it's actually reviewable or if we are in Reports/Vouchers tab
         const isVoucherTab = activeTab === 'POR_VALIDAR';
+        const isHistoryTab = activeTab === 'HISTORIAL';
         const isReviewable = !viewOnly && !isVoucherTab && (request.estado === 'PENDIENTE_TECNICA' || request.estado === 'EN_REVISION_TECNICA' || request.estado === 'PENDIENTE_CALIDAD');
 
         // Use granular permissions for Reports/Vouchers
-        const canOpenDetail = isReviewable || isVoucherTab || (viewOnly && canViewReportDetails) || isSuperAdmin;
+        // For History tab, we always allow opening detail if we can see the list
+        const canOpenDetail = isReviewable || isVoucherTab || isHistoryTab || (viewOnly && canViewReportDetails) || isSuperAdmin;
         setShowReviewModal(canOpenDetail);
         setReviewAction(null);
         setReviewFeedback('');
@@ -874,6 +940,7 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
                             <button
                                 onClick={() => {
                                     if (viewMode === 'FORM') {
+                                        resetNewRequestForm();
                                         setViewMode('LIST');
                                     } else if (onBack) {
                                         onBack();
@@ -898,10 +965,109 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
                             </p>
                         )}
                     </div>
-                    <div style={{ justifySelf: 'end' }}>
+                    <div style={{ justifySelf: 'end', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        {viewOnly && (
+                            <div style={{ position: 'relative' }} ref={reportsMenuRef}>
+                                <button
+                                    onClick={() => setShowReportsDropdown(!showReportsDropdown)}
+                                    className="btn-secondary"
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.5rem',
+                                        padding: '0.5rem 1rem',
+                                        background: 'white',
+                                        margin: 0
+                                    }}
+                                >
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                        <polyline points="14 2 14 8 20 8"></polyline>
+                                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                                        <polyline points="10 9 9 9 8 9"></polyline>
+                                    </svg>
+                                    Reportes
+                                    {qualityVouchers.filter(v => ['PENDIENTE_TECNICA', 'PENDIENTE_CALIDAD'].includes(v.estado)).length > 0 && (
+                                        <span style={{
+                                            background: '#ef4444',
+                                            color: 'white',
+                                            fontSize: '0.7rem',
+                                            fontWeight: 'bold',
+                                            padding: '2px 6px',
+                                            borderRadius: '99px',
+                                            marginLeft: '4px'
+                                        }}>
+                                            {qualityVouchers.filter(v => ['PENDIENTE_TECNICA', 'PENDIENTE_CALIDAD'].includes(v.estado)).length}
+                                        </span>
+                                    )}
+                                </button>
+                                {showReportsDropdown && (
+                                    <div className="dropdown-menu animate-fade-in" style={{
+                                        position: 'absolute',
+                                        top: 'calc(100% + 8px)',
+                                        right: 0,
+                                        width: '320px',
+                                        background: 'white',
+                                        borderRadius: '8px',
+                                        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                                        border: '1px solid #e2e8f0',
+                                        zIndex: 100,
+                                        overflow: 'hidden'
+                                    }}>
+                                        <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
+                                            <h3 style={{ margin: 0, fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>Reportes Pendientes</h3>
+                                        </div>
+                                        <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
+                                            {qualityVouchers.filter(v => ['PENDIENTE_TECNICA', 'PENDIENTE_CALIDAD'].includes(v.estado)).length > 0 ? (
+                                                qualityVouchers.filter(v => ['PENDIENTE_TECNICA', 'PENDIENTE_CALIDAD'].includes(v.estado)).map(voucher => {
+                                                    const info = renderEquipmentInfo(voucher);
+                                                    return (
+                                                        <div
+                                                            key={voucher.id_solicitud}
+                                                            onClick={(e) => {
+                                                                setShowReportsDropdown(false);
+                                                                handleOpenDetails(voucher, e as any);
+                                                            }}
+                                                            style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9', cursor: 'pointer', transition: 'background 0.2s' }}
+                                                            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
+                                                            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                        >
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.25rem' }}>
+                                                                <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#2563eb' }}>
+                                                                    {getTipoLabel(voucher.tipo_solicitud)}
+                                                                </span>
+                                                                <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>
+                                                                    {new Date(voucher.fecha_solicitud).toLocaleDateString()}
+                                                                </span>
+                                                            </div>
+                                                            <div style={{ fontWeight: 600, color: '#1e293b', fontSize: '0.85rem' }}>
+                                                                {info.code}
+                                                            </div>
+                                                            <div style={{ fontSize: '0.75rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                                {info.name}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })
+                                            ) : (
+                                                <div style={{ padding: '1.5rem', textAlign: 'center', color: '#64748b', fontSize: '0.85rem' }}>
+                                                    No hay reportes ni vouchers pendientes
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                         {viewMode === 'LIST' && !viewOnly ? (
                             <button
-                                onClick={() => canCreateRequest && setViewMode('FORM')}
+                                onClick={() => {
+                                    if (canCreateRequest) {
+                                        resetNewRequestForm();
+                                        setViewMode('FORM');
+                                    }
+                                }}
                                 className={!canCreateRequest ? "btn-secondary" : "btn-primary"}
                                 disabled={!canCreateRequest}
                                 title={!canCreateRequest ? 'No tienes permisos para crear solicitudes' : ''}
@@ -1342,12 +1508,19 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
                                                                         </span>
                                                                     </td>
                                                                     <td style={{ textAlign: 'left' }}>
-                                                                        <div style={{ fontWeight: 600, color: '#1e293b', fontSize: '0.85rem' }}>
-                                                                            {sol.datos_json?.codigo || sol.datos_json?.codigo_equipo || 'N/A'}
-                                                                        </div>
-                                                                        <div style={{ fontSize: '0.75rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '150px' }}>
-                                                                            {sol.datos_json?.nombre || sol.datos_json?.nombre_equipo || 'Sin nombre'}
-                                                                        </div>
+                                                                        {(() => {
+                                                                            const info = renderEquipmentInfo(sol);
+                                                                            return (
+                                                                                <>
+                                                                                    <div style={{ fontWeight: 600, color: '#1e293b', fontSize: '0.85rem' }}>
+                                                                                        {info.code}
+                                                                                    </div>
+                                                                                    <div style={{ fontSize: '0.75rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '150px' }}>
+                                                                                        {info.name}
+                                                                                    </div>
+                                                                                </>
+                                                                            );
+                                                                        })()}
                                                                     </td>
                                                                     <td className="mobile-hide" style={{ textAlign: 'left', maxWidth: '200px' }}>
                                                                         <div style={{
@@ -1472,12 +1645,19 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
                                                                         </span>
                                                                     </td>
                                                                     <td style={{ textAlign: 'left' }}>
-                                                                        <div style={{ fontWeight: 600, color: '#1e293b', fontSize: '0.85rem' }}>
-                                                                            {voucher.datos_json?.codigo || 'N/A'}
-                                                                        </div>
-                                                                        <div style={{ fontSize: '0.75rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '150px' }}>
-                                                                            {voucher.datos_json?.nombre || 'Sin nombre'}
-                                                                        </div>
+                                                                        {(() => {
+                                                                            const info = renderEquipmentInfo(voucher);
+                                                                            return (
+                                                                                <>
+                                                                                    <div style={{ fontWeight: 600, color: '#1e293b', fontSize: '0.85rem' }}>
+                                                                                        {info.code}
+                                                                                    </div>
+                                                                                    <div style={{ fontSize: '0.75rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '150px' }}>
+                                                                                        {info.name}
+                                                                                    </div>
+                                                                                </>
+                                                                            );
+                                                                        })()}
                                                                     </td>
                                                                     <td style={{ textAlign: 'left', maxWidth: '200px' }}>
                                                                         <div style={{
@@ -1593,17 +1773,24 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
                                                                             </span>
                                                                         </td>
                                                                         <td style={{ textAlign: 'left' }}>
-                                                                            <div style={{ fontWeight: 600, color: '#1e293b', fontSize: '0.85rem' }}>
-                                                                                {sol.datos_json?.codigo || sol.datos_json?.codigo_equipo || 'N/A'}
-                                                                            </div>
-                                                                            <div style={{ fontSize: '0.75rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '150px' }}>
-                                                                                {sol.datos_json?.nombre || sol.datos_json?.nombre_equipo || 'Sin nombre'}
-                                                                            </div>
+                                                                            {(() => {
+                                                                                const info = renderEquipmentInfo(sol);
+                                                                                return (
+                                                                                    <>
+                                                                                        <div style={{ fontWeight: 600, color: '#1e293b', fontSize: '0.85rem' }}>
+                                                                                            {info.code}
+                                                                                        </div>
+                                                                                        <div style={{ fontSize: '0.75rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '150px' }}>
+                                                                                            {info.name}
+                                                                                        </div>
+                                                                                    </>
+                                                                                );
+                                                                            })()}
                                                                         </td>
-                                                                        <td style={{ textAlign: 'left', maxWidth: '200px' }}>
-                                                                            <div style={{ fontSize: '0.8rem', color: '#334155', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
-                                                                                title={sol.datos_json?.motivo || sol.datos_json?.descripcion || 'Sin detalle'}>
-                                                                                {sol.datos_json?.motivo || sol.datos_json?.motivo_revision || sol.datos_json?.justificacion || sol.datos_json?.descripcion || sol.datos_json?.circunstancias || sol.datos_json?.comentario || 'No especificado'}
+                                                                        <td style={{ textAlign: 'left', maxWidth: '250px' }}>
+                                                                            <div style={{ fontSize: '0.8rem', color: '#334155', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.2' }}
+                                                                                title={sol.datos_json?.motivo || sol.datos_json?.motivo_revision || sol.datos_json?.justificacion || sol.datos_json?.descripcion || sol.datos_json?.circunstancias || sol.datos_json?.comentario}>
+                                                                                {sol.datos_json?.motivo || sol.datos_json?.motivo_revision || sol.datos_json?.justificacion || sol.datos_json?.descripcion || sol.datos_json?.circunstancias || sol.datos_json?.comentario || 'Ver detalles...'}
                                                                             </div>
                                                                         </td>
                                                                         <td style={{ textAlign: 'center' }}>
@@ -1738,12 +1925,10 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
                                             <button
                                                 key={t}
                                                 onClick={() => {
+                                                    resetNewRequestForm();
                                                     setType(t);
                                                     setAltaSubtype(t === 'ALTA' ? 'ACTIVAR' : null);
                                                     setIsReactivation(t === 'ALTA');
-                                                    setFormData(INITIAL_FORM_DATA);
-                                                    setEquiposBaja([]);
-                                                    setEquiposAlta([]);
                                                 }}
                                                 title={getTipoLabel(t)}
                                                 style={{
@@ -2138,7 +2323,9 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
                                                         placeholder="Busque equipo por nombre o código..."
                                                         value={formData.id_equipo}
                                                         onChange={(val) => handleSelectChange('id_equipo', val)}
-                                                        options={equipos.map(e => ({ id: String(e.id_equipo), nombre: `${e.codigo} - ${e.nombre} ` }))}
+                                                        options={equipos
+                                                            .filter(e => e.estado?.toLowerCase() === 'activo')
+                                                            .map(e => ({ id: String(e.id_equipo), nombre: `${e.codigo} - ${e.nombre} ` }))}
                                                     />
                                                 </div>
 
@@ -2276,7 +2463,7 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
                                                         options={equipos
                                                             .filter(e => {
                                                                 const idStr = String(e.id_equipo);
-                                                                return (e.estado?.toLowerCase() === 'activo' || (e as any).habilitado === 'S' || !(e.estado)) &&
+                                                                return e.estado?.toLowerCase() === 'activo' &&
                                                                     !equiposBaja.find(b => b.id === idStr) &&
                                                                     !pendingBajaIds.includes(idStr);
                                                             })
@@ -2340,7 +2527,7 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
                                                             }));
                                                         }}
                                                         options={equipos
-                                                            .filter(e => e.estado === 'Activo')
+                                                            .filter(e => e.estado?.toLowerCase() === 'activo')
                                                             .map(e => ({ id: String(e.id_equipo), nombre: `${e.codigo} - ${e.nombre}` }))}
                                                     />
                                                 </div>
@@ -2446,6 +2633,7 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
                                                         options={equipos
                                                             .filter(e => {
                                                                 if (!e.vigencia) return false;
+                                                                if (e.estado?.toLowerCase() !== 'activo') return false;
                                                                 const vigDate = new Date(e.vigencia);
                                                                 const today = new Date();
                                                                 const diffDays = Math.ceil((vigDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
@@ -2542,7 +2730,7 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
                                                             }));
                                                         }}
                                                         options={equipos
-                                                            .filter(e => e.estado === 'Activo')
+                                                            .filter(e => e.estado?.toLowerCase() === 'activo')
                                                             .map(e => ({ id: String(e.id_equipo), nombre: `${e.codigo} - ${e.nombre}` }))}
                                                     />
                                                 </div>
@@ -2683,7 +2871,7 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
                                                             }));
                                                         }}
                                                         options={equipos
-                                                            .filter(e => e.estado === 'Activo')
+                                                            .filter(e => e.estado?.toLowerCase() === 'activo')
                                                             .map(e => ({ id: String(e.id_equipo), nombre: `${e.codigo} - ${e.nombre}` }))}
                                                     />
                                                 </div>
@@ -3038,20 +3226,43 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
 
                                                         {/* ALTA Details */}
                                                         {selectedRequest.tipo_solicitud === 'ALTA' && (
-                                                            <div style={{ display: 'grid', gap: '0.75rem' }}>
+                                                            <div style={{ display: 'grid', gap: '1rem' }}>
+                                                                {(selectedRequest.datos_json?.nombre || selectedRequest.datos_json?.codigo) && (
+                                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', background: '#f0f9ff', padding: '0.8rem', borderRadius: '8px', border: '1px solid #bae6fd' }}>
+                                                                        <div>
+                                                                            <strong style={{ display: 'block', fontSize: '0.7rem', color: '#0369a1', textTransform: 'uppercase' }}>EQUIPO</strong>
+                                                                            <span style={{ fontWeight: 700, color: '#0c4a6e' }}>{selectedRequest.datos_json.nombre || 'N/A'}</span>
+                                                                        </div>
+                                                                        <div>
+                                                                            <strong style={{ display: 'block', fontSize: '0.7rem', color: '#0369a1', textTransform: 'uppercase' }}>CÓDIGO</strong>
+                                                                            <span style={{ fontWeight: 700, color: '#0284c7' }}>{selectedRequest.datos_json.codigo || 'N/A'}</span>
+                                                                        </div>
+                                                                        {selectedRequest.datos_json.responsable && (
+                                                                            <div style={{ gridColumn: 'span 2', borderTop: '1px solid #bae6fd', paddingTop: '0.5rem', marginTop: '0.2rem' }}>
+                                                                                <strong style={{ display: 'inline', fontSize: '0.7rem', color: '#0369a1', textTransform: 'uppercase', marginRight: '0.5rem' }}>RESPONSABLE:</strong>
+                                                                                <span style={{ fontSize: '0.85rem', color: '#0c4a6e', fontWeight: 600 }}>{selectedRequest.datos_json.responsable}</span>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                )}
+
                                                                 {selectedRequest.datos_json?.muestreador && (
                                                                     <div>
                                                                         <strong style={{ display: 'block', fontSize: '0.75rem', color: '#64748b' }}>MUESTREADOR</strong>
                                                                         <span style={{ fontWeight: 600 }}>{selectedRequest.datos_json.muestreador}</span>
                                                                     </div>
                                                                 )}
+
                                                                 {selectedRequest.datos_json?.equipos_alta && selectedRequest.datos_json.equipos_alta.length > 0 && (
                                                                     <div>
                                                                         <strong style={{ display: 'block', fontSize: '0.75rem', color: '#64748b', marginBottom: '0.5rem' }}>EQUIPOS A ACTIVAR ({selectedRequest.datos_json.equipos_alta.length})</strong>
                                                                         <div style={{ display: 'grid', gap: '0.5rem', maxHeight: '150px', overflowY: 'auto' }}>
                                                                             {selectedRequest.datos_json.equipos_alta.map((eq: any, i: number) => (
                                                                                 <div key={i} style={{ padding: '0.6rem', background: 'white', border: '1px solid #e2e8f0', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                                                    <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{eq.nombre}</span>
+                                                                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                                                        <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{eq.nombre}</span>
+                                                                                        <span style={{ fontSize: '0.7rem', color: '#64748b' }}>{eq.codigo}</span>
+                                                                                    </div>
                                                                                     <span style={{ fontSize: '0.75rem', color: '#64748b', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px' }}>
                                                                                         Vence: {eq.vigencia ? new Date(eq.vigencia).toLocaleDateString() : 'N/A'}
                                                                                     </span>
@@ -3060,10 +3271,13 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
                                                                         </div>
                                                                     </div>
                                                                 )}
-                                                                {selectedRequest.datos_json?.motivo && (
+
+                                                                {(selectedRequest.datos_json?.motivo || selectedRequest.datos_json?.descripcion) && (
                                                                     <div style={{ marginTop: '0.5rem' }}>
                                                                         <strong style={{ display: 'block', fontSize: '0.75rem', color: '#64748b' }}>OBSERVACIONES</strong>
-                                                                        <p style={{ margin: 0, color: '#334155' }}>{selectedRequest.datos_json.motivo}</p>
+                                                                        <div style={{ background: 'white', padding: '0.75rem', borderRadius: '6px', border: '1px solid #e2e8f0', color: '#334155', fontSize: '0.9rem' }}>
+                                                                            {selectedRequest.datos_json.motivo || selectedRequest.datos_json.descripcion}
+                                                                        </div>
                                                                     </div>
                                                                 )}
                                                             </div>
@@ -3308,6 +3522,43 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
                                                                 </div>
                                                             );
                                                         })()}
+
+                                                        {/* NUEVO_EQUIPO Details */}
+                                                        {selectedRequest.tipo_solicitud === 'NUEVO_EQUIPO' && (
+                                                            <div style={{ display: 'grid', gap: '1rem' }}>
+                                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', background: '#f0f9ff', padding: '0.8rem', borderRadius: '8px', border: '1px solid #bae6fd' }}>
+                                                                    <div>
+                                                                        <strong style={{ display: 'block', fontSize: '0.7rem', color: '#0369a1', textTransform: 'uppercase' }}>EQUIPO NUEVO</strong>
+                                                                        <span style={{ fontWeight: 700, color: '#0c4a6e' }}>{selectedRequest.datos_json?.nombre || 'N/A'}</span>
+                                                                    </div>
+                                                                    <div>
+                                                                        <strong style={{ display: 'block', fontSize: '0.7rem', color: '#0369a1', textTransform: 'uppercase' }}>CÓDIGO PROPUESTO</strong>
+                                                                        <span style={{ fontWeight: 700, color: '#0284c7' }}>{selectedRequest.datos_json?.codigo || 'N/A'}</span>
+                                                                    </div>
+                                                                    <div>
+                                                                        <strong style={{ display: 'block', fontSize: '0.7rem', color: '#0369a1', textTransform: 'uppercase' }}>TIPO</strong>
+                                                                        <span style={{ color: '#0c4a6e' }}>{selectedRequest.datos_json?.tipo || 'N/A'}</span>
+                                                                    </div>
+                                                                    <div>
+                                                                        <strong style={{ display: 'block', fontSize: '0.7rem', color: '#0369a1', textTransform: 'uppercase' }}>UBICACIÓN</strong>
+                                                                        <span style={{ color: '#0c4a6e' }}>{selectedRequest.datos_json?.ubicacion || 'N/A'}</span>
+                                                                    </div>
+                                                                    <div style={{ gridColumn: 'span 2', borderTop: '1px solid #bae6fd', paddingTop: '0.5rem', marginTop: '0.2rem' }}>
+                                                                        <strong style={{ display: 'inline', fontSize: '0.7rem', color: '#0369a1', textTransform: 'uppercase', marginRight: '0.5rem' }}>RESPONSABLE:</strong>
+                                                                        <span style={{ fontSize: '0.85rem', color: '#0c4a6e', fontWeight: 600 }}>{selectedRequest.datos_json?.responsable || 'N/A'}</span>
+                                                                    </div>
+                                                                </div>
+
+                                                                {(selectedRequest.datos_json?.motivo || selectedRequest.datos_json?.descripcion) && (
+                                                                    <div style={{ marginTop: '0.5rem' }}>
+                                                                        <strong style={{ display: 'block', fontSize: '0.75rem', color: '#64748b' }}>MOTIVO / NECESIDAD</strong>
+                                                                        <div style={{ background: 'white', padding: '0.75rem', borderRadius: '6px', border: '1px solid #e2e8f0', color: '#334155', fontSize: '0.9rem' }}>
+                                                                            {selectedRequest.datos_json.motivo || selectedRequest.datos_json.descripcion}
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
 
                                                         {/* EQUIPO_DESHABILITADO Details */}
                                                         {selectedRequest.tipo_solicitud === 'EQUIPO_DESHABILITADO' && (
@@ -4072,7 +4323,7 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
                                                                         <div style={{ marginTop: '0.5rem' }}>
                                                                             <strong style={{ display: 'block', fontSize: '0.7rem', color: '#64748b', textTransform: 'uppercase' }}>Responsable</strong>
                                                                             <span style={{ color: '#475569', fontSize: '0.85rem' }}>
-                                                                                {selectedRequest.datos_json?.responsable || eqInfo?.nombre_asignado || 'N/A'}
+                                                                                {selectedRequest.datos_json?.responsable || selectedRequest.datos_json?.responsable_nombre || selectedRequest.datos_json?.encargado || eqInfo?.nombre_asignado || 'N/A'}
                                                                             </span>
                                                                         </div>
                                                                         <div style={{ marginTop: '0.5rem' }}>
@@ -4280,7 +4531,8 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
                                                                         <div style={{ color: '#475569', fontSize: '0.85rem' }}>
                                                                             {muestreadores.find(m => String(m.id_muestreador) === String(selectedRequest.datos_json?.id_muestreador))?.nombre_muestreador ||
                                                                                 muestreadores.find(m => String(m.id_muestreador) === String(selectedRequest.datos_json?.id_muestreador))?.nombre ||
-                                                                                selectedRequest.datos_json.responsable || selectedRequest.datos_json.responsable_actual ||
+                                                                                selectedRequest.datos_json.responsable || selectedRequest.datos_json.responsable_nombre ||
+                                                                                selectedRequest.datos_json.responsable_actual || selectedRequest.datos_json.encargado ||
                                                                                 equipos.find(e => String(e.id_equipo) === String(selectedRequest.datos_json?.id_equipo))?.nombre_asignado || 'N/A'}
                                                                         </div>
                                                                     </div>
@@ -4989,7 +5241,7 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
                     </>
                 )}
             </div>
-        </div>
+        </div >
     );
 };
 

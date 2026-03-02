@@ -66,13 +66,19 @@ class SolicitudService {
                 // NOVEDAD: Notificar también al muestreador (solicitante) que su solicitud fue recibida
                 // NOVEDAD: Notificar según el tipo específico de solicitud
                 const eventCodeNueva = `SOL_EQUIPO_${data.tipo_solicitud}_NUEVA`;
+                const nombreSolicitante = dbUser?.nombre_usuario || 'Sistema ADL One';
+
                 notificationService.send(eventCodeNueva, {
                     CORRELATIVO: newId,
+                    ID_SOLICITUD: newId,
                     TIPO_SOLICITUD: tipoLabel,
                     USUARIO: 'Sistema ADL One',
                     FECHA: new Date().toLocaleDateString('es-CL'),
                     HORA: new Date().toLocaleTimeString('es-CL'),
-                    OBSERVACION: `Tu solicitud ha sido recibida y será validada por el Área Técnica.`,
+                    SOLICITANTE: nombreSolicitante,
+                    RESPONSABLE: data.datos_json.responsable || data.datos_json.responsable_actual || data.datos_json.encargado || nombreSolicitante,
+                    MOTIVO: data.datos_json.motivo || data.datos_json.justificacion || data.datos_json.descripcion || data.datos_json.motivo_revision || data.datos_json.comentario || 'Ver detalle adjunto',
+                    OBSERVACION: data.datos_json.motivo || data.datos_json.justificacion || data.datos_json.descripcion || data.datos_json.motivo_revision || data.datos_json.comentario || `Tu solicitud ha sido recibida.`,
                     equipos: this._getEquiposList(data.tipo_solicitud, data.datos_json),
                     directEmails: directEmails // El NotificationService ahora filtrará esto si hay config en BD
                 });
@@ -503,13 +509,18 @@ class SolicitudService {
                 }
 
                 if (eventCode) {
+                    const nombreSolicitante = sol.nombre_usuario || sol.nombre_muestreador || 'Solicitante';
                     const notificationContext = {
                         CORRELATIVO: id,
+                        ID_SOLICITUD: id,
                         TIPO_SOLICITUD: tipoLabel,
                         USUARIO: adminName,
                         FECHA: new Date().toLocaleDateString('es-CL'),
                         HORA: new Date().toLocaleTimeString('es-CL'),
-                        OBSERVACION: feedback || (status === 'APROBADO' ? 'Aprobado correctamente' : 'Sin motivo especificado'),
+                        SOLICITANTE: nombreSolicitante,
+                        RESPONSABLE: currentSolDatos.responsable || currentSolDatos.responsable_actual || currentSolDatos.encargado || nombreSolicitante,
+                        MOTIVO: feedback || currentSolDatos.motivo || currentSolDatos.justificacion || (status === 'APROBADO' ? 'Aprobado correctamente' : 'Sin motivo especificado'),
+                        OBSERVACION: feedback || currentSolDatos.motivo || currentSolDatos.justificacion || (status === 'APROBADO' ? 'Aprobado correctamente' : 'Sin motivo especificado'),
                         equipos: this._getEquiposList(type, currentSolDatos, id_equipo_procesado)
                     };
 
@@ -620,7 +631,7 @@ class SolicitudService {
                 serie: solDatos.serie,
                 ubicacion: solDatos.ubicacion,
                 vigencia: solDatos.vigencia,
-                responsable: solDatos.responsable || solDatos.responsable_nombre,
+                responsable: solDatos.responsable || solDatos.responsable_nombre || solDatos.encargado || solDatos.nombre_solicitante || 'N/A',
                 status: 'SOLICITADO'
             }];
         } else if (type === 'BAJA' || (type === 'ALTA' && solDatos.isReactivation)) {
@@ -638,7 +649,7 @@ class SolicitudService {
                 modelo: e.modelo || (e.datos_originales ? e.datos_originales.modelo : ''),
                 serie: e.serie || (e.datos_originales ? e.datos_originales.serie : ''),
                 ubicacion: e.ubicacion || (e.datos_originales ? e.datos_originales.ubicacion : 'N/A'),
-                responsable: e.responsable || e.responsable_nombre || solDatos.responsable || solDatos.responsable_nombre || 'N/A',
+                responsable: e.responsable || e.responsable_nombre || e.encargado || (e.datos_originales ? (e.datos_originales.responsable || e.datos_originales.responsable_nombre || e.datos_originales.encargado || e.datos_originales.nombre_asignado) : null) || solDatos.responsable || solDatos.responsable_nombre || solDatos.responsable_actual || solDatos.encargado || 'N/A',
                 vigencia: e.vigencia,
                 status: e.rechazado ? 'RECHAZADO' : (e.procesado ? 'APROBADO' : 'SOLICITADO')
             }));
@@ -668,7 +679,7 @@ class SolicitudService {
                 serie: solDatos.serie,
                 ubicacion: solDatos.ubicacion,
                 vigencia: solDatos.vigencia,
-                responsable: solDatos.responsable || solDatos.responsable_nombre,
+                responsable: solDatos.responsable || solDatos.responsable_nombre || solDatos.responsable_actual || solDatos.encargado || solDatos.nombre_solicitante || 'N/A',
                 status: 'SOLICITADO'
             }];
         } else {
@@ -678,7 +689,7 @@ class SolicitudService {
                 codigo: solDatos.codigo || solDatos.equipo_codigo || solDatos.codigo_equipo || 'N/A',
                 tipo: solDatos.tipo || 'N/A',
                 ubicacion: solDatos.ubicacion || solDatos.ubicacion_registrada || 'N/A',
-                responsable: solDatos.responsable || solDatos.responsable_actual || 'N/A',
+                responsable: solDatos.responsable || solDatos.responsable_actual || solDatos.responsable_nombre || solDatos.encargado || solDatos.nombre_solicitante || 'N/A',
                 vigencia: solDatos.vigencia || solDatos.vigencia_actual || 'N/A',
                 status: 'SOLICITADO'
             };

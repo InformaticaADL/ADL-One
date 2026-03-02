@@ -674,9 +674,11 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                 </div>
                             </div>
 
-                            <div className="form-grid-row grid-cols-4">
-                                <div style={{ gridColumn: 'span 2' }}>
-                                    <StaticField label="Zona / Coordenadas" value={enc.ma_coordenadas || (enc.coordenadas_ruta ? `Ruta: ${enc.coordenadas_ruta} ` : '')} fullWidth />
+                            <div className="form-grid-row grid-cols-4" style={{ alignItems: 'flex-end' }}>
+                                <div style={{ gridColumn: 'span 2', display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                                    <div style={{ flex: 1, minWidth: '200px' }}>
+                                        <StaticField label="Zona / Coordenadas" value={enc.ma_coordenadas || (enc.coordenadas_ruta ? `Ruta: ${enc.coordenadas_ruta} ` : '')} fullWidth />
+                                    </div>
                                 </div>
                             </div>
 
@@ -868,6 +870,7 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
 
                 </div>
             </div>
+
             {/* Confirm Modal */}
             <ConfirmModal
                 isOpen={showCancelModal}
