@@ -101,8 +101,8 @@ class NotificationService {
             // para garantizar que el Administrador tenga el control 100% de quién recibe qué a través de la UI.
 
             // 4. Compilar Asunto y Cuerpo (Simple Replace por ahora)
-            const subject = this._compileTemplate(event.asunto_template, context);
-            const htmlBody = this._compileTemplate(event.cuerpo_template_html || '<p>Notificación del Sistema ADL One</p>', context);
+            const subject = this._compileTemplate(event.asunto_template, context, false);
+            const htmlBody = this._compileTemplate(event.cuerpo_template_html || '<p>Notificación del Sistema ADL One</p>', context, true);
 
             // 5. Enviar Correo
             const to = Array.from(emailList.to).join(', ');
@@ -187,7 +187,7 @@ class NotificationService {
         }
     }
 
-    _compileTemplate(template, context) {
+    _compileTemplate(template, context, isHtml = true) {
         if (!template) return '';
         let output = template;
 
@@ -202,7 +202,7 @@ class NotificationService {
         }
 
         // 2. Handle SERVICIOS_DETALLE (dynamic array processing)
-        if (context.servicios && Array.isArray(context.servicios)) {
+        if (isHtml && context.servicios && Array.isArray(context.servicios)) {
             const serviciosHtml = context.servicios.map((servicio, index) => `
                 <div style="margin-bottom: 15px; padding: 12px; background: white; border-left: 4px solid #0062a8; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
                     <strong style="color: #0062a8; font-size: 14px; font-family: Arial, sans-serif;">Servicio ${servicio.numero}:</strong><br>
@@ -218,7 +218,7 @@ class NotificationService {
         }
 
         // 2.1 Handle EQUIPOS_DETALLE (dynamic array processing for equipment)
-        if (context.equipos && Array.isArray(context.equipos)) {
+        if (isHtml && context.equipos && Array.isArray(context.equipos)) {
             const equiposHtml = context.equipos.map((equipo, index) => {
                 if (equipo.isTransfer) {
                     return `
@@ -335,24 +335,26 @@ class NotificationService {
                 }
             }).join('');
 
-            if (output.includes('{EQUIPOS_DETALLE}')) {
-                output = output.split('{EQUIPOS_DETALLE}').join(equiposHtml);
-            } else {
-                // Fallback: Inject at the end of the body or content if placeholder is missing
-                // This ensures old templates still show the equipment list
-                const injectionHtml = `
+            if (isHtml) {
+                if (output.includes('{EQUIPOS_DETALLE}')) {
+                    output = output.split('{EQUIPOS_DETALLE}').join(equiposHtml);
+                } else {
+                    // Fallback: Inject at the end of the body or content if placeholder is missing
+                    // This ensures old templates still show the equipment list
+                    const injectionHtml = `
                     <div style="margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
                         <h3 style="color: #0f172a; font-size: 16px; margin-bottom: 10px;">Detalle de Equipos (Adjunto)</h3>
                         ${equiposHtml}
                     </div>
                 `;
 
-                if (output.includes('</body>')) {
-                    output = output.replace('</body>', `${injectionHtml}</body>`);
-                } else if (output.includes('</html>')) {
-                    output = output.replace('</html>', `${injectionHtml}</html>`);
-                } else {
-                    output += injectionHtml;
+                    if (output.includes('</body>')) {
+                        output = output.replace('</body>', `${injectionHtml}</body>`);
+                    } else if (output.includes('</html>')) {
+                        output = output.replace('</html>', `${injectionHtml}</html>`);
+                    } else {
+                        output += injectionHtml;
+                    }
                 }
             }
         }
@@ -362,6 +364,7 @@ class NotificationService {
             const obs = context.OBSERVACION;
             // Check if observation exists and is not just "Sin observaciones" or empty
             if (obs && obs.trim() !== '' && obs.trim().toLowerCase() !== 'sin observaciones' && obs.trim().toLowerCase() !== 'no especificado') {
+                if (!isHtml) return `${label}: ${obs}`;
                 return `<div style="margin-top:30px;padding:15px;background-color:#fffbf5;border-left:4px solid #0062a8;color:#666666;font-size:14px;font-family:Arial,sans-serif;"><strong>${label}:</strong><br>${obs}</div>`;
             }
             return '';

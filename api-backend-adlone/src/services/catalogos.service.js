@@ -15,13 +15,12 @@ export const catalogosService = {
     }
   },
 
-  getEmpresasServicio: async (idLugarAnalisis) => {
+  getEmpresasServicio: async () => {
     try {
       const pool = await getConnection();
-      // Requirement: Show all companies, no dependency on Sede
-      // User requested independence.
-      const spResult = await pool.request().execute('maestro_empresaservicio');
-      let empresas = spResult.recordset;
+      // Updated to select all columns so frontend can access emails, phones, etc.
+      const result = await pool.request().query("SELECT *, id_empresaservicio, nombre_empresa AS nombre_empresaservicio FROM mae_empresa WHERE habilitado = 'S' ORDER BY nombre_empresa");
+      let empresas = result.recordset;
 
       logger.info(`Returning all empresas (${empresas.length} records)`);
       return empresas;
@@ -296,7 +295,7 @@ export const catalogosService = {
   getMuestreadores: async () => {
     try {
       const pool = await getConnection();
-      const result = await pool.request().query("SELECT id_muestreador, nombre_muestreador FROM mae_muestreador ORDER BY nombre_muestreador");
+      const result = await pool.request().query("SELECT id_muestreador, nombre_muestreador FROM mae_muestreador WHERE habilitado = 'S' ORDER BY nombre_muestreador");
       return result.recordset;
     } catch (error) {
       logger.error('Error in getMuestreadores:', error);

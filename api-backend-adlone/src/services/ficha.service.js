@@ -33,8 +33,14 @@ class FichaIngresoService {
 
             // Helper for empty strings/nulls
             const val = (v) => v === undefined || v === null || v === '' ? null : v;
-            const valStr = (v, len) => val(v) ? String(v).substring(0, len) : null;
-            const valNum = (v) => val(v) ? Number(v) : null;
+            const valStr = (v, len) => {
+                if (v === 'No Aplica' || v === 'No aplica') return 'No Aplica';
+                return val(v) ? String(v).substring(0, len) : null;
+            };
+            const valNum = (v) => {
+                if (v === 'No Aplica' || v === 'No aplica') return 0;
+                return val(v) ? Number(v) : null;
+            };
 
             // Construct Instrumento Ambiental string
             let instrumento = null;
@@ -378,8 +384,14 @@ class FichaIngresoService {
 
             // Helper validators
             const val = (v) => v === undefined || v === null || v === '' ? null : v;
-            const valStr = (v, len) => val(v) ? String(v).substring(0, len) : null;
-            const valNum = (v) => val(v) ? Number(v) : null;
+            const valStr = (v, len) => {
+                if (v === 'No Aplica' || v === 'No aplica') return 'No Aplica';
+                return val(v) ? String(v).substring(0, len) : null;
+            };
+            const valNum = (v) => {
+                if (v === 'No Aplica' || v === 'No aplica') return 0;
+                return val(v) ? Number(v) : null;
+            };
 
             // Construct Instrumento/Coordinates (Same logic as Create)
             let instrumento = null;
@@ -431,12 +443,14 @@ class FichaIngresoService {
             request.input('responsable', sql.VarChar(20), valStr(ant.responsableMuestreo, 20));
             request.input('obs_comercial', sql.VarChar(250), valStr(obs, 250));
             request.input('id_cargo', sql.Numeric(10, 0), valNum(ant.cargoResponsable));
+            request.input('tipo_ficha', sql.VarChar(20), valStr(ant.tipoMonitoreo, 20));
 
             await request.query(`
                 UPDATE App_Ma_FichaIngresoServicio_ENC
                 SET 
-                                        id_validaciontecnica = 3,
+                    id_validaciontecnica = 3,
                     estado_ficha = 'PENDIENTE TÉCNICA',
+                    tipo_fichaingresoservicio = @tipo_ficha,
                     id_lugaranalisis = @id_lugaranalisis,
                     id_empresaservicio = @id_empresaservicio,
                     id_empresa = @id_cliente,
@@ -626,8 +640,8 @@ class FichaIngresoService {
             `);
 
             const allRows = allAgendaQuery.recordset || [];
-            const activeRows = allRows.filter(r => r.estado_caso !== 'ANULADA');
-            const anuladaRows = allRows.filter(r => r.estado_caso === 'ANULADA');
+            const activeRows = allRows.filter(r => r.estado_caso !== 'CANCELADO');
+            const anuladaRows = allRows.filter(r => r.estado_caso === 'CANCELADO');
             const currentCount = activeRows.length;
             const newTotalServicios = valNum(ant.totalServicios) || 1;
             const newFrecuencia = valNum(ant.frecuencia) || 1;
@@ -670,12 +684,12 @@ class FichaIngresoService {
             // 4.3 Strategy: Increase servicios (Reactivate ANULADAS first, then create new)
             if (newTotalServicios > currentCount) {
                 const itemsNeeded = newTotalServicios - currentCount;
-                logger.info(`Agenda Sync: Need ${itemsNeeded} more items. Checking ANULADAS for reactivation...`);
+                logger.info(`Agenda Sync: Need ${itemsNeeded} more items. Checking CANCELADOS for reactivation...`);
 
                 let itemsReactivated = 0;
                 let itemsCreated = 0;
 
-                // STEP 1: Reactivate ANULADAS (up to itemsNeeded)
+                // STEP 1: Reactivate CANCELADOS (up to itemsNeeded)
                 for (let i = 0; i < Math.min(itemsNeeded, anuladaRows.length); i++) {
                     const rowToReactivate = anuladaRows[i];
                     const reqReactivate = new sql.Request(transaction);
@@ -696,7 +710,7 @@ class FichaIngresoService {
                         WHERE id_agendamam = @id_ag
                     `);
 
-                    logger.info(`Reactivated ANULADA agenda item ${rowToReactivate.id_agendamam}`);
+                    logger.info(`Reactivated CANCELADO agenda item ${rowToReactivate.id_agendamam}`);
                     itemsReactivated++;
                 }
 
@@ -740,16 +754,16 @@ class FichaIngresoService {
             // 4.4 Strategy: Trim items
             else if (newTotalServicios < currentCount) {
                 const itemsToRemove = currentCount - newTotalServicios;
-                logger.info(`Agenda Sync: Reducing items by ${itemsToRemove}. Marking as ANULADA.`);
+                logger.info(`Agenda Sync: Reducing items by ${itemsToRemove}. Marking as CANCELADO.`);
 
                 // We remove from the END (Tail)
-                // e.g. if we have 4 items [0,1,2,3] and want 2, we mark indices 2 and 3 as ANULADA.
+                // e.g. if we have 4 items [0,1,2,3] and want 2, we mark indices 2 and 3 as CANCELADO.
                 for (let i = newTotalServicios; i < currentCount; i++) {
                     const rowToRemove = activeRows[i];
 
                     // Get current correlativo and update it to ANULA
                     const currentCorr = rowToRemove.frecuencia_correlativo || '';
-                    const newCorr = currentCorr.replace('-Pendiente-', '-ANULA-');
+                    const newCorr = currentCorr.replace('-Pendiente-', '-CANCEL-');
 
                     const reqAnul = new sql.Request(transaction);
                     reqAnul.input('id_ag', sql.Numeric(10, 0), rowToRemove.id_agendamam);
@@ -757,13 +771,13 @@ class FichaIngresoService {
 
                     await reqAnul.query(`
                         UPDATE App_Ma_Agenda_MUESTREOS 
-                        SET estado_caso = 'ANULADA', 
+                        SET estado_caso = 'CANCELADO', 
                             id_estadomuestreo = 99,
                             frecuencia_correlativo = @new_corr
                         WHERE id_agendamam = @id_ag
                     `);
 
-                    logger.info(`Marked agenda item ${rowToRemove.id_agendamam} as ANULADA with correlativo ${newCorr}`);
+                    logger.info(`Marked agenda item ${rowToRemove.id_agendamam} as CANCELADO with correlativo ${newCorr}`);
                 }
             }
 
@@ -783,7 +797,7 @@ class FichaIngresoService {
 
             let corrCounter = 1;
             for (const agRow of allFinalAgenda.recordset) {
-                const estado = agRow.estado_caso === 'ANULADA' ? 'ANULA' : 'Pendiente';
+                const estado = agRow.estado_caso === 'CANCELADO' ? 'CANCEL' : 'Pendiente';
                 const newCorr = `${id}-${corrCounter}-${estado}-${agRow.id_agendamam}`;
 
                 const reqUpdCorr = new sql.Request(transaction);
@@ -816,6 +830,70 @@ class FichaIngresoService {
             throw error;
         }
     }
+    async getEnProcesoFichas(month, year) {
+        const pool = await getConnection();
+        try {
+            let whereClause = `WHERE (f.id_validaciontecnica = 5 OR f.id_validaciontecnica = 7)`;
+
+            if (month && year) {
+                whereClause += ` AND MONTH(a.fecha_muestreo) = ${parseInt(month)} AND YEAR(a.fecha_muestreo) = ${parseInt(year)}`;
+            } else if (year) {
+                whereClause += ` AND YEAR(a.fecha_muestreo) = ${parseInt(year)}`;
+            }
+
+            const result = await pool.request().query(`
+                SELECT
+                    a.id_agendamam as id_agenda,
+                    f.id_fichaingresoservicio as id,
+                    f.fichaingresoservicio as ficha_correlativo,
+                    a.frecuencia_correlativo as correlativo,
+                    a.fecha_muestreo as fecha,
+                    a.id_muestreador,
+                    a.id_muestreador2,
+                    m.nombre_muestreador as muestreador,
+                    m2.nombre_muestreador as muestreador_retiro,
+                    f.tipo_fichaingresoservicio as tipo_ficha,
+                    es.nombre_empresa as empresa_servicio,
+                    es.email_empresa as correo_empresa,
+                    co.nombre_contacto as contacto,
+                    co.email_contacto as correo_contacto,
+                    om.nombre_objetivomuestreo_ma as objetivo,
+                    sa.nombre_subarea as subarea,
+                    DAY(a.fecha_muestreo) as dia,
+                    MONTH(a.fecha_muestreo) as mes,
+                    YEAR(a.fecha_muestreo) as ano,
+                    ce.nombre_centro as centro,
+                    a.fecha_retiro,
+                    f.nombre_tabla_largo as glosa,
+                    a.estado_caso,
+                    a.motivo_cancelacion,
+                    f.id_validaciontecnica
+                FROM App_Ma_FichaIngresoServicio_ENC f
+                INNER JOIN App_Ma_Agenda_MUESTREOS a ON f.id_fichaingresoservicio = a.id_fichaingresoservicio
+                LEFT JOIN mae_muestreador m ON a.id_muestreador = m.id_muestreador
+                LEFT JOIN mae_muestreador m2 ON a.id_muestreador2 = m2.id_muestreador
+                LEFT JOIN mae_empresa es ON f.id_empresaservicio = es.id_empresa
+                LEFT JOIN mae_contacto co ON f.id_contacto = co.id_contacto
+                LEFT JOIN mae_objetivomuestreo_ma om ON f.id_objetivomuestreo_ma = om.id_objetivomuestreo_ma
+                LEFT JOIN mae_subarea sa ON f.id_subarea = sa.id_subarea
+                LEFT JOIN mae_centro ce ON f.id_centro = ce.id_centro
+                ${whereClause}
+                ORDER BY 
+                    CASE 
+                        WHEN a.fecha_muestreo IS NULL THEN 1
+                        WHEN CAST(a.fecha_muestreo AS DATE) = '1900-01-01' THEN 1
+                        ELSE 0 
+                    END ASC,
+                    a.fecha_muestreo ASC, 
+                    f.id_fichaingresoservicio DESC
+            `);
+            return result.recordset;
+        } catch (error) {
+            logger.error('Error fetching en proceso fichas:', error);
+            throw error;
+        }
+    }
+
     async getAllFichas() {
         const pool = await getConnection();
         // Updated to use the correct Stored Procedure provided by user
@@ -869,12 +947,35 @@ class FichaIngresoService {
             requestEnc.input('xunafichacomercial', sql.Numeric(10, 0), id);
             const resultEnc = await requestEnc.execute('MAM_FichaComercial_ConsultaComercial_ENC_unaficha');
 
+            let ficha = null;
             if (!resultEnc.recordset || resultEnc.recordset.length === 0) {
-                logger.warn(`Ficha ID ${id} not found via SP ENC`);
-                return null;
-            }
+                logger.warn(`Ficha ID ${id} not found via SP ENC. Attempting fallback query...`);
 
-            const ficha = resultEnc.recordset[0];
+                const fallbackEnc = await pool.request()
+                    .input('id', sql.Numeric(10, 0), id)
+                    .query(`
+                    SELECT f.*,
+                        e.nombre_empresaservicios,
+                        em.nombre_empresa,
+                        c.nombre_centro,
+                        ta.nombre_tipoagua,
+                        (SELECT u.nombre_usuario FROM mae_usuario u WHERE u.id_usuario = f.id_usuario) as nombre_usuario
+                    FROM App_Ma_FichaIngresoServicio_ENC f
+                    LEFT JOIN mae_empresaservicios e ON f.id_empresaservicio = e.id_empresaservicio
+                    LEFT JOIN mae_empresa em ON f.id_empresa = em.id_empresa
+                    LEFT JOIN mae_centro c ON f.id_centro = c.id_centro
+                    LEFT JOIN mae_tipoagua ta ON f.id_tipoagua = ta.id_tipoagua
+                    WHERE f.id_fichaingresoservicio = @id
+                `);
+
+                if (!fallbackEnc.recordset || fallbackEnc.recordset.length === 0) {
+                    logger.warn(`Ficha ID ${id} completely missing. Fallback returned 0 rows.`);
+                    return null;
+                }
+                ficha = fallbackEnc.recordset[0];
+            } else {
+                ficha = resultEnc.recordset[0];
+            }
             // PATCH: Fetch real status from 'mae_validaciontecnica' (Correct source for Ficha Status).
             // Mapping it to 'nombre_estadomuestreo' to force Frontend display priority.
             try {
@@ -971,12 +1072,63 @@ class FichaIngresoService {
                         e.id_tipoagua,
                         e.ubicacion,
                         e.nombre_tabla_largo,
+                        e.id_contacto,
+                        e.id_objetivomuestreo_ma,
+                        e.id_cargo,
+                        e.id_tipomuestreo,
+                        e.id_tipomuestra_ma,
+                        e.id_tipomuestra,
+                        e.id_subarea,
+                        e.id_actividadmuestreo,
+                        e.id_tipodescarga,
+                        e.id_modalidad,
+                        e.id_formacanal,
+                        e.id_dispositivohidraulico,
                         a.frecuencia,
                         a.total_servicios,
                         a.frecuencia_factor,
-                        a.id_frecuencia
+                        a.id_frecuencia,
+                        la.nombre_lugaranalisis,
+                        em1.nombre_empresa AS nombre_empresa,
+                        em1.email_empresa,
+                        em2.nombre_empresa AS nombre_empresaservicios,
+                        c.nombre_centro,
+                        c.codigo_centro,
+                        com.nombre_comuna,
+                        reg.nombre_region,
+                        co.nombre_contacto,
+                        co.email_contacto,
+                        obj.nombre_objetivomuestreo_ma,
+                        car.nombre_cargo,
+                        tm.nombre_tipomuestreo,
+                        tma.nombre_tipomuestra_ma,
+                        tm2.nombre_tipomuestra AS nombre_tipomuestra,
+                        sa.nombre_subarea AS nombre_subarea,
+                        act.nombre_actividadmuestreo,
+                        td.nombre_tipodescarga,
+                        mod.nombre_modalidad,
+                        fc.nombre_formacanal,
+                        dh.nombre_dispositivohidraulico
                     FROM App_Ma_FichaIngresoServicio_ENC e
                     LEFT JOIN App_Ma_Agenda_MUESTREOS a ON e.id_fichaingresoservicio = a.id_fichaingresoservicio
+                    LEFT JOIN mae_lugaranalisis la ON e.id_lugaranalisis = la.id_lugaranalisis
+                    LEFT JOIN mae_empresa em1 ON e.id_empresa = em1.id_empresa
+                    LEFT JOIN mae_empresa em2 ON e.id_empresaservicio = em2.id_empresa
+                    LEFT JOIN mae_centro c ON e.id_centro = c.id_centro
+                    LEFT JOIN mae_comuna com ON c.id_comuna = com.id_comuna
+                    LEFT JOIN mae_region reg ON c.id_region = reg.id_region
+                    LEFT JOIN mae_contacto co ON e.id_contacto = co.id_contacto
+                    LEFT JOIN mae_objetivomuestreo_ma obj ON e.id_objetivomuestreo_ma = obj.id_objetivomuestreo_ma
+                    LEFT JOIN mae_cargo car ON e.id_cargo = car.id_cargo
+                    LEFT JOIN mae_tipomuestreo tm ON e.id_tipomuestreo = tm.id_tipomuestreo
+                    LEFT JOIN mae_tipomuestra_ma tma ON e.id_tipomuestra_ma = tma.id_tipomuestra_ma
+                    LEFT JOIN mae_tipomuestra tm2 ON e.id_tipomuestra = tm2.id_tipomuestra
+                    LEFT JOIN mae_subarea sa ON e.id_subarea = sa.id_subarea
+                    LEFT JOIN mae_actividadmuestreo act ON e.id_actividadmuestreo = act.id_actividadmuestreo
+                    LEFT JOIN mae_tipodescarga td ON e.id_tipodescarga = td.id_tipodescarga
+                    LEFT JOIN mae_modalidad mod ON e.id_modalidad = mod.id_modalidad
+                    LEFT JOIN mae_formacanal fc ON e.id_formacanal = fc.id_formacanal
+                    LEFT JOIN mae_dispositivohidraulico dh ON e.id_dispositivohidraulico = dh.id_dispositivohidraulico
                     WHERE e.id_fichaingresoservicio = @id
                 `);
 
@@ -984,26 +1136,63 @@ class FichaIngresoService {
                     const raw = parityCheck.recordset[0];
 
                     // Merge raw data into ficha (Encabezado)
-                    ficha.instrumento_ambiental = ficha.instrumento_ambiental || raw.instrumento_ambiental;
+                    ficha.instrumento_ambiental = ficha.instrumento_ambiental ?? raw.instrumento_ambiental;
                     // Note: DB column is id_empresaservicio (singular), but frontend/params might expect plural key if legacy SP returned it.
-                    // We map it to id_empresaservicios (plural) which is what CommercialDetailView expects (line 60).
-                    ficha.id_empresaservicios = ficha.id_empresaservicios || raw.id_empresaservicio;
+                    ficha.id_empresaservicios = ficha.id_empresaservicios ?? raw.id_empresaservicio;
+                    ficha.id_empresaservicio = ficha.id_empresaservicio ?? raw.id_empresaservicio;
 
-                    ficha.ma_punto_muestreo = ficha.ma_punto_muestreo || raw.ma_punto_muestreo;
-                    ficha.ma_coordenadas = ficha.ma_coordenadas || raw.ma_coordenadas;
-                    ficha.tipo_fichaingresoservicio = ficha.tipo_fichaingresoservicio || raw.tipo_fichaingresoservicio;
-                    ficha.id_lugaranalisis = ficha.id_lugaranalisis || raw.id_lugaranalisis;
+                    ficha.ma_punto_muestreo = ficha.ma_punto_muestreo ?? raw.ma_punto_muestreo;
+                    ficha.ma_coordenadas = ficha.ma_coordenadas ?? raw.ma_coordenadas;
+                    ficha.tipo_fichaingresoservicio = ficha.tipo_fichaingresoservicio ?? raw.tipo_fichaingresoservicio;
+                    ficha.id_lugaranalisis = ficha.id_lugaranalisis ?? raw.id_lugaranalisis;
 
-                    ficha.id_tipoagua = ficha.id_tipoagua || raw.id_tipoagua;
-                    ficha.ubicacion = ficha.ubicacion || raw.ubicacion;
-                    ficha.nombre_tabla_largo = ficha.nombre_tabla_largo || raw.nombre_tabla_largo;
+                    ficha.id_tipoagua = ficha.id_tipoagua ?? raw.id_tipoagua;
+                    ficha.ubicacion = ficha.ubicacion ?? raw.ubicacion;
+                    ficha.nombre_tabla_largo = ficha.nombre_tabla_largo ?? raw.nombre_tabla_largo;
+
+                    ficha.id_contacto = ficha.id_contacto ?? raw.id_contacto;
+                    ficha.id_objetivomuestreo_ma = ficha.id_objetivomuestreo_ma ?? raw.id_objetivomuestreo_ma;
+                    ficha.id_cargo = ficha.id_cargo ?? raw.id_cargo;
+                    ficha.id_tipomuestreo = ficha.id_tipomuestreo ?? raw.id_tipomuestreo;
+                    ficha.id_tipomuestra_ma = ficha.id_tipomuestra_ma ?? raw.id_tipomuestra_ma;
+                    ficha.id_tipomuestra = ficha.id_tipomuestra ?? raw.id_tipomuestra;
+                    ficha.id_subarea = ficha.id_subarea ?? raw.id_subarea;
+                    ficha.id_actividadmuestreo = ficha.id_actividadmuestreo ?? raw.id_actividadmuestreo;
+                    ficha.id_tipodescarga = ficha.id_tipodescarga ?? raw.id_tipodescarga;
+                    ficha.id_modalidad = ficha.id_modalidad ?? raw.id_modalidad;
+                    ficha.id_formacanal = ficha.id_formacanal ?? raw.id_formacanal;
+                    ficha.id_dispositivohidraulico = ficha.id_dispositivohidraulico ?? raw.id_dispositivohidraulico;
+
+                    ficha.codigo_centro = ficha.codigo_centro ?? raw.codigo_centro;
+
+                    // Hydrate names
+                    ficha.nombre_lugaranalisis = ficha.nombre_lugaranalisis ?? raw.nombre_lugaranalisis;
+                    ficha.nombre_empresa = ficha.nombre_empresa ?? raw.nombre_empresa;
+                    ficha.email_empresa = ficha.email_empresa ?? raw.email_empresa;
+                    ficha.nombre_empresaservicios = ficha.nombre_empresaservicios ?? raw.nombre_empresaservicios;
+                    ficha.nombre_centro = ficha.nombre_centro ?? raw.nombre_centro;
+                    ficha.nombre_comuna = ficha.nombre_comuna ?? raw.nombre_comuna;
+                    ficha.nombre_region = ficha.nombre_region ?? raw.nombre_region;
+                    ficha.nombre_contacto = ficha.nombre_contacto ?? raw.nombre_contacto;
+                    ficha.email_contacto = ficha.email_contacto ?? raw.email_contacto;
+                    ficha.nombre_objetivomuestreo_ma = ficha.nombre_objetivomuestreo_ma ?? raw.nombre_objetivomuestreo_ma;
+                    ficha.nombre_cargo = ficha.nombre_cargo ?? raw.nombre_cargo;
+                    ficha.nombre_tipomuestreo = ficha.nombre_tipomuestreo ?? raw.nombre_tipomuestreo;
+                    ficha.nombre_tipomuestra_ma = ficha.nombre_tipomuestra_ma ?? raw.nombre_tipomuestra_ma;
+                    ficha.nombre_tipomuestra = ficha.nombre_tipomuestra ?? raw.nombre_tipomuestra;
+                    ficha.nombre_subarea = ficha.nombre_subarea ?? raw.nombre_subarea;
+                    ficha.nombre_actividadmuestreo = ficha.nombre_actividadmuestreo ?? raw.nombre_actividadmuestreo;
+                    ficha.nombre_tipodescarga = ficha.nombre_tipodescarga ?? raw.nombre_tipodescarga;
+                    ficha.nombre_modalidad = ficha.nombre_modalidad ?? raw.nombre_modalidad;
+                    ficha.nombre_formacanal = ficha.nombre_formacanal ?? raw.nombre_formacanal;
+                    ficha.nombre_dispositivohidraulico = ficha.nombre_dispositivohidraulico ?? raw.nombre_dispositivohidraulico;
 
                     // Merge raw data into ficha.agenda
                     ficha.agenda = ficha.agenda || {};
-                    ficha.agenda.frecuencia = ficha.agenda.frecuencia || raw.frecuencia;
-                    ficha.agenda.total_servicios = ficha.agenda.total_servicios || raw.total_servicios;
-                    ficha.agenda.frecuencia_factor = ficha.agenda.frecuencia_factor || raw.frecuencia_factor;
-                    ficha.agenda.id_frecuencia = ficha.agenda.id_frecuencia || raw.id_frecuencia;
+                    ficha.agenda.frecuencia = ficha.agenda.frecuencia ?? raw.frecuencia;
+                    ficha.agenda.total_servicios = ficha.agenda.total_servicios ?? raw.total_servicios;
+                    ficha.agenda.frecuencia_factor = ficha.agenda.frecuencia_factor ?? raw.frecuencia_factor;
+                    ficha.agenda.id_frecuencia = ficha.agenda.id_frecuencia ?? raw.id_frecuencia;
                 }
             } catch (parityError) {
                 logger.warn('Parity check failed:', parityError);
@@ -1036,7 +1225,7 @@ class FichaIngresoService {
                         calculatedStatus = 'Pendiente Programación';
                         break;
                     case 7:
-                        calculatedStatus = 'Anulada';
+                        calculatedStatus = 'Cancelado';
                         break;
                     case 0:
                         // ID 0 no tiene información, no mostrar
@@ -1455,9 +1644,11 @@ class FichaIngresoService {
                 f.nombre_frecuencia,
                 f.dias,
                 a.fecha_muestreo,
+                a.ma_muestreo_fechat as fecha_retiro,
                 a.id_muestreador2,
                 fis.fichaingresoservicio,
                 fis.tipo_fichaingresoservicio,
+                fis.ma_duracion_muestreo,
                 emp.nombre_empresa as empresa_servicio,
                 cen.nombre_centro as centro,
                 obj.nombre_objetivomuestreo_ma,
@@ -1475,37 +1666,46 @@ class FichaIngresoService {
                     LEFT JOIN mae_subarea sub ON fis.id_subarea = sub.id_subarea
                     LEFT JOIN mae_coordinador coord ON a.id_coordinador = coord.id_coordinador
                     WHERE a.id_fichaingresoservicio = @xid_fichaingresoservicio
-                    AND (a.estado_caso IS NULL OR a.estado_caso != 'ANULADA')
+                    AND (a.estado_caso IS NULL OR a.estado_caso != 'CANCELADO')
                     ORDER BY a.id_agendamam
                 `);
                 return resFallback.recordset;
             }
 
-            return result.recordset;
+            // Enrichment logic (added id_muestreador2, etc.)
 
             // If SP returns data, enrich it with fecha_muestreo and id_muestreador2
             const enrichRequest = pool.request();
             enrichRequest.input('xid_fichaingresoservicio', sql.Numeric(10, 0), id);
 
             const enrichResult = await enrichRequest.query(`
-            SELECT
-            id_agendamam,
-                fecha_muestreo,
-                id_muestreador,
-                id_muestreador2,
-                m2.nombre_muestreador as nombre_muestreador2
+                SELECT
+                    a.id_agendamam,
+                    a.fecha_muestreo,
+                    a.fecha_retiro,
+                    a.id_muestreador2,
+                    a.estado_caso,
+                    a.id_estadomuestreo,
+                    m2.nombre_muestreador as nombre_muestreador2,
+                    e.ma_duracion_muestreo
                 FROM App_Ma_Agenda_MUESTREOS a
+                INNER JOIN App_Ma_FichaIngresoServicio_ENC e ON a.id_fichaingresoservicio = e.id_fichaingresoservicio
                 LEFT JOIN mae_muestreador m2 ON a.id_muestreador2 = m2.id_muestreador
-                WHERE id_fichaingresoservicio = @xid_fichaingresoservicio
-                `);
+                WHERE a.id_fichaingresoservicio = @xid_fichaingresoservicio
+            `);
 
             // Merge the data
             const enrichMap = {};
             enrichResult.recordset.forEach(row => {
                 enrichMap[row.id_agendamam] = {
                     fecha_muestreo: row.fecha_muestreo,
+                    fecha_retiro: row.fecha_retiro,
+                    fecha_retiro: row.fecha_retiro,
                     id_muestreador2: row.id_muestreador2,
-                    nombre_muestreador2: row.nombre_muestreador2
+                    nombre_muestreador2: row.nombre_muestreador2,
+                    ma_duracion_muestreo: row.ma_duracion_muestreo,
+                    estado_caso: row.estado_caso,
+                    id_estadomuestreo: row.id_estadomuestreo
                 };
             });
 
@@ -1513,8 +1713,12 @@ class FichaIngresoService {
             const enrichedData = result.recordset.map(row => ({
                 ...row,
                 fecha_muestreo: enrichMap[row.id_agendamam]?.fecha_muestreo || null,
+                fecha_retiro: enrichMap[row.id_agendamam]?.fecha_retiro || null,
                 id_muestreador2: enrichMap[row.id_agendamam]?.id_muestreador2 || null,
-                nombre_muestreador2: enrichMap[row.id_agendamam]?.nombre_muestreador2 || null
+                nombre_muestreador2: enrichMap[row.id_agendamam]?.nombre_muestreador2 || null,
+                ma_duracion_muestreo: enrichMap[row.id_agendamam]?.ma_duracion_muestreo || null,
+                estado_caso: enrichMap[row.id_agendamam]?.estado_caso || row.estado_caso || null,
+                id_estadomuestreo: enrichMap[row.id_agendamam]?.id_estadomuestreo || row.id_estadomuestreo || null
             }));
 
             return enrichedData;
@@ -1557,10 +1761,12 @@ class FichaIngresoService {
                 const {
                     id,                         // id_agendamam
                     fecha,                      // fecha en formato YYYY-MM-DD
+                    fechaRetiro,                // fecha de retiro en formato YYYY-MM-DD
                     idMuestreadorInstalacion,
                     idMuestreadorRetiro,
                     idFichaIngresoServicio,
-                    frecuenciaCorrelativo
+                    frecuenciaCorrelativo,
+                    actualizarVersiones         // flag para refrescar equipos desde maestro
                 } = assignment;
 
                 // 1. ACTUALIZAR App_Ma_Agenda_MUESTREOS
@@ -1569,8 +1775,11 @@ class FichaIngresoService {
                 const month = dateObj.getUTCMonth() + 1;
                 const year = dateObj.getUTCFullYear();
 
+                const retiroDateObj = fechaRetiro ? new Date(fechaRetiro) : null;
+
                 const updateRequest = new sql.Request(transaction);
                 updateRequest.input('fecha', sql.Date, dateObj);
+                updateRequest.input('fechaRetiro', sql.Date, retiroDateObj);
                 updateRequest.input('dia', sql.Int, day);
                 updateRequest.input('mes', sql.Int, month);
                 updateRequest.input('ano', sql.Int, year);
@@ -1585,6 +1794,8 @@ class FichaIngresoService {
                 await updateRequest.query(`
                     UPDATE App_Ma_Agenda_MUESTREOS 
                     SET fecha_muestreo = @fecha,
+                        ma_muestreo_fechat = @fechaRetiro,
+                        fecha_retiro = @fechaRetiro,
                 dia = @dia,
                 mes = @mes,
                 ano = @ano,
@@ -1709,73 +1920,97 @@ class FichaIngresoService {
                     }
                 }
 
-                // 3. CREAR REGISTROS EN App_Ma_Equipos_MUESTREOS
-                // Obtener equipos del muestreador de instalación
-                const equiposRequest = new sql.Request(transaction);
-                equiposRequest.input('idMuestreador', sql.Numeric(10, 0), idMuestreadorInstalacion);
+                // 3. MANEJO DE EQUIPOS EN App_Ma_Equipos_MUESTREOS
+                // Verificamos si ya existen registros para este muestreo.
+                const checkEquiposRequest = new sql.Request(transaction);
+                checkEquiposRequest.input('idFicha', sql.Numeric(10, 0), idFichaIngresoServicio);
+                checkEquiposRequest.input('correlativo', sql.VarChar(50), frecuenciaCorrelativo);
 
-                const equiposResult = await equiposRequest.query(`
-            SELECT *
-                FROM mae_equipo 
-                    WHERE id_muestreador = @idMuestreador 
-                    ORDER BY nombre
+                const currentEquiposResult = await checkEquiposRequest.query(`
+                    SELECT COUNT(*) as count
+                    FROM App_Ma_Equipos_MUESTREOS 
+                    WHERE id_fichaingresoservicio = @idFicha 
+                      AND frecuencia_correlativo = @correlativo
                 `);
 
-                // Insertar cada equipo disponible
-                for (const equipo of equiposResult.recordset) {
-                    const equipoRequest = new sql.Request(transaction);
+                const hasEquipos = currentEquiposResult.recordset[0].count > 0;
 
-                    equipoRequest.input('idFicha', sql.Numeric(10, 0), idFichaIngresoServicio);
-                    equipoRequest.input('correlativo', sql.VarChar(50), frecuenciaCorrelativo);
-                    equipoRequest.input('idEquipo', sql.Numeric(10, 0), equipo.id_equipo);
-                    equipoRequest.input('tieneFC', sql.VarChar(1), equipo.tienefc || null);
-                    equipoRequest.input('error0', sql.Numeric(10, 1), equipo.error0);
-                    equipoRequest.input('error15', sql.Numeric(10, 1), equipo.error15);
-                    equipoRequest.input('error30', sql.Numeric(10, 1), equipo.error30);
-                    equipoRequest.input('idMuestreador', sql.Numeric(10, 0), idMuestreadorInstalacion);
-                    equipoRequest.input('seleccionado', sql.VarChar(1), 'N');
-                    equipoRequest.input('usadoInstalacion', sql.VarChar(1), null);
-                    equipoRequest.input('usadoRetiro', sql.VarChar(1), null);
+                // REGLA:
+                // 1. Si NO tiene equipos -> Insertamos equipos de AMBOS muestreadores (instalación + retiro).
+                // 2. Si TIENE equipos y actualizarVersiones = true -> Borramos e insertamos con datos frescos del maestro.
+                // 3. Si TIENE equipos y actualizarVersiones = false/undefined -> Preservamos los existentes (versión capturada).
 
-                    // Check if equipment record exists
-                    const checkEquipoResult = await equipoRequest.query(`
-                        SELECT COUNT(*) as count
-                        FROM App_Ma_Equipos_MUESTREOS
-                        WHERE id_fichaingresoservicio = @idFicha
-                          AND frecuencia_correlativo = @correlativo
-                          AND id_equipo = @idEquipo
-                `);
+                const shouldInsertEquipos = !hasEquipos || actualizarVersiones;
 
-                    const equipoExists = checkEquipoResult.recordset[0].count > 0;
-
-                    if (equipoExists) {
-                        // UPDATE existing equipment record
-                        await equipoRequest.query(`
-                            UPDATE App_Ma_Equipos_MUESTREOS
-                            SET tienefc = @tieneFC,
-                error0 = @error0,
-                error15 = @error15,
-                error30 = @error30,
-                id_muestreador = @idMuestreador
-                            WHERE id_fichaingresoservicio = @idFicha
+                if (shouldInsertEquipos) {
+                    if (hasEquipos) {
+                        // Borrar equipos anteriores
+                        const deleteEquiposReq = new sql.Request(transaction);
+                        deleteEquiposReq.input('idFicha', sql.Numeric(10, 0), idFichaIngresoServicio);
+                        deleteEquiposReq.input('correlativo', sql.VarChar(50), frecuenciaCorrelativo);
+                        await deleteEquiposReq.query(`
+                            DELETE FROM App_Ma_Equipos_MUESTREOS 
+                            WHERE id_fichaingresoservicio = @idFicha 
                               AND frecuencia_correlativo = @correlativo
-                              AND id_equipo = @idEquipo
-                `);
-                    } else {
-                        // INSERT new equipment record
-                        await equipoRequest.query(`
-                            INSERT INTO App_Ma_Equipos_MUESTREOS(
-                    id_fichaingresoservicio, frecuencia_correlativo, id_equipo,
-                    tienefc, error0, error15, error30, id_muestreador,
-                    seleccionado, usado_instalacion, usado_retiro
-                ) VALUES(
-                    @idFicha, @correlativo, @idEquipo,
-                    @tieneFC, @error0, @error15, @error30, @idMuestreador,
-                    @seleccionado, @usadoInstalacion, @usadoRetiro
-                )
                         `);
                     }
+
+                    // Recopilar IDs de muestreadores únicos (evitar duplicados si son el mismo)
+                    const muestreadorIds = new Set();
+                    if (idMuestreadorInstalacion) muestreadorIds.add(idMuestreadorInstalacion);
+                    if (idMuestreadorRetiro && idMuestreadorRetiro !== idMuestreadorInstalacion) {
+                        muestreadorIds.add(idMuestreadorRetiro);
+                    }
+
+                    // Insertar equipos de cada muestreador
+                    const insertedEquipoIds = new Set(); // Para evitar duplicados si comparten equipos
+
+                    for (const muestreadorId of muestreadorIds) {
+                        const equiposRequest = new sql.Request(transaction);
+                        equiposRequest.input('idMuestreador', sql.Numeric(10, 0), muestreadorId);
+
+                        const equiposResult = await equiposRequest.query(`
+                            SELECT *
+                            FROM mae_equipo 
+                            WHERE id_muestreador = @idMuestreador 
+                            ORDER BY nombre
+                        `);
+
+                        for (const equipo of equiposResult.recordset) {
+                            // Evitar duplicados si ambos muestreadores comparten un equipo
+                            if (insertedEquipoIds.has(equipo.id_equipo)) continue;
+                            insertedEquipoIds.add(equipo.id_equipo);
+
+                            const equipoRequest = new sql.Request(transaction);
+
+                            equipoRequest.input('idFicha', sql.Numeric(10, 0), idFichaIngresoServicio);
+                            equipoRequest.input('correlativo', sql.VarChar(50), frecuenciaCorrelativo);
+                            equipoRequest.input('idEquipo', sql.Numeric(10, 0), equipo.id_equipo);
+                            equipoRequest.input('tieneFC', sql.VarChar(1), equipo.tienefc || null);
+                            equipoRequest.input('error0', sql.Numeric(10, 1), equipo.error0);
+                            equipoRequest.input('error15', sql.Numeric(10, 1), equipo.error15);
+                            equipoRequest.input('error30', sql.Numeric(10, 1), equipo.error30);
+                            equipoRequest.input('idMuestreador', sql.Numeric(10, 0), muestreadorId);
+                            equipoRequest.input('seleccionado', sql.VarChar(1), 'N');
+                            equipoRequest.input('usadoInstalacion', sql.VarChar(1), null);
+                            equipoRequest.input('usadoRetiro', sql.VarChar(1), null);
+                            equipoRequest.input('version', sql.VarChar(50), equipo.version || null);
+
+                            await equipoRequest.query(`
+                                INSERT INTO App_Ma_Equipos_MUESTREOS(
+                                    id_fichaingresoservicio, frecuencia_correlativo, id_equipo,
+                                    tienefc, error0, error15, error30, id_muestreador,
+                                    seleccionado, usado_instalacion, usado_retiro, version
+                                ) VALUES(
+                                    @idFicha, @correlativo, @idEquipo,
+                                    @tieneFC, @error0, @error15, @error30, @idMuestreador,
+                                    @seleccionado, @usadoInstalacion, @usadoRetiro, @version
+                                )
+                            `);
+                        }
+                    }
                 }
+                // Si hasEquipos y !actualizarVersiones, no hacemos nada → preservamos datos existentes.
 
                 successCount++;
             }
@@ -1796,20 +2031,21 @@ class FichaIngresoService {
                     SELECT 
                         a.id_agendamam,
                         a.frecuencia_correlativo,
-                        a.fecha_muestreo,
+                        a.dia, a.mes, a.ano,
+                        a.ma_muestreo_fechat as fecha_retiro,
                         m1.nombre_muestreador as muestreador_instalacion,
                         m2.nombre_muestreador as muestreador_retiro,
                         f.nombre_frecuencia,
                         (SELECT COUNT(*) 
                          FROM App_Ma_Agenda_MUESTREOS 
                          WHERE id_fichaingresoservicio = a.id_fichaingresoservicio 
-                           AND (estado_caso IS NULL OR estado_caso != 'ANULADA')) as total_servicios
+                           AND (estado_caso IS NULL OR estado_caso != 'CANCELADO')) as total_servicios
                     FROM App_Ma_Agenda_MUESTREOS a
                     LEFT JOIN mae_muestreador m1 ON a.id_muestreador = m1.id_muestreador
                     LEFT JOIN mae_muestreador m2 ON a.id_muestreador2 = m2.id_muestreador
                     LEFT JOIN mae_frecuencia f ON a.id_frecuencia = f.id_frecuencia
                     WHERE a.id_fichaingresoservicio = @fichaId
-                      AND (a.estado_caso IS NULL OR a.estado_caso != 'ANULADA')
+                      AND (a.estado_caso IS NULL OR a.estado_caso != 'CANCELADO')
                     ORDER BY a.frecuencia_correlativo
                 `);
 
@@ -1845,6 +2081,9 @@ class FichaIngresoService {
                             fecha_muestreo: fechaMuestreo
                         };
                     });
+
+                    // Sort services numerically by their extracted number
+                    servicios.sort((a, b) => parseInt(a.numero) - parseInt(b.numero));
 
                     // Get user name (Robust fallback logic) - Prioritize 'usuario' (Full Name)
                     let asignadoPor = user.usuario || user.nombre_usuario || user.nombre || user.name;
@@ -1934,6 +2173,97 @@ class FichaIngresoService {
                 }
             }
 
+            throw error;
+        }
+    }
+    async cancelAgendaSampling(idAgenda, idFicha, user, observations) {
+        const pool = await getConnection();
+        const transaction = new sql.Transaction(pool);
+
+        try {
+            await transaction.begin();
+            logger.info(`Iniciando cancelación de muestreo: Agenda ${idAgenda}, Ficha ${idFicha}`);
+
+            // 1. Cancelar Item de Agenda (Individual)
+            const agendaReq = new sql.Request(transaction);
+            agendaReq.input('id_agenda', sql.Numeric(18, 0), idAgenda);
+            agendaReq.input('motivo', sql.VarChar(500), observations || '');
+            await agendaReq.query(`
+                UPDATE App_Ma_Agenda_MUESTREOS 
+                SET estado_caso = 'CANCELADO',
+                    id_estadomuestreo = 99,
+                    motivo_cancelacion = @motivo
+                WHERE id_agendamam = @id_agenda
+            `);
+
+            // 2. Verificar si quedan otros ítems activos para esta ficha
+            const checkReq = new sql.Request(transaction);
+            checkReq.input('id_ficha', sql.Numeric(18, 0), idFicha);
+            const activeResult = await checkReq.query(`
+                SELECT COUNT(*) as active_count 
+                FROM App_Ma_Agenda_MUESTREOS 
+                WHERE id_fichaingresoservicio = @id_ficha 
+                AND (estado_caso IS NULL OR estado_caso != 'CANCELADO')
+            `);
+
+            const activeCount = activeResult.recordset[0].active_count;
+            const newFichaStatus = activeCount > 0 ? 5 : 7; // 5 = En Proceso, 7 = CANCELADO
+            const newFichaEstadoText = activeCount > 0 ? 'EN PROCESO' : 'CANCELADO';
+
+            // 3. Actualizar el estado de la Ficha (ENC) según corresponda
+            const encReq = new sql.Request(transaction);
+            encReq.input('id_ficha_enc', sql.Numeric(18, 0), idFicha);
+            encReq.input('new_status', sql.Int, newFichaStatus);
+            encReq.input('new_estado_text', sql.VarChar(50), newFichaEstadoText);
+            await encReq.query(`
+                UPDATE App_Ma_FichaIngresoServicio_ENC 
+                SET id_validaciontecnica = @new_status,
+                    estado_ficha = @new_estado_text
+                WHERE id_fichaingresoservicio = @id_ficha_enc
+            `);
+
+            // 4. Log Historial
+            await this.logHistorial(transaction, {
+                idFicha: idFicha,
+                idUsuario: user?.id || 0,
+                accion: 'CANCELACION_MUESTREO',
+                estadoAnterior: 'En Proceso',
+                estadoNuevo: newFichaEstadoText,
+                observacion: `Muestreo individual cancelado. Motivo: ${observations || 'No especificado'}. Ficha queda en estado: ${newFichaEstadoText}`
+            });
+
+            await transaction.commit();
+            logger.info(`Muestreo cancelado exitosamente: Agenda ${idAgenda}`);
+            return { success: true, message: 'Muestreo cancelado correctamente' };
+
+        } catch (error) {
+            logger.error('Error en cancelAgendaSampling:', error);
+            if (transaction) await transaction.rollback();
+            throw error;
+        }
+    }
+
+    async getSamplingEquipos(idFicha, correlativo) {
+        const pool = await getConnection();
+        try {
+            const request = pool.request();
+            request.input('idFicha', sql.Numeric(10, 0), idFicha);
+            request.input('correlativo', sql.VarChar(50), correlativo);
+
+            const result = await request.query(`
+                SELECT 
+                    ae.*,
+                    e.nombre as nombre_equipo,
+                    e.codigo as codigo_equipo,
+                    e.tipoequipo as tipo_equipo
+                FROM App_Ma_Equipos_MUESTREOS ae
+                LEFT JOIN mae_equipo e ON ae.id_equipo = e.id_equipo
+                WHERE ae.id_fichaingresoservicio = @idFicha
+                  AND ae.frecuencia_correlativo = @correlativo
+            `);
+            return result.recordset;
+        } catch (error) {
+            logger.error('Error in getSamplingEquipos:', error);
             throw error;
         }
     }

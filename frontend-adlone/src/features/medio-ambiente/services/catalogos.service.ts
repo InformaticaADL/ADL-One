@@ -68,11 +68,15 @@ export interface LugarAnalisis {
 export interface EmpresaServicio {
     id: number;
     nombre: string;
+    email?: string;
+    telefono?: string;
 }
 
 export interface Cliente {
     id: number;
     nombre: string;
+    email?: string;
+    telefono?: string;
 }
 
 export interface Contacto {

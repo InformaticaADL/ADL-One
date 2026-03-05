@@ -13,6 +13,17 @@ class FichaIngresoController {
         }
     }
 
+    async getEnProceso(req, res) {
+        try {
+            const { month, year } = req.query;
+            const result = await fichaService.getEnProcesoFichas(month, year);
+            return successResponse(res, result, 'Fichas en proceso obtenidas exitosamente');
+        } catch (err) {
+            logger.error('Error in getEnProceso fichas controller:', err);
+            return errorResponse(res, 'Error al obtener fichas en proceso', 500, err.message);
+        }
+    }
+
     async create(req, res) {
         try {
             // Basic validation
@@ -171,6 +182,18 @@ class FichaIngresoController {
             return errorResponse(res, 'Error al actualizar asignaciones', 500, err.message);
         }
     }
+
+    async cancelSampling(req, res) {
+        try {
+            const { idAgenda, idFicha, motivo_cancelacion } = req.body;
+            const userData = req.body.user || { id: 0 };
+            const result = await fichaService.cancelAgendaSampling(idAgenda, idFicha, userData, motivo_cancelacion);
+            return successResponse(res, result, 'Muestreo cancelado exitosamente');
+        } catch (err) {
+            logger.error('Error in cancelSampling controller:', err);
+            return errorResponse(res, 'Error al cancelar el muestreo', 500, err.message);
+        }
+    }
     async update(req, res) {
         try {
             const { id } = req.params;
@@ -183,6 +206,22 @@ class FichaIngresoController {
         } catch (err) {
             logger.error('Error in update ficha controller:', err);
             return errorResponse(res, 'Error al actualizar la ficha', 500, err.message);
+        }
+    }
+
+    async getSamplingEquipos(req, res) {
+        try {
+            const { id } = req.params;
+            const { correlativo } = req.query;
+            if (!id || !correlativo) {
+                return errorResponse(res, 'ID de ficha y correlativo requeridos', 400);
+            }
+
+            const result = await fichaService.getSamplingEquipos(id, correlativo);
+            return successResponse(res, result, 'Equipos del muestreo obtenidos exitosamente');
+        } catch (err) {
+            logger.error('Error in getSamplingEquipos controller:', err);
+            return errorResponse(res, 'Error al obtener equipos del muestreo', 500, err.message);
         }
     }
 }

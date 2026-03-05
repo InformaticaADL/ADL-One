@@ -8,6 +8,18 @@ export const fichaService = {
         const response = await apiClient.get('/api/fichas/');
         return response.data;
     },
+    getEnProceso: async (month?: number, year?: number) => {
+        let url = '/api/fichas/en-proceso';
+        const params = new URLSearchParams();
+        if (month) params.append('month', month.toString());
+        if (year) params.append('year', year.toString());
+
+        const queryString = params.toString();
+        if (queryString) url += `?${queryString}`;
+
+        const response = await apiClient.get(url);
+        return response.data;
+    },
     create: async (data: any) => {
         const response = await apiClient.post('/api/fichas/create', data);
         return response.data;
@@ -53,6 +65,7 @@ export const fichaService = {
         assignments: {
             id: number,
             fecha: string,
+            fechaRetiro?: string,
             idMuestreadorInstalacion: number,
             idMuestreadorRetiro: number,
             idFichaIngresoServicio: number,
@@ -68,5 +81,13 @@ export const fichaService = {
     getHistorial: async (id: number) => {
         const response = await apiClient.get(`/api/fichas/${id}/historial`);
         return response.data.data;
+    },
+    cancelAgendaSampling: async (idAgenda: number, idFicha: number, user: any, motivo_cancelacion: string) => {
+        const response = await apiClient.post('/api/fichas/cancel-sampling', { idAgenda, idFicha, user, motivo_cancelacion });
+        return response.data;
+    },
+    getSamplingEquipos: async (idFicha: number, correlativo: string) => {
+        const response = await apiClient.get(`/api/fichas/${idFicha}/sampling-equipos?correlativo=${correlativo}`);
+        return response.data;
     }
 };
