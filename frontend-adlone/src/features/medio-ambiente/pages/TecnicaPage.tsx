@@ -329,7 +329,7 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
                                                 fontWeight: 600,
                                                 backgroundColor: (() => {
                                                     const est = (ficha.estado_ficha || '').toUpperCase();
-                                                    if (est.includes('RECHAZADA') || est.includes('ANULADA') || est.includes('REVISAR')) return '#fee2e2'; // Red
+                                                    if (est.includes('RECHAZADA') || est.includes('CANCELADO') || est.includes('REVISAR')) return '#fee2e2'; // Red
                                                     if (est.includes('COORDINACIÓN')) return '#dbeafe'; // Blue
                                                     if (est.includes('PROGRAMACIÓN')) return '#ede9fe'; // Purple
                                                     if (est.includes('PENDIENTE') || est.includes('ÁREA TÉCNICA')) return '#fef3c7'; // Amber
@@ -340,7 +340,7 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
                                                 })(),
                                                 color: (() => {
                                                     const est = (ficha.estado_ficha || '').toUpperCase();
-                                                    if (est.includes('RECHAZADA') || est.includes('ANULADA') || est.includes('REVISAR')) return '#991b1b'; // Red
+                                                    if (est.includes('RECHAZADA') || est.includes('CANCELADO') || est.includes('REVISAR')) return '#991b1b'; // Red
                                                     if (est.includes('COORDINACIÓN')) return '#1e40af'; // Blue
                                                     if (est.includes('PROGRAMACIÓN')) return '#5b21b6'; // Purple
                                                     if (est.includes('PENDIENTE') || est.includes('ÁREA TÉCNICA')) return '#92400e'; // Amber

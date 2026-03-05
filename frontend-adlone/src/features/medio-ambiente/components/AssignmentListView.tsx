@@ -19,6 +19,8 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
     const [searchCentro, setSearchCentro] = useState('');
     const [searchObjetivo, setSearchObjetivo] = useState('');
     const [searchSubArea, setSearchSubArea] = useState('');
+    const [dateFrom, setDateFrom] = useState('');
+    const [dateTo, setDateTo] = useState('');
 
     // Pagination state
     const [currentPage, setCurrentPage] = useState(1);
@@ -65,7 +67,7 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
     // Reset to page 1 when any filter changes
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchId, searchEstado, searchMonitoreo, searchEmpresaFacturar, searchEmpresaServicio, searchCentro, searchObjetivo, searchSubArea]);
+    }, [searchId, searchEstado, searchMonitoreo, searchEmpresaFacturar, searchEmpresaServicio, searchCentro, searchObjetivo, searchSubArea, dateFrom, dateTo]);
 
     // Derived unique values
     const getUniqueValues = (key: string) => {
@@ -127,6 +129,8 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
         setSearchCentro('');
         setSearchObjetivo('');
         setSearchSubArea('');
+        setDateFrom('');
+        setDateTo('');
     };
 
     // Filter Logic
@@ -148,7 +152,40 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
         const matchObjetivo = check(f.nombre_objetivomuestreo_ma, searchObjetivo);
         const matchSubArea = check(f.subarea || f.nombre_subarea, searchSubArea);
 
-        return matchId && matchEstado && matchMonitoreo && matchEmpFacturar && matchEmpServicio && matchCentro && matchObjetivo && matchSubArea;
+        let matchDate = true;
+        if (dateFrom || dateTo) {
+            // SP MAM_FichaComercial_ConsultaCoordinador typically has 'fecha' in dd/mm/yyyy format
+            const fDate = f.fecha || f.fecha_muestreo;
+            if (!fDate) matchDate = false;
+            else {
+                const parts = fDate.split('/');
+                if (parts.length === 3) {
+                    const rowDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+                    rowDate.setHours(0, 0, 0, 0);
+
+                    if (dateFrom) {
+                        const dFrom = new Date(dateFrom);
+                        dFrom.setHours(0, 0, 0, 0);
+                        if (rowDate < dFrom) matchDate = false;
+                    }
+                    if (dateTo && matchDate) {
+                        const dTo = new Date(dateTo);
+                        dTo.setHours(0, 0, 0, 0);
+                        if (rowDate > dTo) matchDate = false;
+                    }
+                } else {
+                    // Try direct Date object if it's already a Date
+                    const rowDate = new Date(fDate);
+                    if (!isNaN(rowDate.getTime())) {
+                        rowDate.setHours(0, 0, 0, 0);
+                        if (dateFrom && rowDate < new Date(dateFrom)) matchDate = false;
+                        if (dateTo && rowDate > new Date(dateTo)) matchDate = false;
+                    }
+                }
+            }
+        }
+
+        return matchId && matchEstado && matchMonitoreo && matchEmpFacturar && matchEmpServicio && matchCentro && matchObjetivo && matchSubArea && matchDate;
     });
 
     // Sorting Logic: Por Asignar -> Pendiente -> Ejecutado -> Others
@@ -273,6 +310,16 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                         options={uniqueSubAreas.map(val => ({ id: val, nombre: val }))}
                     />
 
+                    <div className="form-group">
+                        <label style={{ fontSize: '0.7rem', fontWeight: 600, color: '#374151', marginBottom: '2px', display: 'block' }}>F. Desde</label>
+                        <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} style={{ width: '100%', padding: '5px 8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.75rem', height: '34px' }} />
+                    </div>
+
+                    <div className="form-group">
+                        <label style={{ fontSize: '0.7rem', fontWeight: 600, color: '#374151', marginBottom: '2px', display: 'block' }}>F. Hasta</label>
+                        <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} style={{ width: '100%', padding: '5px 8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.75rem', height: '34px' }} />
+                    </div>
+
 
 
                     <div className="form-group" style={{ marginBottom: '1rem' }}>
@@ -355,7 +402,7 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                                                     // Pendiente Técnica -> Amber (Visual distinction)
                                                     bgColor = '#fef3c7';
                                                     textColor = '#92400e';
-                                                } else if (estado.includes('RECHAZADA') || estado.includes('ANULADA')) {
+                                                } else if (estado.includes('RECHAZADA') || estado.includes('CANCELADO') || estado.includes('ANULADA')) {
                                                     bgColor = '#fee2e2';
                                                     textColor = '#991b1b';
                                                 }

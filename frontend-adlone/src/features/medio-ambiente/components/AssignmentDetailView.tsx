@@ -38,9 +38,11 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
 
     // Editable dates per row
     const [editableDates, setEditableDates] = useState<Record<number, string>>({});
+    const [editableRetiroDates, setEditableRetiroDates] = useState<Record<number, string>>({});
 
     // Frequency data (dias)
     const [frequencyDays, setFrequencyDays] = useState<number>(0);
+    const [duracionMuestreo, setDuracionMuestreo] = useState<number>(0);
 
     // Load Data
     const loadAssignmentData = async () => {
@@ -51,60 +53,62 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                 setRows(data);
                 if (data.length > 0) {
                     setDbFieldValue(data[0].nombre_frecuencia || '');
-                    // Store frequency days for calculation
                     setFrequencyDays(data[0].dias || 0);
+                    setDuracionMuestreo(Number(data[0].ma_duracion_muestreo) || 0);
 
-                    // Load existing dates and muestreadores if already assigned
                     const existingDates: Record<number, string> = {};
+                    const existingRetiroDates: Record<number, string> = {};
                     const existingInstalacion: Record<number, number> = {};
                     const existingRetiro: Record<number, number> = {};
 
+                    // Track first valid programmed date for header
+                    let firstRowDate = '';
+                    let firstRowRetiroDate = '';
+
                     data.forEach((row: any) => {
-                        // Load existing dates
-                        if (row.fecha_muestreo && row.fecha_muestreo !== '  /  /    ' && row.fecha_muestreo !== '01/01/1900') {
-                            let dateStr = '';
+                        // 1. Calculate base date from DB fields (dia, mes, ano) if available
+                        let calculatedFromDB = '';
+                        if (row.dia && row.mes && row.ano) {
+                            const d = String(row.dia).padStart(2, '0');
+                            const m = String(row.mes).padStart(2, '0');
+                            const a = String(row.ano);
+                            calculatedFromDB = `${a}-${m}-${d}`;
+                        }
 
-                            if (typeof row.fecha_muestreo === 'string') {
-                                if (row.fecha_muestreo.includes('T')) {
-                                    // Handle ISO string (e.g., 2024-01-27T00:00:00.000Z)
-                                    dateStr = row.fecha_muestreo.split('T')[0];
-                                } else if (row.fecha_muestreo.includes('/')) {
-                                    // Handle legacy format DD/MM/YYYY
-                                    const dateParts = row.fecha_muestreo.split('/');
-                                    if (dateParts.length === 3) {
-                                        const [day, month, year] = dateParts;
-                                        dateStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-                                    }
-                                } else if (row.fecha_muestreo.includes('-')) {
-                                    // Handle simple YYYY-MM-DD
-                                    dateStr = row.fecha_muestreo;
-                                }
-                            } else if (row.fecha_muestreo instanceof Date) {
-                                // Handle Date object (common in mssql driver results)
-                                const d = row.fecha_muestreo;
-                                const year = d.getFullYear();
-                                const month = String(d.getMonth() + 1).padStart(2, '0');
-                                const day = String(d.getDate()).padStart(2, '0');
-                                dateStr = `${year}-${month}-${day}`;
-                            }
+                        // 2. Load sampling date: priority 1 (existing in DB), priority 2 (calculated from programmed fields)
+                        let samplingDate = '';
+                        if (row.fecha_muestreo && row.fecha_muestreo !== '  /  /    ' && row.fecha_muestreo !== '01/01/1900' && row.fecha_muestreo !== '1900-01-01') {
+                            samplingDate = formatDate(row.fecha_muestreo);
+                        } else if (calculatedFromDB) {
+                            samplingDate = calculatedFromDB;
+                        }
 
+                        if (samplingDate) {
+                            existingDates[row.id_agendamam] = samplingDate;
+                            if (!firstRowDate) firstRowDate = samplingDate;
+                        }
+
+                        // 3. Load retirement date
+                        if (row.fecha_retiro && row.fecha_retiro !== '01/01/1900' && row.fecha_retiro !== '1900-01-01' && row.fecha_retiro !== '  /  /    ') {
+                            const dateStr = formatDate(row.fecha_retiro);
                             if (dateStr) {
-                                existingDates[row.id_agendamam] = dateStr;
+                                existingRetiroDates[row.id_agendamam] = dateStr;
+                                if (!firstRowRetiroDate) firstRowRetiroDate = dateStr;
                             }
                         }
 
-                        // Load existing muestreadores
-                        if (row.id_muestreador) {
-                            existingInstalacion[row.id_agendamam] = row.id_muestreador;
-                        }
-                        if (row.id_muestreador2) {
-                            existingRetiro[row.id_agendamam] = row.id_muestreador2;
-                        }
+                        // 4. Load muestreadores
+                        if (row.id_muestreador) existingInstalacion[row.id_agendamam] = row.id_muestreador;
+                        if (row.id_muestreador2) existingRetiro[row.id_agendamam] = row.id_muestreador2;
                     });
 
                     setEditableDates(existingDates);
+                    setEditableRetiroDates(existingRetiroDates);
                     setMuestreadorInstalacion(existingInstalacion);
                     setMuestreadorRetiro(existingRetiro);
+
+                    // Auto-fill header if not already set
+                    if (firstRowDate && !selectedDate) setSelectedDate(firstRowDate);
                 }
             }
         } catch (error) {
@@ -115,22 +119,29 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
         }
     };
 
+    const formatDate = (date: any) => {
+        if (!date) return '';
+        let dateStr = '';
+        if (typeof date === 'string') {
+            if (date.includes('T')) dateStr = date.split('T')[0];
+            else if (date.includes('/')) {
+                const parts = date.split('/');
+                if (parts.length === 3) dateStr = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+            } else if (date.includes('-')) dateStr = date;
+        } else if (date instanceof Date) {
+            dateStr = date.toISOString().split('T')[0];
+        }
+        return dateStr;
+    };
+
     // Check Ficha Status for Validation
     const checkStatus = async () => {
         setStatusLoading(true);
         try {
-            // We reuse getById to get the ENC info, specifically id_validaciontecnica
             const response = await fichaService.getById(fichaId);
-            // Backend returns {success, message, data: {...}}
             const ficha = response.data || response;
 
             if (ficha) {
-                console.log('[AssignmentDetailView] Ficha Status Debug:', {
-                    id_validaciontecnica: ficha.id_validaciontecnica,
-                    type: typeof ficha.id_validaciontecnica,
-                    estado_ficha: ficha.estado_ficha,
-                    fullResponse: response
-                });
                 setFichaStatus(ficha.id_validaciontecnica);
             }
         } catch (error) {
@@ -138,7 +149,7 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
         } finally {
             setStatusLoading(false);
         }
-    }
+    };
 
     useEffect(() => {
         const loadInitialData = async () => {
@@ -156,6 +167,7 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
             loadInitialData();
         }
     }, [fichaId, getCatalogo]);
+
 
     const handleMuestreadorInstalacionChange = (rowId: number, muestreadorId: number) => {
         setMuestreadorInstalacion(prev => ({
@@ -177,29 +189,66 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
     };
 
     const handleCalculateDates = () => {
-        if (!selectedDate) {
-            showToast({ message: 'Debe seleccionar una fecha inicial', type: 'warning' });
-            return;
-        }
+        if (rows.length === 0) return;
 
-        const baseDate = new Date(selectedDate);
+        console.log('Calculating dates based on individual row data...');
+
         const newDates: Record<number, string> = {};
+        const newRetiroDates: Record<number, string> = {};
+
+        // Rule: if duration is 24 or more -> add days corresponding to duration (e.g. 24h = 1 day)
+        // If duration < 24 -> same day (0 days offset)
+        const dayOffset = Math.floor(duracionMuestreo / 24);
+
+        const isMensual = dbFieldValue?.toUpperCase().includes('MENSUAL');
 
         rows.forEach((row, index) => {
-            const calculatedDate = new Date(baseDate);
-            calculatedDate.setDate(calculatedDate.getDate() + (frequencyDays * index));
+            let baseDateStr = '';
 
-            // Format as YYYY-MM-DD
-            const formattedDate = calculatedDate.toISOString().split('T')[0];
-            newDates[row.id_agendamam] = formattedDate;
+            // If selectedDate is set, we use it as the START of a sequence for ALL rows
+            // This allows the user to re-center the entire schedule (all 12 samplings)
+            if (selectedDate) {
+                const base = new Date(selectedDate + 'T00:00:00');
+                if (isMensual) {
+                    // For monthly, we increment by months to preserve the day of the month
+                    base.setMonth(base.getMonth() + index);
+                } else {
+                    const interval = frequencyDays * index;
+                    base.setDate(base.getDate() + interval);
+                }
+                baseDateStr = base.toISOString().split('T')[0];
+            } else if (row.dia && row.mes && row.ano) {
+                // Fallback to row specific programmed dates if no header date is selected
+                const d = String(row.dia).padStart(2, '0');
+                const m = String(row.mes).padStart(2, '0');
+                const a = String(row.ano);
+                baseDateStr = `${a}-${m}-${d}`;
+            }
+
+            if (baseDateStr) {
+                newDates[row.id_agendamam] = baseDateStr;
+
+                // Calculate retirement date adding offset
+                const retiDate = new Date(baseDateStr + 'T00:00:00');
+                retiDate.setDate(retiDate.getDate() + dayOffset);
+                newRetiroDates[row.id_agendamam] = retiDate.toISOString().split('T')[0];
+            }
         });
 
         setEditableDates(newDates);
-        showToast({ message: 'Fechas calculadas correctamente. Puede editarlas antes de asignar.', type: 'success' });
+        setEditableRetiroDates(newRetiroDates);
+        showToast({ message: 'Fechas calculadas según programación', type: 'success' });
     };
 
     const handleDateChange = (id: number, newDate: string) => {
         setEditableDates(prev => ({
+            ...prev,
+            [id]: newDate
+        }));
+    };
+
+    const handleRetiroDateChange = (id: number, newDate: string) => {
+        setEditableRetiroDates(prev => ({
             ...prev,
             [id]: newDate
         }));
@@ -225,6 +274,7 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
             const assignments = rows.map((row: any) => ({
                 id: row.id_agendamam,
                 fecha: editableDates[row.id_agendamam],
+                fechaRetiro: editableRetiroDates[row.id_agendamam] || editableDates[row.id_agendamam],
                 idMuestreadorInstalacion: muestreadorInstalacion[row.id_agendamam],
                 idMuestreadorRetiro: muestreadorRetiro[row.id_agendamam] || muestreadorInstalacion[row.id_agendamam],
                 idFichaIngresoServicio: row.id_fichaingresoservicio,
@@ -282,59 +332,63 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                 marginBottom: '1.5rem',
                 boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
                 display: 'flex',
-                gap: '1.5rem',
-                alignItems: 'end',
-                flexWrap: 'wrap'
+                gap: '2rem',
+                alignItems: 'flex-start',
+                justifyContent: 'center'
             }}>
-                <div className="form-group" style={{ flex: '0 0 160px' }}>
-                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>
-                        Frecuencia (DB)
-                    </label>
-                    <input
-                        type="text"
-                        value={dbFieldValue}
-                        disabled
-                        style={{
-                            width: '100%',
-                            padding: '0.5rem',
-                            borderRadius: '6px',
-                            border: '1px solid #d1d5db',
-                            backgroundColor: '#f3f4f6',
-                            color: '#6b7280',
-                            fontSize: '0.9rem'
-                        }}
-                    />
-                </div>
+                {/* GROUP 1: Dates & Calculation */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '1rem' }}>
+                        <div className="form-group" style={{ flex: '0 0 140px' }}>
+                            <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#4b5563', marginBottom: '4px', display: 'block' }}>
+                                Frecuencia (DB)
+                            </label>
+                            <input
+                                type="text"
+                                value={dbFieldValue}
+                                disabled
+                                style={{
+                                    width: '100%',
+                                    padding: '0.4rem',
+                                    borderRadius: '6px',
+                                    border: '1px solid #d1d5db',
+                                    backgroundColor: '#f9fafb',
+                                    color: '#6b7280',
+                                    fontSize: '0.85rem'
+                                }}
+                            />
+                        </div>
 
-                <div className="form-group" style={{ flex: '0 0 160px' }}>
-                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>
-                        Fecha Inicial
-                    </label>
-                    <input
-                        type="date"
-                        value={selectedDate}
-                        onChange={(e) => setSelectedDate(e.target.value)}
-                        style={{
-                            width: '100%',
-                            padding: '0.5rem',
-                            borderRadius: '6px',
-                            border: '1px solid #d1d5db',
-                            fontSize: '0.9rem'
-                        }}
-                    />
-                </div>
+                        <div className="form-group" style={{ flex: '0 0 150px' }}>
+                            <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#4b5563', marginBottom: '4px', display: 'block' }}>
+                                Fecha Inicial
+                            </label>
+                            <input
+                                type="date"
+                                value={selectedDate}
+                                onChange={(e) => setSelectedDate(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.4rem',
+                                    borderRadius: '6px',
+                                    border: '1px solid #d1d5db',
+                                    fontSize: '0.85rem'
+                                }}
+                            />
+                        </div>
+                    </div>
 
-                <div className="form-group" style={{ flex: '0 0 auto' }}>
                     <button
                         onClick={handleCalculateDates}
                         disabled={!selectedDate || (fichaStatus !== 6 && fichaStatus !== 5)}
                         className="btn-secondary"
                         style={{
-                            padding: '0.6rem 1rem',
-                            height: '38px',
+                            padding: '0.4rem 0.8rem',
+                            fontSize: '0.8rem',
+                            height: '32px',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '0.5rem',
+                            gap: '0.4rem',
                             opacity: (!selectedDate || (fichaStatus !== 6 && fichaStatus !== 5)) ? 0.5 : 1,
                             cursor: (!selectedDate || (fichaStatus !== 6 && fichaStatus !== 5)) ? 'not-allowed' : 'pointer'
                         }}
@@ -343,109 +397,122 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                     </button>
                 </div>
 
-                {/* Bulk Assignment for Muestreador Instalacion */}
-                <div className="form-group" style={{ flex: '0 0 200px' }}>
-                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>
-                        Asignar M. Instalación a Todos
-                    </label>
-                    <select
-                        value=""
-                        onChange={(e) => {
-                            const muestreadorId = Number(e.target.value);
-                            if (muestreadorId) {
-                                const newInstalacion: { [key: number]: number } = {};
-                                const newRetiro: { [key: number]: number } = {};
-                                rows.forEach(row => {
-                                    newInstalacion[row.id_agendamam] = muestreadorId;
-                                    newRetiro[row.id_agendamam] = muestreadorRetiro[row.id_agendamam] || muestreadorId;
-                                });
-                                setMuestreadorInstalacion(newInstalacion);
-                                setMuestreadorRetiro(newRetiro);
-                                e.target.value = ''; // Reset selector
-                            }
-                        }}
-                        style={{
-                            width: '100%',
-                            padding: '0.5rem',
-                            borderRadius: '6px',
-                            border: '1px solid #d1d5db',
-                            backgroundColor: '#fff',
-                            color: '#1f2937',
-                            fontSize: '0.85rem'
-                        }}
-                    >
-                        <option value="">Seleccionar...</option>
-                        {muestreadores.map(m => (
-                            <option key={m.id_muestreador} value={m.id_muestreador}>
-                                {m.nombre_muestreador}
-                            </option>
-                        ))}
-                    </select>
-                </div>
+                {/* Vertical Separator */}
+                <div style={{
+                    width: '1px',
+                    height: '80px',
+                    backgroundColor: '#e5e7eb',
+                    alignSelf: 'center'
+                }} />
 
-                {/* Bulk Assignment for Muestreador Retiro */}
-                <div className="form-group" style={{ flex: '0 0 200px' }}>
-                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>
-                        Asignar M. Retiro a Todos
-                    </label>
-                    <select
-                        value=""
-                        onChange={(e) => {
-                            const muestreadorId = Number(e.target.value);
-                            if (muestreadorId) {
-                                const newRetiro: { [key: number]: number } = {};
-                                rows.forEach(row => {
-                                    newRetiro[row.id_agendamam] = muestreadorId;
-                                });
-                                setMuestreadorRetiro(newRetiro);
-                                e.target.value = ''; // Reset selector
-                            }
-                        }}
-                        style={{
-                            width: '100%',
-                            padding: '0.5rem',
-                            borderRadius: '6px',
-                            border: '1px solid #d1d5db',
-                            backgroundColor: '#fff',
-                            color: '#1f2937',
-                            fontSize: '0.85rem'
-                        }}
-                    >
-                        <option value="">Seleccionar...</option>
-                        {muestreadores.map(m => (
-                            <option key={m.id_muestreador} value={m.id_muestreador}>
-                                {m.nombre_muestreador}
-                            </option>
-                        ))}
-                    </select>
-                </div>
-
-                <div className="form-group" style={{ flex: '0 0 auto', marginLeft: 'auto' }}>
-                    <button
-                        onClick={handleSaveAssignment}
-                        disabled={saving || loading || (fichaStatus !== 6 && fichaStatus !== 5)}
-                        className="btn-primary"
-                        style={{
-                            backgroundColor: (saving || (fichaStatus !== 6 && fichaStatus !== 5)) ? '#a78bfa' : '#8b5cf6',
-                            color: 'white',
-                            padding: '0.6rem 1.5rem',
-                            borderRadius: '8px',
-                            fontWeight: 600,
-                            border: 'none',
-                            cursor: (saving || (fichaStatus !== 6 && fichaStatus !== 5)) ? 'not-allowed' : 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            opacity: (fichaStatus !== 6 && fichaStatus !== 5) ? 0.6 : 1
-                        }}
-                    >
-                        {saving ? 'Guardando...' : '💾 Guardar Asignación'}
-                    </button>
-                    {(!statusLoading && fichaStatus !== 6 && fichaStatus !== 5) && (
-                        <div style={{ fontSize: '0.75rem', color: '#dc2626', marginTop: '4px', textAlign: 'center', fontWeight: 500 }}>
-                            Requiere aprobación de Coordinación
+                {/* GROUP 2: Bulk Assignment & Save */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '1rem' }}>
+                        <div className="form-group" style={{ flex: '0 0 190px' }}>
+                            <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#4b5563', marginBottom: '4px', display: 'block' }}>
+                                Asignar M. Instalación a Todos
+                            </label>
+                            <select
+                                value=""
+                                onChange={(e) => {
+                                    const muestreadorId = Number(e.target.value);
+                                    if (muestreadorId) {
+                                        const newInstalacion: { [key: number]: number } = {};
+                                        const newRetiro: { [key: number]: number } = {};
+                                        rows.forEach(row => {
+                                            newInstalacion[row.id_agendamam] = muestreadorId;
+                                            newRetiro[row.id_agendamam] = muestreadorRetiro[row.id_agendamam] || muestreadorId;
+                                        });
+                                        setMuestreadorInstalacion(newInstalacion);
+                                        setMuestreadorRetiro(newRetiro);
+                                        e.target.value = ''; // Reset selector
+                                    }
+                                }}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.4rem',
+                                    borderRadius: '6px',
+                                    border: '1px solid #d1d5db',
+                                    backgroundColor: '#fff',
+                                    color: '#111827',
+                                    fontSize: '0.8rem'
+                                }}
+                            >
+                                <option value="">Seleccionar...</option>
+                                {muestreadores.map(m => (
+                                    <option key={m.id_muestreador} value={m.id_muestreador}>
+                                        {m.nombre_muestreador}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
-                    )}
+
+                        <div className="form-group" style={{ flex: '0 0 190px' }}>
+                            <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#4b5563', marginBottom: '4px', display: 'block' }}>
+                                Asignar M. Retiro a Todos
+                            </label>
+                            <select
+                                value=""
+                                onChange={(e) => {
+                                    const muestreadorId = Number(e.target.value);
+                                    if (muestreadorId) {
+                                        const newRetiro: { [key: number]: number } = {};
+                                        rows.forEach(row => {
+                                            newRetiro[row.id_agendamam] = muestreadorId;
+                                        });
+                                        setMuestreadorRetiro(newRetiro);
+                                        e.target.value = ''; // Reset selector
+                                    }
+                                }}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.4rem',
+                                    borderRadius: '6px',
+                                    border: '1px solid #d1d5db',
+                                    backgroundColor: '#fff',
+                                    color: '#111827',
+                                    fontSize: '0.8rem'
+                                }}
+                            >
+                                <option value="">Seleccionar...</option>
+                                {muestreadores.map(m => (
+                                    <option key={m.id_muestreador} value={m.id_muestreador}>
+                                        {m.nombre_muestreador}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <button
+                            onClick={handleSaveAssignment}
+                            disabled={saving || loading || (fichaStatus !== 6 && fichaStatus !== 5)}
+                            className="btn-primary"
+                            style={{
+                                backgroundColor: (saving || (fichaStatus !== 6 && fichaStatus !== 5)) ? '#9333ea' : '#7c3aed',
+                                color: 'white',
+                                padding: '0.4rem 1.2rem',
+                                fontSize: '0.85rem',
+                                height: '34px',
+                                borderRadius: '8px',
+                                fontWeight: 700,
+                                border: 'none',
+                                cursor: (saving || (fichaStatus !== 6 && fichaStatus !== 5)) ? 'not-allowed' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.4rem',
+                                opacity: (fichaStatus !== 6 && fichaStatus !== 5) ? 0.6 : 1
+                            }}
+                        >
+                            {saving ? 'Guardando...' : '💾 Guardar Asignación'}
+                        </button>
+                        {(!statusLoading && fichaStatus !== 6 && fichaStatus !== 5) && (
+                            <div style={{ fontSize: '0.7rem', color: '#dc2626', marginTop: '4px', textAlign: 'center', fontWeight: 600 }}>
+                                Requiere aprobación de Coordinación
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -454,7 +521,7 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                 {loading ? (
                     <div style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>Cargando datos...</div>
                 ) : (
-                    <div style={{ overflowX: 'auto', maxHeight: '400px', border: '1px solid #e5e7eb', borderRadius: '4px' }}>
+                    <div style={{ overflowX: 'auto', maxHeight: '650px', border: '1px solid #e5e7eb', borderRadius: '4px' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px' }}>
                             <thead style={{ backgroundColor: '#f9fafb', position: 'sticky', top: 0, zIndex: 1 }}>
                                 <tr>
@@ -462,12 +529,12 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                     <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', fontSize: '9px', textAlign: 'center' }}>Correlativo</th>
                                     <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', fontSize: '9px', textAlign: 'center' }}>Estado</th>
                                     <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', fontSize: '9px', textAlign: 'center' }}>F.muestreo</th>
+                                    <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', fontSize: '9px', textAlign: 'center' }}>F. Retiro</th>
                                     <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', fontSize: '9px', textAlign: 'center' }}>Frecuencia</th>
                                     <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', fontSize: '9px', textAlign: 'center' }}>E.Servicio</th>
                                     <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', fontSize: '9px', textAlign: 'center' }}>Tipo Punto</th>
                                     <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', fontSize: '9px', textAlign: 'center' }}>Sub Área</th>
                                     <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', fontSize: '9px', textAlign: 'center' }}>Coordinador</th>
-                                    <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', fontSize: '9px', textAlign: 'center' }}>sync</th>
                                     <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', backgroundColor: '#fef3c7', fontSize: '9px', minWidth: '140px', textAlign: 'center' }}>M. Instalación</th>
                                     <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', backgroundColor: '#fef3c7', fontSize: '9px', minWidth: '140px', textAlign: 'center' }}>M. Retiro</th>
                                 </tr>
@@ -479,10 +546,16 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                         displayDate = '';
                                     }
 
+                                    const isCancelled = row.estado_caso === 'CANCELADO' || row.id_estadomuestreo === 99 || row.nombre_estadomuestreo === 'CANCELADO' || row.nombre_estadomuestreo === 'Cancelado';
+
                                     return (
                                         <tr key={idx} style={{
                                             borderBottom: '1px solid #e5e7eb',
-                                            height: '36px'
+                                            height: '36px',
+                                            backgroundColor: isCancelled ? '#f3f4f6' : 'transparent',
+                                            color: isCancelled ? '#9ca3af' : 'inherit',
+                                            textDecoration: isCancelled ? 'line-through' : 'none',
+                                            opacity: isCancelled ? 0.6 : 1
                                         }}>
                                             <td style={{ padding: '6px 8px', fontWeight: 600, whiteSpace: 'nowrap', textAlign: 'center' }}>{row.fichaingresoservicio}</td>
                                             <td style={{ padding: '6px 8px', whiteSpace: 'nowrap', textAlign: 'center' }}>{row.frecuencia_correlativo}</td>
@@ -492,10 +565,12 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                     borderRadius: '9999px',
                                                     fontSize: '9px',
                                                     fontWeight: 600,
-                                                    backgroundColor: row.nombre_estadomuestreo?.includes('POR') ? '#ffedd5' : (row.nombre_estadomuestreo?.includes('PEND') ? '#fee2e2' : '#dcfce7'),
-                                                    color: row.nombre_estadomuestreo?.includes('POR') ? '#c2410c' : (row.nombre_estadomuestreo?.includes('PEND') ? '#991b1b' : '#166534')
+                                                    backgroundColor: isCancelled ? '#e5e7eb' : (row.nombre_estadomuestreo?.includes('POR') ? '#ffedd5' : (row.nombre_estadomuestreo?.includes('PEND') ? '#fee2e2' : '#dcfce7')),
+                                                    color: isCancelled ? '#6b7280' : (row.nombre_estadomuestreo?.includes('POR') ? '#c2410c' : (row.nombre_estadomuestreo?.includes('PEND') ? '#991b1b' : '#166534')),
+                                                    textDecoration: 'none',
+                                                    display: 'inline-block'
                                                 }}>
-                                                    {row.nombre_estadomuestreo}
+                                                    {isCancelled ? 'CANCELADO' : row.nombre_estadomuestreo}
                                                 </span>
                                             </td>
                                             <td style={{ padding: '6px 8px', whiteSpace: 'nowrap', textAlign: 'center' }}>
@@ -503,17 +578,36 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                     type="date"
                                                     value={editableDates[row.id_agendamam] || ''}
                                                     onChange={(e) => handleDateChange(row.id_agendamam, e.target.value)}
-                                                    disabled={!editableDates[row.id_agendamam]}
+                                                    disabled={isCancelled || !editableDates[row.id_agendamam]}
                                                     placeholder="Calcular primero"
                                                     style={{
                                                         padding: '4px 6px',
                                                         fontSize: '10px',
                                                         border: editableDates[row.id_agendamam] ? '1px solid #10b981' : '1px solid #d1d5db',
                                                         borderRadius: '4px',
-                                                        width: '120px',
+                                                        width: '110px',
                                                         backgroundColor: editableDates[row.id_agendamam] ? '#f0fdf4' : '#f3f4f6',
                                                         cursor: editableDates[row.id_agendamam] ? 'text' : 'not-allowed',
                                                         color: editableDates[row.id_agendamam] ? '#1f2937' : '#9ca3af'
+                                                    }}
+                                                />
+                                            </td>
+                                            <td style={{ padding: '6px 8px', whiteSpace: 'nowrap', textAlign: 'center' }}>
+                                                <input
+                                                    type="date"
+                                                    value={editableRetiroDates[row.id_agendamam] || ''}
+                                                    onChange={(e) => handleRetiroDateChange(row.id_agendamam, e.target.value)}
+                                                    disabled={isCancelled || !editableRetiroDates[row.id_agendamam]}
+                                                    placeholder="Calcular primero"
+                                                    style={{
+                                                        padding: '4px 6px',
+                                                        fontSize: '10px',
+                                                        border: editableRetiroDates[row.id_agendamam] ? '1px solid #ef4444' : '1px solid #d1d5db',
+                                                        borderRadius: '4px',
+                                                        width: '110px',
+                                                        backgroundColor: editableRetiroDates[row.id_agendamam] ? '#fef2f2' : '#f3f4f6',
+                                                        cursor: editableRetiroDates[row.id_agendamam] ? 'text' : 'not-allowed',
+                                                        color: editableRetiroDates[row.id_agendamam] ? '#1f2937' : '#9ca3af'
                                                     }}
                                                 />
                                             </td>
@@ -522,21 +616,10 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                             <td style={{ padding: '6px 8px', whiteSpace: 'nowrap', textAlign: 'center' }}>{row.nombre_objetivomuestreo_ma}</td>
                                             <td style={{ padding: '6px 8px', whiteSpace: 'nowrap', textAlign: 'center' }}>{row.nombre_subarea}</td>
                                             <td style={{ padding: '6px 8px', whiteSpace: 'nowrap', textAlign: 'center' }}>{row.nombre_coordinador}</td>
-                                            <td style={{ padding: '6px 8px', whiteSpace: 'nowrap', textAlign: 'center' }}>
-                                                <span style={{
-                                                    padding: '1px 6px',
-                                                    borderRadius: '9999px',
-                                                    fontSize: '9px',
-                                                    fontWeight: 600,
-                                                    backgroundColor: (row.sincronizado === 'S' || row.sincronizado === true) ? '#dcfce7' : '#fee2e2',
-                                                    color: (row.sincronizado === 'S' || row.sincronizado === true) ? '#166534' : '#991b1b'
-                                                }}>
-                                                    {(row.sincronizado === 'S' || row.sincronizado === true) ? 'SI' : 'NO'}
-                                                </span>
-                                            </td>
-                                            <td style={{ padding: '6px 8px', whiteSpace: 'nowrap', backgroundColor: '#fffbeb', textAlign: 'center' }}>
+                                            <td style={{ padding: '6px 8px', whiteSpace: 'nowrap', backgroundColor: isCancelled ? 'transparent' : '#fffbeb', textAlign: 'center' }}>
                                                 <select
                                                     value={muestreadorInstalacion[row.id_agendamam] ?? ''}
+                                                    disabled={isCancelled}
                                                     onChange={(e) => handleMuestreadorInstalacionChange(row.id_agendamam, Number(e.target.value))}
                                                     style={{
                                                         padding: '3px 5px',
@@ -555,9 +638,10 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                     ))}
                                                 </select>
                                             </td>
-                                            <td style={{ padding: '6px 8px', whiteSpace: 'nowrap', backgroundColor: '#fffbeb', textAlign: 'center' }}>
+                                            <td style={{ padding: '6px 8px', whiteSpace: 'nowrap', backgroundColor: isCancelled ? 'transparent' : '#fffbeb', textAlign: 'center' }}>
                                                 <select
                                                     value={muestreadorRetiro[row.id_agendamam] ?? ''}
+                                                    disabled={isCancelled}
                                                     onChange={(e) => handleMuestreadorRetiroChange(row.id_agendamam, Number(e.target.value))}
                                                     style={{
                                                         padding: '3px 5px',

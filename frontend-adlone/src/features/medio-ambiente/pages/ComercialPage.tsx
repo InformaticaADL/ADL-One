@@ -101,6 +101,7 @@ const CommercialForm = ({ onBackToMenu }: { onBackToMenu: () => void }) => {
     const { showToast } = useToast();
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [createdFichaId, setCreatedFichaId] = useState<number | null>(null);
+    const [isAntecedentesValid, setIsAntecedentesValid] = useState(false);
 
     // Estado persistente del formulario
     const [observaciones, setObservaciones] = useState('');
@@ -129,7 +130,7 @@ const CommercialForm = ({ onBackToMenu }: { onBackToMenu: () => void }) => {
             const payload = {
                 antecedentes: antData,
                 analisis: savedAnalysis,
-                observaciones: observaciones,
+                observaciones: observaciones || 'No Aplica',
                 user: { id: user?.id || 0 }
             };
 
@@ -204,7 +205,10 @@ const CommercialForm = ({ onBackToMenu }: { onBackToMenu: () => void }) => {
             {/* Contenido Dinámico */}
             <div className="tab-content-area">
                 <div className="fade-in" style={{ display: activeTab === 'antecedentes' ? 'block' : 'none' }}>
-                    <AntecedentesForm ref={antecedentesRef} />
+                    <AntecedentesForm
+                        ref={antecedentesRef}
+                        onValidationChange={setIsAntecedentesValid}
+                    />
                 </div>
 
                 <div className="fade-in" style={{ display: activeTab === 'analisis' ? 'block' : 'none' }}>
@@ -223,11 +227,119 @@ const CommercialForm = ({ onBackToMenu }: { onBackToMenu: () => void }) => {
             </div>
 
             {/* Acciones */}
-            <div className="form-actions">
-                <button className="btn-save" onClick={handleSave}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1-2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-                    Grabar Ficha
-                </button>
+            <div className="form-actions" style={{ justifyContent: 'flex-end', gap: '1rem' }}>
+                {activeTab === 'antecedentes' && (
+                    <button
+                        className="btn-next"
+                        onClick={() => setActiveTab('analisis')}
+                        disabled={!isAntecedentesValid}
+                        style={{
+                            padding: '10px 24px',
+                            backgroundColor: !isAntecedentesValid ? '#9ca3af' : '#3b82f6',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontWeight: 600,
+                            cursor: !isAntecedentesValid ? 'not-allowed' : 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        Siguiente
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                    </button>
+                )}
+
+                {activeTab === 'analisis' && (
+                    <>
+                        <button
+                            className="btn-back-tab"
+                            onClick={() => setActiveTab('antecedentes')}
+                            style={{
+                                padding: '10px 24px',
+                                backgroundColor: 'white',
+                                color: '#374151',
+                                border: '1px solid #d1d5db',
+                                borderRadius: '6px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                            Anterior
+                        </button>
+                        <button
+                            className="btn-next"
+                            onClick={() => setActiveTab('observaciones')}
+                            disabled={savedAnalysis.length === 0}
+                            style={{
+                                padding: '10px 24px',
+                                backgroundColor: savedAnalysis.length === 0 ? '#9ca3af' : '#3b82f6',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '6px',
+                                fontWeight: 600,
+                                cursor: savedAnalysis.length === 0 ? 'not-allowed' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            Siguiente
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                        </button>
+                    </>
+                )}
+
+                {activeTab === 'observaciones' && (
+                    <>
+                        <button
+                            className="btn-back-tab"
+                            onClick={() => setActiveTab('analisis')}
+                            style={{
+                                padding: '10px 24px',
+                                backgroundColor: 'white',
+                                color: '#374151',
+                                border: '1px solid #d1d5db',
+                                borderRadius: '6px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                            Anterior
+                        </button>
+                        <button
+                            className="btn-save"
+                            onClick={handleSave}
+                            disabled={!isAntecedentesValid || savedAnalysis.length === 0 || observaciones.trim().length === 0}
+                            title={
+                                !isAntecedentesValid ? "Debe completar todos los campos obligatorios en Antecedentes" :
+                                    savedAnalysis.length === 0 ? "Debe agregar al menos un Análisis" :
+                                        observaciones.trim().length === 0 ? "Debe ingresar una Observación" :
+                                            "Grabar Ficha"
+                            }
+                            style={{
+                                opacity: (!isAntecedentesValid || savedAnalysis.length === 0 || observaciones.trim().length === 0) ? 0.6 : 1,
+                                cursor: (!isAntecedentesValid || savedAnalysis.length === 0 || observaciones.trim().length === 0) ? 'not-allowed' : 'pointer'
+                            }}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1-2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                            Grabar Ficha
+                        </button>
+                    </>
+                )}
             </div>
         </div>
     );
@@ -651,6 +763,7 @@ const ConsultarFichasView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () 
                                         if (s === 'PENDIENTE TÉCNICA') return 'PENDIENTE ÁREA TÉCNICA';
                                         if (s === 'APROBADA TÉCNICA') return 'APROBADA ÁREA TÉCNICA';
                                         if (s === 'RECHAZADA TÉCNICA') return 'RECHAZADA ÁREA TÉCNICA';
+                                        if (s === 'ANULADA') return 'CANCELADO';
                                         return s;
                                     };
                                     const displayEstado = normalizeStatus(ficha.estado_ficha);
@@ -666,7 +779,7 @@ const ConsultarFichasView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () 
                                                     fontWeight: 600,
                                                     backgroundColor: (() => {
                                                         const est = (displayEstado || '').toUpperCase();
-                                                        if (est.includes('RECHAZADA') || est.includes('ANULADA') || est.includes('REVISAR')) return '#fee2e2'; // Red
+                                                        if (est.includes('RECHAZADA') || est.includes('CANCELADO') || est.includes('REVISAR')) return '#fee2e2'; // Red
                                                         if (est.includes('COORDINACIÓN')) return '#dbeafe'; // Blue
                                                         if (est.includes('PROGRAMACIÓN')) return '#ede9fe'; // Purple (New)
                                                         if (est.includes('PENDIENTE') || est.includes('ÁREA TÉCNICA')) return '#fef3c7'; // Amber
@@ -677,7 +790,7 @@ const ConsultarFichasView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () 
                                                     })(),
                                                     color: (() => {
                                                         const est = (displayEstado || '').toUpperCase();
-                                                        if (est.includes('RECHAZADA') || est.includes('ANULADA') || est.includes('REVISAR')) return '#991b1b'; // Red
+                                                        if (est.includes('RECHAZADA') || est.includes('CANCELADO') || est.includes('REVISAR')) return '#991b1b'; // Red
                                                         if (est.includes('COORDINACIÓN')) return '#1e40af'; // Blue
                                                         if (est.includes('PROGRAMACIÓN')) return '#5b21b6'; // Purple (New)
                                                         if (est.includes('PENDIENTE') || est.includes('ÁREA TÉCNICA')) return '#92400e'; // Amber

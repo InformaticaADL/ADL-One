@@ -29,9 +29,9 @@ BEGIN
         f.estado_ficha
 
     FROM dbo.App_Ma_FichaIngresoServicio_ENC f
-    INNER JOIN dbo.App_Ma_Agenda_MUESTREOS a ON f.id_fichaingresoservicio = a.id_fichaingresoservicio
-    -- Filter out ANULADAS in the base join so they don't affect distinct logic or frequency display
-    AND (a.estado_caso IS NULL OR a.estado_caso != 'ANULADA')
+    LEFT JOIN dbo.App_Ma_Agenda_MUESTREOS a 
+        ON f.id_fichaingresoservicio = a.id_fichaingresoservicio
+        AND (a.estado_caso IS NULL OR a.estado_caso != 'ANULADA')
     INNER JOIN dbo.mae_empresaservicios es ON f.id_empresaservicio = es.id_empresaservicio
     INNER JOIN dbo.mae_empresa e ON f.id_empresa = e.id_empresa
     INNER JOIN dbo.mae_centro c ON f.id_centro = c.id_centro

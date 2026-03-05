@@ -57,8 +57,8 @@ const ReadOnlyField = ({ label, value }: { label: string, value: string }) => (
     </div>
 );
 
-export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData?: any }>((props, ref) => {
-    const { initialData } = props;
+export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData?: any, onValidationChange?: (isValid: boolean) => void }>((props, ref) => {
+    const { initialData, onValidationChange } = props;
     // Initialize cached catalogos hook
     const catalogos = useCachedCatalogos();
 
@@ -139,12 +139,12 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
     // --- Block 5 State ---
     const [formasCanal, setFormasCanal] = useState<any[]>([]);
-    const [formaCanal, setFormaCanal] = useState<string>(String(initialData?.formaCanal || ''));
+    const [formaCanal, setFormaCanal] = useState<string>(String(initialData?.formaCanal ?? ''));
 
     const [detalleCanal, setDetalleCanal] = useState<string>(initialData?.detalleCanal || '');
 
     const [dispositivos, setDispositivos] = useState<any[]>([]);
-    const [dispositivo, setDispositivo] = useState<string>(String(initialData?.dispositivo || ''));
+    const [dispositivo, setDispositivo] = useState<string>(String(initialData?.dispositivo ?? ''));
     const [detalleDispositivo, setDetalleDispositivo] = useState<string>(initialData?.detalleDispositivo || '');
 
     // Extra state for id_tipo_agua (separate from the display string)
@@ -155,6 +155,55 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
     const isHydrating = useRef(!!initialData);
     // Force false initially to ensures backup effect runs if useState misses
     const hasHydrated = useRef(false);
+
+    // Validation Effect
+    useEffect(() => {
+        const checkValidity = () => {
+            const requiredFields = [
+                tipoMonitoreo,
+                selectedLugar,
+                selectedCliente,
+                selectedFuente,
+                selectedObjetivo,
+                puntoMuestreo,
+                zona,
+                utmNorte,
+                utmEste,
+                selectedComponente,
+                selectedSubArea,
+                glosa,
+                selectedTipoMuestreo,
+                selectedTipoMuestra,
+                selectedActividad,
+                duracion,
+                responsableMuestreo,
+                cargoResponsable,
+                selectedInstrumento,
+                nroInstrumento,
+                anioInstrumento,
+                frecuencia,
+                factor,
+                periodo
+            ];
+
+            const isValid = requiredFields.every(field => {
+                if (field === null || field === undefined) return false;
+                return String(field).trim().length > 0 && String(field) !== 'null';
+            });
+
+            if (onValidationChange) {
+                onValidationChange(isValid);
+            }
+        };
+
+        checkValidity();
+    }, [
+        tipoMonitoreo, selectedLugar, selectedCliente, selectedFuente, selectedObjetivo,
+        puntoMuestreo, zona, utmNorte, utmEste, selectedComponente, selectedSubArea,
+        glosa, selectedTipoMuestreo, selectedTipoMuestra, selectedActividad, duracion,
+        responsableMuestreo, cargoResponsable, selectedInstrumento, nroInstrumento,
+        anioInstrumento, frecuencia, factor, periodo, onValidationChange
+    ]);
 
     // Debug: Track component mount/unmount
     useEffect(() => {
@@ -172,17 +221,17 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
             isHydrating.current = true;
 
             setTipoMonitoreo(initialData.tipoMonitoreo || '');
-            setSelectedLugar(String(initialData.selectedLugar || ''));
-            setSelectedEmpresa(String(initialData.selectedEmpresa || ''));
-            setSelectedCliente(String(initialData.selectedCliente || ''));
-            setSelectedFuente(String(initialData.selectedFuente || ''));
-            setSelectedContacto(String(initialData.selectedContacto || ''));
-            setSelectedObjetivo(String(initialData.selectedObjetivo || ''));
+            setSelectedLugar(String(initialData.selectedLugar ?? ''));
+            setSelectedEmpresa(String(initialData.selectedEmpresa ?? ''));
+            setSelectedCliente(String(initialData.selectedCliente ?? ''));
+            setSelectedFuente(String(initialData.selectedFuente ?? ''));
+            setSelectedContacto(String(initialData.selectedContacto ?? ''));
+            setSelectedObjetivo(String(initialData.selectedObjetivo ?? ''));
             setUbicacion(initialData.ubicacion || '');
             setComuna(initialData.comuna || '');
             setRegion(initialData.region || '');
             setTipoAgua(initialData.tipoAgua || '');
-            setIdTipoAgua(initialData.idTipoAgua || null);
+            setIdTipoAgua(initialData.idTipoAgua ?? null);
             setCodigo(initialData.codigo || '');
             setGlosa(initialData.glosa || '');
             setEsETFA(initialData.esETFA || 'No');
@@ -190,30 +239,30 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
             setZona(initialData.zona || '');
             setUtmNorte(initialData.utmNorte || '');
             setUtmEste(initialData.utmEste || '');
-            setSelectedComponente(String(initialData.selectedComponente || ''));
-            setSelectedSubArea(String(initialData.selectedSubArea || ''));
+            setSelectedComponente(String(initialData.selectedComponente ?? ''));
+            setSelectedSubArea(String(initialData.selectedSubArea ?? ''));
             setSelectedInstrumento(initialData.selectedInstrumento || '');
             setNroInstrumento(initialData.nroInstrumento || '');
             setAnioInstrumento(initialData.anioInstrumento || '');
-            setSelectedInspector(String(initialData.selectedInspector || ''));
+            setSelectedInspector(String(initialData.selectedInspector ?? ''));
             setResponsableMuestreo(initialData.responsableMuestreo || 'ADL');
-            setCargoResponsable(String(initialData.cargoResponsable || ''));
-            setSelectedTipoMuestreo(String(initialData.selectedTipoMuestreo || ''));
-            setSelectedTipoMuestra(String(initialData.selectedTipoMuestra || ''));
-            setSelectedActividad(String(initialData.selectedActividad || ''));
+            setCargoResponsable(String(initialData.cargoResponsable ?? ''));
+            setSelectedTipoMuestreo(String(initialData.selectedTipoMuestreo ?? ''));
+            setSelectedTipoMuestra(String(initialData.selectedTipoMuestra ?? ''));
+            setSelectedActividad(String(initialData.selectedActividad ?? ''));
             setDuracion(initialData.duracion || '');
-            setSelectedTipoDescarga(String(initialData.selectedTipoDescarga || ''));
+            setSelectedTipoDescarga(String(initialData.selectedTipoDescarga ?? ''));
             setRefGoogle(initialData.refGoogle || '');
             setMedicionCaudal(initialData.medicionCaudal || '');
-            setSelectedModalidad(String(initialData.selectedModalidad || ''));
-            setFormaCanal(String(initialData.formaCanal || ''));
+            setSelectedModalidad(String(initialData.selectedModalidad ?? ''));
+            setFormaCanal(String(initialData.formaCanal ?? ''));
             setDetalleCanal(initialData.detalleCanal || '');
-            setDispositivo(String(initialData.dispositivo || ''));
+            setDispositivo(String(initialData.dispositivo ?? ''));
             setDetalleDispositivo(initialData.detalleDispositivo || '');
-            setFrecuencia(String(initialData.frecuencia || ''));
-            setFactor(String(initialData.factor || '1'));
-            setPeriodo(String(initialData.periodo || ''));
-            setTotalServicios(String(initialData.totalServicios || ''));
+            setFrecuencia(String(initialData.frecuencia ?? ''));
+            setFactor(String(initialData.factor ?? '1'));
+            setPeriodo(String(initialData.periodo ?? ''));
+            setTotalServicios(String(initialData.totalServicios ?? ''));
 
             hasHydrated.current = true;
             // Note: isHydrating will be disabled by catalog loader or timeout if needed
@@ -225,47 +274,49 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
             const contactoObj = contactos.find(c => String(c.id) === selectedContacto);
 
             const data = {
-                tipoMonitoreo,
-                selectedLugar,
-                selectedEmpresa,
-                selectedCliente,
-                selectedFuente,
-                tipoAgua,
+                tipoMonitoreo: tipoMonitoreo || '',
+                selectedLugar: selectedLugar || '',
+                selectedEmpresa: selectedEmpresa || '',
+                selectedCliente: selectedCliente || '',
+                selectedFuente: selectedFuente || '',
+                tipoAgua: tipoAgua || '',
                 idTipoAgua,
-                selectedObjetivo,
-                glosa,
-                esETFA,
-                puntoMuestreo,
-                zona, utmNorte, utmEste,
-                selectedComponente,
-                selectedSubArea,
-                selectedTipoDescarga,
-                selectedContacto,
+                selectedObjetivo: selectedObjetivo || '',
+                glosa: glosa || '',
+                esETFA: esETFA || '',
+                puntoMuestreo: puntoMuestreo || '',
+                zona: zona || '',
+                utmNorte: utmNorte || '',
+                utmEste: utmEste || '',
+                selectedComponente: selectedComponente || '',
+                selectedSubArea: selectedSubArea || '',
+                selectedTipoDescarga: selectedTipoDescarga || '',
+                selectedContacto: selectedContacto || '',
                 contactoNombre: contactoObj ? contactoObj.nombre : '',
-                selectedTipoMuestreo,
-                selectedTipoMuestra,
-                selectedActividad,
-                duracion,
-                refGoogle,
-                medicionCaudal,
-                selectedModalidad,
-                formaCanal,
-                detalleCanal,
-                dispositivo,
-                detalleDispositivo,
-                responsableMuestreo,
-                cargoResponsable,
-                selectedInspector,
-                frecuencia,
-                factor,
-                periodo,
-                totalServicios,
-                ubicacion,
-                comuna,
-                region,
-                selectedInstrumento,
-                nroInstrumento,
-                anioInstrumento
+                selectedTipoMuestreo: selectedTipoMuestreo || '',
+                selectedTipoMuestra: selectedTipoMuestra || '',
+                selectedActividad: selectedActividad || '',
+                duracion: duracion || '',
+                refGoogle: refGoogle || '',
+                medicionCaudal: medicionCaudal || '',
+                selectedModalidad: selectedModalidad || '',
+                formaCanal: formaCanal || '',
+                detalleCanal: detalleCanal || '',
+                dispositivo: dispositivo || '',
+                detalleDispositivo: detalleDispositivo || '',
+                responsableMuestreo: responsableMuestreo || '',
+                cargoResponsable: cargoResponsable || '',
+                selectedInspector: selectedInspector || '',
+                frecuencia: frecuencia || '',
+                factor: factor || '',
+                periodo: periodo || '',
+                totalServicios: totalServicios || '',
+                ubicacion: ubicacion || '',
+                comuna: comuna || '',
+                region: region || '',
+                selectedInstrumento: selectedInstrumento || '',
+                nroInstrumento: nroInstrumento || '',
+                anioInstrumento: anioInstrumento || ''
             };
 
             console.log('🔍 DEBUG getData() - selectedInspector:', selectedInspector);
@@ -426,8 +477,9 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
         try {
             const data = await catalogos.getEmpresasServicio();
             setEmpresas(data.map((item: any) => ({
-                id: item.id_empresaservicio || item.id_empresa || item.IdEmpresa || item.id,
-                nombre: item.nombre_empresaservicios || item.nombre_empresaservicio || item.razon_social || item.RazonSocial || item.nombre
+                id: item.id_empresa || item.IdEmpresa || item.id_empresaservicio || item.id,
+                nombre: item.nombre_empresaservicios || item.nombre_empresaservicio || item.razon_social || item.RazonSocial || item.nombre,
+                email: item.email_empresa || item.email || item.Email || ''
             })));
         } catch (err: any) {
             console.error(err);
@@ -439,7 +491,8 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
             const data = await catalogos.getClientes();
             setClientes(data.map((item: any) => ({
                 id: item.id_cliente || item.IdCliente || item.id || item.id_empresa,
-                nombre: item.nombre_cliente || item.NombreCliente || item.nombre || item.razon_social || item.nombre_empresa
+                nombre: item.nombre_cliente || item.NombreCliente || item.nombre || item.razon_social || item.nombre_empresa,
+                email: item.email_empresa || item.email || item.Email || ''
             })));
         } catch (err: any) {
             console.error(err);
@@ -673,8 +726,15 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
             // Calc Total
             setTotalServicios(String(Number(cant) * Number(mult)));
+        } else if (val === 'No Aplica') {
+            setFrecuencia('No Aplica');
+            setFactor('No Aplica');
+            setTotalServicios('No Aplica');
         } else {
             console.warn('⚠️ No matching frequency found for periodo:', val);
+            setFrecuencia('');
+            setFactor('');
+            setTotalServicios('');
         }
     };
 
@@ -712,10 +772,14 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
         // ALLOW calculation during hydration to ensure total services is correct
         // if (isHydrating.current) return; 
 
-        if (frecuencia && factor) {
+        if (frecuencia === 'No Aplica' || factor === 'No Aplica' || periodo === 'No Aplica') {
+            setTotalServicios('No Aplica');
+        } else if (frecuencia && factor && !isNaN(Number(frecuencia)) && !isNaN(Number(factor))) {
             setTotalServicios(String(Number(frecuencia) * Number(factor)));
+        } else {
+            setTotalServicios('');
         }
-    }, [frecuencia, factor]);
+    }, [frecuencia, factor, periodo]);
 
     // Auto-assign Cargo based on Responsable Muestreo (FoxPro LostFocus logic)
     useEffect(() => {
@@ -760,7 +824,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 <div className="form-grid-row grid-cols-4">
                     <div style={{ width: '100%', minWidth: 0 }}>
                         <SearchableSelect
-                            label="Monitoreo agua/RIL"
+                            label="Monitoreo agua/RIL *"
                             value={tipoMonitoreo}
                             onChange={setTipoMonitoreo}
                             options={[
@@ -771,27 +835,36 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                     </div>
                     <div style={{ width: '100%', minWidth: 0 }}>
                         <SearchableSelect
-                            label="Base de operaciones"
+                            label="Base de operaciones *"
                             value={selectedLugar}
                             onChange={setSelectedLugar}
-                            options={lugares.map(l => ({ id: l.id, nombre: l.nombre }))}
+                            options={[
+                                { id: 'No Aplica', nombre: 'No Aplica' },
+                                ...lugares.map(l => ({ id: l.id, nombre: l.nombre }))
+                            ]}
                             disabled={!tipoMonitoreo}
                         />
                     </div>
                     <div style={{ width: '100%', minWidth: 0 }}>
                         <SearchableSelect
-                            label="Empresa a Facturar"
-                            value={selectedEmpresa}
-                            onChange={setSelectedEmpresa}
-                            options={empresas.map(e => ({ id: e.id, nombre: e.nombre }))}
+                            label="Empresa a Facturar *"
+                            value={selectedCliente}
+                            onChange={setSelectedCliente}
+                            options={[
+                                { id: 'No Aplica', nombre: 'No Aplica' },
+                                ...clientes.map(c => ({ id: c.id, nombre: c.nombre }))
+                            ]}
                         />
                     </div>
                     <div style={{ width: '100%', minWidth: 0 }}>
                         <SearchableSelect
                             label="Empresa de servicio"
-                            value={selectedCliente}
-                            onChange={setSelectedCliente}
-                            options={clientes.map(c => ({ id: c.id, nombre: c.nombre }))}
+                            value={selectedEmpresa}
+                            onChange={setSelectedEmpresa}
+                            options={[
+                                { id: 'No Aplica', nombre: 'No Aplica' },
+                                ...empresas.map(e => ({ id: e.id, nombre: e.nombre }))
+                            ]}
                         />
                     </div>
                 </div>
@@ -800,10 +873,13 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 <div className="form-grid-row grid-cols-custom-5">
                     <div style={{ width: '100%', minWidth: 0 }}>
                         <SearchableSelect
-                            label="Fuente emisora"
+                            label="Fuente emisora *"
                             value={selectedFuente}
                             onChange={setSelectedFuente}
-                            options={fuentesEmisoras.map(f => ({ id: f.id, nombre: f.nombre }))}
+                            options={[
+                                { id: 'No Aplica', nombre: 'No Aplica' },
+                                ...fuentesEmisoras.map(f => ({ id: f.id, nombre: f.nombre }))
+                            ]}
                             disabled={!selectedCliente}
                         />
                     </div>
@@ -839,16 +915,18 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 <div className="form-grid-row grid-cols-4">
                     <div style={{ width: '100%', minWidth: 0 }}>
                         <SearchableSelect
-                            label="Contacto empresa"
+                            label="Contacto empresa *"
                             value={selectedContacto}
                             onChange={setSelectedContacto}
-                            options={contactos.map(c => ({ id: c.id, nombre: c.nombre }))}
+                            options={[
+                                { id: 'No Aplica', nombre: 'No Aplica' },
+                                ...contactos.map(c => ({ id: c.id, nombre: c.nombre }))
+                            ]}
                             disabled={!selectedCliente}
                         />
                     </div>
-                    {/* Espaciadores si es necesario para mantener alineación */}
-                    <div />
-                    <div />
+                    <ReadOnlyField label="Correo Empresa" value={clientes.find(c => String(c.id) === selectedCliente)?.email || '-'} />
+                    <ReadOnlyField label="Correo Contacto" value={contactos.find(c => String(c.id) === selectedContacto)?.email || '-'} />
                     <div />
                 </div>
 
@@ -858,16 +936,19 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 {/* Row 1: Objetivo, Responsable, Cargo */}
                 <div className="form-grid-row grid-cols-3">
                     <SearchableSelect
-                        label="Objetivo del Muestreo"
+                        label="Objetivo del Muestreo *"
                         value={selectedObjetivo}
                         onChange={setSelectedObjetivo}
-                        options={dedupOptions(objetivos.map((o, idx) => ({
-                            id: o.id || o.ID || o.IdObjetivo || o.id_objetio || o.id_objetivo || o.xid_objetivo || o.id_objetivomuestreo_ma || `obj-${idx}`,
-                            nombre: o.nombre || o.Nombre || o.descripcion || o.Descripcion || o.glosa || o.nombre_objetivo || o.nombre_objetivomuestreo_ma || 'Sin Nombre'
-                        })))}
+                        options={[
+                            { id: 'No Aplica', nombre: 'No Aplica' },
+                            ...dedupOptions(objetivos.map((o, idx) => ({
+                                id: o.id || o.ID || o.IdObjetivo || o.id_objetio || o.id_objetivo || o.xid_objetivo || o.id_objetivomuestreo_ma || `obj-${idx}`,
+                                nombre: o.nombre || o.Nombre || o.descripcion || o.Descripcion || o.glosa || o.nombre_objetivo || o.nombre_objetivomuestreo_ma || 'Sin Nombre'
+                            })))
+                        ]}
                     />
                     <SearchableSelect
-                        label="Responsable Muestreo"
+                        label="Responsable Muestreo *"
                         value={responsableMuestreo}
                         onChange={(val) => {
                             setResponsableMuestreo(val);
@@ -889,16 +970,23 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                                 setCargoResponsable('');
                             }
                         }}
-                        options={[{ id: 'ADL', nombre: 'ADL' }, { id: 'Cliente', nombre: 'Cliente' }]}
+                        options={[
+                            { id: 'No Aplica', nombre: 'No Aplica' },
+                            { id: 'ADL', nombre: 'ADL' },
+                            { id: 'Cliente', nombre: 'Cliente' }
+                        ]}
                     />
                     <SearchableSelect
-                        label="Cargo"
+                        label="Cargo *"
                         value={cargoResponsable}
                         onChange={setCargoResponsable}
-                        options={dedupOptions(getFilteredCargos().map(c => ({
-                            id: c.id,
-                            nombre: c.nombre
-                        })))}
+                        options={[
+                            { id: 'No Aplica', nombre: 'No Aplica' },
+                            ...dedupOptions(getFilteredCargos().map(c => ({
+                                id: c.id,
+                                nombre: c.nombre
+                            })))
+                        ]}
                         disabled={responsableMuestreo === 'ADL'}
                     />
                 </div>
@@ -906,35 +994,64 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 {/* Row 2: Punto, Frec Periodo, Frec Muestreo, Factor, Total */}
                 <div className="form-grid-row grid-cols-custom-5">
                     <div className="form-group">
-                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>Punto de Muestreo</label>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>Punto de Muestreo *</label>
                         <input type="text" value={puntoMuestreo} onChange={(e) => setPuntoMuestreo(e.target.value)}
                             style={{ width: '100%', padding: '6px', fontSize: '0.85rem', border: '1px solid #d1d5db', borderRadius: '6px' }} />
                     </div>
                     <div onFocus={handlePeriodoFocus}>
                         <SearchableSelect
-                            label="Frecuencia Periodo"
+                            label="Frecuencia Periodo *"
                             value={periodo}
                             onChange={handlePeriodoChange}
-                            options={dedupOptions(frecuenciasOptions.map(f => ({
-                                id: String(f.id),
-                                nombre: f.nombre || f.nombre_frecuencia || 'Sin Nombre'
-                            })))}
+                            options={[
+                                { id: 'No Aplica', nombre: 'No Aplica' },
+                                ...dedupOptions(frecuenciasOptions.map(f => ({
+                                    id: String(f.id),
+                                    nombre: f.nombre || f.nombre_frecuencia || 'Sin Nombre'
+                                })))
+                            ]}
                             disabled={!puntoMuestreo || puntoMuestreo.trim() === ''}
                         />
                     </div>
                     <div className="form-group">
-                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>Frecuencia Muestreo</label>
-                        <input type="number" value={frecuencia} onChange={(e) => setFrecuencia(e.target.value)}
-                            style={{ width: '100%', padding: '6px', fontSize: '0.85rem', border: '1px solid #d1d5db', borderRadius: '6px' }} />
+                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>Frecuencia Muestreo *</label>
+                        <input
+                            type="text"
+                            value={frecuencia}
+                            onChange={(e) => setFrecuencia(e.target.value)}
+                            disabled={!periodo || periodo === 'No Aplica'}
+                            style={{
+                                width: '100%',
+                                padding: '6px',
+                                fontSize: '0.85rem',
+                                border: '1px solid #d1d5db',
+                                borderRadius: '6px',
+                                backgroundColor: (!periodo || periodo === 'No Aplica') ? '#f3f4f6' : 'white',
+                                cursor: (!periodo || periodo === 'No Aplica') ? 'not-allowed' : 'text'
+                            }}
+                        />
                     </div>
                     <div className="form-group">
-                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>Factor</label>
-                        <input type="number" value={factor} onChange={(e) => setFactor(e.target.value)}
-                            style={{ width: '100%', padding: '6px', fontSize: '0.85rem', border: '1px solid #d1d5db', borderRadius: '6px' }} />
+                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>Factor *</label>
+                        <input
+                            type="text"
+                            value={factor}
+                            onChange={(e) => setFactor(e.target.value)}
+                            disabled={!periodo || periodo === 'No Aplica'}
+                            style={{
+                                width: '100%',
+                                padding: '6px',
+                                fontSize: '0.85rem',
+                                border: '1px solid #d1d5db',
+                                borderRadius: '6px',
+                                backgroundColor: (!periodo || periodo === 'No Aplica') ? '#f3f4f6' : 'white',
+                                cursor: (!periodo || periodo === 'No Aplica') ? 'not-allowed' : 'text'
+                            }}
+                        />
                     </div>
                     <div className="form-group">
                         <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>Total Servicios</label>
-                        <input type="number" value={totalServicios} readOnly disabled
+                        <input type="text" value={totalServicios} readOnly disabled
                             style={{ width: '100%', padding: '6px', fontSize: '0.85rem', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: '#f3f4f6' }} />
                     </div>
                 </div>
@@ -942,7 +1059,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 {/* Row 3: Coordenadas Geograficas (Zona), UTM E, UTM S */}
                 <div className="form-grid-row grid-cols-3">
                     <SearchableSelect
-                        label="Coordenadas Geogr&aacute;ficas (Zona)"
+                        label="Coordenadas Geogr&aacute;ficas (Zona) *"
                         value={zona}
                         onChange={(val) => {
                             setZona(val);
@@ -967,14 +1084,14 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         ]}
                     />
                     <div className="form-group">
-                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>UTM (E)</label>
-                        <input type="text" value={utmEste} onChange={(e) => setUtmEste(e.target.value)} disabled={zona === 'No aplica'}
-                            style={{ width: '100%', padding: '6px 10px', fontSize: '0.85rem', border: '1px solid #d1d5db', borderRadius: '6px', outline: 'none', minHeight: '34px', backgroundColor: zona === 'No aplica' ? '#f3f4f6' : 'white' }} />
+                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>UTM (E) *</label>
+                        <input type="text" value={utmEste} onChange={(e) => setUtmEste(e.target.value)} disabled={!zona || zona === 'No aplica'}
+                            style={{ width: '100%', padding: '6px 10px', fontSize: '0.85rem', border: '1px solid #d1d5db', borderRadius: '6px', outline: 'none', minHeight: '34px', backgroundColor: (!zona || zona === 'No aplica') ? '#f3f4f6' : 'white' }} />
                     </div>
                     <div className="form-group">
-                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>UTM (N)</label>
-                        <input type="text" value={utmNorte} onChange={(e) => setUtmNorte(e.target.value)} disabled={zona === 'No aplica'}
-                            style={{ width: '100%', padding: '6px 10px', fontSize: '0.85rem', border: '1px solid #d1d5db', borderRadius: '6px', outline: 'none', minHeight: '34px', backgroundColor: zona === 'No aplica' ? '#f3f4f6' : 'white' }} />
+                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>UTM (N) *</label>
+                        <input type="text" value={utmNorte} onChange={(e) => setUtmNorte(e.target.value)} disabled={!zona || zona === 'No aplica'}
+                            style={{ width: '100%', padding: '6px 10px', fontSize: '0.85rem', border: '1px solid #d1d5db', borderRadius: '6px', outline: 'none', minHeight: '34px', backgroundColor: (!zona || zona === 'No aplica') ? '#f3f4f6' : 'white' }} />
                     </div>
                     <div style={{ width: '100%', minWidth: 0, display: 'flex', alignItems: 'flex-end', paddingBottom: '0' }}>
                     </div>
@@ -986,7 +1103,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 {/* Row 1: Instrumento Ambiental, Nro, Anio */}
                 <div className="form-grid-row grid-cols-3">
                     <SearchableSelect
-                        label="Instrumento Ambiental"
+                        label="Instrumento Ambiental *"
                         value={selectedInstrumento}
                         onChange={(val) => {
                             setSelectedInstrumento(val);
@@ -1013,33 +1130,38 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
                         <div className="form-group" style={{ flex: 1 }}>
-                            <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>N&deg;</label>
+                            <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>N&deg; *</label>
                             <input type="text" value={nroInstrumento} onChange={(e) => setNroInstrumento(e.target.value)}
-                                style={{ width: '100%', padding: '6px', fontSize: '0.85rem', border: '1px solid #d1d5db', borderRadius: '6px' }} />
+                                disabled={!selectedInstrumento || selectedInstrumento === 'No aplica'}
+                                style={{ width: '100%', padding: '6px', fontSize: '0.85rem', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: (!selectedInstrumento || selectedInstrumento === 'No aplica') ? '#f3f4f6' : 'white', cursor: (!selectedInstrumento || selectedInstrumento === 'No aplica') ? 'not-allowed' : 'text' }} />
                         </div>
                         <div className="form-group" style={{ flex: 1 }}>
-                            <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>A&ntilde;o</label>
+                            <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>A&ntilde;o *</label>
                             <input type="text" value={anioInstrumento} onChange={(e) => setAnioInstrumento(e.target.value)}
-                                style={{ width: '100%', padding: '6px', fontSize: '0.85rem', border: '1px solid #d1d5db', borderRadius: '6px' }} />
+                                disabled={!selectedInstrumento || selectedInstrumento === 'No aplica'}
+                                style={{ width: '100%', padding: '6px', fontSize: '0.85rem', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: (!selectedInstrumento || selectedInstrumento === 'No aplica') ? '#f3f4f6' : 'white', cursor: (!selectedInstrumento || selectedInstrumento === 'No aplica') ? 'not-allowed' : 'text' }} />
                         </div>
                     </div>
 
                     <SearchableSelect
-                        label="Componente Ambiental"
+                        label="Componente Ambiental *"
                         value={selectedComponente}
                         onChange={(val) => {
                             setSelectedComponente(val);
                             setSelectedSubArea(''); // InteractiveChange: Clear Sub Area
                         }}
-                        options={componentes.map(c => ({ id: c.id, nombre: c.nombre }))}
-                        disabled={!selectedInstrumento || selectedInstrumento === ''}
+                        options={[
+                            { id: 'No Aplica', nombre: 'No Aplica' },
+                            ...componentes.map(c => ({ id: c.id, nombre: c.nombre }))
+                        ]}
+                        disabled={!selectedInstrumento || selectedInstrumento === '' || selectedInstrumento === 'No aplica'}
                     />
                 </div>
 
                 {/* Row 2: Sub Area */}
                 <div className="form-grid-row grid-cols-1">
                     <SearchableSelect
-                        label="Sub &Aacute;rea"
+                        label="Sub &Aacute;rea *"
                         value={selectedSubArea}
                         onFocus={() => {
                             if (!selectedComponente || selectedComponente === '') {
@@ -1049,49 +1171,55 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         onChange={(val) => {
                             setSelectedSubArea(val);
                         }}
-                        options={subAreas.map(s => ({ id: s.id, nombre: s.nombre }))}
-                        disabled={!selectedComponente}
+                        options={[
+                            { id: 'No Aplica', nombre: 'No Aplica' },
+                            ...subAreas.map(s => ({ id: s.id, nombre: s.nombre }))
+                        ]}
+                        disabled={!selectedComponente || selectedComponente === 'No Aplica'}
                     />
                 </div>
 
                 {/* Row 3: Glosa and Counter */}
                 {/* Row 3: Glosa and Counter */}
-                <div className="form-grid-row grid-cols-main-auto" style={{ alignItems: 'end' }}>
+                <div className="form-grid-row grid-cols-1">
                     <div className="form-group">
-                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>Nombre de la tabla (Glosa)</label>
-                        <input
-                            type="text"
-                            value={glosa}
-                            maxLength={100}
-                            onChange={(e) => {
-                                setGlosa(e.target.value);
-                            }}
-                            onBlur={() => {
-                                // LostFocus: Copy to Page2 (Analysis Tab). 
-                            }}
-                            disabled={!selectedSubArea || selectedSubArea === ''}
-                            style={{
-                                width: '100%',
-                                padding: '6px 10px',
-                                fontSize: '0.85rem',
-                                border: '1px solid #d1d5db',
-                                borderRadius: '6px',
-                                outline: 'none',
-                                minHeight: '34px',
-                                backgroundColor: (!selectedSubArea || selectedSubArea === '') ? '#f3f4f6' : 'white',
-                                cursor: (!selectedSubArea || selectedSubArea === '') ? 'not-allowed' : 'text'
-                            }}
-                        />
-                    </div>
-                    {/* Text11: Character Counter */}
-                    <div className="form-group" style={{ width: '80px' }}>
-                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>Disponibles</label>
-                        <input
-                            type="text"
-                            disabled
-                            value={100 - (glosa ? glosa.length : 0)}
-                            style={{ width: '100%', padding: '6px 10px', fontSize: '0.85rem', border: '1px solid #e5e7eb', borderRadius: '6px', backgroundColor: '#f9fafb', textAlign: 'center' }}
-                        />
+                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>Nombre de la tabla (Glosa) *</label>
+                        <div style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
+                            <input
+                                type="text"
+                                value={glosa}
+                                maxLength={100}
+                                onChange={(e) => {
+                                    setGlosa(e.target.value);
+                                }}
+                                onBlur={() => {
+                                    // LostFocus: Copy to Page2 (Analysis Tab). 
+                                }}
+                                disabled={!selectedSubArea || selectedSubArea === '' || selectedSubArea === 'No Aplica'}
+                                style={{
+                                    width: '100%',
+                                    padding: '6px 60px 6px 10px', // Right padding for counter text
+                                    fontSize: '0.85rem',
+                                    border: '1px solid #d1d5db',
+                                    borderRadius: '6px',
+                                    outline: 'none',
+                                    minHeight: '34px',
+                                    backgroundColor: (!selectedSubArea || selectedSubArea === '' || selectedSubArea === 'No Aplica') ? '#f3f4f6' : 'white',
+                                    cursor: (!selectedSubArea || selectedSubArea === '' || selectedSubArea === 'No Aplica') ? 'not-allowed' : 'text'
+                                }}
+                            />
+                            <span style={{
+                                position: 'absolute',
+                                right: '10px',
+                                fontSize: '0.75rem',
+                                color: '#9ca3af',
+                                fontWeight: 500,
+                                pointerEvents: 'none',
+                                backgroundColor: 'transparent'
+                            }}>
+                                {glosa ? glosa.length : 0}/100
+                            </span>
+                        </div>
                     </div>
                 </div>
 
@@ -1107,10 +1235,13 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         label="Inspector Ambiental"
                         value={selectedInspector}
                         onChange={setSelectedInspector}
-                        options={inspectores.map((i: any) => ({
-                            id: String(i.id_inspectorambiental || i.id || ''),
-                            nombre: i.nombre_inspector || i.nombre || 'Sin Nombre'
-                        }))}
+                        options={[
+                            { id: 'No Aplica', nombre: 'No Aplica' },
+                            ...inspectores.map((i: any) => ({
+                                id: String(i.id_inspectorambiental || i.id || ''),
+                                nombre: i.nombre_inspector || i.nombre || 'Sin Nombre'
+                            }))
+                        ]}
                         // Enabled if ADL is responsible, or just enabled to allow selection
                         disabled={responsableMuestreo !== 'ADL'}
                     />
@@ -1119,7 +1250,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 {/* Row 8: Tipo Muestreo, Tipo Muestra, Actividad, Duracion, Tipo Descarga */}
                 <div className="form-grid-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: '1rem' }}>
                     <SearchableSelect
-                        label="Tipo Muestreo"
+                        label="Tipo Muestreo *"
                         value={selectedTipoMuestreo}
                         onFocus={() => {
                             if (!glosa || glosa.trim() === '') {
@@ -1132,10 +1263,13 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             // Removed duplicate API call - useEffect at line 312 handles this
                         }}
                         disabled={!glosa || glosa.trim() === ''}
-                        options={tiposMuestreo.map(t => ({ id: t.id, nombre: t.nombre }))}
+                        options={[
+                            { id: 'No Aplica', nombre: 'No Aplica' },
+                            ...tiposMuestreo.map(t => ({ id: t.id, nombre: t.nombre }))
+                        ]}
                     />
                     <SearchableSelect
-                        label="Tipo Muestra"
+                        label="Tipo Muestra *"
                         value={selectedTipoMuestra}
                         onFocus={() => {
                             if (!selectedTipoMuestreo || selectedTipoMuestreo === '') {
@@ -1147,14 +1281,17 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             setSelectedActividad(''); // Reset child
                             // Removed duplicate API call - useEffect at line 321 handles this
                         }}
-                        options={tiposMuestra.map((t: any) => ({
-                            id: String(t.id_tipomuestra_ma || t.id || ''),
-                            nombre: t.nombre_tipomuestra_ma || t.nombre || t.Nombre || 'Sin Nombre'
-                        }))}
-                        disabled={!selectedTipoMuestreo || selectedTipoMuestreo === ''}
+                        options={[
+                            { id: 'No Aplica', nombre: 'No Aplica' },
+                            ...tiposMuestra.map((t: any) => ({
+                                id: String(t.id_tipomuestra_ma || t.id || ''),
+                                nombre: t.nombre_tipomuestra_ma || t.nombre || t.Nombre || 'Sin Nombre'
+                            }))
+                        ]}
+                        disabled={!selectedTipoMuestreo || selectedTipoMuestreo === '' || selectedTipoMuestreo === 'No Aplica'}
                     />
                     <SearchableSelect
-                        label="Actividad Muestreo"
+                        label="Actividad Muestreo *"
                         value={selectedActividad}
                         onFocus={() => {
                             if (!selectedTipoMuestra || selectedTipoMuestra === '') {
@@ -1162,26 +1299,47 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                                 return false;
                             }
                         }}
-                        onChange={setSelectedActividad}
-                        options={actividades.map((a: any) => ({
-                            id: String(a.id_actividadmuestreo || a.id || ''),
-                            nombre: a.nombre_actividadmuestreo || a.nombre || a.Nombre || 'Sin Nombre'
-                        }))}
-                        disabled={!selectedTipoMuestra || selectedTipoMuestra === ''}
+                        onChange={(val) => {
+                            setSelectedActividad(val);
+                            if (val === 'No Aplica') setDuracion('');
+                        }}
+                        options={[
+                            { id: 'No Aplica', nombre: 'No Aplica' },
+                            ...actividades.map((a: any) => ({
+                                id: String(a.id_actividadmuestreo || a.id || ''),
+                                nombre: a.nombre_actividadmuestreo || a.nombre || a.Nombre || 'Sin Nombre'
+                            }))
+                        ]}
+                        disabled={!selectedTipoMuestra || selectedTipoMuestra === '' || selectedTipoMuestra === 'No Aplica'}
                     />
                     <div className="form-group">
-                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>Duraci&oacute;n (Hrs)</label>
-                        <input type="number" value={duracion} onChange={(e) => setDuracion(e.target.value)} disabled={!selectedActividad || !selectedActividad.trim()}
-                            style={{ width: '100%', padding: '6px', fontSize: '0.85rem', border: '1px solid #d1d5db', borderRadius: '6px' }} />
+                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>Duraci&oacute;n (Hrs) *</label>
+                        <input type="number" value={duracion} onChange={(e) => setDuracion(e.target.value)} disabled={!selectedActividad || !selectedActividad.trim() || selectedActividad === 'No Aplica'}
+                            style={{
+                                width: '100%',
+                                padding: '6px',
+                                fontSize: '0.85rem',
+                                border: '1px solid #d1d5db',
+                                borderRadius: '6px',
+                                backgroundColor: (!selectedActividad || !selectedActividad.trim() || selectedActividad === 'No Aplica') ? '#f3f4f6' : 'white',
+                                cursor: (!selectedActividad || !selectedActividad.trim() || selectedActividad === 'No Aplica') ? 'not-allowed' : 'text'
+                            }} />
                     </div>
                     <SearchableSelect
                         label="Tipo Descarga"
                         value={selectedTipoDescarga}
-                        onChange={setSelectedTipoDescarga}
-                        options={tiposDescarga.map((t: any) => ({
-                            id: String(t.id || t.ID || t.id_tipodescarga || ''),
-                            nombre: t.nombre || t.Nombre || t.nombre_tipodescarga || 'Sin Nombre'
-                        }))}
+                        onChange={(val) => {
+                            setSelectedTipoDescarga(val);
+                            if (val === 'No Aplica') setRefGoogle('No Aplica');
+                            else if (refGoogle === 'No Aplica') setRefGoogle('');
+                        }}
+                        options={[
+                            { id: 'No Aplica', nombre: 'No Aplica' },
+                            ...tiposDescarga.map((t: any) => ({
+                                id: String(t.id || t.ID || t.id_tipodescarga || ''),
+                                nombre: t.nombre || t.Nombre || t.nombre_tipodescarga || 'Sin Nombre'
+                            }))
+                        ]}
                         disabled={tipoMonitoreo !== 'Puntual' && (!duracion || duracion.trim() === '')}
                     />
                 </div>
@@ -1195,15 +1353,15 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             placeholder="https://maps..."
                             value={refGoogle}
                             onChange={(e) => setRefGoogle(e.target.value)}
-                            disabled={tipoMonitoreo !== 'Puntual' && (!selectedTipoDescarga || selectedTipoDescarga === '')}
+                            disabled={tipoMonitoreo !== 'Puntual' && (!selectedTipoDescarga || selectedTipoDescarga === '' || selectedTipoDescarga === 'No Aplica')}
                             style={{
                                 width: '100%',
                                 padding: '6px',
                                 fontSize: '0.85rem',
                                 border: '1px solid #d1d5db',
                                 borderRadius: '6px',
-                                backgroundColor: (tipoMonitoreo !== 'Puntual' && (!selectedTipoDescarga || selectedTipoDescarga === '')) ? '#f3f4f6' : 'white',
-                                cursor: (tipoMonitoreo !== 'Puntual' && (!selectedTipoDescarga || selectedTipoDescarga === '')) ? 'not-allowed' : 'text'
+                                backgroundColor: (tipoMonitoreo !== 'Puntual' && (!selectedTipoDescarga || selectedTipoDescarga === '' || selectedTipoDescarga === 'No Aplica')) ? '#f3f4f6' : 'white',
+                                cursor: (tipoMonitoreo !== 'Puntual' && (!selectedTipoDescarga || selectedTipoDescarga === '' || selectedTipoDescarga === 'No Aplica')) ? 'not-allowed' : 'text'
                             }}
                         />
                     </div>
@@ -1213,6 +1371,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 <div className="form-grid-row grid-cols-4">
                     <SearchableSelect label="Medici&oacute;n Caudal" value={medicionCaudal} onChange={setMedicionCaudal}
                         options={[
+                            { id: 'No Aplica', nombre: 'No Aplica' },
                             { id: 'Automático', nombre: 'Automático' },
                             { id: 'Manual', nombre: 'Manual' }
                         ]}
@@ -1220,12 +1379,28 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                     <SearchableSelect
                         label="Modalidad"
                         value={selectedModalidad}
-                        onChange={setSelectedModalidad}
-                        options={modalidades.map((m: any) => ({
-                            id: String(m.id_modalidad || m.id || m.ID || ''),
-                            nombre: m.nombre_modalidad || m.nombre || m.Nombre || 'Sin Nombre'
-                        }))}
-                        disabled={!medicionCaudal || medicionCaudal === ''}
+                        onChange={(val) => {
+                            setSelectedModalidad(val);
+                            if (val === 'No Aplica') {
+                                setFormaCanal('No Aplica');
+                                setDetalleCanal('No Aplica');
+                                setDispositivo('No Aplica');
+                                setDetalleDispositivo('No Aplica');
+                            } else if (!val || val.trim() === '') {
+                                setFormaCanal('');
+                                setDetalleCanal('');
+                                setDispositivo('');
+                                setDetalleDispositivo('');
+                            }
+                        }}
+                        options={[
+                            { id: 'No Aplica', nombre: 'No Aplica' },
+                            ...modalidades.map((m: any) => ({
+                                id: String(m.id_modalidad || m.id || m.ID || ''),
+                                nombre: m.nombre_modalidad || m.nombre || m.Nombre || 'Sin Nombre'
+                            }))
+                        ]}
+                        disabled={!medicionCaudal || medicionCaudal === '' || medicionCaudal === 'No Aplica'}
                     />
 
                     {/* Group: Forma Canal + Detalle */}
@@ -1235,9 +1410,14 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             value={formaCanal}
                             onChange={(val) => {
                                 setFormaCanal(val);
+                                if (val === 'No Aplica') setDetalleCanal('No Aplica');
+                                else if (detalleCanal === 'No Aplica') setDetalleCanal('');
                             }}
-                            options={formasCanal}
-                            disabled={!selectedModalidad || selectedModalidad === ''}
+                            options={[
+                                { id: 'No Aplica', nombre: 'No Aplica' },
+                                ...formasCanal
+                            ]}
+                            disabled={!selectedModalidad || selectedModalidad === '' || selectedModalidad === 'No Aplica'}
                         />
                         <div style={{ marginTop: '4px' }}>
                             <input
@@ -1245,7 +1425,16 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                                 placeholder="Medida Canal"
                                 value={detalleCanal}
                                 onChange={(e) => setDetalleCanal(e.target.value)}
-                                style={{ width: '100%', padding: '6px', fontSize: '0.85rem', border: '1px solid #d1d5db', borderRadius: '6px' }}
+                                disabled={!formaCanal || formaCanal === 'No Aplica'}
+                                style={{
+                                    width: '100%',
+                                    padding: '6px',
+                                    fontSize: '0.85rem',
+                                    border: '1px solid #d1d5db',
+                                    borderRadius: '6px',
+                                    backgroundColor: (!formaCanal || formaCanal === 'No Aplica') ? '#f3f4f6' : 'white',
+                                    cursor: (!formaCanal || formaCanal === 'No Aplica') ? 'not-allowed' : 'text'
+                                }}
                             />
                         </div>
                     </div>
@@ -1255,8 +1444,16 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         <SearchableSelect
                             label="Dispositivo Hidr&aacute;ulico"
                             value={dispositivo}
-                            onChange={setDispositivo}
-                            options={dispositivos}
+                            onChange={(val) => {
+                                setDispositivo(val);
+                                if (val === 'No Aplica') setDetalleDispositivo('No Aplica');
+                                else if (detalleDispositivo === 'No Aplica') setDetalleDispositivo('');
+                            }}
+                            options={[
+                                { id: 'No Aplica', nombre: 'No Aplica' },
+                                ...dispositivos
+                            ]}
+                            disabled={!selectedModalidad || selectedModalidad === '' || selectedModalidad === 'No Aplica'}
                         />
                         <div style={{ marginTop: '4px' }}>
                             <input
@@ -1264,7 +1461,16 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                                 placeholder="Medida Dispositivo"
                                 value={detalleDispositivo}
                                 onChange={(e) => setDetalleDispositivo(e.target.value)}
-                                style={{ width: '100%', padding: '6px', fontSize: '0.85rem', border: '1px solid #d1d5db', borderRadius: '6px' }}
+                                disabled={!dispositivo || dispositivo === 'No Aplica'}
+                                style={{
+                                    width: '100%',
+                                    padding: '6px',
+                                    fontSize: '0.85rem',
+                                    border: '1px solid #d1d5db',
+                                    borderRadius: '6px',
+                                    backgroundColor: (!dispositivo || dispositivo === 'No Aplica') ? '#f3f4f6' : 'white',
+                                    cursor: (!dispositivo || dispositivo === 'No Aplica') ? 'not-allowed' : 'text'
+                                }}
                             />
                         </div>
                     </div>

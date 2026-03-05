@@ -14,7 +14,7 @@ interface ObservacionesFormProps {
 const ObservacionesFormComponent: React.FC<ObservacionesFormProps> = ({
     value,
     onChange,
-    label = "Observaciones",
+    label = "Observaciones *",
     readOnly = false,
     placeholder = "Ingrese observaciones...",
     children

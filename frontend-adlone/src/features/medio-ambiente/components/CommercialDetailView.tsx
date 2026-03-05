@@ -401,7 +401,14 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
     );
 
     // Determines if we should show the "Edit" button
-    const canEdit = hasPermission('MA_COMERCIAL_EDITAR') && !isEditing;
+    // Comercial can only edit in the following states:
+    // 3: Pendiente Técnica
+    // 2: Rechazada Técnica
+    // 1: Pendiente Área Coordinación (Aceptada Técnica)
+    // 4: Rechazada Coordinación
+    const canEdit = hasPermission('MA_COMERCIAL_EDITAR') &&
+        !isEditing &&
+        [1, 2, 3, 4].includes(Number(enc.id_validaciontecnica));
 
     return (
         <div className="fichas-ingreso-container commercial-layout">
@@ -614,8 +621,8 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                         {data?.id_validaciontecnica === 7 && (
                             <WorkflowAlert
                                 type="error"
-                                title="Ficha Anulada"
-                                message="Esta ficha ha sido anulada."
+                                title="Ficha Cancelada"
+                                message="Esta ficha ha sido cancelada."
                             />
                         )}
                     </div>
@@ -643,23 +650,29 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                         <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: '1fr' }}>
                             <div className="form-grid-row grid-cols-4">
                                 <StaticField label="Monitoreo agua/RIL" value={enc.tipo_fichaingresoservicio} />
-                                <StaticField label="Base de operaciones" value={enc.nombre_lugaranalisis} />
-                                <StaticField label="Empresa a Facturar" value={enc.nombre_empresa} />
-                                <StaticField label="Empresa de servicio" value={enc.nombre_empresaservicios} />
+                                <StaticField label="Base de operaciones" value={enc.id_lugaranalisis === 0 ? 'No Aplica' : enc.nombre_lugaranalisis} />
+                                <StaticField label="Empresa a Facturar" value={enc.id_empresa === 0 ? 'No Aplica' : enc.nombre_empresa} />
+                                <StaticField label="Empresa de servicio" value={enc.id_empresaservicio === 0 ? 'No Aplica' : enc.nombre_empresaservicios} />
                             </div>
 
                             <div className="form-grid-row grid-cols-4">
-                                <StaticField label="Fuente Emisora" value={enc.nombre_centro} />
+                                <StaticField label="Fuente Emisora" value={enc.id_centro === 0 ? 'No Aplica' : enc.nombre_centro} />
                                 <StaticField label="Ubicación" value={enc.ubicacion} />
                                 <StaticField label="Comuna" value={enc.nombre_comuna} />
                                 <StaticField label="Región" value={enc.nombre_region} />
                             </div>
 
                             <div className="form-grid-row grid-cols-4">
-                                <StaticField label="Tipo de agua" value={enc.nombre_tipoagua || enc.tipo_agua} />
+                                <StaticField label="Tipo de agua" value={enc.id_tipoagua === 0 ? 'No Aplica' : (enc.nombre_tipoagua || enc.tipo_agua)} />
                                 <StaticField label="Código" value={enc.codigo_centro} />
-                                <StaticField label="Contacto empresa" value={enc.nombre_contacto} />
-                                <StaticField label="Objetivo del Muestreo" value={enc.nombre_objetivomuestreo_ma} />
+                                <StaticField label="Contacto empresa" value={enc.id_contacto === 0 ? 'No Aplica' : enc.nombre_contacto} />
+                                <StaticField label="Objetivo del Muestreo" value={enc.id_objetivomuestreo_ma === 0 ? 'No Aplica' : enc.nombre_objetivomuestreo_ma} />
+                            </div>
+
+                            <div className="form-grid-row grid-cols-4">
+                                <StaticField label="Correo Empresa" value={enc.id_empresa === 0 ? 'No Aplica' : (enc.email_empresa || '-')} />
+                                <StaticField label="Correo Contacto" value={enc.id_contacto === 0 ? 'No Aplica' : (enc.email_contacto || '-')} />
+                                <div style={{ gridColumn: 'span 2' }}></div>
                             </div>
 
                             <div className="form-grid-row grid-cols-1">
@@ -694,8 +707,8 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                             {/* Block 3: Detalles Muestra */}
                             <div style={{ marginTop: '1rem', marginBottom: '0.5rem', borderBottom: '1px solid #e5e7eb' }}></div>
                             <div className="form-grid-row grid-cols-3">
-                                <StaticField label="Componente Ambiental" value={enc.nombre_tipomuestra} />
-                                <StaticField label="Sub Área" value={enc.nombre_subarea} />
+                                <StaticField label="Componente Ambiental" value={enc.id_tipomuestra === 0 ? 'No Aplica' : enc.nombre_tipomuestra} />
+                                <StaticField label="Sub Área" value={enc.id_subarea === 0 ? 'No Aplica' : enc.nombre_subarea} />
                                 <StaticField label="Instrumento Ambiental" value={enc.instrumento_ambiental} />
                             </div>
 
@@ -703,15 +716,15 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                             <div style={{ marginTop: '1rem', marginBottom: '0.5rem', borderBottom: '1px solid #e5e7eb' }}></div>
                             <div className="form-grid-row grid-cols-4">
                                 <StaticField label="Responsable Muestreo" value={enc.responsablemuestreo} />
-                                <StaticField label="Cargo Responsable" value={enc.nombre_cargo} />
+                                <StaticField label="Cargo Responsable" value={enc.id_cargo === 0 ? 'No Aplica' : enc.nombre_cargo} />
                             </div>
 
                             <div className="form-grid-row grid-cols-5">
-                                <StaticField label="Tipo Muestreo" value={enc.nombre_tipomuestreo} />
-                                <StaticField label="Tipo Muestra" value={enc.nombre_tipomuestra_ma} />
-                                <StaticField label="Actividad" value={enc.nombre_actividadmuestreo} />
+                                <StaticField label="Tipo Muestreo" value={enc.id_tipomuestreo === 0 ? 'No Aplica' : enc.nombre_tipomuestreo} />
+                                <StaticField label="Tipo Muestra" value={enc.id_tipomuestra_ma === 0 ? 'No Aplica' : enc.nombre_tipomuestra_ma} />
+                                <StaticField label="Actividad" value={enc.id_actividadmuestreo === 0 ? 'No Aplica' : enc.nombre_actividadmuestreo} />
                                 <StaticField label="Duración Muestreo" value={enc.ma_duracion_muestreo} />
-                                <StaticField label="Tipo Descarga" value={enc.nombre_tipodescarga} />
+                                <StaticField label="Tipo Descarga" value={enc.id_tipodescarga === 0 ? 'No Aplica' : enc.nombre_tipodescarga} />
                             </div>
 
                             <div className="form-grid-row grid-cols-4">
@@ -719,15 +732,15 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                     <StaticField label="Referencia Google Maps" value={enc.referencia_googlemaps} fullWidth />
                                 </div>
                                 <StaticField label="¿Medición Caudal?" value={enc.medicion_caudal} />
-                                <StaticField label="Modalidad" value={enc.nombre_modalidad} />
+                                <StaticField label="Modalidad" value={enc.id_modalidad === 0 ? 'No Aplica' : enc.nombre_modalidad} />
                             </div>
 
                             {/* Block 5: Hidraulica */}
                             <div style={{ marginTop: '1rem', marginBottom: '0.5rem', borderBottom: '1px solid #e5e7eb' }}></div>
                             <div className="form-grid-row grid-cols-4">
-                                <StaticField label="Forma del Canal" value={enc.nombre_formacanal} />
+                                <StaticField label="Forma del Canal" value={enc.id_formacanal === 0 ? 'No Aplica' : enc.nombre_formacanal} />
                                 <StaticField label="Detalle (Medidas)" value={enc.formacanal_medida} />
-                                <StaticField label="Dispositivo Hidráulico" value={enc.nombre_dispositivohidraulico} />
+                                <StaticField label="Dispositivo Hidráulico" value={enc.id_dispositivohidraulico === 0 ? 'No Aplica' : enc.nombre_dispositivohidraulico} />
                                 <StaticField label="Detalle (Medidas)" value={enc.dispositivohidraulico_medida} />
                             </div>
                         </div>

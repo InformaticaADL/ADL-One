@@ -293,6 +293,10 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
     const [pendingBajaIds, setPendingBajaIds] = useState<string[]>([]);
     const [generatingCode, setGeneratingCode] = useState(false);
 
+    // File Upload State
+    const [archivoAdjunto, setArchivoAdjunto] = useState<File | null>(null);
+    const [uploadingInfo, setUploadingInfo] = useState({ uploading: false, progress: 0 });
+
     // Helpers to clear form
     const resetNewRequestForm = () => {
         setFormData(INITIAL_FORM_DATA);
@@ -302,6 +306,7 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
         setAltaSubtype(null);
         setType('NUEVO_EQUIPO');
         setDirectToQuality(true);
+        setArchivoAdjunto(null);
     };
 
     // Filter and Search State
@@ -577,6 +582,41 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files.length > 0) {
+            setArchivoAdjunto(e.target.files[0]);
+        } else {
+            setArchivoAdjunto(null);
+        }
+    };
+
+    const uploadFile = async (file: File): Promise<string | null> => {
+        setUploadingInfo({ uploading: true, progress: 0 });
+        const formData = new FormData();
+        formData.append('archivo', file);
+
+        try {
+            const uploadUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:8002'}/api/upload`;
+            const response = await fetch(uploadUrl, {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response.ok) {
+                throw new Error('Error en la subida del archivo');
+            }
+
+            const data = await response.json();
+            return data.filePath; // Returns the URL path like /uploads/...
+        } catch (error) {
+            console.error('File upload failed:', error);
+            showToast({ type: 'error', message: 'Error al subir el archivo adjunto' });
+            return null;
+        } finally {
+            setUploadingInfo({ uploading: false, progress: 0 });
+        }
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         confirmSubmit();
@@ -714,7 +754,6 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
                         responsable: probEq?.nombre_asignado
                     };
                     break;
-                case 'EQUIPO_DESHABILITADO':
                     const deshabEq = equipos.find(e => String(e.id_equipo) === formData.id_equipo);
                     specificData = {
                         id_equipo: formData.id_equipo,
@@ -728,6 +767,20 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
                         responsable: deshabEq?.nombre_asignado
                     };
                     break;
+            }
+
+            // Handle file upload before constructing final payload
+            let uploadedFilePath = null;
+            if (archivoAdjunto) {
+                uploadedFilePath = await uploadFile(archivoAdjunto);
+                if (!uploadedFilePath) {
+                    setLoading(false);
+                    return; // Stop submission if upload fails
+                }
+            }
+
+            if (uploadedFilePath) {
+                specificData = { ...specificData, archivo_adjunto: uploadedFilePath };
             }
 
             const payload = {
@@ -2566,6 +2619,18 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
                                                 </div>
 
                                                 <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                                                    <label className="form-label">Archivo Adjunto *</label>
+                                                    <input
+                                                        type="file"
+                                                        onChange={handleFileChange}
+                                                        accept=".jpg,.jpeg,.png,.pdf,.doc,.docx"
+                                                        className="form-input"
+                                                        style={{ padding: '0.5rem' }}
+                                                    />
+                                                    {archivoAdjunto && <span style={{ fontSize: '0.8rem', color: '#16a34a', marginTop: '0.25rem', display: 'block' }}>Archivo seleccionado: {archivoAdjunto.name}</span>}
+                                                </div>
+
+                                                <div className="form-group" style={{ gridColumn: 'span 2' }}>
                                                     <label className="form-label">Descripción Detallada *</label>
                                                     <textarea
                                                         name="descripcion"
@@ -2582,9 +2647,9 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
                                                 <div style={{ gridColumn: 'span 2', display: 'flex', justifyContent: 'center', marginTop: '1.5rem', borderTop: '1px solid #f1f5f9', paddingTop: '2.5rem' }}>
                                                     <button
                                                         type="submit"
-                                                        disabled={loading || !formData.id_equipo || !formData.motivo_revision || !formData.descripcion || !formData.urgencia}
+                                                        disabled={loading || uploadingInfo.uploading || !formData.id_equipo || !formData.motivo_revision || !formData.descripcion || !formData.urgencia || !archivoAdjunto}
                                                         style={{
-                                                            background: (loading || !formData.id_equipo || !formData.motivo_revision || !formData.descripcion || !formData.urgencia)
+                                                            background: (loading || uploadingInfo.uploading || !formData.id_equipo || !formData.motivo_revision || !formData.descripcion || !formData.urgencia || !archivoAdjunto)
                                                                 ? '#cbd5e1'
                                                                 : 'linear-gradient(135deg, #0891b2 0%, #0e7490 100%)',
                                                             padding: '1rem 4rem',
@@ -2593,23 +2658,23 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
                                                             fontWeight: 700,
                                                             fontSize: '1rem',
                                                             border: 'none',
-                                                            cursor: (loading || !formData.id_equipo || !formData.motivo_revision || !formData.descripcion || !formData.urgencia) ? 'not-allowed' : 'pointer',
-                                                            boxShadow: (loading || !formData.id_equipo || !formData.motivo_revision || !formData.descripcion || !formData.urgencia) ? 'none' : '0 10px 15px -3px rgba(8, 145, 178, 0.3)',
+                                                            cursor: (loading || uploadingInfo.uploading || !formData.id_equipo || !formData.motivo_revision || !formData.descripcion || !formData.urgencia || !archivoAdjunto) ? 'not-allowed' : 'pointer',
+                                                            boxShadow: (loading || uploadingInfo.uploading || !formData.id_equipo || !formData.motivo_revision || !formData.descripcion || !formData.urgencia || !archivoAdjunto) ? 'none' : '0 10px 15px -3px rgba(8, 145, 178, 0.3)',
                                                             transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                                                             transform: 'translateY(0)'
                                                         }}
                                                         onMouseEnter={(e) => {
-                                                            if (!(loading || !formData.id_equipo || !formData.motivo_revision || !formData.descripcion || !formData.urgencia)) {
+                                                            if (!(loading || uploadingInfo.uploading || !formData.id_equipo || !formData.motivo_revision || !formData.descripcion || !formData.urgencia || !archivoAdjunto)) {
                                                                 e.currentTarget.style.transform = 'translateY(-2px)';
                                                                 e.currentTarget.style.boxShadow = '0 12px 20px -3px rgba(8, 145, 178, 0.4)';
                                                             }
                                                         }}
                                                         onMouseLeave={(e) => {
                                                             e.currentTarget.style.transform = 'translateY(0)';
-                                                            e.currentTarget.style.boxShadow = (loading || !formData.id_equipo || !formData.motivo_revision || !formData.descripcion || !formData.urgencia) ? 'none' : '0 10px 15px -3px rgba(8, 145, 178, 0.3)';
+                                                            e.currentTarget.style.boxShadow = (loading || uploadingInfo.uploading || !formData.id_equipo || !formData.motivo_revision || !formData.descripcion || !formData.urgencia || !archivoAdjunto) ? 'none' : '0 10px 15px -3px rgba(8, 145, 178, 0.3)';
                                                         }}
                                                     >
-                                                        {loading ? 'Enviando...' : 'Solicitar Revisión'}
+                                                        {loading || uploadingInfo.uploading ? 'Enviando...' : 'Solicitar Revisión'}
                                                     </button>
                                                 </div>
                                             </>
@@ -2818,12 +2883,24 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
                                                     />
                                                 </div>
 
+                                                <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                                                    <label className="form-label">Archivo Adjunto *</label>
+                                                    <input
+                                                        type="file"
+                                                        onChange={handleFileChange}
+                                                        accept=".jpg,.jpeg,.png,.pdf,.doc,.docx"
+                                                        className="form-input"
+                                                        style={{ padding: '0.5rem' }}
+                                                    />
+                                                    {archivoAdjunto && <span style={{ fontSize: '0.8rem', color: '#16a34a', marginTop: '0.25rem', display: 'block' }}>Archivo seleccionado: {archivoAdjunto.name}</span>}
+                                                </div>
+
                                                 <div style={{ gridColumn: 'span 2', display: 'flex', justifyContent: 'center', marginTop: '1.5rem', borderTop: '1px solid #f1f5f9', paddingTop: '2.5rem' }}>
                                                     <button
                                                         type="submit"
-                                                        disabled={loading || !formData.id_equipo || !formData.fecha_incidente || !formData.tipo_perdida || !formData.ubicacion_ultima || !formData.circunstancias || !formData.acciones_tomadas}
+                                                        disabled={loading || uploadingInfo.uploading || !archivoAdjunto || !formData.id_equipo || !formData.fecha_incidente || !formData.tipo_perdida || !formData.ubicacion_ultima || !formData.circunstancias || !formData.acciones_tomadas}
                                                         style={{
-                                                            background: (loading || !formData.id_equipo || !formData.fecha_incidente || !formData.tipo_perdida || !formData.ubicacion_ultima || !formData.circunstancias || !formData.acciones_tomadas)
+                                                            background: (loading || uploadingInfo.uploading || !archivoAdjunto || !formData.id_equipo || !formData.fecha_incidente || !formData.tipo_perdida || !formData.ubicacion_ultima || !formData.circunstancias || !formData.acciones_tomadas)
                                                                 ? '#cbd5e1'
                                                                 : 'linear-gradient(135deg, #475569 0%, #1e293b 100%)',
                                                             padding: '1rem 4rem',
@@ -2832,23 +2909,23 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
                                                             fontWeight: 700,
                                                             fontSize: '1rem',
                                                             border: 'none',
-                                                            cursor: (loading || !formData.id_equipo || !formData.fecha_incidente || !formData.tipo_perdida || !formData.ubicacion_ultima || !formData.circunstancias || !formData.acciones_tomadas) ? 'not-allowed' : 'pointer',
-                                                            boxShadow: (loading || !formData.id_equipo || !formData.fecha_incidente || !formData.tipo_perdida || !formData.ubicacion_ultima || !formData.circunstancias || !formData.acciones_tomadas) ? 'none' : '0 10px 15px -3px rgba(71, 85, 105, 0.3)',
+                                                            cursor: (loading || uploadingInfo.uploading || !archivoAdjunto || !formData.id_equipo || !formData.fecha_incidente || !formData.tipo_perdida || !formData.ubicacion_ultima || !formData.circunstancias || !formData.acciones_tomadas) ? 'not-allowed' : 'pointer',
+                                                            boxShadow: (loading || uploadingInfo.uploading || !archivoAdjunto || !formData.id_equipo || !formData.fecha_incidente || !formData.tipo_perdida || !formData.ubicacion_ultima || !formData.circunstancias || !formData.acciones_tomadas) ? 'none' : '0 10px 15px -3px rgba(71, 85, 105, 0.3)',
                                                             transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                                                             transform: 'translateY(0)'
                                                         }}
                                                         onMouseEnter={(e) => {
-                                                            if (!(loading || !formData.id_equipo || !formData.fecha_incidente || !formData.tipo_perdida || !formData.ubicacion_ultima || !formData.circunstancias || !formData.acciones_tomadas)) {
+                                                            if (!(loading || uploadingInfo.uploading || !archivoAdjunto || !formData.id_equipo || !formData.fecha_incidente || !formData.tipo_perdida || !formData.ubicacion_ultima || !formData.circunstancias || !formData.acciones_tomadas)) {
                                                                 e.currentTarget.style.transform = 'translateY(-2px)';
                                                                 e.currentTarget.style.boxShadow = '0 12px 20px -3px rgba(71, 85, 105, 0.4)';
                                                             }
                                                         }}
                                                         onMouseLeave={(e) => {
                                                             e.currentTarget.style.transform = 'translateY(0)';
-                                                            e.currentTarget.style.boxShadow = (loading || !formData.id_equipo || !formData.fecha_incidente || !formData.tipo_perdida || !formData.ubicacion_ultima || !formData.circunstancias || !formData.acciones_tomadas) ? 'none' : '0 10px 15px -3px rgba(71, 85, 105, 0.3)';
+                                                            e.currentTarget.style.boxShadow = (loading || uploadingInfo.uploading || !archivoAdjunto || !formData.id_equipo || !formData.fecha_incidente || !formData.tipo_perdida || !formData.ubicacion_ultima || !formData.circunstancias || !formData.acciones_tomadas) ? 'none' : '0 10px 15px -3px rgba(71, 85, 105, 0.3)';
                                                         }}
                                                     >
-                                                        {loading ? 'Procesando...' : 'Enviar Solicitud de Pérdida'}
+                                                        {loading || uploadingInfo.uploading ? 'Procesando...' : 'Enviar Solicitud de Pérdida'}
                                                     </button>
                                                 </div>
                                             </>
@@ -2981,12 +3058,24 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
                                                     />
                                                 </div>
 
+                                                <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                                                    <label className="form-label">Archivo Adjunto *</label>
+                                                    <input
+                                                        type="file"
+                                                        onChange={handleFileChange}
+                                                        accept=".jpg,.jpeg,.png,.pdf,.doc,.docx"
+                                                        className="form-input"
+                                                        style={{ padding: '0.5rem' }}
+                                                    />
+                                                    {archivoAdjunto && <span style={{ fontSize: '0.8rem', color: '#16a34a', marginTop: '0.25rem', display: 'block' }}>Archivo seleccionado: {archivoAdjunto.name}</span>}
+                                                </div>
+
                                                 <div className="prob-actions" style={{ gridColumn: 'span 2', display: 'flex', justifyContent: 'center', marginTop: '1.5rem', borderTop: '1px solid #f1f5f9', paddingTop: '2.5rem' }}>
                                                     <button
                                                         type="submit"
-                                                        disabled={loading || !formData.id_equipo || !formData.tipo_problema || !formData.frecuencia || !formData.descripcion || !formData.sintomas}
+                                                        disabled={loading || uploadingInfo.uploading || !archivoAdjunto || !formData.id_equipo || !formData.tipo_problema || !formData.frecuencia || !formData.descripcion || !formData.sintomas}
                                                         style={{
-                                                            background: (loading || !formData.id_equipo || !formData.tipo_problema || !formData.frecuencia || !formData.descripcion || !formData.sintomas)
+                                                            background: (loading || uploadingInfo.uploading || !archivoAdjunto || !formData.id_equipo || !formData.tipo_problema || !formData.frecuencia || !formData.descripcion || !formData.sintomas)
                                                                 ? '#cbd5e1'
                                                                 : 'linear-gradient(135deg, #e11d48 0%, #be123c 100%)',
                                                             padding: '1rem 4rem',
@@ -3631,6 +3720,33 @@ export const SolicitudesMaPage: React.FC<Props> = ({ onBack, viewOnly = false })
                                                         {/* Generic Failover - Skip if it has a specific block above */}
                                                         {(!selectedRequest.tipo_solicitud || !['ALTA', 'TRASPASO', 'BAJA', 'REVISION', 'REPORTE_PROBLEMA', 'EQUIPO_PERDIDO', 'VIGENCIA_PROXIMA', 'NUEVO_EQUIPO', 'EQUIPO_DESHABILITADO', 'CONSULTA_GENERAL'].includes(selectedRequest.tipo_solicitud)) && (
                                                             selectedRequest.datos_json?.descripcion || selectedRequest.datos_json?.motivo || selectedRequest.datos_json?.comentario || selectedRequest.datos_json?.justificacion || 'Sin descripción disponible.'
+                                                        )}
+
+                                                        {selectedRequest.datos_json?.archivo_adjunto && (
+                                                            <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
+                                                                <strong style={{ display: 'block', fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.025em', marginBottom: '0.5rem' }}>Archivo Adjunto</strong>
+                                                                <a
+                                                                    href={`${import.meta.env.VITE_API_URL || 'http://localhost:8002'}${selectedRequest.datos_json.archivo_adjunto}`}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    style={{
+                                                                        display: 'inline-flex',
+                                                                        alignItems: 'center',
+                                                                        gap: '0.5rem',
+                                                                        color: '#0369a1',
+                                                                        background: '#f0f9ff',
+                                                                        padding: '0.5rem 1rem',
+                                                                        borderRadius: '6px',
+                                                                        textDecoration: 'none',
+                                                                        fontSize: '0.9rem',
+                                                                        fontWeight: 600,
+                                                                        border: '1px solid #bae6fd'
+                                                                    }}
+                                                                >
+                                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                                                    Ver Archivo Adjunto ({selectedRequest.datos_json.archivo_adjunto.split('.').pop()?.toUpperCase()})
+                                                                </a>
+                                                            </div>
                                                         )}
                                                     </div>
                                                 </div>

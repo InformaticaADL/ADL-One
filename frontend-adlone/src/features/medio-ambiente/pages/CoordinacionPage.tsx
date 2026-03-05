@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { CoordinacionDetailView } from '../components/CoordinacionDetailView';
 import { AssignmentListView } from '../components/AssignmentListView';
 import { AssignmentDetailView } from '../components/AssignmentDetailView';
+import { EnProcesoListView } from '../components/EnProcesoListView';
+import { EnProcesoCalendarView } from '../components/EnProcesoCalendarView';
 
 import { CatalogosProvider } from '../context/CatalogosContext';
 import { ToastProvider } from '../../../contexts/ToastContext';
@@ -9,6 +11,7 @@ import { ToastContainer } from '../../../components/Toast/Toast';
 import { fichaService } from '../services/ficha.service';
 import '../styles/FichasIngreso.css';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
+import { useAuth } from '../../../contexts/AuthContext';
 
 interface Props {
     onBack: () => void;
@@ -332,7 +335,7 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
                                                 fontWeight: 600,
                                                 backgroundColor: (() => {
                                                     const est = (ficha.estado_ficha || '').toUpperCase();
-                                                    if (est.includes('RECHAZADA') || est.includes('ANULADA') || est.includes('REVISAR')) return '#fee2e2'; // Red
+                                                    if (est.includes('RECHAZADA') || est.includes('CANCELADO') || est.includes('REVISAR')) return '#fee2e2'; // Red
                                                     if (est.includes('COORDINACIÓN')) return '#dbeafe'; // Blue
                                                     if (est.includes('PROGRAMACIÓN')) return '#ede9fe'; // Purple
                                                     if (est.includes('PENDIENTE') || est.includes('ÁREA TÉCNICA')) return '#fef3c7'; // Amber
@@ -343,7 +346,7 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
                                                 })(),
                                                 color: (() => {
                                                     const est = (ficha.estado_ficha || '').toUpperCase();
-                                                    if (est.includes('RECHAZADA') || est.includes('ANULADA') || est.includes('REVISAR')) return '#991b1b'; // Red
+                                                    if (est.includes('RECHAZADA') || est.includes('CANCELADO') || est.includes('REVISAR')) return '#991b1b'; // Red
                                                     if (est.includes('COORDINACIÓN')) return '#1e40af'; // Blue
                                                     if (est.includes('PROGRAMACIÓN')) return '#5b21b6'; // Purple
                                                     if (est.includes('PENDIENTE') || est.includes('ÁREA TÉCNICA')) return '#92400e'; // Amber
@@ -427,6 +430,7 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
 
 // --- Main Orchestrator ---
 const CoordinacionPageContent: React.FC<Props> = ({ onBack }) => {
+    const { hasPermission } = useAuth();
     // Modes: 'menu', 'list_consultar', 'detail_consultar', 'list_assign', 'detail_assign'
     const [mode, setMode] = useState<string>('menu');
     const [selectedFichaId, setSelectedFichaId] = useState<number | null>(null);
@@ -434,6 +438,7 @@ const CoordinacionPageContent: React.FC<Props> = ({ onBack }) => {
     // Navigation Handlers
     const goToListConsultar = () => setMode('list_consultar');
     const goToListAssign = () => setMode('list_assign');
+    const goToCalendarEnProceso = () => setMode('calendar_en_proceso');
 
     const goToDetailConsultar = (id: number) => {
         setSelectedFichaId(id);
@@ -478,6 +483,23 @@ const CoordinacionPageContent: React.FC<Props> = ({ onBack }) => {
             <AssignmentListView
                 onBackToMenu={() => setMode('menu')}
                 onViewAssignment={goToDetailAssign}
+            />
+        );
+    }
+
+    if (mode === 'list_en_proceso') {
+        return (
+            <EnProcesoListView
+                onBackToMenu={() => setMode('menu')}
+                onViewDetail={goToDetailConsultar}
+            />
+        );
+    }
+
+    if (mode === 'calendar_en_proceso') {
+        return (
+            <EnProcesoCalendarView
+                onBackToMenu={() => setMode('menu')}
             />
         );
     }
@@ -552,6 +574,31 @@ const CoordinacionPageContent: React.FC<Props> = ({ onBack }) => {
                         <h3 className="card-title">Asignación Fechas</h3>
                         <p className="card-description">Programar fechas de muestreo y asignar muestreadores responsables.</p>
                     </div>
+
+
+                    {/* Calendario en Proceso Card */}
+                    {hasPermission('MA_CALENDARIO_ACCESO') && (
+                        <div
+                            onClick={goToCalendarEnProceso}
+                            className="selection-card"
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.transform = 'translateY(-5px)';
+                                e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)';
+                                e.currentTarget.style.borderColor = '#14b8a6';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.transform = 'translateY(0)';
+                                e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)';
+                                e.currentTarget.style.borderColor = '#e5e7eb';
+                            }}
+                        >
+                            <div className="card-icon" style={{ backgroundColor: '#f0fdfa', color: '#0d9488' }}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                            </div>
+                            <h3 className="card-title">Calendario en Proceso</h3>
+                            <p className="card-description">Visualizar la programación mensual de muestreos en terreno de forma gráfica.</p>
+                        </div>
+                    )}
 
                 </div>
             </div>

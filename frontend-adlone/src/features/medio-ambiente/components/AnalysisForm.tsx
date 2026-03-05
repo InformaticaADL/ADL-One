@@ -649,6 +649,60 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                         </select>
                     </div>
 
+                    {/* NUEVO: Lista de Análisis Seleccionados en tiempo real */}
+                    {selectedAnalysis.size > 0 && (
+                        <div style={{
+                            margin: '1.25rem 0',
+                            padding: '1.25rem',
+                            backgroundColor: '#f8fafc',
+                            borderRadius: '12px',
+                            border: '1px solid #e2e8f0',
+                            boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)'
+                        }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                                <label style={{ fontSize: '0.75rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                    Análisis Seleccionados ({selectedAnalysis.size})
+                                </label>
+                                <button
+                                    onClick={() => setSelectedAnalysis(new Set())}
+                                    style={{ fontSize: '0.7rem', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+                                >
+                                    Limpiar Todo
+                                </button>
+                            </div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem', maxHeight: '150px', overflowY: 'auto', padding: '2px' }}>
+                                {Array.from(selectedAnalysis).map(id => {
+                                    const analysis = analysisResults.find(a => a.id_referenciaanalisis === id);
+                                    return (
+                                        <span key={id} style={{
+                                            fontSize: '0.75rem',
+                                            padding: '6px 12px',
+                                            backgroundColor: '#eff6ff',
+                                            color: '#1d4ed8',
+                                            borderRadius: '8px',
+                                            fontWeight: 600,
+                                            border: '1px solid #dbeafe',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '6px'
+                                        }}>
+                                            {analysis?.nombre_tecnica || id}
+                                            <svg
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleToggleAnalysis(id);
+                                                }}
+                                                xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ cursor: 'pointer', opacity: 0.7 }}>
+                                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                                            </svg>
+                                        </span>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Campo 8: Botón Grabar Análisis */}
                     <button
                         onClick={handleSaveAnalysis}
@@ -741,6 +795,16 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                                                     type="number"
                                                     value={analysis.uf_individual}
                                                     onChange={(e) => handleUfChange(analysis.savedId, e.target.value)}
+                                                    onFocus={() => {
+                                                        if (String(analysis.uf_individual) === '0') {
+                                                            handleUfChange(analysis.savedId, '');
+                                                        }
+                                                    }}
+                                                    onBlur={() => {
+                                                        if (analysis.uf_individual === '' || String(analysis.uf_individual).trim() === '') {
+                                                            handleUfChange(analysis.savedId, '0');
+                                                        }
+                                                    }}
                                                     style={{
                                                         width: '60px',
                                                         padding: '2px 4px',

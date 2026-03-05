@@ -553,7 +553,6 @@ class SolicitudService {
 
                     if (type === 'VIGENCIA_PROXIMA') {
                         // Logic: Update equipment 'fecha_vigencia'
-                        // Expects: id_equipo, nueva_vigencia_solicitada (or approved override)
                         const idEquipo = currentSolDatos.id_equipo;
                         const nuevaVigencia = currentSolDatos.nueva_vigencia_solicitada;
 
@@ -563,23 +562,66 @@ class SolicitudService {
                                 observacion: `Vigencia actualizada por solicitud ${id}. ${feedback || ''}`
                             }, adminId);
                             logger.info(`VIGENCIA_PROXIMA approved: Updated equipo ${idEquipo} vigencia to ${nuevaVigencia}`);
-                        } else {
-                            logger.warn(`VIGENCIA_PROXIMA approved but missing id_equipo or nova_vigencia for solicitud ${id}`);
                         }
-
+                    } else if (type === 'TRASPASO') {
+                        // Logic: Update location and responsible
+                        const idEquipo = currentSolDatos.id_equipo || currentSolDatos.equipo_id;
+                        if (idEquipo) {
+                            await equipoService.updateEquipo(idEquipo, {
+                                ubicacion: currentSolDatos.nueva_ubicacion,
+                                id_muestreador: currentSolDatos.nuevo_responsable_id,
+                                observacion: `TRASPASO PROCESADO (Solicitud ${id}). De ${currentSolDatos.ubicacion_actual} a ${currentSolDatos.nueva_ubicacion}. ${feedback || ''}`
+                            }, adminId);
+                            logger.info(`TRASPASO approved: Updated equipo ${idEquipo} location and responsible`);
+                        }
+                    } else if (type === 'BAJA') {
+                        // Logic: Mark as Inactive (Dismantle)
+                        // Handle multiple items if it was a bulk request
+                        const items = currentSolDatos.equipos_baja || [];
+                        if (id_equipo_procesado) {
+                            await equipoService.updateEquipo(id_equipo_procesado, {
+                                estado: 'Inactivo',
+                                observacion: `BAJA PROCESADA (Solicitud ${id}). Motivo: ${currentSolDatos.motivo}. ${feedback || ''}`
+                            }, adminId);
+                        } else {
+                            // If total approval, process all
+                            for (const item of items) {
+                                if (item.procesado && !item.rechazado) {
+                                    await equipoService.updateEquipo(item.id, {
+                                        estado: 'Inactivo',
+                                        observacion: `BAJA PROCESADA (Solicitud ${id}). Motivo: ${currentSolDatos.motivo}. ${feedback || ''}`
+                                    }, adminId);
+                                }
+                            }
+                        }
+                    } else if (type === 'ALTA' && currentSolDatos.isReactivation) {
+                        // Logic: Reactivate equipment
+                        const items = currentSolDatos.equipos_alta || [];
+                        if (id_equipo_procesado) {
+                            await equipoService.updateEquipo(id_equipo_procesado, {
+                                estado: 'Activo',
+                                vigencia: currentSolDatos.vigencia,
+                                observacion: `REACTIVACIÓN PROCESADA (Solicitud ${id}). Nueva vigencia: ${currentSolDatos.vigencia}. ${feedback || ''}`
+                            }, adminId);
+                        } else {
+                            for (const item of items) {
+                                if (item.procesado && !item.rechazado) {
+                                    await equipoService.updateEquipo(item.id, {
+                                        estado: 'Activo',
+                                        vigencia: currentSolDatos.vigencia || item.vigencia,
+                                        observacion: `REACTIVACIÓN PROCESADA (Solicitud ${id}). ${feedback || ''}`
+                                    }, adminId);
+                                }
+                            }
+                        }
                     } else if (type === 'EQUIPO_PERDIDO') {
-                        // Logic: Mark equipment as 'Inactivo' (or similar status)
+                        // Logic: Mark equipment as 'Inactivo'
                         const idEquipo = currentSolDatos.id_equipo;
                         if (idEquipo) {
-                            // Option A: Soft Delete (disable)
-                            // await equipoService.deleteEquipo(idEquipo, adminId);
-
-                            // Option B: Update status and observation (Better for "Lost" tracking)
                             await equipoService.updateEquipo(idEquipo, {
-                                estado: 'Inactivo', // Or 'Perdido', depending on enum
+                                estado: 'Inactivo',
                                 observacion: `EQUIPO DECLARADO PERDIDO (Solicitud ${id}). ${currentSolDatos.tipo_perdida} - ${currentSolDatos.circunstancias}. ${feedback || ''}`
                             }, adminId);
-
                             logger.info(`EQUIPO_PERDIDO approved: Marked equipo ${idEquipo} as Inactivo`);
                         }
                     } else if (type === 'EQUIPO_DESHABILITADO') {
@@ -587,19 +629,18 @@ class SolicitudService {
                         const idEquipo = currentSolDatos.id_equipo;
                         if (idEquipo) {
                             await equipoService.updateEquipo(idEquipo, {
-                                estado: 'Inactivo', // Sets habilitado = 'N'
+                                estado: 'Inactivo',
                                 fecha_vigencia: currentSolDatos.nueva_vigencia_solicitada || null,
                                 observacion: `EQUIPO FUERA DE SERVICIO TEMPORAL (Solicitud ${id}). Motivo: ${currentSolDatos.motivo || currentSolDatos.comentario || 'Inhabilitación temporal'}. ${feedback || ''}`
                             }, adminId);
-
                             logger.info(`EQUIPO_DESHABILITADO approved: Marked equipo ${idEquipo} as Inactivo with new validity date`);
                         }
                     } else if (type === 'REPORTE_PROBLEMA' && currentSolDatos.severidad === 'CRITICA') {
-                        // Logic: Add observation log? Maybe disable if critical?
+                        // Logic: Add observation log for critical problems
                         const idEquipo = currentSolDatos.id_equipo;
                         if (idEquipo) {
                             await equipoService.updateEquipo(idEquipo, {
-                                observacion: `PROBLEMA CRÍTICO REPORTADO (Solicitud ${id}): ${currentSolDatos.tipo_problema}. ${currentSolDatos.descripcion}`
+                                observacion: `PROBLEMA CRÍTICO REPORTADO (Solicitud ${id}): ${currentSolDatos.tipo_problema}. ${currentSolDatos.descripcion}. ${feedback || ''}`
                             }, adminId);
                         }
                     }
