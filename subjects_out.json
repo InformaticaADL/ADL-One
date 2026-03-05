@@ -1,0 +1,174 @@
+[
+  {
+    "codigo_evento": "SOL_EQUIPO_NUEVA",
+    "asunto_template": "Nueva Solicitud de Equipo: {TIPO_SOLICITUD} - {CORRELATIVO}"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_ALTA_APR",
+    "asunto_template": "Solicitud Aprobada: {TIPO_SOLICITUD} ACEPTADA"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_ALTA_RECH",
+    "asunto_template": "Solicitud Rechazada: {TIPO_SOLICITUD} RECHAZADA"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_BAJA_APR",
+    "asunto_template": "Solicitud Aprobada: {TIPO_SOLICITUD} ACEPTADA"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_BAJA_RECH",
+    "asunto_template": "Solicitud Rechazada: {TIPO_SOLICITUD} RECHAZADA"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_TRASPASO_APR",
+    "asunto_template": "Solicitud Aprobada: {TIPO_SOLICITUD} ACEPTADA"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_TRASPASO_RECH",
+    "asunto_template": "Solicitud Rechazada: {TIPO_SOLICITUD} RECHAZADA"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_REAC_APR",
+    "asunto_template": "Solicitud Aprobada: {TIPO_SOLICITUD} ACEPTADA"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_REAC_RECH",
+    "asunto_template": "Solicitud Rechazada: {TIPO_SOLICITUD} RECHAZADA"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_REPORTE_PROBLEMA_APR",
+    "asunto_template": "Solicitud Aprobada: {TIPO_SOLICITUD} ACEPTADA"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_REPORTE_PROBLEMA_RECH",
+    "asunto_template": "Solicitud Rechazada: {TIPO_SOLICITUD} RECHAZADA"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_EQUIPO_PERDIDO_APR",
+    "asunto_template": "Solicitud Aprobada: {TIPO_SOLICITUD} ACEPTADA"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_EQUIPO_PERDIDO_RECH",
+    "asunto_template": "Solicitud Rechazada: {TIPO_SOLICITUD} RECHAZADA"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_EQUIPO_DESHABILITADO_APR",
+    "asunto_template": "Solicitud Aprobada: {TIPO_SOLICITUD} ACEPTADA"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_EQUIPO_DESHABILITADO_RECH",
+    "asunto_template": "Solicitud Rechazada: {TIPO_SOLICITUD} RECHAZADA"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_REVISION_APR",
+    "asunto_template": "Solicitud Aprobada: {TIPO_SOLICITUD} ACEPTADA"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_REVISION_RECH",
+    "asunto_template": "Solicitud Rechazada: {TIPO_SOLICITUD} RECHAZADA"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_VIGENCIA_PROXIMA_APR",
+    "asunto_template": "Solicitud Aprobada: {TIPO_SOLICITUD} ACEPTADA"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_VIGENCIA_PROXIMA_RECH",
+    "asunto_template": "Solicitud Rechazada: {TIPO_SOLICITUD} RECHAZADA"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_NUEVO_EQUIPO_APR",
+    "asunto_template": "Solicitud Aprobada: {TIPO_SOLICITUD} ACEPTADA"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_NUEVO_EQUIPO_RECH",
+    "asunto_template": "Solicitud Rechazada: {TIPO_SOLICITUD} RECHAZADA"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_REPORTE_PROBLEMA_NUEVA",
+    "asunto_template": "Nueva Solicitud de Equipo: {TIPO_SOLICITUD} - {CORRELATIVO}"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_REPORTE_PROBLEMA_APR",
+    "asunto_template": "Solicitud Aprobada: {TIPO_SOLICITUD} ACEPTADA"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_REPORTE_PROBLEMA_RECH",
+    "asunto_template": "Solicitud Rechazada: {TIPO_SOLICITUD} RECHAZADA"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_EQUIPO_PERDIDO_NUEVA",
+    "asunto_template": "Nueva Solicitud de Equipo: {TIPO_SOLICITUD} - {CORRELATIVO}"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_EQUIPO_PERDIDO_APR",
+    "asunto_template": "Solicitud Aprobada: {TIPO_SOLICITUD} ACEPTADA"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_EQUIPO_PERDIDO_RECH",
+    "asunto_template": "Solicitud Rechazada: {TIPO_SOLICITUD} RECHAZADA"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_EQUIPO_DESHABILITADO_NUEVA",
+    "asunto_template": "Nueva Solicitud de Equipo: {TIPO_SOLICITUD} - {CORRELATIVO}"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_EQUIPO_DESHABILITADO_APR",
+    "asunto_template": "Solicitud Aprobada: {TIPO_SOLICITUD} ACEPTADA"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_EQUIPO_DESHABILITADO_RECH",
+    "asunto_template": "Solicitud Rechazada: {TIPO_SOLICITUD} RECHAZADA"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_REVISION_NUEVA",
+    "asunto_template": "Nueva Solicitud de Equipo: {TIPO_SOLICITUD} - {CORRELATIVO}"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_REVISION_APR",
+    "asunto_template": "Solicitud Aprobada: {TIPO_SOLICITUD} ACEPTADA"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_REVISION_RECH",
+    "asunto_template": "Solicitud Rechazada: {TIPO_SOLICITUD} RECHAZADA"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_VIGENCIA_PROXIMA_NUEVA",
+    "asunto_template": "Nueva Solicitud de Equipo: {TIPO_SOLICITUD} - {CORRELATIVO}"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_VIGENCIA_PROXIMA_APR",
+    "asunto_template": "Solicitud Aprobada: {TIPO_SOLICITUD} ACEPTADA"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_VIGENCIA_PROXIMA_RECH",
+    "asunto_template": "Solicitud Rechazada: {TIPO_SOLICITUD} RECHAZADA"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_NUEVO_EQUIPO_NUEVA",
+    "asunto_template": "Nueva Solicitud de Equipo: {TIPO_SOLICITUD} - {CORRELATIVO}"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_NUEVO_EQUIPO_APR",
+    "asunto_template": "Solicitud Aprobada: {TIPO_SOLICITUD} ACEPTADA"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_NUEVO_EQUIPO_RECH",
+    "asunto_template": "Solicitud Rechazada: {TIPO_SOLICITUD} RECHAZADA"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_ALTA_NUEVA",
+    "asunto_template": "Nueva Solicitud de Equipo: {TIPO_SOLICITUD} - {CORRELATIVO}"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_BAJA_NUEVA",
+    "asunto_template": "Nueva Solicitud de Equipo: {TIPO_SOLICITUD} - {CORRELATIVO}"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_TRASPASO_NUEVA",
+    "asunto_template": "Nueva Solicitud de Equipo: {TIPO_SOLICITUD} - {CORRELATIVO}"
+  },
+  {
+    "codigo_evento": "SOL_EQUIPO_REAC_NUEVA",
+    "asunto_template": "Nueva Solicitud de Equipo: {TIPO_SOLICITUD} - {CORRELATIVO}"
+  }
+]

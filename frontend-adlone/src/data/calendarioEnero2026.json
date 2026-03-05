@@ -1,0 +1,3917 @@
+[
+  {
+    "empresa": "Aquagen Chile S.A",
+    "fuenteEmisora": "Piscicultura Comau - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "4",
+    "objetivo": "Autocontrol",
+    "sector": "COMAU",
+    "dias": {}
+  },
+  {
+    "empresa": "Aquagen Chile S.A",
+    "fuenteEmisora": "Piscicultura Comau - Certifciacion BAP ",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "BAP",
+    "sector": "COMAU",
+    "dias": {}
+  },
+  {
+    "empresa": "Aquagen Chile S.A",
+    "fuenteEmisora": "Piscicultura Comau - Efluente Pre UV ",
+    "frecuencia": "ENE - ABR - JUL - OCT",
+    "cantidad": "0",
+    "objetivo": "Autocontrol",
+    "sector": "COMAU",
+    "dias": {}
+  },
+  {
+    "empresa": "Aquagen Chile S.A",
+    "fuenteEmisora": "Piscicultura Comau - Aflunte Pre UV ",
+    "frecuencia": "ENE - ABR - JUL - OCT",
+    "cantidad": "0",
+    "objetivo": "Autocontrol",
+    "sector": "COMAU",
+    "dias": {}
+  },
+  {
+    "empresa": "Aquagen Chile S.A",
+    "fuenteEmisora": "Piscicultura Comau - Recuento MB",
+    "frecuencia": "POR CONFIRMAR",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "COMAU",
+    "dias": {}
+  },
+  {
+    "empresa": "Aquagen Chile S.A",
+    "fuenteEmisora": "Piscicultura Comau - Nch409 T1 - T2 - T7 + MB",
+    "frecuencia": "ABRIL",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "COMAU",
+    "dias": {}
+  },
+  {
+    "empresa": "Aquagen Chile S.A",
+    "fuenteEmisora": "Piscicultura Comau - Riles Sur - Lodo de Riles",
+    "frecuencia": "ABRIL",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "COMAU",
+    "dias": {}
+  },
+  {
+    "empresa": "Aquagen Chile S.A",
+    "fuenteEmisora": "Piscicultura Comau - Riles Sur - Lodo Séptico ",
+    "frecuencia": "ABRIL",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "COMAU",
+    "dias": {}
+  },
+  {
+    "empresa": "Aquagen Chile S.A",
+    "fuenteEmisora": "Piscicultura Comau - Riles Sur - Ensilaje ",
+    "frecuencia": "ABRIL",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "COMAU",
+    "dias": {}
+  },
+  {
+    "empresa": "Aquagen Chile S.A",
+    "fuenteEmisora": "Piscicultura Comau Tabla Anual DS90 T1",
+    "frecuencia": "MAYO",
+    "cantidad": "0",
+    "objetivo": "TABLA ANUAL",
+    "sector": "COMAU",
+    "dias": {}
+  },
+  {
+    "empresa": "Aquagen Chile S.A",
+    "fuenteEmisora": "Piscicultura Ignao - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "4",
+    "objetivo": "Autocontrol",
+    "sector": "RIO BUENO",
+    "dias": {}
+  },
+  {
+    "empresa": "Aquagen Chile S.A",
+    "fuenteEmisora": "Piscicultura Ignao  - Certificación BAP Efluente",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "BAP",
+    "sector": "RIO BUENO",
+    "dias": {}
+  },
+  {
+    "empresa": "Aquagen Chile S.A",
+    "fuenteEmisora": "Piscicultura Ignao - Efluente Pre-UV ",
+    "frecuencia": "ENE - ABR - JUL - OCT",
+    "cantidad": "0",
+    "objetivo": "Res. 4866",
+    "sector": "RIO BUENO",
+    "dias": {}
+  },
+  {
+    "empresa": "Aquagen Chile S.A",
+    "fuenteEmisora": "Piscicultura Ignao - Recuento Microbiologico agua dulce (ingreso ADL)",
+    "frecuencia": "OCTUBRE",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "RIO BUENO",
+    "dias": {}
+  },
+  {
+    "empresa": "Aquagen Chile S.A",
+    "fuenteEmisora": "Piscicultura Ignao - Nch 409 T1 - T2 - T7 - + MB",
+    "frecuencia": "ABRIL",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "RIO BUENO",
+    "dias": {}
+  },
+  {
+    "empresa": "Aquagen Chile S.A",
+    "fuenteEmisora": "Piscicultura Ignao - Riles Sur - Lodo de Riles ",
+    "frecuencia": "ABRIL",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "RIO BUENO",
+    "dias": {}
+  },
+  {
+    "empresa": "Aquagen Chile S.A",
+    "fuenteEmisora": "Piscicultura Ignao - Riles Sur - Lodo Séptico ",
+    "frecuencia": "ABRIL",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "RIO BUENO",
+    "dias": {}
+  },
+  {
+    "empresa": "Aquagen Chile S.A",
+    "fuenteEmisora": "Piscicultura Ignao - Riles Sur - Ensilaje ",
+    "frecuencia": "ABRIL",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "RIO BUENO",
+    "dias": {}
+  },
+  {
+    "empresa": "Aquagen Chile S.A",
+    "fuenteEmisora": "Piscicultura Ignao - Riles Sur - Aguas de Screening",
+    "frecuencia": "ABRIL",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "RIO BUENO",
+    "dias": {}
+  },
+  {
+    "empresa": "Aquagen Chile S.A",
+    "fuenteEmisora": "Piscicultura Ignao - Tabla Anual DS90 Tabla N1",
+    "frecuencia": "OCTUBRE",
+    "cantidad": "0",
+    "objetivo": "Tabla Anual",
+    "sector": "RIO BUENO",
+    "dias": {}
+  },
+  {
+    "empresa": "Aquagen Chile S.A",
+    "fuenteEmisora": "Piscicultura Tocoihue - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "2",
+    "objetivo": "Autocontrol",
+    "sector": "TOCOIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Aquagen Chile S.A",
+    "fuenteEmisora": "Piscicultura Tocoihue - Certificación BAP ",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "BAP",
+    "sector": "TOCOIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Aquagen Chile S.A",
+    "fuenteEmisora": "Piscicultura Tocoihue - Medición pH y T° Resolución Exenta 545/07",
+    "frecuencia": "MENSUAL",
+    "cantidad": "2",
+    "objetivo": "Autocontrol",
+    "sector": "TOCOIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Aquagen Chile S.A",
+    "fuenteEmisora": "Piscicultura Tocoihue - Afluente Pre Uv",
+    "frecuencia": "ENE - ABR - JUL - OCT",
+    "cantidad": "0",
+    "objetivo": "Autocontrol",
+    "sector": "TOCOIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Aquagen Chile S.A",
+    "fuenteEmisora": "Piscicultura Tocoihue - Efluente Pre Uv ",
+    "frecuencia": "ENE - ABR - JUL - OCT",
+    "cantidad": "0",
+    "objetivo": "Autocontrol",
+    "sector": "TOCOIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Aquagen Chile S.A",
+    "fuenteEmisora": "Piscicultura Tocoihue - Nch409 T1 - T2 - T7 + MB",
+    "frecuencia": "ABRIL",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "TOCOIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Aquagen Chile S.A",
+    "fuenteEmisora": "Piscicultura Tocoihue - Riles Sur Lodo de Riles ",
+    "frecuencia": "ABRIL",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "TOCOIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Aquagen Chile S.A",
+    "fuenteEmisora": "Piscicultura Tocoihue - Riles Sur Lodo Séptico",
+    "frecuencia": "ABRIL",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "TOCOIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Aquagen Chile S.A",
+    "fuenteEmisora": "Piscicultura Tocoihue - Riles Sur Ensilaje",
+    "frecuencia": "ABRIL",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "TOCOIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Caleta Bay",
+    "fuenteEmisora": "Planta Chinquio - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Autocontrol",
+    "sector": "PUERTO MONTT",
+    "dias": {}
+  },
+  {
+    "empresa": "Caleta Bay",
+    "fuenteEmisora": "Planta Chinqui - Compromiso Sernapesca efluente",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "PUERTO MONTT",
+    "dias": {}
+  },
+  {
+    "empresa": "Caleta Bay",
+    "fuenteEmisora": "Planta Chinquio - Prev. Desinfección",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "RES. 4866",
+    "sector": "PUERTO MONTT",
+    "dias": {}
+  },
+  {
+    "empresa": "Caleta Bay",
+    "fuenteEmisora": "Planta Chinquio - Tabla Anual N° 4 D.S 609 ",
+    "frecuencia": "ABRIL",
+    "cantidad": "0",
+    "objetivo": "TABLA ANUAL",
+    "sector": "PUERTO MONTT",
+    "dias": {}
+  },
+  {
+    "empresa": "Caleta Bay",
+    "fuenteEmisora": "Planta El Teniente - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "0",
+    "objetivo": "Autocontrol",
+    "sector": "PUERTO MONTT",
+    "dias": {}
+  },
+  {
+    "empresa": "Caleta Bay",
+    "fuenteEmisora": "Planta El Teniente - Autocontrol Aceites y Grasas",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Autocontrol",
+    "sector": "PUERTO MONTT",
+    "dias": {}
+  },
+  {
+    "empresa": "Caleta Bay",
+    "fuenteEmisora": "Planta El Teniente - Compromiso Sernapesca",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "PUERTO MONTT",
+    "dias": {}
+  },
+  {
+    "empresa": "Caleta Bay",
+    "fuenteEmisora": "Planta El Teniente - Prev. Desinfección",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "RES. 4866",
+    "sector": "PUERTO MONTT",
+    "dias": {}
+  },
+  {
+    "empresa": "Caleta Bay",
+    "fuenteEmisora": "Planta El Teniente - Tabla Anual N° 4 D.S 609",
+    "frecuencia": "NOVIEMBRE",
+    "cantidad": "1",
+    "objetivo": "TABLA ANUAL",
+    "sector": "PUERTO MONTT",
+    "dias": {}
+  },
+  {
+    "empresa": "Caleta Bay",
+    "fuenteEmisora": "Piscicultura Cululi - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "2",
+    "objetivo": "Autocontrol",
+    "sector": "RALÚN",
+    "dias": {}
+  },
+  {
+    "empresa": "Caleta Bay",
+    "fuenteEmisora": "Piscicultura Cululi - Previo Desinfección Afluente",
+    "frecuencia": "FEB - MAY - AGO - NOV",
+    "cantidad": "1",
+    "objetivo": "RES. 4866",
+    "sector": "RALUN",
+    "dias": {}
+  },
+  {
+    "empresa": "Caleta Bay",
+    "fuenteEmisora": "Piscicultura Cululi - Previo Desinfección Efluente",
+    "frecuencia": "ENE - ABR - JUL - OCT",
+    "cantidad": "0",
+    "objetivo": "RES. 4866",
+    "sector": "RALUN",
+    "dias": {}
+  },
+  {
+    "empresa": "Caleta Bay",
+    "fuenteEmisora": "Piscicultura Cululi - Tabla Anual n° 1 D.S 90",
+    "frecuencia": "AGOSTO",
+    "cantidad": "0",
+    "objetivo": "Autocontrol",
+    "sector": "RALÚN",
+    "dias": {}
+  },
+  {
+    "empresa": "Caleta Bay",
+    "fuenteEmisora": "Piscicultura Hueyusca - Autocontrol",
+    "frecuencia": "SUSPENDIDO",
+    "cantidad": "0",
+    "objetivo": "Autocontrol",
+    "sector": "PURRANQUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Granja Marina Tornagaleones",
+    "fuenteEmisora": "Piscicultura Pescadero - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "4",
+    "objetivo": "Autocontrol",
+    "sector": "PUYEHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Granja Marina Tornagaleones",
+    "fuenteEmisora": "Piscicultura Pescadero - Cert. BAP",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Bap",
+    "sector": "PUYEHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Granja Marina Tornagaleones",
+    "fuenteEmisora": "Piscicultura Pescadero - Seguimiento Ambiental RCA 242 ",
+    "frecuencia": "MENSUAL",
+    "cantidad": "2",
+    "objetivo": "Seg. Ambiental",
+    "sector": "PUYEHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Granja Marina Tornagaleones",
+    "fuenteEmisora": "Piscicultura Pescadero - Seguimiento Ambiental RCA 370 ",
+    "frecuencia": "MENSUAL",
+    "cantidad": "2",
+    "objetivo": "Seg. Ambiental",
+    "sector": "PUYEHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Granja Marina Tornagaleones",
+    "fuenteEmisora": "Piscicultura Pescadero - Lodo en base seca y humeda ",
+    "frecuencia": "MAR - JUN",
+    "cantidad": "0",
+    "objetivo": "ASC",
+    "sector": "PUYEHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Granja Marina Tornagaleones",
+    "fuenteEmisora": "Piscicultura Pescadero - Lodo ASC",
+    "frecuencia": "CUANDO INDIQUE EL CLIENTE",
+    "cantidad": "1",
+    "objetivo": "ASC",
+    "sector": "PUYEHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Granja Marina Tornagaleones",
+    "fuenteEmisora": "Planta Calbuco Granja Marina Tornagaleones - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "0",
+    "objetivo": "Autocontrol",
+    "sector": "CALBUCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Granja Marina Tornagaleones",
+    "fuenteEmisora": "Planta Calbuco Granja Marina Tornagaleones - Certificación BAP",
+    "frecuencia": "MENSUAL",
+    "cantidad": "0",
+    "objetivo": "BAP",
+    "sector": "CALBUCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Granja Marina Tornagaleones",
+    "fuenteEmisora": "Planta Calbuco Granja Marina Tornagaleones - Previo desinfeccion ",
+    "frecuencia": "MENSUAL",
+    "cantidad": "0",
+    "objetivo": "RES. 4866",
+    "sector": "CALBUCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Piscicultura Trainel - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "2",
+    "objetivo": "Autocontrol",
+    "sector": "CHONCHI",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Piscicultura Trainel - Cert. Bap",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Bap",
+    "sector": "CHONCHI",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Piscicultura Trainel - Cloruros",
+    "frecuencia": "MENSUAL",
+    "cantidad": "2",
+    "objetivo": "C. Interno",
+    "sector": "CHONCHI",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Piscicultura Trainel - Control interno Cobre",
+    "frecuencia": "MENSUAL",
+    "cantidad": "2",
+    "objetivo": "C. Interno",
+    "sector": "CHONCHI",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Piscicultura Trainel - Riles Sur - Lodo Proceso",
+    "frecuencia": "OCTUBRE",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "CHONCHI",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Piscicultura Trainel - Formalina",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "CHONCHI",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Piscicultura Trainel - Control interno Lodo de proceso",
+    "frecuencia": "AGOSTO 2024",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "CHONCHI",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Piscicultura Trainel -Tabla Anual",
+    "frecuencia": "MARZO",
+    "cantidad": "0",
+    "objetivo": "TABLA ANUAL",
+    "sector": "CHONCHI",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Piscicultura Rauco - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Autocontrol",
+    "sector": "CHONCHI",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Piscicultura Rauco - Cert. Bap",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Bap",
+    "sector": "CHONCHI",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Piscicultura Rauco - Control interno Lodo de proceso",
+    "frecuencia": "AGOSTO 2024",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "CONCHI",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Piscicultura Rauco - Tabla Anual ",
+    "frecuencia": "ENERO",
+    "cantidad": "0",
+    "objetivo": "TABLA ANUAL",
+    "sector": "CHONCHI",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Planta Caicaen - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Autocontrol",
+    "sector": "CALBUCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Planta Caicaen - Cert. Bap",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Bap",
+    "sector": "CALBUCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Planta Caicaen - Previo a Desinfección",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "RES. 4866",
+    "sector": "CALBUCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Planta Caicaen - Clarificador ",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Autocontrol",
+    "sector": "CALBUCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Planta Caicaen - Cert. Bap Clarificador",
+    "frecuencia": "MENSUAL",
+    "cantidad": "2",
+    "objetivo": "Bap",
+    "sector": "CALBUCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Planta Caicaen - Aguas Servidas ",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "CALBUCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Planta Caicaen - Lodo producción Rilesur",
+    "frecuencia": "JULIO 20204",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "CALBUCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Planta Caicaen - Desechos organicos Rilesur",
+    "frecuencia": "JULIO 20204",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "CALBUCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Planta Caicaen - Tabla Anual DGTM N.º 12600/119 VRS TABLA 2 ",
+    "frecuencia": "NOVIEMBRE",
+    "cantidad": "1",
+    "objetivo": "TABLA ANUAL",
+    "sector": "CALBUCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Piscicultura Copihue - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Autocontrol",
+    "sector": "ENSENADA",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Piscicultura Copihue - Certificación BAP",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Bap",
+    "sector": "ENSENADA",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Piscicultura Copihue - Riles Sur Lodo Proceso",
+    "frecuencia": "SEPTIEMBRE",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "ENSENADA",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Piscicultura Copihue - Control interno formalina",
+    "frecuencia": "OCTUBRE",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "ENSENADA",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Piscicultura Copihue - Control interno Lodo de proceso",
+    "frecuencia": "AGOSTO 2024",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "ENSENADA",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Piscicultura Copihue - Control interno Lodo de proceso NUEVA LEY",
+    "frecuencia": "OCTUBRE 2024",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "ENSENADA",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Piscicultura Copihue - Tabla Anual DS90 T3",
+    "frecuencia": "NOVIEMBRE",
+    "cantidad": "1",
+    "objetivo": "TABLA ANUAL",
+    "sector": "ENSENADA",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Piscicultura Domeyko - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Autocontrol",
+    "sector": "LLANQUIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Piscicultura Domeyko - Certificación BAP Efluente",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Certificación BAP",
+    "sector": "LLANQUIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Piscicultura Domeyko - Riles Sur lodo ",
+    "frecuencia": "OCTUBRE",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "LLANQUIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Piscicultura Domeyko - Formalina ",
+    "frecuencia": "CUANDO INDIQUE EL CLIENTE",
+    "cantidad": "2",
+    "objetivo": "C. Interno",
+    "sector": "LLANQUIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Piscicultura Domeyko - Tabla Anual DGTM N.º 12600/120 VRS T2",
+    "frecuencia": "NOVIEMBRE",
+    "cantidad": "1",
+    "objetivo": "TABLA ANUAL",
+    "sector": "LLANQUIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Piscicultura Calabozo - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Autocontrol",
+    "sector": "PUYEHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Piscicultura Calabozo - Certificación BAP",
+    "frecuencia": "MENSUAL ",
+    "cantidad": "1",
+    "objetivo": "Bap",
+    "sector": "PUYEHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Piscicultura Calabozo - Puntual Efluente",
+    "frecuencia": "MENSUAL",
+    "cantidad": "4",
+    "objetivo": "C. Interno",
+    "sector": "PUYEHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Piscicultura Calabozo - Riles Sur Lodo Producción",
+    "frecuencia": "CUANDO INDIQUE EL CLIENTE",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "PUYEHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Piscicultura Calabzo  - Control interno formalina",
+    "frecuencia": "CUANDO INDIQUE EL CLIENTE",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "PUYEHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Piscicultura Calabozo - Lodo Producción Nueva Ley",
+    "frecuencia": "NOVIEMBRE 2024",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "PUYEHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Piscicultura Calabozo - Control interno Lodo de proceso",
+    "frecuencia": "AGOSTO 2024",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "PUYEHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Piscicultura Pichichanlelfu - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "0",
+    "objetivo": "Autocontrol",
+    "sector": "PUYEHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Mowi S.A",
+    "fuenteEmisora": "Piscicultura Pichichanlelfu - Puntual efluente",
+    "frecuencia": "MENSUAL",
+    "cantidad": "0",
+    "objetivo": "Autocontrol",
+    "sector": "PUYEHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Aysén S.A",
+    "fuenteEmisora": "Piscicultura El Canelo - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "2",
+    "objetivo": "Autocontrol",
+    "sector": "FUTRONO",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Aysén S.A",
+    "fuenteEmisora": "Piscicultura El Canelo - Efluente Pre UV ",
+    "frecuencia": "ENE- ABR - JUL - OCT",
+    "cantidad": "1",
+    "objetivo": "Res. 4866",
+    "sector": "FUTRONO",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Aysén S.A",
+    "fuenteEmisora": "Piscicultura El Canelo - Afluente Pre UV",
+    "frecuencia": "ENE- ABR - JUL - OCT",
+    "cantidad": "1",
+    "objetivo": "Res. 4866",
+    "sector": "FUTRONO",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Aysén S.A",
+    "fuenteEmisora": "Piscicultura El Canelo - Seguimiento Ambiental Res Ex 133/2009",
+    "frecuencia": "DICIEMBRE",
+    "cantidad": "0",
+    "objetivo": "Seg. Ambiental",
+    "sector": "FUTRONO",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Aysén S.A",
+    "fuenteEmisora": "Piscicultura El Canelo - NCH 409 (Tabla 1, 2, 7 y Microbiologico)",
+    "frecuencia": "FEBRERO",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "FUTRONO",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Aysén S.A",
+    "fuenteEmisora": "Piscicultura El Canelo - Riles Sur Ensilaje",
+    "frecuencia": "FEBRERO",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "FUTRONO",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Aysén S.A",
+    "fuenteEmisora": "Piscicultura El Canelo - Lodo producción Rile Sur",
+    "frecuencia": "JULIO 2024",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "FUTRONO",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Aysén S.A",
+    "fuenteEmisora": "Piscicultura El Canelo - Tabla Anual DS90 Tabla N1",
+    "frecuencia": "JULIO",
+    "cantidad": "0",
+    "objetivo": "Tabla Anual",
+    "sector": "FUTRONO",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Aysén S.A",
+    "fuenteEmisora": "Piscicultura Nilahue - Autocontrol ",
+    "frecuencia": "MENSUAL",
+    "cantidad": "4",
+    "objetivo": "Autocontrol",
+    "sector": "NILAHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Aysén S.A",
+    "fuenteEmisora": "Piscicultura Nilahue - BAP",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Bap",
+    "sector": "NILAHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Aysén S.A",
+    "fuenteEmisora": "Piscicultura Nilahue - Seguimiento ambiental RCA N°098 (Hidrolab)",
+    "frecuencia": "BIMENSUAL",
+    "cantidad": "2",
+    "objetivo": "Seg. Ambiental",
+    "sector": "NILAHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Aysén S.A",
+    "fuenteEmisora": "Piscicultura Nilahue - Seguimiento ambiental RCA N°098 (Hidrolab)",
+    "frecuencia": "ABRIL - OCTUBRE",
+    "cantidad": "0",
+    "objetivo": "Seg. Ambiental",
+    "sector": "NILAHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Aysén S.A",
+    "fuenteEmisora": "Piscicultura Nilahue - NCH 409 (Tabla 1,2,7 y Microbiologico)",
+    "frecuencia": "CUANDO INDIQUE EL CLIENTE",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "NILAHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Aysén S.A",
+    "fuenteEmisora": "Piscicultura Nilahue - Riles Sur (Ensilaje)",
+    "frecuencia": "AGOSTO",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "NILAHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Aysén S.A",
+    "fuenteEmisora": "Piscicultura Nilahue - Riles Sur (Lodo producción)",
+    "frecuencia": "AGOSTO",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "NILAHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Aysén S.A",
+    "fuenteEmisora": "Piscicultura Nilahue - Tabla Anual DS90 Tabla N3",
+    "frecuencia": "MAYO",
+    "cantidad": "0",
+    "objetivo": "Tabla Anual",
+    "sector": "NILAHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Aysén S.A",
+    "fuenteEmisora": "Piscicultura Rollizo - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "2",
+    "objetivo": "Autocontrol",
+    "sector": "RALÚN",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Aysén S.A",
+    "fuenteEmisora": "Piscicultura Rollizo - Efluente Pre UV",
+    "frecuencia": "ENE - ABR - JUL - OCT",
+    "cantidad": "0",
+    "objetivo": "RES. 4866",
+    "sector": "RALÚN",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Aysén S.A",
+    "fuenteEmisora": "Piscicultura Rollizo - Afluente Pre UV",
+    "frecuencia": "ENE - ABR - JUL - OCT",
+    "cantidad": "0",
+    "objetivo": "RES. 4866",
+    "sector": "RALÚN",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Aysén S.A",
+    "fuenteEmisora": "Piscicultura Roliizo - NCH 409 (Tabla 1,2,7 y Microbiologico)",
+    "frecuencia": "FEBRERO",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "RALUN",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Aysén S.A",
+    "fuenteEmisora": "Piscicultura Rollizo - Seguimiento Ambiental RCA N°954",
+    "frecuencia": "FEBRERO Y MAXIMA BIOMASA",
+    "cantidad": "0",
+    "objetivo": "Seg. Ambiental",
+    "sector": "RALÚN",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Aysén S.A",
+    "fuenteEmisora": "Piscicultura Rollizo - Lodo febrero",
+    "frecuencia": "FEBRERO 2024",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "RALÚN",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Aysén S.A",
+    "fuenteEmisora": "Piscicultura Rollizo - Balance de Masas (Puntuales)",
+    "frecuencia": "NOVIEMBRE ",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "RALUN",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Aysén S.A",
+    "fuenteEmisora": "Piscicultura Rollizo - Riles Sur Lodo Ensilaje",
+    "frecuencia": "MAYO",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "RALÚN",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Aysén S.A",
+    "fuenteEmisora": "Piscicultura Rollizo - Riles Sur Lodo Producción",
+    "frecuencia": "JULIO",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "RALÚN",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Aysén S.A",
+    "fuenteEmisora": "Piscicultura Rollizo - Tabla Anual DS90 Tabla N1",
+    "frecuencia": "FEBRERO",
+    "cantidad": "0",
+    "objetivo": "TABLA ANUAL",
+    "sector": "RALÚN",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Aysén S.A",
+    "fuenteEmisora": "Planta Ancud Salmones Aysén - Autocontrol",
+    "frecuencia": "MENSUAL ",
+    "cantidad": "1",
+    "objetivo": "Autocontrol",
+    "sector": "ANCUD",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Aysén S.A",
+    "fuenteEmisora": "Planta Ancud Salmones Aysén - Autocontrol RCA 367/2010",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Autocontrol",
+    "sector": "ANCUD",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Aysén S.A",
+    "fuenteEmisora": "Planta Ancud Salmones Aysén - Certificación BAP efluente",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "BAP",
+    "sector": "ANCUD",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Aysén S.A",
+    "fuenteEmisora": "Planta Ancud Salmones Aysén - Previo Desinfección",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "RES. 4866",
+    "sector": "ANCUD",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Aysén S.A",
+    "fuenteEmisora": "Planta Ancud Salmones Aysén - Cámara Aguas Servidas",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "ANCUD",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Aysén S.A",
+    "fuenteEmisora": "Planta Ancud Salmones Aysén- - Lodo",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "ANCUD",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Camanchaca S.A",
+    "fuenteEmisora": "Planta San José - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Autocontrol",
+    "sector": "CALBUCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Camanchaca S.A",
+    "fuenteEmisora": "Planta San José - Certificación BAP Mensual",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Bap",
+    "sector": "CALBUCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Camanchaca S.A",
+    "fuenteEmisora": "Planta San José - Certificación BAP Trimestral",
+    "frecuencia": "MARZO - JUNIO - SEPTIEMBRE - DICIEMBRE",
+    "cantidad": "0",
+    "objetivo": "Bap",
+    "sector": "CALBUCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Camanchaca S.A",
+    "fuenteEmisora": "Planta San José - Trihalometanos",
+    "frecuencia": "EN CADA AUTOCONTROL",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "CALBUCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Camanchaca S.A",
+    "fuenteEmisora": "Planta San José - Previo Desinfección",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "RES. 4866",
+    "sector": "CALBUCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Camanchaca S.A",
+    "fuenteEmisora": "Planta San José - Medicion de Oxigeno semanal",
+    "frecuencia": "SEMANAL",
+    "cantidad": "4",
+    "objetivo": "ASC",
+    "sector": "CALBUCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Camanchaca S.A",
+    "fuenteEmisora": "Planta San José - Nch409 T1 - T2 - T7 + MB",
+    "frecuencia": "JUNIO 2024",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "CALBUCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Camanchaca S.A",
+    "fuenteEmisora": "Planta San José - Autocontrol Aguas Servidas",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "CALBUCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Camanchaca S.A",
+    "fuenteEmisora": "Planta San José - Tabla Anual DGTM y MM N° 12600/1269 VRS Tabla 2 ",
+    "frecuencia": "NOVIEMBRE",
+    "cantidad": "1",
+    "objetivo": "TABLA ANUAL",
+    "sector": "CALBUCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Camanchaca S.A",
+    "fuenteEmisora": "Piscicultura Río Petrohué - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "2",
+    "objetivo": "Autocontrol",
+    "sector": "ENSENADA",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Camanchaca S.A",
+    "fuenteEmisora": "Piscicultura Río Petrohué - Cert. BAP",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Bap",
+    "sector": "ENSENADA",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Camanchaca S.A",
+    "fuenteEmisora": "Piscicultura Río Petrohué - Trihalometanos",
+    "frecuencia": "CON CADA AUTOCONTROL",
+    "cantidad": "2",
+    "objetivo": "C. Interno",
+    "sector": "ENSENADA",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Camanchaca S.A",
+    "fuenteEmisora": "Piscicultura Río Petrohué - Muestra Semanal ",
+    "frecuencia": "CADA MARTES",
+    "cantidad": "4",
+    "objetivo": "C. Interno",
+    "sector": "ENSENADA",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Camanchaca S.A",
+    "fuenteEmisora": "Piscicultura Río Petrohué - Muestra Semanal Lufenurón",
+    "frecuencia": "PRIMER MARTES",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "ENSENADA",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Camanchaca S.A",
+    "fuenteEmisora": "Piscicultura Río Petrohué - Medición de Oxigeno y Saturación",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "ASC",
+    "sector": "ENSENADA",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Camanchaca S.A",
+    "fuenteEmisora": "Piscicultura Río Petrohué - Lodo deshidratado",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "ASC",
+    "sector": "ENSENADA",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Camanchaca S.A",
+    "fuenteEmisora": "Piscicultura Río Petrohué - Humus (Vermicompost) compromiso SAG",
+    "frecuencia": "NOVIEMBRE",
+    "cantidad": "0",
+    "objetivo": "BAP",
+    "sector": "ENSENADA",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Camanchaca S.A",
+    "fuenteEmisora": "Piscicultura Río Petrohué - Muestra Trimestral",
+    "frecuencia": "FEB - MAY - AGO - NOV",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "ENSENADA",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Camanchaca S.A",
+    "fuenteEmisora": "Piscicultura Río Petrohué - Muestra Semestral ",
+    "frecuencia": "FEB - AGO",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "ENSENADA",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Camanchaca S.A",
+    "fuenteEmisora": "Piscicultura Río Petrohué - Riles Sur Lodos",
+    "frecuencia": "CUANDO INDIQUE EL CLIENTE",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "ENSENADA",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Camanchaca S.A",
+    "fuenteEmisora": "Piscicultura Río Petrohué - Nch 409 T1 - T2 - T7 + MB",
+    "frecuencia": "OCTUBRE",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "ENSENADA",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Camanchaca S.A",
+    "fuenteEmisora": "Piscicultura Río Petrohué - Tabla Anual DS90 Tabla N2",
+    "frecuencia": "AGOSTO",
+    "cantidad": "0",
+    "objetivo": "TABLA ANUAL",
+    "sector": "ENSENADA",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Camanchaca S.A",
+    "fuenteEmisora": "Piscicultura Río del Este - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "2",
+    "objetivo": "Autocontrol",
+    "sector": "COCHAMO",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Camanchaca S.A",
+    "fuenteEmisora": "Piscicultura Río del Este - Trihalometanos",
+    "frecuencia": "CON CADA AUTOCONTROL",
+    "cantidad": "2",
+    "objetivo": "C. Interno",
+    "sector": "COCHAMO",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Camanchaca S.A",
+    "fuenteEmisora": "Piscicultura Río del Este - Afluente",
+    "frecuencia": "MENSUAL",
+    "cantidad": "2",
+    "objetivo": "RES. 4866",
+    "sector": "COCHAMO",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Camanchaca S.A",
+    "fuenteEmisora": "Piscicultura Río del Este - Previo al filtro UV",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "RES. 4866",
+    "sector": "COCHAMO",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Camanchaca S.A",
+    "fuenteEmisora": "Piscicultura Río del Este - Riles Sur Lodos Producción ",
+    "frecuencia": "JUNIO",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "COCHAMO",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Camanchaca S.A",
+    "fuenteEmisora": "Piscicultura Río del Este - Nch 409 T1 - T2 - T7 + MB",
+    "frecuencia": "CUANDO INDIQUE EL CLIENTE",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "COCHAMO",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Camanchaca S.A",
+    "fuenteEmisora": "Piscicultura Río del Este - Tabla Anual n° 1 D.S 90",
+    "frecuencia": "SEPTIEMBRE",
+    "cantidad": "0",
+    "objetivo": "TABLA ANUAL",
+    "sector": "COCHAMO",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Camanchaca S.A",
+    "fuenteEmisora": "Piscicultura Rio de la Plata - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "4",
+    "objetivo": "Autocontrol",
+    "sector": "PURRANQUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Camanchaca S.A",
+    "fuenteEmisora": "Piscicultura Río de la Plata - Certificación BAP",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Bap",
+    "sector": "PURRANQUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Camanchaca S.A",
+    "fuenteEmisora": "Piscicultura Rio de la Plata - Trihalometanos",
+    "frecuencia": "CON CADA AUTOCONTROL",
+    "cantidad": "4",
+    "objetivo": "C. Interno",
+    "sector": "PURRANQUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Camanchaca S.A",
+    "fuenteEmisora": "Piscicultura Rio de la Plata - Afluente",
+    "frecuencia": "MENSUAL",
+    "cantidad": "4",
+    "objetivo": "Res. 4866",
+    "sector": "PURRANQUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Camanchaca S.A",
+    "fuenteEmisora": "Piscicultura Río de la Plata - Medición de pH/T° y Caudal Bocatoma",
+    "frecuencia": "MENSUAL",
+    "cantidad": "4",
+    "objetivo": "C. Interno",
+    "sector": "PURRANQUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Camanchaca S.A",
+    "fuenteEmisora": "Piscicultura Rio de la Plata - Lodos Producción (camara de lodos)",
+    "frecuencia": "JUN - NOV CONSULTAR",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "PURRANQUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Camanchaca S.A",
+    "fuenteEmisora": "Piscicultura Rio de la Plata - Lodos Producción",
+    "frecuencia": "SEPTIEMBRE CONSULTAR",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "PURRANQUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Camanchaca S.A",
+    "fuenteEmisora": "Piscicultura Rio de la Plata - Nch409  T1 -T2 - T7 + MB",
+    "frecuencia": "OCTUBRE",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "PURRANQUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Productos del Mar Ventisqueros S.A",
+    "fuenteEmisora": "Piscicultura Sprinh Waters - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "0",
+    "objetivo": "Autocontrol",
+    "sector": "COCHAMO",
+    "dias": {}
+  },
+  {
+    "empresa": "Productos del Mar Ventisqueros S.A",
+    "fuenteEmisora": "Piscicultura Spring Waters - Certififación BAP ",
+    "frecuencia": "MENSUAL",
+    "cantidad": "0",
+    "objetivo": "Bap",
+    "sector": "COCHAMO",
+    "dias": {}
+  },
+  {
+    "empresa": "Productos del Mar Ventisqueros S.A",
+    "fuenteEmisora": "Piscicultura Sprinh Waters - Seguimiento Ambiental NCH1333 ",
+    "frecuencia": "ENE - MAR - MAY - JUL - SEP - NOV",
+    "cantidad": "0",
+    "objetivo": "Seg. Ambiental",
+    "sector": "COCHAMO",
+    "dias": {}
+  },
+  {
+    "empresa": "Productos del Mar Ventisqueros S.A",
+    "fuenteEmisora": "Piscicultura Sprinh Waters - Nch409 T1 - T2 - T7 + MB",
+    "frecuencia": "MAYO",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "COCHAMO",
+    "dias": {}
+  },
+  {
+    "empresa": "Productos del Mar Ventisqueros S.A",
+    "fuenteEmisora": "Piscicultura Spring Waters - Lodo ASC",
+    "frecuencia": "ENERO - ABRIL - JULIO - OCTUBRE",
+    "cantidad": "0",
+    "objetivo": "ASC",
+    "sector": "COCHAMO",
+    "dias": {}
+  },
+  {
+    "empresa": "Productos del Mar Ventisqueros S.A",
+    "fuenteEmisora": "Piscicultura Sprinh Waters - Afluente T1 DS90",
+    "frecuencia": "ENERO",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "COCHAMO",
+    "dias": {}
+  },
+  {
+    "empresa": "Productos del Mar Ventisqueros S.A",
+    "fuenteEmisora": "Piscicultura Cuyamco - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "0",
+    "objetivo": "Autocontrol",
+    "sector": "RALUN",
+    "dias": {}
+  },
+  {
+    "empresa": "Productos del Mar Ventisqueros S.A",
+    "fuenteEmisora": "Piscicultura Cuyamco - Certificación BAP efluente",
+    "frecuencia": "MENSUAL",
+    "cantidad": "0",
+    "objetivo": "Bap",
+    "sector": "RALUN",
+    "dias": {}
+  },
+  {
+    "empresa": "Productos del Mar Ventisqueros S.A",
+    "fuenteEmisora": "Piscicultura Cuyamco - Lodo Certificación ASC",
+    "frecuencia": "MENSUAL",
+    "cantidad": "0",
+    "objetivo": "ASC",
+    "sector": "RALUN",
+    "dias": {}
+  },
+  {
+    "empresa": "Productos del Mar Ventisqueros S.A",
+    "fuenteEmisora": "Piscicultura Cuyamco - Seguimiento Ambietnal",
+    "frecuencia": "CUANDO INDIQUE EL CLIENTE",
+    "cantidad": "0",
+    "objetivo": "Seg. Ambiental",
+    "sector": "RALUN",
+    "dias": {}
+  },
+  {
+    "empresa": "Productos del Mar Ventisqueros S.A",
+    "fuenteEmisora": "Piscicultura Cuyamco - NCH 409 (Tabla 1,2,3,4,5 y 7)",
+    "frecuencia": "CUANDO INDIQUE EL CLIENTE",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "RALUN",
+    "dias": {}
+  },
+  {
+    "empresa": "Productos del Mar Ventisqueros S.A",
+    "fuenteEmisora": "Piscicultura Chaqueihua 2 - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "3",
+    "objetivo": "Autocontrol",
+    "sector": "HORNOPIREN",
+    "dias": {}
+  },
+  {
+    "empresa": "Productos del Mar Ventisqueros S.A",
+    "fuenteEmisora": "Piscicultura Chaqueihua 2 - Cert. BAP",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Bap",
+    "sector": "HORNOPIREN",
+    "dias": {}
+  },
+  {
+    "empresa": "Productos del Mar Ventisqueros S.A",
+    "fuenteEmisora": "Piscicultura Chaqueihua 2 - Lodo ASC",
+    "frecuencia": "MAR - JUN - SEP - DIC",
+    "cantidad": "0",
+    "objetivo": "ASC",
+    "sector": "HORNOPIREN",
+    "dias": {}
+  },
+  {
+    "empresa": "Productos del Mar Ventisqueros S.A",
+    "fuenteEmisora": "Piscicultura Chaqueihua 2 - Formaldeido",
+    "frecuencia": "MENSUAL",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "HORNOPIREN",
+    "dias": {}
+  },
+  {
+    "empresa": "Productos del Mar Ventisqueros S.A",
+    "fuenteEmisora": "Piscicultura Chaqueihua 2 - Cloruro",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "HORNOPIREN",
+    "dias": {}
+  },
+  {
+    "empresa": "Productos del Mar Ventisqueros S.A",
+    "fuenteEmisora": "Piscicultura Chaqueihua 2 - Seguimiento Ambiental RCA 113/2011 ",
+    "frecuencia": "MAX ESTIAJE",
+    "cantidad": "0",
+    "objetivo": "Seg. Ambiental",
+    "sector": "HORNOPIREN",
+    "dias": {}
+  },
+  {
+    "empresa": "Productos del Mar Ventisqueros S.A",
+    "fuenteEmisora": "Piscicultura Chaqueihua 2 - Seguimiento Ambiental RCA 113/2011 ",
+    "frecuencia": "MAXIMA PRODUCCIÓN",
+    "cantidad": "0",
+    "objetivo": "Seg. Ambiental",
+    "sector": "HORNOPIREN",
+    "dias": {}
+  },
+  {
+    "empresa": "Productos del Mar Ventisqueros S.A",
+    "fuenteEmisora": "Piscicultura Chaqueihua 2 - Seguimiento Ambiental NCH1333",
+    "frecuencia": "ENE - MAR - MAY - JUL - SEP - NOV",
+    "cantidad": "1",
+    "objetivo": "Seg. Ambiental",
+    "sector": "HORNOPIREN",
+    "dias": {}
+  },
+  {
+    "empresa": "Productos del Mar Ventisqueros S.A",
+    "fuenteEmisora": "Piscicultura Chaqueihua 2 - NCH 409 (Tabla 1,2,t y Microbiologico)",
+    "frecuencia": "ABRIL 2024",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "HORNOPIREN",
+    "dias": {}
+  },
+  {
+    "empresa": "Productos del Mar Ventisqueros S.A",
+    "fuenteEmisora": "Piscicultura Chaqueihua 2 - Tabla Anual DS90 Tabla N1",
+    "frecuencia": "NOVIEMBRE",
+    "cantidad": "1",
+    "objetivo": "TABLA ANUAL",
+    "sector": "HORNOPIREN",
+    "dias": {}
+  },
+  {
+    "empresa": "Productos del Mar Ventisqueros S.A",
+    "fuenteEmisora": "Piscicultura Chaqueihua 1 - Autocontrol",
+    "frecuencia": "SUSPENDIDO",
+    "cantidad": "0",
+    "objetivo": "Autocontrol",
+    "sector": "HORNOPIREN",
+    "dias": {}
+  },
+  {
+    "empresa": "Productos del Mar Ventisqueros S.A",
+    "fuenteEmisora": "Piscicultura Chaqueihua 1 - Seguimiento Ambiental RCA 113/2011 ",
+    "frecuencia": "SUSPENDIDO",
+    "cantidad": "0",
+    "objetivo": "Seg. Ambiental",
+    "sector": "HORNOPIREN",
+    "dias": {}
+  },
+  {
+    "empresa": "Productos del Mar Ventisqueros S.A",
+    "fuenteEmisora": "Piscicultura Chaqueihua 1 - Seguimiento Ambiental RCA 113/2011 ",
+    "frecuencia": "SUSPENDIDO",
+    "cantidad": "0",
+    "objetivo": "Seg. Ambiental",
+    "sector": "HORNOPIREN",
+    "dias": {}
+  },
+  {
+    "empresa": "Productos del Mar Ventisqueros S.A",
+    "fuenteEmisora": "Piscicultura Chaqueihua 1 - Seguimiento Ambiental NCH1333",
+    "frecuencia": "SUSPENDIDO",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "HORNOPIREN",
+    "dias": {}
+  },
+  {
+    "empresa": "Productos del Mar Ventisqueros S.A",
+    "fuenteEmisora": "Planta Bahia Chincui - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Autocontrol",
+    "sector": "CHINQUIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Productos del Mar Ventisqueros S.A",
+    "fuenteEmisora": "Planta Bahia Chincui - Certificación BAP Mensual",
+    "frecuencia": "MENSUAL",
+    "cantidad": "2",
+    "objetivo": "Bap",
+    "sector": "CHINQUIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Productos del Mar Ventisqueros S.A",
+    "fuenteEmisora": "Planta Bahía Chincui - Certificación BAP Trimestral",
+    "frecuencia": "MENSUAL",
+    "cantidad": "2",
+    "objetivo": "BAP",
+    "sector": "CHINQUIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Productos del Mar Ventisqueros S.A",
+    "fuenteEmisora": "Planta Bahia Chincui - Efluente Clorados",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "CHINQUIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Productos del Mar Ventisqueros S.A",
+    "fuenteEmisora": "Planta Bahia Chincui - Previo a Desinfección",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "RES. 4866",
+    "sector": "CHINQUIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Productos del Mar Ventisqueros S.A",
+    "fuenteEmisora": "Planta Bahia Chincui - Aguas Servidas",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "CHINQUIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Productos del Mar Ventisqueros S.A",
+    "fuenteEmisora": "Planta Bahia Chincui - Salmoducto ",
+    "frecuencia": "ENE-MAR-MAY-JUL-SEP-NOV",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "CHINQUIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Productos del Mar Ventisqueros S.A",
+    "fuenteEmisora": "Planta Bahia Chincui - Estanque",
+    "frecuencia": "MARZO",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "CHINQUIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Productos del Mar Ventisqueros S.A",
+    "fuenteEmisora": "Planta Bahia Chincui - Tabla 1  D.S 90 Afluente",
+    "frecuencia": "NOVIEMBRE 2024",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "CHINQUIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Productos del Mar Ventisqueros S.A",
+    "fuenteEmisora": "Planta Bahia Chincui - Tabla 5 D.S 90 Efluente",
+    "frecuencia": "NOVIEMBRE 2024",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "CHINQUIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Productos del Mar Ventisqueros S.A",
+    "fuenteEmisora": "Planta Bahia Chincui - Tabla Anual DGTM y MM N° 12600/05/678 VRS Tabla 2",
+    "frecuencia": "NOVIEMBRE",
+    "cantidad": "1",
+    "objetivo": "TABLA ANUAL",
+    "sector": "CHINQUIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Piscicultura Trafún - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "4",
+    "objetivo": "Autocontrol",
+    "sector": "LA PELLINADA",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Piscicultura Trafún - Cert. BAP",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Bap",
+    "sector": "LA PELLINADA",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Piscicutlura Trafún - Rotofiltros",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "LA PELLINADA",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Piscicultura Trafún - Seguimiento Ambiental Olor ",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Seg. Ambiental",
+    "sector": "LA PELLINADA",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Piscicultura Trafún - Seguimiento Ambiental RCA N° 20211400115/2023 ",
+    "frecuencia": "MAR - JUN - SEP - DIC",
+    "cantidad": "0",
+    "objetivo": "Seg. Ambiental",
+    "sector": "LA PELLINADA",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Piscicultura Trafún - NCH 409 (Tabla 1,2,7 y Microbiologico)",
+    "frecuencia": "MARZO - SEPTIEMBRE 2024",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "LA PELLINADA",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Piscicultura Trafún - Afluente Pre UV",
+    "frecuencia": "ABRIL - OCTUBRE",
+    "cantidad": "0",
+    "objetivo": "Res. 4866",
+    "sector": "LA PELLINADA",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Piscicultura Trafún - Lodo Producción Rilesur",
+    "frecuencia": "ABRIL - SEPTIEMBRE",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "LA PELLINADA",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Piscicultura Trafún - Tabla Anual DS90 Tabla N1",
+    "frecuencia": "MAYO",
+    "cantidad": "0",
+    "objetivo": "Tabla Anual",
+    "sector": "LA PELLINADA",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Piscicultura Las Quemas - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "4",
+    "objetivo": "Autocontrol",
+    "sector": "PURRANQUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Piscicultura Las Quemas - Cert. BAP",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Bap",
+    "sector": "PURRANQUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Piscicultura Las Quemas - Cert. BAP Afluente",
+    "frecuencia": "MENSUAL",
+    "cantidad": "0",
+    "objetivo": "Bap",
+    "sector": "PURRANQUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Piscicultura Las Quemas - Afluente Pre UV",
+    "frecuencia": "ABRIL - OCTUBRE",
+    "cantidad": "0",
+    "objetivo": "Res. 4866",
+    "sector": "PURRANQUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Piscicultura Las Quemas - NCH 409 (Tabla 1,2,7 y Microbiologico)",
+    "frecuencia": "MARZO - SEPTIEMBRE 2024",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "PURRANQUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Piscicultura Las Quemas - Lodo Producción Riles Sur",
+    "frecuencia": "ABRIL - SEPTIEMBRE 2024",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "PURRANQUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Piscicultura Las Quemas - Lodo Producción ASC",
+    "frecuencia": "JULIO",
+    "cantidad": "0",
+    "objetivo": "ASC",
+    "sector": "PURRANQUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Piscicultura Las Quemas - Tabla Anual DS90 Tabla N2",
+    "frecuencia": "ABRIL",
+    "cantidad": "0",
+    "objetivo": "TABLA ANUAL",
+    "sector": "PURRANQUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Piscicultura Aguas Buenas - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "4",
+    "objetivo": "Autocontrol",
+    "sector": "PUERTO OCTAY",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Piscicultura Aguas Buenas - Cert. BAP ",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Bap",
+    "sector": "PUERTO OCTAY",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Piscicultura Aguas Buenas - Cert. BAP Afluente",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Bap",
+    "sector": "PUERTO OCTAY",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Piscicultura Aguas Buenas - Afluente Pre UV",
+    "frecuencia": "ABRIL - OCTUBRE",
+    "cantidad": "0",
+    "objetivo": "Res. 4866",
+    "sector": "PUERTO OCTAY",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Piscicultura Aguas Buenas - NCH 409 (Tabla 1,2,7 y Microbiologico)",
+    "frecuencia": "MARZO - SEPTIEMBRE 2024",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "PUERTO OCTAY",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Piscicultura Aguas Buenas - Lodo Producción Riles Sur",
+    "frecuencia": "ABRIL - SEPTIEMBRE 2024",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "PUERTO OCTAY",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Piscicultura Los Tilcos - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Autocontrol",
+    "sector": "CHAMIZA",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Piscicultura Los Tilcos - Cert. BAP",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Bap",
+    "sector": "CHAMIZA",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Piscicultura Los Tilcos - Afluente Pre UV",
+    "frecuencia": "ABRIL - OCTUBRE 2024",
+    "cantidad": "0",
+    "objetivo": "RES. 4866",
+    "sector": "CHAMIZA",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Piscicultura Los Tilcos - Lodo Producción Riles Sur",
+    "frecuencia": "ABRIL - SEPTIEMBRE 2024",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "CHAMIZA",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Piscicultura Los Tilcos - Tabla Anual DS90 T1",
+    "frecuencia": "SEPTIEMBRE",
+    "cantidad": "0",
+    "objetivo": "TABLA ANUAL",
+    "sector": "CHAMIZA",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Planta Yadran Quellón - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "0",
+    "objetivo": "Autocontrol",
+    "sector": "QUELLÓN",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Planta Yadran Quellón - Clorados",
+    "frecuencia": "MENSUAL",
+    "cantidad": "0",
+    "objetivo": "Seg. Ambiental",
+    "sector": "QUELLÓN",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Planta Yadran Quellón - Cert. Bap",
+    "frecuencia": "MENSUAL",
+    "cantidad": "0",
+    "objetivo": "Bap",
+    "sector": "QUELLÓN",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Planta Yadran Quellón - Cert. Bap 2",
+    "frecuencia": "MENSUAL",
+    "cantidad": "0",
+    "objetivo": "Bap",
+    "sector": "QUELLÓN",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Planta Yadran Quellón - Cert. Bap 3 (Contramuestra cliente)",
+    "frecuencia": "MENSUAL",
+    "cantidad": "0",
+    "objetivo": "Bap",
+    "sector": "QUELLÓN",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Planta Yadran Quellón - Previo a Desinfección ",
+    "frecuencia": "MENSUAL",
+    "cantidad": "0",
+    "objetivo": "RES. 4866",
+    "sector": "QUELLÓN",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Planta Yadran Quellón - Puntual RIL Ecualizador",
+    "frecuencia": "MENSUAL",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "QUELLÓN",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Planta Yadran Quellón - Puntual Bins Lodos",
+    "frecuencia": "MENSUAL",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "QUELLÓN",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Planta Yadran Quellón - Puntual Aguas Servidas",
+    "frecuencia": "MENSUAL",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "QUELLÓN",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Planta Yadran Quellón - Lodo Rilesur Bodega Antigua, Capitán Alcazar",
+    "frecuencia": "ABRIL - SEPTIEMBRE 2024",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "QUELLÓN",
+    "dias": {}
+  },
+  {
+    "empresa": "Yadran S.A",
+    "fuenteEmisora": "Planta Yadran Quellón - Tabla Anual DGTM N.º 12600/767 VRS TABLA 2",
+    "frecuencia": "CUANDO INDIQUE EL CLIENTE",
+    "cantidad": "0",
+    "objetivo": "TABLA ANUAL",
+    "sector": "QUELLÓN",
+    "dias": {}
+  },
+  {
+    "empresa": "Piscicultura Lican Ltda",
+    "fuenteEmisora": "Piscicultura Quiman - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Autocontrol",
+    "sector": "FUTRONO",
+    "dias": {}
+  },
+  {
+    "empresa": "Piscicultura Lican Ltda",
+    "fuenteEmisora": "Piscicultura Quiman - Cert. BAP",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Bap",
+    "sector": "FUTRONO",
+    "dias": {}
+  },
+  {
+    "empresa": "Piscicultura Lican Ltda",
+    "fuenteEmisora": "Piscicultura Quiman - Mediciona Caudal SMA",
+    "frecuencia": "ENERO - FEBRERO - MARZO",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "FUTRONO",
+    "dias": {}
+  },
+  {
+    "empresa": "Piscicultura Lican Ltda",
+    "fuenteEmisora": "Piscicultura Quiman - Lodos Riles Sur Producción",
+    "frecuencia": "ANUAL",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "FUTRONO",
+    "dias": {}
+  },
+  {
+    "empresa": "Piscicultura Lican Ltda",
+    "fuenteEmisora": "Piscicultura Quiman - Lodos Riles Sur Ensilaje",
+    "frecuencia": "ANUAL",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "FUTRONO",
+    "dias": {}
+  },
+  {
+    "empresa": "Piscicultura Lican Ltda",
+    "fuenteEmisora": "Piscicultura Quiman - Tabla Anual DS90 Tabla N3",
+    "frecuencia": "NOVIEMBRE",
+    "cantidad": "1",
+    "objetivo": "Tabla Anual",
+    "sector": "FUTRONO",
+    "dias": {}
+  },
+  {
+    "empresa": "Piscicultura Lican Ltda",
+    "fuenteEmisora": "Piscicultura Quiman - Tabla Anual DS90 Tabla N3 Afluente",
+    "frecuencia": "NOVIEMBRE",
+    "cantidad": "1",
+    "objetivo": "Tabla Anual",
+    "sector": "FUTRONO",
+    "dias": {}
+  },
+  {
+    "empresa": "Piscicultura Lican Ltda",
+    "fuenteEmisora": "Piscicultura Cuinco - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Autocontrol",
+    "sector": "RIO BUENO",
+    "dias": {}
+  },
+  {
+    "empresa": "Piscicultura Lican Ltda",
+    "fuenteEmisora": "Piscicultura Cuinco - Ensilaje Rilesur",
+    "frecuencia": "ANUAL",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "RIO BUENO",
+    "dias": {}
+  },
+  {
+    "empresa": "Piscicultura Lican Ltda",
+    "fuenteEmisora": "Piscicultura Cuinco - Lodo Producción Rilesur",
+    "frecuencia": "ANUAL",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "RIO BUENO",
+    "dias": {}
+  },
+  {
+    "empresa": "Piscicultura Lican Ltda",
+    "fuenteEmisora": "Piscicultura Cuinco - Tabla Anual DS90 Tabla N1",
+    "frecuencia": "ENERO",
+    "cantidad": "0",
+    "objetivo": "Tabla Anual",
+    "sector": "RIO BUENO",
+    "dias": {}
+  },
+  {
+    "empresa": "Piscicultura Lican Ltda",
+    "fuenteEmisora": "Piscicultura Lican - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "2",
+    "objetivo": "Autocontrol",
+    "sector": "PUYEHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Piscicultura Lican Ltda",
+    "fuenteEmisora": "Piscicultura Lican - Cert. BAP",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Bap",
+    "sector": "PUYEHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Piscicultura Lican Ltda",
+    "fuenteEmisora": "Piscicultura Lican - Riles Sur Ensilaje",
+    "frecuencia": "CUANDO INDIQUE EL CLIENTE",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "PUYEHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Piscicultura Lican Ltda",
+    "fuenteEmisora": "Piscicultura Lican - Riles Sur Lodo Producción",
+    "frecuencia": "CUANDO INDIQUE EL CLIENTE",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "PUYEHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Piscicultura Lican Ltda",
+    "fuenteEmisora": "Piscicultura Lican - Tabla Anual DS90 T3",
+    "frecuencia": "SEPTIEMBRE",
+    "cantidad": "0",
+    "objetivo": "TABLA ANUAL",
+    "sector": "PUYEHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Piscicultura Lican Ltda",
+    "fuenteEmisora": "Piscicultura Lican - Tabla Anual DS90 T3 Afluente",
+    "frecuencia": "SEPTIEMBRE",
+    "cantidad": "0",
+    "objetivo": "TABLA ANUAL",
+    "sector": "PUYEHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Comercializadora Nutreco",
+    "fuenteEmisora": "Planta Skretting Osorno - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Autocontrol",
+    "sector": "OSORNO 2",
+    "dias": {}
+  },
+  {
+    "empresa": "Comercializadora Nutreco",
+    "fuenteEmisora": "Planta Skretting Osorno - Nch 409 ",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "OSORNO 2",
+    "dias": {}
+  },
+  {
+    "empresa": "Comercializadora Nutreco",
+    "fuenteEmisora": "Planta Skretting Osorno - Nch 409 Completa",
+    "frecuencia": "MAR - SEP",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "OSORNO 2",
+    "dias": {}
+  },
+  {
+    "empresa": "Comercializadora Nutreco",
+    "fuenteEmisora": "Planta Skrettin Osorno - Puntual Agua Caldera (10:00 horas iniciando muestreo)",
+    "frecuencia": "FEBRERO",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "OSORNO 2",
+    "dias": {}
+  },
+  {
+    "empresa": "Comercializadora Nutreco",
+    "fuenteEmisora": "Planta Skretting Osorno - Tabla Anual DS609 T4",
+    "frecuencia": "SEPTIEMBRE",
+    "cantidad": "0",
+    "objetivo": "TABLA ANUAL",
+    "sector": "OSORNO 3",
+    "dias": {}
+  },
+  {
+    "empresa": "Comercializadora Nutreco",
+    "fuenteEmisora": "Piscicultura Skretting Pargua - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Autocontrol",
+    "sector": "PARGUA",
+    "dias": {}
+  },
+  {
+    "empresa": "Comercializadora Nutreco",
+    "fuenteEmisora": "Piscicultura Skretting Pargua - Certificación BAP efluente",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Bap",
+    "sector": "PARGUA",
+    "dias": {}
+  },
+  {
+    "empresa": "Comercializadora Nutreco",
+    "fuenteEmisora": "Piscicultura Skretting Pargua - NCH 409 Mensual ",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "PARGUA",
+    "dias": {}
+  },
+  {
+    "empresa": "Comercializadora Nutreco",
+    "fuenteEmisora": "Piscicultura Skretting Pargua - Nch409 Completa",
+    "frecuencia": "SEPTIEMBRE",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "PARGUA",
+    "dias": {}
+  },
+  {
+    "empresa": "Comercializadora Nutreco",
+    "fuenteEmisora": "Piscicultura Skretting Pargua - Tabla Anual ",
+    "frecuencia": "AGOSTO",
+    "cantidad": "1",
+    "objetivo": "TABLA ANUAL",
+    "sector": "PARGUA",
+    "dias": {}
+  },
+  {
+    "empresa": "Comercializadora Nutreco",
+    "fuenteEmisora": "Planta Skretting Pargua - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Autocontrol",
+    "sector": "PARGUA",
+    "dias": {}
+  },
+  {
+    "empresa": "Comercializadora Nutreco",
+    "fuenteEmisora": "Planta Skretting Pargua - Remuestreo DBO5 y pH",
+    "frecuencia": "NOVIEMBRE 2024",
+    "cantidad": "1",
+    "objetivo": "Autocontrol",
+    "sector": "PARGUA",
+    "dias": {}
+  },
+  {
+    "empresa": "Comercializadora Nutreco",
+    "fuenteEmisora": "Planta Skretting Pargua - Nch 409 ",
+    "frecuencia": "MENSUAL ",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "PARGUA",
+    "dias": {}
+  },
+  {
+    "empresa": "Comercializadora Nutreco",
+    "fuenteEmisora": "Planta Skretting Pargua - Nch 409 T1 - T2 - T3 - T4 - T5 - T7 + MB ",
+    "frecuencia": "MARZO - SEPTIEMBRE",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "PARGUA",
+    "dias": {}
+  },
+  {
+    "empresa": "Comercializadora Nutreco",
+    "fuenteEmisora": "Planta Skretting Pargua - Estanque acumulación RIL Barcos",
+    "frecuencia": "POR PROGRAMAR",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "PARGUA",
+    "dias": {}
+  },
+  {
+    "empresa": "Comercializadora Nutreco",
+    "fuenteEmisora": "Planta Skretting - Tabla Anual N° 1 D.S 90",
+    "frecuencia": "SEPTIEMBRE",
+    "cantidad": "0",
+    "objetivo": "TABLA ANUAL",
+    "sector": "PARGUA",
+    "dias": {}
+  },
+  {
+    "empresa": "Invermar ",
+    "fuenteEmisora": "Planta Llau Llao - Autocontrol ",
+    "frecuencia": "MENSUAL",
+    "cantidad": "2",
+    "objetivo": "Autocontrol",
+    "sector": "CASTRO",
+    "dias": {}
+  },
+  {
+    "empresa": "Invermar ",
+    "fuenteEmisora": "Planta Llau Llao - Certificación BAP efluente",
+    "frecuencia": "MENSUAL",
+    "cantidad": "2",
+    "objetivo": "BAP",
+    "sector": "CASTRO",
+    "dias": {}
+  },
+  {
+    "empresa": "Invermar ",
+    "fuenteEmisora": "Planta Llau Llao - Compromiso Sernapesca efluente",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "CASTRO",
+    "dias": {}
+  },
+  {
+    "empresa": "Invermar ",
+    "fuenteEmisora": "Planta Llau Llao - Previo Desinfección ",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "CASTRO",
+    "dias": {}
+  },
+  {
+    "empresa": "Invermar ",
+    "fuenteEmisora": "Planta Llau Llao - Puntual Cámara Aguas Servidas",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "CASTRO",
+    "dias": {}
+  },
+  {
+    "empresa": "Invermar ",
+    "fuenteEmisora": "Planta Llau Llao - Puntual Agua Sangre",
+    "frecuencia": "NOVIEMBRE 2024",
+    "cantidad": "1",
+    "objetivo": "C.INTERNO",
+    "sector": "CASTRO",
+    "dias": {}
+  },
+  {
+    "empresa": "Fitz Roy S:A",
+    "fuenteEmisora": "Planta Fitz Roy - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Autocontrol",
+    "sector": "CALBUCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Fitz Roy S:A",
+    "fuenteEmisora": "Planta Fitz Roy - Certificación BAP",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Bap",
+    "sector": "CALBUCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Fitz Roy S:A",
+    "fuenteEmisora": "Planta Fitz Roy - Certificación BAP Control interno",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Bap",
+    "sector": "CALBUCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Fitz Roy S:A",
+    "fuenteEmisora": "Planta Fitz Roy - Cert. Bap Afluente",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Bap",
+    "sector": "CALBUCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Fitz Roy S:A",
+    "fuenteEmisora": "Planta Fitz Roy - Cert. Bap Afluente Cloruros",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Bap",
+    "sector": "CALBUCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Fitz Roy S:A",
+    "fuenteEmisora": "Planta Fitz Roy - Previo desinfección Sernapesca 1",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "RES. 4866",
+    "sector": "CALBUCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Fitz Roy S:A",
+    "fuenteEmisora": "Planta Fitz Roy - Previo desinfección Sernapesca 2",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "RES. 4866",
+    "sector": "CALBUCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Fitz Roy S:A",
+    "fuenteEmisora": "Planta Fitz Roy - Aguas Servidas DS 609",
+    "frecuencia": "ENE - ABR - JUL - OCT",
+    "cantidad": "0",
+    "objetivo": "Autocontrol",
+    "sector": "CALBUCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Fitz Roy S:A",
+    "fuenteEmisora": "Planta Fitz Roy - Entrega Set Contramuestra Suralis ",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "CALBUCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Fitz Roy S:A",
+    "fuenteEmisora": "Planta Fitz Roy - Lodo Humedo Rilesur",
+    "frecuencia": "OCTUBRE 2024",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "CALBUCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Fitz Roy S:A",
+    "fuenteEmisora": "Planta Fitz Roy - Lodo Deshidratado Rilesur",
+    "frecuencia": "OCTUBRE 2024",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "CALBUCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Fitz Roy S:A",
+    "fuenteEmisora": "Planta Fitz Roy - Cloruros y Conductividad Emisario",
+    "frecuencia": "NOVIEMBRE 2024",
+    "cantidad": "1",
+    "objetivo": "BAP",
+    "sector": "CALBUCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Fitz Roy S:A",
+    "fuenteEmisora": "Planta Fitz Roy - Cloruros y Conductividad Salida DAF ",
+    "frecuencia": "NOVIEMBRE 2024",
+    "cantidad": "1",
+    "objetivo": "C.INTERNO",
+    "sector": "CALBUCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Fitz Roy S:A",
+    "fuenteEmisora": "Planta Fitz Roy - Cloruros y Conductividad Salida - Valor Agregado - Eviscerado",
+    "frecuencia": "NOVIEMBRE 2024",
+    "cantidad": "1",
+    "objetivo": "C.INTERNO",
+    "sector": "CALBUCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Fitz Roy S:A",
+    "fuenteEmisora": "Planta Fitz Roy - Tabla Anual Agua Servida DS 609 Tabla 4",
+    "frecuencia": "OCTUBRE",
+    "cantidad": "0",
+    "objetivo": "TABLA ANUAL",
+    "sector": "CALBUCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Fitz Roy S:A",
+    "fuenteEmisora": "Planta Fitz Roy - Tabla Anual Autocontrol",
+    "frecuencia": "OCTUBRE",
+    "cantidad": "0",
+    "objetivo": "TABLA ANUAL",
+    "sector": "CALBUCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Matadero Frigorifico del Sur Ltda",
+    "fuenteEmisora": "Planta Mafrisur - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "2",
+    "objetivo": "Autocontrol",
+    "sector": "OSORNO 1",
+    "dias": {}
+  },
+  {
+    "empresa": "Matadero Frigorifico del Sur Ltda",
+    "fuenteEmisora": "Planta Mafrisur - Control interno DQO",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "OSORNO 1",
+    "dias": {}
+  },
+  {
+    "empresa": "Matadero Frigorifico del Sur Ltda",
+    "fuenteEmisora": "Planta Mafrisur - Control interno Clorados",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "OSORNO 1",
+    "dias": {}
+  },
+  {
+    "empresa": "Matadero Frigorifico del Sur Ltda",
+    "fuenteEmisora": "Planta Mafrisur - Control interno Cloruros + conductividad",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "OSORNO 1",
+    "dias": {}
+  },
+  {
+    "empresa": "Matadero Frigorifico del Sur Ltda",
+    "fuenteEmisora": "Planta Mafrisur - Seguimiento Ambiental Mensual RCA 692/2005 ",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Seg. Ambiental",
+    "sector": "OSORNO 1",
+    "dias": {}
+  },
+  {
+    "empresa": "Matadero Frigorifico del Sur Ltda",
+    "fuenteEmisora": "Planta Mafrisur - Seguimiento Ambiental Semestral RCA 692/2005 ",
+    "frecuencia": "ABRIL - SEPTIEMBRE",
+    "cantidad": "0",
+    "objetivo": "Seg. Ambiental",
+    "sector": "OSORNO 1",
+    "dias": {}
+  },
+  {
+    "empresa": "Matadero Frigorifico del Sur Ltda",
+    "fuenteEmisora": "Planta Mafrisur - Tabla Anual n° 1 D.S 90",
+    "frecuencia": "ABRIL",
+    "cantidad": "0",
+    "objetivo": "TABLA ANUAL",
+    "sector": "OSORNO 1",
+    "dias": {}
+  },
+  {
+    "empresa": "Intervet Veterinaria Chile Ltda",
+    "fuenteEmisora": "Estación Experimental - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Autocontrol",
+    "sector": "PUERTO MONTT",
+    "dias": {}
+  },
+  {
+    "empresa": "Intervet Veterinaria Chile Ltda",
+    "fuenteEmisora": "Estación Experimental - Previo filtro UV Efluente",
+    "frecuencia": "MAR - JUN . SEP - DIC",
+    "cantidad": "0",
+    "objetivo": "RES. 4866",
+    "sector": "PUERTO MONTT",
+    "dias": {}
+  },
+  {
+    "empresa": "Intervet Veterinaria Chile Ltda",
+    "fuenteEmisora": "Estación Experimental - Punto 1-2-3-4-5-6",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Seg. Ambiental",
+    "sector": "PUERTO MONTT",
+    "dias": {}
+  },
+  {
+    "empresa": "Intervet Veterinaria Chile Ltda",
+    "fuenteEmisora": "Estación Experimental - Punto 3-4-5-6",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Seg. Ambiental",
+    "sector": "PUERTO MONTT",
+    "dias": {}
+  },
+  {
+    "empresa": "Intervet Veterinaria Chile Ltda",
+    "fuenteEmisora": "Estación Experimental - NCH 409 Mensual",
+    "frecuencia": "MENSUAL",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "PUERTO MONTT",
+    "dias": {}
+  },
+  {
+    "empresa": "Intervet Veterinaria Chile Ltda",
+    "fuenteEmisora": "Estación Experimental - NCH 409 Anual",
+    "frecuencia": "NOVIEMBRE",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "PUERTO MONTT",
+    "dias": {}
+  },
+  {
+    "empresa": "Intervet Veterinaria Chile Ltda",
+    "fuenteEmisora": "Estación Experimental - Tabla Establecimiento Emisor D.S 46 Aguas Servidas",
+    "frecuencia": "FEBRERO - JULIO",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "PUERTO MONTT",
+    "dias": {}
+  },
+  {
+    "empresa": "Intervet Veterinaria Chile Ltda",
+    "fuenteEmisora": "Elanco Tabla Anual T.1 DS90 DICIEMBRE",
+    "frecuencia": "DICIEMBRE",
+    "cantidad": "0",
+    "objetivo": "TABLA ANUAL",
+    "sector": "PUERTO MONTT",
+    "dias": {}
+  },
+  {
+    "empresa": "ECOSALMON",
+    "fuenteEmisora": "Piscicultura Río Bueno - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "4",
+    "objetivo": "Autocontrol",
+    "sector": "RIO BUENO",
+    "dias": {}
+  },
+  {
+    "empresa": "ECOSALMON",
+    "fuenteEmisora": "Piscicultura Río Bueno - Cert. BAP",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Bap",
+    "sector": "RIO BUENO",
+    "dias": {}
+  },
+  {
+    "empresa": "ECOSALMON",
+    "fuenteEmisora": "Piscicultura Río Bueno - Afuente  PreUV ",
+    "frecuencia": "FEB - MAY - AGO - NOV",
+    "cantidad": "1",
+    "objetivo": "Res. 4866",
+    "sector": "RIO BUENO",
+    "dias": {}
+  },
+  {
+    "empresa": "ECOSALMON",
+    "fuenteEmisora": "Piscicultura Río Bueno - Afluente Pre y Post UV (Recuento MB A. Dulce) ",
+    "frecuencia": "FEB - MAY - AGO - NOV",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "RIO BUENO",
+    "dias": {}
+  },
+  {
+    "empresa": "ECOSALMON",
+    "fuenteEmisora": "Piscicultura Río Bueno - Seguimiento Ambiental RCA 005/2014 - Aguas arriba/Aguas abajp",
+    "frecuencia": "MAXIMA PRODUCCIÓN",
+    "cantidad": "0",
+    "objetivo": "Seg. Ambiental",
+    "sector": "RIO BUENO",
+    "dias": {}
+  },
+  {
+    "empresa": "ECOSALMON",
+    "fuenteEmisora": "Piscicultura Río Bueno - Seguimiento Ambiental RCA 005/2014 (feb 3 puntos)",
+    "frecuencia": "FEB - MAX PROD",
+    "cantidad": "0",
+    "objetivo": "Seg. Ambiental",
+    "sector": "RIO BUENO",
+    "dias": {}
+  },
+  {
+    "empresa": "ECOSALMON",
+    "fuenteEmisora": "Piscicultura Río Bueno - Riles Sur Lodo Organico Riles Sur",
+    "frecuencia": "CUANDO INDIQUE CLIENTE",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "RIO BUENO",
+    "dias": {}
+  },
+  {
+    "empresa": "ECOSALMON",
+    "fuenteEmisora": "Piscicultura Río Bueno - Riles Sur Ensilaje Riles Sur",
+    "frecuencia": "CUANDO INDIQUE CLIENTE",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "RIO BUENO",
+    "dias": {}
+  },
+  {
+    "empresa": "ECOSALMON",
+    "fuenteEmisora": "Piscicultura Río Bueno - Riles Sur Mortalidad Riles Sur",
+    "frecuencia": "CUANDO INDIQUE CLIENTE",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "RIO BUENO",
+    "dias": {}
+  },
+  {
+    "empresa": "AQUAFARMS",
+    "fuenteEmisora": "Piscicultura  El Copihue - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "4",
+    "objetivo": "Autocontrol",
+    "sector": "OSORNO 1",
+    "dias": {}
+  },
+  {
+    "empresa": "AQUAFARMS",
+    "fuenteEmisora": "Piscicultura  El Copihue - Seguimiento Ambiental RCA 769/2012",
+    "frecuencia": "ENE - ABR - JUL - OCT",
+    "cantidad": "1",
+    "objetivo": "Seg. Ambiental",
+    "sector": "OSORNO 1",
+    "dias": {}
+  },
+  {
+    "empresa": "AQUAFARMS",
+    "fuenteEmisora": "Piscicultura  El Copihue - Tabla Anual DS90 Tabla N1 ",
+    "frecuencia": "ABRIL",
+    "cantidad": "0",
+    "objetivo": "TABLA ANUAL",
+    "sector": "OSORNO 1",
+    "dias": {}
+  },
+  {
+    "empresa": "AQUAFARMS",
+    "fuenteEmisora": "Pisc. Las Vertientes de Agua Mansa - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "4",
+    "objetivo": "Autocontrol",
+    "sector": "OSORNO 1",
+    "dias": {}
+  },
+  {
+    "empresa": "AQUAFARMS",
+    "fuenteEmisora": "Pisc. Las Vertientes de Agua Mansa - Seguimiento Ambiental RCA 139/2014",
+    "frecuencia": "MENSUAL",
+    "cantidad": "0",
+    "objetivo": "Seg. Ambiental",
+    "sector": "OSORNO 1",
+    "dias": {}
+  },
+  {
+    "empresa": "AQUAFARMS",
+    "fuenteEmisora": "Pisc. Las Vertientes de Agua Mansa - Tabla Anual DS90 Tabla N1",
+    "frecuencia": "JUNIO",
+    "cantidad": "0",
+    "objetivo": "TABLA ANUAL",
+    "sector": "OSORNO 1",
+    "dias": {}
+  },
+  {
+    "empresa": "Novofish S.A",
+    "fuenteEmisora": "Piscicultura Planta Huelmo - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "2",
+    "objetivo": "Autocontrol",
+    "sector": "HUELMO",
+    "dias": {}
+  },
+  {
+    "empresa": "Novofish S.A",
+    "fuenteEmisora": "Piscicultura Planta Huelmo - Certificación BAP efluente",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Bap",
+    "sector": "HUELMO",
+    "dias": {}
+  },
+  {
+    "empresa": "Novofish S.A",
+    "fuenteEmisora": "Piscicultura Planta Huelmo - Medición O.Disuelto - % Saturación AM/PM",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "ASC",
+    "sector": "HUELMO",
+    "dias": {}
+  },
+  {
+    "empresa": "Novofish S.A",
+    "fuenteEmisora": "Piscicultura Planta Huelmo - Agua de Pozo",
+    "frecuencia": "FEB - JUN - NOV",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "HUELMO",
+    "dias": {}
+  },
+  {
+    "empresa": "Novofish S.A",
+    "fuenteEmisora": "Piscicultura Planta Huelmo - Lodo producción Fosforo % - % Humedad (Solido)",
+    "frecuencia": "FEBRERO",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "HUELMO",
+    "dias": {}
+  },
+  {
+    "empresa": "Novofish S.A",
+    "fuenteEmisora": "Piscicultura Planta Huelmo - NCH 409 (Tabla 1,2,3,4,5,7 y Microbiologico)",
+    "frecuencia": "OCTUBRE 2024",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "HUELMO",
+    "dias": {}
+  },
+  {
+    "empresa": "Novofish S.A",
+    "fuenteEmisora": "Piscicultura Planta Huelmo - Planta Aguas Servidas (Antes del tratamiento)",
+    "frecuencia": "OCTUBRE 2024",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "HUELMO",
+    "dias": {}
+  },
+  {
+    "empresa": "Novofish S.A",
+    "fuenteEmisora": "Piscicultura Planta Huelmo - Planta Aguas Servidas (Después del tratamiento)",
+    "frecuencia": "OCTUBRE 2024",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "HUELMO",
+    "dias": {}
+  },
+  {
+    "empresa": "Novofish S.A",
+    "fuenteEmisora": "Piscicultura Planta Huelmo - Tabla Anual n° 5 D.S 90 ",
+    "frecuencia": "MAYO",
+    "cantidad": "0",
+    "objetivo": "TABLA ANUAL",
+    "sector": "HUELMO",
+    "dias": {}
+  },
+  {
+    "empresa": "Novofish S.A",
+    "fuenteEmisora": "Planta Frima Osorno - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Autocontrol",
+    "sector": "OSORNO 2",
+    "dias": {}
+  },
+  {
+    "empresa": "Novofish S.A",
+    "fuenteEmisora": "Piscicultura Las Vertientes de Chamiza - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Autocontrol",
+    "sector": "CHAMIZA",
+    "dias": {}
+  },
+  {
+    "empresa": "Novofish S.A",
+    "fuenteEmisora": "Piscicultura Las Vertientes de Chamiza - Seguimiento Ambiental",
+    "frecuencia": "NOVIEMBRE",
+    "cantidad": "1",
+    "objetivo": "Seg. Ambiental",
+    "sector": "CHAMIZA",
+    "dias": {}
+  },
+  {
+    "empresa": "Novofish S.A",
+    "fuenteEmisora": "Piscicultura Las Vertientes de Chamiza - TABLA ANUAL",
+    "frecuencia": "MARZO",
+    "cantidad": "0",
+    "objetivo": "TABLA ANUAL",
+    "sector": "CHAMIZA",
+    "dias": {}
+  },
+  {
+    "empresa": "Multisea S.A",
+    "fuenteEmisora": "Piscicultura Astilleros ll - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "2",
+    "objetivo": "Autocontrol",
+    "sector": "PARGUA",
+    "dias": {}
+  },
+  {
+    "empresa": "Multisea S.A",
+    "fuenteEmisora": "Piscicultura Astilleros ll - Cert. BAP",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "BAP",
+    "sector": "PARGUA",
+    "dias": {}
+  },
+  {
+    "empresa": "Multisea S.A",
+    "fuenteEmisora": "Piscicultura Astilleros ll - NCH 409",
+    "frecuencia": "ANUAL",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "PARGUA",
+    "dias": {}
+  },
+  {
+    "empresa": "Multisea S.A",
+    "fuenteEmisora": "Piscicultura Astilleros ll - Lodo producción Rilesur",
+    "frecuencia": "ABRIL 2024",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "PARGUA",
+    "dias": {}
+  },
+  {
+    "empresa": "Multisea S.A",
+    "fuenteEmisora": "Piscicultura Astilleros II - Pozo ",
+    "frecuencia": "JUNIO 2024",
+    "cantidad": "0",
+    "objetivo": "BAP",
+    "sector": "PARGUA",
+    "dias": {}
+  },
+  {
+    "empresa": "Multisea S.A",
+    "fuenteEmisora": "Piscicultura Astilleros II - Tabla Anual n° 5 D.S 90",
+    "frecuencia": "ABRIL",
+    "cantidad": "0",
+    "objetivo": "TABLA ANUAL",
+    "sector": "PARGUA",
+    "dias": {}
+  },
+  {
+    "empresa": "Sealand",
+    "fuenteEmisora": "Piscicultura Chayahue - Autocontrol",
+    "frecuencia": "Mensual",
+    "cantidad": "3",
+    "objetivo": "Autocontrol",
+    "sector": "PARGUA",
+    "dias": {}
+  },
+  {
+    "empresa": "Sealand",
+    "fuenteEmisora": "Piscicultura Chayahue - Cert. BAP",
+    "frecuencia": "Mensual",
+    "cantidad": "1",
+    "objetivo": "Bap",
+    "sector": "PARGUA",
+    "dias": {}
+  },
+  {
+    "empresa": "Sealand",
+    "fuenteEmisora": "Piscicultura Chayahue - NCH 409",
+    "frecuencia": "Mensual",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "PARGUA",
+    "dias": {}
+  },
+  {
+    "empresa": "Sealand",
+    "fuenteEmisora": "Piscicultura Chayahue - Tabla Anual n° 5 D.S 90",
+    "frecuencia": "ENERO",
+    "cantidad": "0",
+    "objetivo": "TABLA ANUAL",
+    "sector": "PARGUA",
+    "dias": {}
+  },
+  {
+    "empresa": "Sealand",
+    "fuenteEmisora": "Piscicultura Recirculación Astilleros - Autocontrol RIL",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Autocontrol",
+    "sector": "PARGUA",
+    "dias": {}
+  },
+  {
+    "empresa": "Sealand",
+    "fuenteEmisora": "Piscicultura Recirculación Astilleros - Certificaición BAP",
+    "frecuencia": "SUSPENDIDO",
+    "cantidad": "0",
+    "objetivo": "Bap",
+    "sector": "PARGUA",
+    "dias": {}
+  },
+  {
+    "empresa": "Sealand",
+    "fuenteEmisora": "Piscicultura Recirculación Astilleros - Certificación BAP efluente",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "BAP",
+    "sector": "PARGUA",
+    "dias": {}
+  },
+  {
+    "empresa": "Sealand",
+    "fuenteEmisora": "Piscicultura Recirculación Astilleros - NCH 409",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "PARGUA",
+    "dias": {}
+  },
+  {
+    "empresa": "Sealand",
+    "fuenteEmisora": "Piscicultura Recirculación Astillero - NCH 409 (Tabla 1,2,3,4,5,7 y Microbiologico)",
+    "frecuencia": "JULIO 2024",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "PARGUA",
+    "dias": {}
+  },
+  {
+    "empresa": "Sealand",
+    "fuenteEmisora": "Piscicultura Recirculación Astilleros - Previo Desinfección Efluente",
+    "frecuencia": "MARZO - JUNIO - SEPTIEMBRE - DICIEMBRE",
+    "cantidad": "0",
+    "objetivo": "RES. 4866",
+    "sector": "PARGUA",
+    "dias": {}
+  },
+  {
+    "empresa": "Sealand",
+    "fuenteEmisora": "Piscicultura Recirculación Astilleros - Pozo BAP",
+    "frecuencia": "MARZO - JUNIO - SEPTIEMBRE - DICIEMBRE",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "PARGUA",
+    "dias": {}
+  },
+  {
+    "empresa": "Sealand",
+    "fuenteEmisora": "Piscicultura Recirculación Astilleros - Lodo Rilesur",
+    "frecuencia": "NOVIEMBRE 2024",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "PARGUA",
+    "dias": {}
+  },
+  {
+    "empresa": "Sealand",
+    "fuenteEmisora": "Piscicultura Recirculación Astilleros - Tabla Anual T5 DS90",
+    "frecuencia": "ABRIL",
+    "cantidad": "0",
+    "objetivo": "TABLA ANUAL",
+    "sector": "PARGUA",
+    "dias": {}
+  },
+  {
+    "empresa": "Aquachile",
+    "fuenteEmisora": "Planta Alimentos Pargua Aquachile - Autocontrol ",
+    "frecuencia": "SUSPENDIDO",
+    "cantidad": "0",
+    "objetivo": "Autocontrol",
+    "sector": "PARGUA",
+    "dias": {}
+  },
+  {
+    "empresa": "Aquachile",
+    "fuenteEmisora": "Planta Alimentos Pargua Aquachile - Control interno Ril Crudo",
+    "frecuencia": "MENSUAL",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "PARGUA",
+    "dias": {}
+  },
+  {
+    "empresa": "Aquachile",
+    "fuenteEmisora": "Planta Alimentos Pargua Aquachile - Control interno Post desinfección",
+    "frecuencia": "MENSUAL",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "PARGUA",
+    "dias": {}
+  },
+  {
+    "empresa": "Cultivo Acuatico Manantiales",
+    "fuenteEmisora": "Piscicultura Curileufu - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Autocontrol",
+    "sector": "LAGO RANCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Cultivo Acuatico Manantiales",
+    "fuenteEmisora": "Piscicultura Curileufu - Seguimiento Ambiental",
+    "frecuencia": "DICIEMBRE",
+    "cantidad": "0",
+    "objetivo": "Seg. Ambiental",
+    "sector": "LAGO RANCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Cultivo Acuatico Manantiales",
+    "fuenteEmisora": "Piscicultura Curileufu - Tabla Anual n° 1 D.S 90",
+    "frecuencia": "ABRIL",
+    "cantidad": "0",
+    "objetivo": "Tabla Anual",
+    "sector": "LAGO RANCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Cultivo Acuatico Manantiales",
+    "fuenteEmisora": "Piscicultura Iculpe - Autocontrol ",
+    "frecuencia": "MENSUAL",
+    "cantidad": "4",
+    "objetivo": "Autocontrol",
+    "sector": "LAGO RANCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Cultivo Acuatico Manantiales",
+    "fuenteEmisora": "Piscicultura Iculpe - Certificación BAP",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "BAP",
+    "sector": "LAGO RANCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Cultivo Acuatico Manantiales",
+    "fuenteEmisora": "Piscicultura Iculpe - Seguimiento Ambiental Trimestral (Hidrolab)",
+    "frecuencia": "MAR-JUN-SEP-DIC",
+    "cantidad": "0",
+    "objetivo": "Seg. Ambiental",
+    "sector": "LAGO RANCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Cultivo Acuatico Manantiales",
+    "fuenteEmisora": "Piscicultura Iculpe - Seguimiento Ambiental RCA 91/2005",
+    "frecuencia": "NOVIEMBRE",
+    "cantidad": "1",
+    "objetivo": "Seg. Ambiental",
+    "sector": "LAGO RANCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Cultivo Acuatico Manantiales",
+    "fuenteEmisora": "Piscicultura Iculpe - Seguimiento Ambiental RCA 303/2000",
+    "frecuencia": "NOVIEMBRE",
+    "cantidad": "1",
+    "objetivo": "Seg. Ambiental",
+    "sector": "LAGO RANCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Cultivo Acuatico Manantiales",
+    "fuenteEmisora": "Piscicultura Iculpe - Tabla Anual n° 3 D.S 90",
+    "frecuencia": "AGOSTO",
+    "cantidad": "0",
+    "objetivo": "Tabla Anual",
+    "sector": "LAGO RANCO",
+    "dias": {}
+  },
+  {
+    "empresa": "Acuicola Volcanes",
+    "fuenteEmisora": "Piscicultura Puyehue - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "4",
+    "objetivo": "Autocontrol",
+    "sector": "PUYEHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Acuicola Volcanes",
+    "fuenteEmisora": "Piscicultura Puyehue - Cert. BAP",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Bap",
+    "sector": "PUYEHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Acuicola Volcanes",
+    "fuenteEmisora": "Piscicultura Puyehue - Control interno Efluente",
+    "frecuencia": "MENSUAL",
+    "cantidad": "4",
+    "objetivo": "C. Interno",
+    "sector": "PUYEHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Acuicola Volcanes",
+    "fuenteEmisora": "Piscicultura Puyehue - Seguimiento Ambiental (Agua - Sedimento)",
+    "frecuencia": "FEBRERO - AGOSTO",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "PUYEHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Acuicola Volcanes",
+    "fuenteEmisora": "Piscicultura Puyehue - Seguimiento Ambiental (Agua)",
+    "frecuencia": "MAYO - NOVIEMBRE",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "PUYEHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Acuicola Volcanes",
+    "fuenteEmisora": "Piscicultura Puyehue - Lodo producción Ecoprial",
+    "frecuencia": "ABRIL 2024",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "PUYEHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Acuicola Volcanes",
+    "fuenteEmisora": "Piscicultura Puyehue - Lodo Ensilaje Ecoprial",
+    "frecuencia": "ABRIL 2024",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "PUYEHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Vitapro",
+    "fuenteEmisora": "Vita Pro (Salmofood) Autocontrol Efluente 1",
+    "frecuencia": "MENSUAL",
+    "cantidad": "0",
+    "objetivo": "Autocontrol",
+    "sector": "QUILLAIPE",
+    "dias": {}
+  },
+  {
+    "empresa": "Vitapro",
+    "fuenteEmisora": "Vita Pro (Salmofood) Autocontrol Efluente 2",
+    "frecuencia": "MENSUAL",
+    "cantidad": "0",
+    "objetivo": "Autocontrol",
+    "sector": "QUILLAIPE",
+    "dias": {}
+  },
+  {
+    "empresa": "Vitapro",
+    "fuenteEmisora": "Vita Pro (Salmofood) Autocontrol Efluente 3",
+    "frecuencia": "MENSUAL",
+    "cantidad": "0",
+    "objetivo": "Autocontrol",
+    "sector": "QUILLAIPE",
+    "dias": {}
+  },
+  {
+    "empresa": "Vitapro",
+    "fuenteEmisora": "Vita Pro (Salmofood) Autocontrol Efluente 4",
+    "frecuencia": "MENSUAL",
+    "cantidad": "0",
+    "objetivo": "Autocontrol",
+    "sector": "QUILLAIPE",
+    "dias": {}
+  },
+  {
+    "empresa": "Vitapro",
+    "fuenteEmisora": "Vita Pro (Salmofood) Autocontrol Efluente 5",
+    "frecuencia": "MENSUAL",
+    "cantidad": "0",
+    "objetivo": "Autocontrol",
+    "sector": "QUILLAIPE",
+    "dias": {}
+  },
+  {
+    "empresa": "Vitapro",
+    "fuenteEmisora": "Vita Pro (Salmofood) Autocontrol Efluente 6",
+    "frecuencia": "MENSUAL",
+    "cantidad": "0",
+    "objetivo": "Autocontrol",
+    "sector": "QUILLAIPE",
+    "dias": {}
+  },
+  {
+    "empresa": "Vitapro",
+    "fuenteEmisora": "Vita Pro (Salmofood) Autocontrol Efluente 7",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Autocontrol",
+    "sector": "QUILLAIPE",
+    "dias": {}
+  },
+  {
+    "empresa": "Vitapro",
+    "fuenteEmisora": "Vita Pro (Salmofood) Autocontrol Efluente 8",
+    "frecuencia": "MENSUAL",
+    "cantidad": "0",
+    "objetivo": "Autocontrol",
+    "sector": "QUILLAIPE",
+    "dias": {}
+  },
+  {
+    "empresa": "Vitapro",
+    "fuenteEmisora": "Vita Pro (Salmofood) Autocontrol Efluente 9",
+    "frecuencia": "MENSUAL",
+    "cantidad": "0",
+    "objetivo": "Autocontrol",
+    "sector": "QUILLAIPE",
+    "dias": {}
+  },
+  {
+    "empresa": "Vitapro",
+    "fuenteEmisora": "Vita Pro (Salmofood) Punto interno ",
+    "frecuencia": "MENSUAL",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "QUILLAIPE",
+    "dias": {}
+  },
+  {
+    "empresa": "Vitapro",
+    "fuenteEmisora": "Vita Pro (Salmofood) Coliformes Fecales ingreso Agua Dulce Previo filtro UV",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "QUILLAIPE",
+    "dias": {}
+  },
+  {
+    "empresa": "Vitapro",
+    "fuenteEmisora": "Vita Pro (Salmofood) Coliformes Fecales ingreso Agua Dulce Post filtro UV",
+    "frecuencia": "SUSPENDIDO",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "QUILLAIPE",
+    "dias": {}
+  },
+  {
+    "empresa": "Vitapro",
+    "fuenteEmisora": "Vuta Pro (Salmofood) Control interno Efluente 4",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "C. Interno",
+    "sector": "QUILLAIPE",
+    "dias": {}
+  },
+  {
+    "empresa": "Vitapro",
+    "fuenteEmisora": "Vita Pro (Salmofood) Tabla Anual N° 4 D.S 90 Efluente 1",
+    "frecuencia": "MARZO",
+    "cantidad": "0",
+    "objetivo": "TABLA ANUAL",
+    "sector": "QUILLAIPE",
+    "dias": {}
+  },
+  {
+    "empresa": "Vitapro",
+    "fuenteEmisora": "Vita Pro (Salmofood) Tabla Anual N° 4 D.S 90 Efluente 2",
+    "frecuencia": "ABRIL",
+    "cantidad": "0",
+    "objetivo": "TABLA ANUAL",
+    "sector": "QUILLAIPE",
+    "dias": {}
+  },
+  {
+    "empresa": "Vitapro",
+    "fuenteEmisora": "Vita Pro (Salmofood) Tabla Anual N° 4 D.S 90 Efluente 3",
+    "frecuencia": "MAYO",
+    "cantidad": "0",
+    "objetivo": "TABLA ANUAL",
+    "sector": "QUILLAIPE",
+    "dias": {}
+  },
+  {
+    "empresa": "Vitapro",
+    "fuenteEmisora": "Vita Pro (Salmofood) Tabla Anual N° 4 D.S 90 Efluente 4",
+    "frecuencia": "JUNIO",
+    "cantidad": "0",
+    "objetivo": "TABLA ANUAL",
+    "sector": "QUILLAIPE",
+    "dias": {}
+  },
+  {
+    "empresa": "Vitapro",
+    "fuenteEmisora": "Vita Pro (Salmofood) Tabla Anual N° 4 D.S 90 Efluente 5",
+    "frecuencia": "JULIO",
+    "cantidad": "0",
+    "objetivo": "TABLA ANUAL",
+    "sector": "QUILLAIPE",
+    "dias": {}
+  },
+  {
+    "empresa": "Vitapro",
+    "fuenteEmisora": "Vita Pro (Salmofood) Tabla Anual N° 4 D.S 90 Efluente 6",
+    "frecuencia": "AGOSTO",
+    "cantidad": "0",
+    "objetivo": "TABLA ANUAL",
+    "sector": "QUILLAIPE",
+    "dias": {}
+  },
+  {
+    "empresa": "Vitapro",
+    "fuenteEmisora": "Vita Pro (Salmofood) Tabla Anual N° 4 D.S 90 Efluente 7",
+    "frecuencia": "SEPTIEMBRE",
+    "cantidad": "0",
+    "objetivo": "TABLA ANUAL",
+    "sector": "QUILLAIPE",
+    "dias": {}
+  },
+  {
+    "empresa": "Vitapro",
+    "fuenteEmisora": "Vita Pro (Salmofood) Tabla Anual N° 4 D.S 90 Efluente 8",
+    "frecuencia": "OCTUBRE",
+    "cantidad": "0",
+    "objetivo": "TABLA ANUAL",
+    "sector": "QUILLAIPE",
+    "dias": {}
+  },
+  {
+    "empresa": "Vitapro",
+    "fuenteEmisora": "Vita Pro (Salmofood) Tabla Anual N° 4 D.S 90 Efluente 9",
+    "frecuencia": "NOVIEMBRE",
+    "cantidad": "0",
+    "objetivo": "TABLA ANUAL",
+    "sector": "QUILLAIPE",
+    "dias": {}
+  },
+  {
+    "empresa": "Lago Sofia",
+    "fuenteEmisora": "Piscicultura Chinquihue - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "2",
+    "objetivo": "Autocontrol",
+    "sector": "CHINQUIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Lago Sofia",
+    "fuenteEmisora": "Piscicultura Chinquihue - Certificación BAP Mensual",
+    "frecuencia": "MENSUAL",
+    "cantidad": "2",
+    "objetivo": "Bap",
+    "sector": "CHINQUIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Lago Sofia",
+    "fuenteEmisora": "Piscicultura Chinquihue - Certificación BAP Trimestral",
+    "frecuencia": "FEBRERO - MAYO - AGOSTO - NOVIEMBRE",
+    "cantidad": "2",
+    "objetivo": "Bap",
+    "sector": "CHINQUIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Lago Sofia",
+    "fuenteEmisora": "Piscicultura Chinquihue - Certificación BAP Estero Chincui",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "BAP",
+    "sector": "CHINQUIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Lago Sofia",
+    "fuenteEmisora": "Piscicultura Chinquihue - Certificación BAP Pozo 6",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "BAP",
+    "sector": "CHINQUIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Lago Sofia",
+    "fuenteEmisora": "Piscicultura Chinquihue - Certificación BAP Vertiente",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "BAP",
+    "sector": "CHINQUIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Lago Sofia",
+    "fuenteEmisora": "Piscicultura Chinquihue - Certificación BAP Estanaque acumulación",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "BAP",
+    "sector": "CHINQUIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Lago Sofia",
+    "fuenteEmisora": "Piscicultura Chinquihue - Lodo Producción ASC",
+    "frecuencia": "CUANDO INDIQUE EL CLIENTE",
+    "cantidad": "1",
+    "objetivo": "ASC",
+    "sector": "CHINQUIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Lago Sofia",
+    "fuenteEmisora": "Piscicultura Chinquihue - Tabla Anual n° 1 D.S 90",
+    "frecuencia": "MAYO",
+    "cantidad": "0",
+    "objetivo": "TABLA ANUAL",
+    "sector": "CHINQUIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Lago Sofia",
+    "fuenteEmisora": "Piscicultura Chinquihue Salmones Captren - Autocontrol ",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Autocontrol",
+    "sector": "CHINQUIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Lago Sofia",
+    "fuenteEmisora": "Piscicultura Chinquihue Salmones Captren - Certificación BAP ",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Bap",
+    "sector": "CHINQUIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Lago Sofia",
+    "fuenteEmisora": "Piscicultura Chinquihue Salmones Captren - Certificación BAP Vertiente",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Bap",
+    "sector": "CHINQUIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Lago Sofia",
+    "fuenteEmisora": "Piscicultura Chinquihue Salmones Captren - Certificación BAP Estero Chincui",
+    "frecuencia": "SUSPENDIDO ",
+    "cantidad": "0",
+    "objetivo": "BAP",
+    "sector": "CHINQUIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Lago Sofia",
+    "fuenteEmisora": "Piscicultura Chinquihue Salmones Captren - NCH 409 (Microbiologico)",
+    "frecuencia": "BI-MENSUAL",
+    "cantidad": "2",
+    "objetivo": "C. Interno",
+    "sector": "CHINQUIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Lago Sofia",
+    "fuenteEmisora": "Piscicultura Chinquihue Salmones Captren - Tabla Anual n° 1 D.S 90",
+    "frecuencia": "OCTUBRE",
+    "cantidad": "1",
+    "objetivo": "TABLA ANUAL",
+    "sector": "CHINQUIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Prolesur",
+    "fuenteEmisora": "Planta Frutillar Prolesur - Autocontrol ",
+    "frecuencia": "MENSUAL",
+    "cantidad": "2",
+    "objetivo": "Autocontrol",
+    "sector": "FRUTILLAR",
+    "dias": {}
+  },
+  {
+    "empresa": "Prolesur",
+    "fuenteEmisora": "Planta Frutillar Prolesur - Autocontrol Aceites y Grasas",
+    "frecuencia": "MENSUAL",
+    "cantidad": "0",
+    "objetivo": "Autocontrol",
+    "sector": "FRUTILLAR",
+    "dias": {}
+  },
+  {
+    "empresa": "Prolesur",
+    "fuenteEmisora": "Planta Frutillar Prolesur - Entrega Set de Contramuestras Suralis",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "CONTROL INTERNO",
+    "sector": "FRUTILLAR",
+    "dias": {}
+  },
+  {
+    "empresa": "Prolesur",
+    "fuenteEmisora": "Planta Frutillar Prolesur - Tabla Anual n° 4 D.S 609",
+    "frecuencia": "NOVIEMBRE",
+    "cantidad": "1",
+    "objetivo": "Autocontrol",
+    "sector": "FRUTILLAR",
+    "dias": {}
+  },
+  {
+    "empresa": "Dalcahue",
+    "fuenteEmisora": "Piscicultura Quillaico - Autocontrol",
+    "frecuencia": "MENSUAL",
+    "cantidad": "2",
+    "objetivo": "Autocontrol",
+    "sector": "TOCOIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Dalcahue",
+    "fuenteEmisora": "Piscicultura Quillaico - Cert. BAP",
+    "frecuencia": "MENSUAL",
+    "cantidad": "1",
+    "objetivo": "Bap",
+    "sector": "TOCOIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Dalcahue",
+    "fuenteEmisora": "Piscicultura Quillaico - Seguimiento Ambiental RCA 22211000159/2021 - Agua Superficial ",
+    "frecuencia": "NOVIEMBRE 2024",
+    "cantidad": "1",
+    "objetivo": "Seg. Ambiental",
+    "sector": "TOCOIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Dalcahue",
+    "fuenteEmisora": "Piscicultura Quillaico - Seguimiento Ambiental RCA 22211000159/2021 - Toxicidad",
+    "frecuencia": "NOVIEMBRE 2024",
+    "cantidad": "1",
+    "objetivo": "Seg. Ambiental",
+    "sector": "TOCOIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Dalcahue",
+    "fuenteEmisora": "Piscicultura Quillaico - Seguimiento Ambiental RCA 22211000159/2021 - Lodo",
+    "frecuencia": "NOVIEMBRE 2024",
+    "cantidad": "1",
+    "objetivo": "Seg. Ambiental",
+    "sector": "TOCOIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Dalcahue",
+    "fuenteEmisora": "Piscicultura Quillaico - Tabla Establecimiento Emisor D.S 90 ",
+    "frecuencia": "NOVIEMBRE 2024",
+    "cantidad": "1",
+    "objetivo": "Control interno",
+    "sector": "TOCOIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Dalcahue",
+    "fuenteEmisora": "Piscicultura Quillaico - Formalina",
+    "frecuencia": "NOVIEMBRE 2024",
+    "cantidad": "1",
+    "objetivo": "Control interno",
+    "sector": "TOCOIHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Antartica",
+    "fuenteEmisora": "Piscicultura Alcaldeo - Efluente Pre UV ",
+    "frecuencia": "ENE - ABR - JUL - OCT",
+    "cantidad": "0",
+    "objetivo": "RES. 4866",
+    "sector": "CHONCHI",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Antartica",
+    "fuenteEmisora": "Piscicultura Alcaldeo - Seguimiento Ambiental RCA 478/2013",
+    "frecuencia": "JUNIO - DICIEMBRE",
+    "cantidad": "0",
+    "objetivo": "Seg. Ambiental",
+    "sector": "CHONCHI",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Antartica",
+    "fuenteEmisora": "Piscicultura Alcaldeo - Lodo producción Rilesur",
+    "frecuencia": "ABRIL 2024",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "CHONCHI",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Antartica",
+    "fuenteEmisora": "Piscicultura Alcaldeo - Estanque Ril Rilesur",
+    "frecuencia": "ABRIL 2024",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "CHONCHI",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Antartica",
+    "fuenteEmisora": "Piscicultura Curaco - Afluente Pre UV ",
+    "frecuencia": "ENE - ABR - JUL - OCT",
+    "cantidad": "0",
+    "objetivo": "RES. 4866",
+    "sector": "CURACO DE VELEZ",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Antartica",
+    "fuenteEmisora": "Piscicultura Curaco - Lodo producción Rilesur",
+    "frecuencia": "ABRIL 2024",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "CURACO DE VELEZ",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Antartica",
+    "fuenteEmisora": "Piscicultura Curaco - Estanque Ril Rilesur",
+    "frecuencia": "ABRIL 2024",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "CURACO DE VELEZ",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Antartica",
+    "fuenteEmisora": "Piscicultura Astillero - Afluente Previo filtro UV",
+    "frecuencia": "ENE - ABR - JUL - OCT",
+    "cantidad": "0",
+    "objetivo": "RES. 4866",
+    "sector": "DALCAHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Antartica",
+    "fuenteEmisora": "Piscicultura Astillero - Lodo producción Rilesur",
+    "frecuencia": "ENE - ABR - JUL - OCT",
+    "cantidad": "0",
+    "objetivo": "RES. 4866",
+    "sector": "DALCAHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Antartica",
+    "fuenteEmisora": "Piscicultura Astillero - Estanque Ril Rilesur",
+    "frecuencia": "ABRIL 2024",
+    "cantidad": "0",
+    "objetivo": "C. Interno",
+    "sector": "DALCAHUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Antartica",
+    "fuenteEmisora": "Planta Lacteos Rafulto - Autocontrol DS46",
+    "frecuencia": "SUSPENDIDO",
+    "cantidad": "0",
+    "objetivo": "Autocontrol",
+    "sector": "PURRANQUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Antartica",
+    "fuenteEmisora": "Planta Lacteos Rafulto - Puntual RIL",
+    "frecuencia": "SUSPENDIDO",
+    "cantidad": "0",
+    "objetivo": "Autocontrol",
+    "sector": "PURRANQUE",
+    "dias": {}
+  },
+  {
+    "empresa": "Salmones Antartica",
+    "fuenteEmisora": "Planta Lacteos Rafulto - Tabla establecimiento emisor DS46 compuesta 24 hrs",
+    "frecuencia": "SUSPENDIDO",
+    "cantidad": "0",
+    "objetivo": "Autocontrol",
+    "sector": "PURRANQUE",
+    "dias": {}
+  }
+]
