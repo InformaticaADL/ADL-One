@@ -52,6 +52,31 @@ export const adminController = {
         }
     },
 
+    enableMuestreador: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const result = await adminService.enableMuestreador(id);
+            res.json({ success: true, data: result, message: 'Muestreador habilitado correctamente' });
+        } catch (error) {
+            console.error('Controller enableMuestreador error:', error);
+            res.status(500).json({ success: false, message: 'Error al habilitar muestreador' });
+        }
+    },
+
+    checkDuplicateMuestreador: async (req, res) => {
+        try {
+            const { nombre, correo } = req.query;
+            if (!nombre && !correo) {
+                return res.json({ success: true, data: [] });
+            }
+            const result = await adminService.checkDuplicateMuestreador(nombre, correo);
+            res.json({ success: true, data: result });
+        } catch (error) {
+            console.error('Controller checkDuplicateMuestreador error:', error);
+            res.status(500).json({ success: false, message: 'Error al verificar duplicados' });
+        }
+    },
+
     // --- DASHBOARD ---
     getDashboardStats: async (req, res) => {
         try {
@@ -60,6 +85,18 @@ export const adminController = {
         } catch (error) {
             console.error('Controller getDashboardStats error:', error);
             res.status(500).json({ success: false, message: 'Error al obtener métricas del dashboard' });
+        }
+    },
+
+    // --- CALENDARIO REPLICA ---
+    getCalendario: async (req, res) => {
+        try {
+            const { mes, ano } = req.query;
+            const result = await adminService.getCalendario(mes, ano);
+            res.json({ success: true, data: result });
+        } catch (error) {
+            console.error('Controller getCalendario error:', error);
+            res.status(500).json({ success: false, message: 'Error al obtener datos del calendario' });
         }
     }
 };

@@ -12,9 +12,14 @@ router.get('/muestreadores', verifyToken, adminController.getMuestreadores);
 router.post('/muestreadores', verifyToken, adminController.createMuestreador);
 router.put('/muestreadores/:id', verifyToken, adminController.updateMuestreador);
 router.delete('/muestreadores/:id', verifyToken, adminController.disableMuestreador);
+router.put('/muestreadores/:id/enable', verifyToken, adminController.enableMuestreador);
+router.get('/muestreadores/check-duplicate', verifyToken, adminController.checkDuplicateMuestreador);
 
 // --- DASHBOARD ---
 router.get('/dashboard/stats', verifyToken, adminController.getDashboardStats);
+
+// --- CALENDARIO REPLICA ---
+router.get('/calendario', verifyToken, adminController.getCalendario);
 
 // --- EQUIPOS ---
 router.get('/equipos/suggest-code', verifyToken, equipoController.suggestNextCode);

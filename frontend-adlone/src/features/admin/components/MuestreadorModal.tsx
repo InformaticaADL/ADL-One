@@ -25,6 +25,7 @@ export const MuestreadorModal: React.FC<Props> = ({ isOpen, onClose, onSave, ini
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [duplicateWarning, setDuplicateWarning] = useState('');
     const [previewSignature, setPreviewSignature] = useState<string | null>(null);
 
     useEffect(() => {
@@ -42,6 +43,7 @@ export const MuestreadorModal: React.FC<Props> = ({ isOpen, onClose, onSave, ini
                 setPreviewSignature(null);
             }
             setError('');
+            setDuplicateWarning('');
         }
     }, [isOpen, initialData]);
 
@@ -67,9 +69,11 @@ export const MuestreadorModal: React.FC<Props> = ({ isOpen, onClose, onSave, ini
         e.preventDefault();
         setLoading(true);
         setError('');
+        setDuplicateWarning('');
 
         try {
             if (initialData?.id_muestreador) {
+                // Update existing
                 await adminService.updateMuestreador(initialData.id_muestreador, {
                     nombre: formData.nombre_muestreador,
                     correo: formData.correo_electronico,
@@ -77,6 +81,22 @@ export const MuestreadorModal: React.FC<Props> = ({ isOpen, onClose, onSave, ini
                     firma: formData.firma_muestreador
                 });
             } else {
+                // Creating new - check for duplicates first
+                const dupResult = await adminService.checkDuplicateMuestreador(
+                    formData.nombre_muestreador,
+                    formData.correo_electronico
+                );
+                const duplicates = dupResult?.data || [];
+                if (duplicates.length > 0) {
+                    const dup = duplicates[0];
+                    const estado = dup.habilitado === 'S' ? 'Activo' : 'Inactivo';
+                    setDuplicateWarning(
+                        `Ya existe un muestreador con datos similares: "${dup.nombre_muestreador}" (${dup.correo_electronico}) - Estado: ${estado}. Si el muestreador existe pero está inactivo, puede habilitarlo desde la lista.`
+                    );
+                    setLoading(false);
+                    return;
+                }
+
                 await adminService.createMuestreador({
                     nombre: formData.nombre_muestreador,
                     correo: formData.correo_electronico,
@@ -143,6 +163,11 @@ export const MuestreadorModal: React.FC<Props> = ({ isOpen, onClose, onSave, ini
                 <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
                     <div className="modal-body admin-content-scroll" style={{ padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                         {error && <div style={{ padding: '0.75rem', background: '#fef2f2', color: '#ef4444', borderRadius: '8px', border: '1px solid #f87171', fontSize: '0.9rem' }}>{error}</div>}
+                        {duplicateWarning && (
+                            <div style={{ padding: '0.75rem', background: '#fffbeb', color: '#b45309', borderRadius: '8px', border: '1px solid #fbbf24', fontSize: '0.9rem', lineHeight: 1.5 }}>
+                                <strong>⚠️ Muestreador existente:</strong> {duplicateWarning}
+                            </div>
+                        )}
 
                         <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                             <label style={{ fontWeight: 600, color: '#334155', fontSize: '0.9rem' }}>Nombre Completo</label>

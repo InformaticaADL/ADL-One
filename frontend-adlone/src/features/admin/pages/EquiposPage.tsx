@@ -282,6 +282,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
 
         if (pending) {
             showToast({
+                id: `pending-solicitude-${equipo.id_equipo}`,
                 type: 'warning',
                 message: `Atención: Este equipo tiene una solicitud de ${pending.tipo_solicitud} PENDIENTE: ${pending.datos_json?.motivo || 'Sin motivo especificado'}`,
                 duration: 8000
@@ -509,7 +510,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                     setReviewSolicitud(null);
                     // Close background modal
                 } else {
-                    showToast({ type: 'info', message: 'Rellene los campos para finalizar el registro', duration: 5000 });
+                    showToast({ id: 'form-fill-info', type: 'info', message: 'Rellene los campos para finalizar el registro', duration: 5000 });
                     hideNotification(`${reviewSolicitud.id_solicitud}-${reviewSolicitud.estado}`);
                     setReviewSolicitud(null);
                     setSelectedEquipo({
@@ -522,7 +523,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 }
             } else if (type === 'TRASPASO') {
                 if (reviewSolicitud.datos_json?.id_equipo) {
-                    showToast({ type: 'info', message: 'Rellene los campos para continuar', duration: 5000 });
+                    showToast({ id: 'form-traspaso-info', type: 'info', message: 'Rellene los campos para continuar', duration: 5000 });
                     const equipId = Number(reviewSolicitud.datos_json.id_equipo);
                     hideNotification(`${reviewSolicitud.id_solicitud}-${reviewSolicitud.estado}`);
                     setReviewSolicitud(null);
@@ -586,7 +587,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const confirmApproveAlta = async () => {
         if (!equipoAltaPending) return;
         if (!reactivationVigencia) {
-            showToast({ type: 'warning', message: 'Debe seleccionar una fecha de vigencia' });
+            showToast({ id: 'vigencia-warning', type: 'warning', message: 'Debe seleccionar una fecha de vigencia' });
             return;
         }
 
@@ -1231,6 +1232,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                             if (pendingList.length > 0) {
                                                 const pending = pendingList[0];
                                                 showToast({
+                                                    id: `pending-solicitude-${equipo.id_equipo}`,
                                                     type: 'warning',
                                                     message: `Solicitud de ${pending.tipo_solicitud} Pendiente: ${pending.datos_json?.motivo || 'Sin motivo especificado'}`,
                                                     duration: 8000
@@ -1564,7 +1566,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                         >
                                             {processingAction ? '...' : 'Rechazar'}
                                         </button>
-                                        {reviewSolicitud.tipo_solicitud !== 'BAJA' && !(reviewSolicitud.tipo_solicitud === 'ALTA' && reviewSolicitud.datos_json?.isReactivation && reviewSolicitud.datos_json?.equipos_alta) && (
+                                        {(reviewSolicitud.tipo_solicitud !== 'BAJA' || reviewSolicitud.tipo_solicitud === 'EQUIPO_PERDIDO') && !(reviewSolicitud.tipo_solicitud === 'ALTA' && reviewSolicitud.datos_json?.isReactivation && reviewSolicitud.datos_json?.equipos_alta) && (
                                             <div style={{ display: 'flex', gap: '0.75rem' }}>
                                                 {(reviewSolicitud.estado === 'PENDIENTE_TECNICA' && (isMAMan || isSuper)) && (
                                                     <button className="btn-success" onClick={handleApprove} disabled={processingAction} style={{ minWidth: '130px' }}>

@@ -61,6 +61,27 @@ export const adminService = {
         return { success: true };
     },
 
+    enableMuestreador: async (id) => {
+        const pool = await getConnection();
+        const request = pool.request();
+        request.input('id', sql.Numeric(10, 0), id);
+        await request.query("UPDATE mae_muestreador SET habilitado = 'S' WHERE id_muestreador = @id");
+        return { success: true };
+    },
+
+    checkDuplicateMuestreador: async (nombre, correo) => {
+        const pool = await getConnection();
+        const request = pool.request();
+        request.input('nombre', sql.VarChar(200), nombre);
+        request.input('correo', sql.VarChar(200), correo);
+        const result = await request.query(`
+            SELECT id_muestreador, nombre_muestreador, correo_electronico, habilitado
+            FROM mae_muestreador 
+            WHERE nombre_muestreador = @nombre OR correo_electronico = @correo
+        `);
+        return result.recordset;
+    },
+
     // --- DASHBOARD ---
     getDashboardStats: async () => {
         try {
@@ -84,7 +105,8 @@ export const adminService = {
             const mhResult = await mhRq.query(`
                 SELECT count(*) as count 
                 FROM App_Ma_Agenda_MUESTREOS 
-                WHERE estado_caso != 'ANULADA' 
+                WHERE estado_caso != 'CANCELADO' 
+                AND estado_caso != 'ANULADA' 
                 AND CAST(fecha_muestreo as DATE) = CAST(GETDATE() as DATE)
             `);
             const muestrasHoy = mhResult.recordset[0].count;
@@ -108,6 +130,54 @@ export const adminService = {
             };
         } catch (error) {
             console.error('Error fetching dashboard stats:', error);
+            throw error;
+        }
+    },
+
+    // --- CALENDARIO REPLICA ---
+    getCalendario: async (mes, ano) => {
+        try {
+            const pool = await getConnection();
+            const request = pool.request();
+
+            let query = `
+                SELECT 
+                    a.id_agendamam,
+                    a.fecha_muestreo,
+                    a.dia, a.mes, a.ano,
+                    a.frecuencia,
+                    a.id_fichaingresoservicio,
+                    a.id_estadomuestreo,
+                    f.id_empresa,
+                    e.nombre_empresa,
+                    f.id_fuenteemisora,
+                    fe.nombre_fuenteemisora,
+                    fm.nombre_fuenteemisora as nombre_fuenteemisora_ma,
+                    obj.nombre_objetivomuestreo_ma,
+                    sec.nombre_sector
+                FROM App_Ma_Agenda_MUESTREOS a
+                LEFT JOIN App_Ma_FichaIngresoServicio_ENC f ON a.id_fichaingresoservicio = f.id_fichaingresoservicio
+                LEFT JOIN mae_empresa e ON f.id_empresa = e.id_empresa
+                LEFT JOIN mae_fuenteemisora fe ON f.id_fuenteemisora = fe.id_fuenteemisora
+                LEFT JOIN mae_fuenteemisora_ma fm ON f.id_fuenteemisora = fm.id_fuenteemisora
+                LEFT JOIN mae_objetivomuestreo_ma obj ON f.id_objetivomuestreo_ma = obj.id_objetivomuestreo_ma
+                LEFT JOIN mae_sector sec ON f.id_sector = sec.id_sector
+                WHERE (a.estado_caso IS NULL OR (a.estado_caso != 'CANCELADO' AND a.estado_caso != 'ANULADA'))
+            `;
+
+            if (mes) {
+                request.input('mes', sql.Int, mes);
+                query += ' AND a.mes = @mes';
+            }
+            if (ano) {
+                request.input('ano', sql.Int, ano);
+                query += ' AND a.ano = @ano';
+            }
+
+            const result = await request.query(query);
+            return result.recordset;
+        } catch (error) {
+            console.error('Error fetching calendario data:', error);
             throw error;
         }
     }

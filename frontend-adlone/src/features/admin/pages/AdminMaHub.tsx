@@ -47,9 +47,13 @@ export const AdminMaHub: React.FC<Props> = ({ onNavigate, onBack }) => {
             permission: 'MA_A_REPORTES'
         },
         { id: 'ma-solicitudes', label: 'Solicitudes', icon: '📝', description: 'Creación de solicitudes de alta, traspaso y baja de equipos.', permission: 'AI_MA_SOLICITUDES' },
+        { id: 'ma-calendario-replica', label: 'Calendario Réplica', icon: '📅', description: 'Réplica de Excel del calendario de Puerto Montt Enero 2026.', permission: 'MA_ACCESO' },
     ];
 
     const visibleOptions = OPTIONS.filter(opt => {
+        if (opt.id === 'ma-calendario-replica') {
+            return true; // Or specific logic if needed, but MA_ACCESO is checked in the main dashboard before entering this hub usually.
+        }
         if (opt.id === 'ma-solicitudes') {
             return hasPermission('AI_MA_SOLICITUDES') || hasPermission('AI_MA_ADMIN_ACCESO');
         }

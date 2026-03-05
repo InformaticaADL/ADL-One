@@ -22,6 +22,10 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
     const [muestreadorToDisable, setMuestreadorToDisable] = useState<any | null>(null);
 
+    // Enable Confirm Modal State
+    const [isEnableConfirmOpen, setIsEnableConfirmOpen] = useState(false);
+    const [muestreadorToEnable, setMuestreadorToEnable] = useState<any | null>(null);
+
     // Image Zoom State
     const [zoomedImage, setZoomedImage] = useState<string | null>(null);
 
@@ -70,7 +74,26 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
             setMuestreadorToDisable(null);
         } catch (error) {
             console.error(error);
-            alert('Error al deshabilitar'); // Keep simple alert for error or use toast if available
+            alert('Error al deshabilitar');
+        }
+    };
+
+    const handleEnableClick = (m: any) => {
+        setMuestreadorToEnable(m);
+        setIsEnableConfirmOpen(true);
+    };
+
+    const confirmEnable = async () => {
+        if (!muestreadorToEnable) return;
+
+        try {
+            await adminService.enableMuestreador(muestreadorToEnable.id_muestreador);
+            fetchData();
+            setIsEnableConfirmOpen(false);
+            setMuestreadorToEnable(null);
+        } catch (error) {
+            console.error(error);
+            alert('Error al habilitar');
         }
     };
 
@@ -212,6 +235,16 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
                                                 </button>
                                             )}
+                                            {m.habilitado !== 'S' && (
+                                                <button
+                                                    className="btn-icon"
+                                                    onClick={() => handleEnableClick(m)}
+                                                    title="Habilitar"
+                                                    style={{ color: '#16a34a', background: '#f0fdf4', padding: '6px', borderRadius: '4px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                >
+                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                                                </button>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
@@ -240,6 +273,20 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                 onCancel={() => {
                     setIsConfirmModalOpen(false);
                     setMuestreadorToDisable(null);
+                }}
+            />
+
+            {/* ENABLE CONFIRM MODAL */}
+            <ConfirmModal
+                isOpen={isEnableConfirmOpen}
+                title="Confirmar Habilitación"
+                message={`¿Está seguro de habilitar a ${muestreadorToEnable?.nombre_muestreador}? El muestreador podrá ser asignado a nuevas fichas.`}
+                confirmText="Habilitar"
+                confirmColor="#16a34a"
+                onConfirm={confirmEnable}
+                onCancel={() => {
+                    setIsEnableConfirmOpen(false);
+                    setMuestreadorToEnable(null);
                 }}
             />
 
