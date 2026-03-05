@@ -24,6 +24,18 @@ export const adminService = {
         return response.data;
     },
 
+    enableMuestreador: async (id: number) => {
+        const response = await apiClient.put(`/api/admin/muestreadores/${id}/enable`);
+        return response.data;
+    },
+
+    checkDuplicateMuestreador: async (nombre: string, correo: string) => {
+        const response = await apiClient.get('/api/admin/muestreadores/check-duplicate', {
+            params: { nombre, correo }
+        });
+        return response.data;
+    },
+
     // --- SOLICITUDES ---
     createSolicitud: async (data: any) => {
         const response = await apiClient.post('/api/admin/solicitudes', data);
@@ -65,6 +77,14 @@ export const adminService = {
     // --- DASHBOARD ---
     getDashboardStats: async () => {
         const response = await apiClient.get('/api/admin/dashboard/stats');
+        return response.data;
+    },
+
+    // --- CALENDARIO REPLICA ---
+    getCalendarioReplica: async (mes?: number, ano?: number) => {
+        const response = await apiClient.get('/api/admin/calendario', {
+            params: { mes, ano }
+        });
         return response.data;
     }
 };
