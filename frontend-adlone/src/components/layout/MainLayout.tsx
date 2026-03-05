@@ -84,7 +84,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
 
     // Permissions for "Gestión de Equipos" (Admins/Approvers)
     const isGCMan = hasPermission('GC_ACCESO') || hasPermission('GC_EQUIPOS');
-    const isMAMan = hasPermission('MA_A_GEST_EQUIPO') || hasPermission('AI_MA_SOLICITUDES');
+    const isMAMan = hasPermission('MA_A_GEST_EQUIPO') || hasPermission('AI_MA_SOLICITUDES') || hasPermission('MA_TECNICA_ACCESO');
     const isINFMan = hasPermission('INF_NOTIF');
     const isSuper = hasPermission('AI_MA_ADMIN_ACCESO');
 
@@ -108,7 +108,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
 
             // 1. Filter Equipment Requests
             const filteredEquipos = solicitudesData.filter((sol: any) => {
-                const isPending = sol.estado === 'PENDIENTE' || sol.estado === 'PENDIENTE_CALIDAD';
+                const isPending = sol.estado === 'PENDIENTE' || sol.estado === 'PENDIENTE_CALIDAD' || sol.estado === 'PENDIENTE_TECNICA' || sol.estado === 'EN_REVISION_TECNICA';
                 const isResult = sol.estado === 'APROBADO' || sol.estado === 'RECHAZADA' || sol.estado === 'RECHAZADO';
                 const sec = sol.seccion_solicitante;
                 const isMaSection = ['GEM', 'GER', 'MAM', 'MA', 'Medio Ambiente', 'AY', 'VI', 'PM', 'PA', 'CH', 'CM', 'CN', 'Terreno'].includes(sec);
@@ -326,7 +326,17 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
             {/* --- Sidebar Lateral --- */}
             <aside className={`app-sidebar ${mobileSidebarOpen ? 'mobile-open' : ''}`}>
                 <div className="sidebar-header">
-                    <img src={logoAdl} alt="ADL Logo" className="sidebar-logo" />
+                    <img
+                        src={logoAdl}
+                        alt="ADL Logo"
+                        className="sidebar-logo"
+                        onClick={() => {
+                            setActiveModule('');
+                            setActiveSubmodule('');
+                            setDrawerOpen(false);
+                        }}
+                        style={{ cursor: 'pointer' }}
+                    />
                     <button
                         className="btn-close-sidebar-mobile"
                         onClick={() => setMobileSidebarOpen(false)}

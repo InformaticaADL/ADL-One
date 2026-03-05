@@ -9,7 +9,7 @@ export interface Toast {
 
 interface ToastContextType {
     toasts: Toast[];
-    showToast: (toast: Omit<Toast, 'id'>) => void;
+    showToast: (toast: Omit<Toast, 'id'> & { id?: string }) => void;
     removeToast: (id: string) => void;
 }
 
@@ -17,28 +17,43 @@ const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
 export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [toasts, setToasts] = useState<Toast[]>([]);
-
-    const showToast = useCallback((toast: Omit<Toast, 'id'>) => {
-        const id = `toast-${Date.now()}-${Math.random()}`;
-        const newToast: Toast = {
-            ...toast,
-            id,
-            duration: toast.duration || 4000
-        };
-
-        setToasts(prev => [...prev, newToast]);
-
-        // Auto-dismiss
-        if (newToast.duration) {
-            setTimeout(() => {
-                removeToast(id);
-            }, newToast.duration);
-        }
-    }, []);
+    const timeouts = React.useRef<Map<string, any>>(new Map());
 
     const removeToast = useCallback((id: string) => {
         setToasts(prev => prev.filter(toast => toast.id !== id));
+        if (timeouts.current.has(id)) {
+            clearTimeout(timeouts.current.get(id));
+            timeouts.current.delete(id);
+        }
     }, []);
+
+    const showToast = useCallback((toast: Omit<Toast, 'id'> & { id?: string }) => {
+        const id = toast.id || `toast-${Date.now()}-${Math.random()}`;
+        const duration = toast.duration || 4000;
+
+        const newToast: Toast = {
+            ...toast,
+            id,
+            duration
+        };
+
+        // Clear existing timeout for this ID if it exists
+        if (timeouts.current.has(id)) {
+            clearTimeout(timeouts.current.get(id));
+        }
+
+        setToasts(prev => {
+            const filtered = prev.filter(t => t.id !== id);
+            return [...filtered, newToast];
+        });
+
+        // Set new auto-dismiss timeout
+        const timeout = setTimeout(() => {
+            removeToast(id);
+        }, duration);
+
+        timeouts.current.set(id, timeout);
+    }, [removeToast]);
 
     return (
         <ToastContext.Provider value={{ toasts, showToast, removeToast }}>

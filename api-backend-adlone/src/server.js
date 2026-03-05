@@ -10,6 +10,11 @@ import { getConnection } from './config/database.js';
 import logger from './utils/logger.js';
 import { requestLogger } from './middlewares/logger.middleware.js';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler.middleware.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Import routes
 import healthRoutes from './routes/health.routes.js';
@@ -20,6 +25,7 @@ import authRoutes from './routes/auth.routes.js';
 import rbacRoutes from './routes/rbac.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
+import uploadRoutes from './routes/upload.routes.js';
 
 const app = express();
 import { initScheduler } from './utils/scheduler.js';
@@ -31,7 +37,10 @@ const PORT = process.env.PORT || 4000;
 const HOST = process.env.HOST || '0.0.0.0';
 
 // Global Middlewares
-app.use(helmet());
+app.use(helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    contentSecurityPolicy: false
+}));
 app.use(cors());
 app.use(compression());
 app.use(express.json({ limit: '50mb' }));
@@ -48,6 +57,10 @@ app.use('/api/auth', authRoutes);
 app.use('/api/rbac', rbacRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/upload', uploadRoutes);
+
+// Serve uploads directory as static
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Root endpoint
 app.get('/', (req, res) => {
