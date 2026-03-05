@@ -4,6 +4,7 @@ import { useNavStore } from '../store/navStore';
 import { useAuth } from '../contexts/AuthContext';
 import { FichasIngresoPage } from '../features/medio-ambiente/pages/FichasIngresoPage';
 import { SolicitudesMaPage } from '../features/medio-ambiente/pages/SolicitudesMaPage';
+import { CalendarioReplicaPage } from '../features/medio-ambiente/pages/CalendarioReplicaPage';
 
 import { RolesPage } from '../features/admin/pages/RolesPage';
 import { AdminInfoHub } from '../features/admin/pages/AdminInfoHub';
@@ -73,6 +74,10 @@ const DashboardPage = () => {
 
         if (activeSubmodule === 'ma-fichas-ingreso') {
             return <FichasIngresoPage />;
+        }
+
+        if (activeSubmodule === 'ma-calendario-replica') {
+            return <CalendarioReplicaPage onBack={() => setActiveSubmodule('medio_ambiente')} />;
         }
 
         if (activeSubmodule === 'ma-solicitudes') {
@@ -264,7 +269,7 @@ const DashboardPage = () => {
                             <span style={{ fontSize: '2rem', fontWeight: 800, color: '#1e293b' }}>
                                 {hasPermission('AI_MA_ADMIN_ACCESO') ? stats.pendientes :
                                     (hasPermission('GC_ACCESO') || hasPermission('GC_EQUIPOS')) ? stats.pendientesCalidad :
-                                        (hasPermission('MA_A_GEST_EQUIPO') || hasPermission('AI_MA_SOLICITUDES')) ? stats.pendientesTecnica :
+                                        (hasPermission('MA_A_GEST_EQUIPO') || hasPermission('AI_MA_SOLICITUDES') || hasPermission('MA_TECNICA_ACCESO')) ? stats.pendientesTecnica :
                                             stats.pendientes}
                             </span>
                         </div>

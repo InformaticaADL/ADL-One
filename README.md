@@ -228,16 +228,16 @@ Mejoras importantes en validación de flujo de trabajo, consistencia de datos y 
 
 - **Sistema de Alertas en Cascada**:
   - Implementación de alertas contextuales en vistas de detalle de Área Técnica, Coordinación y Comercial.
-  - **Área Técnica**: Bloquea acciones cuando el estado es Aprobada (1), Rechazada (2/4), En Proceso (5), Aprobada por Coordinación (6) o Anulada (7).
-  - **Área Coordinación**: Bloquea acciones cuando el estado es Borrador (0), Rechazada (2/4), Pendiente Área Técnica (3), En Proceso (5), Aprobada (6) o Anulada (7).
+  - **Área Técnica**: Bloquea acciones cuando el estado es Aprobada (1), Rechazada (2/4), En Proceso (5), Aprobada por Coordinación (6) o Cancelado (7).
+  - **Área Coordinación**: Bloquea acciones cuando el estado es Borrador (0), Rechazada (2/4), Pendiente Área Técnica (3), En Proceso (5), Aprobada (6) o Cancelado (7).
   - **Área Comercial**: Solo alertas informativas (nunca bloquea acciones).
   - Asegura que los usuarios no puedan realizar operaciones inválidas según el estado actual del flujo de trabajo.
 
 - **Gestión Inteligente de Frecuencia Correlativo**:
   - **Generación Automática**: Eliminada dependencia de SP poco confiable, ahora genera correlativos directamente en código.
   - **Formato**: `{id_ficha}-{numero_frecuencia}-{estado}-{id_agenda}` (ej: `62-1-Pendiente-596`).
-  - **Reactivación Inteligente**: Al aumentar frecuencia, reactiva ítems de agenda previamente anulados (`ANULADA`) antes de crear nuevos.
-  - **Anulación Suave**: Al reducir frecuencia, marca ítems excedentes como `ANULADA` y actualiza correlativo a `{id}-{num}-ANULA-{agenda}`.
+  - **Reactivación Inteligente**: Al aumentar frecuencia, reactiva ítems de agenda previamente anulados (`CANCELADO`) antes de crear nuevos.
+  - **Anulación Suave**: Al reducir frecuencia, marca ítems excedentes como `CANCELADO` y actualiza correlativo a `{id}-{num}-CANCEL-{agenda}`.
   - **Persistencia**: Los correlativos se mantienen durante asignaciones de fechas/muestreadores.
   - **Sincronización de Estado**: Actualiza automáticamente `id_validaciontecnica = 5` (En Proceso) cuando se realizan asignaciones.
   - **Consistencia de Datos**: Asegura `estado_caso = ''` (string vacío) en todas las operaciones.
@@ -382,7 +382,101 @@ Refinamiento visual para asegurar una interfaz profesional, centrada y adaptable
 ### 19. Usabilidad Móvil y Accesibilidad 📱🚀
 - **Filas Cliqueables**: En la gestión de roles, las filas de la tabla ahora son totalmente cliqueables en móviles para abrir el detalle directamente sin depender de botones pequeños.
 - **Ocultamiento Inteligente**: Se implementó la clase `.mobile-hide` para ocultar elementos no críticos (como el widget de clima/reloj previo) en pantallas pequeñas, maximizando el espacio útil.
-- **Botón Limpiar**: Alineación estandarizada del botón "Limpiar" en filtros para mantener la armonía visual en cualquier resolución.
+### 20. Diferenciación de Eventos en Calendario (Marzo 2026) 📅🔀
+Mejoras en la vista de calendario para diferenciar visualmente entre eventos de Instalación y Retiro.
+
+- **Eventos Separados (INICIO / RETIRO)**:
+    - Transformación de datos de muestreo en eventos individuales de Instalación (`INICIO`) y Retiro (`RETIRO`).
+    - Cada tipo de evento tiene indicadores visuales distintos (colores, etiquetas).
+    - Vista diaria con tarjetas diferenciadas por tipo de evento.
+- **Muestreador Correcto por Tipo de Evento**:
+    - La query `getEnProcesoFichas` ahora incluye `LEFT JOIN` adicional a `mae_muestreador` para traer el nombre del muestreador de retiro (`muestreador_retiro`).
+    - El modal del calendario muestra el muestreador correcto según el tipo de evento seleccionado.
+- **Archivos Modificados**:
+    - Backend: `ficha.service.js` (query `getEnProcesoFichas` con segundo JOIN a `mae_muestreador`)
+    - Frontend: `EnProcesoCalendarView.tsx` (transformación de eventos, renderizado diferenciado)
+
+### 21. Actualización de Filtros y Fuentes de Datos del Calendario (Marzo 2026) 🔍📊
+Corrección de fuentes de datos para garantizar que los filtros del calendario y la vista de coordinación funcionen correctamente.
+
+- **Filtros de Empresa y Muestreador**:
+    - Empresa: Datos obtenidos de la tabla `sc_empresa`.
+    - Muestreadores: Solo muestreadores habilitados desde `mae_muestreador`.
+- **Corrección de Visualización de Fichas Pendientes**:
+    - **Problema**: Las fichas recién aprobadas con estado `PENDIENTE PROGRAMACIÓN` (`id_validaciontecnica = 6`) no aparecían en la vista de Planificación y Asignación.
+    - **Causa Raíz**: El SP `MAM_FichaComercial_ConsultaCoordinador` usaba `INNER JOIN` con `App_Ma_Agenda_MUESTREOS` y `mae_empresaservicios`, filtrando fichas que aún no tenían registros de agenda o cuyo ID de empresa servicio no existía en la tabla maestra.
+    - **Solución**: Migración de todos los `INNER JOIN` a `LEFT JOIN` en el SP, permitiendo que fichas sin agenda o con datos maestros faltantes aparezcan correctamente.
+- **Archivos Modificados**:
+    - Base de Datos: SP `MAM_FichaComercial_ConsultaCoordinador` (todos los JOINs cambiados a LEFT JOIN)
+    - Script local: `db_scripts/modify_assignment_sp.sql`
+
+### 22. Flujo de Cancelación de Muestreos (Marzo 2026) ❌📋
+Implementación del flujo completo de cancelación de eventos de muestreo desde el calendario.
+
+- **Cancelación con Motivo**:
+    - Botón de cancelación disponible en el modal de detalle del evento.
+    - Registro del motivo de cancelación (`motivo_cancelacion`) en la base de datos.
+    - Corrección del backend para guardar correctamente el motivo en la tabla `App_Ma_Agenda_MUESTREOS`.
+- **Visualización de Estado**:
+    - Los eventos cancelados se marcan visualmente y muestran el motivo registrado.
+    - Bloqueo de acciones (guardar, reasignar) en eventos ya cancelados o con `id_validaciontecnica = 7`.
+- **Archivos Modificados**:
+    - Backend: `ficha.service.js` (función `cancelAgendaSampling`)
+    - Frontend: `EnProcesoCalendarView.tsx` (UI de cancelación con motivo)
+
+### 23. Equipos Duales por Muestreador y Versionamiento (Marzo 2026) 🔧📦
+Mejoras profundas en la lógica de asignación de equipos para soportar muestreadores duales y control de versiones.
+
+- **Equipos de Ambos Muestreadores**:
+    - Al asignar un muestreo, se registran los equipos tanto del muestreador de **instalación** como del de **retiro**.
+    - Se evitan duplicados si ambos muestreadores comparten equipos (validado por `id_equipo`).
+    - Cada equipo registra a qué muestreador pertenece (`id_muestreador`).
+- **Control de Versión de Equipos**:
+    - Nueva columna `version` en `App_Ma_Equipos_MUESTREOS` para capturar la versión del equipo al momento de la asignación.
+    - La versión se obtiene directamente de `mae_equipo.version` durante la inserción.
+- **Prompt de Versión en Reagendamiento**:
+    - Al reagendar un muestreo desde el calendario, se muestra un diálogo con dos opciones:
+        - **"Mantener versión original"**: Preserva los equipos y versiones tal como fueron registrados originalmente.
+        - **"Usar versión actual"**: Refresca los equipos y versiones desde la tabla maestra (`mae_equipo`).
+    - Flag `actualizarVersiones` en el payload que controla el comportamiento del backend.
+- **Simplificación de UI**:
+    - Eliminada la sección de visualización de equipos del modal del calendario (a solicitud del usuario).
+    - Eliminados los estados y efectos de fetch de equipos (`samplingEquipos`, `isLoadingEquipos`).
+- **Archivos Modificados**:
+    - Backend: `ficha.service.js` (función `batchUpdateAgenda` reescrita para lógica dual + versión)
+    - Frontend: `EnProcesoCalendarView.tsx` (prompt de versión, eliminación de sección de equipos)
+    - Base de Datos: `ALTER TABLE App_Ma_Equipos_MUESTREOS ADD version VARCHAR(50)`
+
+### 24. Ordenamiento de Servicios en Notificaciones (Marzo 2026) 📧🔢
+Corrección del orden de servicios en los correos de notificación `FICHA_ASIGNADA`.
+
+- **Problema**: Los servicios asignados se listaban en orden lexicográfico (1, 10, 11, 12, 2, 3...) en lugar de numérico.
+- **Solución**: Implementación de ordenamiento numérico en JavaScript antes del envío del correo, extrayendo el número de servicio del `frecuencia_correlativo`.
+- **Archivos Modificados**:
+    - Backend: `ficha.service.js` (lógica de ordenamiento en la sección de notificación `FICHA_ASIGNADA`)
+
+### 25. Gestión de Muestreadores - Habilitación y Validación de Duplicados (Marzo 2026) 👤✅
+Nuevas funcionalidades para la administración de muestreadores en el módulo de gestión.
+
+- **Botón Habilitar Muestreador**:
+    - Nuevo botón verde con ícono de verificación (✓) visible para muestreadores **inactivos**.
+    - Modal de confirmación antes de ejecutar la habilitación.
+    - Endpoint `PUT /api/admin/muestreadores/:id/enable` que actualiza `habilitado = 'S'` en `mae_muestreador`.
+- **Validación de Duplicados al Crear**:
+    - Al crear un nuevo muestreador, el sistema verifica automáticamente si ya existe uno con el mismo **nombre** o **correo electrónico**.
+    - Si se detecta un duplicado, se muestra una advertencia amarilla con:
+        - Nombre y correo del muestreador existente.
+        - Estado actual (Activo/Inactivo).
+        - Sugerencia de habilitarlo desde la lista si está inactivo.
+    - La advertencia **bloquea** la creación hasta que se corrijan los datos.
+    - Endpoint `GET /api/admin/muestreadores/check-duplicate?nombre=...&correo=...`.
+- **Archivos Modificados**:
+    - Backend: `admin.service.js` (funciones `enableMuestreador`, `checkDuplicateMuestreador`)
+    - Backend: `admin.controller.js` (nuevos handlers)
+    - Backend: `admin.routes.js` (nuevas rutas)
+    - Frontend: `admin.service.ts` (nuevos métodos de API)
+    - Frontend: `MuestreadoresPage.tsx` (botón habilitar + modal de confirmación)
+    - Frontend: `MuestreadorModal.tsx` (validación de duplicados en formulario de creación)
 
 ---
 
@@ -403,8 +497,7 @@ frontend-adlone/
 ```
 
 ## 📄 Estado Final del Proyecto
-✅ **Backend**: Node.js + Express (Bypass de sección para reportes, Snapshot de equipos, Auth JWT)
-✅ **Frontend**: React + TypeScript (Hubs centrados, Permisos granulares, UI Responsiva)
-✅ **Base de Datos**: SQL Server (Auditoría de ediciones, Traspasos, Historial de equipos)
-
+✅ **Backend**: Node.js + Express (API RESTful, Auth JWT, Notificaciones Email, Equipos Duales con Versionamiento, Gestión de Muestreadores)
+✅ **Frontend**: React + TypeScript (Calendario con Eventos INICIO/RETIRO, Prompt de Versión, UI Responsiva, Validación de Duplicados)
+✅ **Base de Datos**: SQL Server (Procedimientos Almacenados optimizados con LEFT JOIN, Versionamiento de Equipos, Auditoría completa)
 
