@@ -31,34 +31,12 @@ export const AdminMaHub: React.FC<Props> = ({ onNavigate, onBack }) => {
 
     const OPTIONS = [
         { id: 'admin-muestreadores', label: 'Muestreadores', icon: '🧑‍🔬', description: 'Gestión de muestreadores activos, firmas y datos.', permission: 'MA_MUESTREADORES' },
-        {
-            id: 'ma-reportes-view',
-            label: 'Reportes',
-            icon: (
-                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                    <polyline points="14 2 14 8 20 8"></polyline>
-                    <line x1="16" y1="13" x2="8" y2="13"></line>
-                    <line x1="16" y1="17" x2="8" y2="17"></line>
-                    <polyline points="10 9 9 9 8 9"></polyline>
-                </svg>
-            ),
-            description: 'Visualización de reportes de problemas y bajas por pérdida.',
-            permission: 'MA_A_REPORTES'
-        },
         { id: 'ma-solicitudes', label: 'Solicitudes', icon: '📝', description: 'Creación de solicitudes de alta, traspaso y baja de equipos.', permission: 'AI_MA_SOLICITUDES' },
-        { id: 'ma-calendario-replica', label: 'Calendario Réplica', icon: '📅', description: 'Réplica de Excel del calendario de Puerto Montt Enero 2026.', permission: 'MA_ACCESO' },
     ];
 
     const visibleOptions = OPTIONS.filter(opt => {
-        if (opt.id === 'ma-calendario-replica') {
-            return true; // Or specific logic if needed, but MA_ACCESO is checked in the main dashboard before entering this hub usually.
-        }
         if (opt.id === 'ma-solicitudes') {
             return hasPermission('AI_MA_SOLICITUDES') || hasPermission('AI_MA_ADMIN_ACCESO');
-        }
-        if (opt.id === 'ma-reportes-view') {
-            return hasPermission('MA_A_REPORTES') || hasPermission('AI_MA_ADMIN_ACCESO');
         }
         return hasPermission(opt.permission);
     });

@@ -8,9 +8,14 @@ export const adminService = {
         });
         return response.data;
     },
-
     createMuestreador: async (data: any) => {
         const response = await apiClient.post('/api/admin/muestreadores', data);
+        return response.data;
+    },
+
+    getUsuarios: async () => {
+        // Points to rbac users endpoint, returns all internal users
+        const response = await apiClient.get('/api/rbac/users');
         return response.data;
     },
 
@@ -49,7 +54,12 @@ export const adminService = {
         return response.data;
     },
 
-    updateSolicitudStatus: async (id: number, estado: string, feedback: string, datos_json?: any, id_equipo_procesado?: string | number, accion_item?: 'APROBADO' | 'RECHAZADO') => {
+    getSolicitudHistorial: async (id: number) => {
+        const response = await apiClient.get(`/api/admin/solicitudes/${id}/historial`);
+        return response.data;
+    },
+
+    updateSolicitudStatus: async (id: number, estado: string, feedback: string, datos_json?: any, id_equipo_procesado?: string | number, accion_item?: 'APROBADO' | 'RECHAZADO' | 'ACTIVAR_EQUIPO') => {
         const response = await apiClient.put(`/api/admin/solicitudes/${id}/status`, {
             estado,
             feedback_admin: feedback,
@@ -74,7 +84,13 @@ export const adminService = {
         return response.data;
     },
 
-    // --- DASHBOARD ---
+    // --- EQUIPOS ---
+    updateEquipo: async (id: number | string, data: any) => {
+        const response = await apiClient.put(`/api/admin/equipos/${id}`, data);
+        return response.data;
+    },
+
+
     getDashboardStats: async () => {
         const response = await apiClient.get('/api/admin/dashboard/stats');
         return response.data;

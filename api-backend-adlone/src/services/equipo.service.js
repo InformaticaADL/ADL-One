@@ -30,7 +30,7 @@ export const equipoService = {
      */
     getEquipos: async (params = {}) => {
         try {
-            const { search, tipo, sede, estado, page = 1, limit = 10 } = params;
+            const { search, tipo, sede, estado, fechaDesde, fechaHasta, id_muestreador, page = 1, limit = 10 } = params;
             const pool = await getConnection();
 
             // Filters logic for both count and data
@@ -62,6 +62,21 @@ export const equipoService = {
                 const habilitadoVal = estado === 'Activo' ? 'S' : 'N';
                 request.input('habilitado', sql.VarChar, habilitadoVal);
                 whereClause += ` AND e.habilitado = @habilitado`;
+            }
+
+            if (id_muestreador && id_muestreador !== 'Todos') {
+                request.input('id_muestreador', sql.Int, Number(id_muestreador));
+                whereClause += ` AND e.id_muestreador = @id_muestreador`;
+            }
+
+            if (fechaDesde) {
+                request.input('fechaDesde', sql.Date, new Date(fechaDesde));
+                whereClause += ` AND CAST(e.fecha_vigencia AS DATE) >= @fechaDesde`;
+            }
+
+            if (fechaHasta) {
+                request.input('fechaHasta', sql.Date, new Date(fechaHasta));
+                whereClause += ` AND CAST(e.fecha_vigencia AS DATE) <= @fechaHasta`;
             }
 
             // 1. Get total for pagination
@@ -234,16 +249,31 @@ export const equipoService = {
                 }
             }
 
-            // 2. Find the highest correlativo for this sigla
+            // 2. Find the previous equipment for this sigla to get its correlativo and code
             const corrRequest = pool.request();
             corrRequest.input('sigla', sql.VarChar, sigla);
             const corrQuery = `
-                SELECT MAX(correlativo) as lastCorrelativo 
+                SELECT TOP 1 
+                    correlativo as lastCorrelativo, 
+                    codigo as previousCode, 
+                    CASE WHEN habilitado = 'S' THEN 'Activo' ELSE 'Inactivo' END as previousStatus
                 FROM mae_equipo 
                 WHERE sigla = @sigla
-                `;
+                ORDER BY correlativo DESC
+            `;
             const corrResult = await corrRequest.query(corrQuery);
-            const nextCorr = (Number(corrResult.recordset[0].lastCorrelativo) || 0) + 1;
+
+            let lastCorrelativo = 0;
+            let previousCode = null;
+            let previousStatus = null;
+
+            if (corrResult.recordset.length > 0) {
+                lastCorrelativo = Number(corrResult.recordset[0].lastCorrelativo) || 0;
+                previousCode = corrResult.recordset[0].previousCode;
+                previousStatus = corrResult.recordset[0].previousStatus;
+            }
+
+            const nextCorr = lastCorrelativo + 1;
 
             // 3. Format code: [Sigla].[Correlativo]/MA.[Ubicacion]
             const formattedCorr = nextCorr < 10 ? `0${nextCorr} ` : `${nextCorr} `;
@@ -252,7 +282,9 @@ export const equipoService = {
             return {
                 sigla,
                 correlativo: nextCorr,
-                suggestedCode
+                suggestedCode,
+                previousCode,
+                previousStatus
             };
         } catch (error) {
             logger.error('Error in suggestNextCode service:', error);
@@ -425,31 +457,48 @@ export const equipoService = {
     },
 
     updateEquipo: async (id, data, userId = null) => {
-        // Validate Vigencia
-        if (data.vigencia) {
-            const vigenciaDate = new Date(data.vigencia);
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            if (!isNaN(vigenciaDate.getTime())) {
-                const vigenciaStr = vigenciaDate.toISOString().split('T')[0];
-                const todayStr = today.toISOString().split('T')[0];
-                if (vigenciaStr < todayStr) {
-                    throw new Error('La fecha de vigencia no puede ser anterior a la fecha actual.');
-                }
-            }
-        }
         const pool = await getConnection();
         const transaction = new sql.Transaction(pool);
         try {
             await transaction.begin();
 
-            // 1. Fetch CURRENT state (to move to history)
+            // 1. Fetch CURRENT state (to move to history and check date)
             const currentRequest = new sql.Request(transaction);
             currentRequest.input('id', sql.Int, id);
             const currentResult = await currentRequest.query('SELECT * FROM mae_equipo WHERE id_equipo = @id');
             const current = currentResult.recordset[0];
 
             if (!current) throw new Error('Equipo no encontrado');
+
+            // --- REFINED DATE VALIDATION ---
+            // Only validate if a NEW date is provided and it's different from the current one
+            if (data.vigencia) {
+                const incomingDate = parseSqlDate(data.vigencia);
+                const currentVigDate = current.fecha_vigencia ? new Date(current.fecha_vigencia) : null;
+
+                const toYMD = (d) => {
+                    if (!d || isNaN(d.getTime())) return null;
+                    const year = d.getFullYear();
+                    const month = String(d.getMonth() + 1).padStart(2, '0');
+                    const day = String(d.getDate()).padStart(2, '0');
+                    return `${year}-${month}-${day}`;
+                };
+
+                const vigStr = toYMD(incomingDate);
+                const currentVigStr = toYMD(currentVigDate);
+
+                // Only throw error if the user is TRYING to set a NEW date that is in the past
+                if (vigStr && vigStr !== currentVigStr) {
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const todayStr = toYMD(today);
+
+                    if (vigStr < todayStr) {
+                        throw new Error('La fecha de vigencia no puede ser anterior a la fecha actual.');
+                    }
+                }
+            }
+            // -------------------------------
 
             // 2. Count existing history entries to determine version
             const countRequest = new sql.Request(transaction);

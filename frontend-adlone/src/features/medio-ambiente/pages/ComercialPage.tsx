@@ -371,7 +371,7 @@ const CommercialMenu = ({ onCreate, onConsult, onBack }: { onCreate: () => void,
                     Seleccione una opción
                 </h1>
 
-                <div className="cards-grid" style={{ width: '100%', maxWidth: '900px' }}>
+                <div className="cards-grid" style={{ width: '100%', maxWidth: '1100px' }}>
                     {/* Nueva Ficha Card */}
                     <ProtectedContent permission="MA_COMERCIAL_EDITAR">
                         <div

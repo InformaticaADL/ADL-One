@@ -529,7 +529,7 @@ const CoordinacionPageContent: React.FC<Props> = ({ onBack }) => {
                     Seleccione una opción
                 </h1>
 
-                <div className="cards-grid" style={{ width: '100%', maxWidth: '900px' }}>
+                <div className="cards-grid" style={{ width: '100%', maxWidth: '1100px' }}>
 
                     {/* Consultar Ficha Card */}
                     <div

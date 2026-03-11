@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 export interface SearchableSelectProps {
     options: { id: string | number; nombre: string }[];
@@ -11,10 +12,13 @@ export interface SearchableSelectProps {
     loading?: boolean;
     error?: string | null;
     onRetry?: () => void;
+    customStyle?: React.CSSProperties;
+    containerStyle?: React.CSSProperties;
+    usePortal?: boolean;
 }
 
 export const SearchableSelect: React.FC<SearchableSelectProps> = ({
-    options, value, onChange, placeholder, disabled, label, onFocus, loading, error, onRetry
+    options, value, onChange, placeholder, disabled, label, onFocus, loading, error, onRetry, customStyle, containerStyle, usePortal
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
@@ -22,22 +26,131 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
 
     const selectedOption = options.find(o => String(o?.id || '') === String(value || ''));
 
+    const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+                // If using portal, also check if the click is inside the portal dropdown
+                const dropdownEl = document.getElementById('searchable-select-portal-dropdown');
+                if (usePortal && dropdownEl && dropdownEl.contains(event.target as Node)) {
+                    return;
+                }
                 setIsOpen(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
+    }, [usePortal]);
+
+    useEffect(() => {
+        if (isOpen && usePortal && wrapperRef.current) {
+            const updatePosition = () => {
+                if (wrapperRef.current) {
+                    const rect = wrapperRef.current.getBoundingClientRect();
+                    setDropdownStyle({
+                        position: 'fixed',
+                        top: rect.bottom + 4,
+                        left: rect.left,
+                        width: rect.width,
+                        zIndex: 9999
+                    });
+                }
+            };
+            updatePosition();
+            window.addEventListener('scroll', updatePosition, true);
+            window.addEventListener('resize', updatePosition);
+            return () => {
+                window.removeEventListener('scroll', updatePosition, true);
+                window.removeEventListener('resize', updatePosition);
+            };
+        }
+    }, [isOpen, usePortal]);
 
     const filteredOptions = options.filter(opt =>
         (opt.nombre || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+    const renderDropdownContent = () => (
+        <div
+            id={usePortal ? "searchable-select-portal-dropdown" : undefined}
+            style={{
+                ...(usePortal ? dropdownStyle : {
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    zIndex: 50,
+                    marginTop: '4px',
+                }),
+                backgroundColor: 'white',
+                border: '1px solid #e5e7eb',
+                borderRadius: '6px',
+                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                maxHeight: '200px',
+                display: 'flex',
+                flexDirection: 'column'
+            }}
+        >
+            <div style={{ padding: '4px' }}>
+                <input
+                    type="text"
+                    placeholder="Buscar..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    style={{
+                        width: '100%',
+                        padding: '4px 8px',
+                        fontSize: '0.8rem',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '4px',
+                        outline: 'none'
+                    }}
+                    autoFocus
+                    onClick={(e) => e.stopPropagation()}
+                />
+            </div>
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+                {filteredOptions.length > 0 ? (
+                    filteredOptions.map((opt, index) => (
+                        <div
+                            key={`${opt.id}-${index}`}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (opt.id !== undefined && opt.id !== null) {
+                                    onChange(String(opt.id));
+                                }
+                                setIsOpen(false);
+                                setSearchTerm('');
+                            }}
+                            style={{
+                                padding: '6px 10px',
+                                fontSize: '0.85rem',
+                                cursor: 'pointer',
+                                backgroundColor: value === String(opt.id || '') ? '#f3f4f6' : 'transparent',
+                                color: '#374151',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = value === String(opt.id || '') ? '#f3f4f6' : 'transparent'}
+                            title={opt.nombre}
+                        >
+                            {opt.nombre}
+                        </div>
+                    ))
+                ) : (
+                    <div style={{ padding: '8px', fontSize: '0.8rem', color: '#9ca3af', textAlign: 'center' }}>
+                        No se encontraron resultados
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+
     return (
-        <div className="form-group" ref={wrapperRef} style={{ position: 'relative', width: '100%' }}>
+        <div className="form-group" ref={wrapperRef} style={{ position: 'relative', width: '100%', ...containerStyle }}>
             {label && (
                 <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span>{label}</span>
@@ -70,7 +183,8 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
                     boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
                     width: '100%',
                     maxWidth: '100%',
-                    overflow: 'hidden'
+                    overflow: 'hidden',
+                    ...customStyle
                 }}
             >
                 <span style={{
@@ -153,75 +267,9 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
             )}
 
             {isOpen && !disabled && !loading && (
-                <div style={{
-                    position: 'absolute',
-                    top: '100%',
-                    left: 0,
-                    right: 0,
-                    zIndex: 50,
-                    marginTop: '4px',
-                    backgroundColor: 'white',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '6px',
-                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-                    maxHeight: '200px',
-                    display: 'flex',
-                    flexDirection: 'column'
-                }}>
-                    <div style={{ padding: '4px' }}>
-                        <input
-                            type="text"
-                            placeholder="Buscar..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            style={{
-                                width: '100%',
-                                padding: '4px 8px',
-                                fontSize: '0.8rem',
-                                border: '1px solid #d1d5db',
-                                borderRadius: '4px',
-                                outline: 'none'
-                            }}
-                            autoFocus
-                            onClick={(e) => e.stopPropagation()}
-                        />
-                    </div>
-                    <div style={{ overflowY: 'auto', flex: 1 }}>
-                        {filteredOptions.length > 0 ? (
-                            filteredOptions.map((opt, index) => (
-                                <div
-                                    key={`${opt.id}-${index}`}
-                                    onClick={() => {
-                                        if (opt.id !== undefined && opt.id !== null) {
-                                            onChange(String(opt.id));
-                                        }
-                                        setIsOpen(false);
-                                        setSearchTerm('');
-                                    }}
-                                    style={{
-                                        padding: '6px 10px',
-                                        fontSize: '0.85rem',
-                                        cursor: 'pointer',
-                                        backgroundColor: value === String(opt.id || '') ? '#f3f4f6' : 'transparent',
-                                        color: '#374151',
-                                        whiteSpace: 'nowrap',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis'
-                                    }}
-                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
-                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = value === String(opt.id || '') ? '#f3f4f6' : 'transparent'}
-                                    title={opt.nombre}
-                                >
-                                    {opt.nombre}
-                                </div>
-                            ))
-                        ) : (
-                            <div style={{ padding: '8px', fontSize: '0.8rem', color: '#9ca3af', textAlign: 'center' }}>
-                                No se encontraron resultados
-                            </div>
-                        )}
-                    </div>
-                </div>
+                usePortal
+                    ? createPortal(renderDropdownContent(), document.body)
+                    : renderDropdownContent()
             )}
         </div>
     );

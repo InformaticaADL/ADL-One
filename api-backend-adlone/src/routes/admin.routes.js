@@ -39,5 +39,6 @@ router.get('/solicitudes', verifyToken, solicitudController.getAll);
 router.put('/solicitudes/:id/status', verifyToken, solicitudController.updateStatus);
 router.put('/solicitudes/:id/technical-review', verifyToken, solicitudController.reviewTechnical);
 router.post('/solicitudes/:id/accept-review', verifyToken, solicitudController.acceptForReview);
+router.get('/solicitudes/:id/historial', verifyToken, solicitudController.getHistorial);
 
 export default router;

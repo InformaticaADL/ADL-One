@@ -44,6 +44,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
     const [loadingHistory, setLoadingHistory] = useState(false);
     const [error, setError] = useState('');
     const [muestreadores, setMuestreadores] = useState<any[]>([]);
+    const [allEquipos, setAllEquipos] = useState<Equipo[]>([]);
     const [history, setHistory] = useState<EquipoHistorial[]>([]);
     const [showHistory, setShowHistory] = useState(false);
     const [showSaveConfirm, setShowSaveConfirm] = useState(false);
@@ -134,13 +135,17 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
     useEffect(() => {
         const fetchMuestreadoresAndCatalogs = async () => {
             try {
-                // Fetch muestreadores
-                const [mRes, eRes] = await Promise.all([
+                // Fetch muestreadores and all equipments for dropdown
+                const [mRes, eRes, allERes] = await Promise.all([
                     adminService.getMuestreadores('', 'ACTIVOS'),
-                    equipoService.getEquipos({ limit: 1 }) // Get catalogs from any request
+                    equipoService.getEquipos({ limit: 1 }), // Get catalogs from any request
+                    equipoService.getEquipos({ limit: 2000 }) // Fetch all equipments for dropdown
                 ]);
 
                 setMuestreadores(mRes.data || []);
+                setAllEquipos(allERes.data || []);
+                console.log("TESTING: allERes.data length is", allERes.data?.length);
+                console.log("TESTING: first item in allERes.data", allERes.data?.[0]);
 
                 if (eRes.catalogs?.tipos) {
                     // Rigorous filter for empty/whitespace types
@@ -362,7 +367,9 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                 ...prev,
                                 sigla: res.data.sigla,
                                 correlativo: res.data.correlativo,
-                                codigo: res.data.suggestedCode
+                                codigo: res.data.suggestedCode,
+                                previousCode: res.data.previousCode,
+                                previousStatus: res.data.previousStatus
                             }));
                         }
                     } catch (err) {
@@ -394,6 +401,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         formData.estado &&
         formData.codigo &&
         formData.vigencia &&
+        formData.observacion &&
         !generatingCode
     );
 
@@ -1139,8 +1147,34 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                         <div className="form-group">
                             <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <span>Código <span style={{ color: '#ef4444' }}>*</span></span>
-                                {generatingCode && <span style={{ fontSize: '0.7rem', color: '#2563eb', fontWeight: 600 }}>Generando...</span>}
+                                {generatingCode ? (
+                                    <span style={{ fontSize: '0.7rem', color: '#2563eb', fontWeight: 600 }}>Generando...</span>
+                                ) : formData.previousCode ? (
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.4rem',
+                                        fontSize: '0.75rem',
+                                        color: '#64748b'
+                                    }}>
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}><polyline points="15 10 20 15 15 20"></polyline><path d="M4 4v7a4 4 0 0 0 4 4h12"></path></svg>
+                                        <span>Anterior: <strong style={{ color: '#475569' }}>{formData.previousCode}</strong></span>
+                                        {formData.previousStatus && (
+                                            <span style={{
+                                                background: formData.previousStatus === 'Activo' ? '#dcfce7' : '#fee2e2',
+                                                color: formData.previousStatus === 'Activo' ? '#166534' : '#991b1b',
+                                                padding: '2px 6px',
+                                                borderRadius: '4px',
+                                                fontSize: '0.65rem',
+                                                fontWeight: 700
+                                            }}>
+                                                {formData.previousStatus}
+                                            </span>
+                                        )}
+                                    </div>
+                                ) : null}
                             </label>
+
                             <input
                                 type="text"
                                 name="codigo"
@@ -1236,25 +1270,42 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                         </div>
 
                         <div className="form-group">
-                            <label className="form-label">Equipo Asociado (ID)</label>
-                            <input
-                                type="text"
-                                name="equipo_asociado"
-                                value={formData.equipo_asociado || ''}
-                                onChange={handleChange}
-                                className="form-input"
-                                placeholder="Seleccione o escriba ID..."
-                                onFocus={() => {
-                                    if (formData.equipo_asociado === 'No Aplica') {
-                                        setFormData((prev: any) => ({ ...prev, equipo_asociado: '' }));
-                                    }
-                                }}
-                                onBlur={() => {
-                                    if (!formData.equipo_asociado || formData.equipo_asociado.toString().trim() === '') {
-                                        setFormData((prev: any) => ({ ...prev, equipo_asociado: 'No Aplica' }));
-                                    }
-                                }}
-                            />
+                            <label className="form-label">Equipo Asociado</label>
+                            {(() => {
+                                const validMuestreador = formData.id_muestreador && String(formData.id_muestreador) !== '0';
+                                const equiposMuestreador = validMuestreador
+                                    ? allEquipos.filter(e => String(e.id_muestreador) === String(formData.id_muestreador) && String(e.id_equipo) !== String(formData.id_equipo || '0'))
+                                    : [];
+
+                                const matchedEq = allEquipos.find(e => String(e.id_equipo) === String(formData.equipo_asociado));
+                                const displayValue = matchedEq
+                                    ? `${matchedEq.nombre} - ${matchedEq.codigo}`
+                                    : (formData.equipo_asociado || 'No Aplica');
+
+                                return (
+                                    <HybridSelect
+                                        label=""
+                                        name="equipo_asociado"
+                                        value={displayValue}
+                                        options={['No Aplica', ...equiposMuestreador.map(e => `${e.nombre} - ${e.codigo}`)]}
+                                        onChange={(val) => {
+                                            if (val === 'No Aplica' || !val) {
+                                                handleChange({ target: { name: 'equipo_asociado', value: 'No Aplica' } } as any);
+                                                return;
+                                            }
+                                            const matching = equiposMuestreador.find(e => `${e.nombre} - ${e.codigo}` === val) || allEquipos.find(e => `${e.nombre} - ${e.codigo}` === val);
+                                            handleChange({
+                                                target: {
+                                                    name: 'equipo_asociado',
+                                                    value: matching ? matching.id_equipo : val
+                                                }
+                                            } as any);
+                                        }}
+                                        placeholder={validMuestreador ? "Seleccione Equipo..." : "Asigne Muestreador primero"}
+                                        strict={true}
+                                    />
+                                );
+                            })()}
                         </div>
                     </div>
                 </div>
@@ -1365,7 +1416,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
 
                 {/* Group 6: Observaciones */}
                 <div className="form-section section-observations">
-                    <h4 className="section-title">Observaciones</h4>
+                    <h4 className="section-title">Observaciones <span style={{ color: '#ef4444' }}>*</span></h4>
                     <div className="form-group">
                         <textarea
                             name="observacion"
@@ -1373,6 +1424,10 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                             onChange={handleChange}
                             className="form-input"
                             rows={3}
+                            style={{
+                                border: (attemptedSubmit && !formData.observacion) ? '1.5px solid #ef4444' : undefined,
+                                borderRadius: (attemptedSubmit && !formData.observacion) ? '0.375rem' : undefined
+                            }}
                         />
                     </div>
                 </div>

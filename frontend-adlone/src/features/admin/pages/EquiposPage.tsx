@@ -87,6 +87,10 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const [showStatusConfirmModal, setShowStatusConfirmModal] = useState(false);
     const [equipoStatusPending, setEquipoStatusPending] = useState<Equipo | null>(null);
     const [statusObservation, setStatusObservation] = useState('');
+    const [showResolutionModal, setShowResolutionModal] = useState(false);
+    const [resolutionFeedback, setResolutionFeedback] = useState('');
+    const [resolutionDate, setResolutionDate] = useState('');
+    const [solicitudInResolution, setSolicitudInResolution] = useState<any | null>(null);
 
     const { showToast } = useToast();
     const { hasPermission } = useAuth();
@@ -197,6 +201,10 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const [filterEstado, setFilterEstado] = useState('');
     const [page, setPage] = useState(1);
     const [limit] = useState(7);
+    const [filterFechaDesde, setFilterFechaDesde] = useState('');
+    const [filterFechaHasta, setFilterFechaHasta] = useState('');
+    const [filterMuestreador, setFilterMuestreador] = useState('');
+    const [muestreadorList, setMuestreadorList] = useState<any[]>([]);
     const [totalPages, setTotalPages] = useState(1);
     const [totalItems, setTotalItems] = useState(0);
     const [catalogs, setCatalogs] = useState<{ sedes: string[], tipos: string[], estados: string[] }>({
@@ -218,6 +226,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         if (type === 'REPORTE_PROBLEMA') return 'Reporte de Problema';
         if (type === 'REVISION') return 'Solicitud de Revisión';
         if (type === 'EQUIPO_PERDIDO') return 'Baja por Pérdida';
+        if (type === 'EQUIPO_DESHABILITADO') return 'Equipo Deshabilitado';
         return type;
     };
 
@@ -231,7 +240,10 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 search: searchTerm,
                 tipo: filterTipo,
                 sede: filterSede,
-                estado: filterEstado
+                estado: filterEstado,
+                fechaDesde: filterFechaDesde,
+                fechaHasta: filterFechaHasta,
+                id_muestreador: filterMuestreador
             };
             const response = await equipoService.getEquipos(params);
             if (response) {
@@ -259,7 +271,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         }, 300); // 300ms debounce covers both search typing and fast filter clicks seamlessly
 
         return () => clearTimeout(delayDebounceFn);
-    }, [page, filterTipo, filterSede, filterEstado, searchTerm]);
+    }, [page, filterTipo, filterSede, filterEstado, searchTerm, filterFechaDesde, filterFechaHasta, filterMuestreador]);
 
     const handleCreate = () => {
         setSelectedEquipo(null);
@@ -338,32 +350,25 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
 
     const loadSolicitudes = async () => {
         try {
-            // Detect current role focus
-            const isGC = hasPermission('GC_EQUIPOS') || hasPermission('GC_ACCESO');
-            const isMA = hasPermission('AI_MA_SOLICITUDES') || hasPermission('MA_A_GEST_EQUIPO');
-            const isSuperAdmin = hasPermission('AI_MA_ADMIN_ACCESO');
+            // Detect current role focus (kept for potential future usage or logging if needed, but simplified for now)
 
             // Fetch PENDING solicitudes based on role to maintain separation
-            let targetStatesArray: string[] = ['PENDIENTE'];
-            if (isSuperAdmin) {
-                targetStatesArray.push('PENDIENTE_TECNICA', 'EN_REVISION_TECNICA', 'EN_REVISION', 'PENDIENTE_CALIDAD');
-            } else {
-                if (isMA) {
-                    targetStatesArray.push('PENDIENTE_TECNICA', 'EN_REVISION_TECNICA', 'EN_REVISION');
-                }
-                if (isGC) {
-                    targetStatesArray.push('PENDIENTE_CALIDAD');
-                }
-            }
+            // In Gestion de Equipos popover, we ONLY show what is in Quality scope.
+            // Technical stages (PENDIENTE_TECNICA, EN_REVISION, etc.) are handled in SolicitudesMaPage.
+            // This applies even for Admins to keep this specific page focused on final management.
+            let targetStatesArray: string[] = ['PENDIENTE', 'PENDIENTE_CALIDAD'];
+
             const targetStates = targetStatesArray.join(',');
 
             const data = await adminService.getSolicitudes({ estado: targetStates });
 
             // Filter logic: If GC (Quality), only show management requests, NOT reports (which go to separate view)
-            // Filter logic: Universal separation.
-            // Gestion de Equipos (This Page): ALTA, BAJA, TRASPASO, VIGENCIA_PROXIMA, NUEVO_EQUIPO, EQUIPO_PERDIDO using standard flows.
-            // Reportes View (Separate): REVISION, REPORTE_PROBLEMA.
-            const managementTypes = ['ALTA', 'TRASPASO', 'BAJA', 'VIGENCIA_PROXIMA', 'NUEVO_EQUIPO', 'EQUIPO_PERDIDO'];
+            // Gestion de Equipos (This Page): ALTA, BAJA, TRASPASO, VIGENCIA_PROXIMA, NUEVO_EQUIPO, EQUIPO_PERDIDO, REVISION, REPORTE_PROBLEMA, EQUIPO_DESHABILITADO.
+            const managementTypes = [
+                'ALTA', 'TRASPASO', 'BAJA', 'VIGENCIA_PROXIMA',
+                'NUEVO_EQUIPO', 'EQUIPO_PERDIDO', 'REVISION', 'REPORTE_PROBLEMA',
+                'EQUIPO_DESHABILITADO'
+            ];
             const filteredData = data.filter((s: any) => managementTypes.includes(s.tipo_solicitud));
             setSolicitudesRealizadas(filteredData);
         } catch (error) {
@@ -372,6 +377,17 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     };
 
     useEffect(() => {
+        const fetchFiltersData = async () => {
+            try {
+                const msRes = await adminService.getMuestreadores('', 'ACTIVOS');
+                if (msRes && msRes.data) {
+                    setMuestreadorList(msRes.data);
+                }
+            } catch (error) {
+                console.error("Error loading muestreadores for filters", error);
+            }
+        };
+        fetchFiltersData();
         loadSolicitudes();
     }, []);
 
@@ -558,28 +574,78 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 }
             } else if (type === 'VIGENCIA_PROXIMA') {
                 // ... (existing Vigencia code)
-            } else if (type === 'EQUIPO_PERDIDO' || type === 'REPORTE_PROBLEMA' || type === 'REVISION') {
-                // Should not happen as EQUIPO_PERDIDO is handled above
-                // But keeping generic and safe for the rest
-                setProcessingAction(true);
-                try {
-                    await adminService.updateSolicitudStatus(
-                        reviewSolicitud.id_solicitud,
-                        'APROBADO',
-                        'Solicitud aprobada correctamente por Calidad'
-                    );
-                    showToast({ type: 'success', message: 'Solicitud aprobada correctamente' });
-                    hideNotification(`${reviewSolicitud.id_solicitud}-${reviewSolicitud.estado}`);
+            } else if (type === 'EQUIPO_PERDIDO' || type === 'REPORTE_PROBLEMA' || type === 'REVISION' || type === 'EQUIPO_DESHABILITADO') {
+                if (reviewSolicitud.estado === 'PENDIENTE_CALIDAD') {
+                    setResolutionFeedback('');
+                    setResolutionDate(reviewSolicitud.datos_json?.vigencia || '');
+                    setSolicitudInResolution(reviewSolicitud);
+                    setShowResolutionModal(true);
                     setReviewSolicitud(null);
-                    loadSolicitudes();
-                    fetchData();
-                } catch (error) {
-                    console.error("Error approving request:", error);
-                    showToast({ type: 'error', message: 'Error al aprobar la solicitud' });
-                } finally {
-                    setProcessingAction(false);
+                } else {
+                    setProcessingAction(true);
+                    try {
+                        await adminService.updateSolicitudStatus(
+                            reviewSolicitud.id_solicitud,
+                            'APROBADO',
+                            'Solicitud aprobada correctamente por Calidad'
+                        );
+                        showToast({ type: 'success', message: 'Solicitud aprobada correctamente' });
+                        hideNotification(`${reviewSolicitud.id_solicitud}-${reviewSolicitud.estado}`);
+                        setReviewSolicitud(null);
+                        loadSolicitudes();
+                        fetchData();
+                    } catch (error) {
+                        console.error("Error approving request:", error);
+                        showToast({ type: 'error', message: 'Error al aprobar la solicitud' });
+                    } finally {
+                        setProcessingAction(false);
+                    }
                 }
             }
+        }
+    };
+
+    const confirmFinalResolution = async () => {
+        if (!resolutionFeedback.trim()) {
+            showToast({ type: 'warning', message: 'Debe ingresar una observación de calidad' });
+            return;
+        }
+
+        const idSolicitud = Number(solicitudInResolution?.id_solicitud);
+        if (!idSolicitud) return;
+
+        setProcessingAction(true);
+        try {
+            await adminService.updateSolicitudStatus(
+                idSolicitud,
+                'APROBADO',
+                resolutionFeedback,
+                undefined,
+                undefined,
+                undefined
+            );
+
+            // If we have a resolution date, we also call updateEquipo to be sure
+            const idEquipo = solicitudInResolution?.datos_json?.id_equipo || solicitudInResolution?.datos_json?.id_equipo_original;
+            if (idEquipo && resolutionDate) {
+                // If it was ALTA or EQUIPO_DESHABILITADO, we ensure it's reactivated (status: Activo)
+                await adminService.updateEquipo(idEquipo, {
+                    vigencia: resolutionDate,
+                    estado: 'Activo', // Force reactivation
+                    observacion: `Reactivación aprobada por Calidad: ${resolutionFeedback}`
+                });
+            }
+
+            showToast({ type: 'success', message: 'Solicitud procesada y aprobada correctamente' });
+            setShowResolutionModal(false);
+            setSolicitudInResolution(null);
+            loadSolicitudes();
+            fetchData();
+        } catch (error) {
+            console.error("Error in final resolution:", error);
+            showToast({ type: 'error', message: 'Error al procesar la resolución' });
+        } finally {
+            setProcessingAction(false);
         }
     };
 
@@ -911,10 +977,13 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         setFilterTipo('');
         setFilterSede('');
         setFilterEstado('');
+        setFilterFechaDesde('');
+        setFilterFechaHasta('');
+        setFilterMuestreador('');
         setPage(1);
     };
 
-    const hasActiveFilters = searchTerm !== '' || filterTipo !== '' || filterSede !== '' || filterEstado !== '';
+    const hasActiveFilters = searchTerm !== '' || filterTipo !== '' || filterSede !== '' || filterEstado !== '' || filterFechaDesde !== '' || filterFechaHasta !== '' || filterMuestreador !== '';
 
     if (viewMode === 'form') {
         return (
@@ -1103,10 +1172,12 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                             autoFocus={isSearchExpanded}
                         />
                     </div>
+                </div>
 
+                <div className="filter-actions-right" style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
                     {/* Contenedor del Dropdown con Ref para cerrar al hacer clic fuera */}
-                    <div className="filter-dropdown-wrapper" ref={filterMenuRef}>
-                        {/* Botón de Filtros (Solo Móvil) */}
+                    <div className="filter-dropdown-wrapper" ref={filterMenuRef} style={{ position: 'relative' }}>
+                        {/* Botón de Filtros */}
                         <button
                             className={`btn-filter-toggle ${showMobileFilters ? 'active' : ''}`}
                             onClick={(e) => {
@@ -1122,7 +1193,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                             {showMobileFilters ? 'Cerrar' : 'Filtros'}
                         </button>
 
-                        {/* Área Colapsable (Solo Filtros) */}
+                        {/* Área Colapsable (Ahora como popover) */}
                         <div className="filter-collapsible-area">
                             <div className="filter-group-content">
                                 <CustomSelect
@@ -1143,6 +1214,41 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                     onChange={(v) => { setFilterEstado(v === 'Todos' ? '' : v); setPage(1); }}
                                     width="110px"
                                 />
+                                <CustomSelect
+                                    value={muestreadorList.find(m => String(m.id_muestreador) === filterMuestreador)?.nombre_muestreador || 'Muestreador'}
+                                    options={['Todos', ...muestreadorList.map(m => m.nombre_muestreador)]}
+                                    onChange={(v) => {
+                                        if (v === 'Todos') setFilterMuestreador('');
+                                        else {
+                                            const found = muestreadorList.find(m => m.nombre_muestreador === v);
+                                            if (found) setFilterMuestreador(String(found.id_muestreador));
+                                        }
+                                        setPage(1);
+                                    }}
+                                    width="160px"
+                                />
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                    <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>Vigencia:</span>
+                                    <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                                        <input
+                                            type="date"
+                                            className="custom-date-input"
+                                            style={{ padding: '0.4rem 0.6rem', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '0.85rem', color: '#334155', height: '36px', flex: 1 }}
+                                            value={filterFechaDesde}
+                                            onChange={(e) => { setFilterFechaDesde(e.target.value); setPage(1); }}
+                                            title="Vigencia Desde"
+                                        />
+                                        <span style={{ color: '#64748b', fontSize: '0.85rem' }}>-</span>
+                                        <input
+                                            type="date"
+                                            className="custom-date-input"
+                                            style={{ padding: '0.4rem 0.6rem', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '0.85rem', color: '#334155', height: '36px', flex: 1 }}
+                                            value={filterFechaHasta}
+                                            onChange={(e) => { setFilterFechaHasta(e.target.value); setPage(1); }}
+                                            title="Vigencia Hasta"
+                                        />
+                                    </div>
+                                </div>
                                 {hasActiveFilters && (
                                     <button className="btn-clear" onClick={handleClearFilters}>
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12"></path></svg>
@@ -1152,20 +1258,20 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <button
-                    onClick={() => canCreateEquipo && handleCreate()}
-                    className="btn-primary"
-                    disabled={!canCreateEquipo}
-                    title={!canCreateEquipo ? 'No tienes permisos para crear equipos' : 'Nuevo Equipo'}
-                    style={{ opacity: canCreateEquipo ? 1 : 0.5, cursor: canCreateEquipo ? 'pointer' : 'not-allowed' }}
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" style={{ width: '20px', height: '20px' }}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                    </svg>
-                    Nuevo Equipo
-                </button>
+                    <button
+                        onClick={() => canCreateEquipo && handleCreate()}
+                        className="btn-primary"
+                        disabled={!canCreateEquipo}
+                        title={!canCreateEquipo ? 'No tienes permisos para crear equipos' : 'Nuevo Equipo'}
+                        style={{ opacity: canCreateEquipo ? 1 : 0.5, cursor: canCreateEquipo ? 'pointer' : 'not-allowed' }}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" style={{ width: '20px', height: '20px' }}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                        </svg>
+                        Nuevo Equipo
+                    </button>
+                </div>
             </div>
 
             {/* Table Area (Restored) */}
@@ -1493,39 +1599,157 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                                     </div>
                                                 ))}
                                             </div>
-                                        ) : (
-                                            Object.entries(reviewSolicitud.datos_json || {}).map(([key, val]) => {
-                                                if (!val || key === 'equipos_baja' || key === 'equipos_alta' || key === 'isReactivation' || key === 'id_muestreador') return null;
-                                                const labels: Record<string, string> = {
-                                                    codigo: 'Código',
-                                                    nombre: 'Nombre',
-                                                    tipo: 'Tipo',
-                                                    ubicacion: 'Ubicación',
-                                                    nueva_ubicacion: 'Nueva Ubicación',
-                                                    responsable: 'Responsable',
-                                                    nuevo_responsable: 'Nuevo Responsable',
-                                                    motivo: 'Motivo',
-                                                    vigencia: 'Vigencia',
-                                                    id_equipo: 'ID Equipo',
-                                                    nombre_equipo: 'Equipo',
-                                                    codigo_equipo: 'Cód. Equipo',
-                                                    comentario: 'Observaciones',
-                                                    fecha_creacion: 'Fecha Envío',
-                                                    motivo_revision: 'Motivo Rev.',
-                                                    descripcion: 'Detalles',
-                                                    severidad: 'Severidad',
-                                                    frecuencia: 'Frecuencia',
-                                                    nueva_vigencia_solicitada: 'Nueva Vigencia',
-                                                    circunstancias: 'Circunstancias',
-                                                    tipo_perdida: 'Tipo Extravío'
-                                                };
-                                                return (
-                                                    <div key={key} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                        <span style={{ color: '#64748b', fontWeight: 500 }}>{labels[key] || key}:</span>
-                                                        <span style={{ color: '#1e293b', fontWeight: 600 }}>{String(val)}</span>
+                                        ) : reviewSolicitud.tipo_solicitud === 'EQUIPO_PERDIDO' ? (() => {
+                                            const datos = reviewSolicitud.datos_json || {};
+                                            return (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                                                    {/* Critical Info Banner */}
+                                                    <div style={{ display: 'flex', gap: '1rem', background: '#fef2f2', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid #ef4444' }}>
+                                                        <div style={{ flex: 1 }}>
+                                                            <strong style={{ display: 'block', fontSize: '0.75rem', color: '#991b1b', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Tipo de Pérdida</strong>
+                                                            <span style={{ fontSize: '1.1rem', color: '#b91c1c', fontWeight: 800 }}>{datos.tipo_perdida || datos['Tipo Extravío'] || 'N/A'}</span>
+                                                        </div>
+                                                        <div style={{ flex: 1 }}>
+                                                            <strong style={{ display: 'block', fontSize: '0.75rem', color: '#991b1b', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Fecha Incidente</strong>
+                                                            <span style={{ fontSize: '1.1rem', color: '#b91c1c', fontWeight: 800 }}>{datos['fecha incidente'] || datos.fecha_incidente || 'N/A'}</span>
+                                                        </div>
                                                     </div>
-                                                );
-                                            })
+
+                                                    {/* Equipment Snapshot Grid */}
+                                                    <div>
+                                                        <strong style={{ display: 'block', fontSize: '0.85rem', color: '#334155', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem', marginBottom: '1rem' }}>Identificación del Equipo</strong>
+                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', background: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                                            <div>
+                                                                <strong style={{ display: 'block', fontSize: '0.65rem', color: '#64748b', textTransform: 'uppercase' }}>Equipo</strong>
+                                                                <span style={{ fontWeight: 600, color: '#1e293b' }}>{datos.nombre_equipo || datos.Nombre || datos.nombre || 'N/A'}</span>
+                                                            </div>
+                                                            <div>
+                                                                <strong style={{ display: 'block', fontSize: '0.65rem', color: '#64748b', textTransform: 'uppercase' }}>Código</strong>
+                                                                <span style={{ fontWeight: 700, color: '#0284c7' }}>{datos.codigo_equipo || datos.Código || datos.codigo || 'N/A'}</span>
+                                                            </div>
+                                                            <div>
+                                                                <strong style={{ display: 'block', fontSize: '0.65rem', color: '#64748b', textTransform: 'uppercase' }}>Tipo</strong>
+                                                                <span style={{ color: '#475569' }}>{datos.Tipo || datos.tipo || 'N/A'}</span>
+                                                            </div>
+                                                            <div>
+                                                                <strong style={{ display: 'block', fontSize: '0.65rem', color: '#64748b', textTransform: 'uppercase' }}>Responsable / Asignado</strong>
+                                                                <span style={{ color: '#475569' }}>{datos.Responsable || datos.responsable || datos.nombre_asignado || 'N/A'}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Incident Details Grid */}
+                                                    <div>
+                                                        <strong style={{ display: 'block', fontSize: '0.85rem', color: '#334155', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem', marginBottom: '1rem' }}>Detalles del Incidente</strong>
+                                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.25rem' }}>
+                                                            <div>
+                                                                <strong style={{ display: 'block', fontSize: '0.7rem', color: '#64748b', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Última Ubicación Registrada</strong>
+                                                                <span style={{ color: '#1e293b', fontWeight: 500 }}>{datos['ubicacion ultima'] || datos.ubicacion_ultima || datos['ubicacion registrada'] || 'N/A'}</span>
+                                                            </div>
+                                                            <div>
+                                                                <strong style={{ display: 'block', fontSize: '0.7rem', color: '#64748b', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Circunstancias</strong>
+                                                                <p style={{ margin: 0, color: '#334155', background: '#f1f5f9', padding: '0.75rem', borderRadius: '6px', fontSize: '0.9rem', lineHeight: '1.5' }}>
+                                                                    {datos.Circunstancias || datos.circunstancias || 'No se detallaron circunstancias.'}
+                                                                </p>
+                                                            </div>
+                                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                                                <div>
+                                                                    <strong style={{ display: 'block', fontSize: '0.7rem', color: '#64748b', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Acciones Tomadas</strong>
+                                                                    <p style={{ margin: 0, color: '#475569', fontSize: '0.9rem' }}>{datos['acciones tomadas'] || datos.acciones_tomadas || 'Ninguna'}</p>
+                                                                </div>
+                                                                <div>
+                                                                    <strong style={{ display: 'block', fontSize: '0.7rem', color: '#64748b', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Testigos</strong>
+                                                                    <p style={{ margin: 0, color: '#475569', fontSize: '0.9rem' }}>{datos.testigos || 'Sin testigos'}</p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Archivo Adjunto */}
+                                                    {(datos.archivo_adjunto || datos['archivo adjunto']) && (
+                                                        <div>
+                                                            <strong style={{ display: 'block', fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Archivo Adjunto</strong>
+                                                            <a href={`${import.meta.env.VITE_API_URL || 'http://localhost:8002'}${datos.archivo_adjunto || datos['archivo adjunto']}`} target="_blank" rel="noopener noreferrer">
+                                                                <img
+                                                                    src={`${import.meta.env.VITE_API_URL || 'http://localhost:8002'}${datos.archivo_adjunto || datos['archivo adjunto']}`}
+                                                                    alt="Archivo Adjunto"
+                                                                    style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '8px', border: '1px solid #e2e8f0', objectFit: 'contain' }}
+                                                                />
+                                                            </a>
+                                                        </div>
+                                                    )}
+
+                                                </div>
+                                            );
+                                        })() : (
+                                            <>
+                                                {/* Fields from JSON */}
+                                                {Object.entries(reviewSolicitud.datos_json || {}).map(([key, val]) => {
+                                                    if (!val || key === 'equipos_baja' || key === 'equipos_alta' || key === 'isReactivation' || key === 'id_muestreador') return null;
+                                                    const labels: Record<string, string> = {
+                                                        codigo: 'Código',
+                                                        nombre: 'Nombre',
+                                                        tipo: 'Tipo',
+                                                        ubicacion: 'Ubicación',
+                                                        nueva_ubicacion: 'Nueva Ubicación',
+                                                        responsable: 'Responsable',
+                                                        nuevo_responsable: 'Nuevo Responsable',
+                                                        motivo: 'Motivo',
+                                                        vigencia: 'Vigencia',
+                                                        id_equipo: 'ID Equipo',
+                                                        nombre_equipo: 'Equipo',
+                                                        codigo_equipo: 'Cód. Equipo',
+                                                        comentario: 'Observaciones',
+                                                        fecha_creacion: 'Fecha Envío',
+                                                        motivo_revision: 'Motivo Rev.',
+                                                        descripcion: 'Detalles',
+                                                        severidad: 'Severidad',
+                                                        frecuencia: 'Frecuencia',
+                                                        nueva_vigencia_solicitada: 'Nueva Vigencia',
+                                                        circunstancias: 'Circunstancias',
+                                                        tipo_perdida: 'Tipo Extravío'
+                                                    };
+                                                    const displayKey = labels[key] || key.replace(/_/g, ' ');
+
+                                                    if (key === 'archivo_adjunto' && typeof val === 'string') {
+                                                        return (
+                                                            <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+                                                                <span style={{ color: '#64748b', fontWeight: 500 }}>{displayKey}:</span>
+                                                                <a href={`${import.meta.env.VITE_API_URL || 'http://localhost:8002'}${val}`} target="_blank" rel="noopener noreferrer">
+                                                                    <img
+                                                                        src={`${import.meta.env.VITE_API_URL || 'http://localhost:8002'}${val}`}
+                                                                        alt="Archivo Adjunto"
+                                                                        style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '4px', border: '1px solid #e2e8f0', objectFit: 'contain' }}
+                                                                    />
+                                                                </a>
+                                                            </div>
+                                                        );
+                                                    }
+
+                                                    let displayVal = String(val);
+                                                    if (val === true || val === 'true') displayVal = 'SÍ';
+                                                    else if (val === false || val === 'false') displayVal = 'NO';
+
+                                                    return (
+                                                        <div key={key} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                            <span style={{ color: '#64748b', fontWeight: 500 }}>{displayKey}:</span>
+                                                            <span style={{ color: '#1e293b', fontWeight: 600 }}>{displayVal}</span>
+                                                        </div>
+                                                    );
+                                                })}
+
+                                                {/* Technical Feedback if available */}
+                                                {reviewSolicitud.feedback_admin && (
+                                                    <div style={{ marginTop: '0.75rem', padding: '0.75rem', background: '#fff7ed', border: '1px solid #ffedd5', borderRadius: '6px' }}>
+                                                        <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#9a3412', textTransform: 'uppercase', marginBottom: '0.25rem' }}>
+                                                            ⚠️ Observación Técnica / Derivación
+                                                        </div>
+                                                        <div style={{ fontSize: '0.85rem', color: '#7c2d12', fontWeight: 500, fontStyle: 'italic' }}>
+                                                            "{reviewSolicitud.feedback_admin}"
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </>
                                         )}
 
                                         {/* Audit Trail Section */}
@@ -1533,17 +1757,20 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                             <div style={{ color: '#64748b', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.5rem' }}>Auditoría de Procesamiento</div>
                                             <div style={{ display: 'grid', gap: '0.4rem', fontSize: '0.8rem' }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                    <span style={{ color: '#94a3b8' }}>Solicitado:</span>
-                                                    <span style={{ color: '#1e293b', fontWeight: 600 }}>{reviewSolicitud.nombre_solicitante || 'N/A'}</span>
+                                                    <span style={{ color: '#94a3b8' }}>Solicitado por:</span>
+                                                    <div style={{ textAlign: 'right' }}>
+                                                        <div style={{ color: '#1e293b', fontWeight: 600 }}>{reviewSolicitud.nombre_solicitante || 'N/A'}</div>
+                                                        <div style={{ color: '#64748b', fontSize: '0.7rem' }}>{reviewSolicitud.email_solicitante || reviewSolicitud.email_muestreador || ''}</div>
+                                                    </div>
                                                 </div>
-                                                {reviewSolicitud.nombre_revisor && (
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                        <span style={{ color: '#94a3b8' }}>Revisado (Técnica):</span>
-                                                        <span style={{ color: '#1e293b', fontWeight: 600 }}>{reviewSolicitud.nombre_revisor}</span>
+                                                {(reviewSolicitud.nombre_revisor || reviewSolicitud.nombre_revisor_tecnico) && (
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.2rem' }}>
+                                                        <span style={{ color: '#94a3b8' }}>{reviewSolicitud.estado === 'PENDIENTE_CALIDAD' ? 'Derivado por:' : 'Revisado (Técnica):'}</span>
+                                                        <span style={{ color: '#1e293b', fontWeight: 600 }}>{reviewSolicitud.nombre_revisor_tecnico || reviewSolicitud.nombre_revisor}</span>
                                                     </div>
                                                 )}
                                                 {reviewSolicitud.nombre_aprobador && (
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.2rem' }}>
                                                         <span style={{ color: '#166534' }}>Aprobado (Calidad):</span>
                                                         <span style={{ color: '#166534', fontWeight: 700 }}>{reviewSolicitud.nombre_aprobador}</span>
                                                     </div>
@@ -1754,6 +1981,86 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                     style={{ opacity: !localRejectionFeedback.trim() ? 0.6 : 1 }}
                                 >
                                     {processingAction ? '...' : 'Confirmar Rechazo'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            {
+                showResolutionModal && (
+                    <div className="modal-overlay" style={{ zIndex: 10007 }}>
+                        <div className="modal-content" style={{ maxWidth: '450px' }}>
+                            <div className="modal-header" style={{ borderBottom: '1px solid #f1f5f9', padding: '1.25rem' }}>
+                                <h3 className="modal-title" style={{ fontSize: '1.25rem', color: '#1e293b' }}>Resolución Final de Calidad</h3>
+                            </div>
+                            <div className="modal-body" style={{ padding: '1.5rem' }}>
+                                <div style={{ marginBottom: '1.25rem' }}>
+                                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' }}>
+                                        Observación de Calidad <span style={{ color: '#dc2626' }}>*</span>
+                                    </label>
+                                    <textarea
+                                        value={resolutionFeedback}
+                                        onChange={(e) => setResolutionFeedback(e.target.value)}
+                                        placeholder="Ej: Se valida el estado del equipo y se procede con la reactivación..."
+                                        style={{
+                                            width: '100%',
+                                            padding: '0.75rem',
+                                            borderRadius: '8px',
+                                            border: '1px solid #cbd5e1',
+                                            fontSize: '0.9rem',
+                                            minHeight: '100px',
+                                            resize: 'none',
+                                            outline: 'none',
+                                            transition: 'border-color 0.2s'
+                                        }}
+                                        autoFocus
+                                    />
+                                </div>
+
+                                {/* Conditional Date Picker: Show only if equipment is Inactive or it's a type that requires date update */}
+                                {(solicitudInResolution?.tipo_solicitud === 'EQUIPO_DESHABILITADO' || solicitudInResolution?.tipo_solicitud === 'ALTA') && (
+                                    <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' }}>
+                                            Actualizar Fecha de Vigencia
+                                        </label>
+                                        <p style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '0.75rem' }}>
+                                            Si el equipo será reactivado, por favor valide o modifique la fecha de vigencia propuesta.
+                                        </p>
+                                        <input
+                                            type="date"
+                                            value={resolutionDate}
+                                            onChange={(e) => setResolutionDate(e.target.value)}
+                                            style={{
+                                                width: '100%',
+                                                padding: '0.625rem',
+                                                borderRadius: '6px',
+                                                border: '1px solid #cbd5e1',
+                                                fontSize: '0.9rem'
+                                            }}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                            <div className="modal-footer" style={{ background: '#f8fafc', padding: '1rem 1.5rem', borderTop: '1px solid #f1f5f9', gap: '0.75rem' }}>
+                                <button className="btn-cancel" onClick={() => setShowResolutionModal(false)} disabled={processingAction} style={{ flex: 1 }}>
+                                    Cancelar
+                                </button>
+                                <button
+                                    className="btn-success"
+                                    onClick={confirmFinalResolution}
+                                    disabled={processingAction || !resolutionFeedback.trim()}
+                                    style={{
+                                        flex: 1,
+                                        padding: '0.625rem',
+                                        fontSize: '0.95rem',
+                                        fontWeight: 600,
+                                        opacity: (!resolutionFeedback.trim() || processingAction) ? 0.5 : 1,
+                                        cursor: (!resolutionFeedback.trim() || processingAction) ? 'not-allowed' : 'pointer'
+                                    }}
+                                >
+                                    {processingAction ? 'Procesando...' : 'Confirmar y Aprobar'}
                                 </button>
                             </div>
                         </div>

@@ -1,0 +1,101 @@
+    const handleReviewFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files) {
+            const newFiles = Array.from(e.target.files);
+            setReviewFiles(prev => [...prev, ...newFiles]);
+        }
+    };
+
+    const removeReviewFile = (index: number) => {
+        setReviewFiles(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const submitTechnicalReview = async () => {
+        if (!selectedRequest || !reviewAction) return;
+        setLoading(true);
+        setReviewUploading(true);
+
+        try {
+            let resolutionFiles: string[] = [];
+            if (reviewFiles.length > 0) {
+                resolutionFiles = await Promise.all(
+                    reviewFiles.map(async (file) => {
+                        const path = await uploadFile(file);
+                        return path || '';
+                    })
+                );
+                resolutionFiles = resolutionFiles.filter(p => p !== '');
+            }
+
+            const updatedData = {
+                ...editedData,
+                archivos_resolucion: resolutionFiles
+            };
+
+            // If PENDIENTE_TECNICA and DERIVADO action, accept for review (move to EN_REVISION_TECNICA)
+            if (selectedRequest.estado === 'PENDIENTE_TECNICA' && reviewAction === 'DERIVADO') {
+                await adminService.acceptSolicitudForReview(selectedRequest.id_solicitud, reviewFeedback);
+                showToast({
+                    type: 'success',
+                    message: 'Solicitud aceptada para revisión',
+                    duration: 4000
+                });
+            }
+            // If CONCLUIDO action, Approve directly (bypass Calidad)
+            else if (reviewAction === 'CONCLUIDO') {
+                await adminService.updateSolicitudStatus(
+                    selectedRequest.id_solicitud,
+                    'APROBADO',
+                    reviewFeedback,
+                    updatedData
+                );
+                showToast({
+                    type: 'success',
+                    message: selectedRequest.tipo_solicitud === 'EQUIPO_DESHABILITADO' ? 'Equipo fuera de servicio procesado correctamente' : 'Solicitud aprobada y concluida correctamente',
+                    duration: 4000
+                });
+            }
+            // If PENDIENTE_CALIDAD, use updateSolicitudStatus directly
+            else if (selectedRequest.estado === 'PENDIENTE_CALIDAD') {
+                await adminService.updateSolicitudStatus(
+                    selectedRequest.id_solicitud,
+                    reviewAction === 'RECHAZADO' ? 'RECHAZADO' : 'APROBADO',
+                    reviewFeedback || '',
+                    updatedData
+                );
+                showToast({
+                    type: 'success',
+                    message: `Solicitud ${reviewAction === 'RECHAZADO' ? 'rechazada' : 'aprobada'} correctamente`,
+                    duration: 4000
+                });
+            }
+            // If EN_REVISION_TECNICA or PENDIENTE_TECNICA with RECHAZADO, use reviewTechnical
+            else {
+                await adminService.reviewSolicitudTechnical(
+                    selectedRequest.id_solicitud,
+                    reviewAction,
+                    reviewFeedback || '',
+                    updatedData // Send updated data with files
+                );
+                showToast({
+                    type: 'success',
+                    message: `Solicitud ${reviewAction === 'DERIVADO' ? 'aprobada y derivada' : 'rechazada'} correctamente`,
+                    duration: 4000
+                });
+            }
+
+            setShowReviewModal(false);
+            setSelectedRequest(null);
+            setReviewFiles([]);
+            loadHistory();
+        } catch (error) {
+            console.error('Error in technical review:', error);
+            showToast({
+                type: 'error',
+                message: 'Error al procesar la revisión técnica',
+                duration: 5000
+            });
+        } finally {
+            setLoading(false);
+            setReviewUploading(false);
+        }
+    };

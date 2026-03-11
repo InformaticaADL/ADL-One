@@ -60,13 +60,18 @@ class SolicitudController {
         try {
             const user = req.user;
             const perms = user?.permissions || [];
-            let isSuperAdmin = perms.includes('AI_MA_ADMIN_ACCESO') || perms.includes('MA_ADMIN_ACCESO');
-            let isGC = perms.includes('GC_ACCESO') || perms.includes('GC_EQUIPOS');
-            let isMA = perms.includes('AI_MA_SOLICITUDES') || perms.includes('AI_MA_EQUIPOS') || perms.includes('MA_SOLICITUDES') || perms.includes('MA_EQUIPOS');
-            let hasReportPermission = perms.includes('MA_A_REPORTES') || perms.includes('MA_A_REPORTES_DETALLE');
+            const isSuperAdmin = perms.includes('AI_MA_ADMIN_ACCESO') || perms.includes('MA_ADMIN_ACCESO');
+            const isGC = perms.includes('GC_ACCESO') || perms.includes('GC_EQUIPOS');
+            const isMA = perms.includes('AI_MA_SOLICITUDES') || perms.includes('AI_MA_EQUIPOS') || perms.includes('MA_SOLICITUDES') || perms.includes('MA_EQUIPOS');
+            const hasReportPermission = perms.includes('MA_A_REPORTES') || perms.includes('MA_A_REPORTES_DETALLE');
+
+            // isQualityOnly: user can see quality-stage records but cannot create or manage solicitudes
+            const isQualityOnly = hasReportPermission && !isMA && !isSuperAdmin && !isGC;
+
             let allowedSections = [];
 
-            if (!isSuperAdmin && !isGC && !hasReportPermission && req.query.solo_mias !== 'true') {
+            // Quality-only users bypass the section filter (they see by state, not by section)
+            if (!isSuperAdmin && !isGC && !isQualityOnly && req.query.solo_mias !== 'true') {
                 if (isMA) {
                     allowedSections.push('GEM', 'GER', 'MAM', 'MA', 'Medio Ambiente', 'AY', 'VI', 'PM', 'PA', 'CH', 'CM', 'CN', 'Terreno');
                 }
@@ -80,17 +85,15 @@ class SolicitudController {
 
             const filters = {
                 estado: req.query.estado,
-                origen_solicitud: req.query.origen_solicitud, // Missing parameter restored
+                origen_solicitud: req.query.origen_solicitud,
                 usuario_solicita: req.query.solo_mias === 'true' ? req.user?.id : null,
                 usuario_excluir: req.query.excluir_mias === 'true' ? req.user?.id : null,
                 secciones: allowedSections.length > 0 ? allowedSections : null,
                 siempre_incluir_usuario: req.user?.id,
-                // NEW: Stricter restriction logic for linear flow visibility
-                // Even SuperAdmins shouldn't see "Quality tasks" that are still in "Technical stage".
-                // If the user has Quality permissions (including Admins), we restrict Muestreador PENDIENTE_TECNICA requests UNLESS they explicitly have Technical Area permissions.
-                restrictTechnicalPending: isGC && !isMA
+                restrictTechnicalPending: isGC && !isMA,
+                // NEW: Quality-only filter – restricts results to solicitudes awaiting or processed by Quality
+                isQualityOnly
             };
-
 
             const solicitudes = await solicitudService.getSolicitudes(filters);
             res.json(solicitudes);
@@ -149,6 +152,17 @@ class SolicitudController {
         } catch (error) {
             logger.error('Controller Error accepting for review:', error);
             res.status(500).json({ message: 'Error al aceptar la solicitud para revisión' });
+        }
+    }
+
+    async getHistorial(req, res) {
+        try {
+            const { id } = req.params;
+            const result = await solicitudService.getHistorial(id);
+            res.json(result);
+        } catch (error) {
+            logger.error('Controller Error getting history:', error);
+            res.status(500).json({ message: 'Error al obtener el historial de la solicitud' });
         }
     }
 }

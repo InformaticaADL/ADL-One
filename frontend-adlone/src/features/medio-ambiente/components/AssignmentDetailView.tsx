@@ -5,7 +5,6 @@ import { useCatalogos } from '../context/CatalogosContext';
 import { catalogosService } from '../services/catalogos.service';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
-import { WorkflowAlert } from '../../../components/ui/WorkflowAlert';
 
 interface Props {
     fichaId: number;
@@ -24,9 +23,7 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
     const [saving, setSaving] = useState(false);
     const [muestreadores, setMuestreadores] = useState<any[]>([]);
 
-    // Status Validation
-    const [fichaStatus, setFichaStatus] = useState<number | null>(null);
-    const [statusLoading, setStatusLoading] = useState(true);
+
 
     // Muestreador assignments per row
     const [muestreadorInstalacion, setMuestreadorInstalacion] = useState<Record<number, number>>({});
@@ -134,26 +131,8 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
         return dateStr;
     };
 
-    // Check Ficha Status for Validation
-    const checkStatus = async () => {
-        setStatusLoading(true);
-        try {
-            const response = await fichaService.getById(fichaId);
-            const ficha = response.data || response;
-
-            if (ficha) {
-                setFichaStatus(ficha.id_validaciontecnica);
-            }
-        } catch (error) {
-            console.error("Error checking ficha status", error);
-        } finally {
-            setStatusLoading(false);
-        }
-    };
-
     useEffect(() => {
         const loadInitialData = async () => {
-            await checkStatus();
             await loadAssignmentData();
             try {
                 const mData = await getCatalogo('muestreadores', () => catalogosService.getMuestreadores());
@@ -315,14 +294,7 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                 <h2 className="page-title-geo">Formulario de Asignación - Ficha {fichaId}</h2>
             </div>
 
-            {/* Status Validation Banner */}
-            {!statusLoading && fichaStatus !== 6 && fichaStatus !== 5 && (
-                <WorkflowAlert
-                    type="warning"
-                    title="Acción Bloqueada"
-                    message="Esta ficha requiere aprobación del Área de Coordinación antes de asignar fechas y muestreadores. Estado actual no permite esta acción."
-                />
-            )}
+            {/* Status Validation Banner Removed */}
 
             {/* Top Inputs Section */}
             <div style={{
@@ -372,7 +344,10 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                     padding: '0.4rem',
                                     borderRadius: '6px',
                                     border: '1px solid #d1d5db',
-                                    fontSize: '0.85rem'
+                                    fontSize: '0.85rem',
+                                    backgroundColor: 'white',
+                                    cursor: 'text',
+                                    color: 'inherit'
                                 }}
                             />
                         </div>
@@ -380,7 +355,7 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
 
                     <button
                         onClick={handleCalculateDates}
-                        disabled={!selectedDate || (fichaStatus !== 6 && fichaStatus !== 5)}
+                        disabled={!selectedDate}
                         className="btn-secondary"
                         style={{
                             padding: '0.4rem 0.8rem',
@@ -389,8 +364,8 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                             display: 'flex',
                             alignItems: 'center',
                             gap: '0.4rem',
-                            opacity: (!selectedDate || (fichaStatus !== 6 && fichaStatus !== 5)) ? 0.5 : 1,
-                            cursor: (!selectedDate || (fichaStatus !== 6 && fichaStatus !== 5)) ? 'not-allowed' : 'pointer'
+                            opacity: (!selectedDate) ? 0.5 : 1,
+                            cursor: (!selectedDate) ? 'not-allowed' : 'pointer'
                         }}
                     >
                         ⚡ Calcular Fechas
@@ -487,10 +462,10 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                         <button
                             onClick={handleSaveAssignment}
-                            disabled={saving || loading || (fichaStatus !== 6 && fichaStatus !== 5)}
+                            disabled={saving || loading}
                             className="btn-primary"
                             style={{
-                                backgroundColor: (saving || (fichaStatus !== 6 && fichaStatus !== 5)) ? '#9333ea' : '#7c3aed',
+                                backgroundColor: (saving) ? '#9333ea' : '#7c3aed',
                                 color: 'white',
                                 padding: '0.4rem 1.2rem',
                                 fontSize: '0.85rem',
@@ -498,20 +473,15 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                 borderRadius: '8px',
                                 fontWeight: 700,
                                 border: 'none',
-                                cursor: (saving || (fichaStatus !== 6 && fichaStatus !== 5)) ? 'not-allowed' : 'pointer',
+                                cursor: (saving) ? 'not-allowed' : 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '0.4rem',
-                                opacity: (fichaStatus !== 6 && fichaStatus !== 5) ? 0.6 : 1
+                                opacity: 1
                             }}
                         >
                             {saving ? 'Guardando...' : '💾 Guardar Asignación'}
                         </button>
-                        {(!statusLoading && fichaStatus !== 6 && fichaStatus !== 5) && (
-                            <div style={{ fontSize: '0.7rem', color: '#dc2626', marginTop: '4px', textAlign: 'center', fontWeight: 600 }}>
-                                Requiere aprobación de Coordinación
-                            </div>
-                        )}
                     </div>
                 </div>
             </div>

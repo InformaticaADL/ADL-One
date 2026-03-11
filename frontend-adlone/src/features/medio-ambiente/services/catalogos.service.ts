@@ -77,6 +77,7 @@ export interface Cliente {
     nombre: string;
     email?: string;
     telefono?: string;
+    id_empresaservicio?: number | string;
 }
 
 export interface Contacto {

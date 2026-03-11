@@ -17,7 +17,7 @@ const MODULES = [
     { id: 'bacteriologia', label: 'Bacteriología', icon: '🦠', group: 'unidades', permission: 'BAC_ACCESO' },
     { id: 'screening', label: 'Screening', icon: '🔎', group: 'unidades', permission: 'SCR_ACCESO' },
     { id: 'derivaciones', label: 'Derivaciones', icon: '📬', group: 'unidades', permission: 'DER_ACCESO' },
-    { id: 'medio_ambiente', label: 'Medio Ambiente', icon: '🌿', group: 'unidades', permission: ['MA_ACCESO', 'MA_A_GEST_EQUIPO', 'MA_MUESTREADORES', 'AI_MA_SOLICITUDES', 'MA_COMERCIAL_ACCESO', 'MA_A_REPORTES'] },
+    { id: 'medio_ambiente', label: 'Medio Ambiente', icon: '🌿', group: 'unidades', permission: 'MA_ACCESO' },
     { id: 'atl', label: 'ATL', icon: '⚖️', group: 'unidades', permission: 'ATL_ACCESO' },
     { id: 'id', label: 'I+D', icon: '💡', group: 'unidades', permission: 'ID_ACCESO' },
     { id: 'pve', label: 'PVE', icon: '🩺', group: 'unidades', permission: 'PVE_ACCESO' },
@@ -69,7 +69,7 @@ interface MainLayoutProps {
 
 export const MainLayout = ({ children }: MainLayoutProps) => {
     // Usamos el store global en lugar de useState local
-    const { activeModule, activeSubmodule, drawerOpen, setActiveModule, setActiveSubmodule, setDrawerOpen, hiddenNotifications, hideNotification } = useNavStore();
+    const { activeModule, activeSubmodule, drawerOpen, setActiveModule, setActiveSubmodule, setDrawerOpen, hiddenNotifications, hideNotification, setPendingRequestId } = useNavStore();
 
     const [showProfileMenu, setShowProfileMenu] = useState(false);
     const [showNotifications, setShowNotifications] = useState(false);
@@ -118,7 +118,17 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                     if (isSuper || isGCMan) return true;
 
                     // 2. Area Managers/Users with Receive OR Send permission see Area sections
-                    if (isMAMan && isMaSection) return true;
+                    if (isMAMan && isMaSection) {
+                        // Technical area only reviews PENDIENTE or PENDIENTE_TECNICA
+                        const isReviewableByTechnical = sol.estado === 'PENDIENTE' || sol.estado === 'PENDIENTE_TECNICA';
+
+                        // If it's not reviewable by technical (e.g., PENDIENTE_CALIDAD), they only see it if they created it
+                        if (!isReviewableByTechnical && !isGCMan && !isSuper) {
+                            return String(sol.usuario_solicita) === String(user?.id);
+                        }
+
+                        return true;
+                    }
 
                     // 3. ICT Managers
                     if (isINFMan && sec === 'INF') return true;
@@ -228,17 +238,27 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
         // 2. Routing and Marking as Read
         if (item.type === 'EQUIPO') {
             const sol = item.original;
-            if (sol.estado === 'PENDIENTE' || sol.estado === 'PENDIENTE_CALIDAD') {
-                // Actionable item: Do NOT hide notification, show details modal instead of routing
-                setSelectedPendingNotification(sol);
+
+            // Set for deep-linking
+            setPendingRequestId(sol.id_solicitud);
+
+            // Determine Destination
+            // Only route to Global Admin Equipos if they have actual admin equipment permissions
+            const canManageGlobalEquipos = hasPermission('GC_ACCESO') || hasPermission('GC_EQUIPOS') || hasPermission('MA_A_GEST_EQUIPO') || isSuper;
+
+            const isPending = sol.estado === 'PENDIENTE' || sol.estado === 'PENDIENTE_CALIDAD' || sol.estado === 'PENDIENTE_TECNICA' || sol.estado === 'EN_REVISION_TECNICA';
+
+            if (isPending && canManageGlobalEquipos) {
+                // To: Admin -> Gestión de Equipos
+                setActiveModule('gestion_calidad');
+                setActiveSubmodule('admin-equipos-gestion');
             } else {
-                // Result item: Hide notification + Show Modal
-                hideNotification(item.id);
-                setSelectedNotification(sol);
+                // To: Medio Ambiente -> Solicitudes
+                setActiveModule('medio_ambiente');
+                setActiveSubmodule('ma-solicitudes');
             }
         }
         else if (item.type === 'FICHA') {
-            // Actionable item: Do NOT hide notification
             setActiveModule('medio_ambiente');
             setActiveSubmodule('ma-fichas-ingreso');
         }

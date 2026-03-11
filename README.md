@@ -478,6 +478,27 @@ Nuevas funcionalidades para la administración de muestreadores en el módulo de
     - Frontend: `MuestreadoresPage.tsx` (botón habilitar + modal de confirmación)
     - Frontend: `MuestreadorModal.tsx` (validación de duplicados en formulario de creación)
 
+### 26. Gestión de Solicitudes y Resolución de Identidades (Marzo 2026) 📝👤
+Mejoras sustanciales en el módulo de "Gestión de Solicitudes" (`SolicitudesMaPage.tsx`) para optimizar la visualización de datos devueltos por la API aplicados a la lectura de jefaturas y administradores.
+
+- **Despliegue Exacto de Código y Nombre (Equipos)**:
+    - Modificada la columna `CÓDIGO/NOMBRE` para solicitudes de *ALTA* y *BAJA*.
+    - Impresión directa del código real del equipo ingresado (desde `datos_originales` o estructura interna), erradicando el texto fallback `N/A`.
+    - **Limpieza Visual**: Implementada una función regex de limpieza para evitar que el título del equipo reitere su código redundante entre paréntesis.
+
+- **Resolución de Identidad del Solicitante (Nombres y Alias)**:
+    - **Problema**: El campo "Solicitante" mostraba IDs numéricos asilados (ej. `394`) o alias de inicio de sesión genéricos (ej. `pflores`) dependiendo de qué proceso creaba u originaba la solicitud administrativa.
+    - **Solución**: Implementada una **Estrategia de Resolución en Cascada** para forzar la visualización del nombre humano real (`Pablo Flores`):
+        1. **Precarga Global**: Consumo y cacheo en memoria de `usuariosDB` (`/api/rbac/users`) y del catálogo de `muestreadores`.
+        2. **Mapeo de IDs (Números)**: Búsqueda inversa cruzando el ID entrante contra la tabla local, extrayendo el campo `nombre_real` / `usuario`.
+        3. **Mapeo de Alias (pflores)**: Normalización a `toUpperCase` y cruce del alias en minúsculas contra la BD. Si coincide, extrae forzosamente el valor formal alojado de forma cruzada en la BD (`nombre_real` vs `nombre_usuario`).
+        4. **Resguardo Seguro**: Recorrido iterativo por lista de propiedades secundarias (`nombre_solicitante`, `nombre_completo`, etc.) antes de pintar textualmente el ID/Alias como último recurso.
+
+- **Solución de Bugs Visuales Generales**:
+    - Corrección del bloqueo mortal (pantalla en blanco) provocado por un tag React mal cerrado (`<p/>`) dentro de los modales.
+    - Reparación de los "modales dobles" sobrepuestos al clickear "Ver Detalle" en la vista de Historial.
+    - Las tablas del historial ahora logran filtrar y procesar con precisión la fecha original y el último estado.
+
 ---
 
 ## 🏗️ Estructura Detallada del Proyecto (Frontend)

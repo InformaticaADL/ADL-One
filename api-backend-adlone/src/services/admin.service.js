@@ -91,9 +91,15 @@ export const adminService = {
             const pdRq = pool.request();
             const pdResult = await pdRq.query(`
                 SELECT 
-                    SUM(CASE WHEN estado IN ('PENDIENTE', 'PENDIENTE_CALIDAD', 'PENDIENTE_TECNICA', 'EN_REVISION_TECNICA') THEN 1 ELSE 0 END) as pendientesTotales,
+                    SUM(CASE WHEN 
+                        estado IN ('PENDIENTE', 'PENDIENTE_CALIDAD', 'PENDIENTE_TECNICA', 'EN_REVISION_TECNICA') 
+                        OR (estado = 'APROBADO' AND estado_tecnica = 'PENDIENTE')
+                    THEN 1 ELSE 0 END) as pendientesTotales,
                     SUM(CASE WHEN estado = 'PENDIENTE_CALIDAD' THEN 1 ELSE 0 END) as pendientesCalidad,
-                    SUM(CASE WHEN estado IN ('PENDIENTE_TECNICA', 'EN_REVISION_TECNICA') THEN 1 ELSE 0 END) as pendientesTecnica
+                    SUM(CASE WHEN 
+                        estado IN ('PENDIENTE_TECNICA', 'EN_REVISION_TECNICA') 
+                        OR (estado = 'APROBADO' AND estado_tecnica = 'PENDIENTE')
+                    THEN 1 ELSE 0 END) as pendientesTecnica
                 FROM mae_solicitud_equipo 
             `);
             const pendientes = pdResult.recordset[0].pendientesTotales || 0;
@@ -111,7 +117,7 @@ export const adminService = {
             `);
             const muestrasHoy = mhResult.recordset[0].count;
 
-            // 3. Informes por Validar (Using REVISION requests as proxy)
+            // 3. Informes por Realizar (Using REVISION requests as proxy)
             const ivRq = pool.request();
             const ivResult = await ivRq.query(`
                 SELECT count(*) as count 
@@ -119,14 +125,151 @@ export const adminService = {
                 WHERE tipo_solicitud = 'REVISION' 
                 AND estado IN ('PENDIENTE', 'PENDIENTE_TECNICA', 'PENDIENTE_CALIDAD', 'EN_REVISION_TECNICA')
             `);
-            const informesPorValidar = ivResult.recordset[0].count;
+            const informesPorRealizar = ivResult.recordset[0].count;
+
+            // 4. Informes Realizados (Using REVISION requests APROBADO)
+            const irRq = pool.request();
+            const irResult = await irRq.query(`
+                SELECT count(*) as count 
+                FROM mae_solicitud_equipo 
+                WHERE tipo_solicitud = 'REVISION' 
+                AND estado = 'APROBADO'
+            `);
+            const informesRealizados = irResult.recordset[0].count;
+
+            // 5. Equipos Activos e Inactivos
+            const eqRq = pool.request();
+            const eqResult = await eqRq.query(`
+                SELECT 
+                    SUM(CASE WHEN habilitado = 'S' THEN 1 ELSE 0 END) as activos,
+                    SUM(CASE WHEN habilitado != 'S' OR habilitado IS NULL THEN 1 ELSE 0 END) as inactivos
+                FROM mae_equipo
+            `);
+            const equiposActivos = eqResult.recordset[0].activos || 0;
+            const equiposInactivos = eqResult.recordset[0].inactivos || 0;
+
+            // 5b. Fichas Comerciales (Real operational data)
+            const fcRq = pool.request();
+            const fcResult = await fcRq.query(`
+                SELECT 
+                    SUM(CASE WHEN id_validaciontecnica IN (1, 3, 6) THEN 1 ELSE 0 END) as fichasPendientes,
+                    SUM(CASE WHEN id_validaciontecnica = 5 THEN 1 ELSE 0 END) as fichasEnProceso,
+                    COUNT(*) as totalFichas
+                FROM App_Ma_FichaIngresoServicio_ENC
+            `);
+            const fichasPendientes = fcResult.recordset[0].fichasPendientes || 0;
+            const fichasEnProceso = fcResult.recordset[0].fichasEnProceso || 0;
+            const totalFichas = fcResult.recordset[0].totalFichas || 0;
+
+            // 5c. Resumen de Agenda (Muestreos)
+            const agRq = pool.request();
+            const agResult = await agRq.query(`
+                SELECT 
+                    SUM(CASE WHEN estado_caso IS NULL OR estado_caso = '' THEN 1 ELSE 0 END) as muestreosPendientes,
+                    SUM(CASE WHEN estado_caso = 'RETIRO' THEN 1 ELSE 0 END) as muestreosRetiro,
+                    COUNT(*) as totalMuestreos
+                FROM App_Ma_Agenda_MUESTREOS
+                WHERE (estado_caso != 'CANCELADO' OR estado_caso IS NULL)
+            `);
+            const muestreosPendientes = agResult.recordset[0].muestreosPendientes || 0;
+            const muestreosRetiro = agResult.recordset[0].muestreosRetiro || 0;
+            const totalMuestreos = agResult.recordset[0].totalMuestreos || 0;
+
+            // 5d. Metricas de Solicitudes Mensuales (GC)
+            const msRq = pool.request();
+            const msResult = await msRq.query(`
+                SELECT 
+                    SUM(CASE WHEN estado = 'APROBADO' AND MONTH(fecha_aprobacion) = MONTH(GETDATE()) AND YEAR(fecha_aprobacion) = YEAR(GETDATE()) THEN 1 ELSE 0 END) as aprobadasMes,
+                    SUM(CASE WHEN estado = 'RECHAZADA' AND MONTH(fecha_revision) = MONTH(GETDATE()) AND YEAR(fecha_revision) = YEAR(GETDATE()) THEN 1 ELSE 0 END) as rechazadasMes
+                FROM mae_solicitud_equipo
+            `);
+            const aprobadasMes = msResult.recordset[0].aprobadasMes || 0;
+            const rechazadasMes = msResult.recordset[0].rechazadasMes || 0;
+
+            // 5e. Equipos Vencidos (GC)
+            const evcRq = pool.request();
+            const evcResult = await evcRq.query(`
+                SELECT COUNT(*) as count 
+                FROM mae_equipo 
+                WHERE habilitado = 'S' 
+                AND fecha_vigencia < CAST(GETDATE() as DATE)
+            `);
+            const equiposVencidos = evcResult.recordset[0].count || 0;
+
+            // 5f. Usuarios Totales (Informatica)
+            const usRq = pool.request();
+            const usResult = await usRq.query(`
+                SELECT COUNT(*) as count 
+                FROM mae_usuario 
+                WHERE habilitado = 'S'
+            `);
+            const totalUsuarios = usResult.recordset[0].count || 0;
+
+            // 6. Data for Charts: Solicitudes por Tipo
+            const stRq = pool.request();
+            const stResult = await stRq.query(`
+                SELECT tipo_solicitud as name, count(*) as value 
+                FROM mae_solicitud_equipo 
+                GROUP BY tipo_solicitud
+            `);
+            const solicitudesPorTipo = stResult.recordset;
+
+            // 7. Data for Charts: Evolución Solicitudes (Últimos 7 días)
+            const evRq = pool.request();
+            const evResult = await evRq.query(`
+                SELECT CAST(fecha_solicitud as DATE) as name, count(*) as value 
+                FROM mae_solicitud_equipo 
+                WHERE fecha_solicitud >= DATEADD(day, -7, GETDATE())
+                GROUP BY CAST(fecha_solicitud as DATE)
+                ORDER BY name
+            `);
+            const evolucionSolicitudes = evResult.recordset;
+
+            // 8. Data for Charts: Equipos por Tipo
+            const etRq = pool.request();
+            const etResult = await etRq.query(`
+                SELECT ISNULL(tipoequipo, 'Sin Tipo') as name, count(*) as value 
+                FROM mae_equipo 
+                GROUP BY tipoequipo
+            `);
+            const equiposPorTipo = etResult.recordset;
+
+            // 9. Data for Charts: Actividad Muestreo (Escala Mensual)
+            const amRq = pool.request();
+            const amResult = await amRq.query(`
+                SELECT MONTH(fecha_muestreo) as name, count(*) as value
+                FROM App_Ma_Agenda_MUESTREOS
+                WHERE YEAR(fecha_muestreo) = YEAR(GETDATE())
+                GROUP BY MONTH(fecha_muestreo)
+                ORDER BY name
+            `);
+            const actividadMuestreo = amResult.recordset;
 
             return {
                 pendientes,
                 pendientesCalidad,
                 pendientesTecnica,
                 muestrasHoy,
-                informesPorValidar
+                informesPorRealizar,
+                informesRealizados,
+                equiposActivos,
+                equiposInactivos,
+                fichasPendientes,
+                fichasEnProceso,
+                totalFichas,
+                muestreosPendientes,
+                muestreosRetiro,
+                totalMuestreos,
+                aprobadasMes,
+                rechazadasMes,
+                equiposVencidos,
+                totalUsuarios,
+                charts: {
+                    solicitudesPorTipo,
+                    evolucionSolicitudes,
+                    equiposPorTipo,
+                    actividadMuestreo
+                }
             };
         } catch (error) {
             console.error('Error fetching dashboard stats:', error);

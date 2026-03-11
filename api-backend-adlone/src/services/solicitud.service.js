@@ -86,6 +86,20 @@ class SolicitudService {
                 logger.error('Error sending new solicitud notification:', notifyError);
             }
 
+            // --- History Logging ---
+            try {
+                await this.logHistorial({
+                    idSolicitud: newId,
+                    idUsuario: data.usuario_solicita,
+                    accion: 'CREACION_SOLICITUD',
+                    estadoAnterior: null,
+                    estadoNuevo: estadoInicial,
+                    observacion: `Solicitud creada exitosamente. Origen: ${data.origen_solicitud || 'TECNICA'}`
+                });
+            } catch (histError) {
+                logger.error('Error logging history for create solicitud:', histError);
+            }
+
             return { success: true, id: newId };
         } catch (error) {
             logger.error('Error creating solicitud:', error);
@@ -120,15 +134,13 @@ class SolicitudService {
             const request = pool.request();
             const whereConditions = [];
 
-            if (filters.estado) {
+            // isQualityOnly users: skip the frontend estado filter — the quality-stage condition
+            // added at the end of this block is the sole authoritative state constraint.
+            if (filters.estado && !filters.isQualityOnly) {
                 // Support multiple states if separated by comma
                 if (filters.estado.includes(',')) {
                     const states = filters.estado.split(',');
                     const stateParams = states.map((_, i) => `@estado${i}`);
-
-                    // Special handling: If PENDIENTE_TECNICA is requested, we must also include 
-                    // requests that are technically APROBADO (by Quality) but have estado_tecnica = 'PENDIENTE'
-                    // This creates a composite condition.
 
                     let condition = `s.estado IN (${stateParams.join(',')})`;
 
@@ -140,7 +152,6 @@ class SolicitudService {
                     states.forEach((st, i) => request.input(`estado${i}`, sql.VarChar(20), st.trim()));
                 } else {
                     if (filters.estado === 'PENDIENTE_TECNICA') {
-                        // Extended logic for single state
                         whereConditions.push("(s.estado = @estado OR (s.estado = 'APROBADO' AND s.estado_tecnica = 'PENDIENTE'))");
                     } else {
                         whereConditions.push('s.estado = @estado');
@@ -148,6 +159,7 @@ class SolicitudService {
                     request.input('estado', sql.VarChar(20), filters.estado);
                 }
             }
+
 
             if (filters.origen_solicitud) {
                 whereConditions.push('s.origen_solicitud = @origen');
@@ -194,10 +206,18 @@ class SolicitudService {
                 });
             }
 
-            // NEW: Role-based visibility restriction for linear flow
+            // Role-based visibility restriction for linear flow
             if (filters.restrictTechnicalPending) {
-                // Restricted users (Quality only) cannot see requests in PENDIENTE_TECNICA from MUESTREADOR
+                // Restricted users (Quality team with GC perms) cannot see requests still in PENDIENTE_TECNICA from MUESTREADOR
                 whereConditions.push(`NOT (s.origen_solicitud = 'MUESTREADOR' AND s.estado = 'PENDIENTE_TECNICA')`);
+            }
+
+            // NEW: Quality-only visibility – user has report permissions but NOT management permissions.
+            // Override all state filters: only show solicitudes that are at the Quality review stage.
+            if (filters.isQualityOnly) {
+                // Remove any existing estado conditions (they come from the frontend request, but quality
+                // should always see the full quality-stage backlog regardless of what was requested)
+                whereConditions.push(`(s.estado = 'PENDIENTE_CALIDAD' OR s.estado_tecnica = 'DERIVADO')`);
             }
 
 
@@ -242,6 +262,53 @@ class SolicitudService {
     }
 
 
+    async logHistorial({ idSolicitud, idUsuario, accion, estadoAnterior, estadoNuevo, observacion }) {
+        try {
+            const pool = await getConnection();
+            await pool.request()
+                .input('id_solicitud', sql.Numeric(10, 0), idSolicitud)
+                .input('id_usuario', sql.Numeric(10, 0), idUsuario)
+                .input('accion', sql.VarChar(50), accion)
+                .input('estado_ant', sql.VarChar(50), estadoAnterior || '')
+                .input('estado_new', sql.VarChar(50), estadoNuevo || '')
+                .input('obs', sql.VarChar(sql.MAX), observacion || '')
+                .query(`
+                    INSERT INTO mae_solicitud_historial(id_solicitud, id_usuario, accion, estado_anterior, estado_nuevo, observacion)
+                    VALUES(@id_solicitud, @id_usuario, @accion, @estado_ant, @estado_new, @obs)
+                `);
+        } catch (error) {
+            logger.error('Error logging solicitud history:', error);
+            // Non-blocking error
+        }
+    }
+
+    async getHistorial(id) {
+        try {
+            const pool = await getConnection();
+            const result = await pool.request()
+                .input('id', sql.Numeric(10, 0), id)
+                .query(`
+                    SELECT
+                        h.id_historial,
+                        h.fecha,
+                        h.accion,
+                        h.observacion,
+                        u.nombre_usuario,
+                        u.usuario as nombre_real,
+                        h.estado_anterior,
+                        h.estado_nuevo
+                    FROM mae_solicitud_historial h
+                    LEFT JOIN mae_usuario u ON h.id_usuario = u.id_usuario
+                    WHERE h.id_solicitud = @id
+                    ORDER BY h.fecha DESC
+                `);
+            return result.recordset;
+        } catch (error) {
+            logger.error('Error getting solicitud history:', error);
+            return [];
+        }
+    }
+
     async acceptForReview(id, usuario_tecnica, feedback = '') {
         try {
             const pool = await getConnection();
@@ -258,6 +325,20 @@ class SolicitudService {
                 .input('id', sql.Numeric(10, 0), id)
                 .input('feedback', sql.NVarChar(sql.MAX), feedback)
                 .query(queryUpdate);
+
+            // --- History Logging ---
+            try {
+                await this.logHistorial({
+                    idSolicitud: id,
+                    idUsuario: usuario_tecnica,
+                    accion: 'ACEPTACION_REVISION',
+                    estadoAnterior: 'PENDIENTE_TECNICA',
+                    estadoNuevo: 'EN_REVISION_TECNICA',
+                    observacion: feedback || 'Solicitud aceptada para revisión por el Área Técnica.'
+                });
+            } catch (histError) {
+                logger.error('Error logging history for acceptForReview:', histError);
+            }
 
             // Notify requester that request was accepted for review
             try {
@@ -401,6 +482,27 @@ class SolicitudService {
                 logger.error('Error sending technical review notification:', notifyError);
             }
 
+            // --- History Logging ---
+            try {
+                // Determine previous state by looking up current
+                const currentRes = await pool.request()
+                    .input('id', sql.Numeric(10, 0), id)
+                    .query("SELECT estado FROM mae_solicitud_equipo WHERE id_solicitud = @id");
+
+                const estadoAnterior = currentRes.recordset[0]?.estado || 'EN_REVISION_TECNICA';
+
+                await this.logHistorial({
+                    idSolicitud: id,
+                    idUsuario: usuario_tecnica,
+                    accion: estado_tecnica === 'DERIVADO' ? 'REVISION_TECNICA_DERIVADA' : 'REVISION_TECNICA_RECHAZADA',
+                    estadoAnterior: estadoAnterior, // Not perfectly accurate if it changed rapidly, but acceptable
+                    estadoNuevo: nuevoEstadoGlobal,
+                    observacion: feedback || `Revisión técnica finalizada con estado ${estado_tecnica}.`
+                });
+            } catch (histError) {
+                logger.error('Error logging history for reviewTechnical:', histError);
+            }
+
             return { success: true };
         } catch (error) {
             logger.error('Error reviewing solicitud technical:', error);
@@ -486,6 +588,7 @@ class SolicitudService {
                 const currentSolDatos = datos_json || solDatos;
 
                 let eventCode = '';
+                const isApproved = status === 'APROBADO' || status === 'CONCLUIDO_TECNICA';
                 const effectiveStatus = (status === 'PENDIENTE' && id_equipo_procesado && accion_item)
                     ? accion_item
                     : status;
@@ -494,7 +597,7 @@ class SolicitudService {
                     return { success: true };
                 }
 
-                const statusSuffix = effectiveStatus === 'APROBADO' ? 'APR' : 'RECH';
+                const statusSuffix = isApproved ? 'APR' : 'RECH';
                 const type = sol.tipo_solicitud;
                 const tipoLabel = this._getTipoLabel(type, currentSolDatos);
 
@@ -519,8 +622,8 @@ class SolicitudService {
                         HORA: new Date().toLocaleTimeString('es-CL'),
                         SOLICITANTE: nombreSolicitante,
                         RESPONSABLE: currentSolDatos.responsable || currentSolDatos.responsable_actual || currentSolDatos.encargado || nombreSolicitante,
-                        MOTIVO: feedback || currentSolDatos.motivo || currentSolDatos.justificacion || (status === 'APROBADO' ? 'Aprobado correctamente' : 'Sin motivo especificado'),
-                        OBSERVACION: feedback || currentSolDatos.motivo || currentSolDatos.justificacion || (status === 'APROBADO' ? 'Aprobado correctamente' : 'Sin motivo especificado'),
+                        MOTIVO: feedback || currentSolDatos.motivo || currentSolDatos.justificacion || (isApproved ? 'Aprobado correctamente' : 'Sin motivo especificado'),
+                        OBSERVACION: feedback || currentSolDatos.motivo || currentSolDatos.justificacion || (isApproved ? 'Aprobado correctamente' : 'Sin motivo especificado'),
                         equipos: this._getEquiposList(type, currentSolDatos, id_equipo_procesado)
                     };
 
@@ -538,7 +641,9 @@ class SolicitudService {
                     // Notificar al Área Técnica
                     notificationService.send(eventCode, {
                         ...notificationContext,
-                        OBSERVACION: `Calidad ha procesado la solicitud. Resultado: ${status}. ${feedback || ''}`,
+                        OBSERVACION: (status === 'CONCLUIDO_TECNICA')
+                            ? `Área Técnica ha concluido la solicitud directamente. ${feedback || ''}`
+                            : `Calidad ha procesado la solicitud. Resultado: ${status}. ${feedback || ''}`,
                         permissionRecibir: 'AI_MA_SOLICITUDES'
                     });
                 }
@@ -546,7 +651,7 @@ class SolicitudService {
                 logger.error('Error sending result notification:', notifyError);
             }
 
-            if (status === 'APROBADO') {
+            if (status === 'APROBADO' || status === 'CONCLUIDO_TECNICA') {
                 try {
                     const type = sol.tipo_solicitud;
                     const currentSolDatos = datos_json || solDatos; // Use newest data if available
@@ -626,8 +731,9 @@ class SolicitudService {
                         }
                     } else if (type === 'EQUIPO_DESHABILITADO') {
                         // Logic: Mark equipment as 'Inactivo' (Temporary disabling) and update validity date
+                        // Skip if the frontend explicitly activated it and passed 'ACTIVAR_EQUIPO' as accion_item.
                         const idEquipo = currentSolDatos.id_equipo;
-                        if (idEquipo) {
+                        if (idEquipo && accion_item !== 'ACTIVAR_EQUIPO') {
                             await equipoService.updateEquipo(idEquipo, {
                                 estado: 'Inactivo',
                                 fecha_vigencia: currentSolDatos.nueva_vigencia_solicitada || null,
@@ -650,6 +756,20 @@ class SolicitudService {
                     // Or maybe re-throw to rollback? Current logic doesn't have transaction wrapping both.
                     // For safety, let's keep approval but clearly log failure.
                 }
+            }
+
+            // --- History Logging ---
+            try {
+                await this.logHistorial({
+                    idSolicitud: id,
+                    idUsuario: adminId,
+                    accion: 'RESOLUCION_FINAL',
+                    estadoAnterior: sol.estado,
+                    estadoNuevo: effectiveStatusDB,
+                    observacion: feedback || `Resolución final con estado ${effectiveStatusDB}.`
+                });
+            } catch (histError) {
+                logger.error('Error logging history for updateStatus:', histError);
             }
 
             return { success: true };

@@ -853,8 +853,8 @@ class FichaIngresoService {
                     m.nombre_muestreador as muestreador,
                     m2.nombre_muestreador as muestreador_retiro,
                     f.tipo_fichaingresoservicio as tipo_ficha,
-                    es.nombre_empresa as empresa_servicio,
-                    es.email_empresa as correo_empresa,
+                    es.nombre_empresaservicios as empresa_servicio,
+                    es.email_empresaservicios as correo_empresa,
                     co.nombre_contacto as contacto,
                     co.email_contacto as correo_contacto,
                     om.nombre_objetivomuestreo_ma as objetivo,
@@ -872,7 +872,7 @@ class FichaIngresoService {
                 INNER JOIN App_Ma_Agenda_MUESTREOS a ON f.id_fichaingresoservicio = a.id_fichaingresoservicio
                 LEFT JOIN mae_muestreador m ON a.id_muestreador = m.id_muestreador
                 LEFT JOIN mae_muestreador m2 ON a.id_muestreador2 = m2.id_muestreador
-                LEFT JOIN mae_empresa es ON f.id_empresaservicio = es.id_empresa
+                LEFT JOIN mae_empresaservicios es ON f.id_empresaservicio = es.id_empresaservicio
                 LEFT JOIN mae_contacto co ON f.id_contacto = co.id_contacto
                 LEFT JOIN mae_objetivomuestreo_ma om ON f.id_objetivomuestreo_ma = om.id_objetivomuestreo_ma
                 LEFT JOIN mae_subarea sa ON f.id_subarea = sa.id_subarea

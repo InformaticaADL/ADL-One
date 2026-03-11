@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { fichaService } from '../services/ficha.service';
 import { catalogosService } from '../services/catalogos.service';
 import { useToast } from '../../../contexts/ToastContext';
@@ -17,6 +17,7 @@ interface FichaEvento {
     id_muestreador2?: number | null;
     correlativo: string;
     ficha_correlativo?: string;
+    frecuencia_correlativo?: string;
     fecha: string;
     muestreador: string;
     dia: number;
@@ -36,6 +37,7 @@ interface FichaEvento {
     subarea?: string;
     estado_caso?: string;
     id_validaciontecnica?: number;
+    muestreador_retiro?: string;
 }
 
 interface CalendarEvent extends FichaEvento {
@@ -99,12 +101,51 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
     const [pendingPayload, setPendingPayload] = useState<any>(null);
 
     const [selectedDay, setSelectedDay] = useState<number | null>(null);
+    const filterPanelRef = useRef<HTMLDivElement>(null);
+
+    const [globalMuestreadores, setGlobalMuestreadores] = useState<any[]>([]);
+    const [globalEmpresas, setGlobalEmpresas] = useState<any[]>([]);
+
+    const [equiposMuestreo, setEquiposMuestreo] = useState<any[]>([]);
+    const [isLoadingEquipos, setIsLoadingEquipos] = useState(false);
+
+    useEffect(() => {
+        const loadCatalogs = async () => {
+            try {
+                const [mData, eData] = await Promise.all([
+                    catalogosService.getMuestreadores(),
+                    catalogosService.getEmpresasServicio()
+                ]);
+                setGlobalMuestreadores(mData || []);
+                setGlobalEmpresas(eData || []);
+            } catch (error) {
+                console.error("Error cargando catálogos para filtros:", error);
+            }
+        };
+        loadCatalogs();
+    }, []);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (showFilters && filterPanelRef.current && !filterPanelRef.current.contains(event.target as Node)) {
+                setShowFilters(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [showFilters]);
 
     useEffect(() => {
         if (selectedEvent) {
             setIsEditingDate(false);
             setIsEditingSampler(false);
             setIsSavingEvent(false);
+
+            setEquiposMuestreo([]);
+
             let currentEvDate = selectedEvent.fecha;
             if (selectedEvent.tipo_evento === 'RETIRO' && selectedEvent.fecha_retiro) {
                 currentEvDate = selectedEvent.fecha_retiro;
@@ -114,8 +155,23 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
             const dateStr = `${currDateObj.getUTCFullYear()}-${String(currDateObj.getUTCMonth() + 1).padStart(2, '0')}-${String(currDateObj.getUTCDate()).padStart(2, '0')}`;
             setEditedDate(dateStr);
             setEditedSamplerId(selectedEvent.tipo_evento === 'INICIO' ? (selectedEvent.id_muestreador || '') : (selectedEvent.id_muestreador2 || selectedEvent.id_muestreador || ''));
+
+            // Load equipos
+            const loadEquipos = async () => {
+                setIsLoadingEquipos(true);
+                try {
+                    const equipos = await fichaService.getSamplingEquipos(selectedEvent.id, selectedEvent.correlativo);
+                    setEquiposMuestreo(equipos.data || equipos || []);
+                } catch (error) {
+                    console.error("Error loading sampling equipments:", error);
+                    showToast({ type: 'error', message: 'Error cargando equipos del muestreo' });
+                } finally {
+                    setIsLoadingEquipos(false);
+                }
+            };
+            loadEquipos();
         }
-    }, [selectedEvent]);
+    }, [selectedEvent, showToast]);
 
     const loadMuestreadoresForEdit = async () => {
         try {
@@ -228,19 +284,41 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
     }, [allEvents, selectedEmpresa, selectedMuestreador, selectedCentro, searchTerm]);
 
     const empresas = useMemo(() => {
+        if (globalEmpresas.length > 0) {
+            return globalEmpresas
+                .map(e => e.nombre || e.nombre_empresaservicios || e.razon_social)
+                .filter(Boolean)
+                .sort();
+        }
         const unique = Array.from(new Set(fichas.map(f => f.empresa_servicio))).filter(Boolean);
         return unique.sort();
-    }, [fichas]);
+    }, [fichas, globalEmpresas]);
 
     const muestreadores = useMemo(() => {
+        if (globalMuestreadores.length > 0) {
+            return globalMuestreadores
+                .map(m => m.nombre || m.nombre_muestreador)
+                .filter(Boolean)
+                .sort();
+        }
         const unique = Array.from(new Set(fichas.map(f => f.muestreador))).filter(Boolean);
         return unique.sort();
-    }, [fichas]);
+    }, [fichas, globalMuestreadores]);
 
     const centros = useMemo(() => {
-        const unique = Array.from(new Set(fichas.map(f => f.centro))).filter(Boolean);
+        let pool = fichas;
+        if (selectedEmpresa) {
+            pool = fichas.filter(f => f.empresa_servicio === selectedEmpresa);
+        }
+        const unique = Array.from(new Set(pool.map(f => f.centro))).filter(Boolean);
         return unique.sort();
-    }, [fichas]);
+    }, [fichas, selectedEmpresa]);
+
+    useEffect(() => {
+        if (selectedCentro && !centros.includes(selectedCentro)) {
+            setSelectedCentro('');
+        }
+    }, [selectedEmpresa, centros, selectedCentro]);
 
     const companyColorMap = useMemo(() => {
         const map: Record<string, { bg: string, text: string }> = {};
@@ -321,30 +399,30 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
     let innerContent;
     if (selectedEvent) {
         innerContent = (
-            <div className="admin-container" style={{ maxWidth: '100%', padding: '1rem 2rem 5rem', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
+            <div className="admin-container" style={{ maxWidth: '100%', padding: '1rem', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
                 <div style={{
                     backgroundColor: 'white',
-                    borderRadius: '16px',
-                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-                    width: '100%',
-                    maxWidth: '1200px',
-                    padding: '1.5rem 3rem 3rem',
+                    borderRadius: '12px',
+                    boxShadow: '0 20px 40px -10px rgba(0, 0, 0, 0.2)',
+                    width: '95%',
+                    maxWidth: '1000px',
+                    padding: '1rem 2rem 2rem',
                     border: '1px solid #e2e8f0',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '1.5rem',
+                    gap: '1rem',
                     position: 'relative'
                 }}>
                     <div style={{
                         display: 'flex',
                         justifyContent: 'center',
                         alignItems: 'center',
-                        borderBottom: '2px solid #f1f5f9',
-                        paddingBottom: '0.5rem',
-                        marginBottom: '0.25rem',
+                        borderBottom: '1px solid #f1f5f9',
+                        paddingBottom: '0.4rem',
+                        marginBottom: '0',
                         position: 'relative',
                         width: '100%',
-                        minHeight: '3.5rem'
+                        minHeight: '2.5rem'
                     }}>
                         <button
                             onClick={() => setSelectedEvent(null)}
@@ -353,15 +431,15 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                 left: 0,
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '0.4rem',
-                                padding: '0.6rem 1.2rem',
+                                gap: '0.3rem',
+                                padding: '0.4rem 0.8rem',
                                 border: '1px solid #e2e8f0',
                                 background: '#f8fafc',
-                                borderRadius: '10px',
+                                borderRadius: '8px',
                                 cursor: 'pointer',
-                                fontWeight: 700,
+                                fontWeight: 600,
                                 color: '#64748b',
-                                fontSize: '0.85rem',
+                                fontSize: '0.75rem',
                                 transition: 'all 0.2s',
                                 zIndex: 10
                             }}
@@ -374,18 +452,18 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                 e.currentTarget.style.borderColor = '#e2e8f0';
                             }}
                         >
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
                             Volver
                         </button>
 
-                        <h2 style={{ margin: 0, fontSize: '2rem', fontWeight: 800, color: '#1e293b' }}>Resumen de Muestreo</h2>
+                        <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800, color: '#1e293b' }}>Resumen de Muestreo</h2>
 
                         <span style={{
                             position: 'absolute',
                             right: 0,
-                            padding: '8px 20px',
+                            padding: '4px 12px',
                             borderRadius: '9999px',
-                            fontSize: '0.9rem',
+                            fontSize: '0.75rem',
                             fontWeight: 800,
                             backgroundColor: selectedEvent.tipo_evento === 'INICIO' ? '#dbeafe' : '#fee2e2',
                             color: selectedEvent.tipo_evento === 'INICIO' ? '#1e40af' : '#b91c1c',
@@ -395,253 +473,365 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                         </span>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '0.8fr 1.5fr 1.5fr 1.2fr', gap: '1.25rem', alignItems: 'start', marginBottom: '1rem' }}>
-                        <div>
-                            <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>ID Muestreo</label>
-                            <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0f172a', display: 'block', padding: '10px 12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px' }}>{selectedEvent.ficha_correlativo || selectedEvent.correlativo || selectedEvent.id}</span>
-                        </div>
-                        <div>
-                            <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Monitoreo agua/RIL</label>
-                            <span style={{ fontSize: '1rem', fontWeight: 600, color: '#334155', display: 'block', padding: '10px 12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px' }}>{selectedEvent.tipo_ficha || '-'}</span>
-                        </div>
-                        <div>
-                            <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Empresa Servicio</label>
-                            <span style={{ fontSize: '1rem', fontWeight: 600, color: '#334155', display: 'block', padding: '10px 12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={selectedEvent.empresa_servicio}>{selectedEvent.empresa_servicio}</span>
-                        </div>
-                        <div>
-                            <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Fuente Centro</label>
-                            <span style={{ fontSize: '1rem', fontWeight: 600, color: '#334155', display: 'block', padding: '10px 12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={selectedEvent.centro}>{selectedEvent.centro}</span>
-                        </div>
-                    </div>
+                    {/* Título Equipos y Versiones (Moved to top right of main grid section) */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '1.5rem', alignItems: 'stretch' }}>
+                        {/* Left Column: Form Details */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr', gap: '1rem', alignItems: 'start' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                                    <label style={{ fontSize: '0.65rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Cod. Correlativo</label>
+                                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#0f172a', padding: '8px 6px', backgroundColor: '#fbfcff', border: '1px solid #e2e8f0', borderRadius: '6px', wordBreak: 'break-all', whiteSpace: 'normal', minHeight: '38px', display: 'flex', alignItems: 'center' }}>{selectedEvent.frecuencia_correlativo || selectedEvent.correlativo || selectedEvent.id}</span>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'flex-end' }}>
+                                    <label style={{ fontSize: '0.65rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Monitoreo</label>
+                                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', padding: '8px 10px', backgroundColor: '#fbfcff', border: '1px solid #e2e8f0', borderRadius: '6px', minHeight: '38px', display: 'flex', alignItems: 'center' }}>{selectedEvent.tipo_ficha || '-'}</span>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'flex-end' }}>
+                                    <label style={{ fontSize: '0.65rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Empresa Servicio</label>
+                                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', padding: '8px 10px', backgroundColor: '#fbfcff', border: '1px solid #e2e8f0', borderRadius: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minHeight: '38px', display: 'flex', alignItems: 'center' }} title={selectedEvent.empresa_servicio}>{selectedEvent.empresa_servicio}</span>
+                                </div>
+                            </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr 1.2fr 1.2fr', gap: '1rem', alignItems: 'start', marginBottom: '0.75rem' }}>
-                        <div>
-                            <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Sub Área</label>
-                            <span style={{ fontSize: '1rem', fontWeight: 600, color: '#334155', display: 'block', padding: '10px 12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px' }}>{selectedEvent.subarea || '-'}</span>
-                        </div>
-                        <div>
-                            <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Contacto Empresa</label>
-                            <span style={{ fontSize: '0.95rem', fontWeight: 500, color: '#334155', display: 'block', padding: '10px 12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px' }}>{selectedEvent.contacto || '-'}</span>
-                        </div>
-                        <div>
-                            <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Correo Contacto</label>
-                            <span style={{ fontSize: '0.95rem', fontWeight: 500, color: '#334155', wordBreak: 'break-all', display: 'block', padding: '10px 12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px' }}>{selectedEvent.correo_contacto || '-'}</span>
-                        </div>
-                        <div>
-                            <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Objetivo del Muestreo</label>
-                            <span style={{ fontSize: '0.95rem', fontWeight: 500, color: '#334155', wordBreak: 'break-word', display: 'block', padding: '10px 12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px' }}>{selectedEvent.objetivo || '-'}</span>
-                        </div>
-                    </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', alignItems: 'end' }}>
+                                <div>
+                                    <label style={{ fontSize: '0.65rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Fuente Centro</label>
+                                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', padding: '8px 10px', backgroundColor: '#fbfcff', border: '1px solid #e2e8f0', borderRadius: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={selectedEvent.centro}>{selectedEvent.centro || '-'}</span>
+                                </div>
+                                <div>
+                                    <label style={{ fontSize: '0.65rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Sub Área</label>
+                                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', padding: '8px 10px', backgroundColor: '#fbfcff', border: '1px solid #e2e8f0', borderRadius: '6px' }}>{selectedEvent.subarea || '-'}</span>
+                                </div>
+                            </div>
 
-                    <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'flex-end', marginBottom: '1.25rem' }}>
-                        <div style={{ flex: 1 }}>
-                            <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Correo Empresa</label>
-                            <span style={{ fontSize: '0.95rem', fontWeight: 500, color: '#334155', wordBreak: 'break-all', display: 'block', padding: '10px 12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px' }}>{selectedEvent.correo_empresa || '-'}</span>
-                        </div>
-                        <button
-                            onClick={() => setDetailFichaId(selectedEvent.id)}
-                            style={{
-                                padding: '8px 24px',
-                                borderRadius: '8px',
-                                border: '1px solid #2563eb',
-                                backgroundColor: '#eff6ff',
-                                color: '#2563eb',
-                                fontWeight: 700,
-                                fontSize: '0.85rem',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s',
-                                marginBottom: '2px',
-                                height: '38px',
-                                whiteSpace: 'nowrap'
-                            }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = '#2563eb';
-                                e.currentTarget.style.color = 'white';
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = '#eff6ff';
-                                e.currentTarget.style.color = '#2563eb';
-                            }}
-                        >
-                            Ver detalle completo
-                        </button>
-                    </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '1rem', alignItems: 'end' }}>
+                                <div>
+                                    <label style={{ fontSize: '0.65rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Contacto Empresa</label>
+                                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', padding: '8px 10px', backgroundColor: '#fbfcff', border: '1px solid #e2e8f0', borderRadius: '6px' }}>{selectedEvent.contacto || '-'}</span>
+                                </div>
+                                <div>
+                                    <label style={{ fontSize: '0.65rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Correo Contacto</label>
+                                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', wordBreak: 'break-all', display: 'block', padding: '8px 10px', backgroundColor: '#fbfcff', border: '1px solid #e2e8f0', borderRadius: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={selectedEvent.correo_contacto}>{selectedEvent.correo_contacto || '-'}</span>
+                                </div>
+                            </div>
 
-                    <hr style={{ border: 'none', borderTop: '1px solid #e2e8f0', margin: '0.75rem 0' }} />
+                            <div>
+                                <label style={{ fontSize: '0.65rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Objetivo del Muestreo</label>
+                                <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', wordBreak: 'break-word', display: 'block', padding: '8px 10px', backgroundColor: '#fbfcff', border: '1px solid #e2e8f0', borderRadius: '6px' }}>{selectedEvent.objetivo || '-'}</span>
+                            </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            <label style={{ fontSize: '1rem', fontWeight: 700, color: '#475569', minWidth: '160px' }}>
-                                {selectedEvent.tipo_evento === 'INICIO' ? 'Fecha Inicio:' : 'Fecha Término:'}
-                            </label>
-                            {isEditingDate ? (
-                                <input
-                                    type="date"
-                                    value={editedDate}
-                                    onChange={(e) => setEditedDate(e.target.value)}
-                                    style={{ padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '1rem', flex: 1, maxWidth: '250px' }}
-                                />
-                            ) : (
-                                <span style={{ fontSize: '1.05rem', fontWeight: 600, color: '#0f172a', borderBottom: '1px solid #cbd5e1', paddingBottom: '2px', display: 'inline-block', minWidth: '150px' }}>
-                                    {selectedEvent.tipo_evento === 'INICIO'
-                                        ? (selectedEvent.fecha ? new Date(selectedEvent.fecha).toLocaleDateString('es-ES', { timeZone: 'UTC' }) : '-')
-                                        : (selectedEvent.fecha_retiro ? new Date(selectedEvent.fecha_retiro).toLocaleDateString('es-ES', { timeZone: 'UTC' }) : '-')
-                                    }
-                                </span>
-                            )}
+                            <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
+                                <div style={{ flex: 1 }}>
+                                    <label style={{ fontSize: '0.65rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Correo Empresa</label>
+                                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', wordBreak: 'break-all', display: 'block', padding: '8px 10px', backgroundColor: '#fbfcff', border: '1px solid #e2e8f0', borderRadius: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={selectedEvent.correo_empresa}>{selectedEvent.correo_empresa || '-'}</span>
+                                </div>
+                                <button
+                                    onClick={() => setDetailFichaId(selectedEvent.id)}
+                                    style={{
+                                        padding: '5px 12px',
+                                        borderRadius: '6px',
+                                        border: '1px solid #2563eb',
+                                        backgroundColor: '#eff6ff',
+                                        color: '#2563eb',
+                                        fontWeight: 700,
+                                        fontSize: '0.7rem',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s',
+                                        height: '28px',
+                                        whiteSpace: 'nowrap'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.backgroundColor = '#2563eb';
+                                        e.currentTarget.style.color = 'white';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.backgroundColor = '#eff6ff';
+                                        e.currentTarget.style.color = '#2563eb';
+                                    }}
+                                >
+                                    Ver detalle completo
+                                </button>
+                            </div>                            <hr style={{ border: 'none', borderTop: '1px solid #e2e8f0', margin: '0.4rem 0' }} />
+
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', minWidth: '120px' }}>
+                                        {selectedEvent.tipo_evento === 'INICIO' ? 'Fecha Inicio:' : 'Fecha Término:'}
+                                    </label>
+                                    {isEditingDate ? (
+                                        <input
+                                            type="date"
+                                            value={editedDate}
+                                            onChange={(e) => setEditedDate(e.target.value)}
+                                            style={{ padding: '0.3rem', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.8rem', flex: 1, maxWidth: '180px' }}
+                                        />
+                                    ) : (
+                                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#0f172a', borderBottom: '1px solid #cbd5e1', paddingBottom: '1px', display: 'inline-block', minWidth: '120px' }}>
+                                            {selectedEvent.tipo_evento === 'INICIO'
+                                                ? (selectedEvent.fecha ? new Date(selectedEvent.fecha).toLocaleDateString('es-ES', { timeZone: 'UTC' }) : '-')
+                                                : (selectedEvent.fecha_retiro ? new Date(selectedEvent.fecha_retiro).toLocaleDateString('es-ES', { timeZone: 'UTC' }) : '-')
+                                            }
+                                        </span>
+                                    )}
+                                </div>
+                                {(() => {
+                                    const stateStr = (selectedEvent.estado_caso || '').trim().toLowerCase();
+                                    const corrStr = (selectedEvent.correlativo || '').trim().toLowerCase();
+                                    const isRestricted = stateStr === 'cancelado' || corrStr.includes('cancelado') || (selectedEvent as any).id_validaciontecnica === 7 || stateStr === 'ejecutado' || corrStr.includes('ejecutado');
+
+                                    return selectedEvent.tipo_evento === 'INICIO' && !isRestricted && hasPermission('MA_CALENDARIO_REAGENDAR') && (
+                                        <button
+                                            onClick={() => setIsEditingDate(!isEditingDate)}
+                                            style={{
+                                                padding: '0.3rem 0.8rem',
+                                                borderRadius: '6px',
+                                                border: '1px solid #cbd5e1',
+                                                backgroundColor: isEditingDate ? '#f1f5f9' : 'white',
+                                                color: '#475569',
+                                                fontWeight: 700,
+                                                fontSize: '0.75rem',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s',
+                                            }}
+                                        >
+                                            {isEditingDate ? 'Cancelar ed.' : 'Reagendar'}
+                                        </button>
+                                    );
+                                })()}
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.4rem' }}>
+                                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', minWidth: '120px' }}>Muestreador Asignado:</label>
+                                    {isEditingSampler ? (
+                                        <select
+                                            value={editedSamplerId}
+                                            onChange={(e) => setEditedSamplerId(Number(e.target.value))}
+                                            style={{ padding: '0.3rem', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.8rem', flex: 1, maxWidth: '180px' }}
+                                        >
+                                            <option value="">Seleccione un muestreador...</option>
+                                            {muestreadoresList.map(m => (
+                                                <option key={m.id || m.id_muestreador} value={m.id || m.id_muestreador}>{m.nombre || m.nombre_muestreador}</option>
+                                            ))}
+                                        </select>
+                                    ) : (
+                                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#0f172a', borderBottom: '1px solid #cbd5e1', paddingBottom: '1px', display: 'inline-block', minWidth: '120px' }}>
+                                            {selectedEvent.tipo_evento === 'RETIRO' ? (selectedEvent.muestreador_retiro || selectedEvent.muestreador || 'Sin Asignar') : (selectedEvent.muestreador || 'Sin Asignar')}
+                                        </span>
+                                    )}
+                                </div>
+                                {(() => {
+                                    const stateStr = (selectedEvent.estado_caso || '').trim().toLowerCase();
+                                    const corrStr = (selectedEvent.correlativo || '').trim().toLowerCase();
+                                    const isRestricted = stateStr === 'cancelado' || corrStr.includes('cancelado') || (selectedEvent as any).id_validaciontecnica === 7 || stateStr === 'ejecutado' || corrStr.includes('ejecutado');
+
+                                    return !isRestricted && hasPermission('MA_CALENDARIO_REASIGNAR') && (
+                                        <button
+                                            onClick={() => {
+                                                if (!isEditingSampler && muestreadoresList.length === 0) loadMuestreadoresForEdit();
+                                                setIsEditingSampler(!isEditingSampler);
+                                            }}
+                                            style={{
+                                                padding: '0.3rem 0.8rem',
+                                                borderRadius: '6px',
+                                                border: '1px solid #cbd5e1',
+                                                backgroundColor: isEditingSampler ? '#f1f5f9' : 'white',
+                                                color: '#475569',
+                                                fontWeight: 700,
+                                                fontSize: '0.75rem',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s',
+                                            }}
+                                        >
+                                            {isEditingSampler ? 'Cancelar ed.' : 'Reasignar'}
+                                        </button>
+                                    );
+                                })()}
+                            </div>
                         </div>
-                        {selectedEvent.tipo_evento === 'INICIO' && !(selectedEvent.estado_caso === 'CANCELADO' || (selectedEvent as any).id_validaciontecnica === 7) && hasPermission('MA_CALENDARIO_REAGENDAR') && (
-                            <button
-                                onClick={() => setIsEditingDate(!isEditingDate)}
-                                style={{
-                                    padding: '0.5rem 1.25rem',
-                                    borderRadius: '8px',
-                                    border: '1px solid #cbd5e1',
-                                    backgroundColor: isEditingDate ? '#f1f5f9' : 'white',
-                                    color: '#475569',
-                                    fontWeight: 700,
-                                    fontSize: '0.9rem',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s',
-                                }}
-                            >
-                                {isEditingDate ? 'Cancelar ed.' : 'Reagendar'}
-                            </button>
-                        )}
+
+                        {/* Right Column: Equipos y Versiones Section */}
+                        <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            borderLeft: '1px solid #e2e8f0',
+                            paddingLeft: '2rem',
+                            height: '100%'
+                        }}>
+                            <h3 style={{ fontSize: '0.9rem', fontWeight: 800, color: '#1e293b', marginBottom: '1rem', textTransform: 'uppercase', borderBottom: '2px solid #f1f5f9', paddingBottom: '0.5rem' }}>Equipos y Versiones</h3>
+                            <div style={{ flex: 1, overflowY: 'auto', paddingRight: '0.5rem' }}>
+                                {isLoadingEquipos ? (
+                                    <div style={{ padding: '2rem 1rem', textAlign: 'center', color: '#64748b', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
+                                        <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
+                                            <svg className="animate-spin" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg>
+                                            <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Cargando equipos...</span>
+                                        </span>
+                                    </div>
+                                ) : equiposMuestreo.length > 0 ? (
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
+                                        {equiposMuestreo.map((eq, idx) => (
+                                            <div key={eq.id_equipo || idx} style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', padding: '0.4rem', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#0f172a', lineHeight: 1.1 }}>{eq.nombre_equipo || eq.nombre || `Equipo ID: ${eq.id_equipo}`}</span>
+                                                    <div style={{ backgroundColor: '#f1f5f9', padding: '0.1rem 0.3rem', borderRadius: '9999px', fontSize: '0.55rem', fontWeight: 800, color: '#475569', border: '1px solid #cbd5e1', whiteSpace: 'nowrap', marginLeft: '0.3rem' }}>
+                                                        v. {eq.version || 1}
+                                                    </div>
+                                                </div>
+                                                <span style={{ fontSize: '0.6rem', color: '#64748b', fontWeight: 500, lineHeight: 1.1 }}>{eq.codigo_equipo || eq.codigo || 'Sin código'} • {eq.tipo_equipo || eq.tipoequipo || 'Sin tipo'}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div style={{ padding: '2rem 1rem', textAlign: 'center', color: '#94a3b8', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px dashed #e2e8f0', fontSize: '0.85rem', fontWeight: 500 }}>
+                                        No hay equipos registrados para este muestreo.
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     </div>
 
                     <hr style={{ border: 'none', borderTop: '1px solid #e2e8f0', margin: '0.5rem 0' }} />
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            <label style={{ fontSize: '1rem', fontWeight: 700, color: '#475569', minWidth: '160px' }}>Muestreador Asignado:</label>
-                            {isEditingSampler ? (
-                                <select
-                                    value={editedSamplerId}
-                                    onChange={(e) => setEditedSamplerId(Number(e.target.value))}
-                                    style={{ padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '1rem', flex: 1, maxWidth: '250px' }}
-                                >
-                                    <option value="">Seleccione un muestreador...</option>
-                                    {muestreadoresList.map(m => (
-                                        <option key={m.id || m.id_muestreador} value={m.id || m.id_muestreador}>{m.nombre || m.nombre_muestreador}</option>
-                                    ))}
-                                </select>
-                            ) : (
-                                <span style={{ fontSize: '1.05rem', fontWeight: 600, color: '#0f172a', borderBottom: '1px solid #cbd5e1', paddingBottom: '2px', display: 'inline-block', minWidth: '150px' }}>
-                                    {selectedEvent.tipo_evento === 'RETIRO' ? (selectedEvent.muestreador_retiro || selectedEvent.muestreador || 'Sin Asignar') : (selectedEvent.muestreador || 'Sin Asignar')}
-                                </span>
-                            )}
-                        </div>
-                        {!(selectedEvent.estado_caso === 'CANCELADO' || (selectedEvent as any).id_validaciontecnica === 7) && hasPermission('MA_CALENDARIO_REASIGNAR') && (
-                            <button
-                                onClick={() => {
-                                    if (!isEditingSampler && muestreadoresList.length === 0) loadMuestreadoresForEdit();
-                                    setIsEditingSampler(!isEditingSampler);
-                                }}
-                                style={{
-                                    padding: '0.5rem 1.25rem',
-                                    borderRadius: '8px',
-                                    border: '1px solid #cbd5e1',
-                                    backgroundColor: isEditingSampler ? '#f1f5f9' : 'white',
-                                    color: '#475569',
-                                    fontWeight: 700,
-                                    fontSize: '0.9rem',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s',
-                                }}
-                            >
-                                {isEditingSampler ? 'Cancelar ed.' : 'Reasignar'}
-                            </button>
-                        )}
-                    </div>
-
-
-                    <hr style={{ border: 'none', borderTop: '1px solid #e2e8f0', margin: '1rem 0 0.5rem 0' }} />
-
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', paddingTop: '0.5rem' }}>
-                        {!(selectedEvent.estado_caso === 'CANCELADO' || (selectedEvent as any).id_validaciontecnica === 7) ? (
-                            <>
-                                {hasPermission('MA_CALENDARIO_CANCELAR') && (
+                        {(() => {
+                            const stateStr = (selectedEvent.estado_caso || '').trim().toLowerCase();
+                            const corrStr = (selectedEvent.correlativo || '').trim().toLowerCase();
+                            const isWait = stateStr === 'cancelado' || corrStr.includes('cancelado') || (selectedEvent as any).id_validaciontecnica === 7;
+                            const isDone = stateStr === 'ejecutado' || corrStr.includes('ejecutado');
+
+                            if (isWait) {
+                                return (
+                                    <div style={{
+                                        width: '100%',
+                                        padding: '0.8rem',
+                                        backgroundColor: '#fdf2f2',
+                                        border: '1px solid #f87171',
+                                        borderRadius: '10px',
+                                        color: '#b91c1c',
+                                        fontWeight: 700,
+                                        textAlign: 'center',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '0.4rem',
+                                        fontSize: '0.85rem'
+                                    }}>
+                                        ESTE MUESTREO HA SIDO CANCELADO
+                                        {(selectedEvent as any).motivo_cancelacion && (
+                                            <div style={{ marginLeft: '1rem', fontStyle: 'italic', fontWeight: 500 }}>
+                                                - "{(selectedEvent as any).motivo_cancelacion}"
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            }
+
+                            if (isDone) {
+                                return (
+                                    <div style={{
+                                        width: '100%',
+                                        padding: '0.8rem',
+                                        backgroundColor: '#f0fdf4',
+                                        border: '1px solid #4ade80',
+                                        borderRadius: '10px',
+                                        color: '#166534',
+                                        fontWeight: 700,
+                                        textAlign: 'center',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '0.4rem',
+                                        fontSize: '0.85rem'
+                                    }}>
+                                        ESTE MUESTREO YA HA SIDO EJECUTADO
+                                    </div>
+                                );
+                            }
+
+                            return (
+                                <>
+                                    {hasPermission('MA_CALENDARIO_CANCELAR') && (
+                                        <button
+                                            onClick={() => setShowCancelConfirm(true)}
+                                            disabled={isSavingEvent}
+                                            style={{
+                                                padding: '0.5rem 1.8rem',
+                                                borderRadius: '8px',
+                                                border: 'none',
+                                                backgroundColor: '#ef4444',
+                                                color: 'white',
+                                                fontWeight: 700,
+                                                fontSize: '0.85rem',
+                                                cursor: isSavingEvent ? 'not-allowed' : 'pointer',
+                                                transition: 'all 0.2s',
+                                                boxShadow: '0 4px 6px -1px rgba(239, 68, 68, 0.4)'
+                                            }}
+                                        >
+                                            {isSavingEvent ? 'Procesando...' : 'CANCELAR MUESTREO'}
+                                        </button>
+                                    )}
                                     <button
-                                        onClick={() => setShowCancelConfirm(true)}
+                                        onClick={() => {
+                                            if (!isEditingDate && !isEditingSampler) {
+                                                showToast({ type: 'info', message: 'No hay cambios para guardar.' });
+                                                return;
+                                            }
+                                            // Calculate automated withdrawal date if start is being moved
+                                            let finalFecha = selectedEvent.fecha;
+                                            let finalFechaRetiro = selectedEvent.fecha_retiro;
+
+                                            if (selectedEvent.tipo_evento === 'INICIO' && isEditingDate) {
+                                                finalFecha = editedDate;
+                                                // If there's a withdrawal date, maintain the gap
+                                                if (selectedEvent.fecha && selectedEvent.fecha_retiro) {
+                                                    const start = new Date(selectedEvent.fecha);
+                                                    const end = new Date(selectedEvent.fecha_retiro);
+                                                    const gapMs = end.getTime() - start.getTime();
+
+                                                    if (gapMs > 0) {
+                                                        const newStart = new Date(editedDate + 'T00:00:00Z');
+                                                        const newEnd = new Date(newStart.getTime() + gapMs);
+                                                        finalFechaRetiro = newEnd.toISOString().split('T')[0];
+                                                    }
+                                                }
+                                            } else if (selectedEvent.tipo_evento === 'RETIRO' && isEditingDate) {
+                                                finalFechaRetiro = editedDate;
+                                            }
+
+                                            const payload = {
+                                                assignments: [{
+                                                    id: selectedEvent.id_agenda,
+                                                    fecha: finalFecha,
+                                                    fechaRetiro: finalFechaRetiro,
+                                                    idMuestreadorInstalacion: selectedEvent.tipo_evento === 'INICIO' ? Number(editedSamplerId) || 0 : Number(selectedEvent.id_muestreador) || 0,
+                                                    idMuestreadorRetiro: selectedEvent.tipo_evento === 'RETIRO' ? Number(editedSamplerId) || 0 : Number(selectedEvent.id_muestreador2 || selectedEvent.id_muestreador) || 0,
+                                                    idFichaIngresoServicio: selectedEvent.id,
+                                                    frecuenciaCorrelativo: selectedEvent.correlativo
+                                                }],
+                                                user: { id: user?.id || 0, usuario: user?.name || 'Sistema' }
+                                            };
+                                            setPendingPayload(payload);
+                                            setShowVersionPrompt(true);
+                                        }}
                                         disabled={isSavingEvent}
                                         style={{
-                                            padding: '0.75rem 2.5rem',
-                                            borderRadius: '10px',
+                                            marginLeft: 'auto',
+                                            padding: '0.6rem 2rem',
+                                            borderRadius: '8px',
                                             border: 'none',
-                                            backgroundColor: '#ef4444',
+                                            backgroundColor: isSavingEvent ? '#93c5fd' : '#2563eb',
                                             color: 'white',
                                             fontWeight: 700,
-                                            fontSize: '1rem',
+                                            fontSize: '0.85rem',
                                             cursor: isSavingEvent ? 'not-allowed' : 'pointer',
                                             transition: 'all 0.2s',
-                                            boxShadow: '0 4px 6px -1px rgba(239, 68, 68, 0.4)'
+                                            boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.4)'
                                         }}
                                     >
-                                        {isSavingEvent ? 'Procesando...' : 'Cancelar'}
+                                        {isSavingEvent ? 'Guardando...' : 'Guardar'}
                                     </button>
-                                )}
-                                <button
-                                    onClick={() => {
-                                        if (!isEditingDate && !isEditingSampler) {
-                                            showToast({ type: 'info', message: 'No hay cambios para guardar.' });
-                                            return;
-                                        }
-                                        const payload = {
-                                            assignments: [{
-                                                id: selectedEvent.id_agenda,
-                                                fecha: selectedEvent.tipo_evento === 'INICIO' ? editedDate : selectedEvent.fecha,
-                                                fechaRetiro: selectedEvent.tipo_evento === 'RETIRO' ? editedDate : selectedEvent.fecha_retiro,
-                                                idMuestreadorInstalacion: selectedEvent.tipo_evento === 'INICIO' ? Number(editedSamplerId) || 0 : Number(selectedEvent.id_muestreador) || 0,
-                                                idMuestreadorRetiro: selectedEvent.tipo_evento === 'RETIRO' ? Number(editedSamplerId) || 0 : Number(selectedEvent.id_muestreador2 || selectedEvent.id_muestreador) || 0,
-                                                idFichaIngresoServicio: selectedEvent.id,
-                                                frecuenciaCorrelativo: selectedEvent.correlativo
-                                            }],
-                                            user: { id: user?.id || 0, usuario: user?.name || 'Sistema' }
-                                        };
-                                        setPendingPayload(payload);
-                                        setShowVersionPrompt(true);
-                                    }}
-                                    disabled={isSavingEvent}
-                                    style={{
-                                        padding: '0.75rem 2.5rem',
-                                        borderRadius: '10px',
-                                        border: 'none',
-                                        backgroundColor: isSavingEvent ? '#93c5fd' : '#2563eb',
-                                        color: 'white',
-                                        fontWeight: 700,
-                                        fontSize: '1rem',
-                                        cursor: isSavingEvent ? 'not-allowed' : 'pointer',
-                                        transition: 'all 0.2s',
-                                        boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.4)'
-                                    }}
-                                >
-                                    {isSavingEvent ? 'Guardando...' : 'Guardar'}
-                                </button>
-                            </>
-                        ) : (
-                            <div style={{
-                                width: '100%',
-                                padding: '1rem',
-                                backgroundColor: '#fdf2f2',
-                                border: '1px solid #f87171',
-                                borderRadius: '12px',
-                                color: '#b91c1c',
-                                fontWeight: 700,
-                                textAlign: 'center',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '0.5rem'
-                            }}>
-                                ESTE MUESTREO HA SIDO CANCELADO
-                                {(selectedEvent as any).motivo_cancelacion && (
-                                    <div style={{ marginLeft: '1rem', fontStyle: 'italic', fontWeight: 500 }}>
-                                        - "{(selectedEvent as any).motivo_cancelacion}"
-                                    </div>
-                                )}
-                            </div>
-                        )}
+                                </>
+                            );
+                        })()}
                     </div>
                 </div>
 
@@ -775,7 +965,34 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                 </div>
                                 <div style={{ padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', overflowY: 'auto' }}>
                                     {events.map((ev) => {
-                                        const isCancelled = ev.estado_caso === 'CANCELADO' || (ev as any).id_validaciontecnica === 7;
+                                        const estadoCasoStr = (ev.estado_caso || '').trim().toLowerCase();
+                                        const correlativoStr = (ev.correlativo || '').trim().toLowerCase();
+                                        const isCancelled = estadoCasoStr === 'cancelado' || correlativoStr.includes('cancelado') || (ev as any).id_validaciontecnica === 7;
+                                        const isEjecutado = estadoCasoStr === 'ejecutado' || correlativoStr.includes('ejecutado');
+                                        const isPendiente = estadoCasoStr === 'pendiente' || correlativoStr.includes('pendiente');
+
+                                        let bgColor = 'white';
+                                        let borderColor = ev.tipo_evento === 'INICIO' ? '#dbeafe' : '#fee2e2';
+                                        let borderLeftColor = ev.tipo_evento === 'INICIO' ? '#3b82f6' : '#ef4444';
+                                        let textColor = 'inherit';
+
+                                        if (isCancelled) {
+                                            bgColor = '#fee2e2';
+                                            borderColor = '#fca5a5';
+                                            borderLeftColor = '#ef4444';
+                                            textColor = '#991b1b';
+                                        } else if (isEjecutado) {
+                                            bgColor = '#dcfce7';
+                                            borderColor = '#86efac';
+                                            borderLeftColor = '#22c55e';
+                                            textColor = '#166534';
+                                        } else if (isPendiente) {
+                                            bgColor = '#ffedd5';
+                                            borderColor = '#fdba74';
+                                            borderLeftColor = '#f97316';
+                                            textColor = '#9a3412';
+                                        }
+
                                         return (
                                             <div
                                                 key={`${ev.id}-${ev.tipo_evento}`}
@@ -784,10 +1001,10 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                                     borderRadius: '10px', padding: '0.75rem', cursor: 'pointer', position: 'relative',
                                                     boxShadow: '0 2px 4px rgba(0,0,0,0.05)', transition: 'all 0.2s',
                                                     display: 'flex', flexDirection: 'column', gap: '0.4rem',
-                                                    border: `1px solid ${isCancelled ? '#334155' : (ev.tipo_evento === 'INICIO' ? '#dbeafe' : '#fee2e2')}`,
-                                                    borderLeft: `5px solid ${isCancelled ? '#64748b' : (ev.tipo_evento === 'INICIO' ? '#3b82f6' : '#ef4444')}`,
-                                                    backgroundColor: isCancelled ? '#475569' : 'white',
-                                                    color: isCancelled ? '#fff' : 'inherit'
+                                                    border: `1px solid ${borderColor}`,
+                                                    borderLeft: `5px solid ${borderLeftColor}`,
+                                                    backgroundColor: bgColor,
+                                                    color: textColor
                                                 }}
                                             >
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
@@ -797,7 +1014,11 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                                     </span>
                                                 </div>
                                                 <div style={{ fontSize: '0.75rem', fontWeight: 600, opacity: 0.9 }}>{ev.empresa_servicio}</div>
-                                                <div style={{ fontSize: '0.7rem' }}>{ev.centro}</div>
+                                                <div style={{ fontSize: '0.65rem', display: 'flex', flexDirection: 'column', gap: '0', marginTop: '0.1rem', lineHeight: '1.2' }}>
+                                                    <div><span style={{ fontWeight: 800, opacity: 0.8 }}>Centro:</span> {ev.centro}</div>
+                                                    <div><span style={{ fontWeight: 800, opacity: 0.8 }}>Muestreador:</span> {ev.tipo_evento === 'INICIO' ? ev.muestreador : (ev.muestreador_retiro || ev.muestreador)}</div>
+                                                    <div><span style={{ fontWeight: 800, opacity: 0.8 }}>Objetivo:</span> {ev.objetivo}</div>
+                                                </div>
                                                 {isCancelled && <div style={{ marginTop: '4px', fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase' }}>Muestreo Cancelado</div>}
                                             </div>
                                         );
@@ -825,10 +1046,33 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                             <div key={day} onClick={() => { if (dayEvents.length) { setSelectedDay(day); setViewMode('day'); } }} style={{ background: 'white', padding: '0.4rem', display: 'flex', flexDirection: 'column', gap: '0.15rem', cursor: dayEvents.length ? 'pointer' : 'default', backgroundColor: isToday ? '#eff6ff' : 'white', border: isToday ? '2px solid #3b82f6' : 'none' }}>
                                 <div style={{ fontWeight: 700, color: dayEvents.length ? '#1e293b' : '#94a3b8' }}>{day}</div>
                                 {dayEvents.slice(0, 3).map((ev, eIdx) => {
+                                    const estadoCasoStr = (ev.estado_caso || '').trim().toLowerCase();
+                                    const correlativoStr = (ev.correlativo || '').trim().toLowerCase();
                                     const colorsArr = companyColorMap[ev.empresa_servicio || ''] || { bg: '#e2e8f0', text: '#334155' };
-                                    const isCancelled = ev.estado_caso === 'CANCELADO' || (ev as any).id_validaciontecnica === 7;
+                                    const isCancelled = estadoCasoStr === 'cancelado' || correlativoStr.includes('cancelado') || (ev as any).id_validaciontecnica === 7;
+                                    const isEjecutado = estadoCasoStr === 'ejecutado' || correlativoStr.includes('ejecutado');
+                                    const isPendiente = estadoCasoStr === 'pendiente' || correlativoStr.includes('pendiente');
+
+                                    let bg = colorsArr.bg;
+                                    let text = colorsArr.text;
+                                    let borderStyle = 'none';
+
+                                    if (isCancelled) {
+                                        bg = '#fee2e2';
+                                        text = '#991b1b';
+                                        borderStyle = '1px solid #fca5a5';
+                                    } else if (isEjecutado) {
+                                        bg = '#dcfce7';
+                                        text = '#166534';
+                                        borderStyle = '1px solid #86efac';
+                                    } else if (isPendiente) {
+                                        bg = '#ffedd5';
+                                        text = '#9a3412';
+                                        borderStyle = '1px solid #fdba74';
+                                    }
+
                                     return (
-                                        <div key={eIdx} style={{ background: isCancelled ? '#64748b' : colorsArr.bg, color: isCancelled ? '#fff' : colorsArr.text, fontSize: '0.6rem', padding: '2px 4px', borderRadius: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textDecoration: isCancelled ? 'line-through' : 'none' }}>
+                                        <div key={eIdx} style={{ background: bg, color: text, border: borderStyle, fontSize: '0.6rem', padding: '2px 4px', borderRadius: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textDecoration: isCancelled ? 'line-through' : 'none' }}>
                                             {ev.tipo_evento.charAt(0)}: {ev.correlativo}
                                         </div>
                                     );
@@ -856,7 +1100,7 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
         innerContent = (
             <div style={{ flexGrow: 1, display: 'flex', gap: '0.75rem', overflowX: 'auto', paddingBottom: '1rem' }}>
                 {weekDays.map((date) => {
-                    const dayEvents = allEvents.filter(ev =>
+                    const dayEvents = filteredEvents.filter(ev =>
                         ev.event_dia === date.getDate() &&
                         ev.event_mes === date.getMonth() + 1 &&
                         ev.event_ano === date.getFullYear()
@@ -885,16 +1129,45 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                     <div style={{ fontSize: '0.7rem', color: '#94a3b8', textAlign: 'center', padding: '1rem' }}>S/A</div>
                                 ) : (
                                     dayEvents.map(ev => {
-                                        const isCancelled = ev.estado_caso === 'CANCELADO' || (ev as any).id_validaciontecnica === 7;
+                                        const estadoCasoStr = (ev.estado_caso || '').trim().toLowerCase();
+                                        const correlativoStr = (ev.correlativo || '').trim().toLowerCase();
+                                        const isCancelled = estadoCasoStr === 'cancelado' || correlativoStr.includes('cancelado') || (ev as any).id_validaciontecnica === 7;
+                                        const isEjecutado = estadoCasoStr === 'ejecutado' || correlativoStr.includes('ejecutado');
+                                        const isPendiente = estadoCasoStr === 'pendiente' || correlativoStr.includes('pendiente');
+
                                         const colorsArr = companyColorMap[ev.empresa_servicio || ''] || { bg: '#e2e8f0', text: '#334155' };
+
+                                        let bg = colorsArr.bg;
+                                        let text = colorsArr.text;
+                                        let borderLeftStyle = ev.tipo_evento === 'INICIO' ? '#3b82f6' : '#ef4444';
+                                        let borderStyle = '1px solid transparent';
+
+                                        if (isCancelled) {
+                                            bg = '#fee2e2';
+                                            text = '#991b1b';
+                                            borderLeftStyle = '#ef4444';
+                                            borderStyle = '1px solid #fca5a5';
+                                        } else if (isEjecutado) {
+                                            bg = '#dcfce7';
+                                            text = '#166534';
+                                            borderLeftStyle = '#22c55e';
+                                            borderStyle = '1px solid #86efac';
+                                        } else if (isPendiente) {
+                                            bg = '#ffedd5';
+                                            text = '#9a3412';
+                                            borderLeftStyle = '#f97316';
+                                            borderStyle = '1px solid #fdba74';
+                                        }
+
                                         return (
                                             <div
                                                 key={`${ev.id}-${ev.tipo_evento}`}
                                                 onClick={() => setSelectedEvent(ev)}
                                                 style={{
                                                     padding: '0.5rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.65rem',
-                                                    background: isCancelled ? '#64748b' : colorsArr.bg, color: isCancelled ? '#fff' : colorsArr.text,
-                                                    borderLeft: `3px solid ${ev.tipo_evento === 'INICIO' ? '#3b82f6' : '#ef4444'}`,
+                                                    background: bg, color: text,
+                                                    borderLeft: `3px solid ${borderLeftStyle}`,
+                                                    border: borderStyle,
                                                     boxShadow: '0 1px 2px rgba(0,0,0,0.05)', transition: 'all 0.2s'
                                                 }}
                                             >
@@ -1042,7 +1315,7 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                             ))}
                         </div>
 
-                        <div style={{ position: 'relative' }}>
+                        <div style={{ position: 'relative' }} ref={filterPanelRef}>
                             <button
                                 onClick={() => setShowFilters(!showFilters)}
                                 style={{

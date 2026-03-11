@@ -371,20 +371,37 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
         const isRestoring = initialData && String(initialData.selectedCliente) === String(selectedCliente);
 
         if (!isRestoring) {
-            setFuentesEmisoras([]);
-            setSelectedFuente('');
-            setContactos([]);
-            setSelectedContacto('');
-            setObjetivos([]); // Reset Objetivos
-            setSelectedObjetivo('');
+            if (selectedCliente && selectedCliente !== 'No Aplica') {
+                // Auto-population: Find linked Empresa de Servicio
+                console.log('🔍 [Debug] Searching for client:', selectedCliente, 'in', clientes.length, 'clients');
+                const clienteObj = clientes.find(c => String(c.id) === String(selectedCliente));
+                console.log('🔍 [Debug] Found client object:', clienteObj);
+
+                const linkedEmpresaId = clienteObj?.id_empresaservicio;
+                console.log('🔍 [Debug] Linked Empresa ID from client:', linkedEmpresaId);
+
+                if (linkedEmpresaId && linkedEmpresaId !== 0 && linkedEmpresaId !== '0') {
+                    console.log('✨ [Debug] Calling setSelectedEmpresa with:', String(linkedEmpresaId));
+                    setSelectedEmpresa(String(linkedEmpresaId));
+                } else {
+                    console.log('⚠️ [Debug] No linked ID found in client object or it is invalid:', linkedEmpresaId);
+                }
+            } else {
+                setFuentesEmisoras([]);
+                setSelectedFuente('');
+                setContactos([]);
+                setSelectedContacto('');
+                setObjetivos([]); // Reset Objetivos
+                setSelectedObjetivo('');
+            }
         }
 
-        if (selectedCliente) {
+        if (selectedCliente && selectedCliente !== 'No Aplica') {
             loadFuentesEmisoras(Number(selectedCliente));
             loadContactos(Number(selectedCliente));
             loadObjetivos(Number(selectedCliente)); // Dependent load
         }
-    }, [selectedCliente]);
+    }, [selectedCliente, clientes]);
 
     // Cascade: Componente -> SubArea
     useEffect(() => {
@@ -477,7 +494,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
         try {
             const data = await catalogos.getEmpresasServicio();
             setEmpresas(data.map((item: any) => ({
-                id: item.id_empresa || item.IdEmpresa || item.id_empresaservicio || item.id,
+                id: item.id_empresaservicio || item.IdEmpresaServicio || item.id_empresa || item.IdEmpresa || item.id,
                 nombre: item.nombre_empresaservicios || item.nombre_empresaservicio || item.razon_social || item.RazonSocial || item.nombre,
                 email: item.email_empresa || item.email || item.Email || ''
             })));
@@ -492,7 +509,8 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
             setClientes(data.map((item: any) => ({
                 id: item.id_cliente || item.IdCliente || item.id || item.id_empresa,
                 nombre: item.nombre_cliente || item.NombreCliente || item.nombre || item.razon_social || item.nombre_empresa,
-                email: item.email_empresa || item.email || item.Email || ''
+                email: item.email_empresa || item.email || item.Email || '',
+                id_empresaservicio: item.id_empresaservicio || item.IdEmpresaServicio || 0
             })));
         } catch (err: any) {
             console.error(err);
@@ -516,7 +534,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
     const loadFuentesEmisoras = async (clienteId: number) => {
         try {
             const data = await catalogos.getCentros(clienteId);
-            setFuentesEmisoras(data.map((item: any) => ({
+            const mapped = data.map((item: any) => ({
                 id: item.id_centro || item.id,
                 nombre: item.nombre_centro || item.nombre,
                 direccion: item.direccion || item.ubicacion,
@@ -525,7 +543,14 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 tipo_agua: item.tipo_agua || item.TipoAgua || item.tipoagua || item.Tipo_Agua || item.nombre_tipoagua,
                 id_tipoagua: item.id_tipoagua || item.IdTipoAgua || item.ID_TIPOAGUA,
                 codigo: item.codigo_centro || item.Codigo || item.codigo || item.codigo_ma
-            })));
+            }));
+            setFuentesEmisoras(mapped);
+
+            // Auto-select first available Fuente Emisora if not hydrating
+            if (!isHydrating.current && mapped.length > 0) {
+                console.log('✨ Auto-selecting first Fuente Emisora:', mapped[0].nombre);
+                setSelectedFuente(String(mapped[0].id));
+            }
         } catch (err: any) {
             console.error(err);
         }
@@ -1132,14 +1157,12 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         <div className="form-group" style={{ flex: 1 }}>
                             <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>N&deg; *</label>
                             <input type="text" value={nroInstrumento} onChange={(e) => setNroInstrumento(e.target.value)}
-                                disabled={!selectedInstrumento || selectedInstrumento === 'No aplica'}
-                                style={{ width: '100%', padding: '6px', fontSize: '0.85rem', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: (!selectedInstrumento || selectedInstrumento === 'No aplica') ? '#f3f4f6' : 'white', cursor: (!selectedInstrumento || selectedInstrumento === 'No aplica') ? 'not-allowed' : 'text' }} />
+                                style={{ width: '100%', padding: '6px', fontSize: '0.85rem', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: 'white', cursor: 'text' }} />
                         </div>
                         <div className="form-group" style={{ flex: 1 }}>
                             <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>A&ntilde;o *</label>
                             <input type="text" value={anioInstrumento} onChange={(e) => setAnioInstrumento(e.target.value)}
-                                disabled={!selectedInstrumento || selectedInstrumento === 'No aplica'}
-                                style={{ width: '100%', padding: '6px', fontSize: '0.85rem', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: (!selectedInstrumento || selectedInstrumento === 'No aplica') ? '#f3f4f6' : 'white', cursor: (!selectedInstrumento || selectedInstrumento === 'No aplica') ? 'not-allowed' : 'text' }} />
+                                style={{ width: '100%', padding: '6px', fontSize: '0.85rem', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: 'white', cursor: 'text' }} />
                         </div>
                     </div>
 
@@ -1154,7 +1177,6 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             { id: 'No Aplica', nombre: 'No Aplica' },
                             ...componentes.map(c => ({ id: c.id, nombre: c.nombre }))
                         ]}
-                        disabled={!selectedInstrumento || selectedInstrumento === '' || selectedInstrumento === 'No aplica'}
                     />
                 </div>
 
@@ -1175,7 +1197,6 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             { id: 'No Aplica', nombre: 'No Aplica' },
                             ...subAreas.map(s => ({ id: s.id, nombre: s.nombre }))
                         ]}
-                        disabled={!selectedComponente || selectedComponente === 'No Aplica'}
                     />
                 </div>
 
@@ -1195,7 +1216,6 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                                 onBlur={() => {
                                     // LostFocus: Copy to Page2 (Analysis Tab). 
                                 }}
-                                disabled={!selectedSubArea || selectedSubArea === '' || selectedSubArea === 'No Aplica'}
                                 style={{
                                     width: '100%',
                                     padding: '6px 60px 6px 10px', // Right padding for counter text
@@ -1204,8 +1224,8 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                                     borderRadius: '6px',
                                     outline: 'none',
                                     minHeight: '34px',
-                                    backgroundColor: (!selectedSubArea || selectedSubArea === '' || selectedSubArea === 'No Aplica') ? '#f3f4f6' : 'white',
-                                    cursor: (!selectedSubArea || selectedSubArea === '' || selectedSubArea === 'No Aplica') ? 'not-allowed' : 'text'
+                                    backgroundColor: 'white',
+                                    cursor: 'text'
                                 }}
                             />
                             <span style={{
@@ -1229,7 +1249,6 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         value={esETFA}
                         onChange={setEsETFA}
                         options={[{ id: 'Si', nombre: 'Si' }, { id: 'No', nombre: 'No' }]}
-                        disabled={true}
                     />
                     <SearchableSelect
                         label="Inspector Ambiental"
@@ -1262,7 +1281,6 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             setSelectedTipoMuestra(''); // Reset child
                             // Removed duplicate API call - useEffect at line 312 handles this
                         }}
-                        disabled={!glosa || glosa.trim() === ''}
                         options={[
                             { id: 'No Aplica', nombre: 'No Aplica' },
                             ...tiposMuestreo.map(t => ({ id: t.id, nombre: t.nombre }))
@@ -1288,7 +1306,6 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                                 nombre: t.nombre_tipomuestra_ma || t.nombre || t.Nombre || 'Sin Nombre'
                             }))
                         ]}
-                        disabled={!selectedTipoMuestreo || selectedTipoMuestreo === '' || selectedTipoMuestreo === 'No Aplica'}
                     />
                     <SearchableSelect
                         label="Actividad Muestreo *"
@@ -1310,19 +1327,18 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                                 nombre: a.nombre_actividadmuestreo || a.nombre || a.Nombre || 'Sin Nombre'
                             }))
                         ]}
-                        disabled={!selectedTipoMuestra || selectedTipoMuestra === '' || selectedTipoMuestra === 'No Aplica'}
                     />
                     <div className="form-group">
                         <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>Duraci&oacute;n (Hrs) *</label>
-                        <input type="number" value={duracion} onChange={(e) => setDuracion(e.target.value)} disabled={!selectedActividad || !selectedActividad.trim() || selectedActividad === 'No Aplica'}
+                        <input type="number" value={duracion} onChange={(e) => setDuracion(e.target.value)}
                             style={{
                                 width: '100%',
                                 padding: '6px',
                                 fontSize: '0.85rem',
                                 border: '1px solid #d1d5db',
                                 borderRadius: '6px',
-                                backgroundColor: (!selectedActividad || !selectedActividad.trim() || selectedActividad === 'No Aplica') ? '#f3f4f6' : 'white',
-                                cursor: (!selectedActividad || !selectedActividad.trim() || selectedActividad === 'No Aplica') ? 'not-allowed' : 'text'
+                                backgroundColor: 'white',
+                                cursor: 'text'
                             }} />
                     </div>
                     <SearchableSelect

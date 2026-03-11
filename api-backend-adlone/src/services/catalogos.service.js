@@ -18,11 +18,11 @@ export const catalogosService = {
   getEmpresasServicio: async () => {
     try {
       const pool = await getConnection();
-      // Updated to select all columns so frontend can access emails, phones, etc.
-      const result = await pool.request().query("SELECT *, id_empresaservicio, nombre_empresa AS nombre_empresaservicio FROM mae_empresa WHERE habilitado = 'S' ORDER BY nombre_empresa");
+      // Changed to query mae_empresaservicios table which is the correct source for service entities
+      const result = await pool.request().query("SELECT id_empresaservicio, nombre_empresaservicios, habilitado, email_empresaservicios FROM mae_empresaservicios WHERE habilitado = 'S' ORDER BY nombre_empresaservicios");
       let empresas = result.recordset;
 
-      logger.info(`Returning all empresas (${empresas.length} records)`);
+      logger.info(`Returning all service empresas from mae_empresaservicios (${empresas.length} records)`);
       return empresas;
     } catch (error) {
       logger.error('Error in getEmpresasServicio service:', error);
