@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, useRef, useImperativeHandle, forwardRef } from 'react';
+import { useEffect, useState, useRef, useImperativeHandle, forwardRef } from 'react';
 import { useCachedCatalogos } from '../hooks/useCachedCatalogos';
 import type { LugarAnalisis, EmpresaServicio, Cliente, Contacto, Centro } from '../services/catalogos.service';
 import { useToast } from '../../../contexts/ToastContext';
@@ -106,6 +106,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
     const [selectedInstrumento, setSelectedInstrumento] = useState<string>('');
     const [nroInstrumento, setNroInstrumento] = useState<string>('');
     const [anioInstrumento, setAnioInstrumento] = useState<string>('');
+    const [instrumentosAmbientales, setInstrumentosAmbientales] = useState<any[]>([]);
 
     const [componentes, setComponentes] = useState<any[]>([]);
     const [selectedComponente, setSelectedComponente] = useState<string>('');
@@ -146,6 +147,23 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
     const [dispositivos, setDispositivos] = useState<any[]>([]);
     const [dispositivo, setDispositivo] = useState<string>(String(initialData?.dispositivo ?? ''));
     const [detalleDispositivo, setDetalleDispositivo] = useState<string>(initialData?.detalleDispositivo || '');
+    
+    // Measure units for canal/dispositivo
+    const [unidadesMedida, setUnidadesMedida] = useState<any[]>([]);
+    const [tipoMedidaCanal, setTipoMedidaCanal] = useState<string>('');
+    const [tipoMedidaDispositivo, setTipoMedidaDispositivo] = useState<string>('');
+    
+    // Track hydration separately for measures to avoid "NA" initially
+    useEffect(() => {
+        if (initialData) {
+            if (initialData.tipoMedidaCanal && initialData.tipoMedidaCanal !== 'No Aplica' && initialData.tipoMedidaCanal !== 'NA') {
+                setTipoMedidaCanal(initialData.tipoMedidaCanal);
+            }
+            if (initialData.tipoMedidaDispositivo && initialData.tipoMedidaDispositivo !== 'No Aplica' && initialData.tipoMedidaDispositivo !== 'NA') {
+                setTipoMedidaDispositivo(initialData.tipoMedidaDispositivo);
+            }
+        }
+    }, [initialData]);
 
     // Extra state for id_tipo_agua (separate from the display string)
     const [idTipoAgua, setIdTipoAgua] = useState<number | null>(initialData?.idTipoAgua || null);
@@ -259,19 +277,49 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
             setDetalleCanal(initialData.detalleCanal || '');
             setDispositivo(String(initialData.dispositivo ?? ''));
             setDetalleDispositivo(initialData.detalleDispositivo || '');
+            setTipoMedidaCanal(initialData.tipoMedidaCanal || '');
+            setTipoMedidaDispositivo(initialData.tipoMedidaDispositivo || '');
             setFrecuencia(String(initialData.frecuencia ?? ''));
             setFactor(String(initialData.factor ?? '1'));
             setPeriodo(String(initialData.periodo ?? ''));
             setTotalServicios(String(initialData.totalServicios ?? ''));
 
             hasHydrated.current = true;
-            // Note: isHydrating will be disabled by catalog loader or timeout if needed
         }
     }, [initialData]);
+
+    // Cleanup symbols from measurement values once units are loaded
+    useEffect(() => {
+        if (initialData && unidadesMedida.length > 0) {
+            // Channel cleanup
+            if (initialData.detalleCanal && initialData.tipoMedidaCanal) {
+                const unit = unidadesMedida.find(u => String(u.id) === String(initialData.tipoMedidaCanal))?.nombre;
+                if (unit && String(initialData.detalleCanal).endsWith(unit)) {
+                    setDetalleCanal(String(initialData.detalleCanal).slice(0, -unit.length).trim());
+                }
+            }
+            // Device cleanup
+            if (initialData.detalleDispositivo && initialData.tipoMedidaDispositivo) {
+                const unit = unidadesMedida.find(u => String(u.id) === String(initialData.tipoMedidaDispositivo))?.nombre;
+                if (unit && String(initialData.detalleDispositivo).endsWith(unit)) {
+                    setDetalleDispositivo(String(initialData.detalleDispositivo).slice(0, -unit.length).trim());
+                }
+            }
+        }
+    }, [initialData, unidadesMedida]);
     useImperativeHandle(ref, () => ({
         getData: () => {
             // Find selected contact name
             const contactoObj = contactos.find(c => String(c.id) === selectedContacto);
+            
+            // Or maybe it's the primary contact of the service company
+            const empresaObj = empresas.find(e => String(e.id) === selectedEmpresa);
+            let finalContactoNombre = '';
+            if (contactoObj) {
+                finalContactoNombre = contactoObj.nombre;
+            } else if (selectedContacto === 'primary' && empresaObj) {
+                finalContactoNombre = empresaObj.contacto || '';
+            }
 
             const data = {
                 tipoMonitoreo: tipoMonitoreo || '',
@@ -291,8 +339,9 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 selectedComponente: selectedComponente || '',
                 selectedSubArea: selectedSubArea || '',
                 selectedTipoDescarga: selectedTipoDescarga || '',
+                correoEmpresa: empresas.find(e => String(e.id) === selectedEmpresa)?.email || '',
                 selectedContacto: selectedContacto || '',
-                contactoNombre: contactoObj ? contactoObj.nombre : '',
+                contactoNombre: finalContactoNombre,
                 selectedTipoMuestreo: selectedTipoMuestreo || '',
                 selectedTipoMuestra: selectedTipoMuestra || '',
                 selectedActividad: selectedActividad || '',
@@ -300,13 +349,28 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 refGoogle: refGoogle || '',
                 medicionCaudal: medicionCaudal || '',
                 selectedModalidad: selectedModalidad || '',
-                formaCanal: formaCanal || '',
-                detalleCanal: detalleCanal || '',
-                dispositivo: dispositivo || '',
-                detalleDispositivo: detalleDispositivo || '',
                 responsableMuestreo: responsableMuestreo || '',
                 cargoResponsable: cargoResponsable || '',
                 selectedInspector: selectedInspector || '',
+
+                // Concatenate symbols to measurement values if applicable
+                detalleCanal: (() => {
+                    if (!detalleCanal || detalleCanal === 'No Aplica') return detalleCanal;
+                    const unit = unidadesMedida.find(u => String(u.id) === String(tipoMedidaCanal))?.nombre;
+                    if (unit && !String(detalleCanal).endsWith(unit)) return `${detalleCanal}${unit}`;
+                    return detalleCanal;
+                })(),
+                detalleDispositivo: (() => {
+                    if (!detalleDispositivo || detalleDispositivo === 'No Aplica') return detalleDispositivo;
+                    const unit = unidadesMedida.find(u => String(u.id) === String(tipoMedidaDispositivo))?.nombre;
+                    if (unit && !String(detalleDispositivo).endsWith(unit)) return `${detalleDispositivo}${unit}`;
+                    return detalleDispositivo;
+                })(),
+
+                formaCanal,
+                tipoMedidaCanal,
+                dispositivo,
+                tipoMedidaDispositivo,
                 frecuencia: frecuencia || '',
                 factor: factor || '',
                 periodo: periodo || '',
@@ -358,50 +422,37 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
         if (!tipoMonitoreo) setSelectedLugar('');
     }, [tipoMonitoreo]);
 
-    // Cascade: Cliente -> Fuente Emisora & Contacto & Objetivo
+    // Cascade: Empresa de Servicio -> Fuente Emisora & Contacto & Objetivo
     useEffect(() => {
-        console.log('🔄 [Cascade] selectedCliente changed:', selectedCliente, 'isHydrating:', isHydrating.current);
+        console.log('🔄 [Cascade] selectedEmpresa changed:', selectedEmpresa, 'isHydrating:', isHydrating.current);
         // Skip clearing if we're hydrating
         if (isHydrating.current) {
-            console.log('⏸️ [Cascade] Skipping selectedCliente cascade (hydrating)');
+            console.log('⏸️ [Cascade] Skipping selectedEmpresa cascade (hydrating)');
             return;
         }
 
-        // Hydration Check: If we are matching initial Data, don't wipe dependent fields
-        const isRestoring = initialData && String(initialData.selectedCliente) === String(selectedCliente);
+        const isRestoring = initialData && String(initialData.selectedEmpresa) === String(selectedEmpresa);
 
         if (!isRestoring) {
-            if (selectedCliente && selectedCliente !== 'No Aplica') {
-                // Auto-population: Find linked Empresa de Servicio
-                console.log('🔍 [Debug] Searching for client:', selectedCliente, 'in', clientes.length, 'clients');
-                const clienteObj = clientes.find(c => String(c.id) === String(selectedCliente));
-                console.log('🔍 [Debug] Found client object:', clienteObj);
-
-                const linkedEmpresaId = clienteObj?.id_empresaservicio;
-                console.log('🔍 [Debug] Linked Empresa ID from client:', linkedEmpresaId);
-
-                if (linkedEmpresaId && linkedEmpresaId !== 0 && linkedEmpresaId !== '0') {
-                    console.log('✨ [Debug] Calling setSelectedEmpresa with:', String(linkedEmpresaId));
-                    setSelectedEmpresa(String(linkedEmpresaId));
-                } else {
-                    console.log('⚠️ [Debug] No linked ID found in client object or it is invalid:', linkedEmpresaId);
-                }
-            } else {
-                setFuentesEmisoras([]);
-                setSelectedFuente('');
-                setContactos([]);
-                setSelectedContacto('');
-                setObjetivos([]); // Reset Objetivos
-                setSelectedObjetivo('');
-            }
+            // Clear dependent fields if the service company changes
+            setFuentesEmisoras([]);
+            setSelectedFuente('');
+            setContactos([]);
+            setSelectedContacto('');
+            setObjetivos([]); // Reset Objetivos
+            setSelectedObjetivo('');
         }
 
-        if (selectedCliente && selectedCliente !== 'No Aplica') {
-            loadFuentesEmisoras(Number(selectedCliente));
-            loadContactos(Number(selectedCliente));
-            loadObjetivos(Number(selectedCliente)); // Dependent load
+        if (selectedEmpresa && selectedEmpresa !== 'No Aplica') {
+            const idS = Number(selectedEmpresa);
+            console.log('📡 [Cascade] Loading data for empresaServicioId:', idS);
+            
+            // Call loaders with undefined for clienteId (first arg) and idS for empresaServicioId (second arg)
+            loadFuentesEmisoras(undefined, idS);
+            loadContactos(undefined, idS);
+            loadObjetivos(undefined, idS);
         }
-    }, [selectedCliente, clientes]);
+    }, [selectedEmpresa, initialData]);
 
     // Cascade: Componente -> SubArea
     useEffect(() => {
@@ -494,9 +545,11 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
         try {
             const data = await catalogos.getEmpresasServicio();
             setEmpresas(data.map((item: any) => ({
-                id: item.id_empresaservicio || item.IdEmpresaServicio || item.id_empresa || item.IdEmpresa || item.id,
-                nombre: item.nombre_empresaservicios || item.nombre_empresaservicio || item.razon_social || item.RazonSocial || item.nombre,
-                email: item.email_empresa || item.email || item.Email || ''
+                id: item.id_empresaservicio,
+                nombre: item.nombre_empresaservicios,
+                email: item.email_empresaservicios || item.email || '',
+                contacto: item.contacto_empresaservicios || '',
+                email_contacto: item.email_contacto || ''
             })));
         } catch (err: any) {
             console.error(err);
@@ -507,19 +560,19 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
         try {
             const data = await catalogos.getClientes();
             setClientes(data.map((item: any) => ({
-                id: item.id_cliente || item.IdCliente || item.id || item.id_empresa,
-                nombre: item.nombre_cliente || item.NombreCliente || item.nombre || item.razon_social || item.nombre_empresa,
-                email: item.email_empresa || item.email || item.Email || '',
-                id_empresaservicio: item.id_empresaservicio || item.IdEmpresaServicio || 0
+                id: item.id_empresa,
+                nombre: item.nombre_empresa,
+                email: item.email_empresa || '',
+                id_empresaservicio: item.id_empresaservicio || 0 
             })));
         } catch (err: any) {
             console.error(err);
         }
     };
 
-    const loadContactos = async (clienteId: number) => {
+    const loadContactos = async (clienteId?: number, empresaServicioId?: number) => {
         try {
-            const data = await catalogos.getContactos(clienteId);
+            const data = await catalogos.getContactos(clienteId, empresaServicioId);
             setContactos(data.map((item: any) => ({
                 id: item.id_contacto || item.IdContacto || item.id,
                 nombre: item.nombre_contacto || item.NombreContacto || item.nombre || item.nombres || item.nombre_persona,
@@ -531,9 +584,9 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
         }
     };
 
-    const loadFuentesEmisoras = async (clienteId: number) => {
+    const loadFuentesEmisoras = async (clienteId?: number, empresaServicioId?: number) => {
         try {
-            const data = await catalogos.getCentros(clienteId);
+            const data = await catalogos.getCentros(clienteId, empresaServicioId);
             const mapped = data.map((item: any) => ({
                 id: item.id_centro || item.id,
                 nombre: item.nombre_centro || item.nombre,
@@ -556,9 +609,9 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
         }
     };
 
-    const loadObjetivos = async (clienteId: number) => {
+    const loadObjetivos = async (clienteId?: number, empresaServicioId?: number) => {
         try {
-            const data = await catalogos.getObjetivosMuestreo(clienteId);
+            const data = await catalogos.getObjetivosMuestreo(clienteId, empresaServicioId);
             setObjetivos((data || []).map((o: any) => ({
                 id: o.id_objetivomuestreo_ma || o.id,
                 nombre: o.nombre_objetivomuestreo_ma || o.nombre
@@ -572,13 +625,20 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
     const loadCatalogosComplementarios = async () => {
         try {
             // Batch 1: Core Catalogs (Lighter requests)
-            const [comps, insp, tMuestreo, tDescarga, mods] = await Promise.all([
+            const [comps, insp, tMuestreo, tDescarga, mods, instrs, umeds] = await Promise.all([
                 catalogos.getComponentesAmbientales(),
                 catalogos.getInspectores(),
                 catalogos.getTiposMuestreo(),
                 catalogos.getTiposDescarga(),
-                catalogos.getModalidades()
+                catalogos.getModalidades(),
+                catalogos.getInstrumentosAmbientales(),
+                catalogos.getUnidadesMedida()
             ]);
+
+            setUnidadesMedida((umeds || []).map((u: any) => ({
+                id: String(u.id_umedida || u.id || ''),
+                nombre: u.nombre_umedida || u.nombre || '-'
+            })).filter(u => u.nombre !== 'NA' && u.nombre !== 'No Aplica'));
 
             setComponentes((comps || []).map((c: any) => ({
                 id: c.id_tipomuestra || c.id,
@@ -599,6 +659,10 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
             setModalidades((mods || []).map((m: any) => ({
                 id: String(m.id_modalidad || m.id || ''),
                 nombre: m.nombre_modalidad || m.nombre
+            })));
+            setInstrumentosAmbientales((instrs || []).map((i: any) => ({
+                id: i.nombre, // Mapped 'nombre' to 'id' to preserve string saving behavior
+                nombre: i.nombre
             })));
 
             // Batch 2: Heavier Catalogs - Load on mount for now
@@ -657,7 +721,15 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 // Load dependent catalogs based on initialData
                 const dependentLoads: Promise<void>[] = [];
 
-                if (initialData.selectedCliente) {
+                if (initialData.selectedEmpresa && initialData.selectedEmpresa !== 'No Aplica' && initialData.selectedEmpresa !== 0 && initialData.selectedEmpresa !== '0') {
+                    const idS = Number(initialData.selectedEmpresa);
+                    dependentLoads.push(
+                        loadFuentesEmisoras(undefined, idS),
+                        loadContactos(undefined, idS),
+                        loadObjetivos(undefined, idS)
+                    );
+                } else if (initialData.selectedCliente && initialData.selectedCliente !== 'No Aplica') {
+                    // Fallback for legacy data or when Empresa de Servicio is truly empty
                     dependentLoads.push(
                         loadFuentesEmisoras(Number(initialData.selectedCliente)),
                         loadContactos(Number(initialData.selectedCliente)),
@@ -877,7 +949,9 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             onChange={setSelectedCliente}
                             options={[
                                 { id: 'No Aplica', nombre: 'No Aplica' },
-                                ...clientes.map(c => ({ id: c.id, nombre: c.nombre }))
+                                ...clientes
+                                    .filter(c => c.nombre && c.nombre.trim() !== '' && c.nombre.trim().toLowerCase() !== 'no aplica')
+                                    .map(c => ({ id: c.id, nombre: c.nombre }))
                             ]}
                         />
                     </div>
@@ -888,7 +962,9 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             onChange={setSelectedEmpresa}
                             options={[
                                 { id: 'No Aplica', nombre: 'No Aplica' },
-                                ...empresas.map(e => ({ id: e.id, nombre: e.nombre }))
+                                ...empresas
+                                    .filter(e => e.nombre && e.nombre.trim() !== '' && e.nombre.trim().toLowerCase() !== 'no aplica')
+                                    .map(e => ({ id: e.id, nombre: e.nombre }))
                             ]}
                         />
                     </div>
@@ -905,7 +981,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                                 { id: 'No Aplica', nombre: 'No Aplica' },
                                 ...fuentesEmisoras.map(f => ({ id: f.id, nombre: f.nombre }))
                             ]}
-                            disabled={!selectedCliente}
+                            disabled={!selectedEmpresa || selectedEmpresa === 'No Aplica'}
                         />
                     </div>
                     <ReadOnlyField label="Tipo agua" value={tipoAgua} />
@@ -937,7 +1013,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 </div>
 
                 {/* Row 4: Contacto */}
-                <div className="form-grid-row grid-cols-4">
+                <div className="form-grid-row grid-cols-3">
                     <div style={{ width: '100%', minWidth: 0 }}>
                         <SearchableSelect
                             label="Contacto empresa *"
@@ -945,14 +1021,22 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             onChange={setSelectedContacto}
                             options={[
                                 { id: 'No Aplica', nombre: 'No Aplica' },
+                                ...(empresas.find(e => String(e.id) === selectedEmpresa)?.contacto 
+                                    ? [{ id: 'primary', nombre: empresas.find(e => String(e.id) === selectedEmpresa)?.contacto || '' }] 
+                                    : []),
                                 ...contactos.map(c => ({ id: c.id, nombre: c.nombre }))
                             ]}
-                            disabled={!selectedCliente}
+                            disabled={!selectedEmpresa || selectedEmpresa === 'No Aplica'}
                         />
                     </div>
-                    <ReadOnlyField label="Correo Empresa" value={clientes.find(c => String(c.id) === selectedCliente)?.email || '-'} />
-                    <ReadOnlyField label="Correo Contacto" value={contactos.find(c => String(c.id) === selectedContacto)?.email || '-'} />
-                    <div />
+                    <ReadOnlyField 
+                        label="Correo Contacto" 
+                        value={
+                            selectedContacto === 'primary' 
+                                ? (empresas.find(e => String(e.id) === selectedEmpresa)?.email_contacto || empresas.find(e => String(e.id) === selectedEmpresa)?.email || '-')
+                                : (contactos.find(c => String(c.id) === selectedContacto)?.email || '-')
+                        } 
+                    />
                 </div>
 
                 {/* --- Block 2: Datos del Servicio --- */}
@@ -971,6 +1055,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                                 nombre: o.nombre || o.Nombre || o.descripcion || o.Descripcion || o.glosa || o.nombre_objetivo || o.nombre_objetivomuestreo_ma || 'Sin Nombre'
                             })))
                         ]}
+                        disabled={!selectedEmpresa || selectedEmpresa === 'No Aplica'}
                     />
                     <SearchableSelect
                         label="Responsable Muestreo *"
@@ -1144,12 +1229,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             }
                         }}
                         options={[
-                            { id: 'RCA', nombre: 'RCA' },
-                            { id: 'Res. Ex.', nombre: 'Res. Ex.' }, // Matches CommercialDetailView mapping
-                            { id: 'Decreto', nombre: 'Decreto' },
-                            { id: 'Carta', nombre: 'Carta' },
-                            { id: 'Otro', nombre: 'Otro' },
-                            { id: 'No aplica', nombre: 'No aplica' }
+                            ...instrumentosAmbientales
                         ]}
                     />
 
@@ -1384,8 +1464,11 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 </div>
 
                 {/* Row 10: Medicion Caudal, Modalidad, Forma Canal, Dispositivo */}
-                <div className="form-grid-row grid-cols-4">
-                    <SearchableSelect label="Medici&oacute;n Caudal" value={medicionCaudal} onChange={setMedicionCaudal}
+                <div className="form-grid-row grid-cols-4" style={{ alignItems: 'start' }}>
+                    <SearchableSelect 
+                        label="MEDICI&Oacute;N CAUDAL" 
+                        value={medicionCaudal} 
+                        onChange={setMedicionCaudal}
                         options={[
                             { id: 'No Aplica', nombre: 'No Aplica' },
                             { id: 'Automático', nombre: 'Automático' },
@@ -1393,41 +1476,49 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         ]}
                     />
                     <SearchableSelect
-                        label="Modalidad"
+                        label="MODALIDAD"
                         value={selectedModalidad}
                         onChange={(val) => {
                             setSelectedModalidad(val);
                             if (val === 'No Aplica') {
                                 setFormaCanal('No Aplica');
                                 setDetalleCanal('No Aplica');
+                                setTipoMedidaCanal('');
                                 setDispositivo('No Aplica');
                                 setDetalleDispositivo('No Aplica');
+                                setTipoMedidaDispositivo('');
                             } else if (!val || val.trim() === '') {
                                 setFormaCanal('');
                                 setDetalleCanal('');
+                                setTipoMedidaCanal('');
                                 setDispositivo('');
                                 setDetalleDispositivo('');
+                                setTipoMedidaDispositivo('');
                             }
                         }}
                         options={[
                             { id: 'No Aplica', nombre: 'No Aplica' },
-                            ...modalidades.map((m: any) => ({
+                            ...dedupOptions(modalidades.map((m: any) => ({
                                 id: String(m.id_modalidad || m.id || m.ID || ''),
                                 nombre: m.nombre_modalidad || m.nombre || m.Nombre || 'Sin Nombre'
-                            }))
+                            })))
                         ]}
                         disabled={!medicionCaudal || medicionCaudal === '' || medicionCaudal === 'No Aplica'}
                     />
-
-                    {/* Group: Forma Canal + Detalle */}
-                    <div>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         <SearchableSelect
-                            label="Forma Canal"
+                            label="FORMA CANAL"
                             value={formaCanal}
                             onChange={(val) => {
                                 setFormaCanal(val);
-                                if (val === 'No Aplica') setDetalleCanal('No Aplica');
-                                else if (detalleCanal === 'No Aplica') setDetalleCanal('');
+                                if (val === 'No Aplica' || !val) {
+                                    setTipoMedidaCanal('');
+                                    setDetalleCanal('No Aplica');
+                                } else {
+                                    setTipoMedidaCanal('');
+                                    setDetalleCanal('');
+                                }
                             }}
                             options={[
                                 { id: 'No Aplica', nombre: 'No Aplica' },
@@ -1435,35 +1526,79 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             ]}
                             disabled={!selectedModalidad || selectedModalidad === '' || selectedModalidad === 'No Aplica'}
                         />
-                        <div style={{ marginTop: '4px' }}>
+                        <SearchableSelect
+                            placeholder="medida:"
+                            value={tipoMedidaCanal}
+                            onChange={(val) => {
+                                setTipoMedidaCanal(val);
+                                if (!val || val === 'No Aplica') setDetalleCanal('No Aplica');
+                                else setDetalleCanal('');
+                            }}
+                            options={unidadesMedida}
+                            disabled={!formaCanal || formaCanal === 'No Aplica'}
+                        />
+                        <div style={{ position: 'relative', width: '100%' }}>
                             <input
                                 type="text"
-                                placeholder="Medida Canal"
+                                placeholder="Valor Medida"
                                 value={detalleCanal}
-                                onChange={(e) => setDetalleCanal(e.target.value)}
-                                disabled={!formaCanal || formaCanal === 'No Aplica'}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    const unit = unidadesMedida.find(u => String(u.id) === String(tipoMedidaCanal))?.nombre || '';
+                                    const isNumericUnit = ['°c', '° f', 'ft', 'm', 'cm', 'mm', 'pulj'].includes(unit.toLowerCase());
+                                    
+                                    if (isNumericUnit) {
+                                        // Only allow numbers, dot, comma and minus
+                                        if (/^[-]?\d*[.,]?\d*$/.test(val) || val === '') {
+                                            setDetalleCanal(val);
+                                        }
+                                    } else {
+                                        setDetalleCanal(val);
+                                    }
+                                }}
+                                disabled={!tipoMedidaCanal || tipoMedidaCanal === 'No Aplica' || tipoMedidaCanal === ''}
                                 style={{
                                     width: '100%',
-                                    padding: '6px',
+                                    padding: '6px 10px',
+                                    paddingRight: (tipoMedidaCanal && tipoMedidaCanal !== '' && tipoMedidaCanal !== 'No Aplica') ? '40px' : '10px',
                                     fontSize: '0.85rem',
                                     border: '1px solid #d1d5db',
                                     borderRadius: '6px',
-                                    backgroundColor: (!formaCanal || formaCanal === 'No Aplica') ? '#f3f4f6' : 'white',
-                                    cursor: (!formaCanal || formaCanal === 'No Aplica') ? 'not-allowed' : 'text'
+                                    height: '34px',
+                                    backgroundColor: (!tipoMedidaCanal || tipoMedidaCanal === 'No Aplica' || tipoMedidaCanal === '') ? '#f3f4f6' : 'white',
+                                    cursor: (!tipoMedidaCanal || tipoMedidaCanal === 'No Aplica' || tipoMedidaCanal === '') ? 'not-allowed' : 'text'
                                 }}
                             />
+                            {tipoMedidaCanal && tipoMedidaCanal !== '' && tipoMedidaCanal !== 'No Aplica' && (
+                                <span style={{
+                                    position: 'absolute',
+                                    right: '10px',
+                                    top: '50%',
+                                    transform: 'translateY(-50%)',
+                                    fontSize: '0.75rem',
+                                    color: '#9ca3af',
+                                    fontWeight: 600,
+                                    pointerEvents: 'none'
+                                }}>
+                                    {unidadesMedida.find(u => String(u.id) === String(tipoMedidaCanal))?.nombre}
+                                </span>
+                            )}
                         </div>
                     </div>
 
-                    {/* Group: Dispositivo + Detalle */}
-                    <div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         <SearchableSelect
-                            label="Dispositivo Hidr&aacute;ulico"
+                            label="DISPOSITIVO HIDR&Aacute;ULICO"
                             value={dispositivo}
                             onChange={(val) => {
                                 setDispositivo(val);
-                                if (val === 'No Aplica') setDetalleDispositivo('No Aplica');
-                                else if (detalleDispositivo === 'No Aplica') setDetalleDispositivo('');
+                                if (val === 'No Aplica' || !val) {
+                                    setTipoMedidaDispositivo('');
+                                    setDetalleDispositivo('No Aplica');
+                                } else {
+                                    setTipoMedidaDispositivo('');
+                                    setDetalleDispositivo('');
+                                }
                             }}
                             options={[
                                 { id: 'No Aplica', nombre: 'No Aplica' },
@@ -1471,28 +1606,67 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             ]}
                             disabled={!selectedModalidad || selectedModalidad === '' || selectedModalidad === 'No Aplica'}
                         />
-                        <div style={{ marginTop: '4px' }}>
+                        <SearchableSelect
+                            placeholder="medida:"
+                            value={tipoMedidaDispositivo}
+                            onChange={(val) => {
+                                setTipoMedidaDispositivo(val);
+                                if (!val || val === 'No Aplica') setDetalleDispositivo('No Aplica');
+                                else setDetalleDispositivo('');
+                            }}
+                            options={unidadesMedida}
+                            disabled={!dispositivo || dispositivo === 'No Aplica'}
+                        />
+                        <div style={{ position: 'relative', width: '100%' }}>
                             <input
                                 type="text"
-                                placeholder="Medida Dispositivo"
+                                placeholder="Valor Medida"
                                 value={detalleDispositivo}
-                                onChange={(e) => setDetalleDispositivo(e.target.value)}
-                                disabled={!dispositivo || dispositivo === 'No Aplica'}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    const unit = unidadesMedida.find(u => String(u.id) === String(tipoMedidaDispositivo))?.nombre || '';
+                                    const isNumericUnit = ['°c', '° f', 'ft', 'm', 'cm', 'mm', 'pulj'].includes(unit.toLowerCase());
+                                    
+                                    if (isNumericUnit) {
+                                        if (/^[-]?\d*[.,]?\d*$/.test(val) || val === '') {
+                                            setDetalleDispositivo(val);
+                                        }
+                                    } else {
+                                        setDetalleDispositivo(val);
+                                    }
+                                }}
+                                disabled={!tipoMedidaDispositivo || tipoMedidaDispositivo === 'No Aplica' || tipoMedidaDispositivo === ''}
                                 style={{
                                     width: '100%',
-                                    padding: '6px',
+                                    padding: '6px 10px',
+                                    paddingRight: (tipoMedidaDispositivo && tipoMedidaDispositivo !== '' && tipoMedidaDispositivo !== 'No Aplica') ? '40px' : '10px',
                                     fontSize: '0.85rem',
                                     border: '1px solid #d1d5db',
                                     borderRadius: '6px',
-                                    backgroundColor: (!dispositivo || dispositivo === 'No Aplica') ? '#f3f4f6' : 'white',
-                                    cursor: (!dispositivo || dispositivo === 'No Aplica') ? 'not-allowed' : 'text'
+                                    height: '34px',
+                                    backgroundColor: (!tipoMedidaDispositivo || tipoMedidaDispositivo === 'No Aplica' || tipoMedidaDispositivo === '') ? '#f3f4f6' : 'white',
+                                    cursor: (!tipoMedidaDispositivo || tipoMedidaDispositivo === 'No Aplica' || tipoMedidaDispositivo === '') ? 'not-allowed' : 'text'
                                 }}
                             />
+                            {tipoMedidaDispositivo && tipoMedidaDispositivo !== '' && tipoMedidaDispositivo !== 'No Aplica' && (
+                                <span style={{
+                                    position: 'absolute',
+                                    right: '10px',
+                                    top: '50%',
+                                    transform: 'translateY(-50%)',
+                                    fontSize: '0.75rem',
+                                    color: '#9ca3af',
+                                    fontWeight: 600,
+                                    pointerEvents: 'none'
+                                }}>
+                                    {unidadesMedida.find(u => String(u.id) === String(tipoMedidaDispositivo))?.nombre}
+                                </span>
+                            )}
                         </div>
                     </div>
                 </div>
-
             </div>
         </div>
     );
 });
+

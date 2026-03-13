@@ -29,13 +29,11 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
 
     // ===== ESTADO: Configuración =====
     const [tipoMuestra, setTipoMuestra] = useState<string>('');
-    const [labDerivado, setLabDerivado] = useState<string>('');
-    const [labDerivado2, setLabDerivado2] = useState<string>(''); // Nuevo estado
-    const [showLab2, setShowLab2] = useState<boolean>(false); // Nuevo estado
-    const [tipoEntrega, setTipoEntrega] = useState<string>('');
 
     // ===== ESTADO: Selección de Análisis =====
     const [selectedAnalysis, setSelectedAnalysis] = useState<Set<string>>(new Set());
+    const [tempLabs, setTempLabs] = useState<Record<string, string>>({}); // Laboratorios por parámetro
+    const [tempDeliveries, setTempDeliveries] = useState<Record<string, string>>({}); // Tipos de entrega por parámetro
 
     // ===== FUNCIONES: Carga de Catálogos =====
     useEffect(() => {
@@ -127,21 +125,53 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
 
     const handleSelectNone = () => {
         setSelectedAnalysis(new Set());
+        setTempLabs({}); // Limpiar laboratorios temporales
     };
 
     const handleToggleAnalysis = (id: string) => {
         const newSelection = new Set(selectedAnalysis);
         if (newSelection.has(id)) {
             newSelection.delete(id);
+            // Limpiar estados temporales si se deselecciona
+            const newTempLabs = { ...tempLabs };
+            delete newTempLabs[id];
+            setTempLabs(newTempLabs);
+
+            const newTempDeliveries = { ...tempDeliveries };
+            delete newTempDeliveries[id];
+            setTempDeliveries(newTempDeliveries);
         } else {
             newSelection.add(id);
         }
         setSelectedAnalysis(newSelection);
     };
 
+    const handleTempLabChange = (analysisId: string, labId: string) => {
+        setTempLabs(prev => ({
+            ...prev,
+            [analysisId]: labId
+        }));
+    };
+
+    const handleTempDeliveryChange = (analysisId: string, deliveryId: string) => {
+        setTempDeliveries(prev => ({
+            ...prev,
+            [analysisId]: deliveryId
+        }));
+    };
+
     // ===== FUNCIONES: Grabar Análisis =====
     const handleSaveAnalysis = () => {
-        // Validaciones
+        // Validaciones base
+        if (!normativa || !referencia) {
+            showToast({
+                type: 'warning',
+                message: 'Debes seleccionar una Normativa y Referencia antes de grabar',
+                duration: 4000
+            });
+            return;
+        }
+
         if (selectedAnalysis.size === 0) {
             showToast({
                 type: 'warning',
@@ -160,54 +190,62 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
             return;
         }
 
-        if (!tipoEntrega) {
-            showToast({
-                type: 'warning',
-                message: 'Debes seleccionar el Tipo de Entrega',
-                duration: 4000
-            });
-            return;
+        if (tipoMuestra === 'Laboratorio') {
+            // Validar entrega y laboratorios para tipo Laboratorio
+            const missingDeliveries = Array.from(selectedAnalysis).filter(id => !tempDeliveries[id]);
+            if (missingDeliveries.length > 0) {
+                showToast({
+                    type: 'warning',
+                    message: `Faltan tipos de entrega por asignar en ${missingDeliveries.length} análisis`,
+                    duration: 4000
+                });
+                return;
+            }
+
+            const missingLabs = Array.from(selectedAnalysis).filter(id => !tempLabs[id]);
+            if (missingLabs.length > 0) {
+                showToast({
+                    type: 'warning',
+                    message: `Faltan laboratorios por asignar en ${missingLabs.length} análisis`,
+                    duration: 4000
+                });
+                return;
+            }
         }
 
-        // Validación Lab 2
-        if (showLab2 && !labDerivado2 && tipoMuestra === 'Laboratorio') {
-            showToast({
-                type: 'warning',
-                message: 'Has marcado Segundo Laboratorio pero no has seleccionado ninguno',
-                duration: 4000
-            });
-            return;
-        }
-
-        // Obtener datos detallados de catálogos seleccionados
-        const selectedTipoEntregaObj = tiposEntrega.find((t: any) => String(t.id_tipoentrega) === String(tipoEntrega));
-        const selectedLabObj = laboratorios.find((l: any) => String(l.id_laboratorioensayo) === String(labDerivado));
-        const selectedLabObj2 = laboratorios.find((l: any) => String(l.id_laboratorioensayo) === String(labDerivado2)); // Nuevo obj
-
-        // Agregar análisis seleccionados a la tabla de guardados
         const newSavedAnalysis = Array.from(selectedAnalysis).map((id, index) => {
             const analysis = analysisResults.find(a => a.id_referenciaanalisis === id);
+            
+            // Determinar tipo de entrega
+            let specificDeliveryId = tempDeliveries[id];
+            if (tipoMuestra === 'Terreno') {
+                const directaOption = tiposEntrega.find((t: any) =>
+                    t.nombre_tipoentrega && t.nombre_tipoentrega.toUpperCase().includes('DIRECTA')
+                );
+                specificDeliveryId = directaOption?.id_tipoentrega || '';
+            }
+            
+            const selectedTipoEntregaObj = tiposEntrega.find((t: any) => String(t.id_tipoentrega) === String(specificDeliveryId));
+
+            // Determinar laboratorio
+            const specificLabId = tempLabs[id];
+            const selectedLabObj = laboratorios.find((l: any) => String(l.id_laboratorioensayo) === String(specificLabId));
 
             let idLaboratorio = 0;
             let nombreLaboratorio = '';
-            let idLaboratorio2 = 0; // Nuevo
-            let nombreLaboratorio2 = ''; // Nuevo
+            let idLaboratorio2 = 0;
+            let nombreLaboratorio2 = '';
 
             if (tipoMuestra === 'Terreno') {
                 nombreLaboratorio = '';
                 idLaboratorio = 0;
-                // Lab2 logic for Terreno? Usually none.
-                idLaboratorio2 = 0;
-                nombreLaboratorio2 = '';
             } else {
                 nombreLaboratorio = selectedLabObj?.nombre_laboratorioensayo || '';
                 idLaboratorio = selectedLabObj?.id_laboratorioensayo || 0;
-
-                if (showLab2) {
-                    nombreLaboratorio2 = selectedLabObj2?.nombre_laboratorioensayo || '';
-                    idLaboratorio2 = selectedLabObj2?.id_laboratorioensayo || 0;
-                }
             }
+
+            idLaboratorio2 = 0;
+            nombreLaboratorio2 = '';
 
             return {
                 ...analysis,
@@ -232,7 +270,7 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                 estado: '',
                 cumplimiento: '',
                 cumplimiento_app: '',
-                id_tipoentrega: selectedTipoEntregaObj?.id_tipoentrega || tipoEntrega,
+                id_tipoentrega: selectedTipoEntregaObj?.id_tipoentrega || specificDeliveryId,
                 id_transporte: 0,
                 nombre_transporte: '',
                 transporte_orden: '',
@@ -252,14 +290,12 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
         onSavedAnalysisChange([...savedAnalysis, ...newSavedAnalysis]);
 
         setSelectedAnalysis(new Set());
+        setTempLabs({});
+        setTempDeliveries({}); // Limpiar entregas temporales
         setSearchText('');
 
         // Resetear campos de configuración tras grabar exitosamente
         setTipoMuestra('');
-        setLabDerivado('');
-        setLabDerivado2('');
-        setShowLab2(false);
-        setTipoEntrega('');
 
         showToast({
             type: 'success',
@@ -267,6 +303,7 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
             duration: 3000
         });
     };
+
 
     // Handler para cambios en celdas editables (UF)
     const handleUfChange = (savedId: string, newValue: string) => {
@@ -293,27 +330,18 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
 
     return (
         <div className="analysis-form-container">
-            {/* SECCIÓN SUPERIOR: Búsqueda y Configuración */}
-            <div className="analysis-top-section">
-                {/* PANEL IZQUIERDO: Búsqueda y Selección */}
-                <div className="analysis-left-panel">
-                    <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', fontWeight: 600, color: '#374151' }}>
-                        Búsqueda de Análisis
-                    </h3>
-
-                    {/* Campo 1: Normativa */}
-                    <div className="form-group">
-                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>
-                            Normativa
-                        </label>
+            {/* SECCIÓN SUPERIOR: Búsqueda y Configuración (Grilla Unificada) */}
+            <div className="analysis-unified-grid">
+                {/* COLUMNA IZQUIERDA: Búsqueda */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <h3 className="grid-title search-title">Búsqueda de Análisis</h3>
+                    
+                    <div className="form-group grid-left">
+                        <label>Normativa</label>
                         <select
                             value={normativa}
                             onChange={(e) => setNormativa(e.target.value)}
-                            onFocus={() => {
-                                // GotFocus: Limpiar Referencia (FoxPro: combo7.value = " ")
-                                setReferencia('');
-                            }}
-                            // Removed disabled attribute to prevent flicker
+                            onFocus={() => setReferencia('')}
                             style={{
                                 width: '100%',
                                 padding: '6px 10px',
@@ -326,24 +354,16 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                         >
                             <option value="">Seleccione normativa...</option>
                             {normativas.map((n: any) => (
-                                <option key={n.id_normativa} value={n.id_normativa}>
-                                    {n.nombre_normativa}
-                                </option>
+                                <option key={n.id_normativa} value={n.id_normativa}>{n.nombre_normativa}</option>
                             ))}
                         </select>
                     </div>
 
-                    {/* Campo 2: Referencia */}
-                    <div className="form-group">
-                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>
-                            Referencia
-                        </label>
+                    <div className="form-group grid-left">
+                        <label>Referencia</label>
                         <select
                             value={referencia}
-                            onChange={(e) => {
-                                setReferencia(e.target.value);
-                            }}
-                            // Removed onFocus loader (now in useEffect) and disabled state
+                            onChange={(e) => setReferencia(e.target.value)}
                             disabled={!normativa}
                             style={{
                                 width: '100%',
@@ -364,17 +384,14 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                         </select>
                     </div>
 
-                    {/* Campo 3: Búsqueda */}
-                    <div className="form-group">
-                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>
-                            Buscar Análisis
-                        </label>
+                    <div className="form-group grid-left">
+                        <label>Buscar Análisis</label>
                         <input
                             type="text"
                             value={searchText}
                             onChange={(e) => setSearchText(e.target.value)}
                             placeholder="Buscar por código o nombre..."
-                            disabled={!referencia} // Habilitado solo cuando hay referencia (FoxPro: text2.Enabled)
+                            disabled={!referencia}
                             style={{
                                 width: '100%',
                                 padding: '6px 10px',
@@ -386,11 +403,10 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                         />
                     </div>
 
-                    {/* Botones de Selección */}
-                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                    <div className="grid-left" style={{ display: 'flex', gap: '0.5rem' }}>
                         <button
                             onClick={handleSelectAll}
-                            disabled={!referencia || filteredAnalysis.length === 0} // Habilitado solo con referencia (FoxPro: command1.Enabled)
+                            disabled={!referencia || filteredAnalysis.length === 0}
                             style={{
                                 flex: 1,
                                 padding: '6px 12px',
@@ -424,8 +440,7 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                         </button>
                     </div>
 
-                    {/* Campo 4: Tabla de Resultados */}
-                    <div style={{ marginTop: '1rem', maxHeight: '320px', overflowY: 'auto', overflowX: 'auto', border: '1px solid #e5e7eb', borderRadius: '6px' }}>
+                    <div className="grid-left" style={{ maxHeight: '310px', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '6px' }}>
                         <table style={{ width: '100%', fontSize: '0.85rem', borderCollapse: 'collapse' }}>
                             <thead style={{ backgroundColor: '#f9fafb', position: 'sticky', top: 0, zIndex: 1 }}>
                                 <tr>
@@ -436,19 +451,7 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                             <tbody>
                                 {catalogos.isLoading(`analysis-${normativa}-${referencia}`) ? (
                                     <tr>
-                                        <td colSpan={2} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
-                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                                                <div style={{
-                                                    width: '24px',
-                                                    height: '24px',
-                                                    border: '3px solid #f3f4f6',
-                                                    borderTop: '3px solid #3b82f6',
-                                                    borderRadius: '50%',
-                                                    animation: 'spin 1s linear infinite'
-                                                }}></div>
-                                                <span>Cargando análisis...</span>
-                                            </div>
-                                        </td>
+                                        <td colSpan={2} style={{ padding: '2rem', textAlign: 'center' }}>Cargando análisis...</td>
                                     </tr>
                                 ) : filteredAnalysis.length > 0 ? (
                                     filteredAnalysis.map(analysis => (
@@ -474,51 +477,18 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                             </tbody>
                         </table>
                     </div>
-                    <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.5rem' }}>
-                        {selectedAnalysis.size > 0 && `${selectedAnalysis.size} análisis seleccionados`}
-                    </div>
                 </div>
 
-                {/* PANEL DERECHO: Configuración */}
-                <div className="analysis-right-panel">
-                    <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', fontWeight: 600, color: '#374151' }}>
-                        Configuración de Análisis
-                    </h3>
-
-                    {/* Campo 5: Tipo de Muestra */}
+                {/* COLUMNA DERECHA: Configuración */}
+                <div className="grid-right" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignSelf: 'start' }}>
+                    <h3 className="grid-title config-title">Configuración de Análisis</h3>
+                    
                     <div className="form-group">
-                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>
-                            Tipo de Muestra *
-                        </label>
+                        <label>Tipo de Muestra *</label>
                         <select
                             value={tipoMuestra}
-                            onChange={(e) => {
-                                const newValue = e.target.value;
-                                setTipoMuestra(newValue);
-
-                                // InteractiveChange: Lógica condicional según selección
-                                if (newValue === 'Laboratorio') {
-                                    // Laboratorio: Habilitar Lab Derivado y Tipo Entrega, deshabilitar botón Grabar (limpiando tipoEntrega)
-                                    setLabDerivado('');
-                                    setTipoEntrega('');
-                                } else if (newValue === 'Terreno') {
-                                    // Terreno: Deshabilitar Lab Derivado, establecer Tipo Entrega = 'Directa', habilitar botón Grabar
-                                    setLabDerivado('');
-
-                                    // Buscar ID de 'Directa' en tiposEntrega
-                                    const directaOption = tiposEntrega.find((t: any) =>
-                                        t.nombre_tipoentrega && t.nombre_tipoentrega.toUpperCase().includes('DIRECTA')
-                                    );
-
-                                    if (directaOption) {
-                                        setTipoEntrega(directaOption.id_tipoentrega);
-                                    } else {
-                                        console.warn('Opción "Directa" no encontrada en tiposEntrega');
-                                        setTipoEntrega(''); // Fallback
-                                    }
-                                }
-                            }}
-                            disabled={!referencia} // Habilitado solo cuando hay referencia (FoxPro: combo3.Enabled)
+                            onChange={(e) => setTipoMuestra(e.target.value)}
+                            disabled={!referencia}
                             style={{
                                 width: '100%',
                                 padding: '6px 10px',
@@ -535,131 +505,9 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                         </select>
                     </div>
 
-                    {/* Campo 6: Laboratorio Derivado */}
-                    <div className="form-group">
-                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>
-                            Laboratorio Derivado
-                        </label>
-                        <select
-                            value={labDerivado}
-                            onChange={(e) => setLabDerivado(e.target.value)}
-                            disabled={!referencia || tipoMuestra !== 'Laboratorio'}
-                            style={{
-                                width: '100%',
-                                padding: '6px 10px',
-                                fontSize: '0.85rem',
-                                border: '1px solid #d1d5db',
-                                borderRadius: '6px',
-                                backgroundColor: (referencia && tipoMuestra === 'Laboratorio') ? 'white' : '#f3f4f6'
-                            }}
-                        >
-                            <option value="">Seleccione laboratorio...</option>
-                            {laboratorios.map((l: any) => (
-                                <option key={l.id_laboratorioensayo} value={l.id_laboratorioensayo}>
-                                    {l.nombre_laboratorioensayo}
-                                </option>
-                            ))}
-                        </select>
-
-                        {/* Checkbox Lab 2 - Improved UI */}
-                        <div style={{
-                            marginTop: '12px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'flex-start',
-                            gap: '8px',
-                            padding: '4px 0'
-                        }}>
-                            <input
-                                type="checkbox"
-                                id="chkLab2"
-                                checked={showLab2}
-                                onChange={(e) => setShowLab2(e.target.checked)}
-                                disabled={!referencia || tipoMuestra !== 'Laboratorio'}
-                                style={{
-                                    cursor: 'pointer',
-                                    width: '18px',
-                                    height: '18px',
-                                    margin: 0 // Reset margin
-                                }}
-                            />
-                            <label
-                                htmlFor="chkLab2"
-                                style={{
-                                    fontSize: '0.85rem',
-                                    color: '#4b5563',
-                                    cursor: 'pointer',
-                                    userSelect: 'none'
-                                }}
-                            >
-                                Añadir segundo laboratorio
-                            </label>
-                        </div>
-
-                        {/* Campo Lab 2 (Condicional) */}
-                        {showLab2 && (
-                            <div style={{ marginTop: '8px' }}>
-                                <select
-                                    value={labDerivado2}
-                                    onChange={(e) => setLabDerivado2(e.target.value)}
-                                    disabled={!referencia || tipoMuestra !== 'Laboratorio'}
-                                    style={{
-                                        width: '100%',
-                                        padding: '6px 10px',
-                                        fontSize: '0.85rem',
-                                        border: '1px solid #d1d5db',
-                                        borderRadius: '6px',
-                                        backgroundColor: (referencia && tipoMuestra === 'Laboratorio') ? 'white' : '#f3f4f6'
-                                    }}
-                                >
-                                    <option value="">Seleccione segundo laboratorio...</option>
-                                    {laboratorios.map((l: any) => (
-                                        <option key={`2-${l.id_laboratorioensayo}`} value={l.id_laboratorioensayo}>
-                                            {l.nombre_laboratorioensayo}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Campo 7: Tipo de Entrega */}
-                    <div className="form-group">
-                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>
-                            Tipo de Entrega *
-                        </label>
-                        <select
-                            value={tipoEntrega}
-                            onChange={(e) => setTipoEntrega(e.target.value)}
-                            // LostFocus logic is implicit in React via state updates enabling the button
-                            disabled={!referencia || tipoMuestra === 'Terreno'} // Habilitado solo con referencia Y Tipo Muestra != Terreno
-                            style={{
-                                width: '100%',
-                                padding: '6px 10px',
-                                fontSize: '0.85rem',
-                                border: '1px solid #d1d5db',
-                                borderRadius: '6px',
-                                backgroundColor: (referencia && tipoMuestra !== 'Terreno') ? 'white' : '#f3f4f6'
-                            }}
-                        >
-                            <option value="">Seleccione tipo de entrega...</option>
-                            {tiposEntrega.map((t: any) => (
-                                <option key={t.id_tipoentrega} value={t.id_tipoentrega}>{t.nombre_tipoentrega}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    {/* NUEVO: Lista de Análisis Seleccionados en tiempo real */}
                     {selectedAnalysis.size > 0 && (
-                        <div style={{
-                            margin: '1.25rem 0',
-                            padding: '1.25rem',
-                            backgroundColor: '#f8fafc',
-                            borderRadius: '12px',
-                            border: '1px solid #e2e8f0',
-                            boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)'
-                        }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                                 <label style={{ fontSize: '0.75rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                     Análisis Seleccionados ({selectedAnalysis.size})
                                 </label>
@@ -670,51 +518,97 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                                     Limpiar Todo
                                 </button>
                             </div>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem', maxHeight: '150px', overflowY: 'auto', padding: '2px' }}>
-                                {Array.from(selectedAnalysis).map(id => {
-                                    const analysis = analysisResults.find(a => a.id_referenciaanalisis === id);
-                                    return (
-                                        <span key={id} style={{
-                                            fontSize: '0.75rem',
-                                            padding: '6px 12px',
-                                            backgroundColor: '#eff6ff',
-                                            color: '#1d4ed8',
-                                            borderRadius: '8px',
-                                            fontWeight: 600,
-                                            border: '1px solid #dbeafe',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '6px'
-                                        }}>
-                                            {analysis?.nombre_tecnica || id}
-                                            <svg
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleToggleAnalysis(id);
-                                                }}
-                                                xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ cursor: 'pointer', opacity: 0.7 }}>
-                                                <line x1="18" y1="6" x2="6" y2="18"></line>
-                                                <line x1="6" y1="6" x2="18" y2="18"></line>
-                                            </svg>
-                                        </span>
-                                    );
-                                })}
+
+                            <div style={{
+                                padding: '0.5rem',
+                                backgroundColor: '#f8fafc',
+                                borderRadius: '12px',
+                                border: '1px solid #e2e8f0',
+                                boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)',
+                                maxHeight: '520px',
+                                overflow: 'auto'
+                            }}>
+                                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
+                                    <thead style={{ backgroundColor: '#f1f5f9', position: 'sticky', top: 0, zIndex: 1 }}>
+                                        <tr>
+                                            <th style={{ padding: '6px 10px', textAlign: 'left', borderBottom: '1px solid #e2e8f0', color: '#64748b' }}>Análisis</th>
+                                            {tipoMuestra === 'Laboratorio' && (
+                                                <>
+                                                    <th style={{ padding: '6px 10px', textAlign: 'left', borderBottom: '1px solid #e2e8f0', color: '#64748b', width: '120px' }}>Entrega</th>
+                                                    <th style={{ padding: '6px 10px', textAlign: 'left', borderBottom: '1px solid #e2e8f0', color: '#64748b', width: '160px' }}>Laboratorio</th>
+                                                </>
+                                            )}
+                                            <th style={{ padding: '6px 10px', textAlign: 'center', borderBottom: '1px solid #e2e8f0', color: '#64748b', width: '40px' }}></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {Array.from(selectedAnalysis).map(id => {
+                                            const analysis = analysisResults.find(a => a.id_referenciaanalisis === id);
+                                            const specificLabId = tempLabs[id] || '';
+                                            const specificDeliveryId = tempDeliveries[id] || '';
+                                            return (
+                                                <tr key={id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                                    <td style={{ padding: '6px 10px', fontWeight: 600, color: '#111827' }}>
+                                                        {analysis?.nombre_tecnica || id}
+                                                    </td>
+                                                    {tipoMuestra === 'Laboratorio' && (
+                                                        <>
+                                                            <td style={{ padding: '6px 10px' }}>
+                                                                <select
+                                                                    value={specificDeliveryId}
+                                                                    onChange={(e) => handleTempDeliveryChange(id, e.target.value)}
+                                                                    style={{ width: '100%', fontSize: '0.7rem', padding: '2px 4px', border: '1px solid #d1d5db', borderRadius: '4px' }}
+                                                                >
+                                                                    <option value="">...</option>
+                                                                    {tiposEntrega.map((t: any) => (
+                                                                        <option key={t.id_tipoentrega} value={t.id_tipoentrega}>{t.nombre_tipoentrega}</option>
+                                                                    ))}
+                                                                </select>
+                                                            </td>
+                                                            <td style={{ padding: '6px 10px' }}>
+                                                                <select
+                                                                    value={specificLabId}
+                                                                    onChange={(e) => handleTempLabChange(id, e.target.value)}
+                                                                    style={{ width: '100%', fontSize: '0.7rem', padding: '2px 4px', border: '1px solid #d1d5db', borderRadius: '4px' }}
+                                                                >
+                                                                    <option value="">...</option>
+                                                                    {laboratorios.map((l: any) => (
+                                                                        <option key={l.id_laboratorioensayo} value={l.id_laboratorioensayo}>{l.nombre_laboratorioensayo}</option>
+                                                                    ))}
+                                                                </select>
+                                                            </td>
+                                                        </>
+                                                    )}
+                                                    <td style={{ padding: '6px 10px', textAlign: 'center' }}>
+                                                        <button 
+                                                            onClick={() => handleToggleAnalysis(id)} 
+                                                            style={{ padding: '4px', color: '#94a3b8', background: 'none', border: 'none', cursor: 'pointer' }}
+                                                        >
+                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                 </table>
                             </div>
                         </div>
                     )}
 
-                    {/* Campo 8: Botón Grabar Análisis */}
                     <button
                         onClick={handleSaveAnalysis}
                         disabled={
-                            selectedAnalysis.size === 0 ||
-                            !tipoMuestra ||
-                            !tipoEntrega ||
-                            tipoEntrega === '' ||
-                            (tipoMuestra === 'Laboratorio' && !labDerivado)
+                            selectedAnalysis.size === 0 || 
+                            !tipoMuestra || 
+                            (tipoMuestra === 'Laboratorio' && (
+                                Array.from(selectedAnalysis).some(id => !tempDeliveries[id]) ||
+                                Array.from(selectedAnalysis).some(id => !tempLabs[id])
+                            ))
                         }
+                        className="save-analysis-btn"
                         style={{
-                            marginTop: 'auto',
+                            width: '100%',
                             padding: '10px 16px',
                             fontSize: '0.9rem',
                             fontWeight: 600,
@@ -723,30 +617,26 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                             border: 'none',
                             borderRadius: '6px',
                             cursor: (
-                                selectedAnalysis.size > 0 &&
-                                tipoMuestra &&
-                                tipoEntrega &&
-                                tipoEntrega !== '' &&
-                                !(tipoMuestra === 'Laboratorio' && !labDerivado)
+                                selectedAnalysis.size > 0 && 
+                                tipoMuestra && 
+                                !(tipoMuestra === 'Laboratorio' && (
+                                    Array.from(selectedAnalysis).some(id => !tempDeliveries[id]) ||
+                                    Array.from(selectedAnalysis).some(id => !tempLabs[id])
+                                ))
                             ) ? 'pointer' : 'not-allowed',
                             opacity: (
-                                selectedAnalysis.size > 0 &&
-                                tipoMuestra &&
-                                tipoEntrega &&
-                                tipoEntrega !== '' &&
-                                !(tipoMuestra === 'Laboratorio' && !labDerivado)
+                                selectedAnalysis.size > 0 && 
+                                tipoMuestra && 
+                                !(tipoMuestra === 'Laboratorio' && (
+                                    Array.from(selectedAnalysis).some(id => !tempDeliveries[id]) ||
+                                    Array.from(selectedAnalysis).some(id => !tempLabs[id])
+                                ))
                             ) ? 1 : 0.5,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '0.5rem'
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+                            marginTop: 'auto'
                         }}
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                            <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                            <polyline points="7 3 7 8 15 8"></polyline>
-                        </svg>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
                         Grabar Análisis
                     </button>
                 </div>
@@ -853,32 +743,69 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                 </div>
             </div>
 
-            {/* CSS Inline para el componente */}
             <style>{`
                 .analysis-form-container {
                     display: flex;
                     flex-direction: column;
-                    gap: 1.5rem;
+                    gap: 4px;
                     padding: 1rem;
                 }
 
-                .analysis-top-section {
+                .analysis-unified-grid {
                     display: grid;
                     grid-template-columns: 1fr 1fr;
-                    gap: 1.5rem;
+                    gap: 0.5rem 2rem;
+                    padding: 1.5rem 1.5rem 4px 1.5rem; /* Minimized bottom padding */
+                    border: 1px solid #e5e7eb;
+                    border-radius: 8px;
+                    background: white;
+                    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+                    align-items: start;
+                    position: relative; /* Added for divider positioning */
                 }
 
-                @media (max-width: 1023px) {
-                    .analysis-top-section {
+                /* Vertical Divider Line */
+                @media (min-width: 1025px) {
+                    .analysis-unified-grid::after {
+                        content: '';
+                        position: absolute;
+                        top: 2rem;
+                        bottom: 2rem;
+                        left: 50%;
+                        width: 1px;
+                        background-color: #e5e7eb;
+                        transform: translateX(-50%);
+                    }
+                }
+
+                .grid-title {
+                    margin: 0 0 0.5rem 0;
+                    fontSize: 1rem;
+                    fontWeight: 600;
+                    color: #374151;
+                }
+
+                .form-group {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 4px;
+                }
+
+                .form-group label {
+                    font-size: 0.75rem;
+                    font-weight: 600;
+                    color: #374151;
+                    margin-bottom: 2px;
+                    display: block;
+                }
+
+                @media (max-width: 1024px) {
+                    .analysis-unified-grid {
                         grid-template-columns: 1fr;
                     }
                 }
 
-                .analysis-left-panel,
-                .analysis-right-panel {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 1rem;
+                .analysis-bottom-section {
                     padding: 1.5rem;
                     border: 1px solid #e5e7eb;
                     border-radius: 8px;
@@ -886,30 +813,14 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
                 }
 
-                .analysis-bottom-section {
-                    padding: 1.5rem;
-                    border: 1px solid #e5e7eb;
-                    borderRadius: 8px;
-                    background: white;
-                    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-                }
-
-                /* Hide spinners for Chrome, Safari, Edge, Opera */
+                /* Hide spinners */
                 input[type=number]::-webkit-outer-spin-button,
                 input[type=number]::-webkit-inner-spin-button {
                   -webkit-appearance: none;
                   margin: 0;
                 }
-                
-                /* Hide spinners for Firefox */
                 input[type=number] {
                   -moz-appearance: textfield;
-                }
-
-                @media (max-width: 1024px) {
-                    .analysis-top-section {
-                        grid-template-columns: 1fr;
-                    }
                 }
 
                 @keyframes spin {
