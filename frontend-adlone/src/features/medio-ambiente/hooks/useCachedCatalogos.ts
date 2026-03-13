@@ -25,19 +25,19 @@ export const useCachedCatalogos = () => {
         return getCatalogo(key, () => catalogosService.getClientes(empresaId));
     }, [getCatalogo]);
 
-    const getContactos = useCallback(async (clienteId?: number): Promise<Contacto[]> => {
-        const key = `contactos${clienteId ? `-${clienteId}` : ''}`;
-        return getCatalogo(key, () => catalogosService.getContactos(clienteId));
+    const getContactos = useCallback(async (clienteId?: number, empresaServicioId?: number): Promise<Contacto[]> => {
+        const key = `contactos${clienteId ? `-${clienteId}` : ''}${empresaServicioId ? `-es-${empresaServicioId}` : ''}`;
+        return getCatalogo(key, () => catalogosService.getContactos(clienteId, empresaServicioId));
     }, [getCatalogo]);
 
-    const getCentros = useCallback(async (clienteId?: number): Promise<Centro[]> => {
-        const key = `centros${clienteId ? `-${clienteId}` : ''}`;
-        return getCatalogo(key, () => catalogosService.getCentros(clienteId));
+    const getCentros = useCallback(async (clienteId?: number, empresaServicioId?: number): Promise<Centro[]> => {
+        const key = `centros${clienteId ? `-${clienteId}` : ''}${empresaServicioId ? `-es-${empresaServicioId}` : ''}`;
+        return getCatalogo(key, () => catalogosService.getCentros(clienteId, empresaServicioId));
     }, [getCatalogo]);
 
-    const getObjetivosMuestreo = useCallback(async (clienteId?: number): Promise<any[]> => {
-        const key = `objetivos-muestreo${clienteId ? `-${clienteId}` : ''}`;
-        return getCatalogo(key, () => catalogosService.getObjetivosMuestreo(clienteId));
+    const getObjetivosMuestreo = useCallback(async (clienteId?: number, empresaServicioId?: number): Promise<any[]> => {
+        const key = `objetivos-muestreo${clienteId ? `-${clienteId}` : ''}${empresaServicioId ? `-es-${empresaServicioId}` : ''}`;
+        return getCatalogo(key, () => catalogosService.getObjetivosMuestreo(clienteId, empresaServicioId));
     }, [getCatalogo]);
 
     const getComponentesAmbientales = useCallback(async (): Promise<any[]> => {
@@ -88,6 +88,14 @@ export const useCachedCatalogos = () => {
         return getCatalogo('dispositivos-hidraulicos', () => catalogosService.getDispositivosHidraulicos());
     }, [getCatalogo]);
 
+    const getInstrumentosAmbientales = useCallback(async (): Promise<any[]> => {
+        return getCatalogo('instrumentos-ambientales', () => catalogosService.getInstrumentosAmbientales());
+    }, [getCatalogo]);
+
+    const getUnidadesMedida = useCallback(async (): Promise<any[]> => {
+        return getCatalogo('unidades-medida', () => catalogosService.getUnidadesMedida());
+    }, [getCatalogo]);
+
     // ===== Analysis Service Methods (Cached) =====
     const getNormativas = useCallback(async (): Promise<any[]> => {
         return getCatalogo('normativas', () => import('../services/analysis.service').then(m => m.analysisService.getNormativas()));
@@ -131,6 +139,8 @@ export const useCachedCatalogos = () => {
         getFrecuenciasPeriodo,
         getFormasCanal,
         getDispositivosHidraulicos,
+        getInstrumentosAmbientales,
+        getUnidadesMedida,
 
         // Analysis getters
         getNormativas,

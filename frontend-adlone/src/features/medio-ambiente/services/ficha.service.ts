@@ -82,8 +82,8 @@ export const fichaService = {
         const response = await apiClient.get(`/api/fichas/${id}/historial`);
         return response.data.data;
     },
-    cancelAgendaSampling: async (idAgenda: number, idFicha: number, user: any, motivo_cancelacion: string) => {
-        const response = await apiClient.post('/api/fichas/cancel-sampling', { idAgenda, idFicha, user, motivo_cancelacion });
+    cancelAgendaSampling: async (idAgenda: number, idFicha: number, user: any, motivo_cancelacion: string, idEstadoMuestreo?: number) => {
+        const response = await apiClient.post('/api/fichas/cancel-sampling', { idAgenda, idFicha, user, motivo_cancelacion, idEstadoMuestreo });
         return response.data;
     },
     getSamplingEquipos: async (idFicha: number, correlativo: string) => {

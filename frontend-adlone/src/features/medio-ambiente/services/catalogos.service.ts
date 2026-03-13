@@ -70,6 +70,8 @@ export interface EmpresaServicio {
     nombre: string;
     email?: string;
     telefono?: string;
+    contacto?: string;
+    email_contacto?: string;
 }
 
 export interface Cliente {
@@ -129,21 +131,21 @@ export const catalogosService = {
         });
     },
 
-    getContactos: async (clienteId?: number): Promise<Contacto[]> => {
-        const key = `contactos${clienteId ? `-${clienteId}` : ''}`;
+    getContactos: async (clienteId?: number, empresaServicioId?: number): Promise<Contacto[]> => {
+        const key = `contactos${clienteId ? `-${clienteId}` : ''}${empresaServicioId ? `-es-${empresaServicioId}` : ''}`;
         return deduplicatedRequest(key, async () => {
             const response = await axiosInstance.get('/contactos', {
-                params: { clienteId }
+                params: { clienteId, empresaServicioId }
             });
             return response.data.data;
         });
     },
 
-    getCentros: async (clienteId?: number): Promise<Centro[]> => {
-        const key = `centros${clienteId ? `-${clienteId}` : ''}`;
+    getCentros: async (clienteId?: number, empresaServicioId?: number): Promise<Centro[]> => {
+        const key = `centros${clienteId ? `-${clienteId}` : ''}${empresaServicioId ? `-es-${empresaServicioId}` : ''}`;
         return deduplicatedRequest(key, async () => {
             const response = await axiosInstance.get('/centros', {
-                params: { clienteId }
+                params: { clienteId, empresaServicioId }
             });
             return response.data.data;
         });
@@ -151,10 +153,10 @@ export const catalogosService = {
 
     // Bloque 2: Datos del Servicio y Muestreo
     // Bloque 2: Datos del Servicio y Muestreo
-    getObjetivosMuestreo: async (clienteId?: number): Promise<any[]> => {
-        const key = `objetivos-muestreo${clienteId ? `-${clienteId}` : ''}`;
+    getObjetivosMuestreo: async (clienteId?: number, empresaServicioId?: number): Promise<any[]> => {
+        const key = `objetivos-muestreo${clienteId ? `-${clienteId}` : ''}${empresaServicioId ? `-es-${empresaServicioId}` : ''}`;
         return deduplicatedRequest(key, async () => {
-            const response = await axiosInstance.get('/objetivos-muestreo', { params: { clienteId } });
+            const response = await axiosInstance.get('/objetivos-muestreo', { params: { clienteId, empresaServicioId } });
             return response.data.data;
         });
     },
@@ -253,6 +255,25 @@ export const catalogosService = {
     getCoordinadores: async (): Promise<any[]> => {
         return deduplicatedRequest('coordinadores', async () => {
             const response = await axiosInstance.get('/coordinadores');
+            return response.data.data;
+        });
+    },
+
+    getInstrumentosAmbientales: async (): Promise<any[]> => {
+        return deduplicatedRequest('instrumentos-ambientales', async () => {
+            const response = await axiosInstance.get('/instrumentos-ambientales');
+            return response.data.data;
+        });
+    },
+    getUnidadesMedida: async (): Promise<any[]> => {
+        return deduplicatedRequest('unidades-medida', async () => {
+            const response = await axiosInstance.get('/unidades-medida');
+            return response.data.data;
+        });
+    },
+    getEstadosMuestreo: async (): Promise<any[]> => {
+        return deduplicatedRequest('estados-muestreo', async () => {
+            const response = await axiosInstance.get('/estados-muestreo');
             return response.data.data;
         });
     },

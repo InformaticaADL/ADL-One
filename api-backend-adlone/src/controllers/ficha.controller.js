@@ -185,9 +185,9 @@ class FichaIngresoController {
 
     async cancelSampling(req, res) {
         try {
-            const { idAgenda, idFicha, motivo_cancelacion } = req.body;
+            const { idAgenda, idFicha, motivo_cancelacion, idEstadoMuestreo } = req.body;
             const userData = req.body.user || { id: 0 };
-            const result = await fichaService.cancelAgendaSampling(idAgenda, idFicha, userData, motivo_cancelacion);
+            const result = await fichaService.cancelAgendaSampling(idAgenda, idFicha, userData, motivo_cancelacion, idEstadoMuestreo);
             return successResponse(res, result, 'Muestreo cancelado exitosamente');
         } catch (err) {
             logger.error('Error in cancelSampling controller:', err);

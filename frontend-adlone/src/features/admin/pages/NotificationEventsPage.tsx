@@ -94,11 +94,13 @@ export const NotificationEventsPage: React.FC<Props> = ({ onBack, onSelectEvent 
             'Nuevo Equipo': { bg: '#ebf4ff', text: '#3182ce', border: '#90cdf4' },
             'Gestión General / Otras': { bg: '#f8fafc', text: '#64748b', border: '#e2e8f0' },
             'Fichas de Ingreso': { bg: '#f0fdf4', text: '#166534', border: '#bbf7d0' },
+            'Gestión de Muestreos': { bg: '#fffaf0', text: '#c05621', border: '#fbd38d' },
         };
         return colors[theme] || { bg: '#f7fafc', text: '#4a5568', border: '#e2e8f0' };
     };
 
     const getEventTheme = (code: string) => {
+        if (code.includes('FICHA_MUESTREO')) return 'Gestión de Muestreos';
         if (code.includes('FICHA_')) return 'Fichas de Ingreso';
         if (code.includes('_REPORTE_PROBLEMA')) return 'Reporte de Problema';
         if (code.includes('_ALTA')) return 'Registro de Equipo (Alta)';

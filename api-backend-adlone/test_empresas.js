@@ -9,8 +9,11 @@ async function testQuery() {
         console.log(res1.recordset);
 
         console.log("--- mae_empresaservicios ---");
-        const res2 = await pool.request().query("SELECT TOP 20 * FROM mae_empresaservicios WHERE nombre_empresaservicios LIKE '%Piscicultura%' OR nombre_empresaservicios LIKE '%Copihue%'");
-        console.log(res2.recordset);
+        const result = await pool.request().query('SELECT TOP 5 * FROM mae_empresaservicios');
+        console.log("COLUMNS mae_empresaservicios:");
+        console.log(result.recordset.length ? Object.keys(result.recordset[0]) : "No data");
+        console.log("FIRST ROW:");
+        console.log(result.recordset[0]);
 
         console.log("--- mae_centro ---");
         const res3 = await pool.request().query("SELECT TOP 20 * FROM mae_centro WHERE nombre_centro LIKE '%Piscicultura%' OR nombre_centro LIKE '%Copihue%'");

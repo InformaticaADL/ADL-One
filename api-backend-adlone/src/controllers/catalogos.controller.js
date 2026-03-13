@@ -33,8 +33,8 @@ export const catalogosController = {
 
     getContactos: async (req, res) => {
         try {
-            const { clienteId } = req.query;
-            const data = await catalogosService.getContactos(clienteId);
+            const { clienteId, empresaServicioId } = req.query;
+            const data = await catalogosService.getContactos(clienteId, empresaServicioId);
             return successResponse(res, data, 'Contactos retrieved successfully');
         } catch (error) {
             return errorResponse(res, error.message, 500);
@@ -43,8 +43,8 @@ export const catalogosController = {
 
     getCentros: async (req, res) => {
         try {
-            const { clienteId } = req.query;
-            const data = await catalogosService.getCentros(clienteId);
+            const { clienteId, empresaServicioId } = req.query;
+            const data = await catalogosService.getCentros(clienteId, empresaServicioId);
             return successResponse(res, data, 'Centros retrieved successfully');
         } catch (error) {
             return errorResponse(res, error.message, 500);
@@ -52,8 +52,8 @@ export const catalogosController = {
     },
     getObjetivosMuestreo: async (req, res) => {
         try {
-            const { clienteId } = req.query;
-            const data = await catalogosService.getObjetivosMuestreo(clienteId);
+            const { clienteId, empresaServicioId } = req.query;
+            const data = await catalogosService.getObjetivosMuestreo(clienteId, empresaServicioId);
             return successResponse(res, data, 'Objetivos Muestreo retrieved successfully');
         } catch (error) {
             return errorResponse(res, error.message, 500);
@@ -182,6 +182,30 @@ export const catalogosController = {
         try {
             const data = await catalogosService.getCoordinadores();
             return successResponse(res, data, 'Coordinadores retrieved successfully');
+        } catch (error) {
+            return errorResponse(res, error.message, 500);
+        }
+    },
+    getInstrumentosAmbientales: async (req, res) => {
+        try {
+            const data = await catalogosService.getInstrumentosAmbientales();
+            return successResponse(res, data, 'Instrumentos Ambientales retrieved successfully');
+        } catch (error) {
+            return errorResponse(res, error.message, 500);
+        }
+    },
+    getUnidadesMedida: async (req, res) => {
+        try {
+            const data = await catalogosService.getUnidadesMedida();
+            return successResponse(res, data, 'Unidades Medida retrieved successfully');
+        } catch (error) {
+            return errorResponse(res, error.message, 500);
+        }
+    },
+    getEstadosMuestreo: async (req, res) => {
+        try {
+            const data = await catalogosService.getEstadosMuestreo();
+            return successResponse(res, data, 'Estados Muestreo retrieved successfully');
         } catch (error) {
             return errorResponse(res, error.message, 500);
         }

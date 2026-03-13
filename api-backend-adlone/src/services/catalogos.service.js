@@ -19,7 +19,7 @@ export const catalogosService = {
     try {
       const pool = await getConnection();
       // Changed to query mae_empresaservicios table which is the correct source for service entities
-      const result = await pool.request().query("SELECT id_empresaservicio, nombre_empresaservicios, habilitado, email_empresaservicios FROM mae_empresaservicios WHERE habilitado = 'S' ORDER BY nombre_empresaservicios");
+      const result = await pool.request().query("SELECT id_empresaservicio, nombre_empresaservicios, contacto_empresaservicios, email_contacto, email_empresaservicios FROM mae_empresaservicios WHERE habilitado = 'S'");
       let empresas = result.recordset;
 
       logger.info(`Returning all service empresas from mae_empresaservicios (${empresas.length} records)`);
@@ -33,8 +33,8 @@ export const catalogosService = {
   getClientes: async (idEmpresaServicio) => {
     try {
       const pool = await getConnection();
-      // Requirement: Show all clients, no dependency on Empresa Facturar
-      const result = await pool.request().execute('maestro_empresa');
+      // Requirement: Show all clients, including linking fields
+      const result = await pool.request().query("SELECT id_empresa, nombre_empresa, id_empresaservicio, email_empresa FROM mae_empresa");
       let clientes = result.recordset;
 
       logger.info(`Returning all clientes (${clientes.length} records)`);
@@ -45,13 +45,20 @@ export const catalogosService = {
     }
   },
 
-  getContactos: async (idCliente) => {
+  getContactos: async (idCliente, idEmpresaServicio) => {
     try {
       const pool = await getConnection();
       const request = pool.request();
 
+      if (idEmpresaServicio) {
+        // Find contacts for all companies under this service company
+        const query = "SELECT * FROM maestro_contacto WHERE id_empresa IN (SELECT id_empresa FROM mae_empresa WHERE id_empresaservicio = " + Number(idEmpresaServicio) + ")";
+        const result = await request.query(query);
+        logger.info(`Contactos for empresa_servicio ${idEmpresaServicio}: ${result.recordset.length} records`);
+        return result.recordset;
+      }
+
       // User specified SP: consulta_contacto_una_empresa @xid_empresa
-      // Logs showed this working with params, so keeping it.
       if (idCliente) {
         request.input('xid_empresa', sql.Int, idCliente);
       }
@@ -65,7 +72,7 @@ export const catalogosService = {
     }
   },
 
-  getCentros: async (idCliente) => {
+  getCentros: async (idCliente, idEmpresaServicio) => {
     try {
       const pool = await getConnection();
 
@@ -74,15 +81,26 @@ export const catalogosService = {
       const result = await pool.request().execute('consulta_centro');
       let centros = result.recordset;
 
-      if (idCliente) {
+      if (idEmpresaServicio) {
+        const idServicio = Number(idEmpresaServicio);
+        // We need to find all id_empresa that belong to this id_empresaservicio
+        const clientRes = await pool.request().query("SELECT id_empresa FROM mae_empresa WHERE id_empresaservicio = " + idServicio);
+        const allowedIds = clientRes.recordset.map(r => r.id_empresa);
+        
+        centros = centros.filter(c => 
+          allowedIds.includes(c.id_empresa) || 
+          allowedIds.includes(c.IdEmpresa)
+        );
+        logger.info(`Centros filtered for empresa_servicio ${idEmpresaServicio}: ${centros.length} records`);
+      } else if (idCliente) {
         const idFilter = Number(idCliente);
         centros = centros.filter(c =>
           c.id_empresa === idFilter ||
           c.IdEmpresa === idFilter
         );
+        logger.info(`Centros filtered for cliente ${idCliente}: ${centros.length} records`);
       }
 
-      logger.info(`Centros filtered for cliente ${idCliente}: ${centros.length} records`);
       return centros;
     } catch (error) {
       logger.error('Error in getCentros service:', error);
@@ -104,14 +122,26 @@ export const catalogosService = {
   */
   // Bloque 2: Datos del Servicio y Muestreo
   // Bloque 2: Datos del Servicio y Muestreo
-  getObjetivosMuestreo: async (clienteId) => {
+  getObjetivosMuestreo: async (clienteId, idEmpresaServicio) => {
     try {
       const pool = await getConnection();
       // SP does not accept params
       const result = await pool.request().execute('consulta_objetivomuestreo_ma_oservicios');
       let data = result.recordset;
 
-      if (clienteId) {
+      if (idEmpresaServicio) {
+        const idS = Number(idEmpresaServicio);
+        const clientRes = await pool.request().query("SELECT id_empresa FROM mae_empresa WHERE id_empresaservicio = " + idS);
+        const allowedIds = clientRes.recordset.map(r => r.id_empresa);
+        
+        // Filter objectives by those client IDs if possible (though objectives usually depend on clienteId more specifically)
+        // However, if we want to show all possible objectives for the service company:
+        const clientCol = data.length > 0 ? Object.keys(data[0]).find(k => /id_?cliente/i.test(k) || /xid_?cliente/i.test(k)) : null;
+        if (clientCol) {
+            data = data.filter(item => allowedIds.includes(Number(item[clientCol])));
+        }
+        logger.info(`Objetivos filtered for empresa_servicio ${idEmpresaServicio}: ${data.length} records`);
+      } else if (clienteId) {
         const id = Number(clienteId);
         // Try all casing variations for ID Client
         const clientCol = data.length > 0 ? Object.keys(data[0]).find(k => /id_?cliente/i.test(k) || /xid_?cliente/i.test(k)) : null;
@@ -310,6 +340,36 @@ export const catalogosService = {
       return result.recordset;
     } catch (error) {
       logger.error('Error in getCoordinadores:', error);
+      throw error;
+    }
+  },
+  getInstrumentosAmbientales: async () => {
+    try {
+      const pool = await getConnection();
+      const result = await pool.request().query("SELECT id, nombre FROM mae_instrumentoambiental WHERE estado = 'V' ORDER BY id ASC");
+      return result.recordset;
+    } catch (error) {
+      logger.error('Error in getInstrumentosAmbientales:', error);
+      throw error;
+    }
+  },
+  getUnidadesMedida: async () => {
+    try {
+      const pool = await getConnection();
+      const result = await pool.request().query("SELECT id_umedida, nombre_umedida FROM mae_umedida ORDER BY nombre_umedida");
+      return result.recordset;
+    } catch (error) {
+      logger.error('Error in getUnidadesMedida:', error);
+      throw error;
+    }
+  },
+  getEstadosMuestreo: async () => {
+    try {
+      const pool = await getConnection();
+      const result = await pool.request().query("SELECT id_estadomuestreo, nombre_estadomuestreo FROM mae_estadomuestreo WHERE habilitado = 'S' AND id_estadomuestreo NOT IN (1, 3) ORDER BY orden");
+      return result.recordset;
+    } catch (error) {
+      logger.error('Error in getEstadosMuestreo service:', error);
       throw error;
     }
   },
