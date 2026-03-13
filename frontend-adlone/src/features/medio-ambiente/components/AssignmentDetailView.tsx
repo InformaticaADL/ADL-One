@@ -39,6 +39,9 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
 
     // Frequency data (dias)
     const [frequencyDays, setFrequencyDays] = useState<number>(0);
+    const [numericFrequency, setNumericFrequency] = useState<number>(1);
+    const [frecuenciaFactor, setFrecuenciaFactor] = useState<number>(1);
+    const [totalServicios, setTotalServicios] = useState<number>(0);
     const [duracionMuestreo, setDuracionMuestreo] = useState<number>(0);
 
     // Load Data
@@ -51,6 +54,9 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                 if (data.length > 0) {
                     setDbFieldValue(data[0].nombre_frecuencia || '');
                     setFrequencyDays(data[0].dias || 0);
+                    setNumericFrequency(Number(data[0].frecuencia) || 1);
+                    setFrecuenciaFactor(Number(data[0].frecuencia_factor) || 1);
+                    setTotalServicios(Number(data[0].total_servicios) || data.length);
                     setDuracionMuestreo(Number(data[0].ma_duracion_muestreo) || 0);
 
                     const existingDates: Record<number, string> = {};
@@ -184,27 +190,35 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
         rows.forEach((row, index) => {
             let baseDateStr = '';
 
-            // If selectedDate is set, we use it as the START of a sequence for ALL rows
-            // This allows the user to re-center the entire schedule (all 12 samplings)
+            // If selectedDate is set, we use it as the Reference (RETIRO) for the sequence
             if (selectedDate) {
                 const base = new Date(selectedDate + 'T00:00:00');
                 if (isMensual) {
-                    // For monthly, we increment by months to preserve the day of the month
-                    base.setMonth(base.getMonth() + index);
+                    const monthOffset = Math.floor(index / numericFrequency);
+                    const partOfMonth = index % numericFrequency;
+                    const daysOffset = Math.floor((30 / numericFrequency) * partOfMonth);
+
+                    base.setMonth(base.getMonth() + monthOffset);
+                    base.setDate(base.getDate() + daysOffset);
                 } else {
-                    const interval = frequencyDays * index;
-                    base.setDate(base.getDate() + interval);
+                    const interval = (frequencyDays / numericFrequency) * index;
+                    base.setDate(base.getDate() + Math.floor(interval));
                 }
-                baseDateStr = base.toISOString().split('T')[0];
+                // The calculated date is the RETIREMENT (Muestreo)
+                const retirementDateStr = base.toISOString().split('T')[0];
+                newRetiroDates[row.id_agendamam] = retirementDateStr;
+
+                // Installation is Retirement - offset
+                const instDate = new Date(retirementDateStr + 'T00:00:00');
+                instDate.setDate(instDate.getDate() - dayOffset);
+                newDates[row.id_agendamam] = instDate.toISOString().split('T')[0];
             } else if (row.dia && row.mes && row.ano) {
                 // Fallback to row specific programmed dates if no header date is selected
                 const d = String(row.dia).padStart(2, '0');
                 const m = String(row.mes).padStart(2, '0');
                 const a = String(row.ano);
                 baseDateStr = `${a}-${m}-${d}`;
-            }
 
-            if (baseDateStr) {
                 newDates[row.id_agendamam] = baseDateStr;
 
                 // Calculate retirement date adding offset
@@ -311,9 +325,29 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                 {/* GROUP 1: Dates & Calculation */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
                     <div style={{ display: 'flex', gap: '1rem' }}>
-                        <div className="form-group" style={{ flex: '0 0 140px' }}>
+                        <div className="form-group" style={{ flex: '0 0 100px' }}>
                             <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#4b5563', marginBottom: '4px', display: 'block' }}>
-                                Frecuencia (DB)
+                                Frecuencia
+                            </label>
+                            <input
+                                type="text"
+                                value={numericFrequency}
+                                disabled
+                                style={{
+                                    width: '100%',
+                                    padding: '0.4rem',
+                                    borderRadius: '6px',
+                                    border: '1px solid #d1d5db',
+                                    backgroundColor: '#f9fafb',
+                                    color: '#6b7280',
+                                    fontSize: '0.85rem'
+                                }}
+                            />
+                        </div>
+
+                        <div className="form-group" style={{ flex: '0 0 120px' }}>
+                            <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#4b5563', marginBottom: '4px', display: 'block' }}>
+                                Periodo
                             </label>
                             <input
                                 type="text"
@@ -331,9 +365,49 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                             />
                         </div>
 
+                        <div className="form-group" style={{ flex: '0 0 120px' }}>
+                            <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#4b5563', marginBottom: '4px', display: 'block' }}>
+                                Multiplicado Por
+                            </label>
+                            <input
+                                type="text"
+                                value={frecuenciaFactor}
+                                disabled
+                                style={{
+                                    width: '100%',
+                                    padding: '0.4rem',
+                                    borderRadius: '6px',
+                                    border: '1px solid #d1d5db',
+                                    backgroundColor: '#f9fafb',
+                                    color: '#6b7280',
+                                    fontSize: '0.85rem'
+                                }}
+                            />
+                        </div>
+
+                        <div className="form-group" style={{ flex: '0 0 100px' }}>
+                            <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#4b5563', marginBottom: '4px', display: 'block' }}>
+                                Total Serv.
+                            </label>
+                            <input
+                                type="text"
+                                value={totalServicios}
+                                disabled
+                                style={{
+                                    width: '100%',
+                                    padding: '0.4rem',
+                                    borderRadius: '6px',
+                                    border: '1px solid #d1d5db',
+                                    backgroundColor: '#f9fafb',
+                                    color: '#6b7280',
+                                    fontSize: '0.85rem'
+                                }}
+                            />
+                        </div>
+
                         <div className="form-group" style={{ flex: '0 0 150px' }}>
                             <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#4b5563', marginBottom: '4px', display: 'block' }}>
-                                Fecha Inicial
+                                Fecha de Muestreo
                             </label>
                             <input
                                 type="date"
@@ -498,8 +572,8 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                     <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', fontSize: '9px', textAlign: 'center' }}>N°Ficha</th>
                                     <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', fontSize: '9px', textAlign: 'center' }}>Correlativo</th>
                                     <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', fontSize: '9px', textAlign: 'center' }}>Estado</th>
-                                    <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', fontSize: '9px', textAlign: 'center' }}>F.muestreo</th>
-                                    <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', fontSize: '9px', textAlign: 'center' }}>F. Retiro</th>
+                                    <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', fontSize: '9px', textAlign: 'center' }}>Fecha Instalación</th>
+                                    <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', fontSize: '9px', textAlign: 'center' }}>Fecha Muestreo (Retiro)</th>
                                     <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', fontSize: '9px', textAlign: 'center' }}>Frecuencia</th>
                                     <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', fontSize: '9px', textAlign: 'center' }}>E.Servicio</th>
                                     <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', fontSize: '9px', textAlign: 'center' }}>Tipo Punto</th>
