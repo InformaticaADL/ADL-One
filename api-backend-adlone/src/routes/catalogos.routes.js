@@ -26,5 +26,8 @@ router.get('/formas-canal', catalogosController.getFormasCanal);
 router.get('/dispositivos-hidraulicos', catalogosController.getDispositivosHidraulicos);
 router.get('/muestreadores', catalogosController.getMuestreadores);
 router.get('/coordinadores', catalogosController.getCoordinadores);
+router.get('/instrumentos-ambientales', catalogosController.getInstrumentosAmbientales);
+router.get('/unidades-medida', catalogosController.getUnidadesMedida);
+router.get('/estados-muestreo', catalogosController.getEstadosMuestreo);
 
 export default router;
