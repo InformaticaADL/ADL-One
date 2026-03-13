@@ -155,12 +155,8 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                 setData(fichaData);
                 setLaboratorios(labsData || []);
 
-                // If existing observations, populate local state
-                // Attempt to read from flat structure (observaciones_jefaturatecnica) or fallback
-                const existingObs = fichaData.observaciones_jefaturatecnica || (fichaData.observaciones && fichaData.observaciones.tecnica) || '';
-                if (existingObs) {
-                    setTecnicaObs(existingObs);
-                }
+                // Ensure observation input always starts empty for a new action
+                setTecnicaObs('');
             } catch (error) {
                 console.error("Error loading ficha:", error);
                 showToast({ type: 'error', message: "Error al cargar ficha" });
@@ -219,7 +215,7 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                 observaciones: tecnicaObs,
                 user: { id: user?.id || 0 }
             });
-            showToast({ type: 'info', message: 'Ficha RECHAZADA correctamente' });
+            showToast({ type: 'info', message: 'Revisión solicitada correctamente' });
             setTimeout(() => {
                 onBack();
             }, 1500);
@@ -238,11 +234,11 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
         }
         setModalConfig({
             isOpen: true,
-            title: 'Confirmar Rechazo',
-            message: '¿Está seguro de RECHAZAR esta ficha? Deberá ser corregida por el área comercial.',
+            title: 'Solicitar Revisión',
+            message: '¿Está seguro de solicitar una REVISIÓN para esta ficha? Volverá al área comercial para su corrección.',
             onConfirm: executeReject,
             isDestructive: true,
-            confirmText: 'Rechazar Ficha'
+            confirmText: 'Solicitar Revisión'
         });
     };
 
@@ -376,12 +372,12 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                             />
                         )}
 
-                        {/* Bloqueada por Coordinación - Rechazada */}
+                        {/* Bloqueada por Coordinación - Rechazada (Devuelta a Técnica) */}
                         {data?.id_validaciontecnica === 4 && (
                             <WorkflowAlert
                                 type="warning"
                                 title="Rechazada por Coordinación"
-                                message="Esta ficha fue rechazada por Coordinación. No se pueden realizar acciones técnicas."
+                                message="Esta ficha fue devuelta por Coordinación para ser revisada técnicamente."
                             />
                         )}
 
@@ -429,9 +425,8 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                             </div>
 
                             <div className="form-grid-row grid-cols-4">
-                                <StaticField label="Correo Empresa" value={enc.id_empresa === 0 ? 'No Aplica' : (enc.email_empresa || '-')} />
                                 <StaticField label="Correo Contacto" value={enc.id_contacto === 0 ? 'No Aplica' : (enc.email_contacto || '-')} />
-                                <div style={{ gridColumn: 'span 2' }}></div>
+                                <div style={{ gridColumn: 'span 3' }}></div>
                             </div>
 
                             <div className="form-grid-row grid-cols-1">
@@ -495,10 +490,16 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                             {/* Block 5: Hidraulica */}
                             <div style={{ marginTop: '1rem', marginBottom: '0.5rem', borderBottom: '1px solid #e5e7eb' }}></div>
                             <div className="form-grid-row grid-cols-4">
-                                <StaticField label="Forma del Canal" value={enc.id_formacanal === 0 ? 'No Aplica' : enc.nombre_formacanal} />
-                                <StaticField label="Detalle (Medidas)" value={enc.formacanal_medida} />
-                                <StaticField label="Dispositivo Hidráulico" value={enc.id_dispositivohidraulico === 0 ? 'No Aplica' : enc.nombre_dispositivohidraulico} />
-                                <StaticField label="Detalle (Medidas)" value={enc.dispositivohidraulico_medida} />
+                                <StaticField label="FORMA CANAL" value={enc.id_formacanal === 0 ? 'No Aplica' : enc.nombre_formacanal} />
+                                <StaticField label="medida:" value={enc.nombre_um_formacanal || '-'} />
+                                <StaticField label="VALOR MEDIDA" value={enc.formacanal_medida || '-'} />
+                                <div style={{ minHeight: '1px' }}></div>
+                            </div>
+                            <div className="form-grid-row grid-cols-4" style={{ marginTop: '0.5rem' }}>
+                                <StaticField label="DISPOSITIVO HIDRÁULICO" value={enc.id_dispositivohidraulico === 0 ? 'No Aplica' : enc.nombre_dispositivohidraulico} />
+                                <StaticField label="medida:" value={enc.nombre_um_dispositivohidraulico || '-'} />
+                                <StaticField label="VALOR MEDIDA" value={enc.dispositivohidraulico_medida || '-'} />
+                                <div style={{ minHeight: '1px' }}></div>
                             </div>
                         </div>
                     )}
@@ -539,7 +540,6 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                 <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #e5e7eb' }}>Error Min</th>
                                                 <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #e5e7eb' }}>Error Max</th>
                                                 <th style={{ padding: '8px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>Tipo Entrega</th>
-                                                <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #e5e7eb' }}>Valor U.F.</th>
                                                 <th style={{ padding: '8px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>Lab. Principal</th>
                                                 <th style={{ padding: '8px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>Lab. Secundario</th>
                                             </tr>
@@ -563,7 +563,6 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                         <td style={{ padding: '8px', textAlign: 'right' }}>{row.error_min ?? '-'}</td>
                                                         <td style={{ padding: '8px', textAlign: 'right' }}>{row.error_max ?? '-'}</td>
                                                         <td style={{ padding: '8px' }}>{row.nombre_tipoentrega || row.nombre_entrega}</td>
-                                                        <td style={{ padding: '8px', textAlign: 'right' }}>{row.uf_individual || row.uf || 0}</td>
                                                         <td style={{ padding: '8px' }}>
                                                             {labPrincipalName || (row.id_laboratorioensayo ? 'Enviado' : 'Interno')}
                                                         </td>
@@ -575,7 +574,7 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                             })}
                                             {det.length === 0 && (
                                                 <tr>
-                                                    <td colSpan={10} style={{ textAlign: 'center', padding: '2rem', color: '#6b7280' }}>
+                                                    <td colSpan={9} style={{ textAlign: 'center', padding: '2rem', color: '#6b7280' }}>
                                                         No hay análisis registrados.
                                                     </td>
                                                 </tr>
@@ -595,71 +594,73 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                 creationData={timelineCreationData}
                             />
 
-                            <div style={{ marginTop: '2rem', borderTop: '1px solid #e5e7eb', paddingTop: '2rem' }}>
-                                <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#374151', marginBottom: '1rem' }}>Mi Gestión (Área Técnica)</h3>
-                                <div className="observation-action-row" style={{
-                                    borderLeft: '4px solid #3b82f6',
-                                    paddingLeft: '1rem'
-                                }}>
-                                    <ObservacionesForm
-                                        label="Observaciones Área Técnica"
-                                        value={tecnicaObs}
-                                        onChange={setTecnicaObs}
-                                        readOnly={!hasPermission('MA_TECNICA_APROBAR')}
-                                        placeholder={hasPermission('MA_TECNICA_APROBAR') ? "Ingrese sus observaciones técnicas aquí..." : "No tiene permisos para editar observaciones"}
-                                    >
-                                        {hasPermission('MA_TECNICA_APROBAR') && (
-                                            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem', maxWidth: '1200px', margin: '1rem auto 0' }}>
-                                                <button
-                                                    onClick={handleAcceptClick}
-                                                    disabled={actionLoading || ![0, 3].includes(data?.id_validaciontecnica || -1) || !tecnicaObs.trim()}
-                                                    style={{
-                                                        padding: '8px 24px',
-                                                        backgroundColor: (![0, 3].includes(data?.id_validaciontecnica || -1) || !tecnicaObs.trim()) ? '#9ca3af' : '#10b981',
-                                                        color: 'white',
-                                                        border: 'none',
-                                                        borderRadius: '6px',
-                                                        cursor: (actionLoading || ![0, 3].includes(data?.id_validaciontecnica || -1) || !tecnicaObs.trim()) ? 'not-allowed' : 'pointer',
-                                                        fontWeight: 600,
-                                                        fontSize: '0.9rem',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '8px',
-                                                        opacity: (actionLoading || ![0, 3].includes(data?.id_validaciontecnica || -1) || !tecnicaObs.trim()) ? 0.7 : 1,
-                                                        boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
-                                                    }}
-                                                    title={!tecnicaObs.trim() ? "Debe ingresar observaciones para procesar" : ""}
-                                                >
-                                                    <span>✅ Aceptar Ficha</span>
-                                                </button>
+                            {[0, 3, 4].includes(data?.id_validaciontecnica || 0) && (
+                                <div style={{ marginTop: '2rem', borderTop: '1px solid #e5e7eb', paddingTop: '2rem' }}>
+                                    <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#374151', marginBottom: '1rem' }}>Mi Gestión (Área Técnica)</h3>
+                                    <div className="observation-action-row" style={{
+                                        borderLeft: '4px solid #3b82f6',
+                                        paddingLeft: '1rem'
+                                    }}>
+                                        <ObservacionesForm
+                                            label="Observaciones Área Técnica"
+                                            value={tecnicaObs}
+                                            onChange={setTecnicaObs}
+                                            readOnly={!hasPermission('MA_TECNICA_APROBAR')}
+                                            placeholder={hasPermission('MA_TECNICA_APROBAR') ? "Ingrese sus observaciones técnicas aquí..." : "No tiene permisos para editar observaciones"}
+                                        >
+                                            {hasPermission('MA_TECNICA_APROBAR') && (
+                                                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem', maxWidth: '1200px', margin: '1rem auto 0' }}>
+                                                    <button
+                                                        onClick={handleAcceptClick}
+                                                        disabled={actionLoading || ![0, 3, 4].includes(data?.id_validaciontecnica || -1) || !tecnicaObs.trim()}
+                                                        style={{
+                                                            padding: '8px 24px',
+                                                            backgroundColor: (![0, 3, 4].includes(data?.id_validaciontecnica || -1) || !tecnicaObs.trim()) ? '#9ca3af' : '#10b981',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            borderRadius: '6px',
+                                                            cursor: (actionLoading || ![0, 3, 4].includes(data?.id_validaciontecnica || -1) || !tecnicaObs.trim()) ? 'not-allowed' : 'pointer',
+                                                            fontWeight: 600,
+                                                            fontSize: '0.9rem',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '8px',
+                                                            opacity: (actionLoading || ![0, 3, 4].includes(data?.id_validaciontecnica || -1) || !tecnicaObs.trim()) ? 0.7 : 1,
+                                                            boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                                                        }}
+                                                        title={!tecnicaObs.trim() ? "Debe ingresar observaciones para procesar" : ""}
+                                                    >
+                                                        <span>✅ Aceptar Ficha</span>
+                                                    </button>
 
-                                                <button
-                                                    onClick={handleRejectClick}
-                                                    disabled={actionLoading || ![0, 3].includes(data?.id_validaciontecnica || -1) || !tecnicaObs.trim()}
-                                                    style={{
-                                                        padding: '8px 24px',
-                                                        backgroundColor: (![0, 3].includes(data?.id_validaciontecnica || -1) || !tecnicaObs.trim()) ? '#9ca3af' : '#ef4444',
-                                                        color: 'white',
-                                                        border: 'none',
-                                                        borderRadius: '6px',
-                                                        cursor: (actionLoading || ![0, 3].includes(data?.id_validaciontecnica || -1) || !tecnicaObs.trim()) ? 'not-allowed' : 'pointer',
-                                                        fontWeight: 600,
-                                                        fontSize: '0.9rem',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '8px',
-                                                        opacity: (actionLoading || ![0, 3].includes(data?.id_validaciontecnica || -1) || !tecnicaObs.trim()) ? 0.7 : 1,
-                                                        boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
-                                                    }}
-                                                    title={!tecnicaObs.trim() ? "Debe ingresar observaciones para procesar" : ""}
-                                                >
-                                                    <span>❌ Rechazar Ficha</span>
-                                                </button>
-                                            </div>
-                                        )}
-                                    </ObservacionesForm>
+                                                    <button
+                                                        onClick={handleRejectClick}
+                                                        disabled={actionLoading || ![0, 3, 4].includes(data?.id_validaciontecnica || -1) || !tecnicaObs.trim()}
+                                                        style={{
+                                                            padding: '8px 24px',
+                                                            backgroundColor: (![0, 3, 4].includes(data?.id_validaciontecnica || -1) || !tecnicaObs.trim()) ? '#9ca3af' : '#ef4444',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            borderRadius: '6px',
+                                                            cursor: (actionLoading || ![0, 3, 4].includes(data?.id_validaciontecnica || -1) || !tecnicaObs.trim()) ? 'not-allowed' : 'pointer',
+                                                            fontWeight: 600,
+                                                            fontSize: '0.9rem',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '8px',
+                                                            opacity: (actionLoading || ![0, 3, 4].includes(data?.id_validaciontecnica || -1) || !tecnicaObs.trim()) ? 0.7 : 1,
+                                                            boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                                                        }}
+                                                        title={!tecnicaObs.trim() ? "Debe ingresar observaciones para procesar" : ""}
+                                                    >
+                                                        <span>🔄 Solicitar Revisión</span>
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </ObservacionesForm>
+                                    </div>
                                 </div>
-                            </div>
+                            )}
                         </div>
                     )}
 

@@ -106,8 +106,8 @@ export const ObservationTimeline: React.FC<ObservationTimelineProps> = ({ fichaI
         const actionMap: Record<string, string> = {
             'aprobacion_tecnica': 'aprobada por el Área Técnica',
             'aprobacion_coordinacion': 'aprobada por el Área Coordinación',
-            'rechazo_tecnica': 'rechazada por el Área Técnica',
-            'rechazo_coordinacion': 'rechazada por el Área Coordinación',
+            'rechazo_tecnica': 'rechazada por el Área Técnica, solicitud de revisión',
+            'rechazo_coordinacion': 'rechazada por el Área Coordinación, solicitud de revisión',
             'asignacion_muestreador': 'programación realizada por el Área Coordinación',
             'ASIGNACION_MASIVA': 'programación realizada por el Área Coordinación',
             'ASIGNACION_MUESTREO': 'programación realizada por el Área Coordinación',

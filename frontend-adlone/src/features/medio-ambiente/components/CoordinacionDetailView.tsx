@@ -154,12 +154,8 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
                 setData(fichaData);
                 setLaboratorios(labsData || []);
 
-                // Populate local state from existing observations
-                // Look for 'observaciones_coordinador' on the flat object
-                const existingObs = fichaData.observaciones_coordinador || (fichaData.observaciones && fichaData.observaciones.coordinacion) || '';
-                if (existingObs) {
-                    setCoordinacionObs(existingObs);
-                }
+                // Ensure observation input always starts empty for a new action
+                setCoordinacionObs('');
             } catch (error) {
                 console.error("Error loading ficha:", error);
                 showToast({ type: 'error', message: "Error al cargar ficha" });
@@ -219,13 +215,13 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
                 observaciones: coordinacionObs,
                 user: { id: user?.id || 0 }
             });
-            showToast({ type: 'success', message: 'Ficha rechazada correctamente' });
+            showToast({ type: 'success', message: 'Revisión solicitada correctamente' });
             setTimeout(() => {
                 onBack();
             }, 1000);
         } catch (error) {
             console.error(error);
-            showToast({ type: 'error', message: 'Error al rechazar ficha' });
+            showToast({ type: 'error', message: 'Error al solicitar revisión' });
         } finally {
             setActionLoading(false);
         }
@@ -234,11 +230,11 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
     const handleRejectClick = () => {
         setModalConfig({
             isOpen: true,
-            title: 'Rechazar Ficha',
-            message: '¿Está seguro de RECHAZAR esta ficha? Volverá a estado de revisión.',
+            title: 'Solicitar Revisión',
+            message: '¿Está seguro de solicitar una REVISIÓN para esta ficha? Volverá al estado anterior para su corrección.',
             onConfirm: executeReject,
             isDestructive: true,
-            confirmText: 'Rechazar'
+            confirmText: 'Solicitar Revisión'
         });
     };
 
@@ -430,9 +426,8 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
                             </div>
 
                             <div className="form-grid-row grid-cols-4">
-                                <StaticField label="Correo Empresa" value={enc.id_empresa === 0 ? 'No Aplica' : (enc.email_empresa || '-')} />
                                 <StaticField label="Correo Contacto" value={enc.id_contacto === 0 ? 'No Aplica' : (enc.email_contacto || '-')} />
-                                <div style={{ gridColumn: 'span 2' }}></div>
+                                <div style={{ gridColumn: 'span 3' }}></div>
                             </div>
 
                             <div className="form-grid-row grid-cols-1">
@@ -496,10 +491,16 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
                             {/* Block 5: Hidraulica */}
                             <div style={{ marginTop: '1rem', marginBottom: '0.5rem', borderBottom: '1px solid #e5e7eb' }}></div>
                             <div className="form-grid-row grid-cols-4">
-                                <StaticField label="Forma del Canal" value={enc.id_formacanal === 0 ? 'No Aplica' : enc.nombre_formacanal} />
-                                <StaticField label="Detalle (Medidas)" value={enc.formacanal_medida} />
-                                <StaticField label="Dispositivo Hidráulico" value={enc.id_dispositivohidraulico === 0 ? 'No Aplica' : enc.nombre_dispositivohidraulico} />
-                                <StaticField label="Detalle (Medidas)" value={enc.dispositivohidraulico_medida} />
+                                <StaticField label="FORMA CANAL" value={enc.id_formacanal === 0 ? 'No Aplica' : enc.nombre_formacanal} />
+                                <StaticField label="medida:" value={enc.nombre_um_formacanal || '-'} />
+                                <StaticField label="VALOR MEDIDA" value={enc.formacanal_medida || '-'} />
+                                <div style={{ minHeight: '1px' }}></div>
+                            </div>
+                            <div className="form-grid-row grid-cols-4" style={{ marginTop: '0.5rem' }}>
+                                <StaticField label="DISPOSITIVO HIDRÁULICO" value={enc.id_dispositivohidraulico === 0 ? 'No Aplica' : enc.nombre_dispositivohidraulico} />
+                                <StaticField label="medida:" value={enc.nombre_um_dispositivohidraulico || '-'} />
+                                <StaticField label="VALOR MEDIDA" value={enc.dispositivohidraulico_medida || '-'} />
+                                <div style={{ minHeight: '1px' }}></div>
                             </div>
                         </div>
                     )}
@@ -540,7 +541,6 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
                                                 <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #e5e7eb' }}>Error Min</th>
                                                 <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #e5e7eb' }}>Error Max</th>
                                                 <th style={{ padding: '8px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>Tipo Entrega</th>
-                                                <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #e5e7eb' }}>Valor U.F.</th>
                                                 <th style={{ padding: '8px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>Lab. Principal</th>
                                                 <th style={{ padding: '8px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>Lab. Secundario</th>
                                             </tr>
@@ -564,7 +564,6 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
                                                         <td style={{ padding: '8px', textAlign: 'right' }}>{row.error_min ?? '-'}</td>
                                                         <td style={{ padding: '8px', textAlign: 'right' }}>{row.error_max ?? '-'}</td>
                                                         <td style={{ padding: '8px' }}>{row.nombre_tipoentrega || row.nombre_entrega}</td>
-                                                        <td style={{ padding: '8px', textAlign: 'right' }}>{row.uf_individual || row.uf || 0}</td>
                                                         <td style={{ padding: '8px' }}>
                                                             {labPrincipalName || (row.id_laboratorioensayo ? 'Enviado' : 'Interno')}
                                                         </td>
@@ -576,7 +575,7 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
                                             })}
                                             {det.length === 0 && (
                                                 <tr>
-                                                    <td colSpan={10} style={{ textAlign: 'center', padding: '2rem', color: '#6b7280' }}>
+                                                    <td colSpan={9} style={{ textAlign: 'center', padding: '2rem', color: '#6b7280' }}>
                                                         No hay análisis registrados.
                                                     </td>
                                                 </tr>
@@ -597,78 +596,80 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
                                 creationData={timelineCreationData}
                             />
 
-                            <div style={{ marginTop: '2rem', borderTop: '1px solid #e5e7eb', paddingTop: '2rem' }}>
-                                <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#374151', marginBottom: '1rem' }}>Mi Gestión (Coordinación)</h3>
-                                <div className="observation-action-row" style={{
-                                    borderLeft: '4px solid #8b5cf6',
-                                    paddingLeft: '1rem'
-                                }}>
-                                    <ObservacionesForm
-                                        label="Observaciones Coordinación"
-                                        value={coordinacionObs}
-                                        onChange={setCoordinacionObs}
-                                        readOnly={data?.id_validaciontecnica !== 1 || !hasPermission('MA_COORDINACION_APROBAR')}
-                                        placeholder={hasPermission('MA_COORDINACION_APROBAR') ? "Ingrese observaciones de coordinación aquí..." : "No tiene permisos para editar observaciones"}
-                                    >
-                                        {hasPermission('MA_COORDINACION_APROBAR') && (
-                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', width: '100%' }}>
-                                                {/* Action Buttons Row */}
-                                                <div style={{
-                                                    display: 'flex',
-                                                    gap: '1rem',
-                                                    justifyContent: 'center'
-                                                }}>
-                                                    <button
-                                                        onClick={handleAcceptClick}
-                                                        disabled={actionLoading || data?.id_validaciontecnica !== 1 || !coordinacionObs.trim()}
-                                                        style={{
-                                                            padding: '8px 24px',
-                                                            backgroundColor: (data?.id_validaciontecnica !== 1 || !coordinacionObs.trim()) ? '#9ca3af' : '#10b981',
-                                                            color: 'white',
-                                                            border: 'none',
-                                                            borderRadius: '6px',
-                                                            cursor: (actionLoading || data?.id_validaciontecnica !== 1 || !coordinacionObs.trim()) ? 'not-allowed' : 'pointer',
-                                                            fontWeight: 600,
-                                                            fontSize: '0.9rem',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            gap: '8px',
-                                                            opacity: (actionLoading || data?.id_validaciontecnica !== 1 || !coordinacionObs.trim()) ? 0.7 : 1,
-                                                            boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
-                                                        }}
-                                                        title={!coordinacionObs.trim() ? "Debe ingresar observaciones para procesar" : ""}
-                                                    >
-                                                        <span>✅ Aceptar</span>
-                                                    </button>
+                            {data?.id_validaciontecnica === 1 && (
+                                <div style={{ marginTop: '2rem', borderTop: '1px solid #e5e7eb', paddingTop: '2rem' }}>
+                                    <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#374151', marginBottom: '1rem' }}>Mi Gestión (Coordinación)</h3>
+                                    <div className="observation-action-row" style={{
+                                        borderLeft: '4px solid #8b5cf6',
+                                        paddingLeft: '1rem'
+                                    }}>
+                                        <ObservacionesForm
+                                            label="Observaciones Coordinación"
+                                            value={coordinacionObs}
+                                            onChange={setCoordinacionObs}
+                                            readOnly={data?.id_validaciontecnica !== 1 || !hasPermission('MA_COORDINACION_APROBAR')}
+                                            placeholder={hasPermission('MA_COORDINACION_APROBAR') ? "Ingrese observaciones de coordinación aquí..." : "No tiene permisos para editar observaciones"}
+                                        >
+                                            {hasPermission('MA_COORDINACION_APROBAR') && (
+                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', width: '100%' }}>
+                                                    {/* Action Buttons Row */}
+                                                    <div style={{
+                                                        display: 'flex',
+                                                        gap: '1rem',
+                                                        justifyContent: 'center'
+                                                    }}>
+                                                        <button
+                                                            onClick={handleAcceptClick}
+                                                            disabled={actionLoading || data?.id_validaciontecnica !== 1 || !coordinacionObs.trim()}
+                                                            style={{
+                                                                padding: '8px 24px',
+                                                                backgroundColor: (data?.id_validaciontecnica !== 1 || !coordinacionObs.trim()) ? '#9ca3af' : '#10b981',
+                                                                color: 'white',
+                                                                border: 'none',
+                                                                borderRadius: '6px',
+                                                                cursor: (actionLoading || data?.id_validaciontecnica !== 1 || !coordinacionObs.trim()) ? 'not-allowed' : 'pointer',
+                                                                fontWeight: 600,
+                                                                fontSize: '0.9rem',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: '8px',
+                                                                opacity: (actionLoading || data?.id_validaciontecnica !== 1 || !coordinacionObs.trim()) ? 0.7 : 1,
+                                                                boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                                                            }}
+                                                            title={!coordinacionObs.trim() ? "Debe ingresar observaciones para procesar" : ""}
+                                                        >
+                                                            <span>✅ Aceptar</span>
+                                                        </button>
 
-                                                    <button
-                                                        onClick={handleRejectClick}
-                                                        disabled={actionLoading || data?.id_validaciontecnica !== 1 || !coordinacionObs.trim()}
-                                                        style={{
-                                                            padding: '8px 24px',
-                                                            backgroundColor: (data?.id_validaciontecnica !== 1 || !coordinacionObs.trim()) ? '#9ca3af' : '#ef4444',
-                                                            color: 'white',
-                                                            border: 'none',
-                                                            borderRadius: '6px',
-                                                            cursor: (actionLoading || data?.id_validaciontecnica !== 1 || !coordinacionObs.trim()) ? 'not-allowed' : 'pointer',
-                                                            fontWeight: 600,
-                                                            fontSize: '0.9rem',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            gap: '8px',
-                                                            opacity: (actionLoading || data?.id_validaciontecnica !== 1 || !coordinacionObs.trim()) ? 0.7 : 1,
-                                                            boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
-                                                        }}
-                                                        title={!coordinacionObs.trim() ? "Debe ingresar observaciones para procesar" : ""}
-                                                    >
-                                                        <span>❌ Rechazar</span>
-                                                    </button>
+                                                        <button
+                                                            onClick={handleRejectClick}
+                                                            disabled={actionLoading || data?.id_validaciontecnica !== 1 || !coordinacionObs.trim()}
+                                                            style={{
+                                                                padding: '8px 24px',
+                                                                backgroundColor: (data?.id_validaciontecnica !== 1 || !coordinacionObs.trim()) ? '#9ca3af' : '#ef4444',
+                                                                color: 'white',
+                                                                border: 'none',
+                                                                borderRadius: '6px',
+                                                                cursor: (actionLoading || data?.id_validaciontecnica !== 1 || !coordinacionObs.trim()) ? 'not-allowed' : 'pointer',
+                                                                fontWeight: 600,
+                                                                fontSize: '0.9rem',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: '8px',
+                                                                opacity: (actionLoading || data?.id_validaciontecnica !== 1 || !coordinacionObs.trim()) ? 0.7 : 1,
+                                                                boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                                                            }}
+                                                            title={!coordinacionObs.trim() ? "Debe ingresar observaciones para procesar" : ""}
+                                                        >
+                                                            <span>🔄 Solicitar Revisión</span>
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        )}
-                                    </ObservacionesForm>
+                                            )}
+                                        </ObservacionesForm>
+                                    </div>
                                 </div>
-                            </div>
+                            )}
                         </div>
                     )}
 

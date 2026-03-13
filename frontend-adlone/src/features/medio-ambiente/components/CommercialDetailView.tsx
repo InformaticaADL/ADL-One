@@ -49,6 +49,8 @@ const mapToAntecedentes = (enc: any, agenda: any) => {
         else if (upper.startsWith('RES. EX') || upper.startsWith('RES EX') || upper.startsWith('RESOLUCION EX')) selInst = 'Res. Ex.';
         else if (upper.startsWith('DECRETO')) selInst = 'Decreto';
         else if (upper.startsWith('CARTA')) selInst = 'Carta';
+        else if (upper.startsWith('RES SIS') || upper.startsWith('RESOLUCION SIS')) selInst = 'Res Sis';
+        else if (upper.startsWith('DGTM')) selInst = 'DGTM';
         else selInst = 'Otro';
 
         // Extract Number/Year
@@ -61,6 +63,8 @@ const mapToAntecedentes = (enc: any, agenda: any) => {
             else if (selInst === 'RCA') rest = rawInst.replace(/^RCA\s*(N°)?/i, '').trim();
             else if (selInst === 'Decreto') rest = rawInst.replace(/^Decreto\s*(N°)?/i, '').trim();
             else if (selInst === 'Carta') rest = rawInst.replace(/^Carta\s*(N°)?/i, '').trim();
+            else if (selInst === 'Res Sis') rest = rawInst.replace(/^Res\.?\s*Sis\.?\s*(N°)?/i, '').trim();
+            else if (selInst === 'DGTM') rest = rawInst.replace(/^DGTM\s*(N°)?/i, '').trim();
         }
 
         const splitSlash = rest.split('/');
@@ -85,8 +89,10 @@ const mapToAntecedentes = (enc: any, agenda: any) => {
         selectedFuente: enc.id_centro,
 
         // If contact is not in ENC, might be in a join or not returned. 
-        // Assuming we might need to fetch or it's just id_contacto if it exists.
-        selectedContacto: enc.id_contacto || '',
+        // If it's 0, it means it's either "No Aplica" or the primary contact of the empresa.
+        selectedContacto: (enc.id_contacto === 0 || !enc.id_contacto)
+            ? (enc.nombre_contacto === 'No Aplica' ? 'No Aplica' : 'primary')
+            : String(enc.id_contacto),
 
         // Form: selectedObjetivo
         selectedObjetivo: enc.id_objetivomuestreo_ma,
@@ -115,8 +121,10 @@ const mapToAntecedentes = (enc: any, agenda: any) => {
         medicionCaudal: enc.medicion_caudal,
         selectedModalidad: enc.id_modalidad,
         formaCanal: enc.id_formacanal,
+        tipoMedidaCanal: enc.id_um_formacanal,
         detalleCanal: enc.formacanal_medida,
         dispositivo: enc.id_dispositivohidraulico,
+        tipoMedidaDispositivo: enc.id_um_dispositivohidraulico,
         detalleDispositivo: enc.dispositivohidraulico_medida,
 
         // FREQUENCY FIX: Read from Agenda or Enc defaults
@@ -670,9 +678,8 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                             </div>
 
                             <div className="form-grid-row grid-cols-4">
-                                <StaticField label="Correo Empresa" value={enc.id_empresa === 0 ? 'No Aplica' : (enc.email_empresa || '-')} />
                                 <StaticField label="Correo Contacto" value={enc.id_contacto === 0 ? 'No Aplica' : (enc.email_contacto || '-')} />
-                                <div style={{ gridColumn: 'span 2' }}></div>
+                                <div style={{ gridColumn: 'span 3' }}></div>
                             </div>
 
                             <div className="form-grid-row grid-cols-1">
@@ -738,10 +745,16 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                             {/* Block 5: Hidraulica */}
                             <div style={{ marginTop: '1rem', marginBottom: '0.5rem', borderBottom: '1px solid #e5e7eb' }}></div>
                             <div className="form-grid-row grid-cols-4">
-                                <StaticField label="Forma del Canal" value={enc.id_formacanal === 0 ? 'No Aplica' : enc.nombre_formacanal} />
-                                <StaticField label="Detalle (Medidas)" value={enc.formacanal_medida} />
-                                <StaticField label="Dispositivo Hidráulico" value={enc.id_dispositivohidraulico === 0 ? 'No Aplica' : enc.nombre_dispositivohidraulico} />
-                                <StaticField label="Detalle (Medidas)" value={enc.dispositivohidraulico_medida} />
+                                <StaticField label="FORMA CANAL" value={enc.id_formacanal === 0 ? 'No Aplica' : enc.nombre_formacanal} />
+                                <StaticField label="medida:" value={enc.nombre_um_formacanal || '-'} />
+                                <StaticField label="VALOR MEDIDA" value={enc.formacanal_medida || '-'} />
+                                <div style={{ minHeight: '1px' }}></div>
+                            </div>
+                            <div className="form-grid-row grid-cols-4" style={{ marginTop: '0.5rem' }}>
+                                <StaticField label="DISPOSITIVO HIDRÁULICO" value={enc.id_dispositivohidraulico === 0 ? 'No Aplica' : enc.nombre_dispositivohidraulico} />
+                                <StaticField label="medida:" value={enc.nombre_um_dispositivohidraulico || '-'} />
+                                <StaticField label="VALOR MEDIDA" value={enc.dispositivohidraulico_medida || '-'} />
+                                <div style={{ minHeight: '1px' }}></div>
                             </div>
                         </div>
                     )}
@@ -867,17 +880,6 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                 </div>
                             )}
 
-                            {!isEditing && (
-                                <div style={{ marginTop: '2rem', borderTop: '1px solid #e5e7eb', paddingTop: '2rem' }}>
-                                    <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#374151', marginBottom: '1rem' }}>Observaciones Actuales</h3>
-                                    <ObservacionesForm
-                                        label="Observaciones Comercial / Atención Cliente"
-                                        value={enc.observaciones_comercial}
-                                        onChange={() => { }}
-                                        readOnly={true} // Always Read Only here as edit is main form
-                                    />
-                                </div>
-                            )}
                         </div>
                     )}
 
