@@ -203,18 +203,42 @@ class NotificationService {
 
         // 2. Handle SERVICIOS_DETALLE (dynamic array processing)
         if (isHtml && context.servicios && Array.isArray(context.servicios)) {
-            const serviciosHtml = context.servicios.map((servicio, index) => `
+            const serviciosHtml = context.servicios.map((servicio, index) => {
+                const hasFechaChange = !!servicio.old_fecha;
+                const hasInstalacionChange = !!servicio.old_muestreador_instalacion;
+                const hasRetiroChange = !!servicio.old_muestreador_retiro;
+
+                // Build HTML for each field with change detection
+                const fechaHtml = hasFechaChange 
+                    ? `<span style="color: #e53e3e; text-decoration: line-through; margin-right: 8px;">${servicio.old_fecha}</span> <span style="color: #2b6cb0; font-weight: bold;">➔ ${servicio.fecha_muestreo}</span>`
+                    : `<span>${servicio.fecha_muestreo}</span>`;
+
+                const instalacionHtml = hasInstalacionChange
+                    ? `<span style="color: #e53e3e; text-decoration: line-through; margin-right: 8px;">${servicio.old_muestreador_instalacion}</span> <span style="color: #2b6cb0; font-weight: bold;">➔ ${servicio.muestreador_instalacion}</span>`
+                    : `<span>${servicio.muestreador_instalacion}</span>`;
+
+                const retiroHtml = hasRetiroChange
+                    ? `<span style="color: #e53e3e; text-decoration: line-through; margin-right: 8px;">${servicio.old_muestreador_retiro}</span> <span style="color: #2b6cb0; font-weight: bold;">➔ ${servicio.muestreador_retiro}</span>`
+                    : `<span>${servicio.muestreador_retiro}</span>`;
+
+                return `
                 <div style="margin-bottom: 15px; padding: 12px; background: white; border-left: 4px solid #0062a8; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
                     <strong style="color: #0062a8; font-size: 14px; font-family: Arial, sans-serif;">Servicio ${servicio.numero}:</strong><br>
                     <div style="margin-top: 8px; color: #333; font-size: 13px; line-height: 1.6; font-family: Arial, sans-serif;">
-                        <div style="margin-bottom: 4px;">📥 <strong>Instalación:</strong> ${servicio.muestreador_instalacion}</div>
-                        <div style="margin-bottom: 4px;">📤 <strong>Retiro:</strong> ${servicio.muestreador_retiro}</div>
-                        <div>📅 <strong>Fecha muestreo:</strong> ${servicio.fecha_muestreo}</div>
+                        <div style="margin-bottom: 4px;">📥 <strong>Instalación:</strong> ${instalacionHtml}</div>
+                        <div style="margin-bottom: 4px;">📤 <strong>Retiro:</strong> ${retiroHtml}</div>
+                        <div>📅 <strong>Fecha muestreo:</strong> ${fechaHtml}</div>
                     </div>
                 </div>
-            `).join('');
+                `;
+            }).join('');
 
-            output = output.split('{SERVICIOS_DETALLE}').join(serviciosHtml);
+            output = output.replace(/\{servicios_detalle\}/gi, serviciosHtml);
+        }
+
+        // Add alias for Planta if present
+        if (context.fuente_centro) {
+            context.planta = context.fuente_centro;
         }
 
         // 2.1 Handle EQUIPOS_DETALLE (dynamic array processing for equipment)

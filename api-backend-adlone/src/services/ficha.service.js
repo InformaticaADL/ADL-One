@@ -104,6 +104,8 @@ class FichaIngresoService {
             // ... (previous inputs)
             requestEnc.input('id_disp', sql.Numeric(10, 0), valNum(ant.dispositivo));
             requestEnc.input('disp_medida', sql.VarChar(50), valStr(ant.detalleDispositivo, 50));
+            requestEnc.input('id_um_formacanal', sql.Int, valNum(ant.tipoMedidaCanal));
+            requestEnc.input('id_um_dispositivohidraulico', sql.Int, valNum(ant.tipoMedidaDispositivo));
 
             // FoxPro Parity: Missing Fields defaults
             requestEnc.input('cond_flujo', sql.VarChar(1), '');
@@ -143,6 +145,7 @@ class FichaIngresoService {
                     ficha_habilitado, estado_ficha, sincronizado, 
                     referencia_googlemaps, medicion_caudal, id_modalidad,
                     id_formacanal, formacanal_medida, id_dispositivohidraulico, dispositivohidraulico_medida,
+                    id_um_formacanal, id_um_dispositivohidraulico,
                     condicionmedicion_flujolaminar, condicionmedicion_velocidaduniforme, condicionmedicion_observacion,
                     condicionmedicion_cumple, id_jefaturatecnica, fecha_jefaturatecnica,
                     hora_jefaturatecnica, coordenadas_ruta, id_validaciontecnica,
@@ -159,6 +162,7 @@ class FichaIngresoService {
                     'S', 'VIGENTE', 'N',
                     @ref_google, @medicion_caudal, @id_modalidad,
                     @id_formacanal, @formacanal_medida, @id_disp, @disp_medida,
+                    @id_um_formacanal, @id_um_dispositivohidraulico,
                     @cond_flujo, @cond_velocidad, @cond_obs,
                     @cond_cumple, @id_jefatura, @fecha_jefatura,
                     @hora_jefatura, @coord_ruta, @id_val_tecnica,
@@ -436,6 +440,8 @@ class FichaIngresoService {
             request.input('formacanal_medida', sql.VarChar(50), valStr(ant.detalleCanal, 50));
             request.input('id_disp', sql.Numeric(10, 0), valNum(ant.dispositivo));
             request.input('disp_medida', sql.VarChar(50), valStr(ant.detalleDispositivo, 50));
+            request.input('id_um_formacanal', sql.Int, valNum(ant.tipoMedidaCanal));
+            request.input('id_um_dispositivohidraulico', sql.Int, valNum(ant.tipoMedidaDispositivo));
 
             // Condition Metrics defaults (simplified update for existing fields)
             request.input('cond_flujo', sql.VarChar(1), '');
@@ -476,8 +482,10 @@ class FichaIngresoService {
                     id_modalidad = @id_modalidad,
                     id_formacanal = @id_formacanal,
                     formacanal_medida = @formacanal_medida,
+                    id_um_formacanal = @id_um_formacanal,
                     id_dispositivohidraulico = @id_disp,
                     dispositivohidraulico_medida = @disp_medida,
+                    id_um_dispositivohidraulico = @id_um_dispositivohidraulico,
                     ubicacion = @ubicacion,
                     responsablemuestreo = @responsable,
                     observaciones_comercial = @obs_comercial,
@@ -1091,7 +1099,7 @@ class FichaIngresoService {
                         la.nombre_lugaranalisis,
                         em1.nombre_empresa AS nombre_empresa,
                         em1.email_empresa,
-                        em2.nombre_empresa AS nombre_empresaservicios,
+                        es2.nombre_empresaservicios,
                         c.nombre_centro,
                         c.codigo_centro,
                         com.nombre_comuna,
@@ -1108,12 +1116,19 @@ class FichaIngresoService {
                         td.nombre_tipodescarga,
                         mod.nombre_modalidad,
                         fc.nombre_formacanal,
-                        dh.nombre_dispositivohidraulico
+                        dh.nombre_dispositivohidraulico,
+                        t.nombre_tipoagua,
+                        um1.nombre_umedida AS nombre_um_formacanal,
+                        um2.nombre_umedida AS nombre_um_dispositivohidraulico,
+                        e.id_um_formacanal,
+                        e.id_um_dispositivohidraulico,
+                        es2.email_empresaservicios,
+                        es2.contacto_empresaservicios
                     FROM App_Ma_FichaIngresoServicio_ENC e
                     LEFT JOIN App_Ma_Agenda_MUESTREOS a ON e.id_fichaingresoservicio = a.id_fichaingresoservicio
                     LEFT JOIN mae_lugaranalisis la ON e.id_lugaranalisis = la.id_lugaranalisis
                     LEFT JOIN mae_empresa em1 ON e.id_empresa = em1.id_empresa
-                    LEFT JOIN mae_empresa em2 ON e.id_empresaservicio = em2.id_empresa
+                    LEFT JOIN mae_empresaservicios es2 ON e.id_empresaservicio = es2.id_empresaservicio
                     LEFT JOIN mae_centro c ON e.id_centro = c.id_centro
                     LEFT JOIN mae_comuna com ON c.id_comuna = com.id_comuna
                     LEFT JOIN mae_region reg ON c.id_region = reg.id_region
@@ -1129,6 +1144,9 @@ class FichaIngresoService {
                     LEFT JOIN mae_modalidad mod ON e.id_modalidad = mod.id_modalidad
                     LEFT JOIN mae_formacanal fc ON e.id_formacanal = fc.id_formacanal
                     LEFT JOIN mae_dispositivohidraulico dh ON e.id_dispositivohidraulico = dh.id_dispositivohidraulico
+                    LEFT JOIN mae_umedida um1 ON e.id_um_formacanal = um1.id_umedida
+                    LEFT JOIN mae_umedida um2 ON e.id_um_dispositivohidraulico = um2.id_umedida
+                    LEFT JOIN mae_tipoagua t ON e.id_tipoagua = t.id_tipoagua
                     WHERE e.id_fichaingresoservicio = @id
                 `);
 
@@ -1165,28 +1183,38 @@ class FichaIngresoService {
 
                     ficha.codigo_centro = ficha.codigo_centro ?? raw.codigo_centro;
 
-                    // Hydrate names
-                    ficha.nombre_lugaranalisis = ficha.nombre_lugaranalisis ?? raw.nombre_lugaranalisis;
-                    ficha.nombre_empresa = ficha.nombre_empresa ?? raw.nombre_empresa;
-                    ficha.email_empresa = ficha.email_empresa ?? raw.email_empresa;
-                    ficha.nombre_empresaservicios = ficha.nombre_empresaservicios ?? raw.nombre_empresaservicios;
-                    ficha.nombre_centro = ficha.nombre_centro ?? raw.nombre_centro;
-                    ficha.nombre_comuna = ficha.nombre_comuna ?? raw.nombre_comuna;
-                    ficha.nombre_region = ficha.nombre_region ?? raw.nombre_region;
-                    ficha.nombre_contacto = ficha.nombre_contacto ?? raw.nombre_contacto;
-                    ficha.email_contacto = ficha.email_contacto ?? raw.email_contacto;
-                    ficha.nombre_objetivomuestreo_ma = ficha.nombre_objetivomuestreo_ma ?? raw.nombre_objetivomuestreo_ma;
-                    ficha.nombre_cargo = ficha.nombre_cargo ?? raw.nombre_cargo;
-                    ficha.nombre_tipomuestreo = ficha.nombre_tipomuestreo ?? raw.nombre_tipomuestreo;
-                    ficha.nombre_tipomuestra_ma = ficha.nombre_tipomuestra_ma ?? raw.nombre_tipomuestra_ma;
-                    ficha.nombre_tipomuestra = ficha.nombre_tipomuestra ?? raw.nombre_tipomuestra;
-                    ficha.nombre_subarea = ficha.nombre_subarea ?? raw.nombre_subarea;
-                    ficha.nombre_actividadmuestreo = ficha.nombre_actividadmuestreo ?? raw.nombre_actividadmuestreo;
-                    ficha.nombre_tipodescarga = ficha.nombre_tipodescarga ?? raw.nombre_tipodescarga;
-                    ficha.nombre_modalidad = ficha.nombre_modalidad ?? raw.nombre_modalidad;
-                    ficha.nombre_formacanal = ficha.nombre_formacanal ?? raw.nombre_formacanal;
-                    ficha.nombre_dispositivohidraulico = ficha.nombre_dispositivohidraulico ?? raw.nombre_dispositivohidraulico;
+                    // Helper to choose truthy and non-placeholder value
+                    const val = (fVal, rVal) => {
+                        if (fVal === null || fVal === undefined || fVal === '' || fVal === '-' || fVal === 'Sin Nombre') return rVal;
+                        return fVal;
+                    };
 
+                    // Hydrate names
+                    ficha.nombre_lugaranalisis = val(ficha.nombre_lugaranalisis, raw.nombre_lugaranalisis);
+                    ficha.nombre_empresa = val(ficha.nombre_empresa, raw.nombre_empresa);
+                    ficha.nombre_empresaservicios = val(ficha.nombre_empresaservicios, raw.nombre_empresaservicios);
+                    ficha.email_empresa = null; // Removing from UI
+                    ficha.nombre_contacto = (ficha.id_contacto === 0 || !ficha.id_contacto) ? raw.contacto_empresaservicios : val(ficha.nombre_contacto, raw.nombre_contacto);
+                    ficha.email_contacto = (ficha.id_contacto === 0 || !ficha.id_contacto) ? (raw.email_empresaservicios || raw.email_contacto) : val(ficha.email_contacto, raw.email_contacto);
+                    ficha.nombre_centro = val(ficha.nombre_centro, raw.nombre_centro);
+                    ficha.nombre_comuna = val(ficha.nombre_comuna, raw.nombre_comuna);
+                    ficha.nombre_region = val(ficha.nombre_region, raw.nombre_region);
+                    ficha.nombre_objetivomuestreo_ma = val(ficha.nombre_objetivomuestreo_ma, raw.nombre_objetivomuestreo_ma);
+                    ficha.nombre_cargo = val(ficha.nombre_cargo, raw.nombre_cargo);
+                    ficha.nombre_tipomuestreo = val(ficha.nombre_tipomuestreo, raw.nombre_tipomuestreo);
+                    ficha.nombre_tipomuestra_ma = val(ficha.nombre_tipomuestra_ma, raw.nombre_tipomuestra_ma);
+                    ficha.nombre_tipomuestra = val(ficha.nombre_tipomuestra, raw.nombre_tipomuestra);
+                    ficha.nombre_subarea = val(ficha.nombre_subarea, raw.nombre_subarea);
+                    ficha.nombre_actividadmuestreo = val(ficha.nombre_actividadmuestreo, raw.nombre_actividadmuestreo);
+                    ficha.nombre_tipodescarga = val(ficha.nombre_tipodescarga, raw.nombre_tipodescarga);
+                    ficha.nombre_modalidad = val(ficha.nombre_modalidad, raw.nombre_modalidad);
+                    ficha.nombre_formacanal = val(ficha.nombre_formacanal, raw.nombre_formacanal);
+                    ficha.nombre_dispositivohidraulico = val(ficha.nombre_dispositivohidraulico, raw.nombre_dispositivohidraulico);
+                    ficha.nombre_um_formacanal = val(ficha.nombre_um_formacanal, raw.nombre_um_formacanal);
+                    ficha.nombre_um_dispositivohidraulico = val(ficha.nombre_um_dispositivohidraulico, raw.nombre_um_dispositivohidraulico);
+                    ficha.id_um_formacanal = ficha.id_um_formacanal ?? raw.id_um_formacanal;
+                    ficha.id_um_dispositivohidraulico = ficha.id_um_dispositivohidraulico ?? raw.id_um_dispositivohidraulico;
+                    
                     // Merge raw data into ficha.agenda
                     ficha.agenda = ficha.agenda || {};
                     ficha.agenda.frecuencia = ficha.agenda.frecuencia ?? raw.frecuencia;
@@ -1756,6 +1784,7 @@ class FichaIngresoService {
         try {
             await transaction.begin();
             let successCount = 0;
+            const historicalData = new Map(); // Store old values per agendamam ID
 
             for (const assignment of assignments) {
                 const {
@@ -1768,6 +1797,22 @@ class FichaIngresoService {
                     frecuenciaCorrelativo,
                     actualizarVersiones         // flag para refrescar equipos desde maestro
                 } = assignment;
+
+                // 0. CAPTURAR ESTADO PREVIO (Para notificaciones de reprogramación)
+                const histRequest = new sql.Request(transaction);
+                histRequest.input('id_agenda', sql.Numeric(10, 0), id);
+                const histResult = await histRequest.query(`
+                    SELECT a.fecha_muestreo, a.ma_muestreo_fechat as fecha_retiro, 
+                           m1.nombre_muestreador as muestreador_instalacion,
+                           m2.nombre_muestreador as muestreador_retiro
+                    FROM App_Ma_Agenda_MUESTREOS a
+                    LEFT JOIN mae_muestreador m1 ON a.id_muestreador = m1.id_muestreador
+                    LEFT JOIN mae_muestreador m2 ON a.id_muestreador2 = m2.id_muestreador
+                    WHERE a.id_agendamam = @id_agenda
+                `);
+                if (histResult.recordset.length > 0) {
+                    historicalData.set(String(id), histResult.recordset[0]);
+                }
 
                 // 1. ACTUALIZAR App_Ma_Agenda_MUESTREOS
                 const dateObj = new Date(fecha);
@@ -2023,6 +2068,50 @@ class FichaIngresoService {
 
             // For each ficha, collect detailed service information
             for (const fid of distinctFichas) {
+                // Determine if it was already in process (Reprogramación)
+                const statusReq = new sql.Request(transaction);
+                statusReq.input('fid', sql.Numeric(10, 0), fid);
+                // Query metadata + status (Resumen de Muestreo)
+                const metaRes = await statusReq.query(`
+                    SELECT 
+                        e.id_validaciontecnica,
+                        e.fichaingresoservicio as correlativo_txt,
+                        e.id_tipomuestra_ma, -- Componente
+                        e.id_tipomuestra, -- Tipo Muestra
+                        e.nombre_tabla_largo as glosa,
+                        e.ma_coordenadas as coordenadas,
+                        e.ma_punto_muestreo as punto_muestreo,
+                        e.id_empresaservicio,
+                        e.id_centro,
+                        e.id_subarea,
+                        e.id_objetivomuestreo_ma,
+                        e.id_contacto,
+                        e.id_tipomuestreo, -- Monitoreo
+                        es.nombre_empresaservicios as empresa_servicio,
+                        em.nombre_empresa as cliente,
+                        em.email_empresa as correo_empresa_cliente,
+                        c.nombre_centro as fuente_centro,
+                        s.nombre_subarea,
+                        t.nombre_tipomuestreo as monitoreo,
+                        obj.nombre_objetivomuestreo_ma as nombre_objetivo,
+                        cont.nombre_contacto,
+                        cont.email_contacto as correo_contacto,
+                        es.email_empresaservicios as correo_empresa_servicio
+                    FROM App_Ma_FichaIngresoServicio_ENC e
+                    LEFT JOIN mae_empresaservicios es ON e.id_empresaservicio = es.id_empresaservicio
+                    LEFT JOIN mae_empresa em ON e.id_empresa = em.id_empresa
+                    LEFT JOIN mae_centro c ON e.id_centro = c.id_centro
+                    LEFT JOIN mae_subarea s ON e.id_subarea = s.id_subarea
+                    LEFT JOIN mae_tipomuestreo t ON e.id_tipomuestreo = t.id_tipomuestreo
+                    LEFT JOIN mae_objetivomuestreo_ma obj ON e.id_objetivomuestreo_ma = obj.id_objetivomuestreo_ma
+                    LEFT JOIN mae_contacto cont ON e.id_contacto = cont.id_contacto
+                    WHERE e.id_fichaingresoservicio = @fid
+                `);
+                
+                const meta = metaRes.recordset[0] || {};
+                const prevStatus = meta.id_validaciontecnica;
+                const isReprogramacion = prevStatus === 5;
+
                 // Query detailed information for this ficha
                 const detailRequest = new sql.Request(transaction);
                 detailRequest.input('fichaId', sql.Numeric(10, 0), fid);
@@ -2031,6 +2120,7 @@ class FichaIngresoService {
                     SELECT 
                         a.id_agendamam,
                         a.frecuencia_correlativo,
+                        a.fecha_muestreo,
                         a.dia, a.mes, a.ano,
                         a.ma_muestreo_fechat as fecha_retiro,
                         m1.nombre_muestreador as muestreador_instalacion,
@@ -2061,29 +2151,67 @@ class FichaIngresoService {
                         const numeroServicio = correlativoParts.length >= 2 ? correlativoParts[1] : (index + 1);
 
                         // Format date (using UTC to avoid timezone offset issues)
-                        let fechaMuestreo = 'No asignada';
-                        if (row.fecha_muestreo) {
-                            const dateObj = new Date(row.fecha_muestreo);
-                            // Use UTC methods to avoid timezone conversion
-                            const year = dateObj.getUTCFullYear();
-                            const month = dateObj.getUTCMonth();
-                            const day = dateObj.getUTCDate();
+                        const formatDate = (date) => {
+                            if (!date) return 'No asignada';
+                            const d = new Date(date);
+                            const year = d.getUTCFullYear();
+                            const month = d.getUTCMonth();
+                            const day = d.getUTCDate();
+                            return new Date(year, month, day).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
+                        };
 
-                            // Create date in local timezone
-                            const localDate = new Date(year, month, day);
-                            fechaMuestreo = localDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
+                        const fechaMuestreo = formatDate(row.fecha_muestreo);
+
+                        // History comparison
+                        const history = historicalData.get(String(row.id_agendamam));
+                        let oldFecha = null;
+                        let oldInstalacion = null;
+                        let oldRetiro = null;
+                        let isModified = false;
+
+                        if (history) {
+                            // Only set old values if they actually changed
+                            const oldF = formatDate(history.fecha_muestreo);
+                            if (oldF !== fechaMuestreo) {
+                                oldFecha = oldF;
+                                isModified = true;
+                            }
+
+                            if (history.muestreador_instalacion !== (row.muestreador_instalacion || 'No asignado')) {
+                                oldInstalacion = history.muestreador_instalacion || 'Sin Asignar';
+                                isModified = true;
+                            }
+                            if (history.muestreador_retiro !== (row.muestreador_retiro || 'No asignado')) {
+                                oldRetiro = history.muestreador_retiro || 'Sin Asignar';
+                                isModified = true;
+                            }
                         }
 
                         return {
                             numero: numeroServicio,
                             muestreador_instalacion: row.muestreador_instalacion || 'No asignado',
                             muestreador_retiro: row.muestreador_retiro || 'No asignado',
-                            fecha_muestreo: fechaMuestreo
+                            fecha_muestreo: fechaMuestreo,
+                            old_fecha: oldFecha,
+                            old_muestreador_instalacion: oldInstalacion,
+                            old_muestreador_retiro: oldRetiro,
+                            isModified
                         };
                     });
 
                     // Sort services numerically by their extracted number
                     servicios.sort((a, b) => parseInt(a.numero) - parseInt(b.numero));
+
+                    // Only show modified services if it's a rescheduling
+                    const serviciosFinal = isReprogramacion 
+                        ? servicios.filter(s => s.isModified) 
+                        : servicios;
+
+                    // Skip notification if no services were actually modified and it's a reprogramming
+                    if (isReprogramacion && serviciosFinal.length === 0) {
+                        logger.info(`Ficha ${fid}: Reprogramación skiped because no services changed.`);
+                        continue; 
+                    }
 
                     // Get user name (Robust fallback logic) - Prioritize 'usuario' (Full Name)
                     let asignadoPor = user.usuario || user.nombre_usuario || user.nombre || user.name;
@@ -2105,14 +2233,29 @@ class FichaIngresoService {
                     asignadoPor = asignadoPor || 'Usuario Sistema';
 
                     // Send enhanced notification
-                    notificationService.send('FICHA_ASIGNADA', {
-                        correlativo: String(fid),
+                    const eventCode = isReprogramacion ? 'FICHA_MUESTREO_REPROGRAMADO' : 'FICHA_ASIGNADA';
+                    notificationService.send(eventCode, {
+                        correlativo: meta.correlativo_txt || String(fid),
                         tipo_frecuencia: tipoFrecuencia,
                         total_servicios: totalServicios,
-                        servicios: servicios,
+                        servicios: serviciosFinal,
                         asignado_por: asignadoPor,
                         fecha: notifFecha,
-                        hora_asignacion: notifHora
+                        hora_asignacion: notifHora,
+                        // Enhanced Metadata for Sample Summary
+                        monitoreo: meta.monitoreo || 'No especificado',
+                        empresa_servicio: meta.empresa_servicio || 'No especificada',
+                        cliente: meta.cliente || 'No especificado',
+                        fuente_centro: meta.fuente_centro || 'No especificada',
+                        sub_area: meta.nombre_subarea || 'No especificada',
+                        objetivo: meta.nombre_objetivo || 'No especificado',
+                        glosa: meta.glosa || 'Sin observaciones',
+                        contacto_empresa: meta.nombre_contacto || 'No especificado',
+                        correo_contacto: meta.correo_contacto || 'No especificado',
+                        correo_empresa: meta.correo_empresa_servicio || 'No especificado',
+                        correo_cliente: meta.correo_empresa_cliente || 'No especificado',
+                        punto_muestreo: meta.punto_muestreo || 'No especificado',
+                        coordenadas: meta.coordenadas || 'No especificado'
                     });
                 }
             }
@@ -2176,7 +2319,7 @@ class FichaIngresoService {
             throw error;
         }
     }
-    async cancelAgendaSampling(idAgenda, idFicha, user, observations) {
+    async cancelAgendaSampling(idAgenda, idFicha, user, observations, idEstadoMuestreo) {
         const pool = await getConnection();
         const transaction = new sql.Transaction(pool);
 
@@ -2188,10 +2331,11 @@ class FichaIngresoService {
             const agendaReq = new sql.Request(transaction);
             agendaReq.input('id_agenda', sql.Numeric(18, 0), idAgenda);
             agendaReq.input('motivo', sql.VarChar(500), observations || '');
+            agendaReq.input('id_estado', sql.Int, idEstadoMuestreo || 99); // Fallback to 99 if not provided
             await agendaReq.query(`
                 UPDATE App_Ma_Agenda_MUESTREOS 
                 SET estado_caso = 'CANCELADO',
-                    id_estadomuestreo = 99,
+                    id_estadomuestreo = @id_estado,
                     motivo_cancelacion = @motivo
                 WHERE id_agendamam = @id_agenda
             `);
@@ -2234,6 +2378,46 @@ class FichaIngresoService {
 
             await transaction.commit();
             logger.info(`Muestreo cancelado exitosamente: Agenda ${idAgenda}`);
+
+            // NOTIFICACIÓN: Muestreo Cancelado
+            try {
+                const poolNotif = await getConnection();
+                const detailRes = await poolNotif.request().query(`
+                    SELECT 
+                        a.frecuencia_correlativo,
+                        a.fecha_muestreo,
+                        f.fichaingresoservicio,
+                        m.nombre_muestreador
+                    FROM App_Ma_Agenda_MUESTREOS a
+                    INNER JOIN App_Ma_FichaIngresoServicio_ENC f ON a.id_fichaingresoservicio = f.id_fichaingresoservicio
+                    LEFT JOIN mae_muestreador m ON a.id_muestreador = m.id_muestreador
+                    WHERE a.id_agendamam = ${idAgenda}
+                `);
+
+                if (detailRes.recordset.length > 0) {
+                    const info = detailRes.recordset[0];
+                    const notifDate = new Date();
+                    const notifFechaStr = notifDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
+                    
+                    let fechaMuestreoStr = 'No asignada';
+                    if (info.fecha_muestreo) {
+                        fechaMuestreoStr = new Date(info.fecha_muestreo).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
+                    }
+
+                    notificationService.send('FICHA_MUESTREO_CANCELADO', {
+                        correlativo: info.fichaingresoservicio || String(idFicha),
+                        muestreo_correlativo: info.frecuencia_correlativo,
+                        fecha_muestreo: fechaMuestreoStr,
+                        muestreador: info.nombre_muestreador || 'No asignado',
+                        motivo: observations || 'No especificado',
+                        usuario_cancela: user.nombre_usuario || user.usuario || 'Usuario',
+                        fecha: notifFechaStr
+                    });
+                }
+            } catch (e) {
+                logger.warn('Error enviando notificación de cancelación:', e);
+            }
+
             return { success: true, message: 'Muestreo cancelado correctamente' };
 
         } catch (error) {

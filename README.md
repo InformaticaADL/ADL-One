@@ -501,6 +501,43 @@ Mejoras sustanciales en el módulo de "Gestión de Solicitudes" (`SolicitudesMaP
 
 ---
 
+### 27. Refinamiento de Notificaciones y Metadatos (Marzo 2026) 📧✨
+Mejoras profundas en el sistema de notificaciones para proporcionar información detallada y comparativa en procesos de reprogramación.
+
+- **Enriquecimiento de Metadatos (SQL)**:
+    - Se corrigió la consulta de metadatos para incluir el nombre del **Cliente** real (desde `mae_empresa`) y diferenciarlo de la **Empresa de Servicio**.
+    - Inclusión de nuevos placeholders: `{CLIENTE}`, `{PLANTA}` (alias de centro), `{CONTACTO_EMPRESA}`, `{CORREO_CONTACTO}`, `{MONITOREO}` y `{OBJETIVO}`.
+    - Alineación con el esquema legacy: corrección de nombres de columnas (`nombre_tabla_largo`, `ma_coordenadas`, `ma_punto_muestreo`, `fichaingresoservicio`).
+- **Filtrado Inteligente de Servicios**:
+    - En correos de **REPROGRAMACIÓN**, el sistema ahora filtra y muestra **solo los servicios que sufrieron cambios** (fecha o muestreador).
+    - Implementación de comparativa visual: ~~Valor Antiguo~~ ➔ **Valor Nuevo** para resaltar qué cambió exactamente.
+    - Prevención de correos vacíos si no se detectan cambios reales durante el guardado.
+- **Placeholders Flexibles**:
+    - Implementación de búsqueda insensible a mayúsculas para `{servicios_detalle}` y otros bloques dinámicos.
+
+### 28. Resolución de Errores Críticos de Backend (Marzo 2026) 🛠️🔒
+- **Fix Error 500 (batch-agenda)**: Resolución de errores de SQL causados por nombres de tablas (`mae_entidad` -> `mae_empresaservicios`) y columnas incorrectas.
+- **Integridad de Auditoría**: Aseguramiento de que el campo `correo_empresa` y otros datos de contacto se propaguen correctamente hacia el servicio de notificaciones.
+
+---
+
+### 29. Finalización de Módulo de Fichas y Planificación (Marzo 2026) 🛠️📋
+Consolidación de reglas de negocio, validaciones y precisión operativa en el flujo de Fichas y Agenda.
+
+- **Flexibilidad en Facturación**: Implementación de lógica para diferenciar el **Cliente (empresa a facturar)** de la **Empresa de Servicio**, asegurando que la facturación y la ejecución sean independientes.
+- **Instrumento Ambiental**: Actualización del catálogo con nuevas opciones normativas: `- res sis` y `-dgtm`.
+- **Estandarización de Medidas Técnicas**: Selección dinámica de unidades (**Metros o Pies**) en campos de canal y dispositivo, con persistencia automática de símbolos.
+- **Validaciones de Integridad**: Nuevas reglas en el ingreso de análisis que exigen al menos **1 servicio** y **1 normativa** por cada registro.
+- **Selección de Laboratorio por Parámetro**: Capacidad de asignar laboratorios específicos para cada parámetro individual dentro de una ficha.
+- **Control de Visibilidad (Privacidad)**: Restricción de acceso a valores en **UF**, los cuales ahora solo son visibles para el **Área Comercial**.
+- **Optimización de Comunicación Interna**: En el Área de Coordinación, se renombró la acción de "Rechazo" por **"Solicitar Revisión"** para fomentar un flujo de trabajo iterativo.
+- **Precisión Cronológica en Planificación**:
+    - Corrección del cálculo de **Fechas Recomendadas** basado en periodos numéricos reales.
+    - Alineación: La **Fecha de Muestreo** se sincroniza ahora estrictamente con la **Fecha de Retiro**.
+- **Gestión Maestra de Cancelaciones**: Integración con la tabla `mae_estadomuestreo` para proporcionar una lista cerrada de motivos de cancelación validados.
+
+---
+
 ## 🏗️ Estructura Detallada del Proyecto (Frontend)
 
 ```
@@ -518,7 +555,7 @@ frontend-adlone/
 ```
 
 ## 📄 Estado Final del Proyecto
-✅ **Backend**: Node.js + Express (API RESTful, Auth JWT, Notificaciones Email, Equipos Duales con Versionamiento, Gestión de Muestreadores)
-✅ **Frontend**: React + TypeScript (Calendario con Eventos INICIO/RETIRO, Prompt de Versión, UI Responsiva, Validación de Duplicados)
-✅ **Base de Datos**: SQL Server (Procedimientos Almacenados optimizados con LEFT JOIN, Versionamiento de Equipos, Auditoría completa)
+✅ **Backend**: Node.js + Express (API RESTful, Auth JWT, Notificaciones Enriquecidas con Filtrado, Lógica de Facturación Flexible)
+✅ **Frontend**: React + TypeScript (Calendario con Eventos INICIO/RETIRO, Validación de Análisis, UI con Privacidad UF, Unidades de Medida)
+✅ **Base de Datos**: SQL Server (Procedimientos Almacenados optimizados, Alineación con esquema legacy, Auditoría completa)
 
