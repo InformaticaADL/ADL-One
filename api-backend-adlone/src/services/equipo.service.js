@@ -1,6 +1,7 @@
 import { getConnection } from '../config/database.js';
 import sql from 'mssql';
 import logger from '../utils/logger.js';
+import ExcelJS from 'exceljs';
 
 // Helper to parse dates in various formats (ISO, DD/MM/YYYY, Date objects)
 const parseSqlDate = (dateVal) => {
@@ -25,6 +26,92 @@ const parseSqlDate = (dateVal) => {
 };
 
 export const equipoService = {
+    /**
+     * Get unique names and metadata from the master catalog
+     */
+    getEquipoCatalogo: async () => {
+        try {
+            const pool = await getConnection();
+            const result = await pool.request().query('SELECT * FROM mae_equipo_catalogo ORDER BY nombre');
+            return result.recordset;
+        } catch (error) {
+            logger.error('Error in getEquipoCatalogo service:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Create a new catalog item
+     */
+    createEquipoCatalogo: async (data) => {
+        try {
+            const pool = await getConnection();
+            const { nombre, que_mide, unidad_medida_textual, unidad_medida_sigla, tipo_equipo } = data;
+            
+            await pool.request()
+                .input('nombre', sql.NVARCHAR, nombre)
+                .input('que_mide', sql.NVARCHAR, que_mide)
+                .input('unidad_medida_textual', sql.NVARCHAR, unidad_medida_textual)
+                .input('unidad_medida_sigla', sql.NVARCHAR, unidad_medida_sigla)
+                .input('tipo_equipo', sql.NVARCHAR, tipo_equipo)
+                .query(`
+                    INSERT INTO mae_equipo_catalogo (nombre, que_mide, unidad_medida_textual, unidad_medida_sigla, tipo_equipo)
+                    VALUES (@nombre, @que_mide, @unidad_medida_textual, @unidad_medida_sigla, @tipo_equipo)
+                `);
+            return { success: true };
+        } catch (error) {
+            logger.error('Error in createEquipoCatalogo service:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Update a catalog item
+     */
+    updateEquipoCatalogo: async (id, data) => {
+        try {
+            const pool = await getConnection();
+            const { nombre, que_mide, unidad_medida_textual, unidad_medida_sigla, tipo_equipo } = data;
+            
+            await pool.request()
+                .input('id', sql.INT, id)
+                .input('nombre', sql.NVARCHAR, nombre)
+                .input('que_mide', sql.NVARCHAR, que_mide)
+                .input('unidad_medida_textual', sql.NVARCHAR, unidad_medida_textual)
+                .input('unidad_medida_sigla', sql.NVARCHAR, unidad_medida_sigla)
+                .input('tipo_equipo', sql.NVARCHAR, tipo_equipo)
+                .query(`
+                    UPDATE mae_equipo_catalogo
+                    SET nombre = @nombre,
+                        que_mide = @que_mide,
+                        unidad_medida_textual = @unidad_medida_textual,
+                        unidad_medida_sigla = @unidad_medida_sigla,
+                        tipo_equipo = @tipo_equipo
+                    WHERE id_equipocatalogo = @id
+                `);
+            return { success: true };
+        } catch (error) {
+            logger.error('Error in updateEquipoCatalogo service:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Delete a catalog item
+     */
+    deleteEquipoCatalogo: async (id) => {
+        try {
+            const pool = await getConnection();
+            await pool.request()
+                .input('id', sql.INT, id)
+                .query('DELETE FROM mae_equipo_catalogo WHERE id_equipocatalogo = @id');
+            return { success: true };
+        } catch (error) {
+            logger.error('Error in deleteEquipoCatalogo service:', error);
+            throw error;
+        }
+    },
+
     /**
      * Get list of equipment with filters and pagination
      */
@@ -130,19 +217,27 @@ export const equipoService = {
 
             // 3. Get unique types and states based on current OTHER filters
             const getCatalogs = async (currentSede) => {
-                let typesQuery = 'SELECT DISTINCT tipoequipo as tipo FROM mae_equipo WHERE tipoequipo IS NOT NULL AND LEN(TRIM(tipoequipo)) > 0';
-
-
+                let typesQuery = 'SELECT DISTINCT tipo_equipo as tipo FROM mae_equipo_catalogo WHERE tipo_equipo IS NOT NULL';
                 let statesQuery = 'SELECT DISTINCT CASE WHEN habilitado = \'S\' THEN \'Activo\' ELSE \'Inactivo\' END as estado FROM mae_equipo WHERE 1=1';
                 let sedesQuery = 'SELECT DISTINCT sede FROM mae_equipo WHERE sede IS NOT NULL AND LEN(TRIM(sede)) > 0';
-                let namesQuery = 'SELECT DISTINCT nombre FROM mae_equipo WHERE nombre IS NOT NULL AND LEN(TRIM(nombre)) > 0';
-                let queMideQuery = 'SELECT DISTINCT que_mide FROM mae_equipo WHERE que_mide IS NOT NULL AND LEN(TRIM(que_mide)) > 0';
-                let unidadesQuery = 'SELECT DISTINCT unidad_medida_textual as unidad FROM mae_equipo WHERE unidad_medida_textual IS NOT NULL AND LEN(TRIM(unidad_medida_textual)) > 0';
+                
+                // NAMES and METADATA now come from mae_equipo_catalogo
+                let namesQuery = 'SELECT * FROM mae_equipo_catalogo ORDER BY nombre';
+                
+                let queMideQuery = `
+                    SELECT DISTINCT que_mide FROM mae_equipo WHERE que_mide IS NOT NULL AND LEN(TRIM(que_mide)) > 0
+                    UNION
+                    SELECT DISTINCT que_mide FROM mae_equipo_catalogo WHERE que_mide IS NOT NULL AND LEN(TRIM(que_mide)) > 0
+                `;
+                let unidadesQuery = `
+                    SELECT DISTINCT unidad_medida_textual as unidad FROM mae_equipo WHERE unidad_medida_textual IS NOT NULL AND LEN(TRIM(unidad_medida_textual)) > 0
+                    UNION
+                    SELECT DISTINCT unidad_medida_textual as unidad FROM mae_equipo_catalogo WHERE unidad_medida_textual IS NOT NULL AND LEN(TRIM(unidad_medida_textual)) > 0
+                `;
 
                 if (currentSede && currentSede !== 'Todos') {
                     typesQuery += ` AND sede = '${currentSede}'`;
                     statesQuery += ` AND sede = '${currentSede}'`;
-                    namesQuery += ` AND sede = '${currentSede}'`;
                     queMideQuery += ` AND sede = '${currentSede}'`;
                     unidadesQuery += ` AND sede = '${currentSede}'`;
                 }
@@ -159,7 +254,7 @@ export const equipoService = {
                     tipos: tRes.recordset.map(r => r.tipo).sort(),
                     estados: sRes.recordset.map(r => r.estado).sort(),
                     sedes: lRes.recordset.map(r => r.sede).sort(),
-                    nombres: nRes.recordset.map(r => r.nombre).sort(),
+                    nombres: nRes.recordset, // Return full objects for frontend metadata extraction
                     que_mide: qRes.recordset.map(r => r.que_mide).sort(),
                     unidades: uRes.recordset.map(r => r.unidad).sort()
                 };
@@ -456,6 +551,75 @@ export const equipoService = {
         }
     },
 
+    createEquiposBulk: async (equiposData, userId = null) => {
+        if (!Array.isArray(equiposData) || equiposData.length === 0) {
+            throw new Error('No hay equipos para crear');
+        }
+
+        const pool = await getConnection();
+        const transaction = new sql.Transaction(pool);
+        try {
+            await transaction.begin();
+            
+            // 1. Get initial ID
+            const idResult = await transaction.request()
+                .query('SELECT ISNULL(MAX(id_equipo), 0) as MaxId FROM mae_equipo');
+            let currentId = Number(idResult.recordset[0].MaxId);
+
+            const results = [];
+
+            for (const data of equiposData) {
+                currentId++;
+                const request = new sql.Request(transaction);
+
+                // Bind all inputs
+                request.input('id_equipo', sql.Numeric(10, 0), currentId);
+                request.input('codigo', sql.VarChar, data.codigo);
+                request.input('nombre', sql.VarChar, data.nombre);
+                request.input('tipoequipo', sql.VarChar, data.tipo);
+                request.input('sede', sql.VarChar, data.ubicacion);
+                request.input('fecha_vigencia', sql.Date, parseSqlDate(data.vigencia));
+                request.input('id_muestreador', sql.Numeric(10, 0), data.id_muestreador || 0);
+                request.input('habilitado', sql.VarChar(1), data.estado === 'Activo' ? 'S' : 'N');
+                request.input('sigla', sql.VarChar(10), data.sigla || '');
+                request.input('correlativo', sql.Numeric(10, 0), data.correlativo || 0);
+                request.input('tienefc', sql.VarChar(1), (data.tiene_fc === 'SI' || data.tiene_fc === 'S') ? 'S' : 'N');
+                request.input('error0', sql.Numeric(10, 1), isNaN(parseFloat(data.error0)) ? 0 : parseFloat(data.error0));
+                request.input('error15', sql.Numeric(10, 1), isNaN(parseFloat(data.error15)) ? 0 : parseFloat(data.error15));
+                request.input('error30', sql.Numeric(10, 1), isNaN(parseFloat(data.error30)) ? 0 : parseFloat(data.error30));
+                request.input('equipo_asociado', sql.VarChar(20), (data.equipo_asociado === null || data.equipo_asociado === undefined || data.equipo_asociado === 'No Aplica') ? '0' : String(data.equipo_asociado));
+                request.input('observacion', sql.VarChar, data.observacion || '');
+                request.input('visible_muestreador', sql.VarChar(1), (data.visible_muestreador === 'SI' || data.visible_muestreador === 'S') ? 'S' : 'N');
+                request.input('que_mide', sql.VarChar, data.que_mide || '');
+                request.input('unidad_medida_textual', sql.VarChar, data.unidad_medida_textual || '');
+                request.input('unidad_medida_sigla', sql.VarChar, data.unidad_medida_sigla || '');
+                request.input('informe', sql.VarChar(1), (data.informe === 'SI' || data.informe === 'S') ? 'S' : 'N');
+
+                const queryMain = `
+                    INSERT INTO mae_equipo (
+                        id_equipo, codigo, nombre, tipoequipo, sede, fecha_vigencia, id_muestreador, habilitado,
+                        sigla, correlativo, tienefc, error0, error15, error30, equipo_asociado,
+                        observacion, visible_muestreador, que_mide, unidad_medida_textual, unidad_medida_sigla, informe, version
+                    ) VALUES (
+                        @id_equipo, @codigo, @nombre, @tipoequipo, @sede, @fecha_vigencia, @id_muestreador, @habilitado,
+                        @sigla, @correlativo, @tienefc, @error0, @error15, @error30, @equipo_asociado,
+                        @observacion, @visible_muestreador, @que_mide, @unidad_medida_textual, @unidad_medida_sigla, @informe, 'v1'
+                    );
+                `;
+
+                await request.query(queryMain);
+                results.push({ id: currentId, ...data });
+            }
+
+            await transaction.commit();
+            return results;
+        } catch (error) {
+            await transaction.rollback();
+            logger.error('Error in createEquiposBulk service:', error);
+            throw error;
+        }
+    },
+
     updateEquipo: async (id, data, userId = null) => {
         const pool = await getConnection();
         const transaction = new sql.Transaction(pool);
@@ -478,14 +642,23 @@ export const equipoService = {
 
                 const toYMD = (d) => {
                     if (!d || isNaN(d.getTime())) return null;
-                    const year = d.getFullYear();
-                    const month = String(d.getMonth() + 1).padStart(2, '0');
-                    const day = String(d.getDate()).padStart(2, '0');
+                    const year = d.getUTCFullYear();
+                    const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+                    const day = String(d.getUTCDate()).padStart(2, '0');
                     return `${year}-${month}-${day}`;
                 };
 
                 const vigStr = toYMD(incomingDate);
                 const currentVigStr = toYMD(currentVigDate);
+
+                console.log('DEBUG updateEquipo Date Validation:', {
+                    vigenciaInput: data.vigencia,
+                    incomingDate: incomingDate?.toISOString(),
+                    currentVigDate: currentVigDate?.toISOString(),
+                    vigStr,
+                    currentVigStr,
+                    hasChanged: vigStr !== currentVigStr
+                });
 
                 // Only throw error if the user is TRYING to set a NEW date that is in the past
                 if (vigStr && vigStr !== currentVigStr) {
@@ -991,6 +1164,178 @@ export const equipoService = {
         } catch (error) {
             await transaction.rollback();
             logger.error('Error in inactivateExpiredEquipos service:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Export equipment data to Excel with native charts
+     */
+    exportEquiposExcel: async (params = {}) => {
+        try {
+            const { search, tipo, sede, estado, id_muestreador, fechaDesde, fechaHasta } = params;
+            const pool = await getConnection();
+            const request = pool.request();
+
+            // 1. Build where clause (Same as getEquipos but without pagination)
+            let whereClause = ' WHERE 1=1';
+            if (search) {
+                request.input('search', sql.VarChar, `%${search}%`);
+                whereClause += ` AND (e.codigo LIKE @search OR e.nombre LIKE @search OR e.tipoequipo LIKE @search OR e.sede LIKE @search)`;
+            }
+            if (tipo && tipo !== 'Todos') {
+                request.input('tipo', sql.VarChar, tipo);
+                whereClause += ` AND e.tipoequipo = @tipo`;
+            }
+            if (sede && sede !== 'Todos') {
+                request.input('sede', sql.VarChar, sede);
+                whereClause += ` AND e.sede = @sede`;
+            }
+            if (estado && estado !== 'Todos') {
+                request.input('habilitado', sql.VarChar, estado === 'Activo' ? 'S' : 'N');
+                whereClause += ` AND e.habilitado = @habilitado`;
+            }
+            if (id_muestreador && id_muestreador !== 'Todos') {
+                request.input('id_muestreador', sql.Int, Number(id_muestreador));
+                whereClause += ` AND e.id_muestreador = @id_muestreador`;
+            }
+
+            const queryDetail = `
+                SELECT 
+                    e.id_equipo, e.codigo, e.nombre, e.tipoequipo as tipo, e.sede as ubicacion,
+                    FORMAT(e.fecha_vigencia, 'dd/MM/yyyy') as vigencia,
+                    CASE WHEN e.habilitado = 'S' THEN 'Activo' ELSE 'Inactivo' END as estado,
+                    m.nombre_muestreador as nombre_asignado, e.sigla, e.correlativo,
+                    e.tienefc as tiene_fc, e.error0, e.error15, e.error30, e.equipo_asociado,
+                    e.observacion, e.visible_muestreador, e.que_mide, e.unidad_medida_textual,
+                    e.unidad_medida_sigla, e.informe, e.version
+                FROM mae_equipo e
+                LEFT JOIN mae_muestreador m ON e.id_muestreador = m.id_muestreador
+                ${whereClause}
+                ORDER BY e.id_equipo ASC
+            `;
+            const result = await request.query(queryDetail);
+            const data = result.recordset;
+
+            // 2. Aggregate data for "Reportes" sheet
+            const stats = {
+                estado: { 'Activo': 0, 'Inactivo': 0 },
+                tipo: {},
+                ubicacion: {},
+                responsable: {}
+            };
+
+            data.forEach(item => {
+                // Estado
+                stats.estado[item.estado]++;
+                
+                // Tipo
+                const t = item.tipo || 'Sin Tipo';
+                stats.tipo[t] = (stats.tipo[t] || 0) + 1;
+                
+                // Ubicación
+                const u = item.ubicacion || 'Sin Ubicación';
+                stats.ubicacion[u] = (stats.ubicacion[u] || 0) + 1;
+                
+                // Responsable (Muestreador)
+                const r = item.nombre_asignado || 'Sin Asignar';
+                stats.responsable[r] = (stats.responsable[r] || 0) + 1;
+            });
+
+            // 3. Generate Excel with ExcelJS
+            const workbook = new ExcelJS.Workbook();
+            
+            // --- SHEET 1: EQUIPOS (First) ---
+            const wsData = workbook.addWorksheet('Equipos');
+            wsData.columns = [
+                { header: 'ID', key: 'id_equipo', width: 10 },
+                { header: 'CÓDIGO', key: 'codigo', width: 15 },
+                { header: 'NOMBRE', key: 'nombre', width: 30 },
+                { header: 'ESTADO', key: 'estado', width: 12 },
+                { header: 'TIPO', key: 'tipo', width: 20 },
+                { header: 'UBICACIÓN', key: 'ubicacion', width: 25 },
+                { header: 'VIGENCIA', key: 'vigencia', width: 15 },
+                { header: 'ASIGNADO A', key: 'nombre_asignado', width: 25 },
+                { header: 'SIGLA', key: 'sigla', width: 10 },
+                { header: 'CORRELATIVO', key: 'correlativo', width: 10 },
+                { header: 'TIENE FC', key: 'tiene_fc', width: 10 },
+                { header: 'ERROR 0', key: 'error0', width: 10 },
+                { header: 'ERROR 15', key: 'error15', width: 10 },
+                { header: 'ERROR 30', key: 'error30', width: 10 },
+                { header: 'EQUIPO ASOCIADO', key: 'equipo_asociado', width: 20 },
+                { header: 'QUE MIDE', key: 'que_mide', width: 20 },
+                { header: 'UNIDAD TEXTUAL', key: 'unidad_medida_textual', width: 15 },
+                { header: 'UNIDAD SIGLA', key: 'unidad_medida_sigla', width: 10 },
+                { header: 'INFORME', key: 'informe', width: 15 },
+                { header: 'VERSIÓN', key: 'version', width: 10 },
+                { header: 'VISIBLE MUEST.', key: 'visible_muestreador', width: 12 },
+                { header: 'OBSERVACIÓN', key: 'observacion', width: 40 }
+            ];
+            
+            data.forEach((row, index) => {
+                const newRow = wsData.addRow(row);
+                // Alternating row colors (Light blue-ish / White)
+                if (index % 2 !== 0) {
+                    newRow.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: 'FFF1F5F9' } // Slate 100
+                    };
+                }
+            });
+            
+            // Format header
+            wsData.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            wsData.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+            wsData.autoFilter = 'A1:V1';
+
+            // --- SHEET 2: REPORTES ---
+            const wsReports = workbook.addWorksheet('Reportes');
+            
+            // Function to add a summary table
+            const addSummaryTable = (ws, title, dataObj, startRow) => {
+                ws.getCell(`A${startRow}`).value = title;
+                ws.getCell(`A${startRow}`).font = { bold: true, size: 12 };
+                
+                const headerRow = startRow + 1;
+                ws.getCell(`A${headerRow}`).value = 'Categoría';
+                ws.getCell(`B${headerRow}`).value = 'Cantidad';
+                ws.getRow(headerRow).font = { bold: true };
+                ws.getRow(headerRow).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
+                
+                let currentRow = headerRow + 1;
+                Object.entries(dataObj).forEach(([key, val]) => {
+                    ws.getCell(`A${currentRow}`).value = key;
+                    ws.getCell(`B${currentRow}`).value = val;
+                    currentRow++;
+                });
+                
+                // Add a border / format as table
+                ws.addTable({
+                    name: title.replace(/\s+/g, '_') + '_' + Math.floor(Math.random() * 1000), // Randomize name to avoid conflicts if same title used
+                    ref: `A${headerRow}`,
+                    headerRow: true,
+                    totalsRow: true,
+                    style: { theme: 'TableStyleMedium2', showRowStripes: true },
+                    columns: [{ name: 'Categoría' }, { name: 'Cantidad', totalsRowFunction: 'sum' }],
+                    rows: Object.entries(dataObj)
+                });
+
+                return currentRow + 2; // Next start row
+            };
+
+            let nextRow = 1;
+            nextRow = addSummaryTable(wsReports, 'Resumen por Estado', stats.estado, nextRow);
+            nextRow = addSummaryTable(wsReports, 'Resumen por Tipo', stats.tipo, nextRow);
+            nextRow = addSummaryTable(wsReports, 'Resumen por Ubicación', stats.ubicacion, nextRow);
+            nextRow = addSummaryTable(wsReports, 'Resumen por Responsable', stats.responsable, nextRow);
+
+            wsReports.getColumn(1).width = 40;
+            wsReports.getColumn(2).width = 15;
+
+            return await workbook.xlsx.writeBuffer();
+        } catch (error) {
+            logger.error('Error in exportEquiposExcel service:', error);
             throw error;
         }
     }
