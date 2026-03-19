@@ -65,6 +65,22 @@ export const CoordinationListView: React.FC<Props> = ({ onBackToMenu, onViewDeta
         setDateTo('');
     };
 
+    const handleDownloadPdf = async (id: number) => {
+        try {
+            const blob = await fichaService.downloadPdf(id);
+            const url = window.URL.createObjectURL(new Blob([blob]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `Ficha_${id}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode?.removeChild(link);
+        } catch (error) {
+            console.error("Error downloading PDF:", error);
+            alert("Error al generar o descargar el PDF de la ficha.");
+        }
+    };
+
     // Filter Logic
     const filteredFichas = fichas.filter(f => {
         const displayId = f.fichaingresoservicio || f.id_fichaingresoservicio || '';
@@ -118,14 +134,14 @@ export const CoordinationListView: React.FC<Props> = ({ onBackToMenu, onViewDeta
     return (
         <div className="fichas-ingreso-container commercial-layout">
             {/* Header */}
-            <div className="header-row">
-                <button onClick={onBackToMenu} className="btn-back">
+            <div className="header-row" style={{ display: 'flex', position: 'relative', justifyContent: 'center', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <button onClick={onBackToMenu} className="btn-back" style={{ position: 'absolute', left: 0, margin: 0 }}>
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
                     </svg>
                     Volver al Menú
                 </button>
-                <h2 className="page-title-geo">Consultar Fichas Coordinación</h2>
+                <h2 className="page-title-geo" style={{ margin: 0 }}>Gestión Coordinación</h2>
             </div>
 
             {/* Filters */}
@@ -219,7 +235,7 @@ export const CoordinationListView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                                     <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>Fuente Emisora</th>
                                     <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>Objetivo</th>
                                     <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>Sub Área</th>
-                                    <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>Usuario</th>
+                                    <th style={{ padding: '8px', whiteSpace: 'nowrap', textAlign: 'center' }}>PDF</th>
                                     <th style={{ padding: '8px', whiteSpace: 'nowrap', textAlign: 'center' }}>Acciones</th>
                                 </tr>
                             </thead>
@@ -248,7 +264,26 @@ export const CoordinationListView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                                         <td data-label="Objetivo" style={cellStyle} title={ficha.nombre_objetivomuestreo_ma}>{ficha.nombre_objetivomuestreo_ma || '-'}</td>
                                         <td data-label="Sub Área" style={cellStyle} title={ficha.nombre_subarea}>{ficha.nombre_subarea || '-'}</td>
 
-                                        <td data-label="Usuario" style={cellStyle}>{ficha.nombre_usuario || '-'}</td>
+                                        <td data-label="PDF" style={{ textAlign: 'center', whiteSpace: 'nowrap', padding: '6px' }}>
+                                            <button
+                                                title="Descargar PDF"
+                                                onClick={() => handleDownloadPdf(ficha.id_fichaingresoservicio || ficha.fichaingresoservicio)}
+                                                style={{
+                                                    border: 'none',
+                                                    background: 'none',
+                                                    color: '#f43f5e',
+                                                    cursor: 'pointer',
+                                                    padding: '2px',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center'
+                                                }}
+                                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fff1f2'}
+                                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                            </button>
+                                        </td>
                                         <td data-label="Acciones" style={{ textAlign: 'center', whiteSpace: 'nowrap', padding: '6px' }}>
                                             <button
                                                 title="Ver Detalle"

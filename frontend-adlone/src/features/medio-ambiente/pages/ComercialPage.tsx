@@ -170,14 +170,14 @@ const CommercialForm = ({ onBackToMenu }: { onBackToMenu: () => void }) => {
             />
 
             {/* Header Row */}
-            <div className="header-row">
-                <button onClick={onBackToMenu} className="btn-back">
+            <div className="header-row" style={{ display: 'flex', position: 'relative', justifyContent: 'center', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <button onClick={onBackToMenu} className="btn-back" style={{ position: 'absolute', left: 0, margin: 0 }}>
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
                     </svg>
                     Volver al Menú
                 </button>
-                <h2 className="page-title-geo">Nueva Ficha Comercial</h2>
+                <h2 className="page-title-geo" style={{ margin: 0 }}>Nueva Ficha Comercial</h2>
             </div>
 
             {/* Navegación por Pestañas */}
@@ -349,14 +349,14 @@ const CommercialForm = ({ onBackToMenu }: { onBackToMenu: () => void }) => {
 const CommercialMenu = ({ onCreate, onConsult, onBack }: { onCreate: () => void, onConsult: () => void, onBack: () => void }) => {
     return (
         <div className="fichas-ingreso-container commercial-layout">
-            <div className="header-row">
-                <button onClick={onBack} className="btn-back">
+            <div className="header-row" style={{ display: 'flex', position: 'relative', justifyContent: 'center', alignItems: 'center', marginBottom: '0.5rem', minHeight: '40px' }}>
+                <button onClick={onBack} className="btn-back" style={{ position: 'absolute', left: 0, margin: 0 }}>
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
                     </svg>
                     Volver
                 </button>
-                <h2 className="page-title-geo">Gestión Comercial</h2>
+                <h2 className="page-title-geo" style={{ margin: 0 }}>Gestión Comercial</h2>
             </div>
 
             <div style={{
@@ -365,9 +365,9 @@ const CommercialMenu = ({ onCreate, onConsult, onBack }: { onCreate: () => void,
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                padding: '2rem'
+                padding: '0.5rem 2rem 2rem'
             }}>
-                <h1 style={{ fontSize: '1.8rem', color: '#1f2937', marginBottom: '3rem', fontWeight: 600, textAlign: 'center' }}>
+                <h1 style={{ fontSize: '1.8rem', color: '#1f2937', marginBottom: '1.5rem', fontWeight: 600, textAlign: 'center' }}>
                     Seleccione una opción
                 </h1>
 
@@ -603,14 +603,14 @@ const ConsultarFichasView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () 
     return (
         <div className="fichas-ingreso-container commercial-layout">
             {/* Header */}
-            <div className="header-row">
-                <button onClick={onBackToMenu} className="btn-back">
+            <div className="header-row" style={{ display: 'flex', position: 'relative', justifyContent: 'center', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <button onClick={onBackToMenu} className="btn-back" style={{ position: 'absolute', left: 0, margin: 0 }}>
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
                     </svg>
                     Volver al Menú
                 </button>
-                <h2 className="page-title-geo">Consultar Fichas Comerciales</h2>
+                <h2 className="page-title-geo" style={{ margin: 0 }}>Consultar Fichas Comerciales</h2>
             </div>
 
             {/* Filters */}
@@ -707,30 +707,32 @@ const ConsultarFichasView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () 
                     />
 
                     <div className="form-group">
-                        <label style={{ ...labelStyle, visibility: 'hidden' }}>Limpiar</label>
-                        <button
-                            onClick={handleClearFilters}
-                            style={{
-                                padding: '5px 10px',
-                                height: '30px',
-                                width: '100%',
-                                backgroundColor: 'white',
-                                border: '1px solid #d1d5db',
-                                borderRadius: '6px',
-                                color: '#6b7280',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '0.5rem',
-                                fontWeight: 500,
-                                fontSize: '0.75rem'
-                            }}
-                            title="Limpiar Filtros"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
-                            Limpiar
-                        </button>
+                        <label style={{ ...labelStyle, visibility: 'hidden' }}>Acciones</label>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <button
+                                onClick={handleClearFilters}
+                                style={{
+                                    padding: '5px 10px',
+                                    height: '30px',
+                                    flex: 1,
+                                    backgroundColor: 'white',
+                                    border: '1px solid #d1d5db',
+                                    borderRadius: '6px',
+                                    color: '#6b7280',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '0.5rem',
+                                    fontWeight: 500,
+                                    fontSize: '0.75rem'
+                                }}
+                                title="Limpiar Filtros"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                                Limpiar
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -753,6 +755,7 @@ const ConsultarFichasView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () 
                                     <th style={{ padding: '4px', whiteSpace: 'nowrap' }}>Fuente Emisora</th>
                                     <th style={{ padding: '4px', whiteSpace: 'nowrap' }}>Objetivo</th>
                                     <th style={{ padding: '4px', whiteSpace: 'nowrap' }}>Sub Área</th>
+                                    <th style={{ padding: '4px', whiteSpace: 'nowrap', textAlign: 'center', width: '40px' }}>PDF</th>
                                     <th style={{ padding: '4px', whiteSpace: 'nowrap', textAlign: 'center', width: '50px' }}>Acciones</th>
                                 </tr>
                             </thead>
@@ -814,6 +817,51 @@ const ConsultarFichasView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () 
                                             <td data-label="Fuente Emisora" style={{ ...cellStyle, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '1px 4px' }} title={ficha.centro}>{ficha.centro || '-'}</td>
                                             <td data-label="Objetivo" style={{ ...cellStyle, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '1px 4px' }} title={ficha.nombre_objetivomuestreo_ma}>{ficha.nombre_objetivomuestreo_ma || '-'}</td>
                                             <td data-label="Sub Área" style={{ ...cellStyle, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '1px 4px' }} title={ficha.nombre_subarea}>{ficha.nombre_subarea || '-'}</td>
+                                            <td data-label="PDF" style={{ textAlign: 'center', whiteSpace: 'nowrap', padding: '6px' }}>
+                                                {(ficha.estado_ficha || '').toUpperCase().includes('EN PROCESO') && (
+                                                    <button
+                                                        title="Descargar PDF"
+                                                        onClick={async (e) => {
+                                                            e.stopPropagation();
+                                                            try {
+                                                                const idFicha = ficha.id_fichaingresoservicio || ficha.fichaingresoservicio;
+                                                                if (!idFicha) {
+                                                                    alert("No se pudo obtener el ID de la ficha.");
+                                                                    return;
+                                                                }
+                                                                
+                                                                const pdfBlob = await fichaService.downloadPdf(Number(idFicha));
+                                                                const url = window.URL.createObjectURL(pdfBlob);
+                                                                const link = document.createElement('a');
+                                                                link.href = url;
+                                                                link.setAttribute('download', `Ficha_${idFicha}.pdf`);
+                                                                document.body.appendChild(link);
+                                                                link.click();
+                                                                link.parentNode?.removeChild(link);
+                                                                window.URL.revokeObjectURL(url);
+
+                                                            } catch (error) {
+                                                                console.error("Error al descargar PDF:", error);
+                                                                alert("Error al descargar el PDF de la ficha.");
+                                                            }
+                                                        }}
+                                                        style={{
+                                                            border: 'none',
+                                                            background: 'none',
+                                                            color: '#ef4444',
+                                                            cursor: 'pointer',
+                                                            padding: '2px',
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center'
+                                                        }}
+                                                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fee2e2'}
+                                                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                    >
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                                    </button>
+                                                )}
+                                            </td>
                                             <td data-label="Acciones" style={{ textAlign: 'center', whiteSpace: 'nowrap', padding: '6px' }}>
                                                 <button
                                                     title="Ver Detalle"
@@ -840,7 +888,7 @@ const ConsultarFichasView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () 
                                 {/* Empty Rows Filling */}
                                 {Array.from({ length: Math.max(0, emptyRows) }).map((_, i) => (
                                     <tr key={`empty-${i}`} style={{ borderBottom: '1px solid #e5e7eb', height: '36px' }}>
-                                        <td colSpan={10}>&nbsp;</td>
+                                        <td colSpan={11}>&nbsp;</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -860,6 +908,7 @@ const ConsultarFichasView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () 
                     </>
                 )}
             </div>
+
         </div>
     );
 };

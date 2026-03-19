@@ -319,21 +319,22 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
                 confirmText={modalConfig.confirmText}
             />
 
-            <div className="header-row">
-                <button onClick={onBack} className="btn-back">
+            <div className="header-row" style={{ display: 'flex', position: 'relative', justifyContent: 'center', alignItems: 'center', marginBottom: '1.5rem', minHeight: '40px' }}>
+                <button onClick={onBack} className="btn-back" style={{ position: 'absolute', left: 0, margin: 0 }}>
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
                     </svg>
                     Volver
                 </button>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '1rem' }}>
-                    <h2 className="page-title-geo">Gestión Coordinación - Ficha N° {enc.fichaingresoservicio}</h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <h2 className="page-title-geo" style={{ margin: 0 }}>Gestión Coordinación - Ficha N° {enc.fichaingresoservicio}</h2>
                     <span style={{
                         ...getStatusStyle(enc.estado_ficha),
                         fontSize: '0.85rem',
                         padding: '2px 8px',
                         borderRadius: '999px',
-                        fontWeight: 600
+                        fontWeight: 600,
+                        whiteSpace: 'nowrap'
                     }}>
                         {(() => {
                             const txt = enc.estado_ficha || '-';
@@ -453,7 +454,7 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
                             <div className="form-grid-row grid-cols-4">
                                 <StaticField label="Frecuencia" value={enc.agenda?.frecuencia || '-'} />
                                 <StaticField label="Periodo" value={enc.agenda?.nombre_frecuencia || '-'} />
-                                <StaticField label="Multiplicado Por" value={enc.agenda?.frecuencia_factor || '-'} />
+                                <StaticField label="Factor" value={enc.agenda?.frecuencia_factor || '-'} />
                                 <StaticField label="Total Servicios" value={enc.agenda?.total_servicios || '-'} />
                             </div>
 

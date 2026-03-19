@@ -224,6 +224,52 @@ class FichaIngresoController {
             return errorResponse(res, 'Error al obtener equipos del muestreo', 500, err.message);
         }
     }
+    async downloadPdf(req, res) {
+        try {
+            const { id } = req.params;
+            if (!id) {
+                return errorResponse(res, 'ID de ficha requerido', 400);
+            }
+
+            const pdfBuffer = await fichaService.generateFichaPdfBuffer(id);
+
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename="ficha_${id}.pdf"`);
+            res.send(pdfBuffer);
+            
+        } catch (err) {
+            logger.error('Error in downloadPdf ficha controller:', err);
+            return errorResponse(res, 'Error al generar el PDF de la ficha', 500, err.message);
+        }
+    }
+
+    async downloadExcel(req, res) {
+        try {
+            const { id } = req.params;
+            if (!id) {
+                return errorResponse(res, 'ID de ficha requerido', 400);
+            }
+
+            const excelBuffer = await fichaService.generateFichaExcelBuffer(id);
+
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            res.setHeader('Content-Disposition', `attachment; filename="ficha_${id}.xlsx"`);
+            res.send(excelBuffer);
+            
+        } catch (err) {
+            logger.error('Error in downloadExcel ficha controller:', err);
+            return errorResponse(res, 'Error al generar el Excel de la ficha', 500, err.message);
+        }
+    }
+    async getMuestreosEjecutados(req, res) {
+        try {
+            const result = await fichaService.getMuestreosEjecutados();
+            return successResponse(res, result, 'Muestreos ejecutados obtenidos exitosamente');
+        } catch (err) {
+            logger.error('Error in getMuestreosEjecutados controller:', err);
+            return errorResponse(res, 'Error al obtener muestreos ejecutados', 500, err.message);
+        }
+    }
 }
 
 export default new FichaIngresoController();

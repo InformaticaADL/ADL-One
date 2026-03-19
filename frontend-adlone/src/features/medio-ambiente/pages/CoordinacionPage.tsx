@@ -4,6 +4,8 @@ import { AssignmentListView } from '../components/AssignmentListView';
 import { AssignmentDetailView } from '../components/AssignmentDetailView';
 import { EnProcesoListView } from '../components/EnProcesoListView';
 import { EnProcesoCalendarView } from '../components/EnProcesoCalendarView';
+import { CoordinacionDashboardView } from '../components/CoordinacionDashboardView';
+import { MuestreosEjecutadosListView } from '../components/MuestreosEjecutadosListView';
 
 import { CatalogosProvider } from '../context/CatalogosContext';
 import { ToastProvider } from '../../../contexts/ToastContext';
@@ -12,6 +14,7 @@ import { fichaService } from '../services/ficha.service';
 import '../styles/FichasIngreso.css';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { useAuth } from '../../../contexts/AuthContext';
+import { FichaExportModal } from '../components/FichaExportModal';
 
 interface Props {
     onBack: () => void;
@@ -32,9 +35,11 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
     const [searchCentro, setSearchCentro] = useState('');
     const [searchObjetivo, setSearchObjetivo] = useState('');
     const [searchSubArea, setSearchSubArea] = useState('');
+    const [searchUsuario, setSearchUsuario] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [loading, setLoading] = useState(true);
     const [fichas, setFichas] = useState<any[]>([]);
+    const [showExportModal, setShowExportModal] = useState(false);
 
     // Constants
     const itemsPerPage = 10;
@@ -66,7 +71,7 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
     // Reset to page 1 when any filter changes
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchId, dateFrom, dateTo, searchEstado, searchTipo, searchEmpresaFacturar, searchEmpresaServicio, searchCentro, searchObjetivo, searchSubArea]);
+    }, [searchId, dateFrom, dateTo, searchEstado, searchTipo, searchEmpresaFacturar, searchEmpresaServicio, searchCentro, searchObjetivo, searchSubArea, searchUsuario]);
 
     // Derived unique values for datalists
     const getUniqueValues = (key: string) => {
@@ -84,6 +89,8 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
     const uniqueCentros = React.useMemo(() => getUniqueValues('centro'), [fichas]);
     const uniqueObjetivos = React.useMemo(() => getUniqueValues('nombre_objetivomuestreo_ma'), [fichas]);
     const uniqueSubAreas = React.useMemo(() => getUniqueValues('nombre_subarea'), [fichas]);
+    const uniqueUsuarios = React.useMemo(() => getUniqueValues('nombre_usuario'), [fichas]);
+    const uniqueFichas = React.useMemo(() => getUniqueValues('id_fichaingresoservicio'), [fichas]);
 
     const handleClearFilters = () => {
         setSearchId('');
@@ -96,6 +103,7 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
         setSearchCentro('');
         setSearchObjetivo('');
         setSearchSubArea('');
+        setSearchUsuario('');
     };
 
     // Filter Logic
@@ -116,6 +124,7 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
         const matchCentro = check(f.centro, searchCentro);
         const matchObjetivo = check(f.nombre_objetivomuestreo_ma, searchObjetivo);
         const matchSubArea = check(f.nombre_subarea, searchSubArea);
+        const matchUsuario = check(f.nombre_usuario, searchUsuario);
 
         let matchDate = true;
         if (dateFrom || dateTo) {
@@ -140,7 +149,7 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
             }
         }
 
-        return matchId && matchDate && matchEstado && matchTipo && matchEmpresaFacturar && matchEmpresaServicio && matchCentro && matchObjetivo && matchSubArea;
+        return matchId && matchDate && matchEstado && matchTipo && matchEmpresaFacturar && matchEmpresaServicio && matchCentro && matchObjetivo && matchSubArea && matchUsuario;
     });
 
     // Pagination Logic
@@ -176,14 +185,14 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
     return (
         <div className="fichas-ingreso-container commercial-layout">
             {/* Header */}
-            <div className="header-row">
-                <button onClick={onBackToMenu} className="btn-back">
+            <div className="header-row" style={{ display: 'flex', position: 'relative', justifyContent: 'center', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <button onClick={onBackToMenu} className="btn-back" style={{ position: 'absolute', left: 0, margin: 0 }}>
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
                     </svg>
                     Volver al Menú
                 </button>
-                <h2 className="page-title-geo">Gestión Coordinación</h2>
+                <h2 className="page-title-geo" style={{ margin: 0 }}>Gestión Coordinación</h2>
             </div>
 
             {/* Filters */}
@@ -273,33 +282,91 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
 
 
 
-                    <div className="form-group">
-                        <label style={{ ...labelStyle, visibility: 'hidden' }}>Limpiar</label>
-                        <button
-                            onClick={handleClearFilters}
-                            style={{
-                                padding: '5px 10px',
-                                height: '30px',
-                                width: '100%',
-                                backgroundColor: 'white',
-                                border: '1px solid #d1d5db',
-                                borderRadius: '6px',
-                                color: '#6b7280',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '0.5rem',
-                                fontWeight: 500,
-                                fontSize: '0.75rem'
-                            }}
-                            title="Limpiar Filtros"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
-                            Limpiar
-                        </button>
+                    <div className="form-group" style={{ display: 'flex', gap: '0.4rem' }}>
+                        <div style={{ flex: 1 }}>
+                            <label style={{ ...labelStyle, visibility: 'hidden' }}>Limpiar</label>
+                            <button
+                                onClick={handleClearFilters}
+                                style={{
+                                    padding: '5px 10px',
+                                    height: '30px',
+                                    width: '100%',
+                                    backgroundColor: 'white',
+                                    border: '1px solid #d1d5db',
+                                    borderRadius: '6px',
+                                    color: '#6b7280',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '0.3rem',
+                                    fontWeight: 500,
+                                    fontSize: '0.75rem'
+                                }}
+                                title="Limpiar Filtros"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                                Limpiar
+                            </button>
+                        </div>
+                        <div style={{ flex: 1 }}>
+                            <label style={{ ...labelStyle, visibility: 'hidden' }}>Exportar</label>
+                            <button
+                                onClick={() => setShowExportModal(true)}
+                                style={{
+                                    padding: '5px 10px',
+                                    height: '30px',
+                                    width: '100%',
+                                    backgroundColor: '#22c55e',
+                                    border: '1px solid #16a34a',
+                                    borderRadius: '6px',
+                                    color: 'white',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '0.3rem',
+                                    fontWeight: 600,
+                                    fontSize: '0.75rem',
+                                    boxShadow: '0 2px 4px rgba(34, 197, 94, 0.2)'
+                                }}
+                                title="Exportar General"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                Exportar
+                            </button>
+                        </div>
                     </div>
                 </div>
+
+                <FichaExportModal 
+                    isOpen={showExportModal}
+                    onClose={() => setShowExportModal(false)}
+                    initialFilters={{
+                        ficha: searchId,
+                        estado: searchEstado,
+                        fechaDesde: dateFrom,
+                        fechaHasta: dateTo,
+                        tipo: searchTipo,
+                        empresaFacturar: searchEmpresaFacturar,
+                        empresaServicio: searchEmpresaServicio,
+                        centro: searchCentro,
+                        objetivo: searchObjetivo,
+                        subArea: searchSubArea,
+                        usuario: searchUsuario
+                    }}
+                    catalogos={{
+                        estados: uniqueEstados,
+                        tipos: uniqueTipos,
+                        empresasFacturar: uniqueEmpFacturar,
+                        empresasServicio: uniqueEmpServicio,
+                        centros: uniqueCentros,
+                        objetivos: uniqueObjetivos,
+                        subAreas: uniqueSubAreas,
+                        fichas: uniqueFichas,
+                        usuarios: uniqueUsuarios
+                    }}
+                />
             </div>
 
             {/* Table */}
@@ -320,6 +387,7 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
                                     <th style={{ padding: '4px', whiteSpace: 'nowrap' }}>Fuente Emisora</th>
                                     <th style={{ padding: '4px', whiteSpace: 'nowrap' }}>Objetivo</th>
                                     <th style={{ padding: '4px', whiteSpace: 'nowrap' }}>Sub Área</th>
+                                    <th style={{ padding: '4px', whiteSpace: 'nowrap', textAlign: 'center', width: '50px' }}>PDF</th>
                                     <th style={{ padding: '4px', whiteSpace: 'nowrap', textAlign: 'center', width: '50px' }}>Acciones</th>
                                 </tr>
                             </thead>
@@ -370,6 +438,51 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
                                         <td data-label="Fuente Emisora" style={cellStyle} title={ficha.centro}>{ficha.centro || '-'}</td>
                                         <td data-label="Objetivo" style={cellStyle} title={ficha.nombre_objetivomuestreo_ma}>{ficha.nombre_objetivomuestreo_ma || '-'}</td>
                                         <td data-label="Sub Área" style={cellStyle} title={ficha.nombre_subarea}>{ficha.nombre_subarea || '-'}</td>
+                                        <td data-label="PDF" style={{ textAlign: 'center', whiteSpace: 'nowrap', padding: '6px' }}>
+                                            {(ficha.estado_ficha || '').toUpperCase().includes('EN PROCESO') && (
+                                                <button
+                                                    title="Descargar PDF"
+                                                    onClick={async (e) => {
+                                                        e.stopPropagation();
+                                                        try {
+                                                            const idFicha = ficha.id_fichaingresoservicio || ficha.fichaingresoservicio;
+                                                            if (!idFicha) {
+                                                                alert("No se pudo obtener el ID de la ficha.");
+                                                                return;
+                                                            }
+                                                            
+                                                            const pdfBlob = await fichaService.downloadPdf(Number(idFicha));
+                                                            const url = window.URL.createObjectURL(pdfBlob);
+                                                            const link = document.createElement('a');
+                                                            link.href = url;
+                                                            link.setAttribute('download', `Ficha_${idFicha}.pdf`);
+                                                            document.body.appendChild(link);
+                                                            link.click();
+                                                            link.parentNode?.removeChild(link);
+                                                            window.URL.revokeObjectURL(url);
+
+                                                        } catch (error) {
+                                                            console.error("Error al descargar PDF:", error);
+                                                            alert("Error al descargar el PDF de la ficha.");
+                                                        }
+                                                    }}
+                                                    style={{
+                                                        border: 'none',
+                                                        background: 'none',
+                                                        color: '#ef4444',
+                                                        cursor: 'pointer',
+                                                        padding: '2px',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center'
+                                                    }}
+                                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fee2e2'}
+                                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                                </button>
+                                            )}
+                                        </td>
                                         <td data-label="Acciones" style={{ textAlign: 'center', whiteSpace: 'nowrap', padding: '6px' }}>
                                             <button
                                                 title="Gestionar Ficha"
@@ -395,6 +508,7 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
                                 {/* Empty Rows Filling */}
                                 {Array.from({ length: Math.max(0, emptyRows) }).map((_, i) => (
                                     <tr key={`empty-${i}`} style={{ borderBottom: '1px solid #e5e7eb', height: '36px' }}>
+                                        <td>&nbsp;</td>
                                         <td>&nbsp;</td>
                                         <td>&nbsp;</td>
                                         <td>&nbsp;</td>
@@ -431,16 +545,20 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
 // --- Main Orchestrator ---
 const CoordinacionPageContent: React.FC<Props> = ({ onBack }) => {
     const { hasPermission } = useAuth();
-    // Modes: 'menu', 'list_consultar', 'detail_consultar', 'list_assign', 'detail_assign'
+    // Modes: 'menu', 'list_consultar', 'detail_consultar', 'list_assign', 'detail_assign', 'dashboard'
     const [mode, setMode] = useState<string>('menu');
     const [selectedFichaId, setSelectedFichaId] = useState<number | null>(null);
+    const [detailReturnMode, setDetailReturnMode] = useState<string>('list_consultar');
 
     // Navigation Handlers
     const goToListConsultar = () => setMode('list_consultar');
     const goToListAssign = () => setMode('list_assign');
     const goToCalendarEnProceso = () => setMode('calendar_en_proceso');
+    const goToListEjecutados = () => setMode('list_ejecutados');
+    const goToDashboard = () => setMode('dashboard');
 
-    const goToDetailConsultar = (id: number) => {
+    const goToDetailConsultar = (id: number, source: string = 'list_consultar') => {
+        setDetailReturnMode(source);
         setSelectedFichaId(id);
         setMode('detail_consultar');
     };
@@ -455,7 +573,7 @@ const CoordinacionPageContent: React.FC<Props> = ({ onBack }) => {
         return (
             <CoordinacionDetailView
                 fichaId={selectedFichaId}
-                onBack={() => setMode('list_consultar')}
+                onBack={() => setMode(detailReturnMode)}
             />
         );
     }
@@ -473,7 +591,7 @@ const CoordinacionPageContent: React.FC<Props> = ({ onBack }) => {
         return (
             <CoordinacionListView
                 onBackToMenu={() => setMode('menu')}
-                onViewDetail={goToDetailConsultar}
+                onViewDetail={(id) => goToDetailConsultar(id, 'list_consultar')}
             />
         );
     }
@@ -491,7 +609,7 @@ const CoordinacionPageContent: React.FC<Props> = ({ onBack }) => {
         return (
             <EnProcesoListView
                 onBackToMenu={() => setMode('menu')}
-                onViewDetail={goToDetailConsultar}
+                onViewDetail={(id) => goToDetailConsultar(id, 'list_en_proceso')}
             />
         );
     }
@@ -504,17 +622,34 @@ const CoordinacionPageContent: React.FC<Props> = ({ onBack }) => {
         );
     }
 
+    if (mode === 'list_ejecutados') {
+        return (
+            <MuestreosEjecutadosListView
+                onBackToMenu={() => setMode('menu')}
+                onViewDetail={(id) => goToDetailConsultar(id, 'list_ejecutados')}
+            />
+        );
+    }
+
+    if (mode === 'dashboard') {
+        return (
+            <CoordinacionDashboardView
+                onBack={() => setMode('menu')}
+            />
+        );
+    }
+
     // Default: Menu
     return (
         <div className="fichas-ingreso-container commercial-layout">
-            <div className="header-row">
-                <button onClick={onBack} className="btn-back">
+            <div className="header-row" style={{ display: 'flex', position: 'relative', justifyContent: 'center', alignItems: 'center', marginBottom: '0.5rem', minHeight: '40px' }}>
+                <button onClick={onBack} className="btn-back" style={{ position: 'absolute', left: 0, margin: 0 }}>
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
                     </svg>
                     Volver
                 </button>
-                <h2 className="page-title-geo">Gestión Coordinación</h2>
+                <h2 className="page-title-geo" style={{ margin: 0 }}>Gestión Coordinación</h2>
             </div>
 
             <div style={{
@@ -523,9 +658,9 @@ const CoordinacionPageContent: React.FC<Props> = ({ onBack }) => {
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                padding: '2rem'
+                padding: '0.5rem 2rem 2rem'
             }}>
-                <h1 style={{ fontSize: '1.8rem', color: '#1f2937', marginBottom: '3rem', fontWeight: 600, textAlign: 'center' }}>
+                <h1 style={{ fontSize: '1.25rem', color: '#6b7280', marginBottom: '2rem' }}>
                     Seleccione una opción
                 </h1>
 
@@ -599,6 +734,50 @@ const CoordinacionPageContent: React.FC<Props> = ({ onBack }) => {
                             <p className="card-description">Visualizar la programación mensual de muestreos en terreno de forma gráfica.</p>
                         </div>
                     )}
+
+                    {/* Muestreos Completados Card */}
+                    <div
+                        onClick={goToListEjecutados}
+                        className="selection-card"
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = 'translateY(-5px)';
+                            e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)';
+                            e.currentTarget.style.borderColor = '#10b981'; // Emerald
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = 'translateY(0)';
+                            e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)';
+                            e.currentTarget.style.borderColor = '#e5e7eb';
+                        }}
+                    >
+                        <div className="card-icon" style={{ backgroundColor: '#ecfdf5', color: '#059669' }}>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                        </div>
+                        <h3 className="card-title">Muestreos Completados</h3>
+                        <p className="card-description">Muestreos ejecutados al 100%. Acceso a datos e informes emitidos.</p>
+                    </div>
+
+                    {/* Dashboard Card */}
+                    <div
+                        onClick={goToDashboard}
+                        className="selection-card"
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = 'translateY(-5px)';
+                            e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)';
+                            e.currentTarget.style.borderColor = '#ec4899'; // Pinkish for metrics
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = 'translateY(0)';
+                            e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)';
+                            e.currentTarget.style.borderColor = '#e5e7eb';
+                        }}
+                    >
+                        <div className="card-icon" style={{ backgroundColor: '#fdf2f8', color: '#db2777' }}>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                        </div>
+                        <h3 className="card-title">Dashboard Interactivo</h3>
+                        <p className="card-description">Métricas de gestión, tendencias de ingresos y distribución operativa.</p>
+                    </div>
 
                 </div>
             </div>

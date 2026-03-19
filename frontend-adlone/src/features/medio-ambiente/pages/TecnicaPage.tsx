@@ -26,6 +26,7 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
     const [searchCentro, setSearchCentro] = useState('');
     const [searchObjetivo, setSearchObjetivo] = useState('');
     const [searchSubArea, setSearchSubArea] = useState('');
+    const [searchUsuario, setSearchUsuario] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [loading, setLoading] = useState(true);
     const [fichas, setFichas] = useState<any[]>([]);
@@ -60,7 +61,7 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
     // Reset to page 1 when any filter changes
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchId, dateFrom, dateTo, searchEstado, searchTipo, searchEmpresaFacturar, searchEmpresaServicio, searchCentro, searchObjetivo, searchSubArea]);
+    }, [searchId, dateFrom, dateTo, searchEstado, searchTipo, searchEmpresaFacturar, searchEmpresaServicio, searchCentro, searchObjetivo, searchSubArea, searchUsuario]);
 
     // Derived unique values for datalists
     const getUniqueValues = (key: string) => {
@@ -90,6 +91,7 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
         setSearchCentro('');
         setSearchObjetivo('');
         setSearchSubArea('');
+        setSearchUsuario('');
     };
 
     // Filter Logic
@@ -110,7 +112,8 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
         const matchCentro = check(f.centro, searchCentro);
         const matchObjetivo = check(f.nombre_objetivomuestreo_ma, searchObjetivo);
         const matchSubArea = check(f.nombre_subarea, searchSubArea);
-
+        const matchUsuario = check(f.nombre_usuario, searchUsuario);
+        
         let matchDate = true;
         if (dateFrom || dateTo) {
             if (!f.fecha) return false;
@@ -134,7 +137,7 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
             }
         }
 
-        return matchId && matchDate && matchEstado && matchTipo && matchEmpresaFacturar && matchEmpresaServicio && matchCentro && matchObjetivo && matchSubArea;
+        return matchId && matchDate && matchEstado && matchTipo && matchEmpresaFacturar && matchEmpresaServicio && matchCentro && matchObjetivo && matchSubArea && matchUsuario;
     });
 
     // Pagination Logic
@@ -170,14 +173,14 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
     return (
         <div className="fichas-ingreso-container commercial-layout">
             {/* Header */}
-            <div className="header-row">
-                <button onClick={onBackToMenu} className="btn-back">
+            <div className="header-row" style={{ display: 'flex', position: 'relative', justifyContent: 'center', alignItems: 'center', marginBottom: '1rem', minHeight: '40px' }}>
+                <button onClick={onBackToMenu} className="btn-back" style={{ position: 'absolute', left: 0, margin: 0 }}>
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
                     </svg>
                     Volver
                 </button>
-                <h2 className="page-title-geo">Gestión Técnica</h2>
+                <h2 className="page-title-geo" style={{ margin: 0 }}>Gestión Técnica</h2>
             </div>
 
             {/* Filters */}
@@ -268,30 +271,32 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
 
 
                     <div className="form-group">
-                        <label style={{ ...labelStyle, visibility: 'hidden' }}>Limpiar</label>
-                        <button
-                            onClick={handleClearFilters}
-                            style={{
-                                padding: '5px 10px',
-                                height: '30px',
-                                width: '100%',
-                                backgroundColor: 'white',
-                                border: '1px solid #d1d5db',
-                                borderRadius: '6px',
-                                color: '#6b7280',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '0.5rem',
-                                fontWeight: 500,
-                                fontSize: '0.75rem'
-                            }}
-                            title="Limpiar Filtros"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
-                            Limpiar
-                        </button>
+                        <label style={{ ...labelStyle, visibility: 'hidden' }}>Acciones</label>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <button
+                                onClick={handleClearFilters}
+                                style={{
+                                    padding: '5px 10px',
+                                    height: '30px',
+                                    flex: 1,
+                                    backgroundColor: 'white',
+                                    border: '1px solid #d1d5db',
+                                    borderRadius: '6px',
+                                    color: '#6b7280',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '0.5rem',
+                                    fontWeight: 500,
+                                    fontSize: '0.75rem'
+                                }}
+                                title="Limpiar Filtros"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                                Limpiar
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -314,6 +319,7 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
                                     <th style={{ padding: '4px', whiteSpace: 'nowrap' }}>Fuente Emisora</th>
                                     <th style={{ padding: '4px', whiteSpace: 'nowrap' }}>Objetivo</th>
                                     <th style={{ padding: '4px', whiteSpace: 'nowrap' }}>Sub Área</th>
+                                    <th style={{ padding: '4px', whiteSpace: 'nowrap', textAlign: 'center', width: '40px' }}>PDF</th>
                                     <th style={{ padding: '4px', whiteSpace: 'nowrap', textAlign: 'center', width: '50px' }}>Acciones</th>
                                 </tr>
                             </thead>
@@ -364,6 +370,51 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
                                         <td data-label="Fuente Emisora" style={cellStyle} title={ficha.centro}>{ficha.centro || '-'}</td>
                                         <td data-label="Objetivo" style={cellStyle} title={ficha.nombre_objetivomuestreo_ma}>{ficha.nombre_objetivomuestreo_ma || '-'}</td>
                                         <td data-label="Sub Área" style={cellStyle} title={ficha.nombre_subarea}>{ficha.nombre_subarea || '-'}</td>
+                                        <td data-label="PDF" style={{ textAlign: 'center', whiteSpace: 'nowrap', padding: '6px' }}>
+                                            {(ficha.estado_ficha || '').toUpperCase().includes('EN PROCESO') && (
+                                                <button
+                                                    title="Descargar PDF"
+                                                    onClick={async (e) => {
+                                                        e.stopPropagation();
+                                                        try {
+                                                            const idFicha = ficha.id_fichaingresoservicio || ficha.fichaingresoservicio;
+                                                            if (!idFicha) {
+                                                                alert("No se pudo obtener el ID de la ficha.");
+                                                                return;
+                                                            }
+                                                            
+                                                            const pdfBlob = await fichaService.downloadPdf(Number(idFicha));
+                                                            const url = window.URL.createObjectURL(pdfBlob);
+                                                            const link = document.createElement('a');
+                                                            link.href = url;
+                                                            link.setAttribute('download', `Ficha_${idFicha}.pdf`);
+                                                            document.body.appendChild(link);
+                                                            link.click();
+                                                            link.parentNode?.removeChild(link);
+                                                            window.URL.revokeObjectURL(url);
+
+                                                        } catch (error) {
+                                                            console.error("Error al descargar PDF:", error);
+                                                            alert("Error al descargar el PDF de la ficha.");
+                                                        }
+                                                    }}
+                                                    style={{
+                                                        border: 'none',
+                                                        background: 'none',
+                                                        color: '#ef4444',
+                                                        cursor: 'pointer',
+                                                        padding: '2px',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center'
+                                                    }}
+                                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fee2e2'}
+                                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                                </button>
+                                            )}
+                                        </td>
                                         <td data-label="Acciones" style={{ textAlign: 'center', whiteSpace: 'nowrap', padding: '6px' }}>
                                             <button
                                                 title="Gestionar Ficha"
@@ -381,7 +432,6 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
                                                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#eff6ff'}
                                                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                                             >
-                                                {/* Edit/Manage Icon instead of Eye? Eye is fine for View/Audit */}
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                                             </button>
                                         </td>
@@ -390,7 +440,7 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
                                 {/* Empty Rows Filling */}
                                 {Array.from({ length: Math.max(0, emptyRows) }).map((_, i) => (
                                     <tr key={`empty-${i}`} style={{ borderBottom: '1px solid #e5e7eb', height: '36px' }}>
-                                        <td colSpan={10}>&nbsp;</td>
+                                        <td colSpan={11}>&nbsp;</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -410,6 +460,7 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
                     </>
                 )}
             </div>
+
         </div>
     );
 };

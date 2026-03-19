@@ -171,14 +171,14 @@ export const EnProcesoListView: React.FC<Props> = ({ onBackToMenu, onViewDetail 
 
     return (
         <div className="fichas-ingreso-container commercial-layout">
-            <div className="header-row">
-                <button onClick={onBackToMenu} className="btn-back">
+            <div className="header-row" style={{ display: 'flex', position: 'relative', justifyContent: 'center', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <button onClick={onBackToMenu} className="btn-back" style={{ position: 'absolute', left: 0, margin: 0 }}>
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
                     </svg>
                     Volver al Menú
                 </button>
-                <h2 className="page-title-geo">Fichas en Proceso</h2>
+                <h2 className="page-title-geo" style={{ margin: 0 }}>Fichas en Proceso</h2>
             </div>
 
             {/* Filters */}

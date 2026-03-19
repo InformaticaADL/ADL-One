@@ -20,6 +20,11 @@ export const fichaService = {
         const response = await apiClient.get(url);
         return response.data;
     },
+    getMuestreosEjecutados: async () => {
+        const response = await apiClient.get('/api/fichas/ejecutados');
+        return response.data;
+    },
+
     create: async (data: any) => {
         const response = await apiClient.post('/api/fichas/create', data);
         return response.data;
@@ -88,6 +93,14 @@ export const fichaService = {
     },
     getSamplingEquipos: async (idFicha: number, correlativo: string) => {
         const response = await apiClient.get(`/api/fichas/${idFicha}/sampling-equipos?correlativo=${correlativo}`);
+        return response.data;
+    },
+    downloadPdf: async (id: number) => {
+        const response = await apiClient.get(`/api/fichas/${id}/pdf`, { responseType: 'blob' });
+        return response.data;
+    },
+    downloadExcel: async (id: number) => {
+        const response = await apiClient.get(`/api/fichas/${id}/excel`, { responseType: 'blob' });
         return response.data;
     }
 };

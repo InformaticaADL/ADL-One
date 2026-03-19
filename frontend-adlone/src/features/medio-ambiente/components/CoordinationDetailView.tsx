@@ -311,7 +311,7 @@ export const CoordinationDetailView: React.FC<Props> = ({ fichaId, initialTab = 
                         <div className="form-grid-row grid-cols-4">
                             <StaticField label="Frecuencia" value={enc.frecuencia} />
                             <StaticField label="Periodo" value={enc.nombre_frecuencia} />
-                            <StaticField label="Multiplicado Por" value={enc.frecuencia_factor} />
+                            <StaticField label="Factor" value={enc.frecuencia_factor} />
                             <StaticField label="Total Servicios" value={enc.total_servicios} />
                         </div>
 
