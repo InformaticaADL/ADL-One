@@ -538,6 +538,44 @@ Consolidación de reglas de negocio, validaciones y precisión operativa en el f
 
 ---
 
+---
+
+### 30. Dashboards Especializados y Analítica Avanzada (Marzo 2026) 📊📈
+Nueva suite de visualización de datos diseñada para proporcionar inteligencia de negocio accionable por área.
+- **Vistas Especializadas**: Implementación de dashboards dedicados para **Gestión Operativa**, **Servicios y Clientes**, y **Logística y Centros**.
+- **Visualizaciones Complejas**: Integración de gráficos de Recharts (**Radar**, **Treemap**, **Composed Charts**) para analizar KPIs de rendimiento y distribución.
+- **Interactividad**: Filtros dinámicos con capacidades de drill-down que permiten profundizar en la data temporal y geográfica de cada vista.
+
+### 31. Refuerzo de Auditoría Global (Marzo 2026) 🛡️🔍
+Mejoras en la capa de seguridad y trazabilidad para cumplir con estándares de auditoría técnica.
+- **Captura Extensa de Metadatos**: El sistema ahora registra automáticamente la `ip_address`, `trace_id` y `metadatos_extra` en la tabla `App_Audit_Log`.
+- **Middleware de Contexto**: Implementación de una utilidad global que propaga la identidad y el contexto del usuario a todas las capas del servicio (Backend).
+
+### 32. Validación Estricta y Auto-Completado de Equipos (Marzo 2026) 📋⚡
+Aseguramiento de la integridad de datos en el ingreso de inventario técnico.
+- **Selección Estricta (Select-Only)**: Los campos de nombre de equipo, parámetros de medición y unidades ahora funcionan exclusivamente como selectores, eliminando la entrada de texto libre propensa a errores.
+- **Sincronización Inteligente de Metadatos**: Al elegir un equipo, el formulario puebla automáticamente los campos "Qué Mide" y "Unidad de Medida" basándose en el registro maestro del catálogo.
+
+### 33. Módulo de Administración de Información y Exportador de Datos (Marzo 2026) 📊
+Nueva interfaz centralizada para la descarga y gestión de bases de datos maestras y resultados operativos.
+- **Exportador Multi-Área**: Herramienta integrada en `AdminInfoHub.tsx` que permite exportar tablas (Maestros, Fichas, Solicitudes, Equipos) y procedimientos almacenados (SP) directamente a archivos Excel (`.xlsx`).
+- **Descarga en Tiempo Real**: Visualización dinámica de recursos disponibles por área de negocio y generación de reportes personalizada.
+- **Seguridad**: Acceso restringido mediante permisos específicos (`AI_MA_ADMIN_ACCESO`) y para usuarios administradores.
+
+### 34. Rediseño Minimalista del Catálogo Maestro (Marzo 2026) ✨🛠️
+Refinamiento visual profundo del gestor de modelos de equipos para garantizar una experiencia de usuario premium y eficiente.
+- **Estética Premium**: Refactorización de `EquipoCatalogoView.tsx` utilizando una nueva arquitectura de clases CSS (`catalog-*-refined`) en `admin.css`.
+- **Optimización de Espacio**: Implementación de un límite de desplazamiento (scroll) automático tras **6 elementos** en la tabla principal, maximizando la visibilidad del contenido circundante.
+- **Mayor Detalle Técnico**: Inclusión de la columna **Sigla** en la vista de lista, permitiendo identificar abreviaturas de unidad de forma inmediata.
+- **Refinamiento de Usabilidad (UX)**: 
+    - Reducción de espacios en blanco (márgenes y rellenos) en la cabecera del Hub para "subir" el contenido principal.
+    - Rediseño de formularios en cuadrículas de 2 columnas para una entrada de datos más organizada y compacta.
+    - Micro-animaciones (fadeIn) y botones de acción estilizados con iconos minimalistas.
+
+---
+
+---
+
 ## 🏗️ Estructura Detallada del Proyecto (Frontend)
 
 ```
@@ -555,7 +593,7 @@ frontend-adlone/
 ```
 
 ## 📄 Estado Final del Proyecto
-✅ **Backend**: Node.js + Express (API RESTful, Auth JWT, Notificaciones Enriquecidas con Filtrado, Lógica de Facturación Flexible)
-✅ **Frontend**: React + TypeScript (Calendario con Eventos INICIO/RETIRO, Validación de Análisis, UI con Privacidad UF, Unidades de Medida)
-✅ **Base de Datos**: SQL Server (Procedimientos Almacenados optimizados, Alineación con esquema legacy, Auditoría completa)
+✅ **Backend**: Node.js + Express (API RESTful, Auth JWT, Notificaciones con Adjuntos, Lógica de Exportación a Excel)
+✅ **Frontend**: React + TypeScript (Calendario de Muestreos, Catálogo Maestro Minimalista, Exportador de Datos, UI Multi-columna)
+✅ **Base de Datos**: SQL Server (Procedimientos Almacenados optimizados, Auditoría de Equipos, Alineación de Esquemas)
 
