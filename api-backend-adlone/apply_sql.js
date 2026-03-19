@@ -24,13 +24,24 @@ const applySql = async (sqlFilePath) => {
                 const trimmedStmt = stmt.trim();
                 if (trimmedStmt) {
                     const request = transaction.request();
-                    await request.query(trimmedStmt);
+                    try {
+                        console.log(`Executing statement: ${trimmedStmt.substring(0, 100)}...`);
+                        await request.query(trimmedStmt);
+                    } catch (stmtErr) {
+                        console.error(`❌ Error in statement: ${trimmedStmt.substring(0, 200)}`);
+                        console.error(stmtErr);
+                        throw stmtErr; 
+                    }
                 }
             }
             await transaction.commit();
             console.log('✅ SQL Script executed successfully.');
         } catch (err) {
-            await transaction.rollback();
+            if (transaction._aborted) {
+                console.warn('⚠️ Transaction was already aborted.');
+            } else {
+                await transaction.rollback();
+            }
             throw err;
         }
 
