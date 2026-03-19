@@ -1,0 +1,2 @@
+mae_normativareferencia: id_normativareferencia, nombre_normativareferencia, id_normativa, habilitado
+mae_centro: id_centro, codigo_centro, nombre_centro, id_empresa, id_zona, id_zonageografica, id_tipoagua, id_barrio, vigente, latitud, longitud, geo_latitud, geo_longitud, geo_barrio, ubicacion, ma_latitud, ma_longitud, utm_este, utm_norte, id_region, id_comuna, id_sanitario, nombre_corto, co_ensilaje, lleva_nombrealternativo, nombre_alternativo, observaciones, instrumentoambiental, realiza_screening, co_fijo, pm_ingreso, campo_nuevo

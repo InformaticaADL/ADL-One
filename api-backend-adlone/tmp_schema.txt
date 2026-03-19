@@ -1,0 +1,4 @@
+mae_subarea: id_subarea, nombre_subarea, activo, id_tipomuestra, metodologia
+mae_tipomuestra_ma: id_tipomuestra_ma, nombre_tipomuestra_ma, habilitado, metodologia
+mae_normativa: id_normativa, nombre_normativa, habilitado
+mae_referenciaanalisis: error Invalid object name 'mae_referenciaanalisis'.
