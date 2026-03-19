@@ -98,6 +98,63 @@ export const adminController = {
             console.error('Controller getCalendario error:', error);
             res.status(500).json({ success: false, message: 'Error al obtener datos del calendario' });
         }
+    },
+
+    getExportData: async (req, res) => {
+        try {
+            const { name, type = 'TABLE', params = '{}' } = req.query;
+            if (!name) {
+                return res.status(400).json({ success: false, message: 'Nombre de recurso requerido' });
+            }
+
+            let parsedParams = {};
+            try {
+                parsedParams = JSON.parse(params);
+            } catch (e) {
+                console.error('Error parsing export params:', e);
+            }
+
+            const result = await adminService.getTableData(name, type, parsedParams);
+            res.json({ success: true, data: result });
+        } catch (error) {
+            console.error(`Controller getExportData error for ${req.query.name}:`, error);
+            res.status(500).json({ success: false, message: error.message || 'Error al obtener datos para exportación' });
+        }
+    },
+
+    downloadBulkPdf: async (req, res) => {
+        try {
+            const { params = '{}' } = req.query;
+            let parsedParams = {};
+            try {
+                parsedParams = JSON.parse(params);
+            } catch (e) {
+                console.error('Error parsing bulk pdf params:', e);
+            }
+
+            const pdfBuffer = await adminService.getExportPdf(parsedParams);
+            
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename="Reporte_Fichas_${new Date().toISOString().split('T')[0]}.pdf"`);
+            res.send(pdfBuffer);
+        } catch (error) {
+            console.error('Controller downloadBulkPdf error:', error);
+            res.status(500).json({ success: false, message: error.message || 'Error al generar el PDF masivo' });
+        }
+    },
+
+    downloadMuestreadoresPdf: async (req, res) => {
+        try {
+            const { nombre, estado } = req.query;
+            const pdfBuffer = await adminService.generateMuestreadoresPdfBuffer(nombre, estado);
+            
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename="Muestreadores_${new Date().toISOString().split('T')[0]}.pdf"`);
+            res.send(pdfBuffer);
+        } catch (error) {
+            console.error('Controller downloadMuestreadoresPdf error:', error);
+            res.status(500).json({ success: false, message: 'Error al generar PDF de muestreadores' });
+        }
     }
 };
 

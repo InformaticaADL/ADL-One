@@ -11,6 +11,18 @@ export const equipoController = {
         }
     },
 
+    exportExcel: async (req, res) => {
+        try {
+            const buffer = await equipoService.exportEquiposExcel(req.query);
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            res.setHeader('Content-Disposition', `attachment; filename=Reporte_Equipos_${new Date().toISOString().split('T')[0]}.xlsx`);
+            res.send(buffer);
+        } catch (error) {
+            console.error('Controller exportExcel error:', error);
+            res.status(500).json({ success: false, message: 'Error al exportar a Excel' });
+        }
+    },
+
     getNextCorrelativo: async (req, res) => {
         try {
             const { tipo } = req.params;
@@ -117,6 +129,57 @@ export const equipoController = {
         } catch (error) {
             console.error('Controller restoreVersion error:', error);
             res.status(500).json({ success: false, message: 'Error al restaurar versión del equipo' });
+        }
+    },
+
+    createEquiposBulk: async (req, res) => {
+        try {
+            const userId = req.user?.id || null;
+            const result = await equipoService.createEquiposBulk(req.body, userId);
+            res.json({ success: true, data: result, message: `${result.length} equipos creados correctamente` });
+        } catch (error) {
+            console.error('Controller createEquiposBulk error:', error);
+            res.status(500).json({ success: false, message: error.message || 'Error al crear equipos' });
+        }
+    },
+
+    getEquipoCatalogo: async (req, res) => {
+        try {
+            const result = await equipoService.getEquipoCatalogo();
+            res.json({ success: true, data: result });
+        } catch (error) {
+            console.error('Controller getEquipoCatalogo error:', error);
+            res.status(500).json({ success: false, message: 'Error al obtener el catálogo de equipos' });
+        }
+    },
+
+    createEquipoCatalogo: async (req, res) => {
+        try {
+            const result = await equipoService.createEquipoCatalogo(req.body);
+            res.json({ success: true, data: result });
+        } catch (error) {
+            console.error('Controller createEquipoCatalogo error:', error);
+            res.status(500).json({ success: false, message: 'Error al crear el equipo en el catálogo' });
+        }
+    },
+
+    updateEquipoCatalogo: async (req, res) => {
+        try {
+            const result = await equipoService.updateEquipoCatalogo(req.params.id, req.body);
+            res.json({ success: true, data: result });
+        } catch (error) {
+            console.error('Controller updateEquipoCatalogo error:', error);
+            res.status(500).json({ success: false, message: 'Error al actualizar el equipo en el catálogo' });
+        }
+    },
+
+    deleteEquipoCatalogo: async (req, res) => {
+        try {
+            const result = await equipoService.deleteEquipoCatalogo(req.params.id);
+            res.json({ success: true, data: result });
+        } catch (error) {
+            console.error('Controller deleteEquipoCatalogo error:', error);
+            res.status(500).json({ success: false, message: 'Error al eliminar el equipo del catálogo' });
         }
     }
 };

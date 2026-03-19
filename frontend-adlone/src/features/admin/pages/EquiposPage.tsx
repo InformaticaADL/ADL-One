@@ -1,7 +1,9 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { equipoService, type Equipo } from '../services/equipo.service';
+import { EquipmentExportModal } from '../components/EquipmentExportModal';
 import { adminService } from '../../../services/admin.service';
 import { EquipoForm } from '../components/EquipoForm';
+
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
 
@@ -91,6 +93,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const [resolutionFeedback, setResolutionFeedback] = useState('');
     const [resolutionDate, setResolutionDate] = useState('');
     const [solicitudInResolution, setSolicitudInResolution] = useState<any | null>(null);
+    const [showExportModal, setShowExportModal] = useState(false);
+
 
     const { showToast } = useToast();
     const { hasPermission } = useAuth();
@@ -987,7 +991,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
 
     if (viewMode === 'form') {
         return (
-            <div className="admin-container animate-fade-in">
+            <div className={`admin-container animate-fade-in ${viewMode === 'form' ? 'form-view' : ''}`}>
                 <EquipoForm
                     initialData={selectedEquipo}
                     onCancel={() => setViewMode('list')}
@@ -1271,6 +1275,35 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                         </svg>
                         Nuevo Equipo
                     </button>
+
+                    <button
+                        onClick={() => setShowExportModal(true)}
+                        className="btn-filter-toggle"
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            padding: '0.6rem 1rem',
+                            borderRadius: '12px',
+                            border: '1px solid #e2e8f0',
+                            background: 'white',
+                            color: '#475569',
+                            fontSize: '0.9rem',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                        }}
+                    >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        Exportar
+                    </button>
+
+
                 </div>
             </div>
 
@@ -1469,6 +1502,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
             </div>
 
             {/* Modals area (Functional Core) */}
+
             {
                 reviewSolicitud && (
                     <div className="modal-overlay" style={{ zIndex: 10002 }}>
@@ -2193,6 +2227,20 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                     </div>
                 )
             }
+            <EquipmentExportModal 
+                isOpen={showExportModal}
+                onClose={() => setShowExportModal(false)}
+                catalogs={catalogs}
+                muestreadores={muestreadorList}
+                initialFilters={{
+                    tipo: filterTipo,
+                    sede: filterSede,
+                    estado: filterEstado,
+                    fechaDesde: filterFechaDesde,
+                    fechaHasta: filterFechaHasta,
+                    id_muestreador: filterMuestreador
+                }}
+            />
         </div >
     );
 };

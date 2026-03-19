@@ -48,7 +48,7 @@ export interface EquiposResponse {
         tipos: string[];
         estados: string[];
         sedes: string[];
-        nombres: string[];
+        nombres: any[]; // Returning full objects from catalog for metadata extraction
         que_mide: string[];
         unidades: string[];
     };
@@ -61,8 +61,33 @@ export const equipoService = {
         return response.data;
     },
 
+    getEquipoCatalogo: async (): Promise<any> => {
+        const response = await apiClient.get('/api/admin/equipos/catalogo');
+        return response.data;
+    },
+
+    createEquipoCatalogo: async (data: any): Promise<any> => {
+        const response = await apiClient.post('/api/admin/equipos/catalogo', data);
+        return response.data;
+    },
+
+    updateEquipoCatalogo: async (id: number, data: any): Promise<any> => {
+        const response = await apiClient.put(`/api/admin/equipos/catalogo/${id}`, data);
+        return response.data;
+    },
+
+    deleteEquipoCatalogo: async (id: number): Promise<any> => {
+        const response = await apiClient.delete(`/api/admin/equipos/catalogo/${id}`);
+        return response.data;
+    },
+
     createEquipo: async (data: Partial<Equipo>): Promise<any> => {
         const response = await apiClient.post('/api/admin/equipos/', data);
+        return response.data;
+    },
+
+    createEquiposBulk: async (data: Partial<Equipo>[]): Promise<any> => {
+        const response = await apiClient.post('/api/admin/equipos/bulk', data);
         return response.data;
     },
 
@@ -100,6 +125,14 @@ export const equipoService = {
 
     restoreVersion: async (id: number, idHistorial: number): Promise<any> => {
         const response = await apiClient.post(`/api/admin/equipos/${id}/restore/${idHistorial}`);
+        return response.data;
+    },
+
+    exportEquiposExcel: async (params: any): Promise<Blob> => {
+        const response = await apiClient.get('/api/admin/equipos/export/excel', {
+            params,
+            responseType: 'blob'
+        });
         return response.data;
     }
 };

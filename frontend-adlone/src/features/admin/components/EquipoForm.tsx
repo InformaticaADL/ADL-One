@@ -48,6 +48,8 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
     const [history, setHistory] = useState<EquipoHistorial[]>([]);
     const [showHistory, setShowHistory] = useState(false);
     const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+    const [editingObsIdx, setEditingObsIdx] = useState<number | null>(null);
+    const [editingObsText, setEditingObsText] = useState('');
     const [isRestoring, setIsRestoring] = useState(false);
     const [requestedChanges, setRequestedChanges] = useState<any>(null);
     const [generatingCode, setGeneratingCode] = useState(false);
@@ -58,12 +60,16 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
     const [unidadesOptions, setUnidadesOptions] = useState<string[]>([]);
     const [sedeOptions, setSedeOptions] = useState<string[]>([]);
     const [estadoOptions, setEstadoOptions] = useState<string[]>([]);
-    const [nameToSigla, setNameToSigla] = useState<Record<string, string>>({});
+    const [fullCatalogItems, setFullCatalogItems] = useState<any[]>([]);
+    const [nameToMetadata, setNameToMetadata] = useState<Record<string, Partial<Equipo>>>({});
     const [rejectingSolicitud, setRejectingSolicitud] = useState<any>(null);
     const [adminFeedback, setAdminFeedback] = useState('');
     const [processingAction, setProcessingAction] = useState(false);
     const [attemptedSubmit, setAttemptedSubmit] = useState(false);
     const [lastRestoredVersion, setLastRestoredVersion] = useState<{ active: string, previous: string } | null>(null);
+    const [step, setStep] = useState(1);
+    const [bulkQuantity, setBulkQuantity] = useState(1);
+    const [bulkItems, setBulkItems] = useState<any[]>([]);
     const { hideNotification } = useNavStore();
 
 
@@ -78,59 +84,43 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
     const canCreateEquipo = hasPermission('AI_MA_CREAR_EQUIPO') || isSuper;
     const canEditEquipo = hasPermission('AI_MA_EDITAR_EQUIPO') || isSuper;
 
-    // Fetch equipment names when Tipo changes
+    const autoGenerateSigla = (text: string) => {
+        if (!text) return '';
+        return text.split(',')
+            .map(part => part.trim()
+                .replace(/^(Unid\. de |Unidades de |Grados |de |en )/i, '')
+            )
+            .filter(part => part.length > 0)
+            .join('/');
+    };
+
+    // Update metadata map for ALL catalog items whenever fullCatalogItems changes
     useEffect(() => {
-        const fetchNames = async () => {
-            if (formData.tipo) {
-                try {
-                    const res = await equipoService.getEquipos({ tipo: formData.tipo, limit: 1000 });
-                    if (res && res.data) {
-                        // Extract unique names and map to sigla
-                        const namesSet = new Set<string>();
-                        const siglaMap: Record<string, string> = {};
-
-                        // Find a "template" equipment to auto-fill metadata
-                        const template = res.data.find((e: Equipo) => e.que_mide || e.unidad_medida_textual);
-
-                        res.data.forEach((e: Equipo) => {
-                            if (e.nombre && e.nombre.trim().length > 0) {
-                                namesSet.add(e.nombre.trim());
-                                if (e.sigla) {
-                                    siglaMap[e.nombre] = e.sigla;
-                                }
-                            }
-
-                        });
-
-                        setNamesOptions(Array.from(namesSet).sort());
-                        setNameToSigla(siglaMap);
-
-                        // Auto-fill logic
-                        if (template) {
-                            setFormData((prev: any) => {
-                                // Only update if currently empty to avoid overwriting user input
-                                if (!prev.que_mide && !prev.unidad_medida_textual) {
-                                    return {
-                                        ...prev,
-                                        que_mide: template.que_mide || '',
-                                        unidad_medida_textual: template.unidad_medida_textual || '',
-                                        unidad_medida_sigla: template.unidad_medida_sigla || ''
-                                    };
-                                }
-                                return prev;
-                            });
-                        }
-                    }
-                } catch (err) {
-                    console.error('Error fetching names for type:', err);
+        if (fullCatalogItems.length > 0) {
+            const newMap: Record<string, any> = {};
+            fullCatalogItems.forEach(item => {
+                if (item.nombre) {
+                    newMap[item.nombre.trim()] = {
+                        que_mide: item.que_mide,
+                        unidad_medida_textual: item.unidad_medida_textual,
+                        unidad_medida_sigla: item.unidad_medida_sigla,
+                        tipo: item.tipo_equipo
+                    };
                 }
-            } else {
-                setNamesOptions([]);
-                setNameToSigla({});
-            }
-        };
-        fetchNames();
-    }, [formData.tipo]);
+            });
+            setNameToMetadata(newMap);
+        }
+    }, [fullCatalogItems]);
+
+    // Filter names by current type
+    useEffect(() => {
+        if (fullCatalogItems.length > 0) {
+            const filtered = fullCatalogItems
+                .filter((n: any) => !formData.tipo || n.tipo_equipo === formData.tipo);
+            
+            setNamesOptions(filtered.map(n => n.nombre).sort());
+        }
+    }, [formData.tipo, fullCatalogItems]);
 
     useEffect(() => {
         const fetchMuestreadoresAndCatalogs = async () => {
@@ -147,21 +137,24 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                 console.log("TESTING: allERes.data length is", allERes.data?.length);
                 console.log("TESTING: first item in allERes.data", allERes.data?.[0]);
 
+                if (eRes.catalogs?.nombres) {
+                    setFullCatalogItems(eRes.catalogs.nombres);
+                }
+
                 if (eRes.catalogs?.tipos) {
-                    // Rigorous filter for empty/whitespace types
-                    setTipoOptions(eRes.catalogs.tipos.filter((t: string) => t && typeof t === 'string' && t.trim().length > 0));
+                    setTipoOptions(eRes.catalogs.tipos.filter((t: string) => t && t.trim().length > 0));
                 }
                 if (eRes.catalogs?.que_mide) {
-                    setQueMideOptions(eRes.catalogs.que_mide.filter((t: string) => t && typeof t === 'string' && t.trim().length > 0));
+                    setQueMideOptions(eRes.catalogs.que_mide.filter((t: string) => t && t.trim().length > 0));
                 }
                 if (eRes.catalogs?.unidades) {
-                    setUnidadesOptions(eRes.catalogs.unidades.filter((t: string) => t && typeof t === 'string' && t.trim().length > 0));
+                    setUnidadesOptions(eRes.catalogs.unidades.filter((t: string) => t && t.trim().length > 0));
                 }
                 if (eRes.catalogs?.sedes) {
-                    setSedeOptions(eRes.catalogs.sedes.filter((t: string) => t && typeof t === 'string' && t.trim().length > 0));
+                    setSedeOptions(eRes.catalogs.sedes.filter((t: string) => t && t.trim().length > 0));
                 }
                 if (eRes.catalogs?.estados) {
-                    setEstadoOptions(eRes.catalogs.estados.filter((t: string) => t && typeof t === 'string' && t.trim().length > 0));
+                    setEstadoOptions(eRes.catalogs.estados.filter((t: string) => t && t.trim().length > 0));
                 }
 
 
@@ -335,15 +328,9 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         if (type === 'checkbox') {
             // For checkboxes acting as YES/NO
             const checked = (e.target as HTMLInputElement).checked;
-            finalValue = checked ? 'SI' : 'NO';
+                finalValue = checked ? 'SI' : 'NO';
         }
         setFormData((prev: any) => ({ ...prev, [name]: finalValue }));
-    };
-
-    // Checkbox handler helper for "SI"/"NO" strings
-    const handleCheckboxChange = (name: keyof Equipo) => (e: React.ChangeEvent<HTMLInputElement>) => {
-        setIsRestoring(false);
-        setFormData((prev: any) => ({ ...prev, [name]: e.target.checked ? 'SI' : 'NO' }));
     };
 
     // Auto-correlative and Code Refresh logic (both for NEW and EXISTING equipment)
@@ -405,11 +392,31 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         !generatingCode
     );
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
+    const generateBulkItems = (quantity: number, baseData: any) => {
+        const items = [];
+        for (let i = 0; i < quantity; i++) {
+            const nextCorr = baseData.correlativo + i;
+            const formattedCorr = nextCorr < 10 ? `0${nextCorr}` : `${nextCorr}`;
+            const code = `${baseData.sigla}.${formattedCorr}/MA.${baseData.ubicacion}`;
+
+            items.push({
+                ...baseData,
+                correlativo: nextCorr,
+                codigo: code,
+                id: i // temporary id for react keys
+            });
+        }
+        setBulkItems(items);
+    };
+
+    const handleNextStep = () => {
         setAttemptedSubmit(true);
         if (isFormValid) {
-            setShowSaveConfirm(true);
+            generateBulkItems(bulkQuantity, formData);
+            setStep(2);
+            // Scroll to top
+            const modalBody = document.querySelector('.admin-form'); // Or container
+            if (modalBody) modalBody.scrollIntoView({ behavior: 'smooth' });
         } else {
             showToast({
                 type: 'error',
@@ -419,20 +426,37 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         }
     };
 
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!initialData?.id_equipo && step === 1) {
+            handleNextStep();
+        } else if (step === 2 || initialData?.id_equipo) {
+            setAttemptedSubmit(true);
+            if (isFormValid) {
+                setShowSaveConfirm(true);
+            } else {
+                showToast({
+                    type: 'error',
+                    message: 'Por favor complete todos los campos obligatorios marcados en rojo',
+                    duration: 5000
+                });
+            }
+        }
+    };
+
     const handleConfirmSave = async () => {
         setLoading(true);
         setError('');
         setShowSaveConfirm(false);
 
         try {
-            const dataToSend = {
-                ...formData,
-                equipo_asociado: formData.equipo_asociado === 'No Aplica' ? 0 : Number(formData.equipo_asociado)
-            };
-
             const hasValidIdInit = !!initialData?.id_equipo && String(initialData.id_equipo) !== '0' && initialData.id_equipo !== 0 && String(initialData.id_equipo) !== 'null';
 
             if (hasValidIdInit) {
+                const dataToSend = {
+                    ...formData,
+                    equipo_asociado: formData.equipo_asociado === 'No Aplica' ? 0 : Number(formData.equipo_asociado)
+                };
                 await equipoService.updateEquipo(initialData!.id_equipo, dataToSend);
 
                 // Approve request if applicable
@@ -456,7 +480,26 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                     duration: 5000
                 });
             } else {
-                await equipoService.createEquipo(dataToSend);
+                if (step === 2) {
+                    // Always use bulkItems in Step 2 to ensure edits in the table are saved
+                    const processedBulk = bulkItems.map(item => ({
+                        ...item,
+                        equipo_asociado: item.equipo_asociado === 'No Aplica' ? 0 : Number(item.equipo_asociado)
+                    }));
+                    
+                    if (processedBulk.length > 1) {
+                        await equipoService.createEquiposBulk(processedBulk);
+                    } else {
+                        await equipoService.createEquipo(processedBulk[0]);
+                    }
+                } else {
+                    // Fallback for single creation if for some reason step 1 is allowed to save directly
+                    const dataToSend = {
+                        ...formData,
+                        equipo_asociado: formData.equipo_asociado === 'No Aplica' ? 0 : Number(formData.equipo_asociado)
+                    };
+                    await equipoService.createEquipo(dataToSend);
+                }
 
                 // Si viene de una solicitud (ALTA), aprobarla automáticamente o derivar
                 if (initialData && (initialData as any).requestId) {
@@ -475,7 +518,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                     type: 'success',
                     message: (initialData as any)?.requestId
                         ? ((initialData as any).requestStatus === 'PENDIENTE_TECNICA' ? 'Equipo creado y derivado a Calidad' : 'Equipo creado y solicitud aprobada')
-                        : 'Equipo creado correctamente',
+                        : (bulkQuantity > 1 ? 'Equipos creados correctamente' : 'Equipo creado correctamente'),
                     duration: 10000
                 });
             }
@@ -1056,383 +1099,656 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                         * El historial muestra las versiones anteriores. Al "Habilitar" una, el estado actual se guardará automáticamente en el historial.
                     </p>
                 )}
-                {/* Group 1: Clasificación y Estado */}
-                <div className="form-section section-classification">
-                    <h4 className="section-title">Clasificación y Estado</h4>
-                    <div className="form-row">
-                        <div className="form-group">
-                            <label className="form-label">Tipo <span style={{ color: '#ef4444' }}>*</span></label>
-                            <HybridSelect
-                                label=""
-                                name="tipo"
-                                value={formData.tipo || ''}
-                                options={tipoOptions.length > 0 ? tipoOptions : ['Analizador', 'Balanza', 'Cámara Fotográfica', 'Centrífuga', 'GPS', 'Instrumento', 'Medidor', 'Multiparámetro', 'Phmetro', 'Sonda']}
-                                onChange={(val) => handleChange({ target: { name: 'tipo', value: val } } as any)}
-                                disabled={!!initialData?.id_equipo}
-                                placeholder="Seleccione Tipo..."
-                                strict={true}
-                                required
-                                style={{
-                                    border: (attemptedSubmit && !formData.tipo) ? '1.5px solid #ef4444' : undefined,
-                                    borderRadius: (attemptedSubmit && !formData.tipo) ? '0.375rem' : undefined
-                                }}
-                            />
-                        </div>
-                        <div className="form-group">
-                            <label className="form-label">Ubicación (Sede) <span style={{ color: '#ef4444' }}>*</span></label>
-                            <HybridSelect
-                                label=""
-                                name="ubicacion"
-                                value={formData.ubicacion || ''}
-                                options={sedeOptions.length > 0 ? sedeOptions : ['PM', 'AY', 'VI', 'PA', 'PV', 'CH']}
-                                onChange={(val) => handleChange({ target: { name: 'ubicacion', value: val } } as any)}
-                                placeholder="Seleccione Ubicación..."
-                                strict={true}
-                                required
-                                style={{
-                                    border: (attemptedSubmit && !formData.ubicacion) ? '1.5px solid #ef4444' : undefined,
-                                    borderRadius: (attemptedSubmit && !formData.ubicacion) ? '0.375rem' : undefined
-                                }}
-                            />
-                        </div>
-                        <div className="form-group">
-                            <label className="form-label">Estado <span style={{ color: '#ef4444' }}>*</span></label>
-                            <HybridSelect
-                                label=""
-                                name="estado"
-                                value={formData.estado || ''}
-                                options={estadoOptions.length > 0 ? estadoOptions : ['Activo', 'Inactivo']}
-                                onChange={(val) => handleChange({ target: { name: 'estado', value: val } } as any)}
-                                placeholder="Seleccione Estado..."
-                                strict={true}
-                                required
-                                style={{
-                                    border: (attemptedSubmit && !formData.estado) ? '1.5px solid #ef4444' : undefined,
-                                    borderRadius: (attemptedSubmit && !formData.estado) ? '0.375rem' : undefined
-                                }}
-                            />
+                {step === 1 && (
+                    <>
+                        {/* Group 1: Clasificación y Estado */}
+                        <div className="form-section section-classification">
+                            <h4 className="section-title">Clasificación y Estado</h4>
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label className="form-label">Tipo <span style={{ color: '#ef4444' }}>*</span></label>
+                                    <HybridSelect
+                                        label=""
+                                        name="tipo"
+                                        value={formData.tipo || ''}
+                                        options={tipoOptions}
+                                        onChange={(val) => {
+                                            handleChange({ target: { name: 'tipo', value: val } } as any);
+                                            // Filter names by this type immediately
+                                            setFormData((prev: any) => ({ ...prev, nombre: '' }));
+                                        }}
+                                        disabled={!!initialData?.id_equipo}
+                                        placeholder="Seleccione Tipo..."
+                                        strict={!isSuper}
+                                        required
+                                        style={{
+                                            border: (attemptedSubmit && !formData.tipo) ? '1.5px solid #ef4444' : undefined,
+                                            borderRadius: (attemptedSubmit && !formData.tipo) ? '0.375rem' : undefined
+                                        }}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Ubicación (Sede) <span style={{ color: '#ef4444' }}>*</span></label>
+                                    <HybridSelect
+                                        label=""
+                                        name="ubicacion"
+                                        value={formData.ubicacion || ''}
+                                        options={sedeOptions.length > 0 ? sedeOptions : ['PM', 'AY', 'VI', 'PA', 'PV', 'CH']}
+                                        onChange={(val) => handleChange({ target: { name: 'ubicacion', value: val } } as any)}
+                                        placeholder="Seleccione Ubicación..."
+                                        strict={true}
+                                        required
+                                        style={{
+                                            border: (attemptedSubmit && !formData.ubicacion) ? '1.5px solid #ef4444' : undefined,
+                                            borderRadius: (attemptedSubmit && !formData.ubicacion) ? '0.375rem' : undefined
+                                        }}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Estado <span style={{ color: '#ef4444' }}>*</span></label>
+                                    <HybridSelect
+                                        label=""
+                                        name="estado"
+                                        value={formData.estado || ''}
+                                        options={estadoOptions.length > 0 ? estadoOptions : ['Activo', 'Inactivo', 'Calibración', 'Mantenimiento', 'Baja']}
+                                        onChange={(val) => handleChange({ target: { name: 'estado', value: val } } as any)}
+                                        placeholder="Seleccione Estado..."
+                                        strict={true}
+                                        required
+                                        style={{
+                                            border: (attemptedSubmit && !formData.estado) ? '1.5px solid #ef4444' : undefined,
+                                            borderRadius: (attemptedSubmit && !formData.estado) ? '0.375rem' : undefined
+                                        }}
+                                    />
+                                </div>
+                            </div>
                         </div>
 
-                    </div>
-                </div>
+                        {/* Group 2: Identificación */}
+                        <div className="form-section section-id">
+                            <h4 className="section-title">Identificación</h4>
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label className="form-label">Nombre del Equipo <span style={{ color: '#ef4444' }}>*</span></label>
+                                    <HybridSelect
+                                        label=""
+                                        name="nombre"
+                                        value={formData.nombre || ''}
+                                        options={namesOptions}
+                                        onChange={(val) => {
+                                            const metadata = nameToMetadata[val.trim()];
+                                            handleChange({ target: { name: 'nombre', value: val } } as any);
+                                            
+                                            if (metadata) {
+                                                console.log("AUTO-FILL: Applying metadata for", val, metadata);
+                                                setFormData((prev: any) => ({
+                                                    ...prev,
+                                                    que_mide: metadata.que_mide || '',
+                                                    unidad_medida_textual: metadata.unidad_medida_textual || '',
+                                                    unidad_medida_sigla: metadata.unidad_medida_sigla || ''
+                                                }));
+                                            }
+                                        }}
+                                        placeholder="Seleccione nombre..."
+                                        strict={!isSuper}
+                                        required
+                                        style={{
+                                            border: (attemptedSubmit && !formData.nombre) ? '1.5px solid #ef4444' : undefined,
+                                            borderRadius: (attemptedSubmit && !formData.nombre) ? '0.375rem' : undefined
+                                        }}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Sigla Sugerida {generatingCode && <span className="loader-mini"></span>}</label>
+                                    <input
+                                        type="text"
+                                        name="sigla"
+                                        value={formData.sigla || ''}
+                                        onChange={handleChange}
+                                        className="form-input"
+                                        placeholder="Ej: BAL"
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Correlativo</label>
+                                    <input
+                                        type="number"
+                                        name="correlativo"
+                                        value={formData.correlativo || 0}
+                                        onChange={handleChange}
+                                        className="form-input"
+                                    />
+                                </div>
+                            </div>
 
-                {/* Group 2: Datos Principales */}
-                <div className="form-section section-main-data">
-                    <h4 className="section-title">Datos Principales</h4>
-                    <div className="form-row">
-                        <div className="form-group">
-                            <label className="form-label">Nombre <span style={{ color: '#ef4444' }}>*</span></label>
-                            <HybridSelect
-                                label=""
-                                name="nombre"
-                                value={formData.nombre || ''}
-                                options={namesOptions}
-                                disabled={!!(initialData?.requestId && initialData?.id_equipo)}
-                                onChange={(val) => {
-                                    const newSigla = nameToSigla[val] || formData.sigla;
-                                    handleChange({ target: { name: 'nombre', value: val } } as any);
-                                    if (nameToSigla[val]) {
-                                        handleChange({ target: { name: 'sigla', value: newSigla } } as any);
-                                    }
-                                }}
-                                placeholder="Seleccione..."
-                                strict={true}
-                                required
-                                style={{
-                                    border: (attemptedSubmit && !formData.nombre) ? '1.5px solid #ef4444' : undefined,
-                                    borderRadius: (attemptedSubmit && !formData.nombre) ? '0.375rem' : undefined
-                                }}
-                            />
-                        </div>
-                        <div className="form-group">
-                            <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span>Código <span style={{ color: '#ef4444' }}>*</span></span>
-                                {generatingCode ? (
-                                    <span style={{ fontSize: '0.7rem', color: '#2563eb', fontWeight: 600 }}>Generando...</span>
-                                ) : formData.previousCode ? (
-                                    <div style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '0.4rem',
-                                        fontSize: '0.75rem',
-                                        color: '#64748b'
-                                    }}>
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}><polyline points="15 10 20 15 15 20"></polyline><path d="M4 4v7a4 4 0 0 0 4 4h12"></path></svg>
-                                        <span>Anterior: <strong style={{ color: '#475569' }}>{formData.previousCode}</strong></span>
-                                        {formData.previousStatus && (
-                                            <span style={{
-                                                background: formData.previousStatus === 'Activo' ? '#dcfce7' : '#fee2e2',
-                                                color: formData.previousStatus === 'Activo' ? '#166534' : '#991b1b',
-                                                padding: '2px 6px',
-                                                borderRadius: '4px',
-                                                fontSize: '0.65rem',
-                                                fontWeight: 700
-                                            }}>
-                                                {formData.previousStatus}
-                                            </span>
-                                        )}
+                            <div className="form-row mt-4">
+                                <div className="form-group" style={{ flex: '2' }}>
+                                    <label className="form-label">Código Final <span style={{ color: '#ef4444' }}>*</span> {generatingCode && <span className="loader-mini"></span>}</label>
+                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                        <input
+                                            type="text"
+                                            name="codigo"
+                                            value={formData.codigo || ''}
+                                            onChange={handleChange}
+                                            className="form-input"
+                                            style={{
+                                                fontWeight: 700,
+                                                color: '#1e40af',
+                                                background: '#f8fafc',
+                                                border: (attemptedSubmit && !formData.codigo) ? '1.5px solid #ef4444' : undefined,
+                                                borderRadius: (attemptedSubmit && !formData.codigo) ? '0.375rem' : undefined
+                                            }}
+                                            placeholder="Auto-generado..."
+                                        />
                                     </div>
-                                ) : null}
-                            </label>
-
-                            <input
-                                type="text"
-                                name="codigo"
-                                value={formData.codigo || ''}
-                                onChange={handleChange}
-                                className="form-input"
-                                style={{
-                                    backgroundColor: (generatingCode || formData.codigo) ? '#f8fafc' : 'white',
-                                    cursor: generatingCode ? 'wait' : 'default',
-                                    color: generatingCode ? '#94a3b8' : '#1e293b',
-                                    fontWeight: formData.codigo ? 700 : 400,
-                                    border: (attemptedSubmit && !formData.codigo) ? '1.5px solid #ef4444' : undefined
-                                }}
-                                placeholder={generatingCode ? "Generando..." : "Se generará automáticamente"}
-                                readOnly
-                                required
-                            />
-                        </div>
-                    </div>
-                    <div className="form-row">
-                        <div className="form-group">
-                            <label className="form-label">Sigla</label>
-                            <input
-                                type="text"
-                                name="sigla"
-                                value={formData.sigla || ''}
-                                onChange={handleChange}
-                                className="form-input"
-                                readOnly={true}
-                                style={{ backgroundColor: '#f8fafc', color: '#64748b', cursor: 'not-allowed' }}
-                            />
-
-
-                        </div>
-                        <div className="form-group">
-                            <label className="form-label">Correlativo</label>
-                            <input
-                                type="number"
-                                name="correlativo"
-                                value={formData.correlativo || 0}
-                                onChange={handleChange}
-                                className="form-input"
-                                style={{
-                                    backgroundColor: '#f8fafc',
-                                    fontWeight: 600,
-                                    border: (attemptedSubmit && !formData.codigo) ? '1.5px solid #ef4444' : undefined
-                                }}
-                                required
-                                readOnly
-                            />
-                        </div>
-                    </div>
-                </div>
-
-                {/* Group 3: Parametrización */}
-                <div className="form-section section-parametrization">
-                    <h4 className="section-title">Parametrización</h4>
-                    <div className="form-row">
-                        <div className="form-group">
-                            <label className="form-label">Expiración (Vigencia) <span style={{ color: '#ef4444' }}>*</span></label>
-                            <input
-                                type="date"
-                                name="vigencia"
-                                value={formData.vigencia || ''}
-                                onChange={handleChange}
-                                className="form-input"
-                                style={{
-                                    border: (attemptedSubmit && !formData.vigencia) ? '1.5px solid #ef4444' : undefined
-                                }}
-                                required
-                                min={new Date().toISOString().split('T')[0]}
-                            />
-                        </div>
-                        <div className="form-group">
-                            <label className="form-label">Asignado a (Muestreador)</label>
-                            <HybridSelect
-                                label=""
-                                name="id_muestreador"
-                                value={muestreadores.find(m => String(m.id_muestreador) === String(formData.id_muestreador))?.nombre_muestreador || ''}
-                                options={muestreadores.map(m => m.nombre_muestreador)}
-                                onChange={(val) => {
-                                    const matching = muestreadores.find(m => m.nombre_muestreador === val);
-                                    handleChange({
-                                        target: {
-                                            name: 'id_muestreador',
-                                            value: matching ? matching.id_muestreador : (val === '-- Sin Asignar --' ? '0' : val)
-                                        }
-                                    } as any);
-                                }}
-                                placeholder="Seleccione Muestreador..."
-                                strict={true}
-                            />
+                                    {formData.previousCode && (
+                                        <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                            Anterior: <span style={{ fontWeight: 600 }}>{formData.previousCode}</span>
+                                            {formData.previousStatus && (
+                                                <span style={{
+                                                    marginLeft: '4px',
+                                                    fontSize: '0.65rem',
+                                                    padding: '1px 4px',
+                                                    borderRadius: '3px',
+                                                    background: formData.previousStatus === 'Activo' ? '#dcfce7' : '#fee2e2',
+                                                    color: formData.previousStatus === 'Activo' ? '#166534' : '#991b1b'
+                                                }}>
+                                                    {formData.previousStatus}
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="form-group" style={{ flex: '1' }}>
+                                    <label className="form-label">Vigencia <span style={{ color: '#ef4444' }}>*</span></label>
+                                    <input
+                                        type="date"
+                                        name="vigencia"
+                                        value={formData.vigencia || ''}
+                                        onChange={handleChange}
+                                        className="form-input"
+                                        required
+                                        style={{
+                                            border: (attemptedSubmit && !formData.vigencia) ? '1.5px solid #ef4444' : undefined,
+                                            borderRadius: (attemptedSubmit && !formData.vigencia) ? '0.375rem' : undefined
+                                        }}
+                                    />
+                                </div>
+                            </div>
                         </div>
 
-                        <div className="form-group">
-                            <label className="form-label">Equipo Asociado</label>
-                            {(() => {
-                                const validMuestreador = formData.id_muestreador && String(formData.id_muestreador) !== '0';
-                                const equiposMuestreador = validMuestreador
-                                    ? allEquipos.filter(e => String(e.id_muestreador) === String(formData.id_muestreador) && String(e.id_equipo) !== String(formData.id_equipo || '0'))
-                                    : [];
-
-                                const matchedEq = allEquipos.find(e => String(e.id_equipo) === String(formData.equipo_asociado));
-                                const displayValue = matchedEq
-                                    ? `${matchedEq.nombre} - ${matchedEq.codigo}`
-                                    : (formData.equipo_asociado || 'No Aplica');
-
-                                return (
+                        {/* Group 3: Responsable y Asociación */}
+                        <div className="form-section section-responsable">
+                            <h4 className="section-title">Asignación y Relación</h4>
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label className="form-label">Responsable (Muestreador) <span style={{ color: '#ef4444' }}>*</span></label>
+                                    <select
+                                        name="id_muestreador"
+                                        value={formData.id_muestreador || ''}
+                                        onChange={handleChange}
+                                        className="form-input"
+                                        style={{
+                                            border: (attemptedSubmit && !formData.id_muestreador) ? '1.5px solid #ef4444' : undefined,
+                                            borderRadius: (attemptedSubmit && !formData.id_muestreador) ? '0.375rem' : undefined
+                                        }}
+                                    >
+                                        <option value="">Seleccione Responsable...</option>
+                                        {muestreadores.map(m => (
+                                            <option key={m.id_muestreador} value={m.id_muestreador}>{m.nombre_muestreador}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Equipo Asociado</label>
                                     <HybridSelect
                                         label=""
                                         name="equipo_asociado"
-                                        value={displayValue}
-                                        options={['No Aplica', ...equiposMuestreador.map(e => `${e.nombre} - ${e.codigo}`)]}
-                                        onChange={(val) => {
-                                            if (val === 'No Aplica' || !val) {
-                                                handleChange({ target: { name: 'equipo_asociado', value: 'No Aplica' } } as any);
-                                                return;
-                                            }
-                                            const matching = equiposMuestreador.find(e => `${e.nombre} - ${e.codigo}` === val) || allEquipos.find(e => `${e.nombre} - ${e.codigo}` === val);
-                                            handleChange({
-                                                target: {
-                                                    name: 'equipo_asociado',
-                                                    value: matching ? matching.id_equipo : val
-                                                }
-                                            } as any);
-                                        }}
-                                        placeholder={validMuestreador ? "Seleccione Equipo..." : "Asigne Muestreador primero"}
-                                        strict={true}
+                                        value={String(formData.equipo_asociado || 'No Aplica')}
+                                        options={['No Aplica', ...allEquipos.map(e => String(e.id_equipo))]}
+                                        onChange={(val) => handleChange({ target: { name: 'equipo_asociado', value: val } } as any)}
+                                        placeholder="Ej: 154"
+                                        strict={false}
                                     />
-                                );
-                            })()}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Group 4: Configuración */}
-                <div className="form-section section-configuration">
-                    <h4 className="section-title">Configuración</h4>
-                    <div className="form-row checkbox-row">
-                        <div className="form-check">
-                            <input
-                                type="checkbox"
-                                id="tiene_fc"
-                                checked={formData.tiene_fc === 'SI'}
-                                onChange={handleCheckboxChange('tiene_fc')}
-                                className="form-checkbox"
-                            />
-                            <label htmlFor="tiene_fc">Tiene FC</label>
-                        </div>
-                        <div className="form-check">
-                            <input
-                                type="checkbox"
-                                id="visible_muestreador"
-                                checked={formData.visible_muestreador === 'SI'}
-                                onChange={handleCheckboxChange('visible_muestreador')}
-                                className="form-checkbox"
-                            />
-                            <label htmlFor="visible_muestreador">Visible Muestreador</label>
-                        </div>
-                        <div className="form-check">
-                            <input
-                                type="checkbox"
-                                id="informe"
-                                checked={formData.informe === 'SI'}
-                                onChange={handleCheckboxChange('informe')}
-                                className="form-checkbox"
-                            />
-                            <label htmlFor="informe">Incluir en Informe</label>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Group 5: Mediciones y Errores */}
-                <div className="form-section section-measurements">
-                    <h4 className="section-title">Mediciones y Errores</h4>
-                    <div className="form-row">
-                        <div className="form-group">
-                            <label className="form-label">Qué Mide</label>
-                            <HybridSelect
-                                label=""
-                                name="que_mide"
-                                value={formData.que_mide || ''}
-                                options={queMideOptions.length > 0 ? queMideOptions : ['pH', 'Conductividad', 'Temperatura', 'Oxígeno Disuelto', 'Turbiedad', 'Salinidad', 'Presión Atmosférica', 'Humedad Relativa', 'Nivel Freático']}
-                                onChange={(val) => handleChange({ target: { name: 'que_mide', value: val } } as any)}
-                                placeholder="Seleccione..."
-                                strict={true}
-                            />
-                        </div>
-                        <div className="form-group">
-                            <label className="form-label">Unidad de Medida (Textual)</label>
-                            <HybridSelect
-                                label=""
-                                name="unidad_medida_textual"
-                                value={formData.unidad_medida_textual || ''}
-                                options={unidadesOptions.length > 0 ? unidadesOptions : ['pH', 'µS/cm', '°C', 'mg/L', 'UNT', '%', 'hPa', 'm', 'm.s.n.m.']}
-                                onChange={(val) => handleChange({ target: { name: 'unidad_medida_textual', value: val } } as any)}
-                                placeholder="Seleccione..."
-                                strict={true}
-                            />
+                                </div>
+                            </div>
                         </div>
 
-                    </div>
-                    <div className="form-row">
-                        <div className="form-group">
-                            <label className="form-label">Error 0</label>
-                            <input
-                                type="number"
-                                name="error0"
-                                value={formData.error0 || 0}
-                                onChange={handleChange}
-                                className="form-input"
-                                step="any"
-                            />
-                        </div>
-                        <div className="form-group">
-                            <label className="form-label">Error 15</label>
-                            <input
-                                type="number"
-                                name="error15"
-                                value={formData.error15 || 0}
-                                onChange={handleChange}
-                                className="form-input"
-                                step="any"
-                            />
-                        </div>
-                        <div className="form-group">
-                            <label className="form-label">Error 30</label>
-                            <input
-                                type="number"
-                                name="error30"
-                                value={formData.error30 || 0}
-                                onChange={handleChange}
-                                className="form-input"
-                                step="any"
-                            />
-                        </div>
-                    </div>
-                </div>
+                        {/* Group 4: Configuración Técnica */}
+                        <div className="form-section section-technical">
+                            <h4 className="section-title">Configuración Técnica</h4>
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label className="form-label">¿Qué Mide? <span style={{ color: '#ef4444' }}>*</span></label>
+                                    <HybridSelect
+                                        label=""
+                                        name="que_mide"
+                                        value={formData.que_mide || ''}
+                                        options={queMideOptions}
+                                        onChange={(val) => {
+                                            handleChange({ target: { name: 'que_mide', value: val } } as any);
+                                            // Suggest unit/sigla if we find a unique match in catalog for this "Qué Mide"
+                                            const match = fullCatalogItems.find(item => item.que_mide === val);
+                                            if (match) {
+                                                setFormData((prev: any) => ({
+                                                    ...prev,
+                                                    unidad_medida_textual: match.unidad_medida_textual || prev.unidad_medida_textual || '',
+                                                    unidad_medida_sigla: match.unidad_medida_sigla || prev.unidad_medida_sigla || ''
+                                                }));
+                                            }
+                                        }}
+                                        placeholder="Seleccione..."
+                                        strict={!isSuper}
+                                        required
+                                        style={{
+                                            border: (attemptedSubmit && !formData.que_mide) ? '1.5px solid #ef4444' : undefined,
+                                            borderRadius: (attemptedSubmit && !formData.que_mide) ? '0.375rem' : undefined
+                                        }}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Unidad de Medida</label>
+                                    <HybridSelect
+                                        label=""
+                                        name="unidad_medida_textual"
+                                        value={formData.unidad_medida_textual || ''}
+                                        options={unidadesOptions}
+                                        onChange={(val) => {
+                                            handleChange({ target: { name: 'unidad_medida_textual', value: val } } as any);
+                                            // Auto-generate sigla if it's currently empty or was just selected from list
+                                            const generated = autoGenerateSigla(val);
+                                            if (generated) {
+                                                setFormData((prev: any) => ({
+                                                    ...prev,
+                                                    unidad_medida_sigla: generated
+                                                }));
+                                            }
+                                        }}
+                                        placeholder="Seleccione..."
+                                        strict={!isSuper}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Sigla Unidad</label>
+                                    <input
+                                        type="text"
+                                        name="unidad_medida_sigla"
+                                        value={formData.unidad_medida_sigla || ''}
+                                        onChange={handleChange}
+                                        className="form-input"
+                                        placeholder="Ej: mg/L"
+                                    />
+                                </div>
+                            </div>
 
-                {/* Group 6: Observaciones */}
-                <div className="form-section section-observations">
-                    <h4 className="section-title">Observaciones <span style={{ color: '#ef4444' }}>*</span></h4>
-                    <div className="form-group">
-                        <textarea
-                            name="observacion"
-                            value={formData.observacion || ''}
-                            onChange={handleChange}
-                            className="form-input"
-                            rows={3}
-                            style={{
-                                border: (attemptedSubmit && !formData.observacion) ? '1.5px solid #ef4444' : undefined,
-                                borderRadius: (attemptedSubmit && !formData.observacion) ? '0.375rem' : undefined
-                            }}
-                        />
+                            <div className="form-row mt-4" style={{ background: '#f8fafc', padding: '1rem', borderRadius: '8px' }}>
+                                <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <input
+                                        type="checkbox"
+                                        id="tienefc"
+                                        checked={formData.tiene_fc === 'SI' || formData.tiene_fc === 'S'}
+                                        onChange={(e) => setFormData((prev: any) => ({ ...prev, tiene_fc: e.target.checked ? 'SI' : 'NO' }))}
+                                        style={{ width: '18px', height: '18px' }}
+                                    />
+                                    <label htmlFor="tienefc" className="form-label" style={{ marginBottom: 0 }}>¿Tiene Factor de Corrección?</label>
+                                </div>
+                                <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <input
+                                        type="checkbox"
+                                        id="visible_muestreador"
+                                        checked={formData.visible_muestreador === 'SI' || formData.visible_muestreador === 'S'}
+                                        onChange={(e) => setFormData((prev: any) => ({ ...prev, visible_muestreador: e.target.checked ? 'SI' : 'NO' }))}
+                                        style={{ width: '18px', height: '18px' }}
+                                    />
+                                    <label htmlFor="visible_muestreador" className="form-label" style={{ marginBottom: 0 }}>Visible para Muestreadores</label>
+                                </div>
+                                <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <input
+                                        type="checkbox"
+                                        id="informe"
+                                        checked={formData.informe === 'SI' || formData.informe === 'S'}
+                                        onChange={(e) => setFormData((prev: any) => ({ ...prev, informe: e.target.checked ? 'SI' : 'NO' }))}
+                                        style={{ width: '18px', height: '18px' }}
+                                    />
+                                    <label htmlFor="informe" className="form-label" style={{ marginBottom: 0 }}>Incluir en Informe</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Group 5: Errores */}
+                        <div className="form-section section-errors">
+                            <h4 className="section-title">Incertidumbre / Errores</h4>
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label className="form-label">Error 0</label>
+                                    <input
+                                        type="number"
+                                        name="error0"
+                                        value={formData.error0 || 0}
+                                        onChange={handleChange}
+                                        className="form-input"
+                                        step="any"
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Error 15</label>
+                                    <input
+                                        type="number"
+                                        name="error15"
+                                        value={formData.error15 || 0}
+                                        onChange={handleChange}
+                                        className="form-input"
+                                        step="any"
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Error 30</label>
+                                    <input
+                                        type="number"
+                                        name="error30"
+                                        value={formData.error30 || 0}
+                                        onChange={handleChange}
+                                        className="form-input"
+                                        step="any"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Group 6: Observaciones */}
+                        <div className="form-section section-observations">
+                            <h4 className="section-title">Observaciones <span style={{ color: '#ef4444' }}>*</span></h4>
+                            <div className="form-group">
+                                <textarea
+                                    name="observacion"
+                                    value={formData.observacion || ''}
+                                    onChange={handleChange}
+                                    className="form-input"
+                                    rows={3}
+                                    style={{
+                                        border: (attemptedSubmit && !formData.observacion) ? '1.5px solid #ef4444' : undefined,
+                                        borderRadius: (attemptedSubmit && !formData.observacion) ? '0.375rem' : undefined
+                                    }}
+                                />
+                            </div>
+                        </div>
+                    </>
+                )}
+
+                {step === 2 && (
+                    <div className="bulk-creation-container" style={{ padding: '0', background: 'white', borderRadius: '16px', border: '1px solid #e2e8f0', marginBottom: '2rem', overflow: 'hidden', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}>
+                        <div style={{ background: '#1e40af', padding: '1.25rem 1.5rem', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '1.1rem', fontWeight: 700 }}>
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+                                CONFIGURACIÓN DE CREACIÓN MASIVA
+                            </h4>
+                            <div className="bulk-badge" style={{ background: 'rgba(255,255,255,0.2)', padding: '0.25rem 0.75rem', borderRadius: '99px', fontSize: '0.8rem', fontWeight: 600 }}>
+                                Template: {formData.nombre} ({formData.tipo})
+                            </div>
+                        </div>
+
+                        <div style={{ padding: '1.5rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '1.5rem', marginBottom: '1.5rem', flexWrap: 'wrap', background: '#f8fafc', padding: '1rem', borderRadius: '12px', border: '1px solid #f1f5f9' }}>
+                                <div className="form-group" style={{ maxWidth: '150px', marginBottom: 0 }}>
+                                    <label className="form-label" style={{ fontSize: '0.75rem', color: '#64748b' }}>CANTIDAD A CREAR</label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        max="50"
+                                        value={bulkQuantity}
+                                        onChange={(e) => {
+                                            const val = Math.max(1, Math.min(50, parseInt(e.target.value) || 1));
+                                            setBulkQuantity(val);
+                                            generateBulkItems(val, formData);
+                                        }}
+                                        className="form-input"
+                                        style={{ height: '38px', fontSize: '1rem', fontWeight: 700 }}
+                                    />
+                                </div>
+                                <div style={{ flex: 1, display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                                    {[
+                                        { label: 'Ubicación', field: 'ubicacion', applyCode: true },
+                                        { label: 'Estado', field: 'estado' },
+                                        { label: 'Responsable', field: 'id_muestreador' },
+                                        { label: 'Vigencia', field: 'vigencia' },
+                                        { label: 'Errores', fields: ['error0', 'error15', 'error30'] },
+                                        { label: 'Observación', field: 'observacion' }
+                                    ].map((action, i) => (
+                                        <button
+                                            key={i}
+                                            type="button"
+                                            onClick={() => {
+                                                const firstItem = bulkItems[0];
+                                                const newItems = bulkItems.map(item => {
+                                                    const updatedItem = { ...item };
+                                                    if (action.fields) {
+                                                        action.fields.forEach(f => { updatedItem[f] = firstItem[f]; });
+                                                    } else if (action.field) {
+                                                        updatedItem[action.field] = firstItem[action.field];
+                                                        if (action.applyCode) {
+                                                            const formattedCorr = item.correlativo < 10 ? `0${item.correlativo}` : `${item.correlativo}`;
+                                                            updatedItem.codigo = `${item.sigla}.${formattedCorr}/MA.${firstItem[action.field]}`;
+                                                        }
+                                                    }
+                                                    return updatedItem;
+                                                });
+                                                setBulkItems(newItems);
+                                                showToast({ type: 'info', message: `${action.label} aplicada a todos`, duration: 2000 });
+                                            }}
+                                            style={{
+                                                fontSize: '0.85rem',
+                                                color: '#1e40af',
+                                                background: 'white',
+                                                border: '1px solid #bfdbfe',
+                                                padding: '0 1rem',
+                                                height: '38px',
+                                                borderRadius: '8px',
+                                                fontWeight: 600,
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                            }}
+                                            onMouseEnter={(e) => { e.currentTarget.style.background = '#eff6ff'; e.currentTarget.style.borderColor = '#3b82f6'; }}
+                                            onMouseLeave={(e) => { e.currentTarget.style.background = 'white'; e.currentTarget.style.borderColor = '#bfdbfe'; }}
+                                        >
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
+                                            {action.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="bulk-items-table-container" style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid #f1f5f9' }}>
+                                <div style={{ 
+                                    overflow: 'auto', 
+                                    maxHeight: '320px', 
+                                    border: '1px solid #e2e8f0', 
+                                    borderRadius: '8px',
+                                    marginBottom: '1rem'
+                                }}>
+                                    <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, minWidth: '1300px' }}>
+                                    <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc' }}>
+                                        <tr style={{ borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}>
+                                            <th style={{ padding: '0.6rem 0.4rem', width: '30px', color: '#64748b', fontSize: '0.6rem', fontWeight: 800 }}>
+                                                <div style={{ display: 'flex', justifyContent: 'center' }}>#</div>
+                                            </th>
+                                            <th style={{ padding: '0.6rem 0.4rem', width: '150px', color: '#1e40af', fontSize: '0.65rem', fontWeight: 800 }}>
+                                                <div style={{ display: 'flex', justifyContent: 'center' }}>CÓDIGO</div>
+                                            </th>
+                                            <th style={{ padding: '0.6rem 0.4rem', width: '80px', color: '#64748b', fontSize: '0.65rem', fontWeight: 800 }}>
+                                                <div style={{ display: 'flex', justifyContent: 'center' }}>UBICACIÓN</div>
+                                            </th>
+                                            <th style={{ padding: '0.6rem 0.4rem', width: '100px', color: '#64748b', fontSize: '0.65rem', fontWeight: 800 }}>
+                                                <div style={{ display: 'flex', justifyContent: 'center' }}>ESTADO</div>
+                                            </th>
+                                            <th style={{ padding: '0.6rem 0.4rem', width: '150px', color: '#64748b', fontSize: '0.65rem', fontWeight: 800 }}>
+                                                <div style={{ display: 'flex', justifyContent: 'center' }}>RESPONSABLE</div>
+                                            </th>
+                                            <th style={{ padding: '0.6rem 0.4rem', width: '115px', color: '#64748b', fontSize: '0.65rem', fontWeight: 800 }}>
+                                                <div style={{ display: 'flex', justifyContent: 'center' }}>VIGENCIA</div>
+                                            </th>
+                                            <th style={{ padding: '0.6rem 0.4rem', width: '140px', color: '#64748b', fontSize: '0.65rem', fontWeight: 800 }}>
+                                                <div style={{ display: 'flex', justifyContent: 'center' }}>ERRORES (0|15|30)</div>
+                                            </th>
+                                            <th style={{ padding: '0.6rem 0.4rem', width: '100px', color: '#64748b', fontSize: '0.65rem', fontWeight: 800 }}>
+                                                <div style={{ display: 'flex', justifyContent: 'center' }}>OBSERVACIÓN</div>
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {bulkItems.map((item, idx) => (
+                                            <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: idx % 2 === 0 ? 'transparent' : '#fafafa' }}>
+                                                <td style={{ padding: '0.3rem 0.4rem', color: '#94a3b8', fontSize: '0.65rem', fontWeight: 600, verticalAlign: 'middle' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'center' }}>{idx + 1}</div>
+                                                </td>
+                                                <td style={{ padding: '0.3rem 0.4rem', fontWeight: 700, color: '#1e40af', fontSize: '0.75rem', verticalAlign: 'middle' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'center' }}>{item.codigo}</div>
+                                                </td>
+                                                <td style={{ padding: '0.3rem 0.4rem', verticalAlign: 'middle' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                                                        <HybridSelect
+                                                            label=""
+                                                            name={`bulk_ubic_${idx}`}
+                                                            value={item.ubicacion}
+                                                            options={sedeOptions.length > 0 ? sedeOptions : ['PM', 'AY', 'VI', 'PA', 'PV', 'CH']}
+                                                            onChange={(val) => {
+                                                                const newItems = [...bulkItems];
+                                                                newItems[idx].ubicacion = val;
+                                                                const formattedCorr = item.correlativo < 10 ? `0${item.correlativo}` : `${item.correlativo}`;
+                                                                newItems[idx].codigo = `${item.sigla}.${formattedCorr}/MA.${val}`;
+                                                                setBulkItems(newItems);
+                                                            }}
+                                                            strict={true}
+                                                            placeholder="Sede..."
+                                                            style={{ height: '32px', fontSize: '0.75rem', width: '70px', textAlign: 'center' }}
+                                                            showArrow={false}
+                                                        />
+                                                    </div>
+                                                </td>
+                                                <td style={{ padding: '0.3rem 0.4rem', verticalAlign: 'middle' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                                                        <HybridSelect
+                                                            label=""
+                                                            name={`bulk_estado_${idx}`}
+                                                            value={item.estado}
+                                                            options={estadoOptions.length > 0 ? estadoOptions : ['Activo', 'Inactivo', 'Calibración', 'Mantenimiento', 'Baja']}
+                                                            onChange={(val) => {
+                                                                const newItems = [...bulkItems];
+                                                                newItems[idx].estado = val;
+                                                                setBulkItems(newItems);
+                                                            }}
+                                                            strict={true}
+                                                            placeholder="Estado..."
+                                                            style={{ height: '32px', fontSize: '0.75rem', width: '90px', textAlign: 'center' }}
+                                                            showArrow={false}
+                                                        />
+                                                    </div>
+                                                </td>
+                                                <td style={{ padding: '0.3rem 0.4rem', verticalAlign: 'middle' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                                                        <select
+                                                            className="form-input"
+                                                            value={item.id_muestreador || ''}
+                                                            onChange={(e) => {
+                                                                const newItems = [...bulkItems];
+                                                                newItems[idx].id_muestreador = e.target.value;
+                                                                setBulkItems(newItems);
+                                                            }}
+                                                            style={{ height: '32px', fontSize: '0.7rem', padding: '0 0.4rem', width: '140px', appearance: 'none', textAlign: 'center' }}
+                                                        >
+                                                            <option value="">Seleccione...</option>
+                                                            {muestreadores.map(m => (
+                                                                <option key={m.id_muestreador} value={m.id_muestreador}>{m.nombre_muestreador}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                </td>
+                                                <td style={{ padding: '0.3rem 0.4rem', verticalAlign: 'middle' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                                                        <input
+                                                            type="date"
+                                                            className="form-input"
+                                                            value={item.vigencia || ''}
+                                                            onChange={(e) => {
+                                                                const newItems = [...bulkItems];
+                                                                newItems[idx].vigencia = e.target.value;
+                                                                setBulkItems(newItems);
+                                                            }}
+                                                            style={{ height: '32px', fontSize: '0.7rem', padding: '0 0.4rem', width: '110px', textAlign: 'center' }}
+                                                        />
+                                                    </div>
+                                                </td>
+                                                <td style={{ padding: '0.3rem 0.4rem', verticalAlign: 'middle' }}>
+                                                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                                                        {['error0', 'error15', 'error30'].map(field => (
+                                                            <input
+                                                                key={field}
+                                                                type="number"
+                                                                step="any"
+                                                                className="form-input"
+                                                                value={item[field] || 0}
+                                                                onChange={(e) => {
+                                                                    const newItems = [...bulkItems];
+                                                                    newItems[idx][field] = parseFloat(e.target.value) || 0;
+                                                                    setBulkItems(newItems);
+                                                                }}
+                                                                style={{ height: '32px', padding: '0 4px', fontSize: '0.75rem', textAlign: 'center', width: '45px' }}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                </td>
+                                                <td style={{ padding: '0.3rem 0.4rem', verticalAlign: 'middle' }}>
+                                                    <div
+                                                        onClick={() => { setEditingObsIdx(idx); setEditingObsText(item.observacion || ''); }}
+                                                        style={{
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            gap: '6px',
+                                                            padding: '0 0.6rem',
+                                                            border: '1px solid #e2e8f0',
+                                                            borderRadius: '6px',
+                                                            cursor: 'pointer',
+                                                            background: 'white',
+                                                            fontSize: '0.7rem',
+                                                            color: item.observacion ? '#334155' : '#94a3b8',
+                                                            height: '32px',
+                                                            width: '90px',
+                                                            margin: '0 auto'
+                                                        }}
+                                                    >
+                                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                                        <span style={{
+                                                            overflow: 'hidden',
+                                                            textOverflow: 'ellipsis',
+                                                            whiteSpace: 'nowrap',
+                                                            flex: 1
+                                                        }}>
+                                                            {item.observacion ? 'Ver' : 'Editar'}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                            </div>
+                        </div>
                     </div>
-                </div>
+                )}
 
                 <div className="modal-footer">
+                    {step === 2 && (
+                        <button type="button" onClick={() => setStep(1)} className="btn-secondary" style={{ marginRight: 'auto' }}>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '4px' }}><path d="M19 12H5M12 19l-7-7 7-7"></path></svg>
+                            Volver al Formulario
+                        </button>
+                    )}
                     <button type="button" onClick={onCancel} className="btn-secondary" disabled={loading}>
                         Cancelar
                     </button>
@@ -1465,10 +1781,11 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                             opacity: (loading || !isFormValid || !(initialData?.id_equipo ? canEditEquipo : canCreateEquipo)) ? 0.6 : 1,
                             cursor: (loading || !isFormValid || !(initialData?.id_equipo ? canEditEquipo : canCreateEquipo)) ? 'not-allowed' : 'pointer',
                             backgroundColor: (loading || !isFormValid || !(initialData?.id_equipo ? canEditEquipo : canCreateEquipo)) ? '#94a3b8' : (matchingVersion ? '#3b82f6' : '#10b981'),
-                            border: 'none'
+                            border: 'none',
+                            minWidth: '120px'
                         }}
                     >
-                        {loading ? 'Guardando...' : (initialData?.id_equipo ? 'Actualizar' : 'Guardar')}
+                        {loading ? 'Guardando...' : (initialData?.id_equipo ? 'Actualizar' : (step === 1 ? 'Siguiente' : 'Guardar Todo'))}
                     </button>
                 </div>
             </form>
@@ -1635,6 +1952,60 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                     </div>
                 )
             }
+
+            {/* Observation Edit Pop-up */}
+            {editingObsIdx !== null && (
+                <div className="modal-overlay" style={{ zIndex: 11000, background: 'rgba(0,0,0,0.6)' }}>
+                    <div className="modal-content" style={{ maxWidth: '600px', width: '90%', borderRadius: '16px', overflow: 'hidden' }}>
+                        <div style={{ background: '#1e40af', padding: '1.25rem 1.5rem', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                EDITAR OBSERVACIÓN (ITEM #{editingObsIdx + 1})
+                            </h3>
+                            <button
+                                onClick={() => setEditingObsIdx(null)}
+                                style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', opacity: 0.8 }}
+                            >
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+                        <div className="modal-body" style={{ padding: '1.5rem' }}>
+                            <div className="form-group">
+                                <label className="form-label">DETALLE DE LA OBSERVACIÓN</label>
+                                <textarea
+                                    className="form-input"
+                                    style={{ height: '200px', resize: 'vertical', fontSize: '0.95rem', lineHeight: '1.5', padding: '1rem' }}
+                                    placeholder="Escriba aquí los detalles..."
+                                    value={editingObsText}
+                                    onChange={(e) => setEditingObsText(e.target.value)}
+                                    autoFocus
+                                />
+                            </div>
+                        </div>
+                        <div className="modal-footer" style={{ borderTop: '1px solid #f1f5f9', padding: '1rem 1.5rem' }}>
+                            <button
+                                className="btn-secondary"
+                                onClick={() => setEditingObsIdx(null)}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                className="btn-primary"
+                                onClick={() => {
+                                    const newItems = [...bulkItems];
+                                    newItems[editingObsIdx].observacion = editingObsText;
+                                    setBulkItems(newItems);
+                                    setEditingObsIdx(null);
+                                    showToast({ type: 'success', message: 'Observación actualizada', duration: 1500 });
+                                }}
+                                style={{ background: '#1e40af', border: 'none' }}
+                            >
+                                Confirmar Cambios
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     );
 };
