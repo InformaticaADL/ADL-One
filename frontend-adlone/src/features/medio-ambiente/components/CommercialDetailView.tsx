@@ -420,40 +420,35 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
 
     return (
         <div className="fichas-ingreso-container commercial-layout">
-            <div className="header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                {/* LEFT SIDE: Back + Title + Status */}
+            <div className="header-row" style={{ display: 'flex', position: 'relative', justifyContent: 'center', alignItems: 'center', marginBottom: '1.5rem', minHeight: '40px' }}>
+                {/* LEFT SIDE: Back button */}
+                <button onClick={onBack} className="btn-back" disabled={isEditing && loading} style={{ position: 'absolute', left: 0, margin: 0 }}>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+                    </svg>
+                    Volver
+                </button>
+
+                {/* CENTER: Title + Status */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <button onClick={onBack} className="btn-back" disabled={isEditing && loading} style={{ margin: 0 }}>
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-                        </svg>
-                        Volver
-                    </button>
-
                     <h2 className="page-title-geo" style={{ margin: 0 }}>Ficha N° {enc.fichaingresoservicio} {isEditing ? '(Edición)' : ''}</h2>
-
-                    {(() => {
-
-
-                        return (
-                            <span style={{
-                                ...getStatusStyle(enc.estado_ficha),
-                                fontSize: '0.85rem',
-                                padding: '2px 8px',
-                                borderRadius: '999px',
-                                fontWeight: 600
-                            }}>
-                                {(() => {
-                                    const txt = enc.estado_ficha || '-';
-                                    return txt.toLowerCase().split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-                                })()}
-                            </span>
-                        );
-                    })()}
+                    <span style={{
+                        ...getStatusStyle(enc.estado_ficha),
+                        fontSize: '0.85rem',
+                        padding: '2px 8px',
+                        borderRadius: '999px',
+                        fontWeight: 600,
+                        whiteSpace: 'nowrap'
+                    }}>
+                        {(() => {
+                            const txt = enc.estado_ficha || '-';
+                            return txt.toLowerCase().split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                        })()}
+                    </span>
                 </div>
 
                 {/* RIGHT SIDE: Action Buttons */}
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <div style={{ position: 'absolute', right: 0, display: 'flex', gap: '0.5rem' }}>
                     {isEditing ? (
                         <>
                             <button
@@ -707,7 +702,7 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                             <div className="form-grid-row grid-cols-4">
                                 <StaticField label="Frecuencia" value={enc.agenda?.frecuencia || '-'} />
                                 <StaticField label="Periodo" value={enc.agenda?.nombre_frecuencia || '-'} />
-                                <StaticField label="Multiplicado Por" value={enc.agenda?.frecuencia_factor || '-'} />
+                                <StaticField label="Factor" value={enc.agenda?.frecuencia_factor || '-'} />
                                 <StaticField label="Total Servicios" value={enc.agenda?.total_servicios || '-'} />
                             </div>
 

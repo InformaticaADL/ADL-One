@@ -1,22 +1,26 @@
-import sql from 'mssql';
-import dotenv from 'dotenv';
-dotenv.config({ path: 'c:/Users/rdiaz/Desktop/PrAdl/ADL-One/api-backend-adlone/.env' });
+const { getConnection } = require('./src/config/database.js');
+const sql = require('mssql');
 
-(async () => {
+async function checkSchema() {
     try {
-        const pool = await sql.connect({
-            user: process.env.DB_USER,
-            password: process.env.DB_PASSWORD,
-            server: process.env.DB_SERVER,
-            database: process.env.DB_DATABASE,
-            options: { encrypt: false, trustServerCertificate: true },
-            port: parseInt(process.env.DB_PORT || '1433')
-        });
+        const pool = await getConnection();
+        const result = await pool.request().query("SELECT TOP 1 * FROM App_Ma_FichaIngresoServicio_ENC");
+        console.log('Columns in App_Ma_FichaIngresoServicio_ENC:');
+        console.log(Object.keys(result.recordset[0]).join(', '));
+        
+        const resultUser = await pool.request().query("SELECT TOP 1 * FROM mae_usuario");
+        console.log('\nColumns in mae_usuario:');
+        console.log(Object.keys(resultUser.recordset[0]).join(', '));
 
-        console.log("Searching for Salmones Aysen...");
-        const res1 = await pool.request().query("SELECT id_empresaservicio, nombre_empresaservicios, contacto_empresaservicios, email_contacto, email_empresaservicios FROM mae_empresaservicios WHERE nombre_empresaservicios LIKE '%Salmones Aysen%'");
-        console.log("RESULTS:", JSON.stringify(res1.recordset, null, 2));
+        const resultEmp = await pool.request().query("SELECT TOP 1 * FROM mae_empresa");
+        console.log('\nColumns in mae_empresa:');
+        console.log(Object.keys(resultEmp.recordset[0]).join(', '));
 
-        pool.close();
-    } catch (e) { console.error(e); }
-})();
+        process.exit(0);
+    } catch (err) {
+        console.error(err);
+        process.exit(1);
+    }
+}
+
+checkSchema();

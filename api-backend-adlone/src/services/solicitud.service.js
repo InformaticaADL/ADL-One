@@ -3,6 +3,7 @@ import { getConnection } from '../config/database.js';
 import logger from '../utils/logger.js';
 import notificationService from './notification.service.js';
 import { equipoService } from './equipo.service.js';
+import auditService from './audit.service.js';
 
 class SolicitudService {
     async create(data) {
@@ -99,6 +100,19 @@ class SolicitudService {
             } catch (histError) {
                 logger.error('Error logging history for create solicitud:', histError);
             }
+
+            // AUDITORIA INMUTABLE
+            auditService.log({
+                usuario_id: data.usuario_solicita,
+                area_key: data.origen_solicitud === 'MUESTREADOR' ? 'muestreo' : 'it',
+                modulo_nombre: 'Solicitudes de Equipo',
+                evento_tipo: 'SOLICITUD_CREACION',
+                entidad_nombre: 'mae_solicitud_equipo',
+                entidad_id: newId,
+                descripcion_humana: `El usuario ${data.nombre_solicitante || 'Usuario'} creó una solicitud de ${data.tipo_solicitud} (#${newId})`,
+                datos_nuevos: data.datos_json,
+                severidad: 1
+            });
 
             return { success: true, id: newId };
         } catch (error) {
@@ -380,6 +394,19 @@ class SolicitudService {
                 logger.error('Error sending accept notification:', notifyError);
             }
 
+            // AUDITORIA INMUTABLE
+            auditService.log({
+                usuario_id: usuario_tecnica,
+                area_key: 'it',
+                modulo_nombre: 'Solicitudes de Equipo',
+                evento_tipo: 'SOLICITUD_REVISION_INI',
+                entidad_nombre: 'mae_solicitud_equipo',
+                entidad_id: id,
+                descripcion_humana: `El usuario revisor aceptó la solicitud #${id} para revisión técnica`,
+                datos_nuevos: { feedback },
+                severidad: 1
+            });
+
             return { success: true };
         } catch (error) {
             logger.error('Error accepting for review:', error);
@@ -502,6 +529,19 @@ class SolicitudService {
             } catch (histError) {
                 logger.error('Error logging history for reviewTechnical:', histError);
             }
+
+            // AUDITORIA INMUTABLE
+            auditService.log({
+                usuario_id: usuario_tecnica,
+                area_key: 'it',
+                modulo_nombre: 'Solicitudes de Equipo',
+                evento_tipo: estado_tecnica === 'DERIVADO' ? 'SOLICITUD_DERIVACION' : 'SOLICITUD_RECHAZO_TEC',
+                entidad_nombre: 'mae_solicitud_equipo',
+                entidad_id: id,
+                descripcion_humana: `Revisión técnica finalizada para solicitud #${id}. Estado: ${estado_tecnica}`,
+                datos_nuevos: { feedback, estado_tecnica },
+                severidad: estado_tecnica === 'RECHAZADO' ? 2 : 1
+            });
 
             return { success: true };
         } catch (error) {
@@ -771,6 +811,19 @@ class SolicitudService {
             } catch (histError) {
                 logger.error('Error logging history for updateStatus:', histError);
             }
+
+            // AUDITORIA INMUTABLE
+            auditService.log({
+                usuario_id: adminId,
+                area_key: 'calidad',
+                modulo_nombre: 'Solicitudes de Equipo',
+                evento_tipo: status === 'APROBADO' ? 'SOLICITUD_APROBACION' : 'SOLICITUD_RECHAZO',
+                entidad_nombre: 'mae_solicitud_equipo',
+                entidad_id: id,
+                descripcion_humana: `Resolución final para solicitud #${id}. Resultado: ${status}`,
+                datos_nuevos: { feedback, status, id_equipo_procesado },
+                severidad: status === 'RECHAZADO' ? 2 : 1
+            });
 
             return { success: true };
         } catch (error) {

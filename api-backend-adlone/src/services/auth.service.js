@@ -2,6 +2,7 @@ import { getConnection } from '../config/database.js';
 import sql from 'mssql';
 import jwt from 'jsonwebtoken';
 import logger from '../utils/logger.js';
+import auditService from './audit.service.js';
 import dotenv from 'dotenv';
 
 // Ensure environment variables are loaded
@@ -38,6 +39,18 @@ class AuthService {
 
                 // Check habilitado (assuming 'S'/'N' or true/false)
                 if (user.habilitado === 'N' || user.habilitado === false) {
+                    auditService.log({
+
+                        usuario_id: user.id_usuario,
+                        area_key: 'it',
+                        modulo_nombre: 'Seguridad',
+                        evento_tipo: 'LOGIN_DISABLED',
+                        entidad_nombre: 'mae_usuario',
+                        entidad_id: user.id_usuario,
+                        descripcion_humana: `Intento de login fallido: usuario '${username}' deshabilitado`,
+                        metadatos_extra: { username },
+                        severidad: 2
+                    });
                     throw new Error('Usuario deshabilitado'); // Handler controller will catch
                 }
 
@@ -75,6 +88,19 @@ class AuthService {
                     { expiresIn: rememberMe ? '30d' : '12h' }
                 );
 
+                auditService.log({
+
+                    usuario_id: user.id_usuario,
+                    area_key: 'it',
+                    modulo_nombre: 'Seguridad',
+                    evento_tipo: 'LOGIN_SUCCESS',
+                    entidad_nombre: 'mae_usuario',
+                    entidad_id: user.id_usuario,
+                    descripcion_humana: `Login exitoso para el usuario ${user.nombre_usuario}`,
+                    metadatos_extra: { username },
+                    severidad: 1
+                });
+
                 return {
                     token,
                     user: {
@@ -87,6 +113,20 @@ class AuthService {
                     }
                 };
             }
+
+            // If we are here, it's an invalid credential attempt
+            auditService.log({
+
+                usuario_id: 0, // Unknown user
+                area_key: 'it',
+                modulo_nombre: 'Seguridad',
+                evento_tipo: 'LOGIN_FAILURE',
+                entidad_nombre: 'mae_usuario',
+                entidad_id: '0',
+                descripcion_humana: `Intento de login fallido: credenciales inválidas para '${username}'`,
+                metadatos_extra: { username },
+                severidad: 2
+            });
 
             return null; // User not found or invalid password
         } catch (error) {

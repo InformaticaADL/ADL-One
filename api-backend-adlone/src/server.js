@@ -9,6 +9,7 @@ import compression from 'compression';
 import { getConnection } from './config/database.js';
 import logger from './utils/logger.js';
 import { requestLogger } from './middlewares/logger.middleware.js';
+import { contextMiddleware } from './middlewares/context.middleware.js';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler.middleware.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -45,6 +46,7 @@ app.use(cors());
 app.use(compression());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(contextMiddleware);
 app.use(requestLogger);
 
 // Routes

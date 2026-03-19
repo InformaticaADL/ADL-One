@@ -2,6 +2,11 @@ import sql from '../config/database.js';
 import { getConnection } from '../config/database.js';
 import logger from '../utils/logger.js';
 import notificationService from './notification.service.js';
+import auditService from './audit.service.js';
+import fs from 'fs';
+import path from 'path';
+import PDFDocument from 'pdfkit-table';
+import ExcelJS from 'exceljs';
 
 class FichaIngresoService {
 
@@ -342,6 +347,19 @@ class FichaIngresoService {
                 fecha: notifFecha,
                 hora: notifHora,
                 observacion: obs || 'Sin observaciones'
+            });
+
+            // AUDITORIA INMUTABLE
+            auditService.log({
+                usuario_id: userId,
+                area_key: ant.tipoMonitoreo === 'Terreno' ? 'it' : 'comercial', // Heuristic
+                modulo_nombre: 'Fichas de Ingreso',
+                evento_tipo: 'FICHA_CREACION',
+                entidad_nombre: 'App_Ma_FichaIngresoServicio_ENC',
+                entidad_id: newId,
+                descripcion_humana: `El usuario ${notifUser} creó la ficha de ingreso #${newId}`,
+                datos_nuevos: { ...ant, observaciones: obs },
+                severidad: 1
             });
 
             return { success: true, id: newId, message: 'Ficha creada correctamente' };
@@ -830,6 +848,20 @@ class FichaIngresoService {
 
             await transaction.commit();
             logger.info(`Ficha ${id} updated successfully`);
+
+            // AUDITORIA INMUTABLE
+            auditService.log({
+                usuario_id: user.id,
+                area_key: ant.tipoMonitoreo === 'Terreno' ? 'it' : (user.area || 'comercial'),
+                modulo_nombre: 'Fichas de Ingreso',
+                evento_tipo: 'CAMBIO_COMERCIAL',
+                entidad_nombre: 'App_Ma_FichaIngresoServicio_ENC',
+                entidad_id: id,
+                descripcion_humana: `El usuario ${userName} actualizó la ficha #${id} (Edición Comercial)`,
+                datos_nuevos: { ...ant, observaciones: obs },
+                severidad: 1
+            });
+
             return { success: true, message: 'Ficha actualizada correctamente' };
 
         } catch (error) {
@@ -1395,6 +1427,19 @@ class FichaIngresoService {
                 observacion: observaciones || 'Validación técnica conforme.'
             });
 
+            // AUDITORIA INMUTABLE
+            auditService.log({
+                usuario_id: user.id,
+                area_key: 'it',
+                modulo_nombre: 'Fichas de Ingreso',
+                evento_tipo: 'APROBACION_TECNICA',
+                entidad_nombre: 'App_Ma_FichaIngresoServicio_ENC',
+                entidad_id: id,
+                descripcion_humana: `El usuario ${notifUser} aprobó la ficha #${id} (Área Técnica)`,
+                datos_nuevos: { observaciones },
+                severidad: 1
+            });
+
             return { success: true, message: 'Ficha aprobada técnica' };
         } catch (error) {
             await transaction.rollback();
@@ -1446,6 +1491,19 @@ class FichaIngresoService {
                 usuario: notifUser,
                 fecha: notifFecha,
                 observacion: observaciones || 'Sin motivo especificado'
+            });
+
+            // AUDITORIA INMUTABLE
+            auditService.log({
+                usuario_id: user.id,
+                area_key: 'it',
+                modulo_nombre: 'Fichas de Ingreso',
+                evento_tipo: 'RECHAZO_TECNICA',
+                entidad_nombre: 'App_Ma_FichaIngresoServicio_ENC',
+                entidad_id: id,
+                descripcion_humana: `El usuario ${notifUser} rechazó la ficha #${id} (Área Técnica)`,
+                datos_nuevos: { observaciones },
+                severidad: 2
             });
 
             return { success: true, message: 'Ficha rechazada' };
@@ -1513,6 +1571,19 @@ class FichaIngresoService {
                 observacion: observaciones || 'Validación coordinación conforme.'
             });
 
+            // AUDITORIA INMUTABLE
+            auditService.log({
+                usuario_id: user.id,
+                area_key: 'coordinacion',
+                modulo_nombre: 'Fichas de Ingreso',
+                evento_tipo: 'APROBACION_COORDINACION',
+                entidad_nombre: 'App_Ma_FichaIngresoServicio_ENC',
+                entidad_id: id,
+                descripcion_humana: `El usuario ${notifUser} aprobó la ficha #${id} (Área Coordinación)`,
+                datos_nuevos: { observaciones },
+                severidad: 1
+            });
+
             return { success: true };
         } catch (error) {
             await transaction.rollback();
@@ -1570,6 +1641,19 @@ class FichaIngresoService {
                 observacion: observaciones || 'Ficha devuelta a revisión técnica.'
             });
 
+            // AUDITORIA INMUTABLE
+            auditService.log({
+                usuario_id: user.id,
+                area_key: 'coordinacion',
+                modulo_nombre: 'Fichas de Ingreso',
+                evento_tipo: 'RECHAZO_COORDINACION',
+                entidad_nombre: 'App_Ma_FichaIngresoServicio_ENC',
+                entidad_id: id,
+                descripcion_humana: `El usuario ${notifUser} devolvió la ficha #${id} a revisión técnica (Área Coordinación)`,
+                datos_nuevos: { observaciones },
+                severidad: 2
+            });
+
             return { success: true };
         } catch (error) {
             await transaction.rollback();
@@ -1613,6 +1697,20 @@ class FichaIngresoService {
             await reqStatus.query("UPDATE App_Ma_FichaIngresoServicio_ENC SET id_validaciontecnica = 5, estado_ficha = 'EN PROCESO' WHERE id_fichaingresoservicio = @id AND id_validaciontecnica = 6");
 
             await transaction.commit();
+
+            // AUDITORIA INMUTABLE
+            auditService.log({
+                usuario_id: user.id || 0,
+                area_key: 'coordinacion',
+                modulo_nombre: 'Programación Muestreo',
+                evento_tipo: 'ASIGNACION_MUESTREO',
+                entidad_nombre: 'App_Ma_Agenda_MUESTREOS',
+                entidad_id: id,
+                descripcion_humana: `El usuario ${user.nombre_usuario || user.usuario || 'Usuario'} asignó programacion a la ficha #${id}`,
+                datos_nuevos: { idMuestreador, fecha, observaciones },
+                severidad: 1
+            });
+
             return { success: true };
         } catch (error) {
             await transaction.rollback();
@@ -2451,7 +2549,504 @@ class FichaIngresoService {
             throw error;
         }
     }
+        
+    async generateFichaPdfBuffer(id) {
+        try {
+            const doc = new PDFDocument({ margin: 40, size: 'A4' });
+            const buffers = [];
+            
+            return new Promise(async (resolve, reject) => {
+                doc.on('data', buffers.push.bind(buffers));
+                doc.on('end', () => {
+                    const pdfData = Buffer.concat(buffers);
+                    resolve(pdfData);
+                });
+                doc.on('error', reject);
 
+                await this._drawFichaToPdf(doc, id, { isFirst: true });
+                doc.end();
+            });
+        } catch (error) {
+            logger.error('Error generating Ficha PDF:', error);
+            throw error;
+        }
+    }
+
+    async generateBulkFichaPdfBuffer(ids) {
+        try {
+            const doc = new PDFDocument({ margin: 40, size: 'A4' });
+            const buffers = [];
+            
+            return new Promise(async (resolve, reject) => {
+                doc.on('data', buffers.push.bind(buffers));
+                doc.on('end', () => {
+                    const pdfData = Buffer.concat(buffers);
+                    resolve(pdfData);
+                });
+                doc.on('error', reject);
+
+                for (let i = 0; i < ids.length; i++) {
+                    await this._drawFichaToPdf(doc, ids[i], { isFirst: i === 0 });
+                }
+                doc.end();
+            });
+        } catch (error) {
+            logger.error('Error generating Bulk Ficha PDF:', error);
+            throw error;
+        }
+    }
+
+    async _drawFichaToPdf(doc, id, options = { isFirst: true }) {
+        const ficha = await this.getFichaById(id);
+        if (!ficha) return;
+
+        if (!options.isFirst) {
+            doc.addPage();
+        }
+
+        // Fetch agenda
+        const pool = await getConnection();
+        const request = pool.request();
+        request.input('id', sql.Numeric(10, 0), id);
+        const agendaRes = await request.query(`
+            SELECT a.id_agendamam, a.frecuencia_correlativo, a.fecha_muestreo,
+                   m1.nombre_muestreador as instalacion,
+                   m2.nombre_muestreador as retiro,
+                   e.nombre_estadomuestreo
+            FROM App_Ma_Agenda_MUESTREOS a
+            LEFT JOIN mae_muestreador m1 ON a.id_muestreador = m1.id_muestreador
+            LEFT JOIN mae_muestreador m2 ON a.id_muestreador2 = m2.id_muestreador
+            LEFT JOIN mae_estadomuestreo e ON a.id_estadomuestreo = e.id_estadomuestreo
+            WHERE a.id_fichaingresoservicio = @id
+            ORDER BY a.id_agendamam ASC
+        `);
+        const agenda = agendaRes.recordset;
+
+        // Fetch historial for observations
+        const historial = await this.getHistorial(id);
+
+                // Helper to format date
+                const formatDate = (dateString) => {
+                    if (!dateString) return '';
+                    const d = new Date(dateString);
+                    if (isNaN(d.getTime())) return dateString;
+                    return d.toLocaleDateString('es-CL');
+                };
+
+                // Helper for two-column details
+                const addTwoColumnDetail = (label1, value1, label2, value2) => {
+                    doc.font('Helvetica-Bold').fontSize(9).text(label1, 40, doc.y, { continued: true, width: 250 });
+                    doc.font('Helvetica').text(`: ${value1 || '-'}`, { continued: false });
+                    const currentY = doc.y - doc.currentLineHeight();
+                    
+                    if (label2) {
+                        doc.font('Helvetica-Bold').text(label2, 300, currentY, { continued: true, width: 250 });
+                        doc.font('Helvetica').text(`: ${value2 || '-'}`, { continued: false });
+                    }
+                    doc.moveDown(0.2);
+                };
+
+                const addSectionTitle = (title, align = 'left') => {
+                    doc.moveDown(0.5);
+                    const titleOpts = { align: align, width: 510 };
+                    doc.font('Helvetica-Bold').fontSize(11).fillColor('#1f2937').text(title, titleOpts);
+                    doc.moveTo(40, doc.y).lineTo(550, doc.y).strokeColor('#e5e7eb').stroke();
+                    doc.moveDown(0.5);
+                    doc.fillColor('black');
+                };
+
+                // --- HEADER LOGO & TITLE ---
+                const logoPath = path.resolve(process.cwd(), '../frontend-adlone/src/assets/images/logo-adlone.png');
+                if (fs.existsSync(logoPath)) {
+                    doc.image(logoPath, 40, 30, { width: 120 });
+                }
+                
+                doc.font('Helvetica-Bold').fontSize(14).fillColor('#1f4e78').text('FICHA DE INGRESO DE SERVICIO - MEDIO AMBIENTE', 40, 80, { align: 'center', width: 515 });
+                doc.fillColor('black');
+                doc.moveDown(1.5);
+
+                // --- DATOS PRINCIPALES ---
+                addSectionTitle('Información General');
+                addTwoColumnDetail('N° Ficha', ficha.fichaingresoservicio || id, 'Estado', ficha.estado_ficha || 'VIGENTE');
+                addTwoColumnDetail('Fecha Creación', formatDate(ficha.fecha_fichacomercial || ficha.fecha), 'Tipo', ficha.tipo_fichaingresoservicio);
+                addTwoColumnDetail('Monitoreo (Agua/RIL)', ficha.tipo_fichaingresoservicio, 'Tipo de Agua', ficha.nombre_tipoagua || ficha.nombre_tipoagua_ma);
+                addTwoColumnDetail('Responsable Muestreo', ficha.responsablemuestreo || ficha.responsable, 'Cargo Responsable', ficha.nombre_cargo || ficha.nombre_cargo_ma);
+
+                // --- CLIENTES Y UBICACION ---
+                addSectionTitle('Cliente, Servicio y Ubicación');
+                addTwoColumnDetail('Empresa Facturar', ficha.nombre_empresa, 'Empresa de Servicio', ficha.nombre_empresaservicios);
+                addTwoColumnDetail('Fuente Emisora', ficha.nombre_centro, 'Ubicación', ficha.ubicacion);
+                addTwoColumnDetail('Región', ficha.nombre_region, 'Comuna', ficha.nombre_comuna);
+                addTwoColumnDetail('Código', ficha.codigo_centro, 'Contacto Empresa', ficha.nombre_contacto);
+                addTwoColumnDetail('Correo Contacto', ficha.email_contacto, 'Tabla', ficha.nombre_tabla_largo);
+                addTwoColumnDetail('Objetivo Muestreo', ficha.nombre_objetivomuestreo_ma, 'Instrumento Ambiental', ficha.instrumento_ambiental);
+                addTwoColumnDetail('¿Es ETFA?', ficha.etfa === 'S' || ficha.etfa === true ? 'Sí' : 'No', 'Inspector Ambiental', ficha.agenda?.nombre_inspector || '-');
+                addTwoColumnDetail('Componente Ambiental', ficha.nombre_tipomuestra_ma || ficha.nombre_tipomuestra, 'Sub Área', ficha.nombre_subarea);
+                addTwoColumnDetail('Punto Muestreo', ficha.ma_punto_muestreo, 'Zona / Coordenadas', ficha.ma_coordenadas);
+
+                // --- MUESTREO Y PLANIFICACION ---
+                addSectionTitle('Detalles de Muestreo y Planificación');
+                addTwoColumnDetail('Frecuencia', ficha.agenda?.id_frecuencia || ficha.agenda?.frecuencia || ficha.nombre_frecuencia, 'Periodo', ficha.agenda?.frecuencia_factor);
+                addTwoColumnDetail('Multiplicado Por', ficha.agenda?.frecuencia_factor, 'Total Servicios', ficha.agenda?.total_servicios);
+                addTwoColumnDetail('Tipo Muestreo', ficha.nombre_tipomuestreo, 'Tipo Muestra', ficha.nombre_tipomuestra);
+                addTwoColumnDetail('Actividad', ficha.nombre_actividadmuestreo, 'Duración Muestreo', ficha.ma_duracion_muestreo);
+                addTwoColumnDetail('Tipo Descarga', ficha.nombre_tipodescarga, 'Referencia Maps', ficha.referencia_googlemaps);
+
+                // --- CAUDAL Y MEDICIÓN ---
+                const hasCaudalDetails = ficha.nombre_formacanal || ficha.nombre_dispositivohidraulico;
+                if (hasCaudalDetails || ficha.medicion_caudal) {
+                    addSectionTitle('Medición y Caudal');
+                    addTwoColumnDetail('¿Medición Caudal?', ficha.medicion_caudal || (ficha.medicioncaudal === 1 ? 'Sí' : (ficha.medicioncaudal === 2 ? 'No' : ficha.medicioncaudal)), 'Modalidad', ficha.nombre_modalidad);
+                    
+                    if (ficha.nombre_formacanal) {
+                        addTwoColumnDetail('Forma Canal', ficha.nombre_formacanal, `Valor (${ficha.nombre_um_formacanal || '-'})`, ficha.formacanal_medida);
+                    }
+                    if (ficha.nombre_dispositivohidraulico) {
+                        addTwoColumnDetail('Disp. Hidráulico', ficha.nombre_dispositivohidraulico, `Valor (${ficha.nombre_um_dispositivohidraulico || '-'})`, ficha.dispositivohidraulico_medida);
+                    }
+                }
+
+                // --- PAGINA 2: OBSERVACIONES Y ANALISIS ---
+                const hasObservations = (historial && historial.length > 0) || ficha.observaciones_comercial || ficha.observaciones_jefaturatecnica;
+                const hasAnalisis = (ficha.detalles && ficha.detalles.length > 0);
+
+                if (hasObservations || hasAnalisis) {
+                    doc.addPage();
+
+                    // --- OBSERVACIONES (HISTORIAL) ---
+                    if (historial && historial.length > 0) {
+                        addSectionTitle('Historial de Observaciones', 'left');
+                        const sortedHistorial = [...historial].reverse();
+                        
+                        const tableObs = {
+                            headers: [
+                                { label: "Fecha y Hora", property: "fecha", width: 90 },
+                                { label: "Área", property: "area", width: 80 },
+                                { label: "Usuario", property: "user", width: 100 },
+                                { label: "Observación", property: "obs", width: 245 }
+                            ],
+                            rows: sortedHistorial.map(item => {
+                                const dateStr = item.fecha ? new Date(item.fecha).toLocaleString('es-CL') : 'Sin fecha';
+                                const userStr = item.nombre_real || item.nombre_usuario || 'Sistema';
+                                const obsText = item.observacion || 'Sin observaciones.';
+                                
+                                let areaStr = 'Área';
+                                if (item.accion === 'CREACION_FICHA') areaStr = 'Comercial';
+                                if (item.accion === 'APROBACION_TECNICA' || item.accion === 'RECHAZO_TECNICA') areaStr = 'Técnica';
+                                if (item.accion === 'APROBACION_COORDINACION' || item.accion === 'RECHAZO_COORDINACION') areaStr = 'Coordinación';
+                                if (item.accion === 'ASIGNACION_MUESTREO' || item.accion === 'CANCELACION_MUESTREO') areaStr = 'Coord. Muestreo';
+                                
+                                return [dateStr, areaStr, userStr, obsText];
+                            })
+                        };
+                        
+                        doc.moveDown(0.5);
+                        const tableWidth = 515;
+                        const startX = (595 - tableWidth) / 2;
+                        
+                        doc.table(tableObs, {
+                            width: tableWidth,
+                            x: startX,
+                            prepareHeader: () => doc.font("Helvetica-Bold").fontSize(8).fillColor('black'),
+                            prepareRow: () => doc.font("Helvetica").fontSize(8).fillColor('#374151')
+                        });
+                    }
+                    else if (ficha.observaciones_comercial || ficha.observaciones_jefaturatecnica) {
+                        addSectionTitle('Observaciones');
+                        if (ficha.observaciones_comercial) {
+                            doc.font('Helvetica-Bold').fontSize(9).text('Comercial: ', { continued: true });
+                            doc.font('Helvetica').text(ficha.observaciones_comercial);
+                            doc.moveDown(0.5);
+                        }
+                        if (ficha.observaciones_jefaturatecnica) {
+                            doc.font('Helvetica-Bold').fontSize(9).text('Técnica: ', { continued: true });
+                            doc.font('Helvetica').text(ficha.observaciones_jefaturatecnica);
+                            doc.moveDown(0.5);
+                        }
+                    }
+
+                    // --- ANALISIS ---
+                    if (hasAnalisis) {
+                        doc.moveDown(1);
+                        addSectionTitle('Análisis Físico / Químico / Hidrobiológico', 'left');
+                        const tableAnalisis = {
+                            headers: [
+                                { label: "Análisis", property: "ana", width: 85 },
+                                { label: "Tipo Muestra", property: "tm", width: 50 },
+                                { label: "Límite Min", property: "lmin", width: 40 },
+                                { label: "Límite Max", property: "lmax", width: 40 },
+                                { label: "Error", property: "err", width: 30 },
+                                { label: "Error Min", property: "emin", width: 40 },
+                                { label: "Error Max", property: "emax", width: 40 },
+                                { label: "Tipo Entrega", property: "ent", width: 50 },
+                                { label: "Lab. Principal", property: "lab1", width: 70 },
+                                { label: "Lab. Secundario", property: "lab2", width: 70 }
+                            ],
+                            rows: ficha.detalles.map(a => [
+                                a.nombre_tecnica || a.nombre_referenciaanalisis || a.nombre_matriz || '',
+                                a.tipo_analisis || 'Terreno',
+                                a.limitemax_d || '-',
+                                a.limitemax_h || '-',
+                                a.llevaerror === 'S' ? 'Sí' : 'No',
+                                a.error_min || '-',
+                                a.error_max || '-',
+                                a.nombre_tipoentrega || (a.id_tipoentrega === 1 ? 'Directa' : (a.id_tipoentrega === 2 ? 'Transporte' : '-')),
+                                a.nombre_laboratorioensayo || (a.tipo_analisis === 'Terreno' ? 'Interno' : '-'),
+                                a.nombre_laboratorioensayo_2 || '-'
+                            ])
+                        };
+                        doc.moveDown(0.5);
+                        const analWidth = 515;
+                        const analStartX = (595 - analWidth) / 2;
+
+                        doc.table(tableAnalisis, { 
+                            width: analWidth, 
+                            x: analStartX,
+                            prepareHeader: () => doc.font("Helvetica-Bold").fontSize(7).fillColor('black'),
+                            prepareRow: () => doc.font("Helvetica").fontSize(7).fillColor('#374151')
+                        });
+                    }
+                }
+
+                // --- MUESTREOS (AGENDA) ---
+                if (agenda && agenda.length > 0) {
+                    doc.addPage();
+                    addSectionTitle('Asignación de Fechas y Muestreadores');
+
+                    const tableAgenda = {
+                        headers: [
+                            { label: "Corr.", property: "corr", width: 90 },
+                            { label: "Fecha", property: "fecha", width: 80 },
+                            { label: "Instalación", property: "inst", width: 120 },
+                            { label: "Retiro", property: "ret", width: 120 },
+                            { label: "Estado", property: "est", width: 80 }
+                        ],
+                        rows: agenda.map(a => [
+                            a.frecuencia_correlativo || '',
+                            a.fecha_muestreo ? new Date(a.fecha_muestreo).toLocaleDateString('es-CL', { timeZone: 'UTC' }) : 'Sin fecha',
+                            a.instalacion || 'No asignado',
+                            a.retiro || '-',
+                            a.nombre_estadomuestreo || ''
+                        ])
+                    };
+                    doc.table(tableAgenda, { 
+                        width: 510, 
+                        prepareHeader: () => doc.font("Helvetica-Bold").fontSize(9).fillColor('black'),
+                        prepareRow: () => doc.font("Helvetica").fontSize(8).fillColor('#374151') 
+                    });
+                }
+    }
+
+    async generateFichaExcelBuffer(id) {
+        try {
+            const ficha = await this.getFichaById(id);
+            if (!ficha) throw new Error("Ficha no encontrada");
+
+            const pool = await getConnection();
+            const request = pool.request();
+            request.input('id', sql.Numeric(10, 0), id);
+            
+            const [agendaRes, historial] = await Promise.all([
+                request.query(`
+                    SELECT a.id_agendamam, a.frecuencia_correlativo, a.fecha_muestreo,
+                           m1.nombre_muestreador as instalacion,
+                           m2.nombre_muestreador as retiro,
+                           e.nombre_estadomuestreo
+                    FROM App_Ma_Agenda_MUESTREOS a
+                    LEFT JOIN mae_muestreador m1 ON a.id_muestreador = m1.id_muestreador
+                    LEFT JOIN mae_muestreador m2 ON a.id_muestreador2 = m2.id_muestreador
+                    LEFT JOIN mae_estadomuestreo e ON a.id_estadomuestreo = e.id_estadomuestreo
+                    WHERE a.id_fichaingresoservicio = @id
+                    ORDER BY a.id_agendamam ASC
+                `),
+                this.getHistorial(id)
+            ]);
+
+            const workbook = new ExcelJS.Workbook();
+            const sheet = workbook.addWorksheet('Ficha de Ingreso');
+
+            // --- Estilos ---
+            const titleStyle = { font: { bold: true, size: 14 } };
+            const headerStyle = { font: { bold: true }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE5E7EB' } } };
+            
+            let currentRow = 1;
+
+            // --- SECCIÓN 1: INFORMACIÓN GENERAL ---
+            sheet.getCell(`A${currentRow}`).value = 'FICHA DE INGRESO DE SERVICIO';
+            sheet.getCell(`A${currentRow}`).font = titleStyle;
+            currentRow += 2;
+
+            const addRow = (label1, value1, label2, value2) => {
+                sheet.getCell(`A${currentRow}`).value = label1;
+                sheet.getCell(`A${currentRow}`).font = { bold: true };
+                sheet.getCell(`B${currentRow}`).value = value1 || '-';
+                if (label2) {
+                    sheet.getCell(`D${currentRow}`).value = label2;
+                    sheet.getCell(`D${currentRow}`).font = { bold: true };
+                    sheet.getCell(`E${currentRow}`).value = value2 || '-';
+                }
+                currentRow++;
+            };
+
+            const formatDate = (d) => d ? new Date(d).toLocaleDateString('es-CL') : '-';
+
+            addRow('Folio / ID', ficha.id_fichaingresoservicio, 'Fecha Creación', formatDate(ficha.fecha_fichacomercial));
+            addRow('Tipo Monitoreo', ficha.tipo_monitoreo, 'Tipo de Agua', ficha.nombre_tipoagua);
+            addRow('Cliente', ficha.nombre_empresa, 'Empresa Mandante', ficha.nombre_empresaservicio);
+            addRow('Fuente Emisora', ficha.nombre_centro, 'Ubicación', ficha.ubicacion);
+            addRow('Comuna', ficha.municipio, 'Región', ficha.estado);
+            addRow('Código Centro', ficha.codigo_centro, 'Normas/Instrumento', ficha.instrumento_ambiental);
+            addRow('Responsable', ficha.responsablemuestreo, 'Cargo', ficha.nombre_cargo);
+            
+            currentRow += 2;
+
+            // --- SECCIÓN 2: HISTORIAL DE OBSERVACIONES ---
+            sheet.getCell(`A${currentRow}`).value = 'HISTORIAL DE OBSERVACIONES';
+            sheet.getCell(`A${currentRow}`).font = titleStyle;
+            currentRow++;
+
+            const obsHeaders = ['Fecha y Hora', 'Área', 'Usuario', 'Observación'];
+            sheet.getRow(currentRow).values = obsHeaders;
+            obsHeaders.forEach((_, i) => {
+                sheet.getCell(currentRow, i + 1).style = headerStyle;
+            });
+            currentRow++;
+
+            if (historial && historial.length > 0) {
+                [...historial].reverse().forEach(h => {
+                    let areaStr = 'Área';
+                    if (h.accion === 'CREACION_FICHA') areaStr = 'Comercial';
+                    if (h.accion === 'APROBACION_TECNICA' || h.accion === 'RECHAZO_TECNICA') areaStr = 'Técnica';
+                    if (h.accion === 'APROBACION_COORDINACION' || h.accion === 'RECHAZO_COORDINACION') areaStr = 'Coordinación';
+                    if (h.accion === 'ASIGNACION_MUESTREO' || h.accion === 'CANCELACION_MUESTREO') areaStr = 'Coord. Muestreo';
+
+                    sheet.getRow(currentRow).values = [
+                        h.fecha ? new Date(h.fecha).toLocaleString('es-CL') : '-',
+                        areaStr,
+                        h.nombre_real || h.nombre_usuario || 'Sistema',
+                        h.observacion || '-'
+                    ];
+                    currentRow++;
+                });
+            } else {
+                sheet.getRow(currentRow).values = ['-', '-', '-', 'Sin observaciones'];
+                currentRow++;
+            }
+
+            currentRow += 2;
+
+            // --- SECCIÓN 3: ANÁLISIS ---
+            sheet.getCell(`A${currentRow}`).value = 'DETALLE DE ANÁLISIS';
+            sheet.getCell(`A${currentRow}`).font = titleStyle;
+            currentRow++;
+
+            const analHeaders = ['Análisis', 'Tipo Muestra', 'Límite Min', 'Límite Max', 'Error', 'Tipo Entrega', 'Lab. Principal'];
+            sheet.getRow(currentRow).values = analHeaders;
+            analHeaders.forEach((_, i) => {
+                sheet.getCell(currentRow, i + 1).style = headerStyle;
+            });
+            currentRow++;
+
+            if (ficha.detalles && ficha.detalles.length > 0) {
+                ficha.detalles.forEach(d => {
+                    sheet.getRow(currentRow).values = [
+                        d.nombre_tecnica || d.nombre_referenciaanalisis || '-',
+                        d.tipo_analisis || 'Terreno',
+                        d.limitemax_d || '-',
+                        d.limitemax_h || '-',
+                        d.llevaerror === 'S' ? 'Sí' : 'No',
+                        d.nombre_tipoentrega || '-',
+                        d.nombre_laboratorioensayo || '-'
+                    ];
+                    currentRow++;
+                });
+            }
+
+            currentRow += 2;
+
+            // --- SECCIÓN 4: AGENDA ---
+            sheet.getCell(`A${currentRow}`).value = 'ASIGNACIÓN DE FECHAS Y MUESTREADORES';
+            sheet.getCell(`A${currentRow}`).font = titleStyle;
+            currentRow++;
+
+            const agendaHeaders = ['Correlativo', 'Fecha Muestreo', 'Instalación', 'Retiro', 'Estado'];
+            sheet.getRow(currentRow).values = agendaHeaders;
+            agendaHeaders.forEach((_, i) => {
+                sheet.getCell(currentRow, i + 1).style = headerStyle;
+            });
+            currentRow++;
+
+            if (agendaRes.recordset && agendaRes.recordset.length > 0) {
+                agendaRes.recordset.forEach(a => {
+                    sheet.getRow(currentRow).values = [
+                        a.frecuencia_correlativo || '-',
+                        a.fecha_muestreo ? new Date(a.fecha_muestreo).toLocaleDateString('es-CL', { timeZone: 'UTC' }) : 'Sin fecha',
+                        a.instalacion || '-',
+                        a.retiro || '-',
+                        a.nombre_estadomuestreo || '-'
+                    ];
+                    currentRow++;
+                });
+            }
+
+            // Ajustar anchos de columna
+            sheet.columns.forEach(column => {
+                column.width = 20;
+            });
+
+            return await workbook.xlsx.writeBuffer();
+        } catch (error) {
+            logger.error('Error generating Ficha Excel:', error);
+            throw error;
+        }
+    }
+    async getMuestreosEjecutados() {
+        const pool = await getConnection();
+        const request = pool.request();
+        
+        const query = `
+            SELECT 
+                a.id_agendamam,
+                a.frecuencia_correlativo,
+                a.fecha_muestreo,
+                a.id_estadomuestreo,
+                e.nombre_estadomuestreo as estado_muestreo,
+                f.id_fichaingresoservicio,
+                f.fichaingresoservicio as correlativo_ficha,
+                f.fecha_fichacomercial,
+                f.id_empresa,
+                c.nombre_empresa as cliente,
+                f.id_empresaservicio,
+                cs.nombre_empresa as empresa_servicio,
+                f.id_centro,
+                ce.nombre_centro as centro,
+                f.id_subarea,
+                s.nombre_subarea,
+                f.id_objetivomuestreo_ma,
+                o.nombre_objetivomuestreo_ma as objetivo,
+                m.nombre_muestreador as muestreador,
+                f.estado_ficha
+            FROM App_Ma_Agenda_MUESTREOS a
+            JOIN App_Ma_FichaIngresoServicio_ENC f ON a.id_fichaingresoservicio = f.id_fichaingresoservicio
+            LEFT JOIN mae_estadomuestreo e ON a.id_estadomuestreo = e.id_estadomuestreo
+            LEFT JOIN mae_empresa c ON f.id_empresa = c.id_empresa
+            LEFT JOIN mae_empresa cs ON f.id_empresaservicio = cs.id_empresa
+            LEFT JOIN mae_centro ce ON f.id_centro = ce.id_centro
+            LEFT JOIN mae_subarea s ON f.id_subarea = s.id_subarea
+            LEFT JOIN mae_objetivomuestreo_ma o ON f.id_objetivomuestreo_ma = o.id_objetivomuestreo_ma
+            LEFT JOIN mae_muestreador m ON a.id_muestreador = m.id_muestreador
+            WHERE a.id_estadomuestreo = 3
+            ORDER BY a.fecha_muestreo DESC, f.id_fichaingresoservicio DESC
+        `;
+        
+        try {
+            const result = await request.query(query);
+            return result.recordset || [];
+        } catch (error) {
+            logger.error('Error fetching muestreos ejecutados:', error);
+            throw error;
+        }
+    }
 }
 
 export default new FichaIngresoService();

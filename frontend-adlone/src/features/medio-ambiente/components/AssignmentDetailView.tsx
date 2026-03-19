@@ -367,7 +367,7 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
 
                         <div className="form-group" style={{ flex: '0 0 120px' }}>
                             <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#4b5563', marginBottom: '4px', display: 'block' }}>
-                                Multiplicado Por
+                                Factor
                             </label>
                             <input
                                 type="text"
