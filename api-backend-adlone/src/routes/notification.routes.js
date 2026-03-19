@@ -15,4 +15,8 @@ router.get('/test/smtp', authenticate, notificationController.testSMTP);
 router.post('/test/send', authenticate, notificationController.sendTestNotification);
 router.post('/test/html', authenticate, notificationController.testCustomHTML);
 
+// Architecture 3.0 Routes
+router.get('/catalog', authenticate, notificationController.getNotificationCatalog);
+router.post('/config', authenticate, notificationController.saveNotificationConfig);
+
 export default router;

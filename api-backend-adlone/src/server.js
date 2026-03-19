@@ -13,6 +13,8 @@ import { contextMiddleware } from './middlewares/context.middleware.js';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler.middleware.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,8 +29,33 @@ import rbacRoutes from './routes/rbac.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
 import uploadRoutes from './routes/upload.routes.js';
+import ursRoutes from './routes/urs.routes.js';
+import unsRoutes from './routes/notificacion.routes.js';
 
 const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST", "PUT", "DELETE"]
+    }
+});
+
+// Hacer io accesible globalmente
+global.io = io;
+
+io.on('connection', (socket) => {
+    logger.info(`New client connected: ${socket.id}`);
+    
+    socket.on('join', (userId) => {
+        socket.join(`user_${userId}`);
+        logger.info(`User ${userId} joined their notification room`);
+    });
+
+    socket.on('disconnect', () => {
+        logger.info('Client disconnected');
+    });
+});
 import { initScheduler } from './utils/scheduler.js';
 
 // Initialize Scheduler
@@ -60,9 +87,12 @@ app.use('/api/rbac', rbacRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/urs', ursRoutes);
+app.use('/api/uns', unsRoutes);
 
 // Serve uploads directory as static
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+const uploadPath = process.env.UPLOAD_PATH || path.join(__dirname, '../uploads');
+app.use('/uploads', express.static(uploadPath));
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -95,12 +125,12 @@ const startServer = async () => {
             logger.warn(`   Error: ${dbError.message}`);
         }
 
-        app.listen(PORT, HOST, () => {
+        httpServer.listen(PORT, HOST, () => {
             logger.info('\n🚀 ADL One Backend Server Started!');
             logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
             logger.info(`📡 Server running on:`);
             logger.info(`   - Local:    http://localhost:${PORT}`);
-            logger.info(`   - Network:  http://192.168.10.152:${PORT}`);
+            logger.info(`   - Network:  http://192.168.10.68:${PORT}`);
             logger.info(`   - Network:  http://192.168.10.68:${PORT}`);
             logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
             logger.info(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);

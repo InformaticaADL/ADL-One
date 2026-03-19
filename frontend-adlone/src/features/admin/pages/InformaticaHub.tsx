@@ -13,8 +13,9 @@ export const InformaticaHub: React.FC<Props> = ({ onNavigate, onBack }) => {
     const OPTIONS = [
         { id: 'admin-roles', label: 'Gestión de Roles', icon: '🛡️', description: 'Definir perfiles y permisos del sistema.', permission: 'INF_ROLES' },
         { id: 'admin-users', label: 'Gestión de Usuarios', icon: '👤', description: 'Crear, editar y administrar usuarios.', permission: 'INF_USUARIOS' },
-        { id: 'admin-user-roles', label: 'Asignación de Roles', icon: '👥', description: 'Asignar roles a los usuarios.', permission: 'INF_ROLES' }, // Reuse roles perm or distinct? user-roles is usually roles+users
+        { id: 'admin-user-roles', label: 'Asignación de Roles', icon: '👥', description: 'Asignar roles a los usuarios.', permission: 'INF_ROLES' },
         { id: 'admin-notifications', label: 'Notificaciones', icon: '🔔', description: 'Configurar eventos y destinatarios de correo.', permission: 'INF_NOTIF' },
+        { id: 'admin-urs', label: 'Administración de Solicitudes', icon: '📩', description: 'Configurar tipos de solicitud y flujos URS.', permission: 'INF_SOLICITUDES' },
     ];
 
     const visibleOptions = OPTIONS.filter(opt => hasPermission(opt.permission));

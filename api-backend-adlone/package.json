@@ -32,6 +32,7 @@
     "nodemailer": "^6.10.1",
     "pdfkit": "^0.18.0",
     "pdfkit-table": "^0.1.99",
+    "socket.io": "^4.8.3",
     "winston": "^3.11.0",
     "xlsx-chart": "^0.4.3"
   },

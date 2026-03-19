@@ -576,14 +576,36 @@ Refinamiento visual profundo del gestor de modelos de equipos para garantizar un
 
 ---
 
+### 35. Motor de Notificaciones Universal (UNS) y Sincronización (Marzo 2026) 🔔🔄
+Consolidación de las notificaciones como un servicio centralizado y reactivo a las preferencias del usuario.
+
+- **Motor UNS (Universal Notification Service)**:
+    - Implementación de un servicio unificado que gestiona tanto alertas en tiempo real (Socket.io) como correos electrónicos (Nodemailer).
+    - **Priorización de Reglas**: Sistema inteligente que decide el destinatario basándose en la especificidad: Usuario > Rol > Aplicación.
+    - **Soporte Transaccional**: Capacidad de manejar eventos complejos como comentarios en solicitudes y cambios de estado con placeholders dinámicos (`{{correlativo}}`, `{{usuario_accion}}`).
+
+- **Sincronización Total con el Hub**:
+    - Se eliminó la discrepancia entre la configuración visual y el motor interno.
+    - Los cambios en los canales (activar/desactivar Email/Web) en el Hub administrativo se propagan automáticamente a la tabla de reglas maestras (`mae_notificacion_regla`).
+
+- **Optimización de UX (Toast Shield)**:
+    - Implementación de un "escudo" de 5 segundos durante el arranque de la aplicación para evitar que notificaciones antiguas o de sesión previa aparezcan como nuevas para el usuario.
+    - Sincronización con el estado de carga del store de notificaciones (Zustand).
+
+- **Plantillas Corporativas Refinadas**:
+    - Diseño unificado de correos electrónicos con compatibilidad total para Outlook y dispositivos móviles.
+    - Reversión a la identificación de usuario solicitada para mantener la paridad con el sistema legacy.
+
+---
+
 ## 🏗️ Estructura Detallada del Proyecto (Frontend)
 
 ```
 frontend-adlone/
 ├── src/
-│   ├── components/          # Componentes comunes (Layouts, UI, Timeline)
+│   ├── components/          # Componentes comunes (Layouts, UI, Timeline, Toasts)
 │   ├── features/            # Módulos por área de negocio
-│   │   ├── admin/           # Gestión de Usuarios, Roles, Hubs Administrativos
+│   │   ├── admin/           # Gestión de Usuarios, Roles, Hubs, Notificaciones Premium
 │   │   ├── medio-ambiente/  # Solicitudes, Equipos, Reportes y Vouchers
 │   │   ├── comercial/       # Fichas Comerciales y Análisis
 │   │   └── tecnica/         # Validaciones y Flujo Técnico

@@ -1,7 +1,7 @@
 import React from 'react';
 
 interface WorkflowAlertProps {
-    type?: 'warning' | 'error' | 'info';
+    type?: 'warning' | 'error' | 'info' | 'success';
     title: string;
     message: string;
 }
@@ -29,6 +29,12 @@ export const WorkflowAlert: React.FC<WorkflowAlertProps> = ({
             border: '#93c5fd',
             text: '#1e40af',
             iconColor: '#3b82f6'
+        },
+        success: {
+            bg: '#f0fdf4',
+            border: '#86efac',
+            text: '#166534',
+            iconColor: '#22c55e'
         }
     };
 
@@ -81,6 +87,13 @@ export const WorkflowAlert: React.FC<WorkflowAlertProps> = ({
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                )}
+                {type === 'success' && (
+                    <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                     />
                 )}
             </svg>

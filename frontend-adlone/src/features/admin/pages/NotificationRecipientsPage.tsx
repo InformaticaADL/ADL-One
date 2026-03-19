@@ -21,6 +21,10 @@ interface Recipient {
     nombre_usuario?: string;
     nombre_rol?: string;
     tipo_envio: string;
+    // UNS Fields
+    envia_email?: boolean;
+    envia_web?: boolean;
+    area_destino?: string;
 }
 
 interface Props {
@@ -42,6 +46,11 @@ export const NotificationRecipientsPage: React.FC<Props> = ({ event, onBack }) =
     const [sendType, setSendType] = useState('TO');
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
+
+    // UNS Rule Configuration
+    const [enviaWeb, setEnviaWeb] = useState(false);
+    const [enviaEmail, setEnviaEmail] = useState(true);
+    const [areaDestino, setAreaDestino] = useState('');
 
     // Modal state
     const [showRoleMembersModal, setShowRoleMembersModal] = useState(false);
@@ -117,13 +126,16 @@ export const NotificationRecipientsPage: React.FC<Props> = ({ event, onBack }) =
                 const payload = {
                     idUsuario: addType === 'USER' ? id : undefined,
                     idRol: addType === 'ROLE' ? id : undefined,
-                    tipoEnvio: sendType
+                    tipoEnvio: sendType,
+                    enviaWeb,
+                    enviaEmail,
+                    areaDestino
                 };
                 return notificationService.addRecipient(event.id_evento, payload);
             });
 
             await Promise.all(promises);
-            showToast({ type: 'success', message: `${selectedItems.size} destinatario(s) agregado(s)` });
+            showToast({ type: 'success', message: `${selectedItems.size} regla(s) configurada(s)` });
             loadRecipients(event.id_evento);
             setSelectedItems(new Set());
         } catch (error: any) {
@@ -201,7 +213,7 @@ export const NotificationRecipientsPage: React.FC<Props> = ({ event, onBack }) =
 
                     <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
                         <div style={{ flex: 1 }}>
-                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '4px', color: '#374151' }}>Tipo</label>
+                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '4px', color: '#374151' }}>Tipo Destinatario</label>
                             <select
                                 value={addType}
                                 onChange={(e) => setAddType(e.target.value as 'USER' | 'ROLE')}
@@ -212,11 +224,12 @@ export const NotificationRecipientsPage: React.FC<Props> = ({ event, onBack }) =
                             </select>
                         </div>
                         <div style={{ flex: 1 }}>
-                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '4px', color: '#374151' }}>Envío</label>
+                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '4px', color: '#374151' }}>Envío (Email)</label>
                             <select
                                 value={sendType}
                                 onChange={(e) => setSendType(e.target.value)}
-                                style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.85rem' }}
+                                disabled={!enviaEmail}
+                                style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.85rem', opacity: enviaEmail ? 1 : 0.5 }}
                             >
                                 <option value="TO">Para (TO)</option>
                                 <option value="CC">Copia (CC)</option>
@@ -224,6 +237,39 @@ export const NotificationRecipientsPage: React.FC<Props> = ({ event, onBack }) =
                             </select>
                         </div>
                     </div>
+
+                    <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+                        <div style={{ flex: 1 }}>
+                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '4px', color: '#374151' }}>Canales Habilitados</label>
+                            <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', cursor: 'pointer' }}>
+                                    <input type="checkbox" checked={enviaEmail} onChange={e => setEnviaEmail(e.target.checked)} /> Email
+                                </label>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', cursor: 'pointer' }}>
+                                    <input type="checkbox" checked={enviaWeb} onChange={e => setEnviaWeb(e.target.checked)} /> Web
+                                </label>
+                            </div>
+                        </div>
+                        <div style={{ flex: 1 }}>
+                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '4px', color: '#374151' }}>Área Relacionada (Opcional)</label>
+                            <input 
+                                type="text"
+                                placeholder="Ej: Laboratorio, Ventas..."
+                                value={areaDestino}
+                                onChange={e => setAreaDestino(e.target.value)}
+                                style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.85rem' }}
+                            />
+                        </div>
+                    </div>
+
+                    {enviaWeb && (
+                        <div style={{ padding: '0.75rem', backgroundColor: '#f0f9ff', borderRadius: '8px', border: '1px solid #bae6fd', marginBottom: '1rem' }}>
+                            <h4 style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0369a1', marginBottom: '0.5rem' }}>Configuración Web (Campanita)</h4>
+                            <p style={{ fontSize: '0.75rem', color: '#0369a1', margin: 0 }}>
+                                ℹ️ El sistema generará mensajes inteligentes automáticamente para este evento.
+                            </p>
+                        </div>
+                    )}
 
                     {/* Search */}
                     <input
@@ -368,9 +414,10 @@ export const NotificationRecipientsPage: React.FC<Props> = ({ event, onBack }) =
                                             {rec.nombre_rol || rec.nombre_usuario || '-'}
                                         </td>
                                         <td style={{ padding: '10px 8px' }}>
-                                            <span style={{ fontWeight: 700, fontSize: '0.75rem', color: rec.tipo_envio === 'TO' ? '#059669' : '#d97706' }}>
-                                                {rec.tipo_envio}
-                                            </span>
+                                            <div style={{ display: 'flex', gap: '4px' }}>
+                                                {rec.envia_email && <span style={{ backgroundColor: '#ecfdf5', color: '#059669', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 700 }}>📧 EMAIL</span>}
+                                                {rec.envia_web && <span style={{ backgroundColor: '#eff6ff', color: '#2563eb', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 700 }}>🔔 WEB</span>}
+                                            </div>
                                         </td>
                                         <td style={{ padding: '10px 8px', textAlign: 'right' }}>
                                             <button

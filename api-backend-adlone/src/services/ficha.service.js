@@ -3,6 +3,7 @@ import { getConnection } from '../config/database.js';
 import logger from '../utils/logger.js';
 import notificationService from './notification.service.js';
 import auditService from './audit.service.js';
+import unsService from './uns.service.js';
 import fs from 'fs';
 import path from 'path';
 import PDFDocument from 'pdfkit-table';
@@ -333,7 +334,7 @@ class FichaIngresoService {
 
             if (!notifUser && userId) {
                 try {
-                    const uRes = await new sql.Request(transaction).query(`SELECT nombre_usuario FROM mae_usuario WHERE id_usuario = ${userId}`);
+                    const uRes = await pool.request().query(`SELECT nombre_usuario FROM mae_usuario WHERE id_usuario = ${userId}`);
                     if (uRes.recordset.length > 0) {
                         notifUser = uRes.recordset[0].nombre_usuario;
                     }
@@ -341,9 +342,22 @@ class FichaIngresoService {
             }
             notifUser = notifUser || 'Usuario Sistema';
 
-            notificationService.send('FICHA_CREADA', {
+            // Intentar obtener el nombre del cliente para la notificación
+            let nombreCliente = ant.contactoNombre || 'un Cliente';
+            if (ant.selectedCliente) {
+                try {
+                    const cRes = await pool.request().query(`SELECT TOP 1 nombre_empresa FROM mae_empresa WHERE id_empresa = ${valNum(ant.selectedCliente)}`);
+                    if (cRes.recordset.length > 0) {
+                        nombreCliente = cRes.recordset[0].nombre_empresa;
+                    }
+                } catch (e) { logger.warn('Could not fetch client name for notif', e); }
+            }
+
+            unsService.trigger('FICHA_CREADA', {
                 correlativo: String(newId),
-                usuario: notifUser,
+                id_usuario_accion: userId || (data.user ? (data.user.id_usuario || data.user.id) : 0),
+                usuario_accion: notifUser,
+                cliente: nombreCliente,
                 fecha: notifFecha,
                 hora: notifHora,
                 observacion: obs || 'Sin observaciones'
@@ -1420,9 +1434,10 @@ class FichaIngresoService {
             }
             notifUser = notifUser || 'Jefatura Técnica';
 
-            notificationService.send('FICHA_APROBADA_TECNICA', {
+            unsService.trigger('FICHA_APROBADA_TECNICA', {
                 correlativo: String(id),
-                usuario: notifUser,
+                id_usuario_accion: user ? (user.id || user.id_usuario || 0) : 0,
+                usuario_accion: notifUser,
                 fecha: notifFecha,
                 observacion: observaciones || 'Validación técnica conforme.'
             });
@@ -1486,9 +1501,10 @@ class FichaIngresoService {
             }
             notifUser = notifUser || 'Jefatura Técnica';
 
-            notificationService.send('FICHA_RECHAZADA_TECNICA', {
+            unsService.trigger('FICHA_RECHAZADA_TECNICA', {
                 correlativo: String(id),
-                usuario: notifUser,
+                id_usuario_accion: user ? (user.id || user.id_usuario || 0) : 0,
+                usuario_accion: notifUser,
                 fecha: notifFecha,
                 observacion: observaciones || 'Sin motivo especificado'
             });
@@ -1564,9 +1580,10 @@ class FichaIngresoService {
             }
             notifUser = notifUser || 'Coordinación';
 
-            notificationService.send('FICHA_APROBADA_COORDINACION', {
+            unsService.trigger('FICHA_APROBADA_COORDINACION', {
                 correlativo: String(id),
-                usuario: notifUser,
+                id_usuario_accion: user ? (user.id || user.id_usuario || 0) : 0,
+                usuario_accion: notifUser,
                 fecha: notifFecha,
                 observacion: observaciones || 'Validación coordinación conforme.'
             });
@@ -1634,9 +1651,10 @@ class FichaIngresoService {
             }
             notifUser = notifUser || 'Coordinación';
 
-            notificationService.send('FICHA_RECHAZADA_COORDINACION', {
+            unsService.trigger('FICHA_RECHAZADA_COORDINACION', {
                 correlativo: String(id),
-                usuario: notifUser,
+                id_usuario_accion: user ? (user.id || user.id_usuario || 0) : 0,
+                usuario_accion: notifUser,
                 fecha: notifFecha,
                 observacion: observaciones || 'Ficha devuelta a revisión técnica.'
             });
@@ -2332,15 +2350,16 @@ class FichaIngresoService {
 
                     // Send enhanced notification
                     const eventCode = isReprogramacion ? 'FICHA_MUESTREO_REPROGRAMADO' : 'FICHA_ASIGNADA';
-                    notificationService.send(eventCode, {
+                    unsService.trigger(eventCode, {
                         correlativo: meta.correlativo_txt || String(fid),
+                        id_usuario_accion: user ? (user.id || user.id_usuario || 0) : 0,
                         tipo_frecuencia: tipoFrecuencia,
                         total_servicios: totalServicios,
                         servicios: serviciosFinal,
                         asignado_por: asignadoPor,
+                        usuario_accion: asignadoPor,
                         fecha: notifFecha,
                         hora_asignacion: notifHora,
-                        // Enhanced Metadata for Sample Summary
                         monitoreo: meta.monitoreo || 'No especificado',
                         empresa_servicio: meta.empresa_servicio || 'No especificada',
                         cliente: meta.cliente || 'No especificado',
@@ -2502,13 +2521,15 @@ class FichaIngresoService {
                         fechaMuestreoStr = new Date(info.fecha_muestreo).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
                     }
 
-                    notificationService.send('FICHA_MUESTREO_CANCELADO', {
+                    unsService.trigger('FICHA_MUESTREO_CANCELADO', {
                         correlativo: info.fichaingresoservicio || String(idFicha),
+                        id_usuario_accion: user ? (user.id || user.id_usuario || 0) : 0,
                         muestreo_correlativo: info.frecuencia_correlativo,
                         fecha_muestreo: fechaMuestreoStr,
                         muestreador: info.nombre_muestreador || 'No asignado',
                         motivo: observations || 'No especificado',
                         usuario_cancela: user.nombre_usuario || user.usuario || 'Usuario',
+                        usuario_accion: user.nombre_usuario || user.usuario || 'Usuario',
                         fecha: notifFechaStr
                     });
                 }

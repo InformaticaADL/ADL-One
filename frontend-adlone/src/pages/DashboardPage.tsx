@@ -7,6 +7,8 @@ import { SolicitudesMaPage } from '../features/medio-ambiente/pages/SolicitudesM
 import { CalendarioReplicaPage } from '../features/medio-ambiente/pages/CalendarioReplicaPage';
 
 import { RolesPage } from '../features/admin/pages/RolesPage';
+import { RequestsManager } from '../features/admin/pages/RequestsManager';
+import RequestTypePermissionsPage from '../features/admin/pages/RequestTypePermissionsPage';
 import { AdminInfoHub } from '../features/admin/pages/AdminInfoHub';
 import { InformaticaHub } from '../features/admin/pages/InformaticaHub';
 import { UsersManagementPage } from '../features/admin/pages/UsersManagementPage';
@@ -15,6 +17,9 @@ import { AdminMaHub } from '../features/admin/pages/AdminMaHub';
 import { AdminGcHub } from '../features/admin/pages/AdminGcHub';
 import { MuestreadoresPage } from '../features/admin/pages/MuestreadoresPage';
 import { EquiposPage } from '../features/admin/pages/EquiposPage';
+import NewRequestPage from '../features/urs/pages/NewRequestPage';
+import UniversalInbox from '../features/urs/components/UniversalInbox';
+import { UserNotificationsPage } from '../features/notifications/pages/UserNotificationsPage';
 
 import { NotificationsPage } from '../features/admin/pages/NotificationsPage';
 import { adminService } from '../services/admin.service';
@@ -28,6 +33,7 @@ import {
 const DashboardPage = () => {
     const { activeModule, activeSubmodule, previousSubmodule, setActiveSubmodule, resetNavigation } = useNavStore();
     const { user, hasPermission } = useAuth();
+    const [selectedUrsType, setSelectedUrsType] = useState<any | null>(null);
 
     // Dashboard Stats State
     const [stats, setStats] = useState({
@@ -398,17 +404,21 @@ const DashboardPage = () => {
         if (activeSubmodule === 'admin-equipos-gestion') return <EquiposPage onBack={() => setActiveSubmodule(previousSubmodule || ((activeModule as string) === 'gestion_calidad' ? 'gestion_calidad' : 'medio_ambiente'))} />;
         if (activeSubmodule === 'admin-muestreadores') return <MuestreadoresPage onBack={() => setActiveSubmodule('medio_ambiente')} />;
         if (activeSubmodule === 'ma-reportes-view') return <SolicitudesMaPage onBack={() => setActiveSubmodule('medio_ambiente')} viewOnly={true} />;
+        if (activeSubmodule === 'urs-new-request') return <NewRequestPage onBack={() => setActiveSubmodule('urs_bandeja')} />;
 
         // --- 2. Lógica Específica del Módulo de Administración ---
         if (activeModule === 'admin_informacion') {
             if (!hasAdminAccess()) return <div className="dashboard-content" style={{ textAlign: 'center', padding: '3rem' }}><h1>🚫 Denegado</h1></div>;
 
             if (activeSubmodule === 'informatica') return <InformaticaHub onNavigate={(v) => setActiveSubmodule(v)} onBack={() => setActiveSubmodule('')} />;
-            if (['admin-roles', 'admin-users', 'admin-user-roles', 'admin-notifications'].includes(activeSubmodule)) {
+            if (['admin-roles', 'admin-users', 'admin-user-roles', 'admin-notifications', 'admin-urs'].includes(activeSubmodule)) {
                 if (activeSubmodule === 'admin-roles') return <RolesPage onBack={() => setActiveSubmodule('informatica')} />;
                 if (activeSubmodule === 'admin-users') return <UsersManagementPage onBack={() => setActiveSubmodule('informatica')} />;
                 if (activeSubmodule === 'admin-user-roles') return <UserRolesPage onBack={() => setActiveSubmodule('informatica')} />;
                 if (activeSubmodule === 'admin-notifications') return <NotificationsPage onBack={() => setActiveSubmodule('informatica')} />;
+                if (activeSubmodule === 'admin-urs') return selectedUrsType
+                    ? <RequestTypePermissionsPage requestType={selectedUrsType} onBack={() => setSelectedUrsType(null)} />
+                    : <RequestsManager onConfigureType={setSelectedUrsType} />;
             }
 
             if (activeSubmodule === 'medio_ambiente') return <AdminMaHub onNavigate={(v) => setActiveSubmodule(v)} onBack={() => setActiveSubmodule('')} />;
@@ -427,6 +437,14 @@ const DashboardPage = () => {
                 if (hasPermission('MA_ACCESO')) return renderEnvironmentDashboard();
                 if (hasAdminAccess()) return renderITDashboard();
                 return renderGenericDashboard();
+            }
+
+            if (activeModule === 'solicitudes') {
+                return <UniversalInbox />;
+            }
+
+            if (activeModule === 'notificaciones') {
+                return <UserNotificationsPage />;
             }
 
             // CASO B: Se presionó una Unidad (ej. GEM, Necropsia) pero no hay submódulo

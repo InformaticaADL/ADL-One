@@ -1,0 +1,10 @@
+.urs-derive-modal {
+    max-width: 450px !important;
+}
+
+.derive-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    padding: 1.5rem;
+}

@@ -17,7 +17,7 @@ const API_CONFIG: ApiConfigType = {
     getBaseURL: () => {
         // In production, use the production API URL
         if (import.meta.env.PROD) {
-            return import.meta.env.VITE_API_URL || 'http://192.168.10.152:8002';
+            return import.meta.env.VITE_API_URL || 'http://192.168.10.68:8002';
         }
 
         // In development, try to use the custom API URL or default to localhost
@@ -27,7 +27,7 @@ const API_CONFIG: ApiConfigType = {
     // Available endpoints for local network
     endpoints: {
         localhost: 'http://localhost:8002',
-        wifi: 'http://192.168.10.152:8002',
+        wifi: 'http://192.168.10.68:8002',
         ethernet: 'http://192.168.10.68:8002',
     },
 

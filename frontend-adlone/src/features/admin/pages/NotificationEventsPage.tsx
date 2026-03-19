@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { notificationService } from '../../../services/notification.service';
 import { useToast } from '../../../contexts/ToastContext';
+import { useNavStore } from '../../../store/navStore';
 import '../admin.css';
 
 interface NotificationEvent {
@@ -18,11 +19,19 @@ interface Props {
 
 export const NotificationEventsPage: React.FC<Props> = ({ onBack, onSelectEvent }) => {
     const { showToast } = useToast();
+    const { adminSearchTerm, setAdminSearchTerm } = useNavStore();
     const [events, setEvents] = useState<NotificationEvent[]>([]);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        loadEvents();
+        const init = async () => {
+            await loadEvents();
+        };
+        init();
+        return () => {
+            // Clear search term on unmount
+            setAdminSearchTerm('');
+        };
     }, []);
 
     const loadEvents = async () => {
@@ -30,6 +39,28 @@ export const NotificationEventsPage: React.FC<Props> = ({ onBack, onSelectEvent 
             setLoading(true);
             const data = await notificationService.getEvents();
             setEvents(data);
+
+            // Handle Contextual Redirection
+            if (adminSearchTerm) {
+                const term = adminSearchTerm.toLowerCase();
+                const modulesToExpand: Record<string, boolean> = {};
+                const searchTermsToApply: Record<string, string> = {};
+
+                data.forEach((ev: NotificationEvent) => {
+                    if (ev.codigo_evento.toLowerCase().includes(term) || 
+                        ev.descripcion.toLowerCase().includes(term) ||
+                        (ev.modulo && ev.modulo.toLowerCase().includes(term))) {
+                        
+                        const module = ev.modulo || 'Sin Módulo';
+                        modulesToExpand[module] = false; // "false" in collapsedModules means Expanded
+                        searchTermsToApply[module] = adminSearchTerm;
+                    }
+                });
+
+                setCollapsedModules(prev => ({ ...prev, ...modulesToExpand }));
+                setModuleSearchTerms(prev => ({ ...prev, ...searchTermsToApply }));
+            }
+
         } catch (error) {
             console.error(error);
             showToast({ type: 'error', message: "Error al cargar eventos" });

@@ -14,15 +14,20 @@ class NotificationService {
 
     _loadLogo() {
         try {
-            // Hardcoded path based on known project structure
-            // Backend: api-backend-adlone
-            // Logo: frontend-adlone/src/assets/images/logo-adlone.png
+            // Robust absolute path to logo using resolve
             const logoPath = path.resolve(process.cwd(), '../frontend-adlone/src/assets/images/logo-adlone.png');
             if (fs.existsSync(logoPath)) {
                 this.logoBuffer = fs.readFileSync(logoPath);
-                logger.info('Logo ADL ONE loaded successfully (Buffer) for Email Templates.');
+                logger.info(`Logo ADL ONE loaded successfully from: ${logoPath}`);
             } else {
-                logger.warn(`Logo not found at path: ${logoPath}`);
+                // Try parent if cwd is not backend root
+                const altPath = path.resolve(process.cwd(), '..', '..', 'frontend-adlone', 'src', 'assets', 'images', 'logo-adlone.png');
+                if (fs.existsSync(altPath)) {
+                    this.logoBuffer = fs.readFileSync(altPath);
+                    logger.info(`Logo ADL ONE loaded successfully from alt path.`);
+                } else {
+                    logger.warn(`Logo NOT found at: ${logoPath}`);
+                }
             }
         } catch (error) {
             logger.error('Error loading logo:', error);
@@ -33,8 +38,9 @@ class NotificationService {
      * Envía una notificación basada en un evento del sistema.
      * @param {string} eventCode - Código del evento (ej: 'FICHA_NUEVA').
      * @param {object} context - Datos para reemplazar en el template (ej: { correlativo: '123' }).
+     * @param {string[]} directEmails - Opcional. Lista de correos directos a añadir.
      */
-    async send(eventCode, context = {}) {
+    async send(eventCode, context = {}, directEmails = [], options = {}) {
         try {
             logger.info(`Iniciando proceso de notificación para evento: ${eventCode}`);
             const pool = await getConnection();
@@ -53,23 +59,22 @@ class NotificationService {
             const eventId = event.id_evento;
 
             // 2. Obtener destinatarios configurados
-            const recipientsResult = await pool.request()
-                .input('eventId', sql.Numeric(10, 0), eventId)
-                .query(`
-                    SELECT r.id_usuario, r.id_rol, r.tipo_envio,
-                           u.correo_electronico as user_email, u.nombre_usuario,
-                           rol.nombre_rol
-                    FROM rel_evento_destinatario r
-                    LEFT JOIN mae_usuario u ON r.id_usuario = u.id_usuario AND u.habilitado = 'S'
-                    LEFT JOIN mae_rol rol ON r.id_rol = rol.id_rol
-                    WHERE r.id_evento = @eventId
-                `);
-
-            const recipients = recipientsResult.recordset;
-            if (recipients.length === 0) {
-                logger.info(`No hay destinatarios configurados para el evento: ${eventCode}`);
-                return;
+            let recipients = [];
+            if (!options.skipLegacyDb) {
+                const recipientsResult = await pool.request()
+                    .input('eventId', sql.Numeric(10, 0), eventId)
+                    .query(`
+                        SELECT r.id_usuario, r.id_rol, r.tipo_envio,
+                               u.correo_electronico as user_email, u.nombre_usuario,
+                               rol.nombre_rol
+                        FROM rel_evento_destinatario r
+                        LEFT JOIN mae_usuario u ON r.id_usuario = u.id_usuario AND u.habilitado = 'S'
+                        LEFT JOIN mae_rol rol ON r.id_rol = rol.id_rol
+                        WHERE r.id_evento = @eventId
+                    `);
+                recipients = recipientsResult.recordset;
             }
+            // Removed premature return to allow directEmails (e.g. from URS)
 
             // 3. Resolver lista final de correos
             const emailList = {
@@ -81,8 +86,9 @@ class NotificationService {
             // REQUERIMIENTO ESTRICTO USUARIO (19-02-2026):
             // 1. Si NO hay destinatarios configurados en BD -> NO ENVIAR A NADIE (ni siquiera directEmails).
             // 2. Si HAY destinatarios en BD -> ENVIAR SÓLO A ELLOS (Ignorar directEmails y permisos dinámicos).
-            if (recipients.length === 0) {
-                logger.info(`Notificación CANCELADA para ${eventCode}: No hay destinatarios configurados en el 'Área de Notificaciones'.`);
+            // NOTA (16-03-2026): Para URS permitimos directEmails si vienen del motor UNS.
+            if (recipients.length === 0 && (!directEmails || directEmails.length === 0)) {
+                logger.info(`Notificación CANCELADA para ${eventCode}: No hay destinatarios configurados.`);
                 return;
             }
 
@@ -97,20 +103,27 @@ class NotificationService {
                 }
             }
 
-            // NOTA: Se han omitido los bloques de 'directEmails' y 'permissionRecibir' por mandato del usuario 
-            // para garantizar que el Administrador tenga el control 100% de quién recibe qué a través de la UI.
+            // Añadir directEmails (Phase 22: URS Integration)
+            if (directEmails && directEmails.length > 0) {
+                directEmails.forEach(email => this._addEmail(emailList, 'TO', email));
+            }
+            if (options.ccEmails && options.ccEmails.length > 0) {
+                options.ccEmails.forEach(email => this._addEmail(emailList, 'CC', email));
+            }
 
-            // 4. Compilar Asunto y Cuerpo (Simple Replace por ahora)
-            const subject = this._compileTemplate(event.asunto_template, context, false);
-            const htmlBody = this._compileTemplate(event.cuerpo_template_html || '<p>Notificación del Sistema ADL One</p>', context, true);
+            // 4. Compilar Asunto y Cuerpo
+            // Phase 28: Use CID for logo embedding
+            const compileResult = this._compileTemplate(event.cuerpo_template_html || '<p>Notificación del Sistema ADL One</p>', context, true);
+            const htmlBody = compileResult.html;
+            const subject = this._compileTemplate(event.asunto_template, context, false).html;
 
             // 5. Enviar Correo
             const to = Array.from(emailList.to).join(', ');
             const cc = Array.from(emailList.cc).join(', ');
             const bcc = Array.from(emailList.bcc).join(', ');
-
+            
             if (!to) {
-                logger.warn(`Evento ${eventCode} tiene destinatarios pero ningún email válido resulto.`);
+                logger.warn(`Evento ${eventCode} tiene destinatarios pero ningún email válido resultó.`);
                 return;
             }
 
@@ -121,17 +134,8 @@ class NotificationService {
                 bcc: bcc,
                 subject: subject,
                 html: htmlBody,
-                attachments: [] // Initialize attachments array
+                attachments: compileResult.attachments || [] 
             };
-
-            // Attach Logo if available
-            if (this.logoBuffer) {
-                mailOptions.attachments.push({
-                    filename: 'logo-adlone.png',
-                    content: this.logoBuffer,
-                    cid: 'logo@adlone.com' // Referenced in HTML as <img src="cid:logo@adlone.com">
-                });
-            }
 
             // Non-blocking email send
             transporter().sendMail(mailOptions)
@@ -187,18 +191,41 @@ class NotificationService {
         }
     }
 
-    _compileTemplate(template, context, isHtml = true) {
-        if (!template) return '';
-        let output = template;
-
-        // 0. Inject Global Defaults (Logo) if not present
-        if (!context.LOGO_BASE64 && this.logoBuffer) {
-            context.LOGO_BASE64 = 'cid:logo@adlone.com';
+    _compileTemplate(templateSource, context, isHtml = true) {
+        let output = '';
+        
+        if (typeof templateSource === 'string') {
+            output = templateSource;
+        } else if (templateSource && typeof templateSource === 'object') {
+            if (isHtml) {
+                output = templateSource.cuerpo_template_html || templateSource.cuerpo_mensaje || templateSource.mensaje || '';
+            } else {
+                output = templateSource.asunto_template || templateSource.cuerpo_mensaje || templateSource.mensaje || '';
+            }
         }
 
-        // 1. Force replace LOGO_BASE64 in template first (Global Replace)
-        if (context.LOGO_BASE64) {
-            output = output.split('{LOGO_BASE64}').join(context.LOGO_BASE64);
+        const attachments = [];
+
+        // 0. Pre-process context: Merge datos_json into top-level for easier placeholder access
+        if (context.datos_json && typeof context.datos_json === 'object') {
+            for (const [k, v] of Object.entries(context.datos_json)) {
+                if (!(k in context)) context[k] = v;
+            }
+        }
+
+        // 1. Force replace LOGO_BASE64 and LOGO_URL in template with CID
+        if (isHtml && this.logoBuffer) {
+            const cid = 'logo_adlone';
+            const logoPath = path.resolve(process.cwd(), '../frontend-adlone/src/assets/images/logo-adlone.png');
+            
+            output = output.split('{LOGO_BASE64}').join(`cid:${cid}`);
+            output = output.split('{LOGO_URL}').join(`cid:${cid}`);
+            
+            attachments.push({
+                filename: 'logo-adlone.png',
+                content: this.logoBuffer,
+                cid: cid
+            });
         }
 
         // 2. Handle SERVICIOS_DETALLE (dynamic array processing)
@@ -242,136 +269,148 @@ class NotificationService {
         }
 
         // 2.1 Handle EQUIPOS_DETALLE (dynamic array processing for equipment)
-        if (isHtml && context.equipos && Array.isArray(context.equipos)) {
-            const equiposHtml = context.equipos.map((equipo, index) => {
-                if (equipo.isTransfer) {
-                    return `
-                        <div style="margin-bottom: 20px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
-                            <div style="background: white; color: #0062a8; padding: 10px 15px; font-weight: bold; font-family: Arial, sans-serif; font-size: 14px; border-bottom: 2px solid #0062a8;">
-                                ${equipo.nombre} <span style="font-weight: normal; color: #555;">(${equipo.codigo})</span>
-                                <div style="font-size: 11px; margin-top: 2px; color: #666; font-weight: normal;">Tipo: ${equipo.tipo}</div>
+        if (isHtml && (context.equipos || context.datos_json)) {
+            let equiposHtml = '';
+            
+            // Legacy handling for arrays
+            if (Array.isArray(context.equipos)) {
+                equiposHtml = context.equipos.map((equipo, index) => {
+                    if (equipo.isTransfer) {
+                        return `
+                            <div style="margin-bottom: 20px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+                                <div style="background: white; color: #0062a8; padding: 10px 15px; font-weight: bold; font-family: Arial, sans-serif; font-size: 14px; border-bottom: 2px solid #0062a8;">
+                                    ${equipo.nombre} <span style="font-weight: normal; color: #555;">(${equipo.codigo})</span>
+                                    <div style="font-size: 11px; margin-top: 2px; color: #666; font-weight: normal;">Tipo: ${equipo.tipo}</div>
+                                </div>
+                                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="width:100%; border-collapse: collapse;">
+                                    <tr>
+                                        <td width="50%" style="padding: 15px; border-right: 1px solid #e2e8f0; vertical-align: top; background-color: #f8fafc;">
+                                            <div style="color: #64748b; font-size: 11px; text-transform: uppercase; font-weight: bold; margin-bottom: 8px; font-family: Arial;">Datos Actuales (Origen)</div>
+                                            <div style="margin-bottom: 6px; font-family: Arial; font-size: 13px; color: #334155;">
+                                                <div style="color: #94a3b8; font-size: 10px;">Ubicación:</div>
+                                                <strong>${equipo.datos_antiguos?.ubicacion || '-'}</strong>
+                                            </div>
+                                            <div style="font-family: Arial; font-size: 13px; color: #334155;">
+                                                <div style="color: #94a3b8; font-size: 10px;">Responsable:</div>
+                                                <strong>${equipo.datos_antiguos?.responsable || '-'}</strong>
+                                            </div>
+                                        </td>
+                                        <td width="50%" style="padding: 15px; vertical-align: top; background-color: #fff;">
+                                            <div style="color: #0062a8; font-size: 11px; text-transform: uppercase; font-weight: bold; margin-bottom: 8px; font-family: Arial;">Nuevos Datos (Destino)</div>
+                                            <div style="margin-bottom: 6px; font-family: Arial; font-size: 13px; color: #0f172a;">
+                                                <div style="color: #94a3b8; font-size: 10px;">Nueva Ubicación:</div>
+                                                <strong style="color: #0062a8;">${equipo.datos_nuevos?.ubicacion || '-'}</strong>
+                                            </div>
+                                            <div style="font-family: Arial; font-size: 13px; color: #0f172a;">
+                                                <div style="color: #94a3b8; font-size: 10px;">Nuevo Responsable:</div>
+                                                <strong style="color: #0062a8;">${equipo.datos_nuevos?.responsable || '-'}</strong>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </table>
                             </div>
-                            <table width="100%" border="0" cellspacing="0" cellpadding="0" style="width:100%; border-collapse: collapse;">
-                                <tr>
-                                    <td width="50%" style="padding: 15px; border-right: 1px solid #e2e8f0; vertical-align: top; background-color: #f8fafc;">
-                                        <div style="color: #64748b; font-size: 11px; text-transform: uppercase; font-weight: bold; margin-bottom: 8px; font-family: Arial;">Datos Actuales (Origen)</div>
-                                        <div style="margin-bottom: 6px; font-family: Arial; font-size: 13px; color: #334155;">
-                                            <div style="color: #94a3b8; font-size: 10px;">Ubicación:</div>
-                                            <strong>${equipo.datos_antiguos?.ubicacion || '-'}</strong>
-                                        </div>
-                                        <div style="font-family: Arial; font-size: 13px; color: #334155;">
-                                            <div style="color: #94a3b8; font-size: 10px;">Responsable:</div>
-                                            <strong>${equipo.datos_antiguos?.responsable || '-'}</strong>
-                                        </div>
-                                    </td>
-                                    <td width="50%" style="padding: 15px; vertical-align: top; background-color: #fff;">
-                                        <div style="color: #0062a8; font-size: 11px; text-transform: uppercase; font-weight: bold; margin-bottom: 8px; font-family: Arial;">Nuevos Datos (Destino)</div>
-                                        <div style="margin-bottom: 6px; font-family: Arial; font-size: 13px; color: #0f172a;">
-                                            <div style="color: #94a3b8; font-size: 10px;">Nueva Ubicación:</div>
-                                            <strong style="color: #0062a8;">${equipo.datos_nuevos?.ubicacion || '-'}</strong>
-                                        </div>
-                                        <div style="font-family: Arial; font-size: 13px; color: #0f172a;">
-                                            <div style="color: #94a3b8; font-size: 10px;">Nuevo Responsable:</div>
-                                            <strong style="color: #0062a8;">${equipo.datos_nuevos?.responsable || '-'}</strong>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </table>
+                        `;
+                    } else {
+                        return `
+                            <div style="margin-bottom: 15px; padding: 12px; background: white; border-left: 4px solid #0062a8; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                                <strong style="color: #0062a8; font-size: 14px; font-family: Arial, sans-serif;">${equipo.nombre || 'Equipo'}</strong><br>
+                                <div style="margin-top: 8px; color: #333; font-size: 13px; line-height: 1.6; font-family: Arial, sans-serif;">
+                                    ${equipo.codigo ? `<div style="margin-bottom: 2px;">🏷️ <strong>Código:</strong> ${equipo.codigo}</div>` : ''}
+                                    ${equipo.tipo ? `<div style="margin-bottom: 2px;">🔧 <strong>Tipo:</strong> ${equipo.tipo}</div>` : ''}
+                                    ${equipo.marca ? `<div style="margin-bottom: 2px;">🏢 <strong>Marca:</strong> ${equipo.marca} ${equipo.modelo ? `(${equipo.modelo})` : ''}</div>` : ''}
+                                    ${equipo.serie ? `<div style="margin-bottom: 2px;">🔢 <strong>Serie:</strong> ${equipo.serie}</div>` : ''}
+                                    ${equipo.ubicacion ? `<div style="margin-bottom: 2px;">📍 <strong>Ubicación Actual:</strong> ${equipo.ubicacion}</div>` : ''}
+                                </div>
+                            </div>
+                        `;
+                    }
+                }).join('');
+            } 
+            // Phase 24/29: URS / Specialized handling from datos_json
+            else if (context.datos_json) {
+                const dj = context.datos_json;
+                
+                // Case: Deshabilitar Muestreador (Specific handling)
+                if (dj.muestreador_origen_nombre) {
+                    let transferDetail = '';
+                    if (dj.tipo_traspaso === 'BASE') {
+                        transferDetail = `<div><strong>Base Destino:</strong> ${dj.base_destino || 'No especificada'}</div>`;
+                    } else if (dj.tipo_traspaso === 'MUESTREADOR' || dj.tipo_traspaso === 'IGUAL') {
+                        transferDetail = `<div><strong>Nuevo Muestreador:</strong> ${dj.muestreador_destino_nombre || 'No especificado'}</div>`;
+                    } else if (dj.tipo_traspaso === 'MANUAL' && Array.isArray(dj.reasignacion_manual)) {
+                        const rows = dj.reasignacion_manual.map(m => `
+                            <tr style="border-bottom: 1px solid #edf2f7;">
+                                <td style="padding: 6px 0; font-size: 13px; text-align: left;">${m.nombre_equipo || 'Equipo'}</td>
+                                <td style="padding: 6px 0; font-size: 13px; text-align: left;">${m.codigo_equipo || '-'}</td>
+                                <td style="padding: 6px 0; font-size: 13px; color: #0062a8; font-weight: bold; text-align: left;">${m.nombre_muestreador_nuevo || 'Sin asignar'}</td>
+                            </tr>
+                        `).join('');
+                        
+                        transferDetail = `
+                            <div style="margin-top: 10px;">
+                                <strong style="display: block; margin-bottom: 5px;">Reasignación Manual:</strong>
+                                <table width="100%" style="border-collapse: collapse; margin-top: 5px; table-layout: fixed;">
+                                    <thead>
+                                        <tr style="border-bottom: 2px solid #0062a8; text-align: left; font-size: 11px; color: #64748b;">
+                                            <th style="padding: 4px 0; text-align: left; width: 35%;">Equipo</th>
+                                            <th style="padding: 4px 0; text-align: left; width: 35%;">Cód.</th>
+                                            <th style="padding: 4px 0; text-align: left; width: 30%;">Nuevo Resp.</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>${rows}</tbody>
+                                </table>
+                            </div>
+                        `;
+                    }
+
+                    equiposHtml = `
+                        <div style="padding: 15px; margin-top: 15px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;">
+                            <h4 style="margin: 0 0 10px 0; color: #0062a8; font-size: 15px;">Detalle Solicitud:</h4>
+                            <div style="margin-bottom: 8px; font-size: 14px; color: #333;">
+                                <div><strong>Muestreador a deshabilitar:</strong> ${dj.muestreador_origen_nombre}</div>
+                                <div><strong>Tipo de traspaso de equipos:</strong> ${dj.tipo_traspaso}</div>
+                                ${transferDetail}
+                            </div>
                         </div>
                     `;
                 } else {
-                    return `
-                        <div style="margin-bottom: 15px; padding: 12px; background: white; border-left: 4px solid #0062a8; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                            <strong style="color: #0062a8; font-size: 14px; font-family: Arial, sans-serif;">${equipo.nombre || 'Equipo'}</strong><br>
-                            <div style="margin-top: 8px; color: #333; font-size: 13px; line-height: 1.6; font-family: Arial, sans-serif;">
-                                ${equipo.codigo ? `<div style="margin-bottom: 2px;">🏷️ <strong>Código:</strong> ${equipo.codigo}</div>` : ''}
-                                ${equipo.tipo ? `<div style="margin-bottom: 2px;">🔧 <strong>Tipo:</strong> ${equipo.tipo}</div>` : ''}
-                                ${equipo.marca ? `<div style="margin-bottom: 2px;">🏢 <strong>Marca:</strong> ${equipo.marca} ${equipo.modelo ? `(${equipo.modelo})` : ''}</div>` : ''}
-                                ${equipo.serie ? `<div style="margin-bottom: 2px;">🔢 <strong>Serie:</strong> ${equipo.serie}</div>` : ''}
-                                ${equipo.ubicacion ? `<div style="margin-bottom: 2px;">📍 <strong>Ubicación Actual:</strong> ${equipo.ubicacion}</div>` : ''}
-                                ${equipo.nueva_ubicacion ? `<div style="margin-bottom: 2px;">➡️ <strong>Nueva Ubicación:</strong> ${equipo.nueva_ubicacion}</div>` : ''}
-                                ${equipo.responsable ? `<div style="margin-bottom: 2px;">👤 <strong>Responsable:</strong> ${equipo.responsable}</div>` : ''}
-                                ${equipo.vigencia ? `<div style="margin-bottom: 2px;">📅 <strong>Vigencia:</strong> ${equipo.vigencia}</div>` : ''}
-                                
-                                <!-- Detalle específico de Reporte de Problema -->
-                                ${equipo.tipo_problema ? `
-                                    <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #e2e8f0;">
-                                        <div style="margin-bottom: 2px;">⚠️ <strong>Tipo de Problema:</strong> ${equipo.tipo_problema}</div>
-                                        ${equipo.severidad ? `<div style="margin-bottom: 2px;">🔴 <strong>Severidad:</strong> ${equipo.severidad}</div>` : ''}
-                                        ${equipo.frecuencia ? `<div style="margin-bottom: 2px;">🔄 <strong>Frecuencia:</strong> ${equipo.frecuencia}</div>` : ''}
-                                        ${equipo.afecta_mediciones ? `<div style="margin-bottom: 2px;">⚖️ <strong>Afecta Calidad:</strong> ${equipo.afecta_mediciones}</div>` : ''}
-                                        ${equipo.descripcion ? `<div style="margin-top: 5px;">📝 <strong>Descripción:</strong><br><i style="color: #666;">${equipo.descripcion}</i></div>` : ''}
-                                        ${equipo.sintomas ? `<div style="margin-top: 5px;">🔍 <strong>Síntomas Observados:</strong><br><i style="color: #666;">${equipo.sintomas}</i></div>` : ''}
-                                    </div>
-                                ` : ''}
+                    // Generic handling for other URS request types (Formulario dinámico)
+                    const keysToSkip = ['muestreador_origen_id', 'muestreador_origen_nombre', 'tipo_traspaso', 'base_destino', 'muestreador_destino_id', 'muestreador_destino_nombre', 'reasignacion_manual', 'id_equipo', 'fecha_traspaso', 'form_type', 'id_muestreador_destino'];
+                    const details = Object.entries(dj)
+                        .filter(([key]) => !keysToSkip.includes(key) && typeof dj[key] !== 'object' && dj[key] !== null)
+                        .map(([key, val]) => {
+                            const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                            return `<div style="margin-bottom: 6px;"><strong>${label}:</strong> <span style="color: #475569;">${val}</span></div>`;
+                        }).join('');
 
-                                <!-- Detalle específico de Equipo Perdido -->
-                                ${equipo.tipo_perdida ? `
-                                    <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #e2e8f0;">
-                                        <div style="margin-bottom: 2px;">🚫 <strong>Tipo de Pérdida:</strong> ${equipo.tipo_perdida}</div>
-                                        ${equipo.fecha_incidente ? `<div style="margin-bottom: 2px;">📅 <strong>Fecha Incidente:</strong> ${equipo.fecha_incidente}</div>` : ''}
-                                        ${equipo.circunstancias ? `<div style="margin-top: 5px;">❓ <strong>Circunstancias:</strong><br><i style="color: #666;">${equipo.circunstancias}</i></div>` : ''}
-                                        ${equipo.acciones_tomadas ? `<div style="margin-top: 5px;">🛠️ <strong>Acciones Tomadas:</strong><br><i style="color: #666;">${equipo.acciones_tomadas}</i></div>` : ''}
-                                    </div>
-                                ` : ''}
-
-                                <!-- Detalle específico de Revisión / Vigencia / Inhabilitado -->
-                                ${equipo.motivo_revision || equipo.nueva_vigencia || equipo.motivo ? `
-                                    <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #e2e8f0;">
-                                        ${equipo.motivo_revision ? `<div style="margin-bottom: 2px;">📋 <strong>Motivo Revisión:</strong> ${equipo.motivo_revision}</div>` : ''}
-                                        ${equipo.urgencia ? `<div style="margin-bottom: 2px;">⚡ <strong>Urgencia:</strong> ${equipo.urgencia}</div>` : ''}
-                                        ${equipo.nueva_vigencia ? `<div style="margin-bottom: 2px;">🆕 <strong>Nueva Vigencia:</strong> ${equipo.nueva_vigencia}</div>` : ''}
-                                        ${equipo.motivo ? `<div style="margin-bottom: 2px;">ℹ️ <strong>Motivo:</strong> ${equipo.motivo}</div>` : ''}
-                                        ${equipo.justificacion ? `<div style="margin-top: 5px;">💡 <strong>Justificación:</strong><br><i style="color: #666;">${equipo.justificacion}</i></div>` : ''}
-                                    </div>
-                                ` : ''}
-                                ${(() => {
-                            if (!equipo.status) return '';
-                            let label = equipo.status;
-                            let bg = '#e2e8f0';
-                            let color = '#475569';
-
-                            const s = equipo.status.toUpperCase();
-                            if (s === 'PENDIENTE' || s === 'SOLICITADO') {
-                                label = 'SOLICITADO';
-                                bg = '#dbeafe'; // Blue
-                                color = '#1e40af';
-                            } else if (s === 'APROBADO') {
-                                label = 'APROBADO';
-                                bg = '#dcfce7'; // Green
-                                color = '#166534';
-                            } else if (s === 'RECHAZADO' || s === 'RECHAZADA') {
-                                label = 'RECHAZADA';
-                                bg = '#fee2e2'; // Red
-                                color = '#991b1b';
-                            } else if (s === 'PROCESADO') {
-                                // Keep legacy green if needed, or map to Approved? User asked for specific colors.
-                                // The screenshot showed PROCESADO in Green.
-                                bg = '#dcfce7';
-                                color = '#166534';
-                            }
-
-                            return `<div style="margin-top: 6px; font-size: 11px; color: ${color}; font-weight: bold; background: ${bg}; padding: 2px 8px; border-radius: 4px; display: inline-block;">${label}</div>`;
-                        })()}
+                    if (details || dj.nombre_equipo) {
+                        equiposHtml = `
+                            <div style="padding: 15px; margin-top: 15px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;">
+                                <h4 style="margin: 0 0 12px 0; color: #0062a8; font-size: 15px; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px;">Detalle de la Solicitud:</h4>
+                                <div style="font-size: 14px; color: #1e293b;">
+                                    ${dj.nombre_equipo ? `<div style="margin-bottom: 10px; font-size: 15px;"><strong>Equipo:</strong> <span style="color: #0062a8; font-weight: bold;">${dj.nombre_equipo} ${dj.codigo_equipo ? `(${dj.codigo_equipo})` : ''}</span></div>` : ''}
+                                    ${details}
+                                </div>
                             </div>
-                        </div>
-                    `;
+                        `;
+                    }
                 }
-            }).join('');
+            }
 
-            if (isHtml) {
+            // AVOID DUPLICATION: If the template already contains specific URS placeholders or markers,
+            // we should NOT inject the automatic block unless {EQUIPOS_DETALLE} is explicitly present.
+            const hasSpecificPlaceholders = /\{muestreador_(origen|destino)_nombre\}|\{tipo_traspaso\}|Plan de Desactivación/i.test(output);
+            const shouldInject = !hasSpecificPlaceholders || output.includes('{EQUIPOS_DETALLE}');
+
+            if (equiposHtml && shouldInject) {
                 if (output.includes('{EQUIPOS_DETALLE}')) {
                     output = output.split('{EQUIPOS_DETALLE}').join(equiposHtml);
                 } else {
-                    // Fallback: Inject at the end of the body or content if placeholder is missing
-                    // This ensures old templates still show the equipment list
                     const injectionHtml = `
-                    <div style="margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
-                        <h3 style="color: #0f172a; font-size: 16px; margin-bottom: 10px;">Detalle de Equipos (Adjunto)</h3>
-                        ${equiposHtml}
-                    </div>
-                `;
-
+                        <div style="margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                            ${equiposHtml}
+                        </div>
+                    `;
                     if (output.includes('</body>')) {
                         output = output.replace('</body>', `${injectionHtml}</body>`);
                     } else if (output.includes('</html>')) {
@@ -385,29 +424,36 @@ class NotificationService {
 
         // 2.2 Handle Dynamic Observation Block {BLOQUE_OBSERVACION|Label}
         output = output.replace(/\{BLOQUE_OBSERVACION\|(.*?)\}/g, (match, label) => {
+            // Handle nested placeholder in label (e.g. {ETIQUETA_OBSERVACION})
+            let finalLabel = label;
+            if (label.includes('ETIQUETA_OBSERVACION')) {
+                finalLabel = context.ETIQUETA_OBSERVACION || 'Observaciones';
+            }
+            
             const obs = context.OBSERVACION;
-            // Check if observation exists and is not just "Sin observaciones" or empty
             if (obs && obs.trim() !== '' && obs.trim().toLowerCase() !== 'sin observaciones' && obs.trim().toLowerCase() !== 'no especificado') {
-                if (!isHtml) return `${label}: ${obs}`;
-                return `<div style="margin-top:30px;padding:15px;background-color:#fffbf5;border-left:4px solid #0062a8;color:#666666;font-size:14px;font-family:Arial,sans-serif;"><strong>${label}:</strong><br>${obs}</div>`;
+                if (!isHtml) return `${finalLabel}: ${obs}`;
+                return `<div style="margin-top:30px;padding:15px;background-color:#fffbf5;border-left:4px solid #0062a8;color:#666666;font-size:14px;font-family:Arial,sans-serif;"><strong>${finalLabel}:</strong><br>${obs}</div>`;
             }
             return '';
         });
 
         // 3. Replace all other placeholders
         for (const [key, value] of Object.entries(context)) {
-            // Skip servicios and equipos arrays (already processed)
-            if (key === 'servicios' || key === 'equipos') continue;
-
-            const val = value || '';
-
-            // 1. Try exact match {key}
+            if (key === 'servicios' || key === 'equipos' || key === 'datos_json') continue;
+            const val = value !== null && value !== undefined ? String(value) : '';
+            
+            // Double replace for case-insensitive simulation
             output = output.split(`{${key}}`).join(val);
-
-            // 2. Try Uppercase match {KEY} (Standard SQL Template format)
             output = output.split(`{${key.toUpperCase()}}`).join(val);
         }
-        return output;
+
+        // 4. Final Clean-up: Remove any remaining placeholders {...} to avoid showing code to user
+        if (isHtml) {
+            output = output.replace(/\{[A-Z0-9_\- ]+\}/gi, '');
+        }
+
+        return { html: output, attachments };
     }
 }
 

@@ -8,15 +8,20 @@ import logger from '../utils/logger.js';
  */
 export const authenticate = (req, res, next) => {
     try {
-        // Get token from header
+        // Get token from header or query string (for direct downloads)
+        let token = null;
         const authHeader = req.headers.authorization;
 
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            logger.warn('Auth Middleware: No Bearer token provided');
-            return errorResponse(res, 'No token provided', 401);
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            token = authHeader.substring(7);
+        } else if (req.query.token) {
+            token = req.query.token;
         }
 
-        const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+        if (!token) {
+            logger.warn('Auth Middleware: No token provided');
+            return errorResponse(res, 'No token provided', 401);
+        }
 
         // Verify token
         try {
