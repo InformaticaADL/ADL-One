@@ -28,9 +28,26 @@ class AuthService {
                 .input('username', sql.VarChar, username)
                 .input('password', sql.VarChar, password)
                 .query(`
-                    SELECT id_usuario, nombre_usuario, usuario, mam_cargo, correo_electronico, habilitado, seccion
-                    FROM mae_usuario 
-                    WHERE nombre_usuario = @username AND clave_usuario = @password
+                    SELECT 
+                        u.id_usuario, 
+                        u.nombre_usuario, 
+                        u.usuario, 
+                        u.mam_cargo, 
+                        u.correo_electronico, 
+                        u.habilitado, 
+                        u.seccion,
+                        u.foto,
+                        c.nombre_cargo,
+                        (
+                            SELECT r.nombre_rol + ','
+                            FROM mae_rol r
+                            INNER JOIN rel_usuario_rol ur ON r.id_rol = ur.id_rol
+                            WHERE ur.id_usuario = u.id_usuario
+                            FOR XML PATH('')
+                        ) as roles_list
+                    FROM mae_usuario u
+                    LEFT JOIN mae_cargo c ON u.id_cargo = c.id_cargo
+                    WHERE u.nombre_usuario = @username AND u.clave_usuario = @password
                 `);
             logger.info(`AuthService: User Lookup Query executed in ${Date.now() - startUserQuery}ms`);
 
@@ -109,6 +126,9 @@ class AuthService {
                         name: user.usuario,
                         email: user.correo_electronico,
                         role: user.mam_cargo,
+                        cargo: user.nombre_cargo,
+                        roles: user.roles_list ? user.roles_list.split(',').filter(r => r) : [],
+                        foto: user.foto,
                         permissions: permissions // Return to client for Context
                     }
                 };
@@ -131,6 +151,56 @@ class AuthService {
             return null; // User not found or invalid password
         } catch (error) {
             logger.error('Login error:', error);
+            throw error;
+        }
+    }
+
+    async changePassword(userId, currentPassword, newPassword) {
+        try {
+            const pool = await getConnection();
+            
+            // Verify current password
+            const userResult = await pool.request()
+                .input('userId', sql.Numeric(10, 0), userId)
+                .input('currentPassword', sql.VarChar, currentPassword)
+                .query(`
+                    SELECT id_usuario 
+                    FROM mae_usuario 
+                    WHERE id_usuario = @userId AND clave_usuario = @currentPassword
+                `);
+
+            if (userResult.recordset.length === 0) {
+                throw new Error('La contraseña actual es incorrecta');
+            }
+
+            if (newPassword === currentPassword) {
+                throw new Error('La nueva contraseña no puede ser igual a la actual');
+            }
+
+            // Update password
+            await pool.request()
+                .input('userId', sql.Numeric(10, 0), userId)
+                .input('newPassword', sql.VarChar, newPassword)
+                .query(`
+                    UPDATE mae_usuario 
+                    SET clave_usuario = @newPassword 
+                    WHERE id_usuario = @userId
+                `);
+
+            auditService.log({
+                usuario_id: userId,
+                area_key: 'it',
+                modulo_nombre: 'Seguridad',
+                evento_tipo: 'PASSWORD_CHANGE',
+                entidad_nombre: 'mae_usuario',
+                entidad_id: userId,
+                descripcion_humana: `El usuario con ID ${userId} ha cambiado su contraseña`,
+                severidad: 1
+            });
+
+            return true;
+        } catch (error) {
+            logger.error('Error changing password:', error);
             throw error;
         }
     }

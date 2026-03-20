@@ -37,8 +37,20 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
     (response) => response,
     (error) => {
-        // You can add global error handling here if needed
-        // For now, just pass through to let individual services handle errors
+        // Handle 401 (Unauthorized) or 403 (Forbidden) errors
+        if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+            // Check if we're not already on the login page or trying to login
+            if (!window.location.pathname.includes('/login') && !error.config.url.includes('/auth/login')) {
+                console.warn('apiClient: Session expired or unauthorized. Clearing storage...');
+                // Clear storage and redirect
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                sessionStorage.removeItem('token');
+                sessionStorage.removeItem('user');
+                // Redirect to login if possible, or reload to trigger AuthContext state change
+                window.location.href = '/login';
+            }
+        }
         return Promise.reject(error);
     }
 );

@@ -576,7 +576,7 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                     <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', fontSize: '9px', textAlign: 'center' }}>Fecha Muestreo (Retiro)</th>
                                     <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', fontSize: '9px', textAlign: 'center' }}>Frecuencia</th>
                                     <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', fontSize: '9px', textAlign: 'center' }}>E.Servicio</th>
-                                    <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', fontSize: '9px', textAlign: 'center' }}>Tipo Punto</th>
+                                    <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', fontSize: '9px', textAlign: 'center' }}>Obj. Muestreo</th>
                                     <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', fontSize: '9px', textAlign: 'center' }}>Sub Área</th>
                                     <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', fontSize: '9px', textAlign: 'center' }}>Coordinador</th>
                                     <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', backgroundColor: '#fef3c7', fontSize: '9px', minWidth: '140px', textAlign: 'center' }}>M. Instalación</th>

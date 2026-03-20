@@ -37,6 +37,11 @@ const CustomSelect: React.FC<CustomSelectProps> = ({ value, options, onChange, w
             <div
                 className="custom-select-trigger"
                 onClick={() => setIsOpen(!isOpen)}
+                style={{ 
+                    background: 'white',
+                    color: '#374151',
+                    border: '1px solid #e5e7eb'
+                }}
             >
                 <span>{value || 'Seleccionar'}</span>
                 <svg className="select-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -44,7 +49,7 @@ const CustomSelect: React.FC<CustomSelectProps> = ({ value, options, onChange, w
                 </svg>
             </div>
             {isOpen && (
-                <div className="custom-options">
+                <div className="custom-options" style={{ background: 'white', border: '1px solid #e5e7eb' }}>
                     {options.map((opt) => (
                         <div
                             key={opt}

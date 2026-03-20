@@ -120,7 +120,7 @@ class RbacController {
 
     async createUser(req, res) {
         try {
-            const { nombre_usuario, nombre_real, correo_electronico, mam_cargo, clave_usuario } = req.body;
+            const { nombre_usuario, nombre_real, correo_electronico, id_cargo, clave_usuario } = req.body;
 
             if (!nombre_usuario || !nombre_real || !clave_usuario) {
                 return errorResponse(res, 'Nombre de usuario, nombre real y contraseña son requeridos', 400);
@@ -130,7 +130,7 @@ class RbacController {
                 nombre_usuario,
                 nombre_real,
                 correo_electronico,
-                mam_cargo,
+                id_cargo,
                 clave_usuario
             });
 
@@ -143,13 +143,13 @@ class RbacController {
     async updateUser(req, res) {
         try {
             const { userId } = req.params;
-            const { nombre_usuario, nombre_real, correo_electronico, mam_cargo } = req.body;
+            const { nombre_usuario, nombre_real, correo_electronico, id_cargo } = req.body;
 
             await rbacService.updateUser(userId, {
                 nombre_usuario,
                 nombre_real,
                 correo_electronico,
-                mam_cargo
+                id_cargo
             });
 
             return successResponse(res, null, 'Usuario actualizado exitosamente');

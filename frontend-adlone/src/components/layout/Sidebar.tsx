@@ -41,7 +41,7 @@ import {
     IconDiamond,
     IconActivity,
     IconVirus,
-    IconSettings
+    IconSettings,
 } from '@tabler/icons-react';
 import logoAdl from '../../assets/images/logo-adlone.png';
 import logoSmall from '../../assets/images/logo-adlone-pequeño.png';
@@ -49,7 +49,9 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNavStore } from '../../store/navStore';
 import { useNotificationStore } from '../../store/notificationStore';
 import { NotificationPopover } from '../../features/notifications/components/NotificationPopover';
+import API_CONFIG from '../../config/api.config';
 import classes from './Sidebar.module.css';
+import { HelpCenter } from '../common/HelpCenter';
 
 // Módulos con iconos de Tabler
 const FIXED_TOP_MODULES = [
@@ -277,6 +279,7 @@ export function Sidebar() {
     const isFirstLoad = useRef(true);
     const prevUnreadCount = useRef<number>(0);
     const notificationsRef = useRef<HTMLDivElement>(null);
+    const [helpOpened, setHelpOpened] = useState(false);
 
     // Sync opened module with active module changes
     useEffect(() => {
@@ -290,7 +293,7 @@ export function Sidebar() {
         }
     }, [activeModule]);
 
-    const { notifications, loading } = useNotificationStore();
+    const { notifications } = useNotificationStore();
     const unreadCount = notifications.filter(n => !n.leido).length;
 
     // Escudo temporal para suprimir alertas durante el arranque (hidratación asíncrona del store)
@@ -356,8 +359,11 @@ export function Sidebar() {
             setShowBubble(false);
         } else {
             setOpenedModule(openedModule === moduleId ? null : moduleId);
-            setActiveModule(moduleId);
-            setActiveSubmodule('');
+            // Si el módulo ya es el activo, no reseteamos el submódulo
+            if (activeModule !== moduleId) {
+                setActiveModule(moduleId);
+                setActiveSubmodule('');
+            }
         }
     };
 
@@ -463,6 +469,7 @@ export function Sidebar() {
         );
     };
 
+
     return (
         <nav className={`${classes.navbar} ${sidebarCollapsed ? classes.navbarCollapsed : ''}`}>
             <div className={classes.header}>
@@ -475,7 +482,8 @@ export function Sidebar() {
                             maxWidth: sidebarCollapsed ? 32 : 200,
                             objectFit: 'contain',
                             cursor: 'pointer',
-                            transition: 'all 200ms ease'
+                            transition: 'all 200ms ease',
+                            filter: 'none'
                         }}
                         onClick={() => setActiveModule('')}
                     />
@@ -530,7 +538,11 @@ export function Sidebar() {
                         <Menu.Target>
                             <UnstyledButton className={classes.userButton}>
                                 <Group gap="sm" wrap="nowrap">
-                                    <Avatar src={null} radius="xl" color="blue">
+                                    <Avatar 
+                                        src={user?.foto ? `${API_CONFIG.getBaseURL()}${user.foto}` : null} 
+                                        radius="xl" 
+                                        color="blue"
+                                    >
                                         {user?.name?.charAt(0)}
                                     </Avatar>
                                     {!sidebarCollapsed && (
@@ -550,8 +562,21 @@ export function Sidebar() {
 
                         <Menu.Dropdown>
                             <Menu.Label>Panel de Usuario</Menu.Label>
-                            <Menu.Item leftSection={<IconUserCircle size={14} />}>Mi Perfil</Menu.Item>
-                            <Menu.Item leftSection={<IconQuestionMark size={14} />}>Ayuda</Menu.Item>
+                            <Menu.Item 
+                                leftSection={<IconUserCircle size={14} />}
+                                onClick={() => {
+                                    setActiveModule('perfil');
+                                    setActiveSubmodule('');
+                                }}
+                            >
+                                Mi Perfil
+                            </Menu.Item>
+                            <Menu.Item 
+                                leftSection={<IconQuestionMark size={14} />}
+                                onClick={() => setHelpOpened(true)}
+                            >
+                                Ayuda
+                            </Menu.Item>
                             <Menu.Divider />
                             <Menu.Item 
                                 color="red" 
@@ -578,6 +603,8 @@ export function Sidebar() {
                     </div>
                 </Portal>
             )}
+
+            <HelpCenter opened={helpOpened} onClose={() => setHelpOpened(false)} />
         </nav>
     );
 }

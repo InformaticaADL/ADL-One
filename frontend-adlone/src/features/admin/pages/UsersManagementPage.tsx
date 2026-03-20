@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { rbacService, type User, type CreateUserData, type UpdateUserData, type Role } from '../services/rbac.service';
+import { catalogosService } from '../../medio-ambiente/services/catalogos.service';
 import { useToast } from '../../../contexts/ToastContext';
 import { ConfirmModal } from '../../../components/common/ConfirmModal';
 import '../admin.css';
@@ -12,6 +13,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
     const { showToast } = useToast();
     const [users, setUsers] = useState<User[]>([]);
     const [roles, setRoles] = useState<Role[]>([]);
+    const [cargos, setCargos] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('active');
@@ -28,6 +30,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
         nombre_usuario: '',
         nombre_real: '',
         correo_electronico: '',
+        id_cargo: undefined,
         clave_usuario: ''
     });
     const [selectedRoles, setSelectedRoles] = useState<number[]>([]);
@@ -38,7 +41,17 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
     useEffect(() => {
         loadUsers();
         loadRoles();
+        loadCargos();
     }, []);
+
+    const loadCargos = async () => {
+        try {
+            const data = await catalogosService.getCargos();
+            setCargos(data);
+        } catch (error) {
+            console.error('Error loading cargos:', error);
+        }
+    };
 
     const loadUsers = async () => {
         try {
@@ -92,7 +105,8 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
         const updateData: UpdateUserData = {
             nombre_usuario: formData.nombre_usuario,
             nombre_real: formData.nombre_real,
-            correo_electronico: formData.correo_electronico
+            correo_electronico: formData.correo_electronico,
+            id_cargo: formData.id_cargo
         };
 
         try {
@@ -168,6 +182,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
             nombre_usuario: user.nombre_usuario,
             nombre_real: user.nombre_real,
             correo_electronico: user.correo_electronico || '',
+            id_cargo: user.id_cargo,
             clave_usuario: ''
         });
 
@@ -200,6 +215,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
             nombre_usuario: '',
             nombre_real: '',
             correo_electronico: '',
+            id_cargo: undefined,
             clave_usuario: ''
         });
         setSelectedRoles([]);
@@ -315,6 +331,8 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                                 <tr style={{ borderBottom: '2px solid #e5e7eb', color: '#6b7280', textAlign: 'left' }}>
                                     <th style={{ padding: '12px 8px', fontWeight: 600 }}>Usuario</th>
                                     <th style={{ padding: '12px 8px', fontWeight: 600 }}>Nombre Real</th>
+                                    <th style={{ padding: '12px 8px', fontWeight: 600 }}>Cargo</th>
+                                    <th style={{ padding: '12px 8px', fontWeight: 600 }}>Rol</th>
                                     <th style={{ padding: '12px 8px', fontWeight: 600 }}>Email</th>
                                     <th style={{ padding: '12px 8px', fontWeight: 600, textAlign: 'center' }}>Estado</th>
                                     <th style={{ padding: '12px 8px', fontWeight: 600, textAlign: 'right' }}>Acciones</th>
@@ -328,6 +346,26 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                                         </td>
                                         <td style={{ padding: '12px 8px', color: '#4b5563' }}>
                                             {user.nombre_real}
+                                        </td>
+                                        <td style={{ padding: '12px 8px', color: '#4b5563', fontSize: '0.8rem' }}>
+                                            {user.nombre_cargo || '-'}
+                                        </td>
+                                        <td style={{ padding: '12px 8px', color: '#4b5563' }}>
+                                            {user.roles && user.roles.length > 0 ? (
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                                    {user.roles.map((rol, i) => (
+                                                        <span key={i} style={{ 
+                                                            fontSize: '0.7rem', 
+                                                            backgroundColor: '#f3f4f6', 
+                                                            padding: '2px 6px', 
+                                                            borderRadius: '4px',
+                                                            color: '#374151'
+                                                        }}>
+                                                            {rol}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            ) : '-'}
                                         </td>
                                         <td style={{ padding: '12px 8px', color: '#3b82f6', fontSize: '0.8rem' }}>
                                             {user.correo_electronico || '-'}
@@ -495,6 +533,31 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                                         fontSize: '0.9rem'
                                     }}
                                 />
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '4px', color: '#374151' }}>
+                                    Cargo
+                                </label>
+                                <select
+                                    value={formData.id_cargo || ''}
+                                    onChange={(e) => setFormData({ ...formData, id_cargo: e.target.value ? Number(e.target.value) : undefined })}
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px',
+                                        borderRadius: '6px',
+                                        border: '1px solid #d1d5db',
+                                        fontSize: '0.9rem',
+                                        backgroundColor: 'white'
+                                    }}
+                                >
+                                    <option value="">-- Seleccionar Cargo --</option>
+                                    {cargos.map((cargo: any) => (
+                                        <option key={cargo.id_cargo} value={cargo.id_cargo}>
+                                            {cargo.nombre_cargo}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
 
 

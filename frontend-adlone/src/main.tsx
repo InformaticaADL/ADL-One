@@ -7,6 +7,7 @@ import { MantineProvider, createTheme } from '@mantine/core'
 
 const theme = createTheme({
   primaryColor: 'adl-blue',
+  primaryShade: { light: 6, dark: 4 },
   colors: {
     'adl-blue': [
       '#e6f0fa', // 0
@@ -27,7 +28,7 @@ const theme = createTheme({
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <MantineProvider theme={theme}>
+    <MantineProvider theme={theme} forceColorScheme="light">
       <App />
     </MantineProvider>
   </StrictMode>,
