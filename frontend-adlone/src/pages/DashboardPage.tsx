@@ -3,12 +3,10 @@ import { MainLayout } from '../components/layout/MainLayout';
 import { useNavStore } from '../store/navStore';
 import { useAuth } from '../contexts/AuthContext';
 import { FichasIngresoPage } from '../features/medio-ambiente/pages/FichasIngresoPage';
-import { SolicitudesMaPage } from '../features/medio-ambiente/pages/SolicitudesMaPage';
 import { CalendarioReplicaPage } from '../features/medio-ambiente/pages/CalendarioReplicaPage';
 
 import { RolesPage } from '../features/admin/pages/RolesPage';
-import { RequestsManager } from '../features/admin/pages/RequestsManager';
-import RequestTypePermissionsPage from '../features/admin/pages/RequestTypePermissionsPage';
+import AdminUrsPage from '../features/admin/pages/AdminUrsPage';
 import { AdminInfoHub } from '../features/admin/pages/AdminInfoHub';
 import { InformaticaHub } from '../features/admin/pages/InformaticaHub';
 import { UsersManagementPage } from '../features/admin/pages/UsersManagementPage';
@@ -33,7 +31,6 @@ import {
 const DashboardPage = () => {
     const { activeModule, activeSubmodule, previousSubmodule, setActiveSubmodule, resetNavigation } = useNavStore();
     const { user, hasPermission } = useAuth();
-    const [selectedUrsType, setSelectedUrsType] = useState<any | null>(null);
 
     // Dashboard Stats State
     const [stats, setStats] = useState({
@@ -193,7 +190,7 @@ const DashboardPage = () => {
                 <h1 style={{ fontSize: '2.5rem', fontWeight: 800, marginBottom: '0.75rem', letterSpacing: '-0.025em' }}>
                     {title}
                 </h1>
-                <p style={{ fontSize: '1.2rem', color: '#94a3b8', maxWidth: '600px', lineHeight: '1.6' }}>
+                <p style={{ fontSize: '1.2rem', color: '#94a3b8', maxWidth: '100%', lineHeight: '1.6' }}>
                     {subtitle}
                 </p>
             </div>
@@ -203,7 +200,7 @@ const DashboardPage = () => {
 
     const renderQualityDashboard = () => (
         <div className="dashboard-content" style={{ padding: '2rem', maxWidth: '100%', margin: '0', backgroundColor: '#f8fafc', minHeight: '100%' }}>
-            <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+            <div style={{ maxWidth: '100%', margin: '0' }}>
                 <ChartGradients />
                 <DashboardHero
                     title="Gestión de Calidad"
@@ -289,7 +286,7 @@ const DashboardPage = () => {
 
     const renderEnvironmentDashboard = () => (
         <div className="dashboard-content" style={{ padding: '2rem', maxWidth: '100%', margin: '0', backgroundColor: '#f8fafc', minHeight: '100%' }}>
-            <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+            <div style={{ maxWidth: '100%', margin: '0' }}>
                 <ChartGradients />
                 <DashboardHero
                     title="Operaciones Medio Ambiente"
@@ -335,7 +332,7 @@ const DashboardPage = () => {
 
     const renderITDashboard = () => (
         <div className="dashboard-content" style={{ padding: '2rem', maxWidth: '100%', margin: '0', backgroundColor: '#f8fafc', minHeight: '100%' }}>
-            <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+            <div style={{ maxWidth: '100%', margin: '0' }}>
                 <ChartGradients />
                 <DashboardHero
                     title="Administración de Sistemas"
@@ -379,7 +376,7 @@ const DashboardPage = () => {
 
     const renderGenericDashboard = () => (
         <div className="dashboard-content" style={{ padding: '2rem', maxWidth: '100%', margin: '0', backgroundColor: '#f8fafc', minHeight: '100%' }}>
-            <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+            <div style={{ maxWidth: '100%', margin: '0' }}>
                 <DashboardHero
                     title={`Bienvenido a ADL One`}
                     subtitle="Gestione sus operaciones y monitoree el estado de sus equipos desde un solo panel centralizado."
@@ -400,10 +397,8 @@ const DashboardPage = () => {
         // --- 1. Submódulos Compartidos (Alta Prioridad) ---
         if (activeSubmodule === 'ma-fichas-ingreso') return <FichasIngresoPage />;
         if (activeSubmodule === 'ma-calendario-replica') return <CalendarioReplicaPage onBack={() => setActiveSubmodule('medio_ambiente')} />;
-        if (activeSubmodule === 'ma-solicitudes') return <SolicitudesMaPage onBack={() => setActiveSubmodule('medio_ambiente')} />;
         if (activeSubmodule === 'admin-equipos-gestion') return <EquiposPage onBack={() => setActiveSubmodule(previousSubmodule || ((activeModule as string) === 'gestion_calidad' ? 'gestion_calidad' : 'medio_ambiente'))} />;
         if (activeSubmodule === 'admin-muestreadores') return <MuestreadoresPage onBack={() => setActiveSubmodule('medio_ambiente')} />;
-        if (activeSubmodule === 'ma-reportes-view') return <SolicitudesMaPage onBack={() => setActiveSubmodule('medio_ambiente')} viewOnly={true} />;
         if (activeSubmodule === 'urs-new-request') return <NewRequestPage onBack={() => setActiveSubmodule('urs_bandeja')} />;
 
         // --- 2. Lógica Específica del Módulo de Administración ---
@@ -416,9 +411,7 @@ const DashboardPage = () => {
                 if (activeSubmodule === 'admin-users') return <UsersManagementPage onBack={() => setActiveSubmodule('informatica')} />;
                 if (activeSubmodule === 'admin-user-roles') return <UserRolesPage onBack={() => setActiveSubmodule('informatica')} />;
                 if (activeSubmodule === 'admin-notifications') return <NotificationsPage onBack={() => setActiveSubmodule('informatica')} />;
-                if (activeSubmodule === 'admin-urs') return selectedUrsType
-                    ? <RequestTypePermissionsPage requestType={selectedUrsType} onBack={() => setSelectedUrsType(null)} />
-                    : <RequestsManager onConfigureType={setSelectedUrsType} />;
+                if (activeSubmodule === 'admin-urs') return <AdminUrsPage onBack={() => setActiveSubmodule('informatica')} />;
             }
 
             if (activeSubmodule === 'medio_ambiente') return <AdminMaHub onNavigate={(v) => setActiveSubmodule(v)} onBack={() => setActiveSubmodule('')} />;

@@ -1,5 +1,27 @@
 import { useState } from 'react';
-import '../Login.css';
+import { 
+    Paper, 
+    TextInput, 
+    PasswordInput, 
+    Checkbox, 
+    Button, 
+    Group, 
+    Stack, 
+    Image, 
+    Title, 
+    Text, 
+    Modal,
+    Anchor,
+    ThemeIcon,
+    Box,
+    Center
+} from '@mantine/core';
+import { 
+    IconLock, 
+    IconMail, 
+    IconPhone, 
+    IconArrowLeft 
+} from '@tabler/icons-react';
 import type { LoginCredentials } from '../types/index';
 import logoAdl from '../../../assets/images/logo-adlone.png';
 
@@ -12,7 +34,6 @@ export const LoginForm = ({ onSubmit, isLoading = false }: LoginFormProps) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [rememberMe, setRememberMe] = useState(false);
-    const [showPassword, setShowPassword] = useState(false);
     const [showForgotModal, setShowForgotModal] = useState(false);
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -23,198 +44,156 @@ export const LoginForm = ({ onSubmit, isLoading = false }: LoginFormProps) => {
     };
 
     return (
-        <div className="login-card">
-            <div className="login-header">
-                <img src={logoAdl} alt="ADL One Logo" className="login-logo-img" />
-                <h2 className="login-title">Bienvenido</h2>
-                <p className="login-subtitle">Ingresa tus credenciales para continuar</p>
-            </div>
+        <Paper 
+            shadow="xl" 
+            p={40} 
+            radius="lg" 
+            withBorder
+            style={{ 
+                width: '100%',
+                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                backdropFilter: 'blur(10px)'
+            }}
+        >
+            <Stack gap="xl">
+                <Center flex={1}>
+                    <Stack align="center" gap={0}>
+                        <Image src={logoAdl} w={180} mb="md" />
+                        <Title order={2} fw={900}>Bienvenido</Title>
+                        <Text c="dimmed" size="sm" ta="center">Ingresa tus credenciales para continuar</Text>
+                    </Stack>
+                </Center>
 
-            <form className="login-form" onSubmit={handleSubmit}>
-                <div className="form-group">
-                    <label className="form-label">Usuario / Email</label>
-                    <div className="form-input-wrapper">
-                        <input
-                            type="text"
-                            className="form-input"
+                <form onSubmit={handleSubmit}>
+                    <Stack gap="md">
+                        <TextInput
+                            label="Usuario / Email"
                             placeholder="nombre@empresa.com"
+                            leftSection={<IconMail size={18} />}
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
+                            size="md"
+                            radius="md"
                             required
                             disabled={isLoading}
                         />
-                    </div>
-                </div>
 
-                <div className="form-group">
-                    <label className="form-label">Contraseña</label>
-                    <div className="form-input-wrapper">
-                        <input
-                            type={showPassword ? 'text' : 'password'}
-                            className="form-input"
+                        <PasswordInput
+                            label="Contraseña"
                             placeholder="••••••••"
+                            leftSection={<IconLock size={18} />}
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
+                            size="md"
+                            radius="md"
                             required
                             disabled={isLoading}
                         />
-                        <span
-                            className="input-icon"
-                            onClick={() => setShowPassword(!showPassword)}
-                            role="button"
-                        >
-                            {showPassword ? '👁️' : '👁️‍🗨️'}
-                        </span>
-                    </div>
-                </div>
 
-                <div className="form-group">
-                    <div className="form-checkbox-wrapper">
-                        <input
-                            type="checkbox"
-                            id="rememberMe"
-                            checked={rememberMe}
-                            onChange={(e) => setRememberMe(e.target.checked)}
-                            disabled={isLoading}
-                        />
-                        <label htmlFor="rememberMe">
-                            Recuérdame (Mantener sesión activa)
-                        </label>
-                    </div>
-                </div>
-
-                <button type="submit" className="login-button" disabled={isLoading}>
-                    {isLoading ? 'Ingresando...' : 'Ingresar'}
-                </button>
-            </form>
-
-            <div className="login-footer">
-                <button
-                    type="button"
-                    className="link"
-                    onClick={() => setShowForgotModal(true)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem' }}
-                >
-                    ¿Olvidaste tu contraseña?
-                </button>
-            </div>
-
-            {/* Forgot Password Modal */}
-            {showForgotModal && (
-                <div
-                    style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        backgroundColor: '#ffffff',
-                        borderRadius: '1.5rem',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        overflow: 'hidden',
-                        zIndex: 10,
-                        animation: 'fadeIn 0.2s ease-out'
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    {/* Header with background color */}
-                    <div
-                        style={{
-                            background: 'linear-gradient(135deg, #0288d1, #01579b)', // ADL Blue gradient
-                            padding: '1.5rem 2rem',
-                            textAlign: 'center',
-                            color: 'white'
-                        }}
-                    >
-                        <h3 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 600 }}>Recuperar Contraseña</h3>
-                    </div>
-
-                    {/* Content Body */}
-                    <div
-                        style={{
-                            padding: '2rem 2.5rem',
-                            flex: 1,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            width: '100%',
-                            boxSizing: 'border-box'
-                        }}
-                    >
-                        <div
-                            style={{
-                                width: '100%',
-                                textAlign: 'center',
-                                position: 'relative',
-                                zIndex: 20
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <p style={{ color: '#546e7a', lineHeight: '1.6', marginBottom: '2rem', fontSize: '1rem', textAlign: 'center' }}>
-                                Para recuperar su acceso, por favor contáctese con el área de informática:
-                            </p>
-
-                            <div style={{ width: '100%', marginBottom: '2.5rem', padding: '0 0.5rem' }}>
-                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '15px', marginBottom: '1.5rem' }}>
-                                    <div style={{ background: '#fff3e0', padding: '10px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: '40px', minHeight: '40px' }}>
-                                        <span style={{ fontSize: '1.2rem' }}>📧</span>
-                                    </div>
-                                    <div style={{ flex: 1, overflow: 'hidden', textAlign: 'left' }}>
-                                        <strong style={{ display: 'block', color: '#37474f', marginBottom: '0.2rem', fontSize: '0.9rem' }}>Email:</strong>
-                                        <a href="mailto:informatica@adldiagnostic.cl" style={{ color: '#0288d1', textDecoration: 'none', wordBreak: 'break-all', display: 'block', fontWeight: 500 }}>
-                                            informatica@adldiagnostic.cl
-                                        </a>
-                                    </div>
-                                </div>
-
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                                    <div style={{ background: '#fff3e0', padding: '10px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: '40px', minHeight: '40px' }}>
-                                        <span style={{ fontSize: '1.2rem' }}>📱</span>
-                                    </div>
-                                    <div style={{ textAlign: 'left' }}>
-                                        <strong style={{ display: 'block', color: '#37474f', marginBottom: '0.2rem', fontSize: '0.9rem' }}>Teléfono:</strong>
-                                        <a href="tel:+56957218268" style={{ color: '#0288d1', textDecoration: 'none', fontWeight: 500 }}>
-                                            +56 9 5721 8268
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <button
-                                onClick={() => setShowForgotModal(false)}
-                                style={{
-                                    padding: '0.9rem',
-                                    background: 'linear-gradient(45deg, #ff9800, #f57c00)',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '0.8rem',
-                                    cursor: 'pointer',
-                                    fontWeight: 600,
-                                    width: '100%',
-                                    fontSize: '1rem',
-                                    boxShadow: '0 4px 15px rgba(245, 124, 0, 0.3)',
-                                    transition: 'transform 0.2s',
-                                    marginTop: '1rem'
-                                }}
-                                onMouseEnter={(e) => {
-                                    e.currentTarget.style.transform = 'translateY(-2px)';
-                                    e.currentTarget.style.background = 'linear-gradient(45deg, #ffa726, #fb8c00)';
-                                    e.currentTarget.style.boxShadow = '0 6px 20px rgba(245, 124, 0, 0.4)';
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.currentTarget.style.transform = 'translateY(0)';
-                                    e.currentTarget.style.background = 'linear-gradient(45deg, #ff9800, #f57c00)';
-                                    e.currentTarget.style.boxShadow = '0 4px 15px rgba(245, 124, 0, 0.3)';
-                                }}
+                        <Group justify="space-between">
+                            <Checkbox
+                                label="Recuérdame"
+                                checked={rememberMe}
+                                onChange={(e) => setRememberMe(e.target.checked)}
+                                size="sm"
+                                disabled={isLoading}
+                            />
+                            <Anchor 
+                                size="sm" 
+                                component="button" 
+                                type="button"
+                                onClick={() => setShowForgotModal(true)}
+                                fw={500}
                             >
-                                Volver al Login
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
+                                ¿Olvidaste tu contraseña?
+                            </Anchor>
+                        </Group>
+
+                        <Button 
+                            type="submit" 
+                            size="lg" 
+                            radius="md" 
+                            fullWidth 
+                            loading={isLoading}
+                            mt="lg"
+                            bg="blue.7"
+                        >
+                            {isLoading ? 'Ingresando...' : 'Ingresar'}
+                        </Button>
+                    </Stack>
+                </form>
+            </Stack>
+
+            <Modal
+                opened={showForgotModal}
+                onClose={() => setShowForgotModal(false)}
+                title={<Text fw={700} size="lg">Recuperar Contraseña</Text>}
+                centered
+                radius="lg"
+                padding="xl"
+                styles={{
+                    header: { borderBottom: '1px solid var(--mantine-color-gray-2)', paddingBottom: 'lg' }
+                }}
+            >
+                <Stack gap="xl">
+                    <Box bg="blue.0" p="md" style={{ borderRadius: 'var(--mantine-radius-md)', border: '1px solid var(--mantine-color-blue-1)' }}>
+                        <Text size="sm" c="blue.9" ta="center" fw={500}>
+                            Para recuperar su acceso, por favor contáctese con el área de informática:
+                        </Text>
+                    </Box>
+
+                    <Stack gap="md">
+                        <Paper withBorder p="md" radius="md">
+                            <Group gap="md" wrap="nowrap">
+                                <ThemeIcon size="lg" radius="xl" color="orange.1" variant="light">
+                                    <IconMail size={20} color="var(--mantine-color-orange-7)" />
+                                </ThemeIcon>
+                                <Box>
+                                    <Text size="xs" c="dimmed" fw={600}>EMAIL</Text>
+                                    <Anchor 
+                                        href="mailto:informatica@adldiagnostic.cl" 
+                                        fw={700} 
+                                        size="sm"
+                                        c="blue.7"
+                                    >
+                                        informatica@adldiagnostic.cl
+                                    </Anchor>
+                                </Box>
+                            </Group>
+                        </Paper>
+
+                        <Paper withBorder p="md" radius="md">
+                            <Group gap="md" wrap="nowrap">
+                                <ThemeIcon size="lg" radius="xl" color="orange.1" variant="light">
+                                    <IconPhone size={20} color="var(--mantine-color-orange-7)" />
+                                </ThemeIcon>
+                                <Box>
+                                    <Text size="xs" c="dimmed" fw={600}>TELÉFONO</Text>
+                                    <Anchor 
+                                        href="tel:+56957218268" 
+                                        fw={700} 
+                                        size="sm"
+                                        c="blue.7"
+                                    >
+                                        +56 9 5721 8268
+                                    </Anchor>
+                                </Box>
+                            </Group>
+                        </Paper>
+                    </Stack>
+
+                    <Button 
+                        variant="light" 
+                        color="gray" 
+                        fullWidth 
+                        onClick={() => setShowForgotModal(false)}
+                        leftSection={<IconArrowLeft size={16} />}
+                        radius="md"
+                    >
+                        Volver al Login
+                    </Button>
+                </Stack>
+            </Modal>
+        </Paper>
     );
 };

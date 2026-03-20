@@ -9,15 +9,50 @@ import { ToastProvider, useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { ToastContainer } from '../../../components/Toast/Toast';
 import { fichaService } from '../services/ficha.service';
-import '../styles/FichasIngreso.css'; // Ensure CSS is imported
-import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { ProtectedContent } from '../../../components/auth/ProtectedContent';
+import { SelectionCard } from '../components/SelectionCard';
+import { PageHeader } from '../../../components/layout/PageHeader';
+import { useNavStore } from '../../../store/navStore';
+
+import { 
+    Modal, 
+    Button, 
+    Text, 
+    Title, 
+    Stack, 
+    Group, 
+    ThemeIcon, 
+    Paper, 
+    SimpleGrid, 
+    Container, 
+    ActionIcon, 
+    Divider,
+    Box,
+    Tabs,
+    TextInput,
+    Select,
+    Table,
+    Badge,
+    Pagination,
+    ScrollArea
+} from '@mantine/core';
+import { 
+    IconCheck, 
+    IconChevronLeft, 
+    IconPlus, 
+    IconTrash, 
+    IconFileText, 
+    IconArrowRight,
+    IconTable,
+    IconAdjustmentsHorizontal,
+    IconDownload,
+    IconEdit
+} from '@tabler/icons-react';
 
 interface Props {
     onBack: () => void;
 }
 
-// Inline Success Modal Component
 const SuccessModal = ({
     isOpen,
     onClose,
@@ -27,106 +62,68 @@ const SuccessModal = ({
     onClose: () => void;
     fichaId: number | null
 }) => {
-    if (!isOpen) return null;
-
     return (
-        <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 9999
-        }}>
-            <div style={{
-                backgroundColor: 'white',
-                borderRadius: '8px',
-                padding: '24px',
-                maxWidth: '400px',
-                width: '100%',
-                textAlign: 'center',
-                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
-            }}>
-                <div style={{
-                    width: '60px',
-                    height: '60px',
-                    backgroundColor: '#dcfce7',
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    margin: '0 auto 16px',
-                    color: '#16a34a'
-                }}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-                </div>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#111827', marginBottom: '8px' }}>
-                    ¡Ficha Creada Exitosamente!
-                </h3>
-                <p style={{ color: '#374151', marginBottom: '24px' }}>
-                    Se ha generado la Ficha N° <strong>{fichaId}</strong> correctamente en el sistema.
-                </p>
-                <button
+        <Modal 
+            opened={isOpen} 
+            onClose={onClose} 
+            title="¡Ficha Creada Exitosamente!"
+            centered
+            size="md"
+            radius="lg"
+            withCloseButton={false}
+        >
+            <Stack align="center" py="xl">
+                <ThemeIcon size={80} radius="xl" color="green" variant="light">
+                    <IconCheck size={40} />
+                </ThemeIcon>
+                
+                <Title order={3} ta="center">Registro Confirmado</Title>
+                
+                <Text ta="center" c="dimmed">
+                    Se ha generado la Ficha N° <Text span fw={700} c="blue">{fichaId}</Text> correctamente en el sistema.
+                </Text>
+
+                <Button 
+                    fullWidth 
+                    size="md" 
+                    color="green" 
+                    radius="md" 
                     onClick={onClose}
-                    style={{
-                        width: '100%',
-                        padding: '10px',
-                        backgroundColor: '#16a34a',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '6px',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        fontSize: '1rem',
-                        transition: 'background-color 0.2s'
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#15803d'}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#16a34a'}
+                    mt="lg"
                 >
                     Aceptar y Volver
-                </button>
-            </div>
-        </div>
+                </Button>
+            </Stack>
+        </Modal>
     );
 };
 
-// --- Commercial Form Component ---
 const CommercialForm = ({ onBackToMenu }: { onBackToMenu: () => void }) => {
-    // Auth Context
     const { user } = useAuth();
     const { showToast } = useToast();
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [createdFichaId, setCreatedFichaId] = useState<number | null>(null);
     const [isAntecedentesValid, setIsAntecedentesValid] = useState(false);
-
-    // Estado persistente del formulario
     const [observaciones, setObservaciones] = useState('');
-
-    // State for Tabs
-    const [activeTab, setActiveTab] = useState<'antecedentes' | 'analisis' | 'observaciones'>('antecedentes');
-
-    // Refs
+    const [activeTab, setActiveTab] = useState<string | null>('antecedentes');
     const antecedentesRef = useRef<AntecedentesFormHandle>(null);
-
-    // Form Data State
+    const topRef = useRef<HTMLDivElement>(null);
     const [savedAnalysis, setSavedAnalysis] = useState<any[]>([]);
+
+    const scrollToTop = () => {
+        if (topRef.current) {
+            topRef.current.scrollIntoView({ behavior: 'instant', block: 'start' });
+        }
+    };
 
     const handleSave = async () => {
         try {
-            // Validate Antecedentes
             const antData = antecedentesRef.current?.getData ? antecedentesRef.current.getData() : null;
             if (!antData) {
                 showToast({ type: 'warning', message: 'Por favor complete los antecedentes requeridos' });
                 return;
             }
 
-            // ... (validation code)
-
-            // 3. Prepare Payload
             const payload = {
                 antecedentes: antData,
                 analisis: savedAnalysis,
@@ -134,7 +131,6 @@ const CommercialForm = ({ onBackToMenu }: { onBackToMenu: () => void }) => {
                 user: { id: user?.id || 0 }
             };
 
-            // 4. Call Service
             const result = await fichaService.create(payload);
 
             if (result && (result.success || result.data?.success)) {
@@ -158,281 +154,185 @@ const CommercialForm = ({ onBackToMenu }: { onBackToMenu: () => void }) => {
     const handleCloseSuccess = () => {
         setShowSuccessModal(false);
         setCreatedFichaId(null);
-        onBackToMenu(); // Go back to menu after success
+        onBackToMenu();
     };
 
     return (
-        <div className="fichas-ingreso-container commercial-layout">
+        <Container fluid p="md" style={{ width: '100% !important', maxWidth: '100% !important' }}>
             <SuccessModal
                 isOpen={showSuccessModal}
                 onClose={handleCloseSuccess}
                 fichaId={createdFichaId}
             />
 
-            {/* Header Row */}
-            <div className="header-row" style={{ display: 'flex', position: 'relative', justifyContent: 'center', alignItems: 'center', marginBottom: '1.5rem' }}>
-                <button onClick={onBackToMenu} className="btn-back" style={{ position: 'absolute', left: 0, margin: 0 }}>
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-                    </svg>
-                    Volver al Menú
-                </button>
-                <h2 className="page-title-geo" style={{ margin: 0 }}>Nueva Ficha Comercial</h2>
-            </div>
+            <Stack gap="lg">
+                <div ref={topRef} style={{ height: 0, overflow: 'hidden' }} />
+                <PageHeader 
+                    title="Nueva Ficha Comercial"
+                    onBack={onBackToMenu}
+                />
 
-            {/* Navegación por Pestañas */}
-            <div className="tabs-container">
-                <button
-                    className={`tab-button ${activeTab === 'antecedentes' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('antecedentes')}
-                >
-                    Antecedentes
-                </button>
-                <button
-                    className={`tab-button ${activeTab === 'analisis' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('analisis')}
-                >
-                    Análisis
-                </button>
-                <button
-                    className={`tab-button ${activeTab === 'observaciones' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('observaciones')}
-                >
-                    Observaciones
-                </button>
-            </div>
-
-            {/* Contenido Dinámico */}
-            <div className="tab-content-area">
-                <div className="fade-in" style={{ display: activeTab === 'antecedentes' ? 'block' : 'none' }}>
-                    <AntecedentesForm
-                        ref={antecedentesRef}
-                        onValidationChange={setIsAntecedentesValid}
-                    />
-                </div>
-
-                <div className="fade-in" style={{ display: activeTab === 'analisis' ? 'block' : 'none' }}>
-                    <AnalysisForm
-                        savedAnalysis={savedAnalysis}
-                        onSavedAnalysisChange={setSavedAnalysis}
-                    />
-                </div>
-
-                <div className="fade-in" style={{ display: activeTab === 'observaciones' ? 'block' : 'none' }}>
-                    <ObservacionesForm
-                        value={observaciones}
-                        onChange={setObservaciones}
-                    />
-                </div>
-            </div>
-
-            {/* Acciones */}
-            <div className="form-actions" style={{ justifyContent: 'flex-end', gap: '1rem' }}>
-                {activeTab === 'antecedentes' && (
-                    <button
-                        className="btn-next"
-                        onClick={() => setActiveTab('analisis')}
-                        disabled={!isAntecedentesValid}
-                        style={{
-                            padding: '10px 24px',
-                            backgroundColor: !isAntecedentesValid ? '#9ca3af' : '#3b82f6',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '6px',
-                            fontWeight: 600,
-                            cursor: !isAntecedentesValid ? 'not-allowed' : 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            transition: 'all 0.2s'
-                        }}
+                <Paper withBorder p="xl" radius="lg" shadow="sm" style={{ width: '100% !important' }}>
+                    <Tabs 
+                        value={activeTab} 
+                        onChange={(val) => {
+                            setActiveTab(val);
+                            scrollToTop();
+                        }} 
+                        variant="outline" 
+                        radius="md" 
+                        style={{ width: '100% !important' }}
                     >
-                        Siguiente
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-                    </button>
-                )}
+                        <Tabs.List grow mb="xl">
+                            <Tabs.Tab value="antecedentes" leftSection={<IconFileText size={18} />}>
+                                Antecedentes
+                            </Tabs.Tab>
+                            <Tabs.Tab value="analisis" leftSection={<IconTable size={18} />}>
+                                Análisis
+                            </Tabs.Tab>
+                            <Tabs.Tab value="observaciones" leftSection={<IconEdit size={18} />}>
+                                Observaciones
+                            </Tabs.Tab>
+                        </Tabs.List>
 
-                {activeTab === 'analisis' && (
-                    <>
-                        <button
-                            className="btn-back-tab"
-                            onClick={() => setActiveTab('antecedentes')}
-                            style={{
-                                padding: '10px 24px',
-                                backgroundColor: 'white',
-                                color: '#374151',
-                                border: '1px solid #d1d5db',
-                                borderRadius: '6px',
-                                fontWeight: 600,
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                transition: 'all 0.2s'
-                            }}
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-                            Anterior
-                        </button>
-                        <button
-                            className="btn-next"
-                            onClick={() => setActiveTab('observaciones')}
-                            disabled={savedAnalysis.length === 0}
-                            style={{
-                                padding: '10px 24px',
-                                backgroundColor: savedAnalysis.length === 0 ? '#9ca3af' : '#3b82f6',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '6px',
-                                fontWeight: 600,
-                                cursor: savedAnalysis.length === 0 ? 'not-allowed' : 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                transition: 'all 0.2s'
-                            }}
-                        >
-                            Siguiente
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-                        </button>
-                    </>
-                )}
+                        <Tabs.Panel value="antecedentes" style={{ width: '100% !important' }}>
+                            <AntecedentesForm
+                                ref={antecedentesRef}
+                                onValidationChange={setIsAntecedentesValid}
+                            />
+                        </Tabs.Panel>
 
-                {activeTab === 'observaciones' && (
-                    <>
-                        <button
-                            className="btn-back-tab"
-                            onClick={() => setActiveTab('analisis')}
-                            style={{
-                                padding: '10px 24px',
-                                backgroundColor: 'white',
-                                color: '#374151',
-                                border: '1px solid #d1d5db',
-                                borderRadius: '6px',
-                                fontWeight: 600,
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                transition: 'all 0.2s'
-                            }}
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-                            Anterior
-                        </button>
-                        <button
-                            className="btn-save"
-                            onClick={handleSave}
-                            disabled={!isAntecedentesValid || savedAnalysis.length === 0 || observaciones.trim().length === 0}
-                            title={
-                                !isAntecedentesValid ? "Debe completar todos los campos obligatorios en Antecedentes" :
-                                    savedAnalysis.length === 0 ? "Debe agregar al menos un Análisis" :
-                                        observaciones.trim().length === 0 ? "Debe ingresar una Observación" :
-                                            "Grabar Ficha"
-                            }
-                            style={{
-                                opacity: (!isAntecedentesValid || savedAnalysis.length === 0 || observaciones.trim().length === 0) ? 0.6 : 1,
-                                cursor: (!isAntecedentesValid || savedAnalysis.length === 0 || observaciones.trim().length === 0) ? 'not-allowed' : 'pointer'
-                            }}
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1-2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-                            Grabar Ficha
-                        </button>
-                    </>
-                )}
-            </div>
-        </div>
+                        <Tabs.Panel value="analisis" style={{ width: '100% !important' }}>
+                            <AnalysisForm
+                                savedAnalysis={savedAnalysis}
+                                onSavedAnalysisChange={setSavedAnalysis}
+                            />
+                        </Tabs.Panel>
+
+                        <Tabs.Panel value="observaciones" style={{ width: '100% !important' }}>
+                            <ObservacionesForm
+                                value={observaciones}
+                                onChange={setObservaciones}
+                            />
+                        </Tabs.Panel>
+                    </Tabs>
+
+                    <Divider mt="xl" />
+
+                    <Group justify="flex-end" gap="md" mt="xl">
+                        {activeTab === 'antecedentes' && (
+                            <Button
+                                size="md"
+                                rightSection={<IconArrowRight size={20} />}
+                                onClick={() => {
+                                    setActiveTab('analisis');
+                                    scrollToTop();
+                                }}
+                                disabled={!isAntecedentesValid}
+                            >
+                                Siguiente
+                            </Button>
+                        )}
+
+                        {activeTab === 'analisis' && (
+                            <>
+                                <Button
+                                    variant="outline"
+                                    color="gray"
+                                    size="md"
+                                    leftSection={<IconChevronLeft size={20} />}
+                                    onClick={() => setActiveTab('antecedentes')}
+                                >
+                                    Anterior
+                                </Button>
+                                <Button
+                                    size="md"
+                                    rightSection={<IconArrowRight size={20} />}
+                                    onClick={() => {
+                                        setActiveTab('observaciones');
+                                        scrollToTop();
+                                    }}
+                                    disabled={savedAnalysis.length === 0}
+                                >
+                                    Siguiente
+                                </Button>
+                            </>
+                        )}
+
+                        {activeTab === 'observaciones' && (
+                            <>
+                                <Button
+                                    variant="outline"
+                                    color="gray"
+                                    size="md"
+                                    leftSection={<IconChevronLeft size={20} />}
+                                    onClick={() => setActiveTab('analisis')}
+                                >
+                                    Anterior
+                                </Button>
+                                <Button
+                                    color="green"
+                                    size="md"
+                                    leftSection={<IconPlus size={20} />}
+                                    onClick={handleSave}
+                                    disabled={!isAntecedentesValid || savedAnalysis.length === 0 || observaciones.trim().length === 0}
+                                >
+                                    Grabar Ficha
+                                </Button>
+                            </>
+                        )}
+                    </Group>
+                </Paper>
+            </Stack>
+        </Container>
     );
 };
 
-// --- Menu Selection Component ---
 const CommercialMenu = ({ onCreate, onConsult, onBack }: { onCreate: () => void, onConsult: () => void, onBack: () => void }) => {
     return (
-        <div className="fichas-ingreso-container commercial-layout">
-            <div className="header-row" style={{ display: 'flex', position: 'relative', justifyContent: 'center', alignItems: 'center', marginBottom: '0.5rem', minHeight: '40px' }}>
-                <button onClick={onBack} className="btn-back" style={{ position: 'absolute', left: 0, margin: 0 }}>
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-                    </svg>
-                    Volver
-                </button>
-                <h2 className="page-title-geo" style={{ margin: 0 }}>Gestión Comercial</h2>
-            </div>
+        <Container fluid p="md" style={{ width: '100% !important', maxWidth: '100% !important' }}>
+            <Stack gap="lg">
+                <PageHeader 
+                    title="Gestión Comercial"
+                    onBack={onBack}
+                />
 
-            <div style={{
-                flex: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '0.5rem 2rem 2rem'
-            }}>
-                <h1 style={{ fontSize: '1.8rem', color: '#1f2937', marginBottom: '1.5rem', fontWeight: 600, textAlign: 'center' }}>
-                    Seleccione una opción
-                </h1>
+                <Paper withBorder p="xl" radius="lg" shadow="sm" style={{ width: '100% !important' }}>
+                    <Stack gap="xl">
+                        <Text size="lg" c="dimmed" ta="center">
+                            Seleccione una opción para comenzar la gestión de fichas comerciales
+                        </Text>
 
-                <div className="cards-grid" style={{ width: '100%', maxWidth: '1100px' }}>
-                    {/* Nueva Ficha Card */}
-                    <ProtectedContent permission="MA_COMERCIAL_EDITAR">
-                        <div
-                            onClick={onCreate}
-                            className="selection-card"
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.transform = 'translateY(-5px)';
-                                e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)';
-                                e.currentTarget.style.borderColor = '#3b82f6';
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.transform = 'translateY(0)';
-                                e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)';
-                                e.currentTarget.style.borderColor = '#e5e7eb';
-                            }}
-                        >
-                            <div className="card-icon" style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
-                            </div>
-                            <h3 className="card-title">Nueva Ficha</h3>
-                            <p className="card-description">Crear una nueva solicitud de análisis desde cero.</p>
-                        </div>
-                    </ProtectedContent>
+                        <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xl" mt="xl">
+                            <ProtectedContent permission="MA_COMERCIAL_EDITAR">
+                                <SelectionCard
+                                    title="Nueva Ficha"
+                                    description="Crear una nueva solicitud de análisis desde cero, ingresando antecedentes y parámetros."
+                                    icon={<IconPlus size={32} />}
+                                    color="#228be6"
+                                    onClick={onCreate}
+                                />
+                            </ProtectedContent>
 
-                    {/* Consultar Ficha Card */}
-                    <div
-                        onClick={onConsult}
-                        className="selection-card"
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.transform = 'translateY(-5px)';
-                            e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)';
-                            e.currentTarget.style.borderColor = '#8b5cf6';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.transform = 'translateY(0)';
-                            e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)';
-                            e.currentTarget.style.borderColor = '#e5e7eb';
-                        }}
-                    >
-                        <div className="card-icon" style={{ backgroundColor: '#f5f3ff', color: '#7c3aed' }}>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                        </div>
-                        <h3 className="card-title">Consultar Fichas</h3>
-                        <p className="card-description">Buscar, visualizar y gestionar fichas existentes.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
+                            <SelectionCard
+                                title="Consultar Fichas"
+                                description="Buscar, visualizar y gestionar el histórico de fichas comerciales existentes."
+                                icon={<IconTable size={32} />}
+                                color="#7950f2"
+                                onClick={onConsult}
+                            />
+                        </SimpleGrid>
+                    </Stack>
+                </Paper>
+            </Stack>
+        </Container>
     );
-}
+};
 
-// --- Consultar Fichas Component (Updated with Backend Logic & SP Columns) ---
 const ConsultarFichasView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () => void, onViewDetail: (id: number) => void }) => {
-    // Hooks
-
-
-    // State
     const [searchId, setSearchId] = useState('');
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
-    // New Filters
     const [searchEstado, setSearchEstado] = useState('');
     const [searchTipo, setSearchTipo] = useState('');
     const [searchEmpresaFacturar, setSearchEmpresaFacturar] = useState('');
@@ -441,52 +341,42 @@ const ConsultarFichasView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () 
     const [searchObjetivo, setSearchObjetivo] = useState('');
     const [searchSubArea, setSearchSubArea] = useState('');
     const [searchUsuario, setSearchUsuario] = useState('');
-
-
     const [currentPage, setCurrentPage] = useState(1);
     const [loading, setLoading] = useState(true);
     const [fichas, setFichas] = useState<any[]>([]);
 
-    // Constants
     const itemsPerPage = 10;
 
-    // Load Data Effect
     useEffect(() => {
         const loadFichas = async () => {
             setLoading(true);
             try {
-                // Fetch Fichas directly (SP returns mapped names)
                 const response = await fichaService.getAll();
-                let data = [];
-                // Check format
+                let data: any[] = [];
                 if (Array.isArray(response)) data = response;
                 else if (response && response.data && Array.isArray(response.data)) data = response.data;
                 else if (response && Array.isArray(response.recordset)) data = response.recordset;
 
                 setFichas(data || []);
-
             } catch (error) {
                 console.error("Error loading fichas:", error);
             } finally {
                 setLoading(false);
             }
         };
-
         loadFichas();
     }, []);
 
-    // Reset to page 1 when any filter changes
     useEffect(() => {
         setCurrentPage(1);
     }, [searchId, dateFrom, dateTo, searchEstado, searchTipo, searchEmpresaFacturar, searchEmpresaServicio, searchCentro, searchObjetivo, searchSubArea, searchUsuario]);
 
-    // Derived unique values for datalists
     const getUniqueValues = (key: string) => {
         const values = new Set<string>();
         fichas.forEach(f => {
             if (f[key]) values.add(String(f[key]).trim());
         });
-        return Array.from(values).sort();
+        return Array.from(values).sort().map(val => ({ value: val, label: val }));
     };
 
     const uniqueEstados = React.useMemo(() => getUniqueValues('estado_ficha'), [fichas]);
@@ -497,8 +387,6 @@ const ConsultarFichasView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () 
     const uniqueObjetivos = React.useMemo(() => getUniqueValues('nombre_objetivomuestreo_ma'), [fichas]);
     const uniqueSubAreas = React.useMemo(() => getUniqueValues('nombre_subarea'), [fichas]);
     const uniqueUsuarios = React.useMemo(() => getUniqueValues('nombre_usuario'), [fichas]);
-
-
 
     const handleClearFilters = () => {
         setSearchId('');
@@ -514,22 +402,16 @@ const ConsultarFichasView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () 
         setSearchUsuario('');
     };
 
-    // Filter Logic
     const filteredFichas = fichas.filter(f => {
         const displayId = f.fichaingresoservicio || f.id_fichaingresoservicio || '';
         const matchId = searchId ? String(displayId).includes(searchId) : true;
-
-        // Helper for case-insensitive check
-        const check = (val: string, search: string) => {
-            if (!search) return true;
-            return (val || '').toString().toLowerCase().includes(search.toLowerCase());
-        };
-
+        const check = (val: string, search: string) => (!search || (val || '').toString().toLowerCase().includes(search.toLowerCase()));
+        
         const matchEstado = check(f.estado_ficha, searchEstado);
         const matchTipo = check(f.tipo_fichaingresoservicio, searchTipo);
         const matchEmpresaFacturar = check(f.empresa_facturar, searchEmpresaFacturar);
         const matchEmpresaServicio = check(f.empresa_servicio, searchEmpresaServicio);
-        const matchCentro = check(f.centro, searchCentro); // Fuente Emisora matches 'centro'
+        const matchCentro = check(f.centro, searchCentro);
         const matchObjetivo = check(f.nombre_objetivomuestreo_ma, searchObjetivo);
         const matchSubArea = check(f.nombre_subarea, searchSubArea);
         const matchUsuario = check(f.nombre_usuario, searchUsuario);
@@ -537,13 +419,11 @@ const ConsultarFichasView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () 
         let matchDate = true;
         if (dateFrom || dateTo) {
             if (!f.fecha) return false;
-            // Parse dd/mm/yyyy
             const parts = f.fecha.split('/');
             if (parts.length === 3) {
                 const [d, m, y] = parts;
                 const rowDate = new Date(`${y}-${m}-${d}`);
                 rowDate.setHours(0, 0, 0, 0);
-
                 if (dateFrom) {
                     const dFrom = new Date(dateFrom);
                     dFrom.setHours(0, 0, 0, 0);
@@ -556,371 +436,205 @@ const ConsultarFichasView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () 
                 }
             }
         }
-
         return matchId && matchDate && matchEstado && matchTipo && matchEmpresaFacturar && matchEmpresaServicio && matchCentro && matchObjetivo && matchSubArea && matchUsuario;
     });
 
-    // Pagination Logic
     const totalPages = Math.ceil(filteredFichas.length / itemsPerPage);
     const displayedFichas = filteredFichas.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-    // Calculate empty rows for fixed height
-    const emptyRows = itemsPerPage - displayedFichas.length;
-
-    const goToPage = (page: number) => {
-        if (page >= 1 && page <= totalPages) {
-            setCurrentPage(page);
-        }
-    };
-
-    // Style for cells: No wrap, small font, ellipsis on overflow
-    const cellStyle: React.CSSProperties = {
-        whiteSpace: 'nowrap',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        padding: '6px 8px'
-    };
-
-    // Style for inputs
-    const inputStyle: React.CSSProperties = {
-        width: '100%',
-        padding: '5px 8px',
-        borderRadius: '6px',
-        border: '1px solid #d1d5db',
-        fontSize: '0.75rem',
-        height: '30px'
-    };
-
-    // Label style
-    const labelStyle: React.CSSProperties = {
-        fontSize: '0.7rem',
-        fontWeight: 600,
-        color: '#374151',
-        marginBottom: '2px',
-        display: 'block'
+    const getStatusProps = (status: string) => {
+        const s = (status || '').toUpperCase();
+        if (s.includes('RECHAZADA') || s.includes('CANCELADO') || s.includes('REVISAR')) return { color: 'red', label: s };
+        if (s.includes('COORDINACIÓN')) return { color: 'blue', label: s };
+        if (s.includes('PROGRAMACIÓN')) return { color: 'grape', label: s };
+        if (s.includes('PENDIENTE') || s.includes('ÁREA TÉCNICA')) return { color: 'yellow', label: 'PENDIENTE TÉCNICA' };
+        if (s.includes('ASIGNAR')) return { color: 'orange', label: s };
+        if (s.includes('VIGENTE') || s.includes('APROBADA') || s.includes('EJECUTADO') || s.includes('EN PROCESO')) return { color: 'green', label: s };
+        return { color: 'gray', label: s || 'SIN ESTADO' };
     };
 
     return (
-        <div className="fichas-ingreso-container commercial-layout">
-            {/* Header */}
-            <div className="header-row" style={{ display: 'flex', position: 'relative', justifyContent: 'center', alignItems: 'center', marginBottom: '1.5rem' }}>
-                <button onClick={onBackToMenu} className="btn-back" style={{ position: 'absolute', left: 0, margin: 0 }}>
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-                    </svg>
-                    Volver al Menú
-                </button>
-                <h2 className="page-title-geo" style={{ margin: 0 }}>Consultar Fichas Comerciales</h2>
-            </div>
+        <Container fluid p="md" style={{ width: '100% !important', maxWidth: '100% !important' }}>
+            <Stack gap="lg">
+                <PageHeader 
+                    title="Consultar Fichas Comerciales"
+                    onBack={onBackToMenu}
+                />
 
-            {/* Filters */}
-            <div style={{
-                backgroundColor: 'white',
-                padding: '1rem',
-                borderRadius: '12px',
-                marginBottom: '1rem',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-            }}>
-                <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
-                    gap: '0.8rem',
-                    alignItems: 'end'
-                }}>
-                    <div className="form-group">
-                        <label style={labelStyle}>N° Ficha</label>
-                        <input type="text" placeholder="Buscar..." value={searchId} onChange={(e) => setSearchId(e.target.value)} style={inputStyle} />
-                    </div>
+                <Paper withBorder p="xl" radius="lg" shadow="sm" style={{ width: '100% !important' }}>
+                    <Stack gap="xl">
+                        <Paper withBorder p="md" radius="md" bg="gray.0">
+                            <Stack gap="sm">
+                                <Group justify="space-between">
+                                    <Group gap="xs">
+                                        <IconAdjustmentsHorizontal size={20} color="gray" />
+                                        <Text fw={600} size="sm">Filtros de Búsqueda</Text>
+                                    </Group>
+                                    <Button 
+                                        variant="subtle" 
+                                        size="compact-xs" 
+                                        color="gray" 
+                                        leftSection={<IconTrash size={14} />}
+                                        onClick={handleClearFilters}
+                                    >
+                                        Limpiar Filtros
+                                    </Button>
+                                </Group>
+                                
+                                <SimpleGrid cols={{ base: 1, sm: 2, md: 4, lg: 6 }} spacing="sm">
+                                    <TextInput
+                                        label="N° Ficha"
+                                        placeholder="Buscar por ID..."
+                                        value={searchId}
+                                        onChange={(e) => setSearchId(e.target.value)}
+                                        size="xs"
+                                    />
+                                    <Select
+                                        label="Estado"
+                                        placeholder="Seleccionar..."
+                                        data={uniqueEstados}
+                                        value={searchEstado}
+                                        onChange={(v) => setSearchEstado(v || '')}
+                                        size="xs"
+                                        searchable
+                                        clearable
+                                    />
+                                    <TextInput label="Fecha Desde" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} size="xs" />
+                                    <TextInput label="Fecha Hasta" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} size="xs" />
+                                    <Select label="Tipo" placeholder="Seleccionar..." data={uniqueTipos} value={searchTipo} onChange={(v) => setSearchTipo(v || '')} size="xs" searchable clearable />
+                                    <Select label="Empresa" placeholder="Seleccionar..." data={uniqueEmpFacturar} value={searchEmpresaFacturar} onChange={(v) => setSearchEmpresaFacturar(v || '')} size="xs" searchable clearable />
+                                    <Select label="E. Servicio" placeholder="Seleccionar..." data={uniqueEmpServicio} value={searchEmpresaServicio} onChange={(v) => setSearchEmpresaServicio(v || '')} size="xs" searchable clearable />
+                                    <Select label="Fuente Emisora" placeholder="Seleccionar..." data={uniqueCentros} value={searchCentro} onChange={(v) => setSearchCentro(v || '')} size="xs" searchable clearable />
+                                    <Select label="Objetivo" placeholder="Seleccionar..." data={uniqueObjetivos} value={searchObjetivo} onChange={(v) => setSearchObjetivo(v || '')} size="xs" searchable clearable />
+                                    <Select label="Sub Área" placeholder="Seleccionar..." data={uniqueSubAreas} value={searchSubArea} onChange={(v) => setSearchSubArea(v || '')} size="xs" searchable clearable />
+                                    <Select label="Usuario" placeholder="Seleccionar..." data={uniqueUsuarios} value={searchUsuario} onChange={(v) => setSearchUsuario(v || '')} size="xs" searchable clearable />
+                                </SimpleGrid>
+                            </Stack>
+                        </Paper>
 
-                    <SearchableSelect
-                        label="Estado"
-                        placeholder="Estado..."
-                        value={searchEstado}
-                        onChange={setSearchEstado}
-                        options={uniqueEstados.map(val => ({ id: val, nombre: val }))}
-                    />
+                        <Box pos="relative">
+                            <ScrollArea h={550} offsetScrollbars>
+                                <Table verticalSpacing="sm" highlightOnHover striped withTableBorder>
+                                    <Table.Thead bg="gray.1">
+                                        <Table.Tr>
+                                            <Table.Th w={80}>ID</Table.Th>
+                                            <Table.Th w={180}>Estado</Table.Th>
+                                            <Table.Th w={100}>Fecha</Table.Th>
+                                            <Table.Th w={150}>Facturar a</Table.Th>
+                                            <Table.Th>E. Servicio</Table.Th>
+                                            <Table.Th>Objetivo</Table.Th>
+                                            <Table.Th w={60}>PDF</Table.Th>
+                                            <Table.Th w={60}>Ver</Table.Th>
+                                        </Table.Tr>
+                                    </Table.Thead>
+                                    <Table.Tbody>
+                                        {loading ? (
+                                            <Table.Tr>
+                                                <Table.Td colSpan={8} align="center" py="xl">
+                                                    <Text c="dimmed">Cargando datos...</Text>
+                                                </Table.Td>
+                                            </Table.Tr>
+                                        ) : displayedFichas.length === 0 ? (
+                                            <Table.Tr>
+                                                <Table.Td colSpan={8} align="center" py="xl">
+                                                    <Text c="dimmed">No se encontraron registros</Text>
+                                                </Table.Td>
+                                            </Table.Tr>
+                                        ) : (
+                                            displayedFichas.map((ficha, idx) => {
+                                                const status = getStatusProps(ficha.estado_ficha);
+                                                return (
+                                                    <Table.Tr key={idx}>
+                                                        <Table.Td fw={700}>{ficha.fichaingresoservicio || ficha.id_fichaingresoservicio}</Table.Td>
+                                                        <Table.Td>
+                                                            <Badge color={status.color} variant="light" size="sm" fullWidth>
+                                                                {status.label}
+                                                            </Badge>
+                                                        </Table.Td>
+                                                        <Table.Td fz="xs">{ficha.fecha}</Table.Td>
+                                                        <Table.Td fz="xs" style={{ minWidth: 150 }} title={ficha.empresa_facturar}>
+                                                            {ficha.empresa_facturar}
+                                                        </Table.Td>
+                                                        <Table.Td fz="xs" style={{ minWidth: 150 }} title={ficha.empresa_servicio}>
+                                                            {ficha.empresa_servicio}
+                                                        </Table.Td>
+                                                        <Table.Td fz="xs" style={{ minWidth: 150 }} title={ficha.nombre_objetivomuestreo_ma}>
+                                                            {ficha.nombre_objetivomuestreo_ma}
+                                                        </Table.Td>
+                                                        <Table.Td align="center">
+                                                            {(ficha.estado_ficha || '').toUpperCase().includes('EN PROCESO') && (
+                                                                <ActionIcon 
+                                                                    color="red" 
+                                                                    variant="subtle"
+                                                                    onClick={async (e) => {
+                                                                        e.stopPropagation();
+                                                                        const pdfBlob = await fichaService.downloadPdf(ficha.id_fichaingresoservicio || ficha.fichaingresoservicio);
+                                                                        const url = window.URL.createObjectURL(pdfBlob);
+                                                                        const link = document.createElement('a');
+                                                                        link.href = url;
+                                                                        link.setAttribute('download', `Ficha_${ficha.id_fichaingresoservicio}.pdf`);
+                                                                        document.body.appendChild(link);
+                                                                        link.click();
+                                                                        document.body.removeChild(link);
+                                                                    }}
+                                                                >
+                                                                    <IconDownload size={18} />
+                                                                </ActionIcon>
+                                                            )}
+                                                        </Table.Td>
+                                                        <Table.Td align="center">
+                                                            <ActionIcon 
+                                                                color="blue" 
+                                                                variant="light"
+                                                                onClick={() => onViewDetail(ficha.id_fichaingresoservicio || ficha.fichaingresoservicio)}
+                                                            >
+                                                                <IconArrowRight size={18} />
+                                                            </ActionIcon>
+                                                        </Table.Td>
+                                                    </Table.Tr>
+                                                )
+                                            })
+                                        )}
+                                    </Table.Tbody>
+                                </Table>
+                            </ScrollArea>
+                        </Box>
 
-                    <div className="form-group">
-                        <label style={labelStyle}>Fecha Desde</label>
-                        <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} style={inputStyle} />
-                    </div>
-
-                    <div className="form-group">
-                        <label style={labelStyle}>Fecha Hasta</label>
-                        <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} style={inputStyle} />
-                    </div>
-
-                    <SearchableSelect
-                        label="Tipo"
-                        placeholder="Tipo..."
-                        value={searchTipo}
-                        onChange={setSearchTipo}
-                        options={uniqueTipos.map(val => ({ id: val, nombre: val }))}
-                    />
-
-                    <SearchableSelect
-                        label="E. Facturar"
-                        placeholder="Empresa..."
-                        value={searchEmpresaFacturar}
-                        onChange={setSearchEmpresaFacturar}
-                        options={uniqueEmpFacturar.map(val => ({ id: val, nombre: val }))}
-                    />
-
-                    <SearchableSelect
-                        label="E. Servicio"
-                        placeholder="Empresa..."
-                        value={searchEmpresaServicio}
-                        onChange={setSearchEmpresaServicio}
-                        options={uniqueEmpServicio.map(val => ({ id: val, nombre: val }))}
-                    />
-
-                    <SearchableSelect
-                        label="Fuente Emisora"
-                        placeholder="Centro..."
-                        value={searchCentro}
-                        onChange={setSearchCentro}
-                        options={uniqueCentros.map(val => ({ id: val, nombre: val }))}
-                    />
-
-                    <SearchableSelect
-                        label="Objetivo"
-                        placeholder="Objetivo..."
-                        value={searchObjetivo}
-                        onChange={setSearchObjetivo}
-                        options={uniqueObjetivos.map(val => ({ id: val, nombre: val }))}
-                    />
-
-                    <SearchableSelect
-                        label="Sub Área"
-                        placeholder="Sub Área..."
-                        value={searchSubArea}
-                        onChange={setSearchSubArea}
-                        options={uniqueSubAreas.map(val => ({ id: val, nombre: val }))}
-                    />
-
-                    <SearchableSelect
-                        label="Usuario"
-                        placeholder="Usuario..."
-                        value={searchUsuario}
-                        onChange={setSearchUsuario}
-                        options={uniqueUsuarios.map(val => ({ id: val, nombre: val }))}
-                    />
-
-                    <div className="form-group">
-                        <label style={{ ...labelStyle, visibility: 'hidden' }}>Acciones</label>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <button
-                                onClick={handleClearFilters}
-                                style={{
-                                    padding: '5px 10px',
-                                    height: '30px',
-                                    flex: 1,
-                                    backgroundColor: 'white',
-                                    border: '1px solid #d1d5db',
-                                    borderRadius: '6px',
-                                    color: '#6b7280',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    gap: '0.5rem',
-                                    fontWeight: 500,
-                                    fontSize: '0.75rem'
-                                }}
-                                title="Limpiar Filtros"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
-                                Limpiar
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Table */}
-            <div className="responsive-table-container">
-                {loading ? (
-                    <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Cargando fichas...</div>
-                ) : (
-                    <>
-                        <table className="compact-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', tableLayout: 'fixed' }}>
-                            <thead>
-                                <tr style={{ backgroundColor: '#f9fafb', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6b7280' }}>
-                                    <th style={{ padding: '4px', whiteSpace: 'nowrap', width: '50px' }}>N° Ficha</th>
-                                    <th style={{ padding: '4px', whiteSpace: 'nowrap', width: '160px' }}>Estado</th>
-                                    <th style={{ padding: '4px', whiteSpace: 'nowrap', width: '70px' }}>Fecha</th>
-                                    <th style={{ padding: '4px', whiteSpace: 'nowrap', width: '80px' }}>Tipo</th>
-                                    <th style={{ padding: '4px', whiteSpace: 'nowrap' }}>E. Facturar</th>
-                                    <th style={{ padding: '4px', whiteSpace: 'nowrap' }}>E. Servicio</th>
-                                    <th style={{ padding: '4px', whiteSpace: 'nowrap' }}>Fuente Emisora</th>
-                                    <th style={{ padding: '4px', whiteSpace: 'nowrap' }}>Objetivo</th>
-                                    <th style={{ padding: '4px', whiteSpace: 'nowrap' }}>Sub Área</th>
-                                    <th style={{ padding: '4px', whiteSpace: 'nowrap', textAlign: 'center', width: '40px' }}>PDF</th>
-                                    <th style={{ padding: '4px', whiteSpace: 'nowrap', textAlign: 'center', width: '50px' }}>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody style={{ fontSize: '10px' }}>
-                                {displayedFichas.map((ficha, idx) => {
-                                    const normalizeStatus = (st: string) => {
-                                        const s = (st || '').toUpperCase();
-                                        if (s === 'PENDIENTE TÉCNICA') return 'PENDIENTE ÁREA TÉCNICA';
-                                        if (s === 'APROBADA TÉCNICA') return 'APROBADA ÁREA TÉCNICA';
-                                        if (s === 'RECHAZADA TÉCNICA') return 'RECHAZADA ÁREA TÉCNICA';
-                                        if (s === 'ANULADA') return 'CANCELADO';
-                                        return s;
-                                    };
-                                    const displayEstado = normalizeStatus(ficha.estado_ficha);
-
-                                    return (
-                                        <tr key={idx} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                                            <td data-label="N° Ficha" style={{ fontWeight: 600, ...cellStyle }}>{ficha.fichaingresoservicio || '-'}</td>
-                                            <td data-label="Estado" style={{ ...cellStyle, whiteSpace: 'normal', overflow: 'visible', textOverflow: 'clip', minWidth: '180px' }}>
-                                                <span style={{
-                                                    padding: '1px 6px',
-                                                    borderRadius: '9999px',
-                                                    fontSize: '9px',
-                                                    fontWeight: 600,
-                                                    backgroundColor: (() => {
-                                                        const est = (displayEstado || '').toUpperCase();
-                                                        if (est.includes('RECHAZADA') || est.includes('CANCELADO') || est.includes('REVISAR')) return '#fee2e2'; // Red
-                                                        if (est.includes('COORDINACIÓN')) return '#dbeafe'; // Blue
-                                                        if (est.includes('PROGRAMACIÓN')) return '#ede9fe'; // Purple (New)
-                                                        if (est.includes('PENDIENTE') || est.includes('ÁREA TÉCNICA')) return '#fef3c7'; // Amber
-                                                        if (est.includes('ASIGNAR')) return '#ffedd5'; // Orange
-                                                        if (est.includes('VIGENTE') || est.includes('APROBADA') || est.includes('EJECUTADO') || est.includes('EN PROCESO')) return '#dcfce7'; // Green
-                                                        if (est.includes('BORRADOR')) return '#f3f4f6'; // Gray
-                                                        return '#f3f4f6'; // Default
-                                                    })(),
-                                                    color: (() => {
-                                                        const est = (displayEstado || '').toUpperCase();
-                                                        if (est.includes('RECHAZADA') || est.includes('CANCELADO') || est.includes('REVISAR')) return '#991b1b'; // Red
-                                                        if (est.includes('COORDINACIÓN')) return '#1e40af'; // Blue
-                                                        if (est.includes('PROGRAMACIÓN')) return '#5b21b6'; // Purple (New)
-                                                        if (est.includes('PENDIENTE') || est.includes('ÁREA TÉCNICA')) return '#92400e'; // Amber
-                                                        if (est.includes('ASIGNAR')) return '#c2410c'; // Orange
-                                                        if (est.includes('VIGENTE') || est.includes('APROBADA') || est.includes('EJECUTADO') || est.includes('EN PROCESO')) return '#166534'; // Green
-                                                        if (est.includes('BORRADOR')) return '#4b5563'; // Gray
-                                                        return '#4b5563'; // Default
-                                                    })()
-                                                }}>
-                                                    {(() => {
-                                                        const txt = displayEstado || '-';
-                                                        return txt.toLowerCase().split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-                                                    })()}
-                                                </span>
-                                            </td>
-                                            <td data-label="Fecha" style={cellStyle}>{ficha.fecha || '-'}</td>
-                                            <td data-label="Tipo" style={cellStyle}>{ficha.tipo_fichaingresoservicio || '-'}</td>
-
-                                            <td data-label="E. Facturar" style={{ ...cellStyle, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '1px 4px' }} title={ficha.empresa_facturar}>{ficha.empresa_facturar || '-'}</td>
-                                            <td data-label="E. Servicio" style={{ ...cellStyle, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '1px 4px' }} title={ficha.empresa_servicio}>{ficha.empresa_servicio || '-'}</td>
-                                            <td data-label="Fuente Emisora" style={{ ...cellStyle, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '1px 4px' }} title={ficha.centro}>{ficha.centro || '-'}</td>
-                                            <td data-label="Objetivo" style={{ ...cellStyle, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '1px 4px' }} title={ficha.nombre_objetivomuestreo_ma}>{ficha.nombre_objetivomuestreo_ma || '-'}</td>
-                                            <td data-label="Sub Área" style={{ ...cellStyle, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '1px 4px' }} title={ficha.nombre_subarea}>{ficha.nombre_subarea || '-'}</td>
-                                            <td data-label="PDF" style={{ textAlign: 'center', whiteSpace: 'nowrap', padding: '6px' }}>
-                                                {(ficha.estado_ficha || '').toUpperCase().includes('EN PROCESO') && (
-                                                    <button
-                                                        title="Descargar PDF"
-                                                        onClick={async (e) => {
-                                                            e.stopPropagation();
-                                                            try {
-                                                                const idFicha = ficha.id_fichaingresoservicio || ficha.fichaingresoservicio;
-                                                                if (!idFicha) {
-                                                                    alert("No se pudo obtener el ID de la ficha.");
-                                                                    return;
-                                                                }
-                                                                
-                                                                const pdfBlob = await fichaService.downloadPdf(Number(idFicha));
-                                                                const url = window.URL.createObjectURL(pdfBlob);
-                                                                const link = document.createElement('a');
-                                                                link.href = url;
-                                                                link.setAttribute('download', `Ficha_${idFicha}.pdf`);
-                                                                document.body.appendChild(link);
-                                                                link.click();
-                                                                link.parentNode?.removeChild(link);
-                                                                window.URL.revokeObjectURL(url);
-
-                                                            } catch (error) {
-                                                                console.error("Error al descargar PDF:", error);
-                                                                alert("Error al descargar el PDF de la ficha.");
-                                                            }
-                                                        }}
-                                                        style={{
-                                                            border: 'none',
-                                                            background: 'none',
-                                                            color: '#ef4444',
-                                                            cursor: 'pointer',
-                                                            padding: '2px',
-                                                            display: 'inline-flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'center'
-                                                        }}
-                                                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fee2e2'}
-                                                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                                                    >
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                                                    </button>
-                                                )}
-                                            </td>
-                                            <td data-label="Acciones" style={{ textAlign: 'center', whiteSpace: 'nowrap', padding: '6px' }}>
-                                                <button
-                                                    title="Ver Detalle"
-                                                    onClick={() => onViewDetail(ficha.id_fichaingresoservicio || ficha.fichaingresoservicio)}
-                                                    style={{
-                                                        border: 'none',
-                                                        background: 'none',
-                                                        color: '#3b82f6',
-                                                        cursor: 'pointer',
-                                                        padding: '2px',
-                                                        display: 'inline-flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center'
-                                                    }}
-                                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#eff6ff'}
-                                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                                                >
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                                {/* Empty Rows Filling */}
-                                {Array.from({ length: Math.max(0, emptyRows) }).map((_, i) => (
-                                    <tr key={`empty-${i}`} style={{ borderBottom: '1px solid #e5e7eb', height: '36px' }}>
-                                        <td colSpan={11}>&nbsp;</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-
-                        {/* Pagination Controls */}
-                        <div className="pagination-controls" style={{ marginTop: '0' }}>
-                            <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+                        <Group justify="space-between" mt="md">
+                            <Text size="xs" c="dimmed">
                                 Mostrando {filteredFichas.length > 0 ? ((currentPage - 1) * itemsPerPage) + 1 : 0} a {Math.min(currentPage * itemsPerPage, filteredFichas.length)} de {filteredFichas.length} registros
-                            </span>
-                            <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                <button className="pagination-btn" style={{ fontSize: '0.8rem', padding: '4px 10px' }} disabled={currentPage === 1} onClick={() => goToPage(currentPage - 1)}>Anterior</button>
-                                <div style={{ display: 'flex', alignItems: 'center', padding: '0 0.5rem', fontSize: '0.85rem', fontWeight: 500 }}>{currentPage}</div>
-                                <button className="pagination-btn" style={{ fontSize: '0.8rem', padding: '4px 10px' }} disabled={currentPage === totalPages || totalPages === 0} onClick={() => goToPage(currentPage + 1)}>Siguiente</button>
-                            </div>
-                        </div>
-                    </>
-                )}
-            </div>
-
-        </div>
+                            </Text>
+                            <Pagination 
+                                total={totalPages} 
+                                value={currentPage} 
+                                onChange={setCurrentPage} 
+                                size="sm" 
+                                radius="md"
+                            />
+                        </Group>
+                    </Stack>
+                </Paper>
+            </Stack>
+        </Container>
     );
 };
 
-// --- Main Orchestrator ---
 const ComercialPageContent: React.FC<Props> = ({ onBack }) => {
-    const [viewMode, setViewMode] = useState<'menu' | 'create' | 'consult' | 'consult-detail'>('menu');
+    const [viewMode, setViewMode] = useState<'menu' | 'create' | 'consult' | 'detail'>('menu');
     const [selectedFichaId, setSelectedFichaId] = useState<number | null>(null);
+    const { pendingRequestId, setPendingRequestId } = useNavStore();
+
+    useEffect(() => {
+        if (pendingRequestId && (viewMode === 'menu' || viewMode === 'consult')) {
+            setSelectedFichaId(pendingRequestId);
+            setViewMode('detail');
+            setPendingRequestId(null);
+        }
+    }, [pendingRequestId, viewMode, setPendingRequestId]);
 
     const handleViewDetail = (id: number) => {
         setSelectedFichaId(id);
-        setViewMode('consult-detail');
+        setViewMode('detail');
     };
 
     if (viewMode === 'menu') {
@@ -946,7 +660,7 @@ const ComercialPageContent: React.FC<Props> = ({ onBack }) => {
         );
     }
 
-    if (viewMode === 'consult-detail' && selectedFichaId) {
+    if (viewMode === 'detail' && selectedFichaId) {
         return (
             <CommercialDetailView
                 fichaId={selectedFichaId}
@@ -958,11 +672,9 @@ const ComercialPageContent: React.FC<Props> = ({ onBack }) => {
     return null;
 };
 
-// --- Export with Providers ---
 export const ComercialPage: React.FC<Props> = (props) => {
     return (
         <ToastProvider>
-            {/* CatalogosProvider moved here to share context between Form and Consult View */}
             <CatalogosProvider>
                 <ComercialPageContent {...props} />
             </CatalogosProvider>

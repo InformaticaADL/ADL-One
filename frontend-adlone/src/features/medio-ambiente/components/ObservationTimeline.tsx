@@ -1,4 +1,27 @@
 import React, { useEffect, useState } from 'react';
+import { 
+    Timeline, 
+    Text, 
+    Paper, 
+    Group, 
+    Stack, 
+    ThemeIcon, 
+    Badge, 
+    Collapse, 
+    UnstyledButton,
+    Loader,
+    Center,
+    Box
+} from '@mantine/core';
+import { 
+    IconPencil, 
+    IconCheck, 
+    IconX, 
+    IconAlertTriangle, 
+    IconCalendar, 
+    IconInfoCircle,
+    IconChevronDown
+} from '@tabler/icons-react';
 import { fichaService } from '../services/ficha.service';
 
 interface TimelineEvent {
@@ -62,8 +85,6 @@ export const ObservationTimeline: React.FC<ObservationTimelineProps> = ({ fichaI
                     mappedEvents.sort((a, b) => a.date.getTime() - b.date.getTime());
 
                     setEvents(mappedEvents);
-
-
                 })
                 .catch(err => console.error("Error loading history:", err))
                 .finally(() => setLoading(false));
@@ -92,16 +113,26 @@ export const ObservationTimeline: React.FC<ObservationTimelineProps> = ({ fichaI
 
     const getIcon = (type: TimelineEvent['type']) => {
         switch (type) {
-            case 'CREATION': return '📝';
-            case 'APPROVAL': return '✅';
-            case 'REJECTION': return '❌';
-            case 'REVIEW': return '⚠️';
-            case 'ASSIGNMENT': return '📅';
-            default: return 'ℹ️';
+            case 'CREATION': return <IconPencil size={14} />;
+            case 'APPROVAL': return <IconCheck size={14} />;
+            case 'REJECTION': return <IconX size={14} />;
+            case 'REVIEW': return <IconAlertTriangle size={14} />;
+            case 'ASSIGNMENT': return <IconCalendar size={14} />;
+            default: return <IconInfoCircle size={14} />;
         }
     };
 
-    // Humanize action text from database field names
+    const getColor = (type: TimelineEvent['type']) => {
+        switch (type) {
+            case 'CREATION': return 'blue';
+            case 'APPROVAL': return 'teal';
+            case 'REJECTION': return 'red';
+            case 'REVIEW': return 'orange';
+            case 'ASSIGNMENT': return 'violet';
+            default: return 'gray';
+        }
+    };
+
     const humanizeAction = (action: string): string => {
         const actionMap: Record<string, string> = {
             'aprobacion_tecnica': 'aprobada por el Área Técnica',
@@ -120,142 +151,109 @@ export const ObservationTimeline: React.FC<ObservationTimelineProps> = ({ fichaI
             'EDICION_COMERCIAL': 'editada por el Área Comercial'
         };
 
-        // Try exact match first
-        if (actionMap[action]) {
-            return actionMap[action];
-        }
-
-        // Try lowercase match
+        if (actionMap[action]) return actionMap[action];
         const lowerAction = action.toLowerCase();
-        if (actionMap[lowerAction]) {
-            return actionMap[lowerAction];
-        }
-
-        // If no match, clean up underscores and return
+        if (actionMap[lowerAction]) return actionMap[lowerAction];
         return action.replace(/_/g, ' ').toLowerCase();
     };
 
-    const getColor = (type: TimelineEvent['type']) => {
-        switch (type) {
-            case 'CREATION': return '#3b82f6'; // Blue
-            case 'APPROVAL': return '#10b981'; // Green
-            case 'REJECTION': return '#ef4444'; // Red
-            case 'REVIEW': return '#f59e0b'; // Amber
-            case 'ASSIGNMENT': return '#8b5cf6'; // Purple
-            default: return '#6b7280'; // Gray
-        }
-    };
+    if (loading) return (
+        <Center p="xl">
+            <Stack align="center" gap="xs">
+                <Loader size="sm" />
+                <Text size="xs" c="dimmed">Cargando línea de tiempo...</Text>
+            </Stack>
+        </Center>
+    );
 
-    if (loading) return <div style={{ padding: '1rem', color: '#6b7280', textAlign: 'center' }}>Cargando línea de tiempo...</div>;
-
-    if (events.length === 0) return <div style={{ padding: '1rem', color: '#9ca3af', textAlign: 'center', fontStyle: 'italic' }}>No hay eventos registrados.</div>;
+    if (events.length === 0) return (
+        <Center p="xl">
+            <Text size="sm" c="dimmed" fs="italic">No hay eventos registrados.</Text>
+        </Center>
+    );
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
-            {events.map((event, index) => {
+        <Timeline active={events.length} bulletSize={30} lineWidth={2}>
+            {events.map((event) => {
                 const isExpanded = expandedIds.has(event.id);
                 const color = getColor(event.type);
-                const isLast = index === events.length - 1;
 
                 return (
-                    <div key={event.id} style={{ display: 'flex', gap: '1rem' }}>
-                        {/* Timeline Connector */}
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '40px' }}>
-                            <div style={{
-                                width: '32px',
-                                height: '32px',
-                                borderRadius: '50%',
-                                backgroundColor: color,
-                                color: 'white',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                zIndex: 1,
-                                fontSize: '1.2rem'
-                            }}>
-                                {getIcon(event.type)}
-                            </div>
-                            {!isLast && (
-                                <div style={{
-                                    width: '2px',
-                                    flexGrow: 1,
-                                    backgroundColor: '#e5e7eb',
-                                    margin: '4px 0'
-                                }} />
-                            )}
-                        </div>
-
-                        {/* Content Card */}
-                        <div style={{ flexGrow: 1 }}>
-                            <div
-                                onClick={() => toggleExpand(event.id)}
-                                style={{
-                                    border: `1px solid ${isExpanded ? color : '#e5e7eb'}`,
-                                    borderRadius: '8px',
-                                    backgroundColor: 'white',
-                                    overflow: 'hidden',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s ease',
-                                    boxShadow: isExpanded ? '0 4px 6px -1px rgba(0, 0, 0, 0.1)' : '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
-                                }}
+                    <Timeline.Item 
+                        key={event.id}
+                        bullet={
+                            <ThemeIcon 
+                                size={22} 
+                                radius="xl" 
+                                color={color} 
+                                variant="light"
                             >
-                                {/* Header */}
-                                <div style={{
-                                    padding: '12px 16px',
-                                    backgroundColor: isExpanded ? `${color}10` : 'white', // 10% opacity hex
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center'
-                                }}>
-                                    <div>
-                                        <div style={{ fontWeight: 600, color: '#1f2937', fontSize: '0.95rem' }}>
-                                            {`Ficha ${fichaId} ${humanizeAction(event.action)}. Responsable: ${event.user}.`}
-                                        </div>
-                                        <div style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '2px' }}>
+                                {getIcon(event.type)}
+                            </ThemeIcon>
+                        }
+                    >
+                        <Paper withBorder radius="md" p={0} shadow="xs" style={{ overflow: 'hidden' }}>
+                            <UnstyledButton 
+                                onClick={() => toggleExpand(event.id)}
+                                w="100%"
+                                p="md"
+                                bg={isExpanded ? `${color}.0` : 'transparent'}
+                                style={{ borderBottom: isExpanded ? `1px solid var(--mantine-color-${color}-1)` : 'none' }}
+                            >
+                                <Group justify="space-between" align="flex-start" wrap="nowrap">
+                                    <Box style={{ flex: 1 }}>
+                                        <Text size="sm" fw={600} lh={1.2}>
+                                            {`Ficha ${fichaId} ${humanizeAction(event.action)}`}
+                                        </Text>
+                                        <Text size="xs" c="dimmed" mt={4}>
+                                            Responsable: <Text component="span" fw={700} c="gray.7">{event.user}</Text>
+                                        </Text>
+                                        <Text size="xs" c="dimmed">
                                             {event.date.toLocaleString()}
-                                        </div>
-                                    </div>
-                                    <div style={{
-                                        transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                                        transition: 'transform 0.2s',
-                                        color: '#6b7280'
-                                    }}>
-                                        ▼
-                                    </div>
-                                </div>
+                                        </Text>
+                                    </Box>
+                                    <IconChevronDown 
+                                        size={16} 
+                                        style={{ 
+                                            transform: isExpanded ? 'rotate(180deg)' : 'none', 
+                                            transition: 'transform 200ms ease',
+                                            color: 'var(--mantine-color-gray-4)'
+                                        }} 
+                                    />
+                                </Group>
+                            </UnstyledButton>
 
-                                {/* Body (Details) */}
-                                {isExpanded && (
-                                    <div style={{ padding: '16px', borderTop: '1px solid #f3f4f6' }}>
-                                        {event.stateChange && (
-                                            <div style={{ fontSize: '0.8rem', color: '#6b7280', marginBottom: '8px' }}>
-                                                Estado: <strong>{event.stateChange.from || 'Inicio'}</strong> &rarr; <strong>{event.stateChange.to}</strong>
-                                            </div>
-                                        )}
-                                        {event.observation ? (
-                                            <div style={{
-                                                backgroundColor: '#f9fafb',
-                                                padding: '12px',
-                                                borderRadius: '6px',
-                                                border: '1px solid #e5e7eb',
-                                                fontSize: '0.9rem',
-                                                color: '#374151',
-                                                whiteSpace: 'pre-wrap'
-                                            }}>
+                            <Collapse in={isExpanded}>
+                                <Box p="md">
+                                    {event.stateChange && (
+                                        <Group gap="xs" mb="sm">
+                                            <Badge variant="outline" color="gray" size="sm" radius="sm">
+                                                {event.stateChange.from || 'Inicio'}
+                                            </Badge>
+                                            <Text size="xs" c="dimmed">→</Text>
+                                            <Badge variant="filled" color={color} size="sm" radius="sm">
+                                                {event.stateChange.to}
+                                            </Badge>
+                                        </Group>
+                                    )}
+
+                                    {event.observation ? (
+                                        <Paper bg="gray.0" p="sm" radius="sm" withBorder>
+                                            <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>
                                                 {event.observation}
-                                            </div>
-                                        ) : (
-                                            <div style={{ fontStyle: 'italic', color: '#9ca3af', fontSize: '0.9rem' }}>
-                                                Sin observaciones registradas.
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
+                                            </Text>
+                                        </Paper>
+                                    ) : (
+                                        <Text size="xs" c="dimmed" fs="italic">
+                                            Sin observaciones registradas.
+                                        </Text>
+                                    )}
+                                </Box>
+                            </Collapse>
+                        </Paper>
+                    </Timeline.Item>
                 );
             })}
-        </div>
+        </Timeline>
     );
 };

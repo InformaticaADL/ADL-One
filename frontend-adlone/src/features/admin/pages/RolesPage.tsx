@@ -1,14 +1,30 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { 
+    Container, 
+    Stack, 
+    Group,
+    Text, 
+    Button, 
+    Table, 
+    Badge, 
+    Paper, 
+    LoadingOverlay,
+    Tooltip
+} from '@mantine/core';
+import { 
+    IconPlus, 
+    IconEdit, 
+    IconShieldLock
+} from '@tabler/icons-react';
 import { rbacService } from '../services/rbac.service';
 import type { Role } from '../services/rbac.service';
 import { RoleModal } from '../components/RoleModal';
 import { useToast } from '../../../contexts/ToastContext';
+import { PageHeader } from '../../../components/layout/PageHeader';
 
 interface Props {
     onBack?: () => void;
 }
-
-import '../admin.css';
 
 export const RolesPage: React.FC<Props> = ({ onBack }) => {
     const { showToast } = useToast();
@@ -45,124 +61,107 @@ export const RolesPage: React.FC<Props> = ({ onBack }) => {
     };
 
     return (
-        <div className="admin-container">
-            <div className="admin-header-section responsive-header">
-                {/* Izquierda: Botón Volver */}
-                <div style={{ justifySelf: 'start' }}>
-                    {onBack && (
-                        <button onClick={onBack} className="btn-back">
-                            <span className="icon-circle">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <line x1="19" y1="12" x2="5" y2="12"></line>
-                                    <polyline points="12 19 5 12 12 5"></polyline>
-                                </svg>
-                            </span>
-                            Volver
-                        </button>
-                    )}
-                </div>
+        <Container fluid py="md">
+            <PageHeader
+                title="Administración de Roles"
+                subtitle="Gestiona los perfiles de acceso y permisos granulares del sistema."
+                onBack={onBack}
+                breadcrumbItems={[
+                    { label: 'Administración', onClick: onBack },
+                    { label: 'Informática', onClick: onBack },
+                    { label: 'Roles y Permisos' }
+                ]}
+                rightSection={
+                    <Button 
+                        leftSection={<IconPlus size={18} />}
+                        onClick={handleCreate}
+                        radius="md"
+                        color="blue"
+                    >
+                        Nuevo Rol
+                    </Button>
+                }
+            />
 
-                {/* Centro: Título y Subtítulo */}
-                <div style={{ justifySelf: 'center', textAlign: 'center' }}>
-                    <h1 className="admin-title">Administración de Roles</h1>
-                    <p className="admin-subtitle">Gestiona los perfiles de acceso y permisos del sistema.</p>
-                </div>
+            <Stack gap="lg" mt="xl">
+                {/* Info Card */}
+                <Paper withBorder p="md" radius="md" bg="blue.0">
+                    <Group gap="xs" wrap="nowrap">
+                        <IconShieldLock size={20} color="var(--mantine-color-blue-6)" />
+                        <Text size="sm" fw={500} c="blue.9">
+                            Los roles permiten agrupar permisos y asignarlos masivamente a los usuarios para facilitar la administración de la plataforma.
+                        </Text>
+                    </Group>
+                </Paper>
 
-                {/* Derecha: Acción */}
-                <div style={{ justifySelf: 'end' }}>
-                    <button onClick={handleCreate} className="btn-primary">
-                        + Nuevo Rol
-                    </button>
-                </div>
-            </div>
-
-            <div className="table-container">
-                <table className="admin-table">
-                    <thead>
-                        <tr>
-                            <th>Rol</th>
-                            <th>Descripción</th>
-                            <th>Estado</th>
-                            <th style={{ textAlign: 'right' }}>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {loading ? (
-                            <tr>
-                                <td colSpan={4} className="loading-state">
-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', padding: '3rem', color: '#6b7280' }}>
-                                        <div style={{ width: '30px', height: '30px', border: '3px solid #e2e8f0', borderTopColor: '#3b82f6', borderRadius: '50%', animation: 'spinner-spin 1s linear infinite' }}></div>
-                                        Cargando roles...
-                                    </div>
-                                </td>
-                            </tr>
-                        ) : (
-                            roles.map((role) => (
-                                <tr
-                                    key={role.id_rol}
-                                    className="mobile-clickable-row"
-                                    onClick={() => {
-                                        // On mobile, clicking the row opens the modal directly
-                                        if (window.innerWidth <= 768) {
-                                            handleEdit(role);
-                                        }
-                                    }}
-                                >
-                                    <td>
-                                        <div style={{ fontWeight: 500 }}>{role.nombre_rol}</div>
-                                    </td>
-                                    <td>
-                                        <div className="text-subtle">{role.descripcion}</div>
-                                    </td>
-                                    <td>
-                                        <span style={{
-                                            padding: '2px 8px',
-                                            borderRadius: '999px',
-                                            fontSize: '0.75rem',
-                                            fontWeight: 600,
-                                            backgroundColor: role.estado ? '#d1fae5' : '#fee2e2',
-                                            color: role.estado ? '#065f46' : '#991b1b'
-                                        }}>
-                                            {role.estado ? 'Activo' : 'Inactivo'}
-                                        </span>
-                                    </td>
-                                    <td style={{ textAlign: 'right' }}>
-                                        <button
-                                            onClick={() => handleEdit(role)}
-                                            style={{
-                                                padding: '0.4rem 0.8rem',
-                                                borderRadius: '6px',
-                                                border: '1px solid #c7d2fe',
-                                                background: '#e0e7ff',
-                                                color: '#4338ca',
-                                                fontWeight: 600,
-                                                fontSize: '0.85rem',
-                                                cursor: 'pointer',
-                                                display: 'inline-flex',
-                                                alignItems: 'center',
-                                                gap: '0.4rem',
-                                                transition: 'all 0.2s',
-                                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-                                            }}
-                                            onMouseEnter={e => {
-                                                e.currentTarget.style.background = '#c7d2fe';
-                                                e.currentTarget.style.borderColor = '#a5b4fc';
-                                            }}
-                                            onMouseLeave={e => {
-                                                e.currentTarget.style.background = '#e0e7ff';
-                                                e.currentTarget.style.borderColor = '#c7d2fe';
-                                            }}
-                                        >
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
-                                            Editar / Permisos
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
-            </div>
+                {/* Roles Table */}
+                <Paper withBorder radius="md" shadow="sm" pos="relative">
+                    <LoadingOverlay visible={loading} overlayProps={{ blur: 2 }} />
+                    <Table.ScrollContainer minWidth={600}>
+                        <Table verticalSpacing="md" highlightOnHover>
+                            <Table.Thead bg="gray.0">
+                                <Table.Tr>
+                                    <Table.Th>Nombre del Rol</Table.Th>
+                                    <Table.Th>Descripción</Table.Th>
+                                    <Table.Th ta="center">Estado</Table.Th>
+                                    <Table.Th ta="right">Acciones</Table.Th>
+                                </Table.Tr>
+                            </Table.Thead>
+                            <Table.Tbody>
+                                {roles.length > 0 ? (
+                                    roles.map((role) => (
+                                        <Table.Tr key={role.id_rol}>
+                                            <Table.Td>
+                                                <Group gap="sm">
+                                                    <IconShieldLock size={16} color="var(--mantine-color-blue-filled)" />
+                                                    <Text size="sm" fw={600}>{role.nombre_rol}</Text>
+                                                </Group>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <Text size="sm" c="dimmed" lineClamp={1}>
+                                                    {role.descripcion || 'Sin descripción'}
+                                                </Text>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <Group justify="center">
+                                                    <Badge 
+                                                        color={role.estado ? 'green' : 'red'} 
+                                                        variant="light"
+                                                        radius="sm"
+                                                    >
+                                                        {role.estado ? 'Activo' : 'Inactivo'}
+                                                    </Badge>
+                                                </Group>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <Group justify="flex-end" gap="xs">
+                                                    <Tooltip label="Editar Permisos">
+                                                        <Button
+                                                            variant="light"
+                                                            color="blue"
+                                                            size="xs"
+                                                            leftSection={<IconEdit size={14} />}
+                                                            onClick={() => handleEdit(role)}
+                                                        >
+                                                            Editar / Permisos
+                                                        </Button>
+                                                    </Tooltip>
+                                                </Group>
+                                            </Table.Td>
+                                        </Table.Tr>
+                                    ))
+                                ) : (
+                                    <Table.Tr>
+                                        <Table.Td colSpan={4} ta="center" py="xl">
+                                            <Text c="dimmed">No hay roles definidos en el sistema</Text>
+                                        </Table.Td>
+                                    </Table.Tr>
+                                )}
+                            </Table.Tbody>
+                        </Table>
+                    </Table.ScrollContainer>
+                </Paper>
+            </Stack>
 
             <RoleModal
                 isOpen={isModalOpen}
@@ -170,6 +169,6 @@ export const RolesPage: React.FC<Props> = ({ onBack }) => {
                 onClose={() => setIsModalOpen(false)}
                 onSuccess={loadRoles}
             />
-        </div>
+        </Container>
     );
 };

@@ -1,88 +1,70 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { 
+    Container, 
+    Stack, 
+    Group, 
+    Title, 
+    Text, 
+    Button, 
+    Table, 
+    Badge, 
+    ActionIcon, 
+    Paper, 
+    LoadingOverlay, 
+    Tooltip, 
+    Box, 
+    TextInput, 
+    Select, 
+    Pagination, 
+    Divider, 
+    Menu, 
+    Modal, 
+    ScrollArea, 
+    Textarea,
+    Grid,
+    Alert
+} from '@mantine/core';
+import { 
+    IconArrowLeft,
+    IconPlus, 
+    IconSearch, 
+    IconX, 
+    IconEdit, 
+    IconPower, 
+    IconBell, 
+    IconDownload, 
+    IconAlertTriangle,
+    IconInfoCircle,
+    IconTrash
+} from '@tabler/icons-react';
+
 import { equipoService, type Equipo } from '../services/equipo.service';
 import { EquipmentExportModal } from '../components/EquipmentExportModal';
 import { adminService } from '../../../services/admin.service';
 import { EquipoForm } from '../components/EquipoForm';
-
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
-
 import { useNavStore } from '../../../store/navStore';
-import '../admin.css';
-
-// --- Componente CustomSelect Animado ---
-interface CustomSelectProps {
-    value: string;
-    options: string[];
-    onChange: (val: string) => void;
-    width?: string;
-}
-
-const CustomSelect: React.FC<CustomSelectProps> = ({ value, options, onChange, width = '140px' }) => {
-    const [isOpen, setIsOpen] = React.useState(false);
-    const containerRef = React.useRef<HTMLDivElement>(null);
-
-    React.useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-                setIsOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    return (
-        <div className={`custom-select-container ${isOpen ? 'open' : ''}`} style={{ width }} ref={containerRef}>
-            <div
-                className="custom-select-trigger"
-                onClick={() => setIsOpen(!isOpen)}
-            >
-                <span>{value || 'Seleccionar'}</span>
-                <svg className="select-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="6 9 12 15 18 9"></polyline>
-                </svg>
-            </div>
-            {isOpen && (
-                <div className="custom-options">
-                    {options.map((opt) => (
-                        <div
-                            key={opt}
-                            className={`custom-option ${value === opt ? 'selected' : ''}`}
-                            onClick={() => {
-                                onChange(opt);
-                                setIsOpen(false);
-                            }}
-                        >
-                            {opt}
-                        </div>
-                    ))}
-                </div>
-            )}
-        </div>
-    );
-};
 
 interface Props {
     onBack: () => void;
 }
 
 export const EquiposPage: React.FC<Props> = ({ onBack }) => {
-    // View State
+    // --- View State ---
     const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
     const [selectedEquipo, setSelectedEquipo] = useState<Equipo | null>(null);
     const [solicitudesRealizadas, setSolicitudesRealizadas] = useState<any[]>([]);
-    const [showMobileFilters, setShowMobileFilters] = useState(false);
+    
+    // Modals State
     const [reviewSolicitud, setReviewSolicitud] = useState<any | null>(null);
     const [processingAction, setProcessingAction] = useState(false);
     const [showConfirmBajaModal, setShowConfirmBajaModal] = useState(false);
-    const [showConfirmAltaModal, setShowConfirmAltaModal] = useState(false); // For Reactivations
+    const [showConfirmAltaModal, setShowConfirmAltaModal] = useState(false); 
     const [equipoBajaPending, setEquipoBajaPending] = useState<{ id: string; nombre: string; datos_json: any; id_solicitud?: number } | null>(null);
     const [bajaObservation, setBajaObservation] = useState('');
     const [equipoAltaPending, setEquipoAltaPending] = useState<{ id: string; nombre: string; codigo: string; originalId: number; datos_json: any; id_solicitud?: number; vigencia_propuesta?: string } | null>(null);
     const [reactivationVigencia, setReactivationVigencia] = useState<string>('');
-    const [highlightedId, setHighlightedId] = useState<number | null>(null);
-    const [showPendingList, setShowPendingList] = useState(false);
     const [rejectionTarget, setRejectionTarget] = useState<{ type: 'SOLICITUD' | 'ITEM'; equipo?: any; bulkType?: 'ALTA' | 'BAJA' } | null>(null);
     const [showRejectionReasonModal, setShowRejectionReasonModal] = useState(false);
     const [localRejectionFeedback, setLocalRejectionFeedback] = useState('');
@@ -95,31 +77,85 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const [solicitudInResolution, setSolicitudInResolution] = useState<any | null>(null);
     const [showExportModal, setShowExportModal] = useState(false);
 
-
     const { showToast } = useToast();
     const { hasPermission } = useAuth();
+    
+    // Permissions
     const isGCMan = hasPermission('GC_ACCESO') || hasPermission('GC_EQUIPOS');
     const isMAMan = hasPermission('AI_MA_SOLICITUDES') || hasPermission('MA_A_GEST_EQUIPO');
     const isSuper = hasPermission('AI_MA_ADMIN_ACCESO');
     const canCreateEquipo = hasPermission('AI_MA_CREAR_EQUIPO') || isSuper;
     const canEditEquipo = hasPermission('AI_MA_EDITAR_EQUIPO') || isSuper;
 
-    const [isSearchExpanded, setIsSearchExpanded] = useState(false);
-    const filterMenuRef = React.useRef<HTMLDivElement>(null);
-    const pendingListRef = React.useRef<HTMLDivElement>(null);
+    // --- Table & Filters State ---
+    const [equipos, setEquipos] = useState<Equipo[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filterTipo, setFilterTipo] = useState<string | null>(null);
+    const [filterSede, setFilterSede] = useState<string | null>(null);
+    const [filterEstado, setFilterEstado] = useState<string | null>(null);
+    const [filterMuestreador, setFilterMuestreador] = useState<string | null>(null);
+    const [filterFechaDesde, setFilterFechaDesde] = useState('');
+    const [filterFechaHasta, setFilterFechaHasta] = useState('');
+    
+    const [page, setPage] = useState(1);
+    const [limit] = useState(10); // increased for Mantine UI
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalItems, setTotalItems] = useState(0);
+    const [muestreadorList, setMuestreadorList] = useState<any[]>([]);
+    
+    const [catalogs, setCatalogs] = useState<{ sedes: string[], tipos: string[], estados: string[] }>({
+        sedes: ['PM', 'AY', 'VI', 'PA', 'PV', 'CH', 'Terreno'],
+        tipos: ['Medidor de pH y Temperatura', 'Medidor de Oxígeno', 'Conductímetro', 'Turbidímetro', 'Multiparamétrico'],
+        estados: ['Activo', 'Inactivo']
+    });
 
-    React.useEffect(() => {
+    const { pendingRequestId, setPendingRequestId, hideNotification } = useNavStore();
+
+    // --- Side Effects ---
+    useEffect(() => {
+        const fetchFiltersData = async () => {
+            try {
+                const msRes = await adminService.getMuestreadores('', 'ACTIVOS');
+                if (msRes && msRes.data) {
+                    setMuestreadorList(msRes.data);
+                }
+            } catch (error) {
+                console.error("Error loading muestreadores for filters", error);
+            }
+        };
+        fetchFiltersData();
+        loadSolicitudes();
+    }, []);
+
+    useEffect(() => {
+        const delayDebounceFn = setTimeout(() => {
+            fetchData();
+        }, 300);
+        return () => clearTimeout(delayDebounceFn);
+    }, [page, filterTipo, filterSede, filterEstado, searchTerm, filterFechaDesde, filterFechaHasta, filterMuestreador]);
+
+    // Notification handling from NavStore
+    useEffect(() => {
+        if (pendingRequestId && solicitudesRealizadas.length > 0) {
+            const sol = solicitudesRealizadas.find(s => s.id_solicitud === pendingRequestId);
+            if (sol) {
+                handleNotificationClick(sol);
+                setPendingRequestId(null);
+            }
+        }
+    }, [pendingRequestId, solicitudesRealizadas]);
+
+    // Date pre-filling for reactivation
+    useEffect(() => {
         if (showConfirmAltaModal) {
-            // Priority 1: Specific motive extraction (existing logic)
             if (equipoAltaPending?.datos_json?.motivo) {
                 const motive = equipoAltaPending.datos_json.motivo;
                 const code = (equipoAltaPending as any).codigo;
-
                 if (code && motive) {
                     const escapedCode = code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                     const regex = new RegExp(`${escapedCode}:\\s*(\\d{2}[/\\-]\\d{2}[/\\-]\\d{4}|\\d{4}[/\\-]\\d{2}[/\\-]\\d{2})`, 'i');
                     const match = motive.match(regex);
-
                     if (match && match[1]) {
                         let datePart = match[1].replace(/\//g, '-');
                         if (/^\d{2}-\d{2}-\d{4}$/.test(datePart)) {
@@ -127,12 +163,10 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                             datePart = `${y}-${m}-${d}`;
                         }
                         setReactivationVigencia(datePart);
-                        return; // Found via motive, done.
+                        return;
                     }
                 }
             }
-
-            // Priority 2: Specific equipment 'vigencia' in the equipos_alta array (new multi-vigencia logic)
             if (equipoAltaPending?.id && equipoAltaPending?.datos_json?.equipos_alta) {
                 const specificEq = equipoAltaPending.datos_json.equipos_alta.find((e: any) => String(e.id) === String(equipoAltaPending.id));
                 if (specificEq?.vigencia) {
@@ -140,121 +174,34 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                     return;
                 }
             }
-
-            // Priority 3: General 'vigencia' field in request JSON (fallback)
             if (equipoAltaPending?.datos_json?.vigencia) {
                 setReactivationVigencia(equipoAltaPending.datos_json.vigencia);
             }
-
         } else {
             setReactivationVigencia('');
         }
     }, [showConfirmAltaModal, equipoAltaPending]);
 
-
-    React.useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (showMobileFilters && filterMenuRef.current && !filterMenuRef.current.contains(event.target as Node)) {
-                setShowMobileFilters(false);
-            }
-            if (showPendingList && pendingListRef.current && !pendingListRef.current.contains(event.target as Node)) {
-                setShowPendingList(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [showMobileFilters, showPendingList]);
-
-    const handleNotificationClick = async (sol: any) => {
-        const type = sol.tipo_solicitud;
-        const isCreation = type === 'NUEVO_EQUIPO' || (type === 'ALTA' && !sol.datos_json?.isReactivation);
-
-        if (isCreation) {
-            // Direct to form
-            setSelectedEquipo({
-                ...sol.datos_json,
-                id_equipo: undefined,
-                requestId: sol.id_solicitud,
-                requestStatus: sol.estado
-            } as any);
-            setViewMode('form');
-        } else {
-            // Show review modal as usual
-            setReviewSolicitud(sol);
-        }
-    };
-
-    // Notification link logic
-    const { pendingRequestId, setPendingRequestId, hideNotification } = useNavStore();
-    useEffect(() => {
-        if (pendingRequestId && solicitudesRealizadas.length > 0) {
-            const sol = solicitudesRealizadas.find(s => s.id_solicitud === pendingRequestId);
-            if (sol) {
-                handleNotificationClick(sol);
-                setPendingRequestId(null); // Clear once handled
-            }
-        }
-    }, [pendingRequestId, solicitudesRealizadas]);
-
-    // Table State
-    const [equipos, setEquipos] = useState<Equipo[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [filterTipo, setFilterTipo] = useState('');
-    const [filterSede, setFilterSede] = useState('');
-    const [filterEstado, setFilterEstado] = useState('');
-    const [page, setPage] = useState(1);
-    const [limit] = useState(7);
-    const [filterFechaDesde, setFilterFechaDesde] = useState('');
-    const [filterFechaHasta, setFilterFechaHasta] = useState('');
-    const [filterMuestreador, setFilterMuestreador] = useState('');
-    const [muestreadorList, setMuestreadorList] = useState<any[]>([]);
-    const [totalPages, setTotalPages] = useState(1);
-    const [totalItems, setTotalItems] = useState(0);
-    const [catalogs, setCatalogs] = useState<{ sedes: string[], tipos: string[], estados: string[] }>({
-        sedes: ['PM', 'AY', 'VI', 'PA', 'PV', 'CH', 'Terreno'],
-        tipos: ['Medidor de pH y Temperatura', 'Medidor de Oxígeno', 'Conductímetro', 'Turbidímetro', 'Multiparamétrico'],
-        estados: ['Activo', 'Inactivo']
-    });
-
-    // Helper for labels
-    const getTipoLabelDisplay = (sol: any) => {
-        const type = sol.tipo_solicitud;
-        if (type === 'ALTA') {
-            return sol.datos_json?.isReactivation ? 'Activación de Equipo' : 'Creación de Equipo';
-        }
-        if (type === 'NUEVO_EQUIPO') return 'Creación de Equipo';
-        if (type === 'BAJA') return 'Baja de Equipo';
-        if (type === 'TRASPASO') return 'Traspaso de Equipo';
-        if (type === 'VIGENCIA_PROXIMA') return 'Cambio de Vigencia';
-        if (type === 'REPORTE_PROBLEMA') return 'Reporte de Problema';
-        if (type === 'REVISION') return 'Solicitud de Revisión';
-        if (type === 'EQUIPO_PERDIDO') return 'Baja por Pérdida';
-        if (type === 'EQUIPO_DESHABILITADO') return 'Equipo Deshabilitado';
-        return type;
-    };
-
-    const fetchData = async (origen: string = 'unknown') => {
-        console.log(`[EquiposPage] fetchData called from ${origen}`, { page, filterTipo, filterSede, filterEstado, searchTerm });
+    // --- Data Loaders ---
+    const fetchData = async () => {
         setLoading(true);
         try {
             const params = {
                 page,
                 limit,
                 search: searchTerm,
-                tipo: filterTipo,
-                sede: filterSede,
-                estado: filterEstado,
+                tipo: filterTipo || '',
+                sede: filterSede || '',
+                estado: filterEstado || '',
                 fechaDesde: filterFechaDesde,
                 fechaHasta: filterFechaHasta,
-                id_muestreador: filterMuestreador
+                id_muestreador: filterMuestreador || ''
             };
             const response = await equipoService.getEquipos(params);
             if (response) {
                 setEquipos(response.data || []);
                 setTotalPages(response.totalPages || 1);
                 setTotalItems(response.total || 0);
-
                 if ((response as any).catalogs) {
                     setCatalogs((response as any).catalogs);
                 }
@@ -268,14 +215,38 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         }
     };
 
+    const loadSolicitudes = async () => {
+        try {
+            const targetStates = ['PENDIENTE', 'PENDIENTE_CALIDAD'].join(',');
+            const data = await adminService.getSolicitudes({ estado: targetStates });
+            const managementTypes = [
+                'ALTA', 'TRASPASO', 'BAJA', 'VIGENCIA_PROXIMA',
+                'NUEVO_EQUIPO', 'EQUIPO_PERDIDO', 'REVISION', 'REPORTE_PROBLEMA',
+                'EQUIPO_DESHABILITADO'
+            ];
+            const filteredData = data.filter((s: any) => managementTypes.includes(s.tipo_solicitud));
+            setSolicitudesRealizadas(filteredData);
+        } catch (error) {
+            console.error("Error loading solicitudes:", error);
+        }
+    };
 
-    useEffect(() => {
-        const delayDebounceFn = setTimeout(() => {
-            fetchData('merged useEffect');
-        }, 300); // 300ms debounce covers both search typing and fast filter clicks seamlessly
-
-        return () => clearTimeout(delayDebounceFn);
-    }, [page, filterTipo, filterSede, filterEstado, searchTerm, filterFechaDesde, filterFechaHasta, filterMuestreador]);
+    // --- Handlers ---
+    const handleNotificationClick = async (sol: any) => {
+        const type = sol.tipo_solicitud;
+        const isCreation = type === 'NUEVO_EQUIPO' || (type === 'ALTA' && !sol.datos_json?.isReactivation);
+        if (isCreation) {
+            setSelectedEquipo({
+                ...sol.datos_json,
+                id_equipo: undefined,
+                requestId: sol.id_solicitud,
+                requestStatus: sol.estado
+            } as any);
+            setViewMode('form');
+        } else {
+            setReviewSolicitud(sol);
+        }
+    };
 
     const handleCreate = () => {
         setSelectedEquipo(null);
@@ -300,8 +271,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
             showToast({
                 id: `pending-solicitude-${equipo.id_equipo}`,
                 type: 'warning',
-                message: `Atención: Este equipo tiene una solicitud de ${pending.tipo_solicitud} PENDIENTE: ${pending.datos_json?.motivo || 'Sin motivo especificado'}`,
-                duration: 8000
+                message: `Atención: Este equipo tiene una solicitud de ${pending.tipo_solicitud} PENDIENTE`,
+                duration: 5000
             });
         }
         setSelectedEquipo(equipo);
@@ -310,149 +281,28 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
 
     const handleToggleStatus = async (equipo: Equipo) => {
         setEquipoStatusPending(equipo);
-        setStatusObservation(''); // Always start with an empty box
+        setStatusObservation('');
         setShowStatusConfirmModal(true);
     };
 
     const confirmToggleStatus = async () => {
         if (!equipoStatusPending) return;
-
         setProcessingAction(true);
         try {
             const newStatus = equipoStatusPending.estado?.toLowerCase() === 'activo' ? 'Inactivo' : 'Activo';
-
-            // Re-fetch latest data to avoid overwriting other fields
             const response = await equipoService.getEquipoById(equipoStatusPending.id_equipo);
             const latestData = response.success ? response.data : equipoStatusPending;
-
             await equipoService.updateEquipo(equipoStatusPending.id_equipo, {
                 ...latestData,
                 estado: newStatus,
                 observacion: statusObservation
             });
-
-            showToast({
-                type: 'success',
-                message: `Equipo ${equipoStatusPending.nombre} puesto como ${newStatus}`,
-                duration: 5000
-            });
-
+            showToast({ type: 'success', message: `Equipo puesto como ${newStatus}` });
             setShowStatusConfirmModal(false);
             setEquipoStatusPending(null);
-            setStatusObservation('');
-            fetchData(); // Refresh list
+            fetchData();
         } catch (error: any) {
-            console.error('Error toggling status:', error);
-            showToast({
-                type: 'error',
-                message: error.message || 'Error al cambiar el estado del equipo'
-            });
-        } finally {
-            setProcessingAction(false);
-        }
-    };
-
-    const loadSolicitudes = async () => {
-        try {
-            // Detect current role focus (kept for potential future usage or logging if needed, but simplified for now)
-
-            // Fetch PENDING solicitudes based on role to maintain separation
-            // In Gestion de Equipos popover, we ONLY show what is in Quality scope.
-            // Technical stages (PENDIENTE_TECNICA, EN_REVISION, etc.) are handled in SolicitudesMaPage.
-            // This applies even for Admins to keep this specific page focused on final management.
-            let targetStatesArray: string[] = ['PENDIENTE', 'PENDIENTE_CALIDAD'];
-
-            const targetStates = targetStatesArray.join(',');
-
-            const data = await adminService.getSolicitudes({ estado: targetStates });
-
-            // Filter logic: If GC (Quality), only show management requests, NOT reports (which go to separate view)
-            // Gestion de Equipos (This Page): ALTA, BAJA, TRASPASO, VIGENCIA_PROXIMA, NUEVO_EQUIPO, EQUIPO_PERDIDO, REVISION, REPORTE_PROBLEMA, EQUIPO_DESHABILITADO.
-            const managementTypes = [
-                'ALTA', 'TRASPASO', 'BAJA', 'VIGENCIA_PROXIMA',
-                'NUEVO_EQUIPO', 'EQUIPO_PERDIDO', 'REVISION', 'REPORTE_PROBLEMA',
-                'EQUIPO_DESHABILITADO'
-            ];
-            const filteredData = data.filter((s: any) => managementTypes.includes(s.tipo_solicitud));
-            setSolicitudesRealizadas(filteredData);
-        } catch (error) {
-            console.error("Error loading solicitudes:", error);
-        }
-    };
-
-    useEffect(() => {
-        const fetchFiltersData = async () => {
-            try {
-                const msRes = await adminService.getMuestreadores('', 'ACTIVOS');
-                if (msRes && msRes.data) {
-                    setMuestreadorList(msRes.data);
-                }
-            } catch (error) {
-                console.error("Error loading muestreadores for filters", error);
-            }
-        };
-        fetchFiltersData();
-        loadSolicitudes();
-    }, []);
-
-    const getPendingRequestsForEquipo = (equipoId: number) => {
-        if (!solicitudesRealizadas || solicitudesRealizadas.length === 0) return [];
-
-        return solicitudesRealizadas.filter(sol => {
-            if (sol.estado !== 'PENDIENTE' && sol.estado !== 'PENDIENTE_TECNICA' && sol.estado !== 'EN_REVISION_TECNICA' && sol.estado !== 'PENDIENTE_CALIDAD') return false;
-
-            const datos = sol.datos_json || {};
-
-            // TRASPASO: uses id_equipo
-            if (sol.tipo_solicitud === 'TRASPASO' && String(datos.id_equipo) === String(equipoId)) {
-                return true;
-            }
-
-            // BAJA: uses equipos_baja list
-            if (sol.tipo_solicitud === 'BAJA' && datos.equipos_baja && Array.isArray(datos.equipos_baja)) {
-                return datos.equipos_baja.some((eb: any) => String(eb.id) === String(equipoId));
-            }
-
-            // ALTA (Reactivation): uses equipos_alta list
-            if (sol.tipo_solicitud === 'ALTA' && datos.isReactivation && datos.equipos_alta && Array.isArray(datos.equipos_alta)) {
-                return datos.equipos_alta.some((ea: any) => String(ea.id) === String(equipoId));
-            }
-
-            return false;
-        });
-    };
-
-    const handleFormSave = () => {
-        setViewMode('list');
-        fetchData();
-        loadSolicitudes();
-    };
-
-
-    const handleOpenGlobalRejection = () => {
-        if (!reviewSolicitud) return;
-        setRejectionTarget({ type: 'SOLICITUD' });
-        setLocalRejectionFeedback('');
-        setShowRejectionReasonModal(true);
-    };
-
-    const handleReject = async (feedback: string) => {
-        if (!reviewSolicitud) return;
-
-        setProcessingAction(true);
-        try {
-            // If Technical Area rejects, it goes to RECHAZADO_TECNICA
-            const isTechnicalReview = reviewSolicitud.estado === 'PENDIENTE_TECNICA';
-            const finalStatus = isTechnicalReview ? 'RECHAZADO_TECNICA' : 'RECHAZADA';
-
-            await adminService.updateSolicitudStatus(reviewSolicitud.id_solicitud, finalStatus, feedback);
-            showToast({ type: 'success', message: 'Solicitud rechazada correctamente', duration: 5000 });
-            hideNotification(`${reviewSolicitud.id_solicitud}-${reviewSolicitud.estado}`);
-            setReviewSolicitud(null);
-            loadSolicitudes();
-        } catch (error) {
-            console.error("Error rejecting:", error);
-            showToast({ type: 'error', message: 'Error al rechazar solicitud' });
+            showToast({ type: 'error', message: error.message || 'Error al cambiar el estado' });
         } finally {
             setProcessingAction(false);
         }
@@ -460,34 +310,23 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
 
     const handleApprove = async () => {
         if (!reviewSolicitud) return;
-
-        // Linear flow logic: Technical Area "approves" it by deriving to Quality
         const needsTechnicalReview = reviewSolicitud.estado === 'PENDIENTE_TECNICA';
 
         if (needsTechnicalReview) {
-            const type = reviewSolicitud.tipo_solicitud;
-            const isInternalProcessing = type === 'EQUIPO_PERDIDO' || type === 'REPORTE_PROBLEMA';
-
             setProcessingAction(true);
             try {
+                const type = reviewSolicitud.tipo_solicitud;
+                const isInternal = type === 'EQUIPO_PERDIDO' || type === 'REPORTE_PROBLEMA';
                 await adminService.updateSolicitudStatus(
                     reviewSolicitud.id_solicitud,
-                    isInternalProcessing ? 'EN_REVISION' : 'PENDIENTE_CALIDAD',
-                    isInternalProcessing
-                        ? 'Aceptado por Área Técnica para procesamiento interno (en revisión)'
-                        : 'Derivado por Área Técnica para revisión final de Calidad'
+                    isInternal ? 'EN_REVISION' : 'PENDIENTE_CALIDAD',
+                    isInternal ? 'Aceptado por Área Técnica' : 'Derivado a Calidad'
                 );
-                showToast({
-                    type: 'success',
-                    message: isInternalProcessing
-                        ? 'Solicitud aceptada y puesta en revisión'
-                        : 'Solicitud derivada a Calidad correctamente'
-                });
+                showToast({ type: 'success', message: 'Solicitud enviada a la siguiente etapa' });
                 hideNotification(`${reviewSolicitud.id_solicitud}-${reviewSolicitud.estado}`);
                 setReviewSolicitud(null);
                 loadSolicitudes();
             } catch (error) {
-                console.error("Error processing technical approval:", error);
                 showToast({ type: 'error', message: 'Error al procesar solicitud' });
             } finally {
                 setProcessingAction(false);
@@ -505,11 +344,10 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 });
                 setBajaObservation('');
                 setShowConfirmBajaModal(true);
-                setReviewSolicitud(null); // Close background modal
+                setReviewSolicitud(null);
             }
         } else {
             const type = reviewSolicitud.tipo_solicitud;
-
             if (type === 'ALTA' || type === 'NUEVO_EQUIPO') {
                 const isReactivation = type === 'ALTA' && reviewSolicitud.datos_json?.isReactivation;
                 if (isReactivation) {
@@ -522,15 +360,10 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                         id_solicitud: reviewSolicitud.id_solicitud,
                         vigencia_propuesta: reviewSolicitud.datos_json.vigencia
                     });
-                    if (reviewSolicitud.datos_json.vigencia) {
-                        setReactivationVigencia(reviewSolicitud.datos_json.vigencia);
-                    }
+                    setReactivationVigencia(reviewSolicitud.datos_json.vigencia || '');
                     setShowConfirmAltaModal(true);
-                    hideNotification(`${reviewSolicitud.id_solicitud}-${reviewSolicitud.estado}`);
                     setReviewSolicitud(null);
-                    // Close background modal
                 } else {
-                    showToast({ id: 'form-fill-info', type: 'info', message: 'Rellene los campos para finalizar el registro', duration: 5000 });
                     hideNotification(`${reviewSolicitud.id_solicitud}-${reviewSolicitud.estado}`);
                     setReviewSolicitud(null);
                     setSelectedEquipo({
@@ -543,7 +376,6 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 }
             } else if (type === 'TRASPASO') {
                 if (reviewSolicitud.datos_json?.id_equipo) {
-                    showToast({ id: 'form-traspaso-info', type: 'info', message: 'Rellene los campos para continuar', duration: 5000 });
                     const equipId = Number(reviewSolicitud.datos_json.id_equipo);
                     hideNotification(`${reviewSolicitud.id_solicitud}-${reviewSolicitud.estado}`);
                     setReviewSolicitud(null);
@@ -558,27 +390,22 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                     setViewMode('form');
                 }
             } else if (type === 'VIGENCIA_PROXIMA') {
-                // For Vigencia, we reuse the reactivation modal to pick/confirm the new date
                 const idEquipo = reviewSolicitud.datos_json.id_equipo;
                 if (idEquipo) {
                     setEquipoAltaPending({
                         id: String(idEquipo),
-                        nombre: reviewSolicitud.datos_json.nombre_equipo || reviewSolicitud.datos_json.nombre || 'Equipo',
-                        codigo: reviewSolicitud.datos_json.codigo_equipo || reviewSolicitud.datos_json.codigo || '',
+                        nombre: reviewSolicitud.datos_json.nombre_equipo || 'Equipo',
+                        codigo: reviewSolicitud.datos_json.codigo_equipo || '',
                         originalId: Number(idEquipo),
                         datos_json: reviewSolicitud.datos_json,
                         id_solicitud: reviewSolicitud.id_solicitud,
-                        vigencia_propuesta: reviewSolicitud.datos_json.nueva_vigencia_solicitada || reviewSolicitud.datos_json.vigencia
+                        vigencia_propuesta: reviewSolicitud.datos_json.nueva_vigencia_solicitada
                     } as any);
-                    if (reviewSolicitud.datos_json.nueva_vigencia_solicitada || reviewSolicitud.datos_json.vigencia) {
-                        setReactivationVigencia(reviewSolicitud.datos_json.nueva_vigencia_solicitada || reviewSolicitud.datos_json.vigencia);
-                    }
+                    setReactivationVigencia(reviewSolicitud.datos_json.nueva_vigencia_solicitada || '');
                     setShowConfirmAltaModal(true);
                     setReviewSolicitud(null);
                 }
-            } else if (type === 'VIGENCIA_PROXIMA') {
-                // ... (existing Vigencia code)
-            } else if (type === 'EQUIPO_PERDIDO' || type === 'REPORTE_PROBLEMA' || type === 'REVISION' || type === 'EQUIPO_DESHABILITADO') {
+            } else if (['EQUIPO_PERDIDO', 'REPORTE_PROBLEMA', 'REVISION', 'EQUIPO_DESHABILITADO'].includes(type)) {
                 if (reviewSolicitud.estado === 'PENDIENTE_CALIDAD') {
                     setResolutionFeedback('');
                     setResolutionDate(reviewSolicitud.datos_json?.vigencia || '');
@@ -588,19 +415,14 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 } else {
                     setProcessingAction(true);
                     try {
-                        await adminService.updateSolicitudStatus(
-                            reviewSolicitud.id_solicitud,
-                            'APROBADO',
-                            'Solicitud aprobada correctamente por Calidad'
-                        );
-                        showToast({ type: 'success', message: 'Solicitud aprobada correctamente' });
+                        await adminService.updateSolicitudStatus(reviewSolicitud.id_solicitud, 'APROBADO', 'Aprobado por Calidad');
+                        showToast({ type: 'success', message: 'Solicitud aprobada' });
                         hideNotification(`${reviewSolicitud.id_solicitud}-${reviewSolicitud.estado}`);
                         setReviewSolicitud(null);
                         loadSolicitudes();
                         fetchData();
                     } catch (error) {
-                        console.error("Error approving request:", error);
-                        showToast({ type: 'error', message: 'Error al aprobar la solicitud' });
+                        showToast({ type: 'error', message: 'Error al aprobar' });
                     } finally {
                         setProcessingAction(false);
                     }
@@ -610,191 +432,77 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     };
 
     const confirmFinalResolution = async () => {
-        if (!resolutionFeedback.trim()) {
-            showToast({ type: 'warning', message: 'Debe ingresar una observación de calidad' });
-            return;
-        }
-
-        const idSolicitud = Number(solicitudInResolution?.id_solicitud);
-        if (!idSolicitud) return;
-
+        if (!resolutionFeedback.trim()) return;
         setProcessingAction(true);
         try {
-            await adminService.updateSolicitudStatus(
-                idSolicitud,
-                'APROBADO',
-                resolutionFeedback,
-                undefined,
-                undefined,
-                undefined
-            );
-
-            // If we have a resolution date, we also call updateEquipo to be sure
-            const idEquipo = solicitudInResolution?.datos_json?.id_equipo || solicitudInResolution?.datos_json?.id_equipo_original;
+            await adminService.updateSolicitudStatus(solicitudInResolution.id_solicitud, 'APROBADO', resolutionFeedback);
+            const idEquipo = solicitudInResolution.datos_json?.id_equipo || solicitudInResolution.datos_json?.id_equipo_original;
             if (idEquipo && resolutionDate) {
-                // If it was ALTA or EQUIPO_DESHABILITADO, we ensure it's reactivated (status: Activo)
                 await adminService.updateEquipo(idEquipo, {
                     vigencia: resolutionDate,
-                    estado: 'Activo', // Force reactivation
-                    observacion: `Reactivación aprobada por Calidad: ${resolutionFeedback}`
+                    estado: 'Activo',
+                    observacion: `Reactivación aprobada: ${resolutionFeedback}`
                 });
             }
-
-            showToast({ type: 'success', message: 'Solicitud procesada y aprobada correctamente' });
+            showToast({ type: 'success', message: 'Resolución completada' });
             setShowResolutionModal(false);
-            setSolicitudInResolution(null);
             loadSolicitudes();
             fetchData();
         } catch (error) {
-            console.error("Error in final resolution:", error);
-            showToast({ type: 'error', message: 'Error al procesar la resolución' });
+            showToast({ type: 'error', message: 'Error procesando resolución' });
         } finally {
             setProcessingAction(false);
         }
     };
 
-
     const confirmApproveAlta = async () => {
-        if (!equipoAltaPending) return;
-        if (!reactivationVigencia) {
-            showToast({ id: 'vigencia-warning', type: 'warning', message: 'Debe seleccionar una fecha de vigencia' });
-            return;
-        }
-
+        if (!equipoAltaPending || !reactivationVigencia) return;
         setProcessingAction(true);
         try {
-            // 1. Fetch current data from DB to ensure no fields are lost
-            const response = await equipoService.getEquipoById(equipoAltaPending.originalId);
-            const currentEquipment = response.success ? response.data : (equipoAltaPending as any).datos_originales;
-
-            // Determine if it should stay in its current state (Vigencia Update) or be forced to Activo (Reactivation)
-            const currentSolicitud = reviewSolicitud || { id_solicitud: equipoAltaPending.id_solicitud, datos_json: equipoAltaPending.datos_json, tipo_solicitud: 'ALTA' };
-            const isVigenciaOnly = currentSolicitud.tipo_solicitud === 'VIGENCIA_PROXIMA';
+            const resp = await equipoService.getEquipoById(equipoAltaPending.originalId);
+            const current = resp.success ? resp.data : {};
+            const isVigenciaOnly = equipoAltaPending.datos_json?.tipo_solicitud === 'VIGENCIA_PROXIMA';
 
             await equipoService.updateEquipo(equipoAltaPending.originalId, {
-                ...currentEquipment,
-                estado: isVigenciaOnly ? (currentEquipment?.estado || 'Activo') : 'Activo',
+                ...current,
+                estado: isVigenciaOnly ? (current.estado || 'Activo') : 'Activo',
                 vigencia: reactivationVigencia
             });
 
-            // 2. Handle partial or full approval
-            const equiposAlta = currentSolicitud.datos_json?.equipos_alta;
+            const currentSol = reviewSolicitud || { id_solicitud: equipoAltaPending.id_solicitud, datos_json: equipoAltaPending.datos_json };
+            const eqAltas = currentSol.datos_json?.equipos_alta;
 
-            if (equiposAlta) {
-                const updatedEquiposAlta = equiposAlta.map((e: any) =>
-                    String(e.id) === String(equipoAltaPending.id) ? { ...e, procesado: true } : e
-                );
-                const allProcessed = updatedEquiposAlta.every((e: any) => e.procesado);
-                const updatedDatosJson = {
-                    ...currentSolicitud.datos_json,
-                    equipos_alta: updatedEquiposAlta
-                };
-
-                if (allProcessed) {
-                    await adminService.updateSolicitudStatus(
-                        equipoAltaPending.id_solicitud!,
-                        'APROBADO',
-                        'Reactivación completada',
-                        updatedDatosJson,
-                        equipoAltaPending.id,
-                        'APROBADO'
-                    );
-                    hideNotification(`${equipoAltaPending.id_solicitud}-${reviewSolicitud?.estado || 'PENDIENTE'}`);
-                    setReviewSolicitud(null);
-                } else {
-                    await adminService.updateSolicitudStatus(
-                        equipoAltaPending.id_solicitud!,
-                        'PENDIENTE',
-                        'Reactivación parcial procesada',
-                        updatedDatosJson,
-                        equipoAltaPending.id,
-                        'APROBADO'
-                    );
-                    // Update local review modal state to show "REACTIVADO" immediately
-                    setReviewSolicitud({ ...currentSolicitud, datos_json: updatedDatosJson });
-                }
-            } else {
+            if (eqAltas) {
+                const updated = eqAltas.map((e: any) => String(e.id) === String(equipoAltaPending.id) ? { ...e, procesado: true } : e);
+                const allDone = updated.every((e: any) => e.procesado);
+                const newJson = { ...currentSol.datos_json, equipos_alta: updated };
+                
                 await adminService.updateSolicitudStatus(
                     equipoAltaPending.id_solicitud!,
-                    'APROBADO',
-                    isVigenciaOnly ? 'Vigencia actualizada correctamente' : 'Equipo reactivado correctamente',
-                    undefined,
+                    allDone ? 'APROBADO' : 'PENDIENTE',
+                    allDone ? 'Reactivación finalizada' : 'Parcial procesada',
+                    newJson,
                     equipoAltaPending.id,
                     'APROBADO'
                 );
-                hideNotification(`${equipoAltaPending.id_solicitud}-${reviewSolicitud?.estado || 'PENDIENTE'}`);
+                if (allDone) {
+                    setReviewSolicitud(null);
+                    hideNotification(`${equipoAltaPending.id_solicitud}-PENDIENTE`);
+                } else {
+                    setReviewSolicitud({ ...currentSol, datos_json: newJson });
+                }
+            } else {
+                await adminService.updateSolicitudStatus(equipoAltaPending.id_solicitud!, 'APROBADO', 'Procesado', undefined, equipoAltaPending.id, 'APROBADO');
+                setReviewSolicitud(null);
+                hideNotification(`${equipoAltaPending.id_solicitud}-PENDIENTE`);
             }
 
-            showToast({ type: 'success', message: isVigenciaOnly ? `Vigencia de ${equipoAltaPending.nombre} actualizada` : `Equipo ${equipoAltaPending.nombre} reactivado`, duration: 5000 });
-            setEquipoAltaPending(null);
+            showToast({ type: 'success', message: 'Reactivación correcta' });
             setShowConfirmAltaModal(false);
-            setReactivationVigencia('');
             fetchData();
             loadSolicitudes();
         } catch (error) {
-            console.error("Error activating equipment:", error);
-            showToast({ type: 'error', message: 'Error al procesar la solicitud' });
-        } finally {
-            setProcessingAction(false);
-        }
-    };
-
-    const handleApproveAllAlta = async () => {
-        if (!reviewSolicitud) return;
-        const pendingEquipos = (reviewSolicitud.datos_json?.equipos_alta || []).filter((e: any) => !e.procesado);
-        if (pendingEquipos.length === 0) return;
-
-        if (!reactivationVigencia) {
-            // We reuse the confirm modal to get the date for all
-            setEquipoAltaPending({
-                id: 'all',
-                nombre: 'TODOS LOS EQUIPOS PENDIENTES',
-                codigo: 'Masivo',
-                originalId: 0,
-                datos_json: reviewSolicitud.datos_json,
-                id_solicitud: reviewSolicitud.id_solicitud
-            } as any);
-            setShowConfirmAltaModal(true);
-            return;
-        }
-
-        setProcessingAction(true);
-        try {
-            for (const eq of pendingEquipos) {
-                // Fetch latest data for each equipment
-                const resp = await equipoService.getEquipoById(Number(eq.id));
-                const equipmentData = resp.success ? resp.data : (eq.datos_originales || eq);
-
-                await equipoService.updateEquipo(Number(eq.id), {
-                    ...equipmentData,
-                    estado: 'Activo',
-                    vigencia: reactivationVigencia
-                });
-            }
-
-            const updatedEquiposAlta = (reviewSolicitud.datos_json?.equipos_alta || []).map((e: any) => ({ ...e, procesado: true }));
-            const updatedDatosJson = {
-                ...reviewSolicitud.datos_json,
-                equipos_alta: updatedEquiposAlta
-            };
-
-            await adminService.updateSolicitudStatus(
-                reviewSolicitud.id_solicitud,
-                'APROBADO',
-                'Todos los equipos han sido reactivados',
-                updatedDatosJson
-            );
-            hideNotification(`${reviewSolicitud.id_solicitud}-${reviewSolicitud.estado}`);
-
-            showToast({ type: 'success', message: `${pendingEquipos.length} equipos reactivados correctamente`, duration: 5000 });
-            setReviewSolicitud(null);
-            setShowConfirmAltaModal(false);
-            setReactivationVigencia('');
-            loadSolicitudes();
-            fetchData();
-        } catch (error) {
-            console.error("Error in bulk reactivation:", error);
-            showToast({ type: 'error', message: 'Error al procesar la reactivación masiva' });
+            showToast({ type: 'error', message: 'Error al activar' });
         } finally {
             setProcessingAction(false);
         }
@@ -802,1445 +510,788 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
 
     const confirmApproveBaja = async () => {
         if (!equipoBajaPending) return;
-
-        const isLostEquipment = equipoBajaPending.datos_json?.tipo_solicitud === 'EQUIPO_PERDIDO';
-        if (isLostEquipment && !bajaObservation.trim()) {
-            showToast({ type: 'warning', message: 'Debe ingresar una observación para reportes de pérdida' });
-            return;
-        }
+        const isLost = equipoBajaPending.datos_json?.tipo_solicitud === 'EQUIPO_PERDIDO';
+        if (isLost && !bajaObservation.trim()) return;
 
         setProcessingAction(true);
         try {
-            // Only physically delete if it's a normal BAJA. 
-            // For EQUIPO_PERDIDO, the backend handles the status update to "Inactivo" + Observation
-            if (!isLostEquipment) {
-                await equipoService.deleteEquipo(Number(equipoBajaPending.id));
-            }
-
-            const updatedEquiposBaja = (equipoBajaPending.datos_json?.equipos_baja || []).map((e: any) =>
+            if (!isLost) await equipoService.deleteEquipo(Number(equipoBajaPending.id));
+            
+            const eqBajas = (equipoBajaPending.datos_json?.equipos_baja || []).map((e: any) =>
                 String(e.id) === String(equipoBajaPending.id) ? { ...e, procesado: true } : e
             );
-            const allProcessed = updatedEquiposBaja.every((e: any) => e.procesado);
-            const updatedDatosJson = {
-                ...equipoBajaPending.datos_json,
-                equipos_baja: updatedEquiposBaja
-            };
+            const allDone = eqBajas.every((e: any) => e.procesado);
+            const newJson = { ...equipoBajaPending.datos_json, equipos_baja: eqBajas };
 
-            const successMessage = isLostEquipment ? 'Pérdida procesada correctamente' : 'Baja procesada correctamente';
-            const feedbackToSend = isLostEquipment ? bajaObservation : 'Baja procesada correctamente';
+            await adminService.updateSolicitudStatus(
+                equipoBajaPending.id_solicitud!,
+                allDone ? 'APROBADO' : 'PENDIENTE',
+                isLost ? bajaObservation : 'Baja procesada',
+                newJson,
+                equipoBajaPending.id,
+                'APROBADO'
+            );
 
-            if (allProcessed) {
-                await adminService.updateSolicitudStatus(
-                    equipoBajaPending.id_solicitud!,
-                    'APROBADO',
-                    feedbackToSend,
-                    updatedDatosJson,
-                    equipoBajaPending.id,
-                    'APROBADO'
-                );
-                showToast({ type: 'success', message: 'Solicitud completada' });
+            if (allDone) {
                 setReviewSolicitud(null);
-                hideNotification(`${equipoBajaPending.id_solicitud}-${reviewSolicitud?.estado || 'PENDIENTE'}`);
+                hideNotification(`${equipoBajaPending.id_solicitud}-PENDIENTE`);
             } else {
-                await adminService.updateSolicitudStatus(
-                    equipoBajaPending.id_solicitud!,
-                    'PENDIENTE',
-                    feedbackToSend || 'Procesado parcial',
-                    updatedDatosJson,
-                    equipoBajaPending.id,
-                    'APROBADO'
-                );
-                // Update local review modal state to show "PROCESADO" immediately
-                setReviewSolicitud((prev: any) => prev ? { ...prev, datos_json: updatedDatosJson } : null);
-                showToast({ type: 'success', message: successMessage });
+                setReviewSolicitud((prev: any) => prev ? { ...prev, datos_json: newJson } : null);
             }
-
-            setEquipoBajaPending(null);
             setShowConfirmBajaModal(false);
-            setBajaObservation('');
             fetchData();
             loadSolicitudes();
         } catch (error) {
-            console.error("Error approving deletion:", error);
-            showToast({ type: 'error', message: 'Error al procesar la solicitud' });
+            showToast({ type: 'error', message: 'Error en baja' });
+        } finally {
+            setProcessingAction(false);
+        }
+    };
+
+    const handleReject = async (feedback: string) => {
+        if (!reviewSolicitud) return;
+        setProcessingAction(true);
+        try {
+            const finalStatus = reviewSolicitud.estado === 'PENDIENTE_TECNICA' ? 'RECHAZADO_TECNICA' : 'RECHAZADA';
+            await adminService.updateSolicitudStatus(reviewSolicitud.id_solicitud, finalStatus, feedback);
+            showToast({ type: 'success', message: 'Rechazo completado' });
+            hideNotification(`${reviewSolicitud.id_solicitud}-${reviewSolicitud.estado}`);
+            setReviewSolicitud(null);
+            loadSolicitudes();
+        } catch (error) {
+            showToast({ type: 'error', message: 'Error al rechazar' });
         } finally {
             setProcessingAction(false);
         }
     };
 
     const handleApproveAllBaja = async () => {
-        if (!reviewSolicitud) return;
-        const pendingEquipos = (reviewSolicitud.datos_json?.equipos_baja || []).filter((e: any) => !e.procesado);
-        if (pendingEquipos.length === 0) return;
+        if (!reviewSolicitud || !reviewSolicitud.datos_json?.equipos_baja) return;
         setProcessingAction(true);
         try {
-            for (const eq of pendingEquipos) {
-                await equipoService.deleteEquipo(Number(eq.id));
+            const list = reviewSolicitud.datos_json.equipos_baja;
+            const pending = list.filter((e: any) => !e.procesado);
+            for (const item of pending) {
+                await equipoService.deleteEquipo(Number(item.id));
             }
-            const updatedEquiposBaja = (reviewSolicitud.datos_json?.equipos_baja || []).map((e: any) => ({ ...e, procesado: true }));
-            const updatedDatosJson = {
-                ...reviewSolicitud.datos_json,
-                equipos_baja: updatedEquiposBaja
-            };
-            await adminService.updateSolicitudStatus(reviewSolicitud.id_solicitud, 'APROBADO', 'Todos los equipos han sido dados de baja', updatedDatosJson);
+            const updatedList = list.map((e: any) => ({ ...e, procesado: true }));
+            await adminService.updateSolicitudStatus(
+                reviewSolicitud.id_solicitud,
+                'APROBADO',
+                'Baja masiva aprobada por administración',
+                { ...reviewSolicitud.datos_json, equipos_baja: updatedList }
+            );
+            showToast({ type: 'success', message: 'Todos los equipos han sido dados de baja' });
             hideNotification(`${reviewSolicitud.id_solicitud}-${reviewSolicitud.estado}`);
-            showToast({ type: 'success', message: `${pendingEquipos.length} equipos dados de baja correctamente`, duration: 5000 });
             setReviewSolicitud(null);
             loadSolicitudes();
             fetchData();
         } catch (error) {
-            console.error("Error in bulk approval:", error);
-            showToast({ type: 'error', message: 'Error al procesar la baja masiva' });
+            showToast({ type: 'error', message: 'Error en procesamiento masivo' });
         } finally {
             setProcessingAction(false);
         }
     };
 
+    const handleApproveAllAlta = async () => {
+        if (!reviewSolicitud || !reviewSolicitud.datos_json?.equipos_alta) return;
+        setProcessingAction(true);
+        try {
+            const list = reviewSolicitud.datos_json.equipos_alta;
+            const pending = list.filter((e: any) => !e.procesado);
+            for (const item of pending) {
+                const resp = await equipoService.getEquipoById(item.id);
+                const current = resp.success ? resp.data : {};
+                await equipoService.updateEquipo(item.id, {
+                    ...current,
+                    estado: 'Activo',
+                    vigencia: item.vigencia || current.vigencia
+                });
+            }
+            const updatedList = list.map((e: any) => ({ ...e, procesado: true }));
+            await adminService.updateSolicitudStatus(
+                reviewSolicitud.id_solicitud,
+                'APROBADO',
+                'Reactivación masiva aprobada',
+                { ...reviewSolicitud.datos_json, equipos_alta: updatedList }
+            );
+            showToast({ type: 'success', message: 'Todos los equipos han sido reactivados' });
+            hideNotification(`${reviewSolicitud.id_solicitud}-${reviewSolicitud.estado}`);
+            setReviewSolicitud(null);
+            loadSolicitudes();
+            fetchData();
+        } catch (error) {
+            showToast({ type: 'error', message: 'Error en reactivación masiva' });
+        } finally {
+            setProcessingAction(false);
+        }
+    };
 
-    const handleOpenIndividualRejection = (equipo: any, type: 'ALTA' | 'BAJA') => {
-        setRejectionTarget({ type: 'ITEM', equipo, bulkType: type });
+    const handleOpenIndividualRejection = (item: any, bulkType: 'ALTA' | 'BAJA') => {
+        setRejectionTarget({ type: 'ITEM', equipo: item, bulkType });
         setLocalRejectionFeedback('');
         setShowRejectionReasonModal(true);
     };
 
-    const handleRejectIndividualItem = async (equipo: any, type: 'ALTA' | 'BAJA', feedback: string) => {
-        if (!reviewSolicitud) return;
-
+    const confirmRejectWithFeedback = async () => {
+        if (!reviewSolicitud || !localRejectionFeedback.trim()) return;
         setProcessingAction(true);
         try {
-            const currentSolicitud = reviewSolicitud;
-            const field = type === 'ALTA' ? 'equipos_alta' : 'equipos_baja';
-            const list = currentSolicitud.datos_json?.[field] || [];
-
-            const updatedList = list.map((e: any) =>
-                String(e.id) === String(equipo.id) ? { ...e, procesado: true, rechazado: true } : e
-            );
-
-            const updatedDatosJson = {
-                ...currentSolicitud.datos_json,
-                [field]: updatedList
-            };
-
-            const allProcessed = updatedList.every((e: any) => e.procesado);
-            const anyApproved = updatedList.some((e: any) => e.procesado && !e.rechazado);
-
-            if (allProcessed) {
-                const finalStatus = anyApproved ? 'APROBADO' : 'RECHAZADO';
-                await adminService.updateSolicitudStatus(
-                    currentSolicitud.id_solicitud,
-                    finalStatus,
-                    feedback,
-                    updatedDatosJson,
-                    equipo.id,
-                    'RECHAZADO'
-                );
-                hideNotification(`${currentSolicitud.id_solicitud}-${currentSolicitud.estado}`);
-                setReviewSolicitud(null);
+            if (rejectionTarget?.type === 'SOLICITUD') {
+                await handleReject(localRejectionFeedback);
             } else {
+                const { equipo, bulkType } = rejectionTarget!;
+                const field = bulkType === 'BAJA' ? 'equipos_baja' : 'equipos_alta';
+                const list = reviewSolicitud.datos_json[field];
+                const updatedList = list.map((e: any) => 
+                    String(e.id) === String(equipo.id) ? { ...e, procesado: true, rechazado: true } : e
+                );
+                const allDone = updatedList.every((e: any) => e.procesado);
+                const someApproved = updatedList.some((e: any) => e.procesado && !e.rechazado);
+
                 await adminService.updateSolicitudStatus(
-                    currentSolicitud.id_solicitud,
-                    'PENDIENTE',
-                    feedback || 'Rechazo parcial procesado',
-                    updatedDatosJson,
+                    reviewSolicitud.id_solicitud,
+                    allDone ? (someApproved ? 'APROBADO' : 'RECHAZADO') : 'PENDIENTE',
+                    localRejectionFeedback,
+                    { ...reviewSolicitud.datos_json, [field]: updatedList },
                     equipo.id,
                     'RECHAZADO'
                 );
-                setReviewSolicitud({ ...currentSolicitud, datos_json: updatedDatosJson });
-            }
 
-            showToast({ type: 'success', message: `Equipo ${equipo.nombre} rechazado` });
+                if (allDone) {
+                    hideNotification(`${reviewSolicitud.id_solicitud}-${reviewSolicitud.estado}`);
+                    setReviewSolicitud(null);
+                } else {
+                    setReviewSolicitud({
+                        ...reviewSolicitud,
+                        datos_json: { ...reviewSolicitud.datos_json, [field]: updatedList }
+                    });
+                }
+                showToast({ type: 'info', message: 'Item rechazado' });
+            }
+            setShowRejectionReasonModal(false);
             loadSolicitudes();
         } catch (error) {
-            console.error("Error individual rejection:", error);
-            showToast({ type: 'error', message: 'Error al rechazar el equipo' });
+            showToast({ type: 'error', message: 'Error al rechazar' });
         } finally {
             setProcessingAction(false);
         }
     };
 
-    const confirmRejectWithFeedback = async () => {
-        if (!reviewSolicitud || !rejectionTarget || !localRejectionFeedback.trim()) {
-            showToast({ type: 'warning', message: 'Debe ingresar un motivo para rechazar' });
-            return;
-        }
-
-        const feedback = localRejectionFeedback;
-        setShowRejectionReasonModal(false);
-
-        if (rejectionTarget.type === 'ITEM') {
-            await handleRejectIndividualItem(rejectionTarget.equipo, rejectionTarget.bulkType!, feedback);
-        } else {
-            await handleReject(feedback);
-        }
-        setRejectionTarget(null);
-        setLocalRejectionFeedback('');
-    };
-
     const handleClearFilters = () => {
         setSearchTerm('');
-        setFilterTipo('');
-        setFilterSede('');
-        setFilterEstado('');
+        setFilterTipo(null);
+        setFilterSede(null);
+        setFilterEstado(null);
+        setFilterMuestreador(null);
         setFilterFechaDesde('');
         setFilterFechaHasta('');
-        setFilterMuestreador('');
         setPage(1);
     };
 
-    const hasActiveFilters = searchTerm !== '' || filterTipo !== '' || filterSede !== '' || filterEstado !== '' || filterFechaDesde !== '' || filterFechaHasta !== '' || filterMuestreador !== '';
+    // --- Helper Logic ---
+    const getTipoLabelDisplay = (sol: any) => {
+        const type = sol.tipo_solicitud;
+        if (type === 'ALTA') return sol.datos_json?.isReactivation ? 'Activación' : 'Creación';
+        if (['NUEVO_EQUIPO', 'BAJA', 'TRASPASO', 'VIGENCIA_PROXIMA', 'REPORTE_PROBLEMA', 'REVISION', 'EQUIPO_PERDIDO', 'EQUIPO_DESHABILITADO'].includes(type)) {
+            return type.replace(/_/g, ' ');
+        }
+        return type;
+    };
 
+    const getPendingRequestsForEquipo = (id: number) => {
+        return solicitudesRealizadas.filter(sol => {
+            const d = sol.datos_json || {};
+            if (sol.tipo_solicitud === 'TRASPASO' && String(d.id_equipo) === String(id)) return true;
+            if (sol.tipo_solicitud === 'BAJA' && d.equipos_baja?.some((eb: any) => String(eb.id) === String(id))) return true;
+            if (sol.tipo_solicitud === 'ALTA' && d.isReactivation && d.equipos_alta?.some((ea: any) => String(ea.id) === String(id))) return true;
+            return false;
+        });
+    };
+
+    const hasActiveFilters = useMemo(() => 
+        searchTerm !== '' || filterTipo || filterSede || filterEstado || filterMuestreador || filterFechaDesde || filterFechaHasta,
+    [searchTerm, filterTipo, filterSede, filterEstado, filterMuestreador, filterFechaDesde, filterFechaHasta]);
+
+    // --- Render Logic ---
     if (viewMode === 'form') {
         return (
-            <div className={`admin-container animate-fade-in ${viewMode === 'form' ? 'form-view' : ''}`}>
+            <Container fluid py="xl">
                 <EquipoForm
                     initialData={selectedEquipo}
                     onCancel={() => setViewMode('list')}
-                    onSave={handleFormSave}
+                    onSave={() => { setViewMode('list'); fetchData(); loadSolicitudes(); }}
                     pendingRequests={selectedEquipo ? getPendingRequestsForEquipo(selectedEquipo.id_equipo) : []}
                     onRefreshSolicitudes={() => { loadSolicitudes(); fetchData(); }}
                 />
-            </div>
+            </Container>
         );
     }
 
     return (
-        <div className="admin-container animate-fade-in">
-            {/* Optimized Header */}
-            <div className="admin-header-section responsive-header">
-                <div style={{ justifySelf: 'start' }}>
-                    <button
-                        onClick={() => {
-                            if ((viewMode as string) === 'form') {
-                                setViewMode('list');
-                            } else {
-                                onBack();
-                            }
-                        }}
-                        className="btn-back"
-                        style={{ marginBottom: 0 }}
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-                        </svg>
-                        Volver
-                    </button>
-                </div>
-                <div style={{ justifySelf: 'center' }}>
-                    <h1 className="admin-title" style={{ margin: 0, fontSize: '1.5rem' }}>Gestión de Equipos</h1>
-                </div>
-                <div style={{ justifySelf: 'end' }}>
-                    <div style={{ position: 'relative' }} ref={pendingListRef}>
-                        <button
-                            className={`btn-pending-requests ${showPendingList ? 'active' : ''}`}
-                            onClick={() => setShowPendingList(!showPendingList)}
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.5rem',
-                                padding: '0.5rem 0.75rem',
-                                borderRadius: '8px',
-                                border: '1px solid #e2e8f0',
-                                background: showPendingList ? '#f1f5f9' : 'white',
-                                color: '#475569',
-                                fontSize: '0.9rem',
-                                fontWeight: 500,
-                                cursor: 'pointer',
-                                transition: 'all 0.2s'
-                            }}
-                        >
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-                            </svg>
-                            Solicitudes
-                            {solicitudesRealizadas.length > 0 && (
-                                <span style={{
-                                    background: '#ef4444',
-                                    color: 'white',
-                                    fontSize: '0.7rem',
-                                    padding: '1px 5px',
-                                    borderRadius: '10px',
-                                    minWidth: '18px',
-                                    textAlign: 'center'
-                                }}>
-                                    {solicitudesRealizadas.length}
-                                </span>
-                            )}
-                        </button>
+        <Container fluid py="lg">
+            <Stack gap="lg">
+                <Paper withBorder p="md" radius="md" shadow="sm">
+                    <Group justify="space-between">
+                        <Group>
+                            <ActionIcon variant="subtle" size="lg" onClick={onBack} color="gray">
+                                <IconArrowLeft size={20} />
+                            </ActionIcon>
+                            <Box>
+                                <Title order={2}>Gestión de Equipos</Title>
+                                <Text size="sm" c="dimmed">Administra y supervisa los equipos de medición del sistema.</Text>
+                            </Box>
+                        </Group>
 
-                        {showPendingList && (
-                            <div className="pending-dropdown animate-dropdown-reveal-centered" style={{
-                                position: 'absolute',
-                                top: 'calc(100% + 8px)',
-                                left: '50%',
-                                transform: 'translateX(-50%)',
-                                right: 'auto',
-                                width: '320px',
-                                maxWidth: '90vw',
-                                background: 'white',
-                                borderRadius: '12px',
-                                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-                                border: '1px solid #e2e8f0',
-                                zIndex: 1000,
-                                overflow: 'hidden'
-                            }}>
-                                <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9', fontWeight: 600, fontSize: '0.85rem', color: '#1e293b' }}>
-                                    Lista de Pendientes
-                                </div>
-                                <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                                    {solicitudesRealizadas.length === 0 ? (
-                                        <div style={{ padding: '1.5rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>
-                                            No hay solicitudes pendientes
-                                        </div>
-                                    ) : (
-                                        solicitudesRealizadas.map((sol) => (
-                                            <div
-                                                key={sol.id_solicitud}
-                                                className="pending-item"
-                                                style={{
-                                                    padding: '0.75rem 1rem',
-                                                    borderBottom: '1px solid #f8fafc',
-                                                    cursor: 'pointer',
-                                                    transition: 'background-color 0.2s'
-                                                }}
-                                                onClick={() => {
-                                                    handleNotificationClick(sol);
-                                                    setShowPendingList(false);
-                                                }}
-                                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
-                                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                                            >
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                                                    <span style={{
-                                                        fontSize: '0.65rem',
-                                                        fontWeight: 'bold',
-                                                        padding: '1px 5px',
-                                                        borderRadius: '4px',
-                                                        background: (sol.tipo_solicitud === 'ALTA' || sol.tipo_solicitud === 'NUEVO_EQUIPO') ? '#dcfce7' : sol.tipo_solicitud === 'TRASPASO' ? '#dbeafe' : '#fee2e2',
-                                                        color: (sol.tipo_solicitud === 'ALTA' || sol.tipo_solicitud === 'NUEVO_EQUIPO') ? '#166534' : sol.tipo_solicitud === 'TRASPASO' ? '#1e40af' : '#991b1b'
-                                                    }}>
-                                                        {getTipoLabelDisplay(sol)}
-                                                    </span>
-                                                    <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
-                                                        {new Date(sol.fecha_solicitud).toLocaleDateString()}
-                                                    </span>
-                                                </div>
-                                                <div style={{ fontWeight: 600, fontSize: '0.8rem', color: '#334155' }}>
-                                                    {sol.datos_json?.nombre || sol.datos_json?.nombre_equipo || sol.datos_json?.codigo || sol.datos_json?.codigo_equipo || 'Solicitud'}
-                                                </div>
-                                                <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                                                    Solicitado por: {sol.nombre_solicitante || 'Usuario'}
-                                                </div>
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </div>
-
-            {/* Filter Card: Responsive with Toggle Logic */}
-            <div className={`filter-card ${showMobileFilters ? 'mobile-expanded' : ''}`}>
-                <div className="filter-controls-left">
-                    <div className="search-container">
-                        <div
-                            className="search-icon"
-                            onClick={() => setIsSearchExpanded(!isSearchExpanded)}
-                        >
-                            {isSearchExpanded && searchTerm ? (
-                                <svg
-                                    className="close-icon"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSearchTerm('');
-                                        setIsSearchExpanded(false);
-                                    }}
-                                    width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
-                                >
-                                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                                </svg>
-                            ) : (
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                            )}
-                        </div>
-                        <input
-                            type="text"
-                            className={`search-input ${isSearchExpanded || searchTerm ? 'expanded' : ''}`}
-                            placeholder="Buscar..."
-                            value={searchTerm}
-                            onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
-                            onBlur={() => { if (!searchTerm) setIsSearchExpanded(false); }}
-                            autoFocus={isSearchExpanded}
-                        />
-                    </div>
-                </div>
-
-                <div className="filter-actions-right" style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                    {/* Contenedor del Dropdown con Ref para cerrar al hacer clic fuera */}
-                    <div className="filter-dropdown-wrapper" ref={filterMenuRef} style={{ position: 'relative' }}>
-                        {/* Botón de Filtros */}
-                        <button
-                            className={`btn-filter-toggle ${showMobileFilters ? 'active' : ''}`}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setShowMobileFilters(!showMobileFilters);
-                            }}
-                        >
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                <line x1="3" y1="12" x2="21" y2="12"></line>
-                                <line x1="3" y1="6" x2="21" y2="6"></line>
-                                <line x1="3" y1="18" x2="21" y2="18"></line>
-                            </svg>
-                            {showMobileFilters ? 'Cerrar' : 'Filtros'}
-                        </button>
-
-                        {/* Área Colapsable (Ahora como popover) */}
-                        <div className="filter-collapsible-area">
-                            <div className="filter-group-content">
-                                <CustomSelect
-                                    value={filterTipo || 'Tipo'}
-                                    options={['Todos', ...catalogs.tipos]}
-                                    onChange={(v) => { setFilterTipo(v === 'Todos' ? '' : v); setPage(1); }}
-                                    width="200px"
-                                />
-                                <CustomSelect
-                                    value={filterSede || 'Sede'}
-                                    options={['Todos', ...catalogs.sedes]}
-                                    onChange={(v) => { setFilterSede(v === 'Todos' ? '' : v); setPage(1); }}
-                                    width="140px"
-                                />
-                                <CustomSelect
-                                    value={filterEstado || 'Estado'}
-                                    options={['Todos', ...catalogs.estados]}
-                                    onChange={(v) => { setFilterEstado(v === 'Todos' ? '' : v); setPage(1); }}
-                                    width="110px"
-                                />
-                                <CustomSelect
-                                    value={muestreadorList.find(m => String(m.id_muestreador) === filterMuestreador)?.nombre_muestreador || 'Muestreador'}
-                                    options={['Todos', ...muestreadorList.map(m => m.nombre_muestreador)]}
-                                    onChange={(v) => {
-                                        if (v === 'Todos') setFilterMuestreador('');
-                                        else {
-                                            const found = muestreadorList.find(m => m.nombre_muestreador === v);
-                                            if (found) setFilterMuestreador(String(found.id_muestreador));
-                                        }
-                                        setPage(1);
-                                    }}
-                                    width="160px"
-                                />
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                                    <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>Vigencia:</span>
-                                    <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-                                        <input
-                                            type="date"
-                                            className="custom-date-input"
-                                            style={{ padding: '0.4rem 0.6rem', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '0.85rem', color: '#334155', height: '36px', flex: 1 }}
-                                            value={filterFechaDesde}
-                                            onChange={(e) => { setFilterFechaDesde(e.target.value); setPage(1); }}
-                                            title="Vigencia Desde"
-                                        />
-                                        <span style={{ color: '#64748b', fontSize: '0.85rem' }}>-</span>
-                                        <input
-                                            type="date"
-                                            className="custom-date-input"
-                                            style={{ padding: '0.4rem 0.6rem', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '0.85rem', color: '#334155', height: '36px', flex: 1 }}
-                                            value={filterFechaHasta}
-                                            onChange={(e) => { setFilterFechaHasta(e.target.value); setPage(1); }}
-                                            title="Vigencia Hasta"
-                                        />
-                                    </div>
-                                </div>
-                                {hasActiveFilters && (
-                                    <button className="btn-clear" onClick={handleClearFilters}>
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12"></path></svg>
-                                        Limpiar
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    <button
-                        onClick={() => canCreateEquipo && handleCreate()}
-                        className="btn-primary"
-                        disabled={!canCreateEquipo}
-                        title={!canCreateEquipo ? 'No tienes permisos para crear equipos' : 'Nuevo Equipo'}
-                        style={{ opacity: canCreateEquipo ? 1 : 0.5, cursor: canCreateEquipo ? 'pointer' : 'not-allowed' }}
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" style={{ width: '20px', height: '20px' }}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                        </svg>
-                        Nuevo Equipo
-                    </button>
-
-                    <button
-                        onClick={() => setShowExportModal(true)}
-                        className="btn-filter-toggle"
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            padding: '0.6rem 1rem',
-                            borderRadius: '12px',
-                            border: '1px solid #e2e8f0',
-                            background: 'white',
-                            color: '#475569',
-                            fontSize: '0.9rem',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            transition: 'all 0.2s',
-                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-                        }}
-                    >
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                            <polyline points="7 10 12 15 17 10"></polyline>
-                            <line x1="12" y1="15" x2="12" y2="3"></line>
-                        </svg>
-                        Exportar
-                    </button>
-
-
-                </div>
-            </div>
-
-            {/* Table Area (Restored) */}
-            <div className="table-container" style={{ marginTop: '1.5rem' }}>
-                <table className="admin-table">
-                    <thead>
-                        <tr>
-                            <th style={{ textAlign: 'center', width: '20px', paddingRight: 0 }}></th>
-                            <th style={{ textAlign: 'center', paddingLeft: 0 }}>Código</th>
-                            <th style={{ textAlign: 'center' }}>Nombre</th>
-                            <th style={{ textAlign: 'center' }}>Tipo</th>
-                            <th style={{ textAlign: 'center' }}>Ubicación</th>
-                            <th style={{ textAlign: 'center' }}>Estado</th>
-                            <th style={{ textAlign: 'center' }}>Vigencia</th>
-                            <th style={{ textAlign: 'center' }}>Responsable</th>
-                            <th style={{ textAlign: 'center', width: '140px', minWidth: '140px', paddingRight: '2rem' }}>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {loading ? (
-                            <tr>
-                                <td colSpan={9} style={{ height: '300px', border: 'none', textAlign: 'center', verticalAlign: 'middle' }}>
-                                    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-                                        <div style={{ width: '30px', height: '30px', border: '3px solid #e2e8f0', borderTopColor: '#3b82f6', borderRadius: '50%', animation: 'spinner-spin 1s linear infinite' }}></div>
-                                        <span style={{ color: '#64748b', fontSize: '0.9rem', fontWeight: 500 }}>Cargando equipos...</span>
-                                    </div>
-                                </td>
-                            </tr>
-                        ) : equipos.length === 0 ? (
-                            <tr>
-                                <td colSpan={9} className="empty-state">No se encontraron equipos</td>
-                            </tr>
-                        ) : (
-                            equipos.map((equipo) => {
-                                const isInactive = equipo.estado?.toLowerCase() === 'inactivo';
-                                const hasPending = getPendingRequestsForEquipo(equipo.id_equipo).length > 0;
-                                const isSelected = highlightedId === equipo.id_equipo;
-
-                                // Helper for expiration check
-                                const checkIsExpiring = (vigenciaStr?: string) => {
-                                    if (!vigenciaStr) return false;
-                                    const d = new Date(vigenciaStr);
-                                    if (isNaN(d.getTime())) return false;
-                                    const today = new Date();
-                                    const diffTime = d.getTime() - today.getTime();
-                                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                                    return diffDays <= 30;
-                                };
-
-                                const isExpiring = checkIsExpiring(equipo.vigencia);
-
-                                // Status colors: Red (Inactive), Orange (Pending/Expiring), Blue (Active)
-                                let statusColor = '#4f46e5';
-                                if (isInactive) statusColor = '#ef4444';
-                                else if (hasPending || isExpiring) statusColor = '#f97316';
-
-                                return (
-                                    <tr
-                                        key={equipo.id_equipo}
-                                        className={isSelected ? 'row-highlighted' : ''}
-                                        onClick={() => {
-                                            setHighlightedId(equipo.id_equipo);
-                                            const pendingList = getPendingRequestsForEquipo(equipo.id_equipo);
-                                            if (pendingList.length > 0) {
-                                                const pending = pendingList[0];
-                                                showToast({
-                                                    id: `pending-solicitude-${equipo.id_equipo}`,
-                                                    type: 'warning',
-                                                    message: `Solicitud de ${pending.tipo_solicitud} Pendiente: ${pending.datos_json?.motivo || 'Sin motivo especificado'}`,
-                                                    duration: 8000
-                                                });
-                                            }
-                                            // Enable row click for edit on mobile
-                                            if (window.innerWidth < 1024 && canEditEquipo) {
-                                                handleEdit(equipo);
-                                            }
-                                        }}
-                                        onMouseEnter={e => {
-                                            e.currentTarget.style.backgroundColor = `${statusColor}15`;
-                                            e.currentTarget.style.borderLeftColor = statusColor;
-                                            e.currentTarget.style.boxShadow = `inset 0 0 0 1px ${statusColor}40, 0 4px 12px ${statusColor}15`;
-                                            e.currentTarget.style.zIndex = '1';
-                                        }}
-                                        onMouseLeave={e => {
-                                            e.currentTarget.style.backgroundColor = isSelected ? `${statusColor}10` : 'transparent';
-                                            e.currentTarget.style.borderLeftColor = isSelected ? statusColor : 'transparent';
-                                            e.currentTarget.style.boxShadow = isSelected ? `inset 0 0 0 1px ${statusColor}30` : 'none';
-                                            e.currentTarget.style.zIndex = '0';
-                                        }}
-                                        style={{
-                                            cursor: 'pointer',
-                                            opacity: isInactive ? 0.8 : 1,
-                                            backgroundColor: isSelected ? `${statusColor}10` : 'transparent',
-                                            borderLeft: `5px solid ${isSelected ? statusColor : 'transparent'}`,
-                                            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                                            position: 'relative'
-                                        }}
+                        <Group>
+                            <Menu shadow="md" width={300} closeOnItemClick={false}>
+                                <Menu.Target>
+                                    <Button 
+                                        variant="light" 
+                                        leftSection={<IconBell size={18} />}
+                                        rightSection={solicitudesRealizadas.length > 0 && <Badge size="xs" color="red" circle>{solicitudesRealizadas.length}</Badge>}
                                     >
-                                        <td style={{ textAlign: 'center', width: '20px', paddingRight: 0 }}>
-                                            {hasPending && (
-                                                <span title="Solicitud técnica pendiente" style={{ cursor: 'help', fontSize: '0.85rem' }}>
-                                                    ⚠️
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td style={{ whiteSpace: 'nowrap', textAlign: 'center', paddingLeft: 0 }}>
-                                            <span className="code-badge">{equipo.codigo}</span>
-                                        </td>
-                                        <td style={{ fontWeight: 500, whiteSpace: 'nowrap', textAlign: 'center' }}>
-                                            {equipo.nombre}
-                                        </td>
-                                        <td style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>{equipo.tipo}</td>
-                                        <td style={{ textAlign: 'center' }}>{equipo.ubicacion}</td>
-                                        <td style={{ textAlign: 'center' }}>
-                                            <span className={`status-pill ${equipo.estado?.toLowerCase() === 'activo' ? 'status-active' : 'status-inactive'}`}>
-                                                {equipo.estado}
-                                            </span>
-                                        </td>
-                                        <td style={{ textAlign: 'center', color: isExpiring ? '#f97316' : 'inherit', fontWeight: isExpiring ? 700 : 400 }}>
-                                            {equipo.vigencia}
-                                        </td>
-                                        <td style={{ textAlign: 'center' }}>{equipo.nombre_asignado || '---'}</td>
-                                        <td style={{ width: '100px', minWidth: '100px', paddingRight: '2rem' }}>
-                                            <div className="action-buttons" style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
-                                                <button
-                                                    className="btn-action-edit"
-                                                    onClick={(e) => { e.stopPropagation(); canEditEquipo && handleEdit(equipo); }}
-                                                    disabled={!canEditEquipo}
-                                                    title={!canEditEquipo ? 'No tienes permisos para editar' : 'Editar Equipo'}
-                                                    style={{ opacity: canEditEquipo ? 1 : 0.4, cursor: canEditEquipo ? 'pointer' : 'not-allowed' }}
+                                        Solicitudes
+                                    </Button>
+                                </Menu.Target>
+                                <Menu.Dropdown>
+                                    <Menu.Label>Solicitudes Pendientes</Menu.Label>
+                                    <ScrollArea.Autosize mah={400} type="scroll">
+                                        {solicitudesRealizadas.length === 0 ? (
+                                            <Box p="lg" style={{ textAlign: 'center' }}>
+                                                <Text size="xs" c="dimmed">No hay solicitudes pendientes.</Text>
+                                            </Box>
+                                        ) : (
+                                            solicitudesRealizadas.map(sol => (
+                                                <Menu.Item 
+                                                    key={sol.id_solicitud} 
+                                                    onClick={() => handleNotificationClick(sol)}
+                                                    leftSection={<IconInfoCircle size={16} color="blue" />}
                                                 >
-                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4L18.5 2.5z"></path></svg>
-                                                </button>
+                                                    <Stack gap={2}>
+                                                        <Group justify="space-between">
+                                                            <Text size="xs" fw={700}>{getTipoLabelDisplay(sol)}</Text>
+                                                            <Text size="xs" c="dimmed">{new Date(sol.fecha_solicitud).toLocaleDateString()}</Text>
+                                                        </Group>
+                                                        <Text size="xs" lineClamp={1}>{sol.datos_json?.nombre || sol.datos_json?.codigo || 'Solicitud'}</Text>
+                                                        <Text size="xs" c="dimmed">{sol.nombre_solicitante}</Text>
+                                                    </Stack>
+                                                </Menu.Item>
+                                            ))
+                                        )}
+                                    </ScrollArea.Autosize>
+                                </Menu.Dropdown>
+                            </Menu>
 
-                                                <button
-                                                    className={`btn-action-status ${isInactive ? 'to-active' : 'to-inactive'}`}
-                                                    onClick={(e) => { e.stopPropagation(); canEditEquipo && handleToggleStatus(equipo); }}
-                                                    disabled={!canEditEquipo || processingAction}
-                                                    title={!canEditEquipo ? 'No tienes permisos' : (isInactive ? 'Activar Equipo' : 'Desactivar Equipo')}
-                                                    style={{
-                                                        opacity: canEditEquipo ? 1 : 0.4,
-                                                        cursor: canEditEquipo ? 'pointer' : 'not-allowed',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        width: '32px',
-                                                        height: '32px',
-                                                        borderRadius: '6px',
-                                                        border: '1px solid #e5e7eb',
-                                                        backgroundColor: isInactive ? '#f0fdf4' : '#fef2f2',
-                                                        color: isInactive ? '#22c55e' : '#ef4444',
-                                                        transition: 'all 0.2s'
-                                                    }}
-                                                >
-                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                        <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
-                                                        <line x1="12" y1="2" x2="12" y2="12"></line>
-                                                    </svg>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                );
-                            })
+                            <Button 
+                                variant="outline" 
+                                leftSection={<IconDownload size={18} />} 
+                                onClick={() => setShowExportModal(true)}
+                            >
+                                Exportar
+                            </Button>
+
+                            <Button 
+                                leftSection={<IconPlus size={18} />} 
+                                onClick={handleCreate}
+                                disabled={!canCreateEquipo}
+                                color="adl-blue"
+                            >
+                                Nuevo Equipo
+                            </Button>
+                        </Group>
+                    </Group>
+                </Paper>
+
+                <Paper withBorder p="md" radius="md" shadow="xs">
+                    <Grid align="flex-end">
+                        <Grid.Col span={{ base: 12, md: 3 }}>
+                            <TextInput
+                                label="Buscar"
+                                placeholder="Nombre o código..."
+                                leftSection={<IconSearch size={16} />}
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.currentTarget.value)}
+                            />
+                        </Grid.Col>
+                        <Grid.Col span={{ base: 6, md: 2 }}>
+                            <Select
+                                label="Tipo"
+                                placeholder="Todos"
+                                data={['Todos', ...catalogs.tipos]}
+                                value={filterTipo}
+                                onChange={v => setFilterTipo(v === 'Todos' ? null : v)}
+                                clearable
+                            />
+                        </Grid.Col>
+                        <Grid.Col span={{ base: 6, md: 1.5 }}>
+                            <Select
+                                label="Sede"
+                                placeholder="Todas"
+                                data={['Todos', ...catalogs.sedes]}
+                                value={filterSede}
+                                onChange={v => setFilterSede(v === 'Todos' ? null : v)}
+                                clearable
+                            />
+                        </Grid.Col>
+                        <Grid.Col span={{ base: 6, md: 1.5 }}>
+                            <Select
+                                label="Estado"
+                                placeholder="Todos"
+                                data={['Todos', ...catalogs.estados]}
+                                value={filterEstado}
+                                onChange={v => setFilterEstado(v === 'Todos' ? null : v)}
+                                clearable
+                            />
+                        </Grid.Col>
+                        <Grid.Col span={{ base: 6, md: 2 }}>
+                            <Select
+                                label="Responsable"
+                                placeholder="Todos"
+                                data={['Todos', ...muestreadorList.map(m => m.nombre_muestreador)]}
+                                value={muestreadorList.find(m => String(m.id_muestreador) === filterMuestreador)?.nombre_muestreador || null}
+                                onChange={v => {
+                                    if (v === 'Todos' || !v) setFilterMuestreador(null);
+                                    else {
+                                        const found = muestreadorList.find(m => m.nombre_muestreador === v);
+                                        if (found) setFilterMuestreador(String(found.id_muestreador));
+                                    }
+                                }}
+                                clearable
+                                searchable
+                            />
+                        </Grid.Col>
+                        <Grid.Col span={{ base: 6, md: 2 }}>
+                            <Group gap={5} grow>
+                                <TextInput
+                                    label="Vigencia"
+                                    type="date"
+                                    value={filterFechaDesde}
+                                    onChange={(e) => setFilterFechaDesde(e.target.value)}
+                                />
+                                <TextInput
+                                    label=" "
+                                    type="date"
+                                    value={filterFechaHasta}
+                                    onChange={(e) => setFilterFechaHasta(e.target.value)}
+                                />
+                            </Group>
+                        </Grid.Col>
+                        {hasActiveFilters && (
+                            <Grid.Col span="auto">
+                                <Button variant="subtle" color="red" leftSection={<IconX size={16} />} onClick={handleClearFilters}>
+                                    Limpiar
+                                </Button>
+                            </Grid.Col>
                         )}
-                    </tbody>
-                </table>
-            </div>
+                    </Grid>
+                </Paper>
 
-            {/* Pagination bar */}
-            <div className="pagination-card">
-                <div className="pagination-controls-wrapper">
-                    <div className="pagination-buttons">
-                        <button
-                            className="btn-pagination"
-                            disabled={page === 1}
-                            onClick={() => setPage(page - 1)}
-                        >
-                            Anterior
-                        </button>
+                <Paper withBorder p={0} radius="md" style={{ overflow: 'hidden', position: 'relative' }}>
+                    <LoadingOverlay visible={loading} />
+                    <ScrollArea.Autosize mah={600}>
+                        <Table highlightOnHover verticalSpacing="sm" horizontalSpacing="md">
+                            <Table.Thead bg="gray.0">
+                                <Table.Tr>
+                                    <Table.Th w={40}></Table.Th>
+                                    <Table.Th>Código</Table.Th>
+                                    <Table.Th>Nombre</Table.Th>
+                                    <Table.Th>Tipo</Table.Th>
+                                    <Table.Th>Sede</Table.Th>
+                                    <Table.Th>Estado</Table.Th>
+                                    <Table.Th>Vigencia</Table.Th>
+                                    <Table.Th>Responsable</Table.Th>
+                                    <Table.Th ta="right">Acciones</Table.Th>
+                                </Table.Tr>
+                            </Table.Thead>
+                            <Table.Tbody>
+                                {equipos.length === 0 ? (
+                                    <Table.Tr>
+                                        <Table.Td colSpan={9} ta="center" py="xl">
+                                            <Text c="dimmed">No se encontraron equipos.</Text>
+                                        </Table.Td>
+                                    </Table.Tr>
+                                ) : (
+                                    equipos.map(equipo => {
+                                        const isInactive = equipo.estado?.toLowerCase() === 'inactivo';
+                                        const hasPending = getPendingRequestsForEquipo(equipo.id_equipo).length > 0;
+                                        
+                                        const checkExp = (v?: string) => {
+                                            if (!v) return false;
+                                            const d = new Date(v);
+                                            return !isNaN(d.getTime()) && (d.getTime() - Date.now()) <= (30 * 86400000);
+                                        };
+                                        const expiring = checkExp(equipo.vigencia);
 
-                        <button
-                            className="btn-pagination"
-                            disabled={page === totalPages}
-                            onClick={() => setPage(page + 1)}
-                        >
-                            Siguiente
-                        </button>
-                    </div>
-
-                    <div className="pagination-summary">
-                        {totalItems} equipos encontrados (Hoja {page} de {totalPages})
-                    </div>
-                </div>
-            </div>
-
-            {/* Modals area (Functional Core) */}
-
-            {
-                reviewSolicitud && (
-                    <div className="modal-overlay" style={{ zIndex: 10002 }}>
-                        <div className="modal-content" style={{ maxWidth: '500px' }}>
-                            <div className="modal-header">
-                                <h3 className="modal-title">
-                                    Revisar Solicitud de {getTipoLabelDisplay(reviewSolicitud)}
-                                </h3>
-                            </div>
-                            <div className="modal-body">
-                                <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid #e2e8f0' }}>
-                                    <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem' }}><strong>Solicitante:</strong> {reviewSolicitud.nombre_solicitante}</p>
-                                    <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem' }}><strong>Fecha:</strong> {new Date(reviewSolicitud.fecha_solicitud).toLocaleString()}</p>
-                                    <hr style={{ border: 'none', borderTop: '1px solid #e2e8f0', margin: '0.75rem 0' }} />
-                                    <div style={{ fontSize: '0.9rem', background: 'white', padding: '0.75rem', borderRadius: '4px', border: '1px solid #cbd5e1', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                        {reviewSolicitud.tipo_solicitud === 'BAJA' && reviewSolicitud.datos_json?.equipos_baja ? (
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                                                    <p style={{ margin: 0, fontWeight: 600, color: '#475569' }}>Equipos seleccionados ({reviewSolicitud.datos_json.equipos_baja.length}):</p>
-                                                    {reviewSolicitud.datos_json.equipos_baja.some((eq: any) => !eq.procesado) && (
-                                                        <button onClick={handleApproveAllBaja} disabled={processingAction} className="btn-danger" style={{ fontSize: '0.75rem', padding: '4px 8px' }}>DAR DE BAJA TODO</button>
+                                        return (
+                                            <Table.Tr key={equipo.id_equipo}>
+                                                <Table.Td>
+                                                    {hasPending && (
+                                                        <Tooltip label="Solicitud técnica pendiente">
+                                                            <IconAlertTriangle size={18} color="var(--mantine-color-orange-6)" />
+                                                        </Tooltip>
                                                     )}
-                                                </div>
-                                                {reviewSolicitud.datos_json.equipos_baja.map((eq: any) => (
-                                                    <div key={eq.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem', background: eq.procesado ? (eq.rechazado ? '#fef2f2' : '#f0fdf4') : '#f8fafc', borderRadius: '6px', border: eq.procesado ? (eq.rechazado ? '1px solid #fecaca' : '1px solid #bbf7d0') : '1px solid #e2e8f0', opacity: eq.procesado ? 0.7 : 1 }}>
-                                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                                            <span style={{
-                                                                fontWeight: 600,
-                                                                color: eq.procesado ? (eq.rechazado ? '#991b1b' : '#166534') : '#1e293b',
-                                                                textDecoration: eq.procesado ? 'line-through' : 'none'
-                                                            }}>
-                                                                {eq.nombre}
-                                                            </span>
-                                                            <span style={{ fontSize: '0.7rem', color: '#64748b' }}>{eq.codigo}</span>
-                                                        </div>
-                                                        {!eq.procesado ? (
-                                                            <div style={{ display: 'flex', gap: '0.4rem' }}>
-                                                                <button
-                                                                    onClick={() => {
-                                                                        setEquipoBajaPending({
-                                                                            ...eq,
-                                                                            id_solicitud: reviewSolicitud.id_solicitud,
-                                                                            datos_json: reviewSolicitud.datos_json
-                                                                        });
+                                                </Table.Td>
+                                                <Table.Td>
+                                                    <Badge variant="light" color="blue" radius="sm">
+                                                        {equipo.codigo}
+                                                    </Badge>
+                                                </Table.Td>
+                                                <Table.Td fw={600}>{equipo.nombre}</Table.Td>
+                                                <Table.Td>{equipo.tipo}</Table.Td>
+                                                <Table.Td>{equipo.ubicacion}</Table.Td>
+                                                <Table.Td>
+                                                    <Badge color={isInactive ? 'red' : 'green'} variant="dot">
+                                                        {equipo.estado}
+                                                    </Badge>
+                                                </Table.Td>
+                                                <Table.Td>
+                                                    <Text size="sm" color={expiring ? 'orange.7' : 'inherit'} fw={expiring ? 700 : 400}>
+                                                        {equipo.vigencia}
+                                                    </Text>
+                                                </Table.Td>
+                                                <Table.Td>{equipo.nombre_asignado || '---'}</Table.Td>
+                                                <Table.Td>
+                                                    <Group gap="xs" justify="flex-end">
+                                                        <Tooltip label="Editar">
+                                                            <ActionIcon 
+                                                                variant="subtle" 
+                                                                onClick={() => handleEdit(equipo)} 
+                                                                disabled={!canEditEquipo}
+                                                            >
+                                                                <IconEdit size={18} />
+                                                            </ActionIcon>
+                                                        </Tooltip>
+                                                        <Tooltip label={isInactive ? 'Activar' : 'Desactivar'}>
+                                                            <ActionIcon 
+                                                                variant="light" 
+                                                                color={isInactive ? 'green' : 'red'}
+                                                                onClick={() => handleToggleStatus(equipo)}
+                                                                disabled={!canEditEquipo}
+                                                            >
+                                                                <IconPower size={18} />
+                                                            </ActionIcon>
+                                                        </Tooltip>
+                                                    </Group>
+                                                </Table.Td>
+                                            </Table.Tr>
+                                        );
+                                    })
+                                )}
+                            </Table.Tbody>
+                        </Table>
+                    </ScrollArea.Autosize>
+                    <Divider />
+                    <Group justify="space-between" p="md">
+                        <Text size="xs" c="dimmed">{totalItems} equipos en total</Text>
+                        <Pagination 
+                            total={totalPages} 
+                            value={page} 
+                            onChange={setPage} 
+                            size="sm" 
+                            radius="md" 
+                            color="adl-blue"
+                        />
+                    </Group>
+                </Paper>
+            </Stack>
+
+            {/* --- Modals Area --- */}
+
+            {/* Review Solicitud Modal */}
+            <Modal
+                opened={!!reviewSolicitud}
+                onClose={() => setReviewSolicitud(null)}
+                title={
+                    <Group gap="xs">
+                        <IconBell size={20} color="blue" />
+                        <Text fw={700}>Revisar Solicitud de {reviewSolicitud && getTipoLabelDisplay(reviewSolicitud)}</Text>
+                    </Group>
+                }
+                size="lg"
+                radius="md"
+            >
+                <LoadingOverlay visible={processingAction} />
+                {reviewSolicitud && (
+                    <Stack gap="lg">
+                        <Paper withBorder p="md" bg="gray.0" radius="md">
+                            <Grid grow>
+                                <Grid.Col span={6}>
+                                    <Text size="xs" c="dimmed" fw={700}>Solicitante</Text>
+                                    <Text size="sm" fw={600}>{reviewSolicitud.nombre_solicitante}</Text>
+                                </Grid.Col>
+                                <Grid.Col span={6}>
+                                    <Text size="xs" c="dimmed" fw={700}>Fecha</Text>
+                                    <Text size="sm">{new Date(reviewSolicitud.fecha_solicitud).toLocaleString()}</Text>
+                                </Grid.Col>
+                            </Grid>
+                        </Paper>
+
+                        {/* Special case for BULK BAJA/ALTA */}
+                        {((reviewSolicitud.tipo_solicitud === 'BAJA' && reviewSolicitud.datos_json?.equipos_baja) || 
+                          (reviewSolicitud.tipo_solicitud === 'ALTA' && reviewSolicitud.datos_json?.isReactivation && reviewSolicitud.datos_json?.equipos_alta)) ? (
+                            <Stack gap="sm">
+                                <Group justify="space-between">
+                                    <Text fw={700} size="sm">Equipos involucrados</Text>
+                                    <Button 
+                                        size="xs" 
+                                        variant="light" 
+                                        color={reviewSolicitud.tipo_solicitud === 'BAJA' ? 'red' : 'green'}
+                                        onClick={reviewSolicitud.tipo_solicitud === 'BAJA' ? handleApproveAllBaja : handleApproveAllAlta}
+                                    >
+                                        Procesar Todo
+                                    </Button>
+                                </Group>
+                                <ScrollArea h={250}>
+                                    <Stack gap="xs">
+                                        {(reviewSolicitud.datos_json.equipos_baja || reviewSolicitud.datos_json.equipos_alta).map((eq: any) => (
+                                            <Paper key={eq.id} withBorder p="xs" radius="sm" bg={eq.procesado ? 'gray.0' : 'white'}>
+                                                <Group justify="space-between">
+                                                    <Box>
+                                                        <Text size="sm" fw={600} td={eq.procesado ? 'line-through' : 'none'}>{eq.nombre}</Text>
+                                                        <Text size="xs" c="dimmed">{eq.codigo || eq.datos_originales?.codigo}</Text>
+                                                        {eq.vigencia && <Text size="xs" c="green" fw={700}>Propuesta: {eq.vigencia}</Text>}
+                                                    </Box>
+                                                    {!eq.procesado ? (
+                                                        <Group gap={5}>
+                                                            <Button size="compact-xs" color={reviewSolicitud.tipo_solicitud === 'BAJA' ? 'red' : 'green'} 
+                                                                onClick={() => {
+                                                                    if (reviewSolicitud.tipo_solicitud === 'BAJA') {
+                                                                        setEquipoBajaPending({ ...eq, id_solicitud: reviewSolicitud.id_solicitud, datos_json: reviewSolicitud.datos_json });
                                                                         setShowConfirmBajaModal(true);
-                                                                    }}
-                                                                    className="btn-danger"
-                                                                    style={{ fontSize: '0.7rem', padding: '2px 8px', background: '#dc2626' }}
-                                                                >
-                                                                    BAJA
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => handleOpenIndividualRejection(eq, 'BAJA')}
-                                                                    className="btn-secondary"
-                                                                    style={{ fontSize: '0.7rem', padding: '2px 8px', color: '#dc2626', borderColor: '#fecaca' }}
-                                                                >
-                                                                    RECHAZAR
-                                                                </button>
-                                                            </div>
-                                                        ) : (
-                                                            <span style={{ fontSize: '0.7rem', color: eq.rechazado ? '#dc2626' : '#16a34a', fontWeight: 700 }}>
-                                                                {eq.rechazado ? 'RECHAZADO' : 'PROCESADO'}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        ) : (reviewSolicitud.tipo_solicitud === 'ALTA' && reviewSolicitud.datos_json?.isReactivation && reviewSolicitud.datos_json?.equipos_alta) ? (
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                                                    <p style={{ margin: 0, fontWeight: 600, color: '#475569' }}>Equipos para reactivación ({reviewSolicitud.datos_json.equipos_alta.length}):</p>
-                                                    {reviewSolicitud.datos_json.equipos_alta.some((eq: any) => !eq.procesado) && (
-                                                        <button onClick={handleApproveAllAlta} disabled={processingAction} className="btn-success" style={{ fontSize: '0.75rem', padding: '4px 8px' }}>REACTIVAR TODO</button>
-                                                    )}
-                                                </div>
-                                                {reviewSolicitud.datos_json.equipos_alta.map((eq: any) => (
-                                                    <div key={eq.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem', background: eq.procesado ? (eq.rechazado ? '#fef2f2' : '#f0fdf4') : '#f8fafc', borderRadius: '6px', border: eq.procesado ? (eq.rechazado ? '1px solid #fecaca' : '1px solid #bbf7d0') : '1px solid #e2e8f0', opacity: eq.procesado ? 0.7 : 1 }}>
-                                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                                            <span style={{
-                                                                fontWeight: 600,
-                                                                color: eq.procesado ? (eq.rechazado ? '#991b1b' : '#166534') : '#1e293b',
-                                                                textDecoration: eq.procesado ? 'line-through' : 'none'
-                                                            }}>
-                                                                {eq.nombre}
-                                                            </span>
-                                                            <span style={{ fontSize: '0.7rem', color: '#64748b' }}>{eq.datos_originales?.codigo || eq.codigo}</span>
-                                                            {eq.vigencia && (
-                                                                <span style={{ fontSize: '0.75rem', color: '#16a34a', fontWeight: 700, marginTop: '2px' }}>
-                                                                    📅 Vigencia Propuesta: {eq.vigencia}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                        {!eq.procesado ? (
-                                                            <div style={{ display: 'flex', gap: '0.4rem' }}>
-                                                                <button
-                                                                    onClick={() => {
-                                                                        setEquipoAltaPending({
-                                                                            id: String(eq.id),
-                                                                            nombre: eq.nombre,
-                                                                            codigo: eq.datos_originales?.codigo || eq.codigo || '',
-                                                                            originalId: Number(eq.id),
-                                                                            datos_originales: eq.datos_originales,
-                                                                            datos_json: reviewSolicitud.datos_json,
-                                                                            id_solicitud: reviewSolicitud.id_solicitud,
-                                                                            vigencia_propuesta: eq.vigencia
-                                                                        } as any);
-                                                                        if (eq.vigencia) setReactivationVigencia(eq.vigencia);
+                                                                    } else {
+                                                                        setEquipoAltaPending({ ...eq, id: String(eq.id), originalId: Number(eq.id), id_solicitud: reviewSolicitud.id_solicitud, datos_json: reviewSolicitud.datos_json, vigencia_propuesta: eq.vigencia } as any);
+                                                                        setReactivationVigencia(eq.vigencia || '');
                                                                         setShowConfirmAltaModal(true);
-                                                                    }}
-                                                                    className="btn-success"
-                                                                    style={{ fontSize: '0.7rem', padding: '2px 8px', background: '#16a34a' }}
-                                                                >
-                                                                    ACTIVAR
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => handleOpenIndividualRejection(eq, 'ALTA')}
-                                                                    className="btn-secondary"
-                                                                    style={{ fontSize: '0.7rem', padding: '2px 8px', color: '#dc2626', borderColor: '#fecaca' }}
-                                                                >
-                                                                    RECHAZAR
-                                                                </button>
-                                                            </div>
-                                                        ) : (
-                                                            <span style={{ fontSize: '0.7rem', color: eq.rechazado ? '#dc2626' : '#16a34a', fontWeight: 700 }}>
-                                                                {eq.rechazado ? 'RECHAZADO' : 'REACTIVADO'}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        ) : reviewSolicitud.tipo_solicitud === 'EQUIPO_PERDIDO' ? (() => {
-                                            const datos = reviewSolicitud.datos_json || {};
-                                            return (
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                                                    {/* Critical Info Banner */}
-                                                    <div style={{ display: 'flex', gap: '1rem', background: '#fef2f2', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid #ef4444' }}>
-                                                        <div style={{ flex: 1 }}>
-                                                            <strong style={{ display: 'block', fontSize: '0.75rem', color: '#991b1b', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Tipo de Pérdida</strong>
-                                                            <span style={{ fontSize: '1.1rem', color: '#b91c1c', fontWeight: 800 }}>{datos.tipo_perdida || datos['Tipo Extravío'] || 'N/A'}</span>
-                                                        </div>
-                                                        <div style={{ flex: 1 }}>
-                                                            <strong style={{ display: 'block', fontSize: '0.75rem', color: '#991b1b', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Fecha Incidente</strong>
-                                                            <span style={{ fontSize: '1.1rem', color: '#b91c1c', fontWeight: 800 }}>{datos['fecha incidente'] || datos.fecha_incidente || 'N/A'}</span>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Equipment Snapshot Grid */}
-                                                    <div>
-                                                        <strong style={{ display: 'block', fontSize: '0.85rem', color: '#334155', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem', marginBottom: '1rem' }}>Identificación del Equipo</strong>
-                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', background: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                                                            <div>
-                                                                <strong style={{ display: 'block', fontSize: '0.65rem', color: '#64748b', textTransform: 'uppercase' }}>Equipo</strong>
-                                                                <span style={{ fontWeight: 600, color: '#1e293b' }}>{datos.nombre_equipo || datos.Nombre || datos.nombre || 'N/A'}</span>
-                                                            </div>
-                                                            <div>
-                                                                <strong style={{ display: 'block', fontSize: '0.65rem', color: '#64748b', textTransform: 'uppercase' }}>Código</strong>
-                                                                <span style={{ fontWeight: 700, color: '#0284c7' }}>{datos.codigo_equipo || datos.Código || datos.codigo || 'N/A'}</span>
-                                                            </div>
-                                                            <div>
-                                                                <strong style={{ display: 'block', fontSize: '0.65rem', color: '#64748b', textTransform: 'uppercase' }}>Tipo</strong>
-                                                                <span style={{ color: '#475569' }}>{datos.Tipo || datos.tipo || 'N/A'}</span>
-                                                            </div>
-                                                            <div>
-                                                                <strong style={{ display: 'block', fontSize: '0.65rem', color: '#64748b', textTransform: 'uppercase' }}>Responsable / Asignado</strong>
-                                                                <span style={{ color: '#475569' }}>{datos.Responsable || datos.responsable || datos.nombre_asignado || 'N/A'}</span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Incident Details Grid */}
-                                                    <div>
-                                                        <strong style={{ display: 'block', fontSize: '0.85rem', color: '#334155', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem', marginBottom: '1rem' }}>Detalles del Incidente</strong>
-                                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.25rem' }}>
-                                                            <div>
-                                                                <strong style={{ display: 'block', fontSize: '0.7rem', color: '#64748b', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Última Ubicación Registrada</strong>
-                                                                <span style={{ color: '#1e293b', fontWeight: 500 }}>{datos['ubicacion ultima'] || datos.ubicacion_ultima || datos['ubicacion registrada'] || 'N/A'}</span>
-                                                            </div>
-                                                            <div>
-                                                                <strong style={{ display: 'block', fontSize: '0.7rem', color: '#64748b', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Circunstancias</strong>
-                                                                <p style={{ margin: 0, color: '#334155', background: '#f1f5f9', padding: '0.75rem', borderRadius: '6px', fontSize: '0.9rem', lineHeight: '1.5' }}>
-                                                                    {datos.Circunstancias || datos.circunstancias || 'No se detallaron circunstancias.'}
-                                                                </p>
-                                                            </div>
-                                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                                                                <div>
-                                                                    <strong style={{ display: 'block', fontSize: '0.7rem', color: '#64748b', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Acciones Tomadas</strong>
-                                                                    <p style={{ margin: 0, color: '#475569', fontSize: '0.9rem' }}>{datos['acciones tomadas'] || datos.acciones_tomadas || 'Ninguna'}</p>
-                                                                </div>
-                                                                <div>
-                                                                    <strong style={{ display: 'block', fontSize: '0.7rem', color: '#64748b', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Testigos</strong>
-                                                                    <p style={{ margin: 0, color: '#475569', fontSize: '0.9rem' }}>{datos.testigos || 'Sin testigos'}</p>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Archivo Adjunto */}
-                                                    {(datos.archivo_adjunto || datos['archivo adjunto']) && (
-                                                        <div>
-                                                            <strong style={{ display: 'block', fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Archivo Adjunto</strong>
-                                                            <a href={`${import.meta.env.VITE_API_URL || 'http://localhost:8002'}${datos.archivo_adjunto || datos['archivo adjunto']}`} target="_blank" rel="noopener noreferrer">
-                                                                <img
-                                                                    src={`${import.meta.env.VITE_API_URL || 'http://localhost:8002'}${datos.archivo_adjunto || datos['archivo adjunto']}`}
-                                                                    alt="Archivo Adjunto"
-                                                                    style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '8px', border: '1px solid #e2e8f0', objectFit: 'contain' }}
-                                                                />
-                                                            </a>
-                                                        </div>
+                                                                    }
+                                                                }}
+                                                            >
+                                                                Aprobar
+                                                            </Button>
+                                                            <Button size="compact-xs" variant="outline" color="red" onClick={() => handleOpenIndividualRejection(eq, reviewSolicitud.tipo_solicitud as any)}>
+                                                                Rechazar
+                                                            </Button>
+                                                        </Group>
+                                                    ) : (
+                                                        <Badge color={eq.rechazado ? 'red' : 'green'} size="xs">{eq.rechazado ? 'RECHAZADO' : 'PROCESADO'}</Badge>
                                                     )}
+                                                </Group>
+                                            </Paper>
+                                        ))}
+                                    </Stack>
+                                </ScrollArea>
+                            </Stack>
+                        ) : reviewSolicitud.tipo_solicitud === 'EQUIPO_PERDIDO' ? (
+                            <Stack gap="md">
+                                <Alert color="red" title="Reporte de Pérdida / Extravío" icon={<IconAlertTriangle size={18} />}>
+                                    Indica {reviewSolicitud.datos_json?.tipo_perdida} ocurrido el {reviewSolicitud.datos_json?.fecha_incidente}.
+                                </Alert>
+                                <Paper withBorder p="md" radius="sm">
+                                    <Text size="xs" fw={700} c="dimmed" mb={5}>CIRCUNSTANCIAS</Text>
+                                    <Text size="sm">{reviewSolicitud.datos_json?.circunstancias || 'No detalladas'}</Text>
+                                </Paper>
+                            </Stack>
+                        ) : (
+                            <Box style={{ maxHeight: '350px', overflowY: 'auto' }}>
+                                <Stack gap={8}>
+                                    {Object.entries(reviewSolicitud.datos_json || {}).map(([key, val]) => {
+                                        if (!val || ['equipos_baja', 'equipos_alta', 'isReactivation', 'id_muestreador', 'id_equipo_original'].includes(key)) return null;
+                                        if (key === 'archivo_adjunto') return (
+                                            <Box key={key} mt="xs">
+                                                <Text size="xs" fw={700} c="dimmed">Archivo Adjunto:</Text>
+                                                <Paper withBorder mt={5} p={4} radius="sm">
+                                                    <img src={`${import.meta.env.VITE_API_URL || 'http://localhost:8002'}${val}`} 
+                                                         style={{ width: '100%', maxHeight: 200, objectFit: 'contain' }} alt="adjunto" />
+                                                </Paper>
+                                            </Box>
+                                        );
+                                        return (
+                                            <Group key={key} justify="space-between">
+                                                <Text size="xs" fw={700} c="dimmed" style={{ textTransform: 'uppercase' }}>{key.replace(/_/g, ' ')}:</Text>
+                                                <Text size="sm" fw={600}>{String(val)}</Text>
+                                            </Group>
+                                        );
+                                    })}
+                                    {reviewSolicitud.feedback_admin && (
+                                        <Alert color="orange" mt="md" title="Observación Técnica">
+                                            {reviewSolicitud.feedback_admin}
+                                        </Alert>
+                                    )}
+                                </Stack>
+                            </Box>
+                        )}
 
-                                                </div>
-                                            );
-                                        })() : (
-                                            <>
-                                                {/* Fields from JSON */}
-                                                {Object.entries(reviewSolicitud.datos_json || {}).map(([key, val]) => {
-                                                    if (!val || key === 'equipos_baja' || key === 'equipos_alta' || key === 'isReactivation' || key === 'id_muestreador') return null;
-                                                    const labels: Record<string, string> = {
-                                                        codigo: 'Código',
-                                                        nombre: 'Nombre',
-                                                        tipo: 'Tipo',
-                                                        ubicacion: 'Ubicación',
-                                                        nueva_ubicacion: 'Nueva Ubicación',
-                                                        responsable: 'Responsable',
-                                                        nuevo_responsable: 'Nuevo Responsable',
-                                                        motivo: 'Motivo',
-                                                        vigencia: 'Vigencia',
-                                                        id_equipo: 'ID Equipo',
-                                                        nombre_equipo: 'Equipo',
-                                                        codigo_equipo: 'Cód. Equipo',
-                                                        comentario: 'Observaciones',
-                                                        fecha_creacion: 'Fecha Envío',
-                                                        motivo_revision: 'Motivo Rev.',
-                                                        descripcion: 'Detalles',
-                                                        severidad: 'Severidad',
-                                                        frecuencia: 'Frecuencia',
-                                                        nueva_vigencia_solicitada: 'Nueva Vigencia',
-                                                        circunstancias: 'Circunstancias',
-                                                        tipo_perdida: 'Tipo Extravío'
-                                                    };
-                                                    const displayKey = labels[key] || key.replace(/_/g, ' ');
+                        <Group justify="flex-end" mt="xl">
+                            <Button variant="subtle" onClick={() => setReviewSolicitud(null)}>Cerrar</Button>
+                            {(reviewSolicitud.estado === 'PENDIENTE' || reviewSolicitud.estado === 'PENDIENTE_TECNICA' || reviewSolicitud.estado === 'PENDIENTE_CALIDAD') && (
+                                <Group gap="sm">
+                                    <Button variant="light" color="red" onClick={() => { setRejectionTarget({ type: 'SOLICITUD' }); setLocalRejectionFeedback(''); setShowRejectionReasonModal(true); }}>
+                                        Rechazar
+                                    </Button>
+                                    {reviewSolicitud.estado === 'PENDIENTE_TECNICA' && (isMAMan || isSuper) && (
+                                        <Button color="green" onClick={handleApprove}>
+                                            {(reviewSolicitud.tipo_solicitud === 'EQUIPO_PERDIDO' || reviewSolicitud.tipo_solicitud === 'REPORTE_PROBLEMA') 
+                                                ? 'Procesar' : 'Derivar a Calidad'}
+                                        </Button>
+                                    )}
+                                    {reviewSolicitud.estado === 'PENDIENTE_CALIDAD' && (isGCMan || isSuper) && (
+                                        <Button color="green" onClick={handleApprove}>Aprobar Final</Button>
+                                    )}
+                                    {reviewSolicitud.estado === 'PENDIENTE' && (
+                                        <Button color="green" onClick={handleApprove}>Aprobar</Button>
+                                    )}
+                                </Group>
+                            )}
+                        </Group>
+                    </Stack>
+                )}
+            </Modal>
 
-                                                    if (key === 'archivo_adjunto' && typeof val === 'string') {
-                                                        return (
-                                                            <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
-                                                                <span style={{ color: '#64748b', fontWeight: 500 }}>{displayKey}:</span>
-                                                                <a href={`${import.meta.env.VITE_API_URL || 'http://localhost:8002'}${val}`} target="_blank" rel="noopener noreferrer">
-                                                                    <img
-                                                                        src={`${import.meta.env.VITE_API_URL || 'http://localhost:8002'}${val}`}
-                                                                        alt="Archivo Adjunto"
-                                                                        style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '4px', border: '1px solid #e2e8f0', objectFit: 'contain' }}
-                                                                    />
-                                                                </a>
-                                                            </div>
-                                                        );
-                                                    }
+            {/* Confirm Baja Modal */}
+            <Modal
+                opened={showConfirmBajaModal}
+                onClose={() => setShowConfirmBajaModal(false)}
+                title="Confirmar Baja / Pérdida"
+                centered
+                radius="md"
+            >
+                <Stack gap="md" align="center" py="md">
+                    <IconTrash size={48} color="var(--mantine-color-red-6)" />
+                    <Text ta="center">¿Estás seguro de dar de baja al equipo <b>{equipoBajaPending?.nombre}</b>?</Text>
+                    {equipoBajaPending?.datos_json?.tipo_solicitud === 'EQUIPO_PERDIDO' && (
+                        <Box w="100%">
+                            <Textarea 
+                                label="Observación Final de Pérdida" 
+                                required 
+                                value={bajaObservation}
+                                onChange={(e) => setBajaObservation(e.currentTarget.value)}
+                                minRows={3}
+                            />
+                        </Box>
+                    )}
+                    <Group grow w="100%" mt="lg">
+                        <Button variant="subtle" color="gray" onClick={() => setShowConfirmBajaModal(false)}>Cancelar</Button>
+                        <Button color="red" onClick={confirmApproveBaja} loading={processingAction}>Confirmar Baja</Button>
+                    </Group>
+                </Stack>
+            </Modal>
 
-                                                    let displayVal = String(val);
-                                                    if (val === true || val === 'true') displayVal = 'SÍ';
-                                                    else if (val === false || val === 'false') displayVal = 'NO';
+            {/* Confirm Alta / Reactivation Modal */}
+            <Modal
+                opened={showConfirmAltaModal}
+                onClose={() => setShowConfirmAltaModal(false)}
+                title="Confirmar Reactivación / Vigencia"
+                centered
+                radius="md"
+            >
+                <Stack gap="md" py="md">
+                    <Text ta="center">Se actualizará el equipo: <b>{equipoAltaPending?.nombre}</b></Text>
+                    <TextInput 
+                        label="Nueva Fecha de Vigencia"
+                        type="date"
+                        required
+                        value={reactivationVigencia}
+                        onChange={(e) => setReactivationVigencia(e.currentTarget.value)}
+                    />
+                    <Group grow mt="lg">
+                        <Button variant="subtle" color="gray" onClick={() => setShowConfirmAltaModal(false)}>Cancelar</Button>
+                        <Button color="green" onClick={confirmApproveAlta} loading={processingAction}>Confirmar Actividad</Button>
+                    </Group>
+                </Stack>
+            </Modal>
 
-                                                    return (
-                                                        <div key={key} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                            <span style={{ color: '#64748b', fontWeight: 500 }}>{displayKey}:</span>
-                                                            <span style={{ color: '#1e293b', fontWeight: 600 }}>{displayVal}</span>
-                                                        </div>
-                                                    );
-                                                })}
+            {/* Resolution Modal */}
+            <Modal
+                opened={showResolutionModal}
+                onClose={() => setShowResolutionModal(false)}
+                title="Resolución Final de Calidad"
+                radius="md"
+            >
+                <Stack gap="md">
+                    <Textarea 
+                        label="Observación de Calidad" 
+                        required 
+                        minRows={4}
+                        placeholder="Escribe la resolución de calidad aquí..."
+                        value={resolutionFeedback}
+                        onChange={(e) => setResolutionFeedback(e.currentTarget.value)}
+                    />
+                    {['EQUIPO_DESHABILITADO', 'ALTA'].includes(solicitudInResolution?.tipo_solicitud) && (
+                        <TextInput 
+                            label="Actualizar Vigencia"
+                            type="date"
+                            value={resolutionDate}
+                            onChange={(e) => setResolutionDate(e.currentTarget.value)}
+                        />
+                    )}
+                    <Group grow mt="lg">
+                        <Button variant="subtle" color="gray" onClick={() => setShowResolutionModal(false)}>Cancelar</Button>
+                        <Button color="green" onClick={confirmFinalResolution} loading={processingAction}>Aprobar Final</Button>
+                    </Group>
+                </Stack>
+            </Modal>
 
-                                                {/* Technical Feedback if available */}
-                                                {reviewSolicitud.feedback_admin && (
-                                                    <div style={{ marginTop: '0.75rem', padding: '0.75rem', background: '#fff7ed', border: '1px solid #ffedd5', borderRadius: '6px' }}>
-                                                        <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#9a3412', textTransform: 'uppercase', marginBottom: '0.25rem' }}>
-                                                            ⚠️ Observación Técnica / Derivación
-                                                        </div>
-                                                        <div style={{ fontSize: '0.85rem', color: '#7c2d12', fontWeight: 500, fontStyle: 'italic' }}>
-                                                            "{reviewSolicitud.feedback_admin}"
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </>
-                                        )}
+            {/* Status Confirm Modal */}
+            <Modal
+                opened={showStatusConfirmModal}
+                onClose={() => setShowStatusConfirmModal(false)}
+                title={equipoStatusPending?.estado === 'Activo' ? 'Desactivar Equipo' : 'Activar Equipo'}
+                centered
+                radius="md"
+            >
+                <Stack align="center" gap="md">
+                    <IconPower size={48} color={equipoStatusPending?.estado === 'Activo' ? 'red' : 'green'} />
+                    <Text ta="center">¿Cambiar estado de <b>{equipoStatusPending?.nombre}</b> a {equipoStatusPending?.estado === 'Activo' ? 'Inactivo' : 'Activo'}?</Text>
+                    <Textarea 
+                        label="Motivo del cambio" 
+                        w="100%"
+                        value={statusObservation}
+                        onChange={(e) => setStatusObservation(e.currentTarget.value)}
+                    />
+                    <Group grow w="100%">
+                        <Button variant="subtle" color="gray" onClick={() => setShowStatusConfirmModal(false)}>Cancelar</Button>
+                        <Button color={equipoStatusPending?.estado === 'Activo' ? 'red' : 'green'} onClick={confirmToggleStatus} loading={processingAction}>Confirmar</Button>
+                    </Group>
+                </Stack>
+            </Modal>
 
-                                        {/* Audit Trail Section */}
-                                        <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid #f1f5f9', background: '#f8fafc', padding: '0.75rem', borderRadius: '8px' }}>
-                                            <div style={{ color: '#64748b', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.5rem' }}>Auditoría de Procesamiento</div>
-                                            <div style={{ display: 'grid', gap: '0.4rem', fontSize: '0.8rem' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                    <span style={{ color: '#94a3b8' }}>Solicitado por:</span>
-                                                    <div style={{ textAlign: 'right' }}>
-                                                        <div style={{ color: '#1e293b', fontWeight: 600 }}>{reviewSolicitud.nombre_solicitante || 'N/A'}</div>
-                                                        <div style={{ color: '#64748b', fontSize: '0.7rem' }}>{reviewSolicitud.email_solicitante || reviewSolicitud.email_muestreador || ''}</div>
-                                                    </div>
-                                                </div>
-                                                {(reviewSolicitud.nombre_revisor || reviewSolicitud.nombre_revisor_tecnico) && (
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.2rem' }}>
-                                                        <span style={{ color: '#94a3b8' }}>{reviewSolicitud.estado === 'PENDIENTE_CALIDAD' ? 'Derivado por:' : 'Revisado (Técnica):'}</span>
-                                                        <span style={{ color: '#1e293b', fontWeight: 600 }}>{reviewSolicitud.nombre_revisor_tecnico || reviewSolicitud.nombre_revisor}</span>
-                                                    </div>
-                                                )}
-                                                {reviewSolicitud.nombre_aprobador && (
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.2rem' }}>
-                                                        <span style={{ color: '#166534' }}>Aprobado (Calidad):</span>
-                                                        <span style={{ color: '#166534', fontWeight: 700 }}>{reviewSolicitud.nombre_aprobador}</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+            {/* Rejection Reason Modal */}
+            <Modal
+                opened={showRejectionReasonModal}
+                onClose={() => setShowRejectionReasonModal(false)}
+                title="Motivo de Rechazo"
+                radius="md"
+            >
+                <Stack gap="md">
+                    <Text size="sm">Indique por qué está rechazando esta solicitud/equipo.</Text>
+                    <Textarea 
+                        label="Feedback / Observaciones" 
+                        required 
+                        minRows={4}
+                        value={localRejectionFeedback}
+                        onChange={(e) => setLocalRejectionFeedback(e.currentTarget.value)}
+                    />
+                    <Group grow mt="lg">
+                        <Button variant="subtle" color="gray" onClick={() => setShowRejectionReasonModal(false)}>Cancelar</Button>
+                        <Button color="red" onClick={confirmRejectWithFeedback} loading={processingAction}>Confirmar Rechazo</Button>
+                    </Group>
+                </Stack>
+            </Modal>
 
-                            </div>
-                            <div className="modal-footer">
-                                <button className="btn-cancel" onClick={() => setReviewSolicitud(null)} disabled={processingAction}>Cerrar</button>
-                                {(reviewSolicitud.estado === 'PENDIENTE' || reviewSolicitud.estado === 'PENDIENTE_TECNICA' || reviewSolicitud.estado === 'PENDIENTE_CALIDAD') && (
-                                    <div style={{ display: 'flex', gap: '0.75rem' }}>
-                                        <button
-                                            className="btn-danger"
-                                            onClick={handleOpenGlobalRejection}
-                                            disabled={processingAction}
-                                            style={{ minWidth: '100px' }}
-                                        >
-                                            {processingAction ? '...' : 'Rechazar'}
-                                        </button>
-                                        {(reviewSolicitud.tipo_solicitud !== 'BAJA' || reviewSolicitud.tipo_solicitud === 'EQUIPO_PERDIDO') && !(reviewSolicitud.tipo_solicitud === 'ALTA' && reviewSolicitud.datos_json?.isReactivation && reviewSolicitud.datos_json?.equipos_alta) && (
-                                            <div style={{ display: 'flex', gap: '0.75rem' }}>
-                                                {(reviewSolicitud.estado === 'PENDIENTE_TECNICA' && (isMAMan || isSuper)) && (
-                                                    <button className="btn-success" onClick={handleApprove} disabled={processingAction} style={{ minWidth: '130px' }}>
-                                                        {processingAction ? '...' : (
-                                                            (reviewSolicitud.tipo_solicitud === 'EQUIPO_PERDIDO' || reviewSolicitud.tipo_solicitud === 'REPORTE_PROBLEMA')
-                                                                ? 'Aceptar y Procesar'
-                                                                : 'Aprobar y Enviar a Calidad'
-                                                        )}
-                                                    </button>
-                                                )}
-                                                {(reviewSolicitud.estado === 'PENDIENTE_CALIDAD' && (isGCMan || isSuper)) && (
-                                                    <button className="btn-success" onClick={handleApprove} disabled={processingAction} style={{ minWidth: '130px' }}>
-                                                        {processingAction ? '...' : 'Aprobar Final'}
-                                                    </button>
-                                                )}
-                                                {/* Retrocompatibilidad para estado PENDIENTE */}
-                                                {reviewSolicitud.estado === 'PENDIENTE' && (
-                                                    <button className="btn-success" onClick={handleApprove} disabled={processingAction} style={{ minWidth: '100px' }}>
-                                                        {processingAction ? '...' : 'Aprobar'}
-                                                    </button>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
-
-            {
-                showConfirmBajaModal && equipoBajaPending && (
-                    <div className="modal-overlay" style={{ zIndex: 10003 }}>
-                        <div className="modal-content" style={{ maxWidth: '400px', textAlign: 'center' }}>
-                            <div className="modal-body" style={{ padding: '2rem' }}>
-                                <div style={{ width: '60px', height: '60px', backgroundColor: '#fef2f2', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem auto', color: '#ef4444' }}>
-                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                                </div>
-                                <h3 style={{ marginBottom: '1rem', color: '#111827', fontSize: '1.25rem' }}>
-                                    {equipoBajaPending.datos_json?.tipo_solicitud === 'EQUIPO_PERDIDO' ? '¿Confirmar Pérdida?' : '¿Confirmar Baja?'}
-                                </h3>
-                                <p style={{ color: '#6b7280', fontSize: '0.95rem', marginBottom: '1.5rem' }}>
-                                    {equipoBajaPending.datos_json?.tipo_solicitud === 'EQUIPO_PERDIDO'
-                                        ? 'El equipo pasará a estado Inactivo con la observación indicada.'
-                                        : 'Eliminar permanentemente:'}
-                                    <strong> {equipoBajaPending.nombre}</strong>
-                                </p>
-
-                                {equipoBajaPending.datos_json?.tipo_solicitud === 'EQUIPO_PERDIDO' && (
-                                    <div style={{ textAlign: 'left', marginBottom: '1rem' }}>
-                                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#374151', marginBottom: '0.5rem' }}>
-                                            Observación Obligatoria <span style={{ color: '#dc2626' }}>*</span>
-                                        </label>
-                                        <textarea
-                                            value={bajaObservation}
-                                            onChange={(e) => setBajaObservation(e.target.value)}
-                                            placeholder="Indique detalles finales o resolución..."
-                                            style={{
-                                                width: '100%',
-                                                padding: '0.625rem',
-                                                borderRadius: '0.375rem',
-                                                border: '1px solid #d1d5db',
-                                                fontSize: '0.875rem',
-                                                minHeight: '80px',
-                                                resize: 'none'
-                                            }}
-                                        />
-                                    </div>
-                                )}
-                            </div>
-                            <div className="modal-footer" style={{ border: 'none', gap: '0.75rem' }}>
-                                <button className="btn-cancel" onClick={() => setShowConfirmBajaModal(false)} disabled={processingAction} style={{ flex: 1 }}>Cancelar</button>
-                                <button
-                                    className="btn-danger"
-                                    onClick={confirmApproveBaja}
-                                    disabled={processingAction || (equipoBajaPending.datos_json?.tipo_solicitud === 'EQUIPO_PERDIDO' && !bajaObservation.trim())}
-                                    style={{ flex: 1, opacity: (equipoBajaPending.datos_json?.tipo_solicitud === 'EQUIPO_PERDIDO' && !bajaObservation.trim()) ? 0.6 : 1 }}
-                                >
-                                    {processingAction ? '...' : (equipoBajaPending.datos_json?.tipo_solicitud === 'EQUIPO_PERDIDO' ? 'Confirmar Pérdida' : 'Confirmar')}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
-
-            {
-                showConfirmAltaModal && equipoAltaPending && (
-                    <div className="modal-overlay" style={{ zIndex: 10003 }}>
-                        <div className="modal-content" style={{ maxWidth: '400px', textAlign: 'center' }}>
-                            <div className="modal-body" style={{ padding: '2rem' }}>
-                                <div style={{ width: '60px', height: '60px', backgroundColor: '#f0fdf4', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem auto', color: '#16a34a' }}>
-                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-                                </div>
-                                <h3 style={{ marginBottom: '1rem', color: '#111827', fontSize: '1.25rem' }}>
-                                    {(equipoAltaPending as any).vigencia_propuesta ? 'Aprobar Cambio de Vigencia' : '¿Confirmar Alta?'}
-                                </h3>
-                                <p style={{ color: '#6b7280', fontSize: '0.95rem', marginBottom: '1.5rem' }}>
-                                    {(equipoAltaPending as any).vigencia_propuesta
-                                        ? `Actualizar vigencia para: `
-                                        : 'Activar nuevamente el equipo: '}
-                                    <strong>{equipoAltaPending.nombre}</strong>
-                                </p>
-
-                                <div style={{ textAlign: 'left', background: '#f9fafb', padding: '1rem', borderRadius: '0.5rem', marginBottom: '1rem' }}>
-                                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#374151', marginBottom: '0.5rem' }}>
-                                        {(equipoAltaPending as any).codigo || equipoAltaPending.nombre}:{(equipoAltaPending as any).vigencia_propuesta && <span style={{ color: '#16a34a', marginLeft: '8px' }}> (Vigencia Propuesta: {(equipoAltaPending as any).vigencia_propuesta})</span>}
-                                    </label>
-                                    <input
-                                        type="date"
-                                        value={reactivationVigencia}
-                                        onChange={(e) => setReactivationVigencia(e.target.value)}
-                                        style={{
-                                            width: '100%',
-                                            padding: '0.625rem',
-                                            borderRadius: '0.375rem',
-                                            border: '1px solid #d1d5db',
-                                            fontSize: '0.875rem'
-                                        }}
-                                    />
-                                </div>
-                            </div>
-                            <div className="modal-footer" style={{ border: 'none', gap: '0.75rem' }}>
-                                <button
-                                    className="btn-cancel"
-                                    onClick={() => {
-                                        setShowConfirmAltaModal(false);
-                                        setReactivationVigencia('');
-                                    }}
-                                    disabled={processingAction}
-                                    style={{ flex: 1 }}
-                                >
-                                    Cancelar
-                                </button>
-                                <button
-                                    className="btn-success"
-                                    onClick={equipoAltaPending.id === 'all' ? handleApproveAllAlta : confirmApproveAlta}
-                                    disabled={processingAction || !reactivationVigencia}
-                                    style={{
-                                        flex: 1,
-                                        opacity: (!reactivationVigencia || processingAction) ? 0.6 : 1,
-                                        cursor: (!reactivationVigencia || processingAction) ? 'not-allowed' : 'pointer'
-                                    }}
-                                >
-                                    {processingAction ? '...' : ((equipoAltaPending as any).vigencia_propuesta ? 'Actualizar' : 'Reactivar')}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
-
-            {
-                showRejectionReasonModal && (
-                    <div className="modal-overlay" style={{ zIndex: 10005 }}>
-                        <div className="modal-content" style={{ maxWidth: '450px' }}>
-                            <div className="modal-header">
-                                <h3 className="modal-title">Motivo de Rechazo</h3>
-                            </div>
-                            <div className="modal-body" style={{ padding: '1.5rem' }}>
-                                <p style={{ fontSize: '0.9rem', color: '#64748b', marginBottom: '1rem' }}>
-                                    {rejectionTarget?.type === 'ITEM'
-                                        ? `Indique el motivo por el cual está rechazando el equipo: ${rejectionTarget.equipo?.nombre}`
-                                        : 'Indique el motivo por el cual está rechazando toda la solicitud.'}
-                                </p>
-                                <div className="form-group">
-                                    <label className="form-label">Feedback / Observaciones <span style={{ color: '#dc2626' }}>*</span></label>
-                                    <textarea
-                                        className="form-input"
-                                        style={{ height: '100px', resize: 'none' }}
-                                        placeholder="Ej: Documentación incompleta, equipo no corresponde..."
-                                        value={localRejectionFeedback}
-                                        onChange={(e) => setLocalRejectionFeedback(e.target.value)}
-                                        autoFocus
-                                    />
-                                </div>
-                            </div>
-                            <div className="modal-footer">
-                                <button className="btn-cancel" onClick={() => { setShowRejectionReasonModal(false); setRejectionTarget(null); }} disabled={processingAction}>Cancelar</button>
-                                <button
-                                    className="btn-danger"
-                                    onClick={confirmRejectWithFeedback}
-                                    disabled={processingAction || !localRejectionFeedback.trim()}
-                                    style={{ opacity: !localRejectionFeedback.trim() ? 0.6 : 1 }}
-                                >
-                                    {processingAction ? '...' : 'Confirmar Rechazo'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
-
-            {
-                showResolutionModal && (
-                    <div className="modal-overlay" style={{ zIndex: 10007 }}>
-                        <div className="modal-content" style={{ maxWidth: '450px' }}>
-                            <div className="modal-header" style={{ borderBottom: '1px solid #f1f5f9', padding: '1.25rem' }}>
-                                <h3 className="modal-title" style={{ fontSize: '1.25rem', color: '#1e293b' }}>Resolución Final de Calidad</h3>
-                            </div>
-                            <div className="modal-body" style={{ padding: '1.5rem' }}>
-                                <div style={{ marginBottom: '1.25rem' }}>
-                                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' }}>
-                                        Observación de Calidad <span style={{ color: '#dc2626' }}>*</span>
-                                    </label>
-                                    <textarea
-                                        value={resolutionFeedback}
-                                        onChange={(e) => setResolutionFeedback(e.target.value)}
-                                        placeholder="Ej: Se valida el estado del equipo y se procede con la reactivación..."
-                                        style={{
-                                            width: '100%',
-                                            padding: '0.75rem',
-                                            borderRadius: '8px',
-                                            border: '1px solid #cbd5e1',
-                                            fontSize: '0.9rem',
-                                            minHeight: '100px',
-                                            resize: 'none',
-                                            outline: 'none',
-                                            transition: 'border-color 0.2s'
-                                        }}
-                                        autoFocus
-                                    />
-                                </div>
-
-                                {/* Conditional Date Picker: Show only if equipment is Inactive or it's a type that requires date update */}
-                                {(solicitudInResolution?.tipo_solicitud === 'EQUIPO_DESHABILITADO' || solicitudInResolution?.tipo_solicitud === 'ALTA') && (
-                                    <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' }}>
-                                            Actualizar Fecha de Vigencia
-                                        </label>
-                                        <p style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '0.75rem' }}>
-                                            Si el equipo será reactivado, por favor valide o modifique la fecha de vigencia propuesta.
-                                        </p>
-                                        <input
-                                            type="date"
-                                            value={resolutionDate}
-                                            onChange={(e) => setResolutionDate(e.target.value)}
-                                            style={{
-                                                width: '100%',
-                                                padding: '0.625rem',
-                                                borderRadius: '6px',
-                                                border: '1px solid #cbd5e1',
-                                                fontSize: '0.9rem'
-                                            }}
-                                        />
-                                    </div>
-                                )}
-                            </div>
-                            <div className="modal-footer" style={{ background: '#f8fafc', padding: '1rem 1.5rem', borderTop: '1px solid #f1f5f9', gap: '0.75rem' }}>
-                                <button className="btn-cancel" onClick={() => setShowResolutionModal(false)} disabled={processingAction} style={{ flex: 1 }}>
-                                    Cancelar
-                                </button>
-                                <button
-                                    className="btn-success"
-                                    onClick={confirmFinalResolution}
-                                    disabled={processingAction || !resolutionFeedback.trim()}
-                                    style={{
-                                        flex: 1,
-                                        padding: '0.625rem',
-                                        fontSize: '0.95rem',
-                                        fontWeight: 600,
-                                        opacity: (!resolutionFeedback.trim() || processingAction) ? 0.5 : 1,
-                                        cursor: (!resolutionFeedback.trim() || processingAction) ? 'not-allowed' : 'pointer'
-                                    }}
-                                >
-                                    {processingAction ? 'Procesando...' : 'Confirmar y Aprobar'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
-
-            {
-                showStatusConfirmModal && equipoStatusPending && (
-                    <div className="modal-overlay" style={{ zIndex: 10006 }}>
-                        <div className="modal-content" style={{ maxWidth: '400px', textAlign: 'center' }}>
-                            <div className="modal-body" style={{ padding: '2rem' }}>
-                                <div style={{
-                                    width: '60px',
-                                    height: '60px',
-                                    backgroundColor: equipoStatusPending.estado?.toLowerCase() === 'activo' ? '#fef2f2' : '#f0fdf4',
-                                    borderRadius: '50%',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    margin: '0 auto 1.5rem auto',
-                                    color: equipoStatusPending.estado?.toLowerCase() === 'activo' ? '#ef4444' : '#22c55e'
-                                }}>
-                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
-                                        <line x1="12" y1="2" x2="12" y2="12"></line>
-                                    </svg>
-                                </div>
-                                <h3 style={{ marginBottom: '1rem', color: '#111827', fontSize: '1.25rem' }}>
-                                    {equipoStatusPending.estado?.toLowerCase() === 'activo' ? '¿Desactivar Equipo?' : '¿Activar Equipo?'}
-                                </h3>
-                                <p style={{ color: '#6b7280', fontSize: '0.95rem', marginBottom: '0.5rem' }}>
-                                    {equipoStatusPending.estado?.toLowerCase() === 'activo'
-                                        ? 'El equipo dejará de estar disponible para su uso.'
-                                        : 'El equipo volverá a estar disponible para su uso.'}
-                                </p>
-                                <p style={{ fontWeight: 700, color: '#111827', marginBottom: '1.5rem' }}>{equipoStatusPending.nombre}</p>
-
-                                <div style={{ textAlign: 'left', marginBottom: '1rem' }}>
-                                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#374151', marginBottom: '0.5rem' }}>
-                                        Observaciones / Motivo
-                                    </label>
-                                    <textarea
-                                        value={statusObservation}
-                                        onChange={(e) => setStatusObservation(e.target.value)}
-                                        placeholder="Indique el motivo del cambio de estado..."
-                                        style={{
-                                            width: '100%',
-                                            padding: '0.625rem',
-                                            borderRadius: '0.375rem',
-                                            border: '1px solid #d1d5db',
-                                            fontSize: '0.875rem',
-                                            minHeight: '80px',
-                                            resize: 'none',
-                                            outline: 'none',
-                                            transition: 'border-color 0.2s'
-                                        }}
-                                        onFocus={(e) => e.target.style.borderColor = '#2563eb'}
-                                        onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
-                                    />
-                                </div>
-                            </div>
-                            <div className="modal-footer" style={{ border: 'none', gap: '0.75rem' }}>
-                                <button className="btn-cancel" onClick={() => { setShowStatusConfirmModal(false); setEquipoStatusPending(null); setStatusObservation(''); }} disabled={processingAction} style={{ flex: 1 }}>Cancelar</button>
-                                <button
-                                    className={equipoStatusPending.estado?.toLowerCase() === 'activo' ? 'btn-danger' : 'btn-success'}
-                                    onClick={confirmToggleStatus}
-                                    disabled={processingAction}
-                                    style={{ flex: 1 }}
-                                >
-                                    {processingAction ? '...' : (equipoStatusPending.estado?.toLowerCase() === 'activo' ? 'Desactivar' : 'Activar')}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
-
-            {/* Loading Overlay */}
-            {
-                processingAction && (
-                    <div style={{
-                        position: 'fixed',
-                        top: 0,
-                        left: 0,
-                        width: '100vw',
-                        height: '100vh',
-                        background: 'rgba(255, 255, 255, 0.8)',
-                        backdropFilter: 'blur(4px)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        zIndex: 12000,
-                        animation: 'fadeIn 0.3s ease'
-                    }}>
-                        <style>{`
-                        @keyframes spin {
-                            0% { transform: rotate(0deg); }
-                            100% { transform: rotate(360deg); }
-                        }
-                        @keyframes fadeIn {
-                            from { opacity: 0; }
-                            to { opacity: 1; }
-                        }
-                        @keyframes pulse {
-                            0%, 100% { opacity: 1; transform: scale(1); }
-                            50% { opacity: 0.7; transform: scale(0.98); }
-                        }
-                    `}</style>
-                        <div style={{
-                            width: '50px',
-                            height: '50px',
-                            border: '4px solid #f3f3f3',
-                            borderTop: '4px solid #2563eb',
-                            borderRadius: '50%',
-                            animation: 'spin 1s linear infinite',
-                            marginBottom: '1rem',
-                            boxShadow: '0 4px 10px rgba(37, 99, 235, 0.2)'
-                        }}></div>
-                        <div style={{
-                            fontWeight: 700,
-                            color: '#1e40af',
-                            fontSize: '1.1rem',
-                            letterSpacing: '0.05em',
-                            animation: 'pulse 1.5s ease-in-out infinite'
-                        }}>
-                            PROCESANDO ACCIÓN...
-                        </div>
-                    </div>
-                )
-            }
             <EquipmentExportModal 
                 isOpen={showExportModal}
                 onClose={() => setShowExportModal(false)}
                 catalogs={catalogs}
                 muestreadores={muestreadorList}
                 initialFilters={{
-                    tipo: filterTipo,
-                    sede: filterSede,
-                    estado: filterEstado,
+                    tipo: filterTipo || '',
+                    sede: filterSede || '',
+                    estado: filterEstado || '',
                     fechaDesde: filterFechaDesde,
                     fechaHasta: filterFechaHasta,
-                    id_muestreador: filterMuestreador
+                    id_muestreador: filterMuestreador || ''
                 }}
             />
-        </div >
+        </Container>
     );
 };

@@ -23,6 +23,59 @@ const theme = createTheme({
   },
   fontFamily: 'Inter, system-ui, sans-serif',
   defaultRadius: 'md',
+  shadows: {
+    xs: '0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.1)',
+    sm: '0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03)',
+    md: '0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -2px rgba(0,0,0,0.03)',
+    lg: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)',
+    xl: '0 25px 50px -12px rgba(0,0,0,0.25)',
+  },
+  components: {
+    Button: {
+      defaultProps: {
+        radius: 'md',
+        fw: 600,
+      },
+    },
+    Paper: {
+      defaultProps: {
+        withBorder: true,
+        radius: 'md',
+        shadow: 'sm',
+      },
+    },
+    Card: {
+      defaultProps: {
+        withBorder: true,
+        radius: 'md',
+        shadow: 'sm',
+      },
+    },
+    TextInput: {
+      defaultProps: {
+        radius: 'md',
+      },
+    },
+    Select: {
+      defaultProps: {
+        radius: 'md',
+      },
+    },
+    Title: {
+      styles: {
+        root: {
+          fontWeight: 800,
+          letterSpacing: '-0.02em',
+        },
+      },
+    },
+    Badge: {
+        defaultProps: {
+            radius: 'sm',
+            fw: 700,
+        }
+    }
+  },
 });
 
 createRoot(document.getElementById('root')!).render(

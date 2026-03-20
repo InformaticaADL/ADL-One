@@ -2,7 +2,31 @@ import React, { useState, useEffect } from 'react';
 import { ursService } from '../../../services/urs.service';
 import { useNavStore } from '../../../store/navStore';
 import apiClient from '../../../config/axios.config';
-import './MuestreadorDeactivationForm.css';
+import {
+    Stack,
+    Group,
+    Select,
+    Paper,
+    Text,
+    Button,
+    Badge,
+    Title,
+    ThemeIcon,
+    SimpleGrid,
+    UnstyledButton,
+    Loader,
+    Alert,
+    Center,
+    Divider
+} from '@mantine/core';
+import {
+    IconUserMinus,
+    IconBuildingCommunity,
+    IconUsers,
+    IconEdit,
+    IconCheck,
+    IconHash
+} from '@tabler/icons-react';
 
 interface MuestreadorDeactivationFormProps {
     onSuccess?: () => void;
@@ -18,10 +42,10 @@ const MuestreadorDeactivationForm: React.FC<MuestreadorDeactivationFormProps> = 
     onDataChange
 }) => {
     const [muestreadores, setMuestreadores] = useState<any[]>([]);
-    const [selectedId, setSelectedId] = useState<number | ''>('');
+    const [selectedId, setSelectedId] = useState<string | null>(null);
     const [transferType, setTransferType] = useState<'BASE' | 'MUESTREADOR' | 'MANUAL' | ''>('');
-    const [targetBase, setTargetBase] = useState('');
-    const [targetMuestreadorId, setTargetMuestreadorId] = useState<number | ''>('');
+    const [targetBase, setTargetBase] = useState<string | null>(null);
+    const [targetMuestreadorId, setTargetMuestreadorId] = useState<string | null>(null);
     const [equipmentList, setEquipmentList] = useState<any[]>([]);
     const [manualAssignments, setManualAssignments] = useState<Record<number, number>>({});
     const [loading, setLoading] = useState(false);
@@ -29,34 +53,6 @@ const MuestreadorDeactivationForm: React.FC<MuestreadorDeactivationFormProps> = 
     const [equipmentCount, setEquipmentCount] = useState<number | null>(null);
     const [submitted, setSubmitted] = useState(false);
     const { setActiveSubmodule } = useNavStore();
-
-    // Notify parent of data changes
-    useEffect(() => {
-        if (onDataChange) {
-            const data: any = {
-                muestreador_origen_id: selectedId,
-                muestreador_origen_nombre: muestreadores.find(m => m.id_muestreador === selectedId)?.nombre_muestreador,
-                tipo_traspaso: transferType,
-            };
-
-            if (transferType === 'BASE') {
-                data.base_destino = targetBase;
-            } else if (transferType === 'MUESTREADOR') {
-                data.muestreador_destino_id = targetMuestreadorId;
-                data.muestreador_destino_nombre = muestreadores.find(m => m.id_muestreador === targetMuestreadorId)?.nombre_muestreador;
-            } else if (transferType === 'MANUAL') {
-                data.reasignacion_manual = equipmentList.map(eq => ({
-                    id_equipo: eq.id_equipo,
-                    nombre_equipo: eq.nombre,
-                    codigo_equipo: eq.codigo,
-                    id_muestreador_nuevo: manualAssignments[eq.id_equipo] || null
-                }));
-            }
-            onDataChange(data);
-        }
-    }, [selectedId, transferType, targetBase, targetMuestreadorId, manualAssignments, equipmentList, muestreadores, onDataChange]);
-
-    const bases = ['Base Aysén', 'Base Puerto Montt', 'Base Villarrica', 'Sede Villarrica'];
 
     useEffect(() => {
         apiClient.get('/api/catalogos/muestreadores')
@@ -82,37 +78,44 @@ const MuestreadorDeactivationForm: React.FC<MuestreadorDeactivationFormProps> = 
         }
     }, [selectedId]);
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (isEmbedded) return; // Parent handles submission
-        
-        if (!selectedId || !transferType) return alert('Complete los campos iniciales');
-
-        const payload: any = {
-            id_tipo: 0,
-            datos_json: {
-                muestreador_origen_id: selectedId,
-                muestreador_origen_nombre: muestreadores.find(m => m.id_muestreador === selectedId)?.nombre_muestreador,
+    // Notify parent
+    useEffect(() => {
+        if (onDataChange) {
+            const data: any = {
+                muestreador_origen_id: selectedId ? Number(selectedId) : null,
+                muestreador_origen_nombre: muestreadores.find(m => String(m.id_muestreador) === selectedId)?.nombre_muestreador,
                 tipo_traspaso: transferType,
-            }
-        };
+            };
 
-        if (transferType === 'BASE') {
-            if (!targetBase) return alert('Seleccione una base de destino');
-            payload.datos_json.base_destino = targetBase;
-        } else if (transferType === 'MUESTREADOR') {
-            if (!targetMuestreadorId) return alert('Seleccione un muestreador de destino');
-            if (targetMuestreadorId === selectedId) return alert('El destino debe ser diferente al origen');
-            payload.datos_json.muestreador_destino_id = targetMuestreadorId;
-            payload.datos_json.muestreador_destino_nombre = muestreadores.find(m => m.id_muestreador === targetMuestreadorId)?.nombre_muestreador;
-        } else if (transferType === 'MANUAL') {
-            payload.datos_json.reasignacion_manual = equipmentList.map(eq => ({
-                id_equipo: eq.id_equipo,
-                nombre_equipo: eq.nombre,
-                codigo_equipo: eq.codigo,
-                id_muestreador_nuevo: manualAssignments[eq.id_equipo] || null
-            }));
+            if (transferType === 'BASE') {
+                data.base_destino = targetBase;
+            } else if (transferType === 'MUESTREADOR') {
+                data.muestreador_destino_id = targetMuestreadorId ? Number(targetMuestreadorId) : null;
+                data.muestreador_destino_nombre = muestreadores.find(m => String(m.id_muestreador) === targetMuestreadorId)?.nombre_muestreador;
+            } else if (transferType === 'MANUAL') {
+                data.reasignacion_manual = equipmentList.map(eq => ({
+                    id_equipo: eq.id_equipo,
+                    nombre_equipo: eq.nombre,
+                    codigo_equipo: eq.codigo,
+                    id_muestreador_nuevo: manualAssignments[eq.id_equipo] || null
+                }));
+            }
+            onDataChange(data);
         }
+    }, [selectedId, transferType, targetBase, targetMuestreadorId, manualAssignments, equipmentList, muestreadores, onDataChange]);
+
+    const bases = [
+        { value: 'Base Aysén', label: '🏢 Base Aysén' },
+        { value: 'Base Puerto Montt', label: '🏢 Base Puerto Montt' },
+        { value: 'Base Villarrica', label: '🏢 Base Villarrica' },
+        { value: 'Sede Villarrica', label: '🏢 Sede Villarrica' }
+    ];
+
+    const handleSubmit = async (e?: React.FormEvent) => {
+        e?.preventDefault();
+        if (isEmbedded) return;
+        
+        if (!selectedId || !transferType) return;
 
         setLoading(true);
         try {
@@ -120,16 +123,35 @@ const MuestreadorDeactivationForm: React.FC<MuestreadorDeactivationFormProps> = 
             const type = types.find((t: any) => t.codigo === 'DESHABILITAR_MUESTREADOR' || t.nombre === 'Deshabilitar muestreador');
             if (!type) throw new Error("No se encontró el tipo de solicitud");
 
+            const payload: any = {
+                muestreador_origen_id: Number(selectedId),
+                muestreador_origen_nombre: muestreadores.find(m => String(m.id_muestreador) === selectedId)?.nombre_muestreador,
+                tipo_traspaso: transferType,
+            };
+
+            if (transferType === 'BASE') payload.base_destino = targetBase;
+            else if (transferType === 'MUESTREADOR') {
+                payload.muestreador_destino_id = Number(targetMuestreadorId);
+                payload.muestreador_destino_nombre = muestreadores.find(m => String(m.id_muestreador) === targetMuestreadorId)?.nombre_muestreador;
+            }
+            else if (transferType === 'MANUAL') {
+                payload.reasignacion_manual = equipmentList.map(eq => ({
+                    id_equipo: eq.id_equipo,
+                    nombre_equipo: eq.nombre,
+                    codigo_equipo: eq.codigo,
+                    id_muestreador_nuevo: manualAssignments[eq.id_equipo] || null
+                }));
+            }
+
             await ursService.createRequest({
                 id_tipo: type.id_tipo,
-                datos_json: payload.datos_json,
+                datos_json: payload,
                 archivos: []
             });
             setSubmitted(true);
             if (onSuccess) onSuccess();
         } catch (error) {
             console.error(error);
-            alert('Error al crear la solicitud');
         } finally {
             setLoading(false);
         }
@@ -137,162 +159,151 @@ const MuestreadorDeactivationForm: React.FC<MuestreadorDeactivationFormProps> = 
 
     if (submitted && !isEmbedded) {
         return (
-            <div className="form-container-v2 success-view animate-fade-in">
-                <div className="success-content">
-                    <div className="success-icon">✅</div>
-                    <h2>¡Solicitud Enviada!</h2>
-                    <p>La solicitud de deshabilitación ha sido creada correctamente.</p>
-                    <button className="v2-btn-secondary" onClick={() => setActiveSubmodule('urs-list')}>
-                        Ir ahora
-                    </button>
-                </div>
-            </div>
+            <Paper p="xl" radius="lg" withBorder shadow="sm" style={{ textAlign: 'center' }}>
+                <ThemeIcon size={64} radius={64} color="teal" variant="light" mb="md">
+                    <IconCheck size={40} />
+                </ThemeIcon>
+                <Title order={2} mb="xs">¡Solicitud Enviada!</Title>
+                <Text c="dimmed" mb="lg">La solicitud de deshabilitación ha sido creada correctamente.</Text>
+                <Button color="adl-blue" radius="md" onClick={() => setActiveSubmodule('urs-list')}>
+                    Volver a la lista
+                </Button>
+            </Paper>
         );
     }
 
-    const content = (
-        <div className={`muestreador-form-v2 ${isEmbedded ? 'embedded' : ''}`}>
-            <section className="form-section-compact">
-                {!isEmbedded && (
-                    <div className="section-header-compact">
-                        <span className="step-badge">1</span>
-                        <h3>Paso 1: Identificación</h3>
-                    </div>
-                )}
-                <div className="form-group-compact">
-                    <label className="adl-label-small">Muestreador a deshabilitar</label>
-                    <select 
-                        className="adl-select-compact"
-                        value={selectedId}
-                        onChange={(e) => setSelectedId(Number(e.target.value))}
-                        required
-                    >
-                        <option value="">Seleccione un muestreador...</option>
-                        {muestreadores.map(m => (
-                            <option key={m.id_muestreador} value={m.id_muestreador}>
-                                {m.nombre_muestreador}
-                            </option>
-                        ))}
-                    </select>
-                </div>
-            </section>
+    return (
+        <Stack gap="lg">
+            {!isEmbedded && (
+                <Alert icon={<IconUserMinus size={18} />} title="Baja de Muestreador" color="adl-blue" radius="md">
+                    Procedimiento para deshabilitar a un compañero y reasignar sus equipos.
+                </Alert>
+            )}
+
+            <Select 
+                label="Persona a deshabilitar"
+                placeholder="Seleccione un muestreador..."
+                data={muestreadores.map(m => ({ value: String(m.id_muestreador), label: m.nombre_muestreador }))}
+                value={selectedId}
+                onChange={setSelectedId}
+                required
+                searchable
+                radius="md"
+            />
 
             {selectedId && (
-                <section className="form-section-compact animate-slide-up">
-                    <div className="section-header-compact">
-                        {!isEmbedded && <span className="step-badge">2</span>}
-                        <h3>Gestión de Equipos Asociados</h3>
-                    </div>
-                    <div className="options-row-v2">
-                        <div 
-                            className={`mini-option-card ${transferType === 'BASE' ? 'active' : ''}`}
-                            onClick={() => setTransferType('BASE')}
-                        >
-                            <strong>Trasladar a Base</strong>
-                            <p>{equipmentCount !== null ? `${equipmentCount} equipos a base` : 'Traspaso a base fija'}</p>
-                        </div>
-                        <div 
-                            className={`mini-option-card ${transferType === 'MUESTREADOR' ? 'active' : ''}`}
-                            onClick={() => setTransferType('MUESTREADOR')}
-                        >
-                            <strong>Otro Muestreador</strong>
-                            <p>{equipmentCount !== null ? `${equipmentCount} equipos a compañero` : 'Traspaso total'}</p>
-                        </div>
-                        <div 
-                            className={`mini-option-card ${transferType === 'MANUAL' ? 'active' : ''}`}
-                            onClick={() => setTransferType('MANUAL')}
-                        >
-                            <strong>Manual</strong>
-                            <p>{equipmentCount !== null ? `Asignar ${equipmentCount} equipos` : 'Por equipo'}</p>
-                        </div>
-                    </div>
-                </section>
+                <Stack gap="xs">
+                    <Text size="sm" fw={700}>Reasignación de Equipos ({equipmentCount ?? '...'})</Text>
+                    <SimpleGrid cols={3} spacing="sm">
+                        {[
+                            { id: 'BASE', label: 'Traspaso a Base', icon: <IconBuildingCommunity size={20} />, color: 'blue' },
+                            { id: 'MUESTREADOR', label: 'A Compañero', icon: <IconUsers size={20} />, color: 'teal' },
+                            { id: 'MANUAL', label: 'Manual', icon: <IconEdit size={20} />, color: 'indigo' }
+                        ].map((opt) => (
+                            <UnstyledButton
+                                key={opt.id}
+                                onClick={() => setTransferType(opt.id as any)}
+                                p="md"
+                                style={{
+                                    borderRadius: 'var(--mantine-radius-md)',
+                                    border: `1px solid ${transferType === opt.id ? `var(--mantine-color-${opt.color}-4)` : 'var(--mantine-color-gray-2)'}`,
+                                    backgroundColor: transferType === opt.id ? `var(--mantine-color-${opt.color}-0)` : 'white',
+                                    transition: 'all 150ms ease',
+                                    textAlign: 'center'
+                                }}
+                            >
+                                <Center style={{ flexDirection: 'column' }}>
+                                    <ThemeIcon variant="light" color={opt.color} size="lg" mb={8} radius="md">
+                                        {opt.icon}
+                                    </ThemeIcon>
+                                    <Text size="xs" fw={700} c={transferType === opt.id ? `${opt.color}.8` : 'gray.7'}>
+                                        {opt.label}
+                                    </Text>
+                                </Center>
+                            </UnstyledButton>
+                        ))}
+                    </SimpleGrid>
+                </Stack>
             )}
 
             {transferType === 'BASE' && (
-                <section className="form-section-compact animate-slide-up">
-                    <div className="form-group-compact">
-                        <label className="adl-label-small">Base de destino</label>
-                        <select 
-                            className="adl-select-compact"
-                            value={targetBase}
-                            onChange={(e) => setTargetBase(e.target.value)}
-                            required
-                        >
-                            <option value="">Seleccione base...</option>
-                            {bases.map(b => <option key={b} value={b}>{b}</option>)}
-                        </select>
-                    </div>
-                </section>
+                <Select 
+                    label="Base de destino"
+                    placeholder="Seleccione base..."
+                    data={bases}
+                    value={targetBase}
+                    onChange={setTargetBase}
+                    required
+                    radius="md"
+                />
             )}
 
             {transferType === 'MUESTREADOR' && (
-                <section className="form-section-compact animate-slide-up">
-                    <div className="form-group-compact">
-                        <label className="adl-label-small">Muestreador de destino</label>
-                        <select 
-                            className="adl-select-compact"
-                            value={targetMuestreadorId}
-                            onChange={(e) => setTargetMuestreadorId(Number(e.target.value))}
-                            required
-                        >
-                            <option value="">Seleccione destino...</option>
-                            {muestreadores.filter(m => m.id_muestreador !== selectedId).map(m => (
-                                <option key={m.id_muestreador} value={m.id_muestreador}>
-                                    {m.nombre_muestreador}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                </section>
+                <Select 
+                    label="Muestreador de destino"
+                    placeholder="Seleccione destino..."
+                    data={muestreadores.filter(m => String(m.id_muestreador) !== selectedId).map(m => ({ value: String(m.id_muestreador), label: m.nombre_muestreador }))}
+                    value={targetMuestreadorId}
+                    onChange={setTargetMuestreadorId}
+                    required
+                    searchable
+                    radius="md"
+                />
             )}
 
             {transferType === 'MANUAL' && (
-                <section className="form-section-compact animate-slide-up">
-                    <div className="compact-list-header">
-                        <span className="label">Equipos Asociados</span>
-                        <span className="label">Nuevo Responsable</span>
-                    </div>
-                    {loadingEquipos ? <p className="loading-txt-small">Cargando...</p> : (
-                        <div className="compact-eq-list">
-                            {equipmentList.map(eq => (
-                                <div key={eq.id_equipo} className="eq-row-v2">
-                                    <div className="eq-name-group">
-                                        <span className="eq-code-v2">{eq.codigo}</span>
-                                        <span className="eq-title-v2">{eq.nombre}</span>
-                                    </div>
-                                    <select 
-                                        className="adl-select-mini"
-                                        value={manualAssignments[eq.id_equipo] || ''}
-                                        onChange={(e) => setManualAssignments({
-                                            ...manualAssignments,
-                                            [eq.id_equipo]: Number(e.target.value)
-                                        })}
-                                    >
-                                        <option value="">Sin asignar</option>
-                                        {muestreadores.filter(m => m.id_muestreador !== selectedId).map(m => (
-                                            <option key={m.id_muestreador} value={m.id_muestreador}>{m.nombre_muestreador}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </section>
+                <Paper p="md" withBorder radius="md" bg="gray.0">
+                    <Group justify="space-between" mb="xs">
+                        <Text size="xs" fw={800} c="dimmed">Equipos de {muestreadores.find(m => String(m.id_muestreador) === selectedId)?.nombre_muestreador}</Text>
+                        <Badge size="xs" color="indigo">{equipmentList.length} ítems</Badge>
+                    </Group>
+                    
+                    <Divider mb="md" />
+
+                    <Stack gap="sm">
+                        {loadingEquipos ? <Center py="xl"><Loader size="xs" /></Center> : (
+                            equipmentList.map(eq => (
+                                <Paper key={eq.id_equipo} p="xs" bg="white" radius="md" style={{ border: '1px solid var(--mantine-color-gray-2)' }}>
+                                    <Group justify="space-between" wrap="nowrap">
+                                        <Group gap="xs">
+                                            <Badge variant="light" color="gray" size="xs"><IconHash size={10} /> {eq.codigo}</Badge>
+                                            <Text size="sm" fw={600} truncate>{eq.nombre}</Text>
+                                        </Group>
+                                        <Select 
+                                            size="xs"
+                                            placeholder="Destino"
+                                            data={muestreadores.filter(m => String(m.id_muestreador) !== selectedId).map(m => ({ value: String(m.id_muestreador), label: m.nombre_muestreador }))}
+                                            value={manualAssignments[eq.id_equipo] ? String(manualAssignments[eq.id_equipo]) : null}
+                                            onChange={(val) => setManualAssignments({ ...manualAssignments, [eq.id_equipo]: Number(val) })}
+                                            radius="sm"
+                                            style={{ width: 140 }}
+                                        />
+                                    </Group>
+                                </Paper>
+                            ))
+                        )}
+                    </Stack>
+                </Paper>
             )}
 
             {!isEmbedded && (
-                <div className="form-actions-v2">
-                    <button type="button" className="v2-btn-secondary" onClick={onCancel}>Cancelar</button>
-                    <button type="submit" className="v2-btn-primary" disabled={loading || !transferType}>
-                        {loading ? 'Enviando...' : 'Enviar'}
-                    </button>
-                </div>
+                <Group justify="flex-end" mt="xl">
+                    <Button variant="light" color="gray" onClick={onCancel} radius="md">
+                        Cancelar
+                    </Button>
+                    <Button 
+                        color="adl-blue" 
+                        radius="md" 
+                        loading={loading} 
+                        disabled={!transferType}
+                        onClick={() => handleSubmit()}
+                    >
+                        Confirmar Baja
+                    </Button>
+                </Group>
             )}
-        </div>
+        </Stack>
     );
-
-    return isEmbedded ? content : <form onSubmit={handleSubmit}>{content}</form>;
 };
 
 export default MuestreadorDeactivationForm;

@@ -1,28 +1,50 @@
 import React, { useState } from 'react';
+import { 
+    Container, 
+    Stack, 
+    Group, 
+    Text, 
+    SimpleGrid, 
+    Paper, 
+    UnstyledButton, 
+    ThemeIcon, 
+    Box, 
+    Button, 
+    Select, 
+    Grid
+} from '@mantine/core';
+import { 
+    IconDownload, 
+    IconDatabase, 
+    IconLayoutGrid,
+    IconSettings,
+    IconFileSpreadsheet,
+    IconChevronRight
+} from '@tabler/icons-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import * as XLSX from 'xlsx';
 import { adminExportService } from '../services/admin.service';
 import { EquipoCatalogoView } from '../components/EquipoCatalogoView';
+import { PageHeader } from '../../../components/layout/PageHeader';
 
-// Mock list of areas as requested
 // List of areas with specific permissions
-const AREAS: { id: string, label: string, icon: string, permission: string | string[] }[] = [
-    { id: 'gem', label: 'GEM', icon: '🧬', permission: 'GEM_ACCESO' },
-    { id: 'necropsia', label: 'Necropsia', icon: '🐟', permission: 'NEC_ACCESO' },
-    { id: 'microscopia', label: 'Microscopía', icon: '🔬', permission: 'MIC_ACCESO' },
-    { id: 'biologia_molecular', label: 'Biología Molecular', icon: '🧪', permission: 'BM_ACCESO' },
-    { id: 'cultivo_celular', label: 'Cultivo Celular', icon: '🧫', permission: 'CC_ACCESO' },
-    { id: 'bacteriologia', label: 'Bacteriología', icon: '🦠', permission: 'BAC_ACCESO' },
-    { id: 'screening', label: 'Screening', icon: '🔎', permission: 'SCR_ACCESO' },
-    { id: 'derivaciones', label: 'Derivaciones', icon: '📬', permission: 'DER_ACCESO' },
-    { id: 'medio_ambiente', label: 'Medio Ambiente', icon: '🌿', permission: 'MA_ACCESO' },
-    { id: 'atl', label: 'ATL', icon: '⚖️', permission: 'ATL_ACCESO' },
-    { id: 'id', label: 'I+D', icon: '💡', permission: 'ID_ACCESO' },
-    { id: 'pve', label: 'PVE', icon: '🩺', permission: 'PVE_ACCESO' },
-    { id: 'informatica', label: 'Informática', icon: '💻', permission: 'INF_ACCESO' },
-    { id: 'comercial', label: 'Comercial', icon: '📈', permission: 'COM_ACCESO' },
-    { id: 'gestion_calidad', label: 'Gestión de Calidad', icon: '⭐', permission: 'GC_ACCESO' },
-    { id: 'administracion', label: 'Administración', icon: '🏢', permission: 'ADM_ACCESO' },
+const AREAS: { id: string, label: string, icon: string, permission: string | string[], description?: string }[] = [
+    { id: 'gem', label: 'GEM', icon: '🧬', permission: 'GEM_ACCESO', description: 'Gestión de Ensayos Moleculares' },
+    { id: 'necropsia', label: 'Necropsia', icon: '🐟', permission: 'NEC_ACCESO', description: 'Área de Anatomía Patológica' },
+    { id: 'microscopia', label: 'Microscopía', icon: '🔬', permission: 'MIC_ACCESO', description: 'Análisis Microscópico Digital' },
+    { id: 'biologia_molecular', label: 'Biología Molecular', icon: '🧪', permission: 'BM_ACCESO', description: 'Laboratorio de Genética' },
+    { id: 'cultivo_celular', label: 'Cultivo Celular', icon: '🧫', permission: 'CC_ACCESO', description: 'Mantenimiento de Líneas Celulares' },
+    { id: 'bacteriologia', label: 'Bacteriología', icon: '🦠', permission: 'BAC_ACCESO', description: 'Identificación de Microorganismos' },
+    { id: 'screening', label: 'Screening', icon: '🔎', permission: 'SCR_ACCESO', description: 'Tamizaje y Pruebas Rápidas' },
+    { id: 'derivaciones', label: 'Derivaciones', icon: '📬', permission: 'DER_ACCESO', description: 'Gestión de Muestras Externas' },
+    { id: 'medio_ambiente', label: 'Medio Ambiente', icon: '🌿', permission: 'MA_ACCESO', description: 'Control Ambiental y Sanitario' },
+    { id: 'atl', label: 'ATL', icon: '⚖️', permission: 'ATL_ACCESO', description: 'Área Técnica Local' },
+    { id: 'id', label: 'I+D', icon: '💡', permission: 'ID_ACCESO', description: 'Innovación y Desarrollo' },
+    { id: 'pve', label: 'PVE', icon: '🩺', permission: 'PVE_ACCESO', description: 'Vigilancia Epidemiológica' },
+    { id: 'informatica', label: 'Informática', icon: '💻', permission: 'INF_ACCESO', description: 'Infraestructura y Sistemas' },
+    { id: 'comercial', label: 'Comercial', icon: '📈', permission: 'COM_ACCESO', description: 'Gestión de Clientes y Ventas' },
+    { id: 'gestion_calidad', label: 'Gestión de Calidad', icon: '⭐', permission: 'GC_ACCESO', description: 'Normativas y Auditorías' },
+    { id: 'administracion', label: 'Administración', icon: '🏢', permission: 'ADM_ACCESO', description: 'Gestión General de Oficina' },
 ];
 
 const TABLES_TO_EXPORT = [
@@ -32,49 +54,15 @@ const TABLES_TO_EXPORT = [
     { id: 'mae_cargo', label: 'mae_cargo', type: 'TABLE', area: 'Maestros (Gral)' },
     { id: 'mae_umedida', label: 'mae_umedida', type: 'TABLE', area: 'Maestros (Gral)' },
     { id: 'consulta_contacto_una_empresa', label: 'consulta_contacto_una_empresa (SP)', type: 'SP', area: 'Maestros (Gral)' },
-
-    // --- FICHAS E INGRESOS ---
     { id: 'App_Ma_FichaIngresoServicio_ENC', label: 'App_Ma_FichaIngresoServicio_ENC', type: 'TABLE', area: 'Fichas e Ingresos' },
     { id: 'consulta_centro', label: 'consulta_centro (SP)', type: 'SP', area: 'Fichas e Ingresos' },
     { id: 'consulta_objetivomuestreo_ma_oservicios', label: 'consulta_objetivomuestreo_ma_oservicios (SP)', type: 'SP', area: 'Fichas e Ingresos' },
     { id: 'consulta_tipomuestreo_medio_ambiente', label: 'consulta_tipomuestreo_medio_ambiente (SP)', type: 'SP', area: 'Fichas e Ingresos' },
-    { id: 'consulta_mae_actividadmuestreo', label: 'consulta_mae_actividadmuestreo (SP)', type: 'SP', area: 'Fichas e Ingresos' },
-    { id: 'consulta_mae_tipodescarga', label: 'consulta_mae_tipodescarga (SP)', type: 'SP', area: 'Fichas e Ingresos' },
-    { id: 'Consulta_Mae_Modalidad', label: 'Consulta_Mae_Modalidad (SP)', type: 'SP', area: 'Fichas e Ingresos' },
-    { id: 'Consulta_Frecuencia_Periodo', label: 'Consulta_Frecuencia_Periodo (SP)', type: 'SP', area: 'Fichas e Ingresos' },
-    { id: 'Consulta_Mae_Formacanal', label: 'Consulta_Mae_Formacanal (SP)', type: 'SP', area: 'Fichas e Ingresos' },
-    { id: 'Consulta_App_Ma_ReferenciaAnalisis', label: 'Consulta_App_Ma_ReferenciaAnalisis (SP)', type: 'SP', area: 'Fichas e Ingresos' },
-    { id: 'Maestro_Tipoentrega', label: 'Maestro_Tipoentrega (SP)', type: 'SP', area: 'Fichas e Ingresos' },
-    { id: 'consulta_subarea_medioambiente', label: 'Sub-área (MA)', type: 'SP', area: 'Fichas e Ingresos' },
-    { id: 'consulta_tipomuestra_ma', label: 'Tipo Muestra (MA)', type: 'SP', area: 'Fichas e Ingresos' },
-    { id: 'Consulta_App_Ma_NormativaReferencia', label: 'Normativa - Referencia (Relación)', type: 'SP', area: 'Fichas e Ingresos' },
-    { id: 'mae_zonageografica', label: 'Zonas Geográficas (UTM)', type: 'TABLE', area: 'Fichas e Ingresos' },
-
-    // --- SOLICITUDES Y MUESTREO ---
     { id: 'mae_muestreador', label: 'mae_muestreador', type: 'TABLE', area: 'Solicitudes y Muestreo' },
-    { id: 'mae_estadomuestreo', label: 'mae_estadomuestreo', type: 'TABLE', area: 'Solicitudes y Muestreo' },
-    { id: 'maestro_lugaranalisis', label: 'maestro_lugaranalisis (SP)', type: 'SP', area: 'Solicitudes y Muestreo' },
-    { id: 'consulta_inspectorambiental', label: 'consulta_inspectorambiental (SP)', type: 'SP', area: 'Solicitudes y Muestreo' },
-    { id: 'consulta_laboratorioensayo', label: 'consulta_laboratorioensayo (SP)', type: 'SP', area: 'Solicitudes y Muestreo' },
-
-    // --- ANÁLISIS Y NORMATIVA ---
-    { id: 'consulta_tipomuestra_medioambiente', label: 'consulta_tipomuestra_medioambiente (SP)', type: 'SP', area: 'Análisis y Normativa' },
-    { id: 'consulta_subarea_medioambiente', label: 'consulta_subarea_medioambiente (SP)', type: 'SP', area: 'Análisis y Normativa' },
-    { id: 'consulta_tipomuestra_ma', label: 'consulta_tipomuestra_ma (SP)', type: 'SP', area: 'Análisis y Normativa' },
-    { id: 'Consulta_App_Ma_Normativa', label: 'Consulta_App_Ma_Normativa (SP)', type: 'SP', area: 'Análisis y Normativa' },
-    { id: 'Consulta_App_Ma_NormativaReferencia', label: 'Consulta_App_Ma_NormativaReferencia (SP)', type: 'SP', area: 'Análisis y Normativa' },
-
-    // --- EQUIPOS E INSTRUMENTOS ---
-    { id: 'mae_instrumentoambiental', label: 'mae_instrumentoambiental', type: 'TABLE', area: 'Equipos e Instrumentos' },
-    { id: 'Consulta_Mae_Dispositivohidraulico', label: 'Consulta_Mae_Dispositivohidraulico (SP)', type: 'SP', area: 'Equipos e Instrumentos' },
-
-    // --- CALIDAD Y EQUIPOS ---
     { id: 'mae_equipo', label: 'Inventario de Equipos (Vigencia)', type: 'TABLE', area: 'Calidad y Equipos' },
     { id: 'mae_equipo_historial', label: 'Historial de Cambios (Equipos)', type: 'TABLE', area: 'Calidad y Equipos' },
     { id: 'mae_solicitud_equipo', label: 'Solicitudes de Gestión (Auditoría)', type: 'TABLE', area: 'Calidad y Equipos' },
 ];
-
-import '../admin.css';
 
 interface Props {
     onNavigate: (areaId: string) => void;
@@ -89,9 +77,7 @@ export const AdminInfoHub: React.FC<Props> = ({ onNavigate }) => {
 
     const activeExport = TABLES_TO_EXPORT.find(t => t.id === selectedId);
     const areas = Array.from(new Set(TABLES_TO_EXPORT.map(t => t.area)));
-    const filteredOptions = TABLES_TO_EXPORT.filter(t => t.area === selectedArea);
-
-    // Filter areas based on user permissions
+    
     const visibleAreas = AREAS.filter(area => {
         if (hasPermission('AI_MA_ADMIN_ACCESO')) return true;
         if (Array.isArray(area.permission)) {
@@ -105,24 +91,15 @@ export const AdminInfoHub: React.FC<Props> = ({ onNavigate }) => {
         setExporting(true);
         try {
             const params: any = {};
-            const response = await adminExportService.getExportTableData(
-                activeExport.id, 
-                activeExport.type as any, 
-                params
-            );
-
+            const response = await adminExportService.getExportTableData(activeExport.id, activeExport.type as any, params);
             if (response.success && response.data) {
                 const worksheet = XLSX.utils.json_to_sheet(response.data);
                 const workbook = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(workbook, worksheet, "Data");
-                
                 XLSX.writeFile(workbook, `${activeExport.id}_${new Date().toISOString().split('T')[0]}.xlsx`);
-            } else {
-                alert('Error al obtener datos');
             }
         } catch (error: any) {
-            console.error('Export error details:', error);
-            alert(`Error en la exportación: ${error.message || 'Error desconocido'}`);
+            console.error('Export error:', error);
         } finally {
             setExporting(false);
         }
@@ -130,266 +107,149 @@ export const AdminInfoHub: React.FC<Props> = ({ onNavigate }) => {
 
     const isRdiaz = user?.username?.toLowerCase() === 'rdiaz' || user?.name?.toLowerCase().includes('diaz');
 
+    if (currentView === 'catalogo') {
+        return <EquipoCatalogoView onBack={() => setCurrentView('grid')} />;
+    }
+
     return (
-        <div className="admin-container">
-            <div className="admin-header-section" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '0.25rem', marginBottom: '1.5rem' }}>
-                <h1 className="admin-title" style={{ margin: 0 }}>
-                    {currentView === 'export' ? 'Exportación de Datos' : 
-                     currentView === 'catalogo' ? 'Catálogo Maestro' : 'Admin. Información'}
-                </h1>
-                <p className="admin-subtitle" style={{ margin: 0 }}>
-                    {currentView === 'export' ? 'Configure su reporte personalizado abajo.' : 
-                     currentView === 'catalogo' ? 'Gestione las definiciones base para el inventario.' : 'Seleccione un área para gestionar su información.'}
-                </p>
-            </div>
+        <Container fluid py="md">
+            <PageHeader
+                title={currentView === 'export' ? 'Centro de Exportación' : 'Panel de Administración'}
+                subtitle={currentView === 'export' 
+                    ? 'Genera reportes en formato Excel de las bases maestras del sistema.' 
+                    : 'Selecciona un área para gestionar su información o utiliza las herramientas globales.'}
+                onBack={currentView === 'export' ? () => setCurrentView('grid') : undefined}
+                rightSection={currentView === 'grid' ? (
+                    <Group>
+                        {(isRdiaz || hasPermission('AI_MA_ADMIN_ACCESO')) && (
+                            <Button 
+                                variant="light" 
+                                color="blue"
+                                leftSection={<IconSettings size={18} />}
+                                onClick={() => setCurrentView('catalogo')}
+                                radius="md"
+                            >
+                                Catálogo Maestro
+                            </Button>
+                        )}
+                        {isRdiaz && (
+                            <Button 
+                                variant="filled" 
+                                color="green"
+                                leftSection={<IconDownload size={18} />}
+                                onClick={() => setCurrentView('export')}
+                                radius="md"
+                            >
+                                Exportar Datos
+                            </Button>
+                        )}
+                    </Group>
+                ) : null}
+            />
 
-            {currentView === 'grid' && (
-                <div className="hub-grid" style={{ animation: 'pve-fadeIn 0.4s ease-out' }}>
-                    {visibleAreas.map((area) => (
-                        <div
-                            key={area.id}
-                            onClick={() => onNavigate(area.id)}
-                            className="hub-card"
-                        >
-                            <div className="card-icon-wrapper">
-                                {area.icon}
-                            </div>
-                            <div>
-                                <h3 className="card-title">{area.label}</h3>
-                            </div>
-                        </div>
-                    ))}
-
-                    {(isRdiaz || hasPermission('AI_MA_ADMIN_ACCESO')) && (
-                        <div
-                            onClick={() => setCurrentView('catalogo')}
-                            className="hub-card"
-                            style={{ 
-                                border: '2px dashed rgba(30, 41, 59, 0.4)',
-                                background: 'rgba(30, 41, 59, 0.02)'
-                            }}
-                        >
-                            <div className="card-icon-wrapper" style={{ background: 'rgba(30, 41, 59, 0.1)', color: '#1e293b' }}>
-                                📋
-                            </div>
-                            <div>
-                                <h3 className="card-title" style={{ color: '#1e293b' }}>Administrar Catálogo</h3>
-                            </div>
-                        </div>
-                    )}
-
-                    {isRdiaz && (
-                        <div
-                            onClick={() => setCurrentView('export')}
-                            className="hub-card"
-                            style={{ 
-                                border: '2px dashed rgba(34, 197, 94, 0.4)',
-                                background: 'rgba(34, 197, 94, 0.02)'
-                            }}
-                        >
-                            <div className="card-icon-wrapper" style={{ background: 'rgba(34, 197, 94, 0.1)', color: '#22c55e' }}>
-                                📊
-                            </div>
-                            <div>
-                                <h3 className="card-title" style={{ color: '#22c55e' }}>Exportar Excel</h3>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {currentView === 'export' && (
-                <div className="export-view-container" style={{ 
-                    animation: 'pve-slideUp 0.4s ease-out',
-                    maxWidth: '1200px',
-                    margin: '0 auto',
-                    background: '#ffffff',
-                    padding: '1.5rem 2rem',
-                    borderRadius: '24px',
-                    border: '1px solid #f1f5f9',
-                    boxShadow: '0 20px 25px -5px rgba(0,0,0,0.05)'
-                }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                        <div>
-                            <h2 style={{ color: '#1e293b', margin: 0, fontSize: '1.4rem', fontWeight: 800, letterSpacing: '-0.01em' }}>
-                                <span style={{ marginRight: '0.5rem' }}>🚀</span> Centro de Exportación
-                            </h2>
-                            <p style={{ color: '#64748b', margin: '0.1rem 0 0 0', fontSize: '0.85rem' }}>
-                                Seleccione un área y el recurso para descargar.
-                            </p>
-                        </div>
-                        <button 
-                            onClick={() => setCurrentView('grid')}
-                            style={{
-                                background: '#f1f5f9',
-                                border: 'none',
-                                color: '#475569',
-                                padding: '0.4rem 1rem',
-                                borderRadius: '10px',
-                                cursor: 'pointer',
-                                fontSize: '0.75rem',
-                                fontWeight: 700,
-                                transition: 'all 0.2s',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.4rem'
-                            }}
-                        >
-                            ⬅️ Volver
-                        </button>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                        {/* Selector de Área con Botones / Chips */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                            <label style={{ color: '#94a3b8', fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-                                1. Área de Negocio
-                            </label>
-                            <div style={{ 
-                                display: 'flex', 
-                                flexWrap: 'wrap', 
-                                gap: '0.5rem',
-                                padding: '0.25rem 0'
-                            }}>
-                                {areas.map(area => (
-                                    <button
-                                        key={area}
-                                        onClick={() => {
-                                            setSelectedArea(area);
-                                            const firstInArea = TABLES_TO_EXPORT.find(t => t.area === area);
+            <Stack gap="lg" mt="xl">
+                {currentView === 'grid' ? (
+                    <SimpleGrid cols={{ base: 1, xs: 2, sm: 3, md: 4 }} spacing="lg">
+                        {visibleAreas.map((area) => (
+                            <UnstyledButton
+                                key={area.id}
+                                onClick={() => onNavigate(area.id)}
+                            >
+                                <Paper 
+                                    withBorder 
+                                    p="lg" 
+                                    radius="lg" 
+                                    shadow="sm"
+                                    style={{ 
+                                        height: '100%',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        transition: 'all 0.2s ease',
+                                        cursor: 'pointer',
+                                        minHeight: 180,
+                                        '&:hover': {
+                                            transform: 'translateY(-5px)',
+                                            borderColor: 'var(--mantine-color-blue-filled)',
+                                            backgroundColor: 'var(--mantine-color-blue-0)'
+                                        }
+                                    }}
+                                >
+                                    <Box mb="md" style={{ fontSize: '2.5rem' }}>
+                                        {area.icon}
+                                    </Box>
+                                    <Text fw={800} ta="center" size="lg" c="dark.4">{area.label}</Text>
+                                    <Text size="xs" ta="center" c="dimmed" mt={4}>{area.description}</Text>
+                                    <Box mt="md" c="blue" display="flex" style={{ alignItems: 'center', gap: 4 }}>
+                                        <Text size="xs" fw={700}>Acceder</Text>
+                                        <IconChevronRight size={12} />
+                                    </Box>
+                                </Paper>
+                            </UnstyledButton>
+                        ))}
+                    </SimpleGrid>
+                ) : (
+                    <Paper withBorder p="xl" radius="lg" shadow="sm">
+                        <Stack gap="xl">
+                            <Grid grow gutter="lg">
+                                <Grid.Col span={{ base: 12, md: 6 }}>
+                                    <Select 
+                                        label="1. Área de Negocio"
+                                        placeholder="Seleccione área"
+                                        data={areas}
+                                        value={selectedArea}
+                                        onChange={(val) => {
+                                            setSelectedArea(val!);
+                                            const firstInArea = TABLES_TO_EXPORT.find(t => t.area === val);
                                             if (firstInArea) setSelectedId(firstInArea.id);
                                         }}
-                                        style={{
-                                            padding: '0.4rem 1rem',
-                                            borderRadius: '12px',
-                                            border: '2px solid',
-                                            borderColor: selectedArea === area ? '#22c55e' : '#f1f5f9',
-                                            background: selectedArea === area ? 'rgba(34, 197, 94, 0.05)' : '#ffffff',
-                                            color: selectedArea === area ? '#166534' : '#64748b',
-                                            fontSize: '0.8rem',
-                                            fontWeight: 700,
-                                            cursor: 'pointer',
-                                            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
-                                        }}
+                                        radius="md"
+                                        leftSection={<IconLayoutGrid size={16} />}
+                                    />
+                                </Grid.Col>
+                                <Grid.Col span={{ base: 12, md: 6 }}>
+                                    <Select 
+                                        label="2. Recurso / Tabla"
+                                        placeholder="Seleccione recurso"
+                                        data={TABLES_TO_EXPORT.filter(t => t.area === selectedArea).map(t => ({
+                                            value: t.id,
+                                            label: t.label
+                                        }))}
+                                        value={selectedId}
+                                        onChange={(val) => setSelectedId(val!)}
+                                        radius="md"
+                                        leftSection={<IconDatabase size={16} />}
+                                    />
+                                </Grid.Col>
+                            </Grid>
+
+                            <Paper withBorder p="md" radius="md" bg="blue.0">
+                                <Group justify="space-between" wrap="nowrap">
+                                    <Group gap="md" wrap="nowrap">
+                                        <ThemeIcon size="xl" radius="md" color="blue" variant="light">
+                                            <IconFileSpreadsheet size={24} />
+                                        </ThemeIcon>
+                                        <Box>
+                                            <Text fw={700} size="sm" c="blue.9">Recurso: {activeExport?.label}</Text>
+                                            <Text size="xs" c="blue.7">Se generará un archivo Excel (.xlsx) con los datos del servidor.</Text>
+                                        </Box>
+                                    </Group>
+                                    <Button 
+                                        color="green" 
+                                        radius="md" 
+                                        onClick={handleExport}
+                                        loading={exporting}
+                                        leftSection={<IconDownload size={18} />}
                                     >
-                                        {area}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Visualizador de Recursos (Grid Compacto) */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                            <label style={{ color: '#94a3b8', fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-                                2. Recursos Disponibles
-                            </label>
-                            <div style={{ 
-                                display: 'grid', 
-                                gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', 
-                                gap: '0.75rem'
-                            }}>
-                                {filteredOptions.map(t => (
-                                    <div
-                                        key={t.id}
-                                        onClick={() => !exporting && setSelectedId(t.id)}
-                                        style={{
-                                            padding: '0.75rem 1rem',
-                                            borderRadius: '16px',
-                                            border: '1px solid',
-                                            borderColor: selectedId === t.id ? '#22c55e' : '#f1f5f9',
-                                            background: selectedId === t.id ? '#ffffff' : '#f8fafc',
-                                            cursor: 'pointer',
-                                            transition: 'all 0.2s ease',
-                                            position: 'relative',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            justifyContent: 'center',
-                                            boxShadow: selectedId === t.id ? '0 8px 12px -3px rgba(34, 197, 94, 0.08)' : 'none',
-                                            minHeight: '80px'
-                                        }}
-                                    >
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: selectedId === t.id ? '0.5rem' : '0' }}>
-                                            <div style={{ 
-                                                width: '24px', 
-                                                height: '24px', 
-                                                minWidth: '24px',
-                                                borderRadius: '6px', 
-                                                background: selectedId === t.id ? '#22c55e' : '#e2e8f0',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                fontSize: '0.65rem',
-                                                color: 'white',
-                                                fontWeight: 900
-                                            }}>
-                                                {t.type === 'SP' ? 'SP' : 'T'}
-                                            </div>
-                                            <div style={{ 
-                                                fontSize: '0.8rem', 
-                                                fontWeight: 700, 
-                                                color: selectedId === t.id ? '#1e293b' : '#64748b',
-                                                wordBreak: 'break-word',
-                                                lineHeight: '1.2'
-                                            }}>
-                                                {t.label.replace(' (SP)', '')}
-                                            </div>
-                                        </div>
-
-                                        {selectedId === t.id && (
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleExport();
-                                                }}
-                                                disabled={exporting}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '0.4rem',
-                                                    borderRadius: '8px',
-                                                    background: exporting ? '#94a3b8' : '#22c55e',
-                                                    border: 'none',
-                                                    color: 'white',
-                                                    fontWeight: 800,
-                                                    fontSize: '0.7rem',
-                                                    cursor: exporting ? 'not-allowed' : 'pointer',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    gap: '0.4rem'
-                                                }}
-                                            >
-                                                {exporting ? 'GENERANDO...' : '📥 DESCARGAR'}
-                                            </button>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div style={{ 
-                            marginTop: '0.5rem', 
-                            padding: '1rem', 
-                            borderRadius: '16px', 
-                            background: '#f8fafc',
-                            border: '1px solid #f1f5f9',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.75rem'
-                        }}>
-                            <div style={{ fontSize: '1.2rem' }}>✨</div>
-                            <p style={{ color: '#64748b', fontSize: '0.8rem', margin: 0, fontWeight: 500 }}>
-                                Exportación completa de registros en tiempo real.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {currentView === 'catalogo' && (
-                <EquipoCatalogoView 
-                    onBack={() => setCurrentView('grid')} 
-                />
-            )}
-        </div>
+                                        Generar Reporte
+                                    </Button>
+                                </Group>
+                            </Paper>
+                        </Stack>
+                    </Paper>
+                )}
+            </Stack>
+        </Container>
     );
 };

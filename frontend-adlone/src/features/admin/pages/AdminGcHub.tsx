@@ -1,7 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import { 
+    SimpleGrid, 
+    Card, 
+    Text, 
+    ThemeIcon, 
+    rem, 
+    UnstyledButton,
+    Container,
+    Box
+} from '@mantine/core';
+import { 
+    IconDeviceDesktop,
+    IconSettings,
+} from '@tabler/icons-react';
 import { useAuth } from '../../../contexts/AuthContext';
-import { adminService } from '../../../services/admin.service';
-import '../admin.css';
+import { PageHeader } from '../../../components/layout/PageHeader';
 
 interface Props {
     onNavigate: (view: string) => void;
@@ -10,36 +23,29 @@ interface Props {
 
 export const AdminGcHub: React.FC<Props> = ({ onNavigate, onBack }) => {
     const { hasPermission } = useAuth();
-    const [pendientes, setPendientes] = useState(0);
-
-    useEffect(() => {
-        const fetchStats = async () => {
-            try {
-                const data = await adminService.getDashboardStats();
-                if (data) {
-                    setPendientes(data.pendientesCalidad || 0);
-                }
-            } catch (error) {
-                console.error("Error fetching stats:", error);
-            }
-        };
-        // Only fetch if they have access
-        if (hasPermission('GC_ACCESO') || hasPermission('GC_EQUIPOS') || hasPermission('AI_MA_ADMIN_ACCESO')) {
-            fetchStats();
-        }
-    }, [hasPermission]);
 
     const OPTIONS = [
         {
             id: 'admin-equipos-gestion',
             label: 'Gestión de Equipos',
             icon: (
-                <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <span style={{ fontSize: '42px', lineHeight: '1' }}>🖥️</span>
-                    <span style={{ position: 'absolute', bottom: '-5px', right: '-8px', fontSize: '24px', filter: 'drop-shadow(2px 2px 0 white)' }}>⚙️</span>
-                </div>
+                <Box style={{ position: 'relative' }}>
+                    <IconDeviceDesktop style={{ width: rem(32), height: rem(32) }} />
+                    <IconSettings 
+                        style={{ 
+                            position: 'absolute', 
+                            bottom: -4, 
+                            right: -4, 
+                            width: rem(16), 
+                            height: rem(16),
+                            backgroundColor: 'white',
+                            borderRadius: '50%'
+                        }} 
+                    />
+                </Box>
             ),
-            description: 'Inventario, configuración y mantenimiento de equipos.',
+            color: 'blue',
+            description: 'Inventario, configuración y mantenimiento preventivo de equipos.',
             permission: 'MA_A_GEST_EQUIPO'
         },
     ];
@@ -52,62 +58,66 @@ export const AdminGcHub: React.FC<Props> = ({ onNavigate, onBack }) => {
     });
 
     return (
-        <div className="admin-container">
-            <div className="admin-header-section responsive-header">
-                {/* Izquierda: botón Volver */}
-                <div style={{ justifySelf: 'start' }}>
-                    <button onClick={onBack} className="btn-back">
-                        <span className="icon-circle">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <line x1="19" y1="12" x2="5" y2="12"></line>
-                                <polyline points="12 19 5 12 12 5"></polyline>
-                            </svg>
-                        </span>
-                        Volver a Administración
-                    </button>
-                </div>
+        <Container fluid py="md">
+            <PageHeader 
+                title="Gestión de Calidad" 
+                subtitle="Gestión de inventarios, validación de equipos y control de calidad ADL."
+                onBack={onBack}
+                breadcrumbItems={[
+                    { label: 'Administración', onClick: onBack },
+                    { label: 'Gestión de Calidad' }
+                ]}
+            />
 
-                {/* Centro: título + subtitulo */}
-                <div style={{ justifySelf: 'center', textAlign: 'center' }}>
-                    <h1 className="admin-title" style={{ margin: '0 0 0.15rem 0' }}>Gestión de Calidad</h1>
-                    <p className="admin-subtitle" style={{ margin: 0 }}>Gestión de recursos y validación de calidad.</p>
-                </div>
-
-                {/* Derecha: vacío (balance) */}
-                <div></div>
-            </div>
-
-            <div className="hub-grid">
+            <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="lg" mt="xl">
                 {visibleOptions.map((opt) => (
-                    <div
-                        key={opt.id}
+                    <UnstyledButton 
+                        key={opt.id} 
                         onClick={() => onNavigate(opt.id)}
-                        className="hub-card"
                     >
-                        <div className="card-icon-wrapper">
-                            {opt.icon}
-                        </div>
-                        <div>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                                <h3 className="card-title" style={{ margin: 0 }}>{opt.label}</h3>
-                                {opt.id === 'admin-equipos-gestion' && pendientes > 0 && (
-                                    <span style={{
-                                        background: '#ef4444',
-                                        color: 'white',
-                                        fontSize: '0.7rem',
-                                        fontWeight: 'bold',
-                                        padding: '2px 8px',
-                                        borderRadius: '12px'
-                                    }}>
-                                        {pendientes} pendientes
-                                    </span>
-                                )}
-                            </div>
-                            <p className="card-desc">{opt.description}</p>
-                        </div>
-                    </div>
+                        <Card 
+                            shadow="sm" 
+                            padding="xl" 
+                            radius="md" 
+                            withBorder
+                            style={{
+                                height: '100%',
+                                transition: 'all 0.2s ease',
+                                cursor: 'pointer',
+                                '&:hover': {
+                                    transform: 'translateY(-5px)',
+                                    boxShadow: 'var(--mantine-shadow-md)',
+                                    borderColor: `var(--mantine-color-${opt.color}-light-color)`
+                                }
+                            }}
+                        >
+                            <ThemeIcon 
+                                size={60} 
+                                radius="md" 
+                                variant="light" 
+                                color={opt.color}
+                                mb="md"
+                            >
+                                {opt.icon}
+                            </ThemeIcon>
+
+                            <Text fw={700} size="lg" mb={4}>
+                                {opt.label}
+                            </Text>
+
+                            <Text size="sm" c="dimmed" lh={1.5}>
+                                {opt.description}
+                            </Text>
+                        </Card>
+                    </UnstyledButton>
                 ))}
-            </div>
-        </div>
+
+                {visibleOptions.length === 0 && (
+                    <Card withBorder p="xl" radius="md" bg="gray.0">
+                        <Text c="dimmed" ta="center">No tiene permisos para acceder a las funcionalidades de este hub.</Text>
+                    </Card>
+                )}
+            </SimpleGrid>
+        </Container>
     );
 };

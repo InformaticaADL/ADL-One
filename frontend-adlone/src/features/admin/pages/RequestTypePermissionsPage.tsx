@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     Container,
     Paper,
-    Title,
     Text,
     Button,
     Group,
@@ -21,12 +20,10 @@ import {
     TextInput
 } from '@mantine/core';
 import {
-    IconArrowLeft,
     IconUsers,
     IconUser,
     IconShield,
     IconDeviceFloppy,
-    IconSearch,
     IconPlus,
     IconX,
     IconEye,
@@ -36,7 +33,6 @@ import {
     IconChevronUp,
     IconAlertTriangle,
     IconInfoCircle,
-    IconCircleCheck,
     IconSettings
 } from '@tabler/icons-react';
 
@@ -44,6 +40,7 @@ import { ursService } from '../../../services/urs.service';
 import { rbacService } from '../services/rbac.service';
 import type { Role, User as UserType } from '../services/rbac.service';
 import { useToast } from '../../../contexts/ToastContext';
+import { PageHeader } from '../../../components/layout/PageHeader';
 
 interface RequestType {
     id_tipo: number;
@@ -278,64 +275,91 @@ const RequestTypePermissionsPage: React.FC<Props> = ({ requestType, onBack }) =>
         });
 
     return (
-        <Container size="xl" py="md" bg="#f8fafc" h="100%" style={{ minHeight: '100vh' }}>
-            <Stack gap="lg">
-                {/* Header Section */}
-                <Paper withBorder p="md" radius="lg" shadow="sm">
-                    <Group justify="space-between">
-                        <Group>
-                            <ActionIcon variant="light" color="gray" size="lg" onClick={onBack} radius="md">
-                                <IconArrowLeft size={18} />
-                            </ActionIcon>
-                            <Box style={{ flex: 1 }}>
-                                {isEditingHeader ? (
-                                    <Group gap="sm">
-                                        <TextInput 
-                                            label="Nombre del Trámite"
-                                            size="xs"
-                                            value={typeName}
-                                            onChange={(e) => setTypeName(e.currentTarget.value)}
-                                            style={{ flex: 1 }}
-                                        />
-                                        <TextInput 
-                                            label="Área Responsable"
-                                            size="xs"
-                                            value={areaDestino}
-                                            onChange={(e) => setAreaDestino(e.currentTarget.value)}
-                                            style={{ flex: 1 }}
-                                        />
-                                        <ActionIcon variant="light" color="red" size="lg" mt="lg" onClick={() => setIsEditingHeader(false)}>
-                                            <IconX size={16} />
-                                        </ActionIcon>
-                                    </Group>
-                                ) : (
-                                    <>
-                                        <Group gap="xs">
-                                            <Title order={4} fw={800} c="dark.4">Permisos — {typeName}</Title>
-                                            <ActionIcon variant="subtle" color="gray" size="sm" onClick={() => setIsEditingHeader(true)}>
+        <Container fluid py="md">
+            <PageHeader
+                title={`Permisos: ${typeName}`}
+                subtitle={`Define quién puede crear, ver, gestionar o derivar el trámite "${typeName}".`}
+                onBack={onBack}
+                breadcrumbItems={[
+                    { label: 'Administración', onClick: onBack },
+                    { label: 'Solicitudes URS', onClick: onBack },
+                    { label: 'Configuración de Permisos' }
+                ]}
+                rightSection={
+                    <Button 
+                        leftSection={saving ? <Loader size={14} color="white" /> : <IconDeviceFloppy size={16} />}
+                        onClick={save}
+                        disabled={saving}
+                        radius="md"
+                        color="blue"
+                    >
+                        {saving ? 'Guardando...' : 'Guardar Cambios'}
+                    </Button>
+                }
+            />
+
+            <Stack gap="lg" mt="xl">
+                {/* Header Section / Basic Info Edit */}
+                <Paper withBorder p="md" radius="md" bg="gray.0">
+                    <Group justify="space-between" align="flex-end">
+                        <Box style={{ flex: 1 }}>
+                            {isEditingHeader ? (
+                                <Group gap="md">
+                                    <TextInput 
+                                        label="Nombre del Trámite"
+                                        placeholder="Ej: Solicitud de Vacaciones"
+                                        value={typeName}
+                                        onChange={(e) => setTypeName(e.currentTarget.value)}
+                                        style={{ flex: 2 }}
+                                        radius="md"
+                                    />
+                                    <TextInput 
+                                        label="Área Responsable"
+                                        placeholder="Ej: Recursos Humanos"
+                                        value={areaDestino}
+                                        onChange={(e) => setAreaDestino(e.currentTarget.value)}
+                                        style={{ flex: 1 }}
+                                        radius="md"
+                                    />
+                                    <ActionIcon variant="light" color="red" size="lg" mb={2} onClick={() => setIsEditingHeader(false)} radius="md">
+                                        <IconX size={18} />
+                                    </ActionIcon>
+                                </Group>
+                            ) : (
+                                <Box>
+                                    <Group gap="xs" mb={4}>
+                                        <Text size="sm" fw={700} c="dark.4">Información Básica del Trámite</Text>
+                                        <Tooltip label="Editar nombre y área">
+                                            <ActionIcon variant="subtle" color="blue" size="sm" onClick={() => setIsEditingHeader(true)}>
                                                 <IconSettings size={14} />
                                             </ActionIcon>
-                                        </Group>
-                                        <Text size="xs" c="dimmed" fw={500}>Área: <strong>{areaDestino}</strong> · Define quién puede crear, ver, gestionar o derivar este trámite.</Text>
-                                    </>
-                                )}
-                            </Box>
-                        </Group>
-                        <Button 
-                            leftSection={saving ? <Loader size={14} color="white" /> : <IconDeviceFloppy size={16} />}
-                            onClick={save}
-                            disabled={saving}
-                            radius="md"
-                            color="adl-blue.6"
-                        >
-                            {saving ? 'Guardando...' : 'Guardar Cambios'}
-                        </Button>
+                                        </Tooltip>
+                                    </Group>
+                                    <Group gap="xl">
+                                        <Box>
+                                            <Text size="xs" c="dimmed" fw={500}>Nombre del Trámite</Text>
+                                            <Text size="sm" fw={600}>{typeName}</Text>
+                                        </Box>
+                                        <Box>
+                                            <Text size="xs" c="dimmed" fw={500}>Área Destino / Responsable</Text>
+                                            <Badge variant="outline" color="blue" radius="sm" mt={2}>{areaDestino}</Badge>
+                                        </Box>
+                                        <Box>
+                                            <Text size="xs" c="dimmed" fw={500}>Estado actual</Text>
+                                            <Badge variant="light" color={requestType.estado ? 'teal' : 'red'} radius="sm" mt={2}>
+                                                {requestType.estado ? 'ACTIVO' : 'INACTIVO'}
+                                            </Badge>
+                                        </Box>
+                                    </Group>
+                                </Box>
+                            )}
+                        </Box>
                     </Group>
                 </Paper>
 
                 {loading ? (
                     <Flex justify="center" align="center" h={300}>
-                        <Loader color="adl-blue.6" size="lg" />
+                        <Loader color="blue" size="lg" />
                     </Flex>
                 ) : (
                     <Paper withBorder radius="lg" shadow="sm" style={{ overflow: 'hidden' }}>
@@ -431,7 +455,7 @@ const RequestTypePermissionsPage: React.FC<Props> = ({ requestType, onBack }) =>
                                                                 checked={entry[a.key]} 
                                                                 onChange={() => toggleCell(idx, a.key)} 
                                                                 size="sm"
-                                                                color="adl-blue.6"
+                                                                color="blue"
                                                                 styles={{ input: { cursor: 'pointer' }}}
                                                             />
                                                         </Flex>

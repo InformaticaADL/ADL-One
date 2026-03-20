@@ -1,9 +1,27 @@
 import React, { useEffect, useState } from 'react';
+import { 
+    Container, 
+    Stack, 
+    Group, 
+    Text, 
+    TextInput, 
+    Table, 
+    Button, 
+    Paper, 
+    LoadingOverlay,
+    Box,
+    Avatar
+} from '@mantine/core';
+import { 
+    IconSearch, 
+    IconShieldLock, 
+    IconUser
+} from '@tabler/icons-react';
 import { rbacService } from '../services/rbac.service';
-import '../admin.css';
 import type { User } from '../services/rbac.service';
 import { UserRoleModal } from '../components/UserRoleModal';
 import { useToast } from '../../../contexts/ToastContext';
+import { PageHeader } from '../../../components/layout/PageHeader';
 
 interface Props {
     onBack?: () => void;
@@ -15,7 +33,6 @@ export const UserRolesPage: React.FC<Props> = ({ onBack }) => {
     const [loading, setLoading] = useState(true);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
-
     const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
@@ -46,100 +63,89 @@ export const UserRolesPage: React.FC<Props> = ({ onBack }) => {
     );
 
     return (
+        <Container fluid py="md">
+            <PageHeader
+                title="Asignación de Roles"
+                subtitle="Vincula roles de seguridad a cada integrante para definir sus permisos."
+                onBack={onBack}
+                breadcrumbItems={[
+                    { label: 'Administración', onClick: onBack },
+                    { label: 'Informática', onClick: onBack },
+                    { label: 'Asignación de Roles' }
+                ]}
+                rightSection={
+                    <TextInput 
+                        placeholder="Buscar por nombre o usuario..."
+                        leftSection={<IconSearch size={16} />}
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.currentTarget.value)}
+                        radius="md"
+                        w={300}
+                    />
+                }
+            />
 
-        <div className="admin-container">
-            <div className="admin-header-section responsive-header">
-                {/* Izquierda: Botón Volver */}
-                <div style={{ justifySelf: 'start' }}>
-                    {onBack && (
-                        <button onClick={onBack} className="btn-back">
-                            <span className="icon-circle">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <line x1="19" y1="12" x2="5" y2="12"></line>
-                                    <polyline points="12 19 5 12 12 5"></polyline>
-                                </svg>
-                            </span>
-                            Volver
-                        </button>
-                    )}
-                </div>
-
-                {/* Centro: Título y Subtítulo */}
-                <div style={{ justifySelf: 'center', textAlign: 'center' }}>
-                    <h1 className="admin-title">Gestión de Usuarios</h1>
-                    <p className="admin-subtitle">Administra los accesos y roles del personal.</p>
-                </div>
-
-                {/* Derecha: Buscador */}
-                <div style={{ justifySelf: 'end' }}>
-                    <div className="search-container">
-                        <input
-                            type="text"
-                            placeholder="Buscar usuario..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="search-input"
-                        />
-                        <div className="search-icon">
-                            <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
-                            </svg>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div className="table-container">
-                <table className="admin-table-compact">
-                    <thead>
-                        <tr>
-                            <th style={{ width: '40%' }}>Usuario</th>
-                            <th style={{ width: '40%' }}>Nombre Real</th>
-                            <th style={{ width: '20%', textAlign: 'center' }}>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {loading ? (
-                            <tr>
-                                <td colSpan={3} style={{ textAlign: 'center', padding: '3rem', color: '#6b7280' }}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-                                        <div style={{ width: '30px', height: '30px', border: '3px solid #e2e8f0', borderTopColor: '#3b82f6', borderRadius: '50%', animation: 'spinner-spin 1s linear infinite' }}></div>
-                                        Cargando usuarios...
-                                    </div>
-                                </td>
-                            </tr>
-                        ) : filteredUsers.length === 0 ? (
-                            <tr>
-                                <td colSpan={3} style={{ textAlign: 'center', padding: '3rem', color: '#6b7280' }}>
-                                    {searchTerm ? 'No se encontraron usuarios con ese criterio.' : 'No hay usuarios registrados.'}
-                                </td>
-                            </tr>
-                        ) : (
-                            filteredUsers.map((user) => (
-                                <tr key={user.id_usuario}>
-                                    <td>
-                                        <div style={{ fontWeight: 600, color: '#111827' }}>{user.nombre_usuario}</div>
-                                    </td>
-                                    <td>
-                                        <div style={{ color: '#4b5563' }}>{user.nombre_real || '-'}</div>
-                                    </td>
-                                    <td style={{ textAlign: 'center' }}>
-                                        <button
-                                            onClick={() => handleAssignClick(user)}
-                                            className="btn-assign"
-                                            title="Asignar Roles"
-                                            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem' }}
-                                        >
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-                                            Asignar Roles
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
-            </div>
+            <Stack gap="lg" mt="xl">
+                {/* Users Table */}
+                <Paper withBorder radius="md" shadow="sm" pos="relative">
+                    <LoadingOverlay visible={loading} overlayProps={{ blur: 2 }} />
+                    <Table.ScrollContainer minWidth={600}>
+                        <Table verticalSpacing="md" highlightOnHover>
+                            <Table.Thead bg="gray.0">
+                                <Table.Tr>
+                                    <Table.Th>Usuario</Table.Th>
+                                    <Table.Th>Nombre Completo</Table.Th>
+                                    <Table.Th ta="right">Acción</Table.Th>
+                                </Table.Tr>
+                            </Table.Thead>
+                            <Table.Tbody>
+                                {filteredUsers.length > 0 ? (
+                                    filteredUsers.map((user) => (
+                                        <Table.Tr key={user.id_usuario}>
+                                            <Table.Td>
+                                                <Group gap="sm">
+                                                    <Avatar color="blue" radius="xl" size="sm">
+                                                        <IconUser size={16} />
+                                                    </Avatar>
+                                                    <Box>
+                                                        <Text size="sm" fw={600}>{user.nombre_usuario}</Text>
+                                                        <Text size="xs" c="dimmed">ID: {user.id_usuario}</Text>
+                                                    </Box>
+                                                </Group>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <Text size="sm">{user.nombre_real || '-'}</Text>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <Group justify="flex-end">
+                                                    <Button
+                                                        variant="light"
+                                                        color="blue"
+                                                        size="xs"
+                                                        radius="md"
+                                                        leftSection={<IconShieldLock size={14} />}
+                                                        onClick={() => handleAssignClick(user)}
+                                                    >
+                                                        Asignar Roles
+                                                    </Button>
+                                                </Group>
+                                            </Table.Td>
+                                        </Table.Tr>
+                                    ))
+                                ) : (
+                                    <Table.Tr>
+                                        <Table.Td colSpan={3} ta="center" py="xl">
+                                            <Text c="dimmed">
+                                                {searchTerm ? 'No se encontraron usuarios coincidentes' : 'No hay usuarios en el sistema'}
+                                            </Text>
+                                        </Table.Td>
+                                    </Table.Tr>
+                                )}
+                            </Table.Tbody>
+                        </Table>
+                    </Table.ScrollContainer>
+                </Paper>
+            </Stack>
 
             <UserRoleModal
                 user={selectedUser}
@@ -148,11 +154,8 @@ export const UserRolesPage: React.FC<Props> = ({ onBack }) => {
                     setIsModalOpen(false);
                     setSelectedUser(null);
                 }}
-                onSuccess={() => {
-                    // Refresh if needed, though permission assignment doesn't change user list
-                }}
+                onSuccess={() => {}}
             />
-        </div>
+        </Container>
     );
-
 };

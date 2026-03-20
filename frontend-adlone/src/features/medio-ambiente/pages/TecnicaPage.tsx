@@ -4,21 +4,45 @@ import { CatalogosProvider } from '../context/CatalogosContext';
 import { ToastProvider } from '../../../contexts/ToastContext';
 import { ToastContainer } from '../../../components/Toast/Toast';
 import { fichaService } from '../services/ficha.service';
-import '../styles/FichasIngreso.css';
-import { SearchableSelect } from '../../../components/ui/SearchableSelect';
+import { PageHeader } from '../../../components/layout/PageHeader';
+import { useNavStore } from '../../../store/navStore';
+
+import { 
+    Button, 
+    Text, 
+    Stack, 
+    Group, 
+    Paper, 
+    SimpleGrid, 
+    Container, 
+    ActionIcon, 
+    Box,
+    TextInput,
+    Select,
+    Table,
+    Badge,
+    Pagination,
+    ScrollArea
+} from '@mantine/core';
+import { 
+    IconChevronLeft, 
+    IconArrowRight,
+    IconAdjustmentsHorizontal,
+    IconDownload,
+    IconTrash,
+    IconEdit
+} from '@tabler/icons-react';
 
 interface Props {
     onBack: () => void;
 }
 
-// --- Technical List Component (Adapted from ConsultarFichasView) ---
+// --- Technical List Component ---
 const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () => void, onViewDetail: (id: number) => void }) => {
     // State
     const [searchId, setSearchId] = useState('');
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
-
-    // Filters
     const [searchEstado, setSearchEstado] = useState('');
     const [searchTipo, setSearchTipo] = useState('');
     const [searchEmpresaFacturar, setSearchEmpresaFacturar] = useState('');
@@ -31,45 +55,41 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
     const [loading, setLoading] = useState(true);
     const [fichas, setFichas] = useState<any[]>([]);
 
-    // Constants
     const itemsPerPage = 10;
 
-    // Load Data Effect
+    // Load Data
     useEffect(() => {
         const loadFichas = async () => {
             setLoading(true);
             try {
-                // Fetch All Fichas (Same Service)
                 const response = await fichaService.getAll();
-                let data = [];
+                let data: any[] = [];
                 if (Array.isArray(response)) data = response;
                 else if (response && response.data && Array.isArray(response.data)) data = response.data;
                 else if (response && Array.isArray(response.recordset)) data = response.recordset;
 
                 setFichas(data || []);
-
             } catch (error) {
                 console.error("Error loading fichas:", error);
             } finally {
                 setLoading(false);
             }
         };
-
         loadFichas();
     }, []);
 
-    // Reset to page 1 when any filter changes
+    // Reset page on filter change
     useEffect(() => {
         setCurrentPage(1);
     }, [searchId, dateFrom, dateTo, searchEstado, searchTipo, searchEmpresaFacturar, searchEmpresaServicio, searchCentro, searchObjetivo, searchSubArea, searchUsuario]);
 
-    // Derived unique values for datalists
+    // Unique values for Selects
     const getUniqueValues = (key: string) => {
         const values = new Set<string>();
         fichas.forEach(f => {
             if (f[key]) values.add(String(f[key]).trim());
         });
-        return Array.from(values).sort();
+        return Array.from(values).sort().map(val => ({ value: val, label: val }));
     };
 
     const uniqueEstados = React.useMemo(() => getUniqueValues('estado_ficha'), [fichas]);
@@ -79,6 +99,7 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
     const uniqueCentros = React.useMemo(() => getUniqueValues('centro'), [fichas]);
     const uniqueObjetivos = React.useMemo(() => getUniqueValues('nombre_objetivomuestreo_ma'), [fichas]);
     const uniqueSubAreas = React.useMemo(() => getUniqueValues('nombre_subarea'), [fichas]);
+    const uniqueUsuarios = React.useMemo(() => getUniqueValues('nombre_usuario'), [fichas]);
 
     const handleClearFilters = () => {
         setSearchId('');
@@ -98,12 +119,7 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
     const filteredFichas = fichas.filter(f => {
         const displayId = f.fichaingresoservicio || f.id_fichaingresoservicio || '';
         const matchId = searchId ? String(displayId).includes(searchId) : true;
-
-        // Helper for case-insensitive check
-        const check = (val: string, search: string) => {
-            if (!search) return true;
-            return (val || '').toString().toLowerCase().includes(search.toLowerCase());
-        };
+        const check = (val: string, search: string) => (!search || (val || '').toString().toLowerCase().includes(search.toLowerCase()));
 
         const matchEstado = check(f.estado_ficha, searchEstado);
         const matchTipo = check(f.tipo_fichaingresoservicio, searchTipo);
@@ -113,17 +129,15 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
         const matchObjetivo = check(f.nombre_objetivomuestreo_ma, searchObjetivo);
         const matchSubArea = check(f.nombre_subarea, searchSubArea);
         const matchUsuario = check(f.nombre_usuario, searchUsuario);
-        
+
         let matchDate = true;
         if (dateFrom || dateTo) {
             if (!f.fecha) return false;
-            // Parse dd/mm/yyyy
             const parts = f.fecha.split('/');
             if (parts.length === 3) {
                 const [d, m, y] = parts;
                 const rowDate = new Date(`${y}-${m}-${d}`);
                 rowDate.setHours(0, 0, 0, 0);
-
                 if (dateFrom) {
                     const dFrom = new Date(dateFrom);
                     dFrom.setHours(0, 0, 0, 0);
@@ -136,339 +150,208 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
                 }
             }
         }
-
         return matchId && matchDate && matchEstado && matchTipo && matchEmpresaFacturar && matchEmpresaServicio && matchCentro && matchObjetivo && matchSubArea && matchUsuario;
     });
 
-    // Pagination Logic
     const totalPages = Math.ceil(filteredFichas.length / itemsPerPage);
     const displayedFichas = filteredFichas.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-    // Calculate empty rows for fixed height
-    const emptyRows = itemsPerPage - displayedFichas.length;
-
-    const goToPage = (page: number) => {
-        if (page >= 1 && page <= totalPages) {
-            setCurrentPage(page);
-        }
-    };
-
-    // Style for cells
-    const cellStyle: React.CSSProperties = {
-        whiteSpace: 'nowrap',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        padding: '1px 4px'
-    };
-
-    // Label style
-    const labelStyle: React.CSSProperties = {
-        fontSize: '0.7rem',
-        fontWeight: 600,
-        color: '#374151',
-        marginBottom: '2px',
-        display: 'block'
+    const getStatusProps = (status: string) => {
+        const s = (status || '').toUpperCase();
+        if (s.includes('RECHAZADA') || s.includes('CANCELADO') || s.includes('REVISAR')) return { color: 'red', label: s };
+        if (s.includes('COORDINACIÓN')) return { color: 'blue', label: s };
+        if (s.includes('PROGRAMACIÓN')) return { color: 'grape', label: s };
+        if (s.includes('PENDIENTE') || s.includes('ÁREA TÉCNICA')) return { color: 'yellow', label: 'PENDIENTE TÉCNICA' };
+        if (s.includes('ASIGNAR')) return { color: 'orange', label: s };
+        if (s.includes('VIGENTE') || s.includes('APROBADA') || s.includes('EJECUTADO') || s.includes('EN PROCESO')) return { color: 'green', label: s };
+        return { color: 'gray', label: s || 'SIN ESTADO' };
     };
 
     return (
-        <div className="fichas-ingreso-container commercial-layout">
-            {/* Header */}
-            <div className="header-row" style={{ display: 'flex', position: 'relative', justifyContent: 'center', alignItems: 'center', marginBottom: '1rem', minHeight: '40px' }}>
-                <button onClick={onBackToMenu} className="btn-back" style={{ position: 'absolute', left: 0, margin: 0 }}>
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-                    </svg>
-                    Volver
-                </button>
-                <h2 className="page-title-geo" style={{ margin: 0 }}>Gestión Técnica</h2>
-            </div>
+        <Container fluid p="md">
+            <Stack gap="lg">
+                <PageHeader 
+                    title="Gestión Técnica"
+                    onBack={onBackToMenu}
+                />
 
-            {/* Filters */}
-            <div style={{
-                backgroundColor: 'white',
-                padding: '1rem',
-                borderRadius: '12px',
-                marginBottom: '1rem',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-            }}>
-                <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
-                    gap: '0.8rem',
-                    alignItems: 'end'
-                }}>
-                    <div className="form-group">
-                        <label style={{ fontSize: '0.7rem', fontWeight: 600, color: '#374151', marginBottom: '2px', display: 'block' }}>N° Ficha</label>
-                        <input type="text" placeholder="Buscar..." value={searchId} onChange={(e) => setSearchId(e.target.value)} style={{ width: '100%', padding: '5px 8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.75rem', height: '30px' }} />
-                    </div>
+                <Paper withBorder p="xl" radius="lg" shadow="sm">
+                    <Stack gap="xl">
+                        <Paper withBorder p="md" radius="md" bg="gray.0">
+                            <Stack gap="sm">
+                                <Group justify="space-between">
+                                    <Group gap="xs">
+                                        <IconAdjustmentsHorizontal size={20} color="gray" />
+                                        <Text fw={600} size="sm">Filtros de Búsqueda</Text>
+                                    </Group>
+                                    <Button 
+                                        variant="subtle" 
+                                        size="compact-xs" 
+                                        color="gray" 
+                                        leftSection={<IconTrash size={14} />}
+                                        onClick={handleClearFilters}
+                                    >
+                                        Limpiar Filtros
+                                    </Button>
+                                </Group>
+                                
+                                <SimpleGrid cols={{ base: 1, sm: 2, md: 4, lg: 6 }} spacing="sm">
+                                    <TextInput
+                                        label="N° Ficha"
+                                        placeholder="Buscar..."
+                                        value={searchId}
+                                        onChange={(e) => setSearchId(e.target.value)}
+                                        size="xs"
+                                    />
+                                    <Select
+                                        label="Estado"
+                                        placeholder="Seleccionar..."
+                                        data={uniqueEstados}
+                                        value={searchEstado}
+                                        onChange={(v) => setSearchEstado(v || '')}
+                                        size="xs"
+                                        searchable
+                                        clearable
+                                    />
+                                    <TextInput label="Fecha Desde" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} size="xs" />
+                                    <TextInput label="Fecha Hasta" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} size="xs" />
+                                    <Select label="Tipo" placeholder="Seleccionar..." data={uniqueTipos} value={searchTipo} onChange={(v) => setSearchTipo(v || '')} size="xs" searchable clearable />
+                                    <Select label="E. Facturar" placeholder="Seleccionar..." data={uniqueEmpFacturar} value={searchEmpresaFacturar} onChange={(v) => setSearchEmpresaFacturar(v || '')} size="xs" searchable clearable />
+                                    <Select label="E. Servicio" placeholder="Seleccionar..." data={uniqueEmpServicio} value={searchEmpresaServicio} onChange={(v) => setSearchEmpresaServicio(v || '')} size="xs" searchable clearable />
+                                    <Select label="Fuente" placeholder="Seleccionar..." data={uniqueCentros} value={searchCentro} onChange={(v) => setSearchCentro(v || '')} size="xs" searchable clearable />
+                                    <Select label="Objetivo" placeholder="Seleccionar..." data={uniqueObjetivos} value={searchObjetivo} onChange={(v) => setSearchObjetivo(v || '')} size="xs" searchable clearable />
+                                    <Select label="Sub Área" placeholder="Seleccionar..." data={uniqueSubAreas} value={searchSubArea} onChange={(v) => setSearchSubArea(v || '')} size="xs" searchable clearable />
+                                    <Select label="Usuario" placeholder="Seleccionar..." data={uniqueUsuarios} value={searchUsuario} onChange={(v) => setSearchUsuario(v || '')} size="xs" searchable clearable />
+                                </SimpleGrid>
+                            </Stack>
+                        </Paper>
 
-                    <SearchableSelect
-                        label="Estado"
-                        placeholder="Estado..."
-                        value={searchEstado}
-                        onChange={setSearchEstado}
-                        options={uniqueEstados.map(val => ({ id: val, nombre: val }))}
-                    />
+                        <Box pos="relative">
+                            <ScrollArea h={550} offsetScrollbars>
+                                <Table verticalSpacing="sm" highlightOnHover striped withTableBorder>
+                                    <Table.Thead bg="gray.1">
+                                        <Table.Tr>
+                                            <Table.Th w={80}>ID</Table.Th>
+                                            <Table.Th w={180}>Estado</Table.Th>
+                                            <Table.Th w={100}>Fecha</Table.Th>
+                                            <Table.Th w={100}>Tipo</Table.Th>
+                                            <Table.Th w={150}>Facturar a</Table.Th>
+                                            <Table.Th>E. Servicio</Table.Th>
+                                            <Table.Th>Fuente</Table.Th>
+                                            <Table.Th>Objetivo</Table.Th>
+                                            <Table.Th w={60}>PDF</Table.Th>
+                                            <Table.Th w={60}>Ver</Table.Th>
+                                        </Table.Tr>
+                                    </Table.Thead>
+                                    <Table.Tbody>
+                                        {loading ? (
+                                            <Table.Tr>
+                                                <Table.Td colSpan={10} align="center" py="xl">
+                                                    <Text c="dimmed">Cargando datos...</Text>
+                                                </Table.Td>
+                                            </Table.Tr>
+                                        ) : displayedFichas.length === 0 ? (
+                                            <Table.Tr>
+                                                <Table.Td colSpan={10} align="center" py="xl">
+                                                    <Text c="dimmed">No se encontraron registros</Text>
+                                                </Table.Td>
+                                            </Table.Tr>
+                                        ) : (
+                                            displayedFichas.map((ficha, idx) => {
+                                                const status = getStatusProps(ficha.estado_ficha);
+                                                return (
+                                                    <Table.Tr key={idx}>
+                                                        <Table.Td fw={700}>{ficha.fichaingresoservicio || '-'}</Table.Td>
+                                                        <Table.Td>
+                                                            <Badge color={status.color} variant="light" size="sm" fullWidth>
+                                                                {status.label}
+                                                            </Badge>
+                                                        </Table.Td>
+                                                        <Table.Td fz="xs">{ficha.fecha}</Table.Td>
+                                                        <Table.Td fz="xs">{ficha.tipo_fichaingresoservicio}</Table.Td>
+                                                        <Table.Td fz="xs" style={{ minWidth: 150 }} title={ficha.empresa_facturar}>
+                                                            {ficha.empresa_facturar}
+                                                        </Table.Td>
+                                                        <Table.Td fz="xs" style={{ minWidth: 150 }} title={ficha.empresa_servicio}>
+                                                            {ficha.empresa_servicio}
+                                                        </Table.Td>
+                                                        <Table.Td fz="xs" style={{ minWidth: 150 }} title={ficha.centro}>
+                                                            {ficha.centro}
+                                                        </Table.Td>
+                                                        <Table.Td fz="xs" style={{ minWidth: 150 }} title={ficha.nombre_objetivomuestreo_ma}>
+                                                            {ficha.nombre_objetivomuestreo_ma}
+                                                        </Table.Td>
+                                                        <Table.Td align="center">
+                                                            {(ficha.estado_ficha || '').toUpperCase().includes('EN PROCESO') && (
+                                                                <ActionIcon 
+                                                                    color="red" 
+                                                                    variant="subtle"
+                                                                    onClick={async (e) => {
+                                                                        e.stopPropagation();
+                                                                        const idFicha = ficha.id_fichaingresoservicio || ficha.fichaingresoservicio;
+                                                                        const pdfBlob = await fichaService.downloadPdf(Number(idFicha));
+                                                                        const url = window.URL.createObjectURL(pdfBlob);
+                                                                        const link = document.createElement('a');
+                                                                        link.href = url;
+                                                                        link.setAttribute('download', `Ficha_${idFicha}.pdf`);
+                                                                        document.body.appendChild(link);
+                                                                        link.click();
+                                                                        document.body.removeChild(link);
+                                                                    }}
+                                                                >
+                                                                    <IconDownload size={18} />
+                                                                </ActionIcon>
+                                                            )}
+                                                        </Table.Td>
+                                                        <Table.Td align="center">
+                                                            <ActionIcon 
+                                                                color="blue" 
+                                                                variant="light"
+                                                                onClick={() => onViewDetail(ficha.id_fichaingresoservicio || ficha.fichaingresoservicio)}
+                                                            >
+                                                                <IconEdit size={18} />
+                                                            </ActionIcon>
+                                                        </Table.Td>
+                                                    </Table.Tr>
+                                                )
+                                            })
+                                        )}
+                                    </Table.Tbody>
+                                </Table>
+                            </ScrollArea>
+                        </Box>
 
-                    <div className="form-group">
-                        <label style={{ fontSize: '0.7rem', fontWeight: 600, color: '#374151', marginBottom: '2px', display: 'block' }}>Fecha Desde</label>
-                        <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} style={{ width: '100%', padding: '5px 8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.75rem', height: '30px' }} />
-                    </div>
-
-                    <div className="form-group">
-                        <label style={{ fontSize: '0.7rem', fontWeight: 600, color: '#374151', marginBottom: '2px', display: 'block' }}>Fecha Hasta</label>
-                        <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} style={{ width: '100%', padding: '5px 8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.75rem', height: '30px' }} />
-                    </div>
-
-                    <SearchableSelect
-                        label="Tipo"
-                        placeholder="Tipo..."
-                        value={searchTipo}
-                        onChange={setSearchTipo}
-                        options={uniqueTipos.map(val => ({ id: val, nombre: val }))}
-                    />
-
-                    <SearchableSelect
-                        label="E. Facturar"
-                        placeholder="Empresa..."
-                        value={searchEmpresaFacturar}
-                        onChange={setSearchEmpresaFacturar}
-                        options={uniqueEmpFacturar.map(val => ({ id: val, nombre: val }))}
-                    />
-
-                    <SearchableSelect
-                        label="E. Servicio"
-                        placeholder="Empresa..."
-                        value={searchEmpresaServicio}
-                        onChange={setSearchEmpresaServicio}
-                        options={uniqueEmpServicio.map(val => ({ id: val, nombre: val }))}
-                    />
-
-                    <SearchableSelect
-                        label="Fuente Emisora"
-                        placeholder="Centro..."
-                        value={searchCentro}
-                        onChange={setSearchCentro}
-                        options={uniqueCentros.map(val => ({ id: val, nombre: val }))}
-                    />
-
-                    <SearchableSelect
-                        label="Objetivo"
-                        placeholder="Objetivo..."
-                        value={searchObjetivo}
-                        onChange={setSearchObjetivo}
-                        options={uniqueObjetivos.map(val => ({ id: val, nombre: val }))}
-                    />
-
-                    <SearchableSelect
-                        label="Sub Área"
-                        placeholder="Sub Área..."
-                        value={searchSubArea}
-                        onChange={setSearchSubArea}
-                        options={uniqueSubAreas.map(val => ({ id: val, nombre: val }))}
-                    />
-
-
-
-                    <div className="form-group">
-                        <label style={{ ...labelStyle, visibility: 'hidden' }}>Acciones</label>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <button
-                                onClick={handleClearFilters}
-                                style={{
-                                    padding: '5px 10px',
-                                    height: '30px',
-                                    flex: 1,
-                                    backgroundColor: 'white',
-                                    border: '1px solid #d1d5db',
-                                    borderRadius: '6px',
-                                    color: '#6b7280',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    gap: '0.5rem',
-                                    fontWeight: 500,
-                                    fontSize: '0.75rem'
-                                }}
-                                title="Limpiar Filtros"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
-                                Limpiar
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Table */}
-            <div className="responsive-table-container">
-                {loading ? (
-                    <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Cargando fichas...</div>
-                ) : (
-                    <>
-                        <table className="compact-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', tableLayout: 'fixed' }}>
-                            <thead>
-                                <tr style={{ backgroundColor: '#f9fafb', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6b7280' }}>
-                                    <th style={{ padding: '4px', whiteSpace: 'nowrap', width: '50px' }}>N° Ficha</th>
-                                    <th style={{ padding: '4px', whiteSpace: 'nowrap', width: '160px' }}>Estado</th>
-                                    <th style={{ padding: '4px', whiteSpace: 'nowrap', width: '70px' }}>Fecha</th>
-                                    <th style={{ padding: '4px', whiteSpace: 'nowrap', width: '80px' }}>Tipo</th>
-                                    <th style={{ padding: '4px', whiteSpace: 'nowrap' }}>E. Facturar</th>
-                                    <th style={{ padding: '4px', whiteSpace: 'nowrap' }}>E. Servicio</th>
-                                    <th style={{ padding: '4px', whiteSpace: 'nowrap' }}>Fuente Emisora</th>
-                                    <th style={{ padding: '4px', whiteSpace: 'nowrap' }}>Objetivo</th>
-                                    <th style={{ padding: '4px', whiteSpace: 'nowrap' }}>Sub Área</th>
-                                    <th style={{ padding: '4px', whiteSpace: 'nowrap', textAlign: 'center', width: '40px' }}>PDF</th>
-                                    <th style={{ padding: '4px', whiteSpace: 'nowrap', textAlign: 'center', width: '50px' }}>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody style={{ fontSize: '10px' }}>
-                                {displayedFichas.map((ficha, idx) => (
-                                    <tr key={idx} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                                        <td data-label="N° Ficha" style={{ fontWeight: 600, ...cellStyle }}>{ficha.fichaingresoservicio || '-'}</td>
-                                        <td data-label="Estado" style={{ ...cellStyle, whiteSpace: 'normal', overflow: 'visible', textOverflow: 'clip', minWidth: '120px' }}>
-                                            <span style={{
-                                                padding: '1px 6px',
-                                                borderRadius: '9999px',
-                                                fontSize: '9px',
-                                                fontWeight: 600,
-                                                backgroundColor: (() => {
-                                                    const est = (ficha.estado_ficha || '').toUpperCase();
-                                                    if (est.includes('RECHAZADA') || est.includes('CANCELADO') || est.includes('REVISAR')) return '#fee2e2'; // Red
-                                                    if (est.includes('COORDINACIÓN')) return '#dbeafe'; // Blue
-                                                    if (est.includes('PROGRAMACIÓN')) return '#ede9fe'; // Purple
-                                                    if (est.includes('PENDIENTE') || est.includes('ÁREA TÉCNICA')) return '#fef3c7'; // Amber
-                                                    if (est.includes('ASIGNAR')) return '#ffedd5'; // Orange
-                                                    if (est.includes('VIGENTE') || est.includes('APROBADA') || est.includes('EJECUTADO') || est.includes('EN PROCESO')) return '#dcfce7'; // Green
-                                                    if (est.includes('BORRADOR')) return '#f3f4f6'; // Gray
-                                                    return '#f3f4f6'; // Default
-                                                })(),
-                                                color: (() => {
-                                                    const est = (ficha.estado_ficha || '').toUpperCase();
-                                                    if (est.includes('RECHAZADA') || est.includes('CANCELADO') || est.includes('REVISAR')) return '#991b1b'; // Red
-                                                    if (est.includes('COORDINACIÓN')) return '#1e40af'; // Blue
-                                                    if (est.includes('PROGRAMACIÓN')) return '#5b21b6'; // Purple
-                                                    if (est.includes('PENDIENTE') || est.includes('ÁREA TÉCNICA')) return '#92400e'; // Amber
-                                                    if (est.includes('ASIGNAR')) return '#c2410c'; // Orange
-                                                    if (est.includes('VIGENTE') || est.includes('APROBADA') || est.includes('EJECUTADO') || est.includes('EN PROCESO')) return '#166534'; // Green
-                                                    if (est.includes('BORRADOR')) return '#4b5563'; // Gray
-                                                    return '#4b5563'; // Default
-                                                })()
-                                            }}>
-                                                {(() => {
-                                                    const txt = ficha.estado_ficha || '-';
-                                                    return txt.toLowerCase().split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-                                                })()}
-                                            </span>
-                                        </td>
-                                        <td data-label="Fecha" style={cellStyle}>{ficha.fecha || '-'}</td>
-                                        <td data-label="Tipo" style={cellStyle}>{ficha.tipo_fichaingresoservicio || '-'}</td>
-
-                                        <td data-label="E. Facturar" style={cellStyle} title={ficha.empresa_facturar}>{ficha.empresa_facturar || '-'}</td>
-                                        <td data-label="E. Servicio" style={cellStyle} title={ficha.empresa_servicio}>{ficha.empresa_servicio || '-'}</td>
-                                        <td data-label="Fuente Emisora" style={cellStyle} title={ficha.centro}>{ficha.centro || '-'}</td>
-                                        <td data-label="Objetivo" style={cellStyle} title={ficha.nombre_objetivomuestreo_ma}>{ficha.nombre_objetivomuestreo_ma || '-'}</td>
-                                        <td data-label="Sub Área" style={cellStyle} title={ficha.nombre_subarea}>{ficha.nombre_subarea || '-'}</td>
-                                        <td data-label="PDF" style={{ textAlign: 'center', whiteSpace: 'nowrap', padding: '6px' }}>
-                                            {(ficha.estado_ficha || '').toUpperCase().includes('EN PROCESO') && (
-                                                <button
-                                                    title="Descargar PDF"
-                                                    onClick={async (e) => {
-                                                        e.stopPropagation();
-                                                        try {
-                                                            const idFicha = ficha.id_fichaingresoservicio || ficha.fichaingresoservicio;
-                                                            if (!idFicha) {
-                                                                alert("No se pudo obtener el ID de la ficha.");
-                                                                return;
-                                                            }
-                                                            
-                                                            const pdfBlob = await fichaService.downloadPdf(Number(idFicha));
-                                                            const url = window.URL.createObjectURL(pdfBlob);
-                                                            const link = document.createElement('a');
-                                                            link.href = url;
-                                                            link.setAttribute('download', `Ficha_${idFicha}.pdf`);
-                                                            document.body.appendChild(link);
-                                                            link.click();
-                                                            link.parentNode?.removeChild(link);
-                                                            window.URL.revokeObjectURL(url);
-
-                                                        } catch (error) {
-                                                            console.error("Error al descargar PDF:", error);
-                                                            alert("Error al descargar el PDF de la ficha.");
-                                                        }
-                                                    }}
-                                                    style={{
-                                                        border: 'none',
-                                                        background: 'none',
-                                                        color: '#ef4444',
-                                                        cursor: 'pointer',
-                                                        padding: '2px',
-                                                        display: 'inline-flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center'
-                                                    }}
-                                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fee2e2'}
-                                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                                                >
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                                                </button>
-                                            )}
-                                        </td>
-                                        <td data-label="Acciones" style={{ textAlign: 'center', whiteSpace: 'nowrap', padding: '6px' }}>
-                                            <button
-                                                title="Gestionar Ficha"
-                                                onClick={() => onViewDetail(ficha.id_fichaingresoservicio || ficha.fichaingresoservicio)}
-                                                style={{
-                                                    border: 'none',
-                                                    background: 'none',
-                                                    color: '#3b82f6',
-                                                    cursor: 'pointer',
-                                                    padding: '2px',
-                                                    display: 'inline-flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center'
-                                                }}
-                                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#eff6ff'}
-                                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
-                                {/* Empty Rows Filling */}
-                                {Array.from({ length: Math.max(0, emptyRows) }).map((_, i) => (
-                                    <tr key={`empty-${i}`} style={{ borderBottom: '1px solid #e5e7eb', height: '36px' }}>
-                                        <td colSpan={11}>&nbsp;</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-
-                        {/* Pagination Controls */}
-                        <div className="pagination-controls" style={{ marginTop: '0' }}>
-                            <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+                        <Group justify="space-between" mt="md">
+                            <Text size="xs" c="dimmed">
                                 Mostrando {filteredFichas.length > 0 ? ((currentPage - 1) * itemsPerPage) + 1 : 0} a {Math.min(currentPage * itemsPerPage, filteredFichas.length)} de {filteredFichas.length} registros
-                            </span>
-                            <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                <button className="pagination-btn" style={{ fontSize: '0.8rem', padding: '4px 10px' }} disabled={currentPage === 1} onClick={() => goToPage(currentPage - 1)}>Anterior</button>
-                                <div style={{ display: 'flex', alignItems: 'center', padding: '0 0.5rem', fontSize: '0.85rem', fontWeight: 500 }}>{currentPage}</div>
-                                <button className="pagination-btn" style={{ fontSize: '0.8rem', padding: '4px 10px' }} disabled={currentPage === totalPages || totalPages === 0} onClick={() => goToPage(currentPage + 1)}>Siguiente</button>
-                            </div>
-                        </div>
-                    </>
-                )}
-            </div>
-
-        </div>
+                            </Text>
+                            <Pagination 
+                                total={totalPages} 
+                                value={currentPage} 
+                                onChange={setCurrentPage} 
+                                size="sm" 
+                                radius="md"
+                            />
+                        </Group>
+                    </Stack>
+                </Paper>
+            </Stack>
+        </Container>
     );
 };
 
-// --- Main Orchestrator ---
 const TecnicaPageContent: React.FC<Props> = ({ onBack }) => {
     const [viewMode, setViewMode] = useState<'list' | 'detail'>('list');
     const [selectedFichaId, setSelectedFichaId] = useState<number | null>(null);
+    const { pendingRequestId, setPendingRequestId } = useNavStore();
+
+    useEffect(() => {
+        if (pendingRequestId && viewMode === 'list') {
+            setSelectedFichaId(pendingRequestId);
+            setViewMode('detail');
+            setPendingRequestId(null);
+        }
+    }, [pendingRequestId, viewMode, setPendingRequestId]);
 
     const handleViewDetail = (id: number) => {
         setSelectedFichaId(id);
@@ -496,7 +379,6 @@ const TecnicaPageContent: React.FC<Props> = ({ onBack }) => {
     return null;
 };
 
-// --- Export with Providers ---
 export const TecnicaPage: React.FC<Props> = (props) => {
     return (
         <ToastProvider>

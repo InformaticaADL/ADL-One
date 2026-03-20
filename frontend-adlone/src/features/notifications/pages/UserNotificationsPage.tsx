@@ -101,7 +101,7 @@ export const UserNotificationsPage = () => {
     const grouped = groupNotifications();
 
     return (
-        <Container size="lg" py="xl">
+        <Container fluid py="xl">
             <Box mb="xl">
                 <Group justify="space-between" align="flex-end">
                     <div>

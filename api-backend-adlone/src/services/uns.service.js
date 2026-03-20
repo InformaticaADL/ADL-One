@@ -14,6 +14,19 @@ class UnsService {
             logger.info(`UNS Trigger Architecture 3.0: ${codigoEvento}`);
             const pool = await getConnection();
 
+            // 0. Robust Actor Resolution (get email too)
+            const actorId = Number(context.id_usuario_accion || context.id_usuario || 0);
+            let actorEmail = null;
+            if (actorId && actorId !== 0) {
+                const actorRes = await pool.request()
+                    .input('aid', sql.Numeric(10, 0), actorId)
+                    .query('SELECT correo_electronico FROM mae_usuario WHERE id_usuario = @aid');
+                if (actorRes.recordset.length > 0) {
+                    actorEmail = actorRes.recordset[0].correo_electronico;
+                }
+            }
+            if (actorEmail) context.actorEmail = actorEmail; // Pass to sub-methods
+
             // 1. Obtener Reglas 3.0 (mae_notificacion_regla)
             const rulesRes = await pool.request()
                 .input('code', sql.VarChar(50), codigoEvento)
@@ -147,11 +160,41 @@ class UnsService {
                             mensaje: '{{usuario_accion}} ha solicitado la adquisición de un nuevo equipo',
                             cuerpo_mensaje: '{{usuario_accion}} ha solicitado la adquisición de un nuevo equipo'
                         },
-                        'SOL_EQUIPO_REPORTE_PROBLEMA_NUEVA': {
-                            titulo: 'Nueva Solicitud: Reporte de Problema',
-                            asunto_template: 'Nueva Solicitud: Reporte de Problema',
-                            mensaje: '{{usuario_accion}} ha reportado un problema con el equipo {{equipo_nombre}}',
-                            cuerpo_mensaje: '{{usuario_accion}} ha reportado un problema con el equipo {{equipo_nombre}}'
+                        'FICHA_CREADA': {
+                            titulo: 'Nueva Ficha Comercial #{{correlativo}}',
+                            asunto_template: 'Nueva Ficha Comercial #{{correlativo}}',
+                            mensaje: '{{usuario_accion}} ha creado una nueva ficha para {{cliente}}',
+                            cuerpo_mensaje: '{{usuario_accion}} ha creado una nueva ficha para {{cliente}}'
+                        },
+                        'FICHA_APROBADA_TECNICA': {
+                            titulo: 'Ficha #{{correlativo}} Aprobada (Técnica)',
+                            asunto_template: 'Ficha Aprobada por Área Técnica - #{{correlativo}}',
+                            mensaje: 'La ficha #{{correlativo}} ha sido aprobada por el Área Técnica ({{usuario_accion}}).',
+                            cuerpo_mensaje: 'La ficha #{{correlativo}} ha sido aprobada por el Área Técnica ({{usuario_accion}}).'
+                        },
+                        'FICHA_RECHAZADA_TECNICA': {
+                            titulo: 'Ficha #{{correlativo}} Rechazada (Técnica)',
+                            asunto_template: 'Ficha Rechazada por Área Técnica - #{{correlativo}}',
+                            mensaje: 'La ficha #{{correlativo}} ha sido rechazada por el Área Técnica ({{usuario_accion}}).',
+                            cuerpo_mensaje: 'La ficha #{{correlativo}} ha sido rechazada por el Área Técnica ({{usuario_accion}}).'
+                        },
+                        'FICHA_APROBADA_COORDINACION': {
+                            titulo: 'Ficha #{{correlativo}} Aprobada (Coordinación)',
+                            asunto_template: 'Ficha Aprobada por Área Coordinación - #{{correlativo}}',
+                            mensaje: 'La ficha #{{correlativo}} ha sido aprobada por Coordinación ({{usuario_accion}}) y está lista para programación.',
+                            cuerpo_mensaje: 'La ficha #{{correlativo}} ha sido aprobada por Coordinación ({{usuario_accion}}) y está lista para programación.'
+                        },
+                        'FICHA_RECHAZADA_COORDINACION': {
+                            titulo: 'Ficha #{{correlativo}} Devuelta (Coordinación)',
+                            asunto_template: 'Ficha Devuelta por Área Coordinación - #{{correlativo}}',
+                            mensaje: 'La ficha #{{correlativo}} ha sido devuelta a revisión técnica por Coordinación ({{usuario_accion}}).',
+                            cuerpo_mensaje: 'La ficha #{{correlativo}} ha sido devuelta a revisión técnica por Coordinación ({{usuario_accion}}).'
+                        },
+                        'FICHA_ASIGNADA': {
+                            titulo: 'Programación Muestreo #{{correlativo}}',
+                            asunto_template: 'Programación Muestreo - Ficha #{{correlativo}}',
+                            mensaje: 'Se han asignado fechas y muestreadores para la ficha #{{correlativo}} por {{usuario_accion}}.',
+                            cuerpo_mensaje: 'Se han asignado fechas y muestreadores para la ficha #{{correlativo}} por {{usuario_accion}}.'
                         }
                     };
 
@@ -275,27 +318,42 @@ class UnsService {
     async _resolveDestinatarios(pool, reglas, context, codigoEvento) {
         const recipientsMap = new Map(); // id -> { id_usuario, web, email }
         const actorId = Number(context.id_usuario_accion || context.id_usuario || 0);
+        const actorEmail = context.actorEmail || null;
+
+        // Helper to check if a user matches the actor (by ID or Email)
+        const isNotActor = (uid, email = null) => {
+            if (Number(uid) === actorId) return false;
+            if (actorEmail && email && actorEmail.toLowerCase() === email.toLowerCase()) return false;
+            return true;
+        };
 
         // A. Procesar Reglas 3.0 (mae_notificacion_regla)
         for (const regla of reglas) {
-            const userIdsInRule = new Set();
+            const userIdsInRule = new Map(); // id -> email
 
             // 1. Por Usuario Específico
             if (regla.id_usuario_destino) {
-                userIdsInRule.add(Number(regla.id_usuario_destino));
+                const uid = Number(regla.id_usuario_destino);
+                // Necesitamos el email para el filtro
+                let email = null;
+                const uRes = await pool.request()
+                    .input('uid', sql.Numeric(10, 0), uid)
+                    .query("SELECT correo_electronico FROM mae_usuario WHERE id_usuario = @uid");
+                if (uRes.recordset.length > 0) email = uRes.recordset[0].correo_electronico;
+                userIdsInRule.set(uid, email);
             }
 
             // 2. Por Rol
             if (regla.id_rol_destino) {
                 const res = await pool.request()
                     .input('idRol', sql.Numeric(10, 0), regla.id_rol_destino)
-                    .query("SELECT u.id_usuario FROM rel_usuario_rol rur JOIN mae_usuario u ON rur.id_usuario = u.id_usuario WHERE id_rol = @idRol AND u.habilitado = 'S'");
-                res.recordset.forEach(r => userIdsInRule.add(Number(r.id_usuario)));
+                    .query("SELECT u.id_usuario, u.correo_electronico FROM rel_usuario_rol rur JOIN mae_usuario u ON rur.id_usuario = u.id_usuario WHERE id_rol = @idRol AND u.habilitado = 'S'");
+                res.recordset.forEach(r => userIdsInRule.set(Number(r.id_usuario), r.correo_electronico));
             }
 
             // Merge con mapa global
-            userIdsInRule.forEach(uid => {
-                if (uid === actorId) return; // Omitir actor
+            userIdsInRule.forEach((email, uid) => {
+                if (!isNotActor(uid, email)) return; // Omitir actor
                 const existing = recipientsMap.get(uid) || { id_usuario: uid, web: false, email: false };
                 recipientsMap.set(uid, {
                     id_usuario: uid,
@@ -337,12 +395,26 @@ class UnsService {
         }
 
         // C. Casos Especiales (Propietario / Solicitante)
-        const eventsForOwner = ['SOLICITUD_ESTADO_CAMBIO', 'SOLICITUD_COMENTARIO_NUEVO', 'SOLICITUD_DERIVACION'];
-        if (eventsForOwner.includes(codigoEvento)) {
-            const ownerId = Number(context.id_solicitante || context.id_usuario_propietario);
-            if (ownerId && ownerId !== actorId) {
-                const existing = recipientsMap.get(ownerId) || { id_usuario: ownerId, web: true, email: true };
-                recipientsMap.set(ownerId, existing);
+        // Solo enviamos si NO se ha desactivado explícitamente en el contexto
+        if (context.notificar_propietario !== false) {
+            const eventsForOwner = [
+                'SOLICITUD_ESTADO_CAMBIO', 
+                'SOLICITUD_COMENTARIO_NUEVO', 
+                'SOLICITUD_DERIVACION',
+                'FICHA_CREADA',
+                'FICHA_APROBADA_TECNICA',
+                'FICHA_RECHAZADA_TECNICA',
+                'FICHA_APROBADA_COORDINACION',
+                'FICHA_RECHAZADA_COORDINACION',
+                'FICHA_ASIGNADA'
+            ];
+            
+            if (eventsForOwner.includes(codigoEvento)) {
+                const ownerId = Number(context.id_solicitante || context.id_usuario_propietario);
+                if (ownerId && ownerId !== actorId) {
+                    const existing = recipientsMap.get(ownerId) || { id_usuario: ownerId, web: true, email: true };
+                    recipientsMap.set(ownerId, existing);
+                }
             }
         }
 

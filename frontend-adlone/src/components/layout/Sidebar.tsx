@@ -115,8 +115,8 @@ export function LinksGroup({
                                 className={`${classes.control} ${active ? classes.controlActive : ''}`}
                                 onClick={onClick}
                             >
-                                <ThemeIcon variant={active ? 'filled' : 'light'} size={32} color="adl-blue" radius="md">
-                                    <Icon style={{ width: 18, height: 18 }} />
+                                <ThemeIcon variant={active ? 'filled' : 'light'} size={28} color="adl-blue" radius="md">
+                                    <Icon style={{ width: 16, height: 16 }} />
                                 </ThemeIcon>
                                 {badge && (
                                     <div ref={notificationRef} style={{ position: 'absolute', top: -4, right: -4, zIndex: 10 }}>
@@ -144,8 +144,8 @@ export function LinksGroup({
                             className={`${classes.control} ${active ? classes.controlActive : ''}`}
                             onClick={onClick}
                         >
-                            <ThemeIcon variant={active ? 'filled' : 'light'} size={32} color="adl-blue" radius="md">
-                                <Icon style={{ width: 18, height: 18 }} />
+                            <ThemeIcon variant={active ? 'filled' : 'light'} size={28} color="adl-blue" radius="md">
+                                <Icon style={{ width: 16, height: 16 }} />
                             </ThemeIcon>
                             {badge && (
                                 <div ref={notificationRef} style={{ position: 'absolute', top: -4, right: -4, zIndex: 10 }}>
@@ -170,10 +170,10 @@ export function LinksGroup({
             >
                 <Group justify="space-between" gap={0} wrap="nowrap">
                     <Box style={{ display: 'flex', alignItems: 'center' }}>
-                        <ThemeIcon variant={active ? 'filled' : 'light'} size={32} color="adl-blue" radius="md">
-                            <Icon style={{ width: 18, height: 18 }} />
+                        <ThemeIcon variant={active ? 'filled' : 'light'} size={28} color="adl-blue" radius="md">
+                            <Icon style={{ width: 16, height: 16 }} />
                         </ThemeIcon>
-                        <Box ml="md" style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{label}</Box>
+                        <Box ml="md" style={{ flex: 1, fontSize: 12, fontWeight: 500 }}>{label}</Box>
                         {badge && <Box ref={notificationRef} ml="sm">{badge}</Box>}
                     </Box>
                     {hasLinks && (
@@ -229,7 +229,6 @@ const MODULES = [
         permission: 'MA_ACCESO',
         links: [
             { label: 'Fichas de ingreso', id: 'ma-fichas-ingreso', permission: ['MA_COMERCIAL_ACCESO', 'MA_TECNICA_ACCESO', 'MA_COORDINACION_ACCESO'] },
-            { label: 'Realizar Solicitudes', id: 'ma-solicitudes', permission: 'AI_MA_SOLICITUDES' },
             { label: 'Reportes', id: 'ma-reportes-view', permission: 'MA_A_REPORTES' },
             { label: 'Gestión de Muestreadores', id: 'admin-muestreadores', permission: 'MA_MUESTREADORES' },
         ]
@@ -290,7 +289,7 @@ export function Sidebar() {
         }
     }, [activeModule]);
 
-    const { notifications, loading } = useNotificationStore();
+    const { notifications } = useNotificationStore();
     const unreadCount = notifications.filter(n => !n.leido).length;
 
     // Escudo temporal para suprimir alertas durante el arranque (hidratación asíncrona del store)
@@ -332,6 +331,17 @@ export function Sidebar() {
             const isInteractive = target.closest('button, a, [role="button"]');
             const isInsideSidebar = !!target.closest(`.${classes.navbar}`);
 
+            // 3. PERSISTENCIA: No cerrar si es el módulo activo o contiene al submódulo activo
+            const { activeModule: activeMod, activeSubmodule: activeSub } = useNavStore.getState();
+            
+            // Si el módulo está expandido manuamente y es el activo, no cerrar
+            if (openedModule === activeMod) return;
+
+            // Si el submódulo activo pertenece al módulo expandido, no cerrar
+            const currentModule = MODULES.find(m => m.id === openedModule);
+            const hasActiveSub = currentModule?.links?.some(link => link.id === activeSub);
+            if (hasActiveSub) return;
+
             if ((isOutsideSidebar && isOutsidePopover) || (isInsideSidebar && !isInteractive)) {
                 setOpenedModule(null);
             }
@@ -351,11 +361,20 @@ export function Sidebar() {
 
     const handleModuleClick = (moduleId: string) => {
         if (moduleId === 'notificaciones') {
-            // No expandir automáticamente si está colapsado para este módulo
             setOpenedModule(openedModule === 'notificaciones' ? null : 'notificaciones');
             setShowBubble(false);
-        } else {
+            return;
+        }
+
+        const mod = MODULES.find(m => m.id === moduleId);
+        const hasSubItems = mod && mod.links && mod.links.length > 0;
+
+        if (hasSubItems) {
+            // Solo alternar expansión, NO navegar/redireccionar
             setOpenedModule(openedModule === moduleId ? null : moduleId);
+        } else {
+            // Módulos sin subitems: Navegación normal
+            setOpenedModule(moduleId);
             setActiveModule(moduleId);
             setActiveSubmodule('');
         }
@@ -471,8 +490,8 @@ export function Sidebar() {
                         src={sidebarCollapsed ? logoSmall : logoAdl}
                         alt="ADL Logo"
                         style={{
-                            height: sidebarCollapsed ? 32 : 64,
-                            maxWidth: sidebarCollapsed ? 32 : 200,
+                            height: sidebarCollapsed ? 28 : 50,
+                            maxWidth: sidebarCollapsed ? 28 : 180,
                             objectFit: 'contain',
                             cursor: 'pointer',
                             transition: 'all 200ms ease'
@@ -484,9 +503,9 @@ export function Sidebar() {
                             variant="subtle"
                             color="gray"
                             onClick={toggleSidebar}
-                            size="xl"
+                            size="lg"
                         >
-                            <IconLayoutSidebarLeftCollapse size={24} />
+                            <IconLayoutSidebarLeftCollapse size={20} />
                         </ActionIcon>
                     ) : (
                         <ActionIcon
@@ -530,20 +549,20 @@ export function Sidebar() {
                         <Menu.Target>
                             <UnstyledButton className={classes.userButton}>
                                 <Group gap="sm" wrap="nowrap">
-                                    <Avatar src={null} radius="xl" color="blue">
+                                    <Avatar src={null} radius="xl" color="blue" size={32}>
                                         {user?.name?.charAt(0)}
                                     </Avatar>
                                     {!sidebarCollapsed && (
                                         <div style={{ flex: 1, minWidth: 0 }}>
-                                            <Text size="sm" fw={500} truncate>
+                                            <Text style={{ fontSize: 12 }} fw={500} truncate>
                                                 {user?.name || 'Usuario'}
                                             </Text>
-                                            <Text c="dimmed" size="xs" truncate>
+                                            <Text c="dimmed" style={{ fontSize: 11 }} truncate>
                                                 {user?.email || 'p.vremolcoy@adlone.com'}
                                             </Text>
                                         </div>
                                     )}
-                                    {!sidebarCollapsed && <IconChevronRight size={14} stroke={1.5} />}
+                                    {!sidebarCollapsed && <IconChevronRight size={12} stroke={1.5} />}
                                 </Group>
                             </UnstyledButton>
                         </Menu.Target>

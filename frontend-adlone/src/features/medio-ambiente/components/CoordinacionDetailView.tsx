@@ -1,134 +1,63 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { fichaService } from '../services/ficha.service';
-import { ObservacionesForm } from './ObservacionesForm';
 import { ObservationTimeline } from './ObservationTimeline';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useCachedCatalogos } from '../hooks/useCachedCatalogos';
 import { WorkflowAlert } from '../../../components/ui/WorkflowAlert';
-import '../styles/FichasIngreso.css';
+import { PageHeader } from '../../../components/layout/PageHeader';
+import { ConfirmModal } from '../../../components/common/ConfirmModal';
+
+import { 
+    Button, 
+    Text, 
+    Title, 
+    Stack, 
+    Group, 
+    Paper, 
+    SimpleGrid, 
+    Container, 
+    Divider,
+    Box,
+    Table,
+    Badge,
+    Tabs,
+    ScrollArea,
+    LoadingOverlay,
+    Textarea
+} from '@mantine/core';
+import { 
+    IconCheck, 
+    IconRotate,
+    IconClipboardList,
+    IconFlask,
+    IconHistory,
+    IconMessageDots
+} from '@tabler/icons-react';
 
 interface Props {
     fichaId: number;
     onBack: () => void;
 }
 
-// Inline Confirmation Modal
-interface ConfirmationModalProps {
-    isOpen: boolean;
-    onClose: () => void;
-    onConfirm: () => void;
-    title: string;
-    message: string;
-    confirmText?: string;
-    cancelText?: string;
-    isDestructive?: boolean;
-}
-
-const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
-    isOpen, onClose, onConfirm, title, message,
-    confirmText = 'Confirmar', cancelText = 'Cancelar', isDestructive = false
-}) => {
-    if (!isOpen) return null;
-
-    return (
-        <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 9999
-        }}>
-            <div style={{
-                backgroundColor: 'white',
-                borderRadius: '12px',
-                padding: '24px',
-                maxWidth: '400px',
-                width: '100%',
-                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
-            }}>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#111827', marginBottom: '8px' }}>
-                    {title}
-                </h3>
-                <p style={{ color: '#4b5563', marginBottom: '24px', fontSize: '0.95rem' }}>
-                    {message}
-                </p>
-                <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                    <button
-                        onClick={onClose}
-                        style={{
-                            padding: '8px 16px',
-                            backgroundColor: 'white',
-                            color: '#374151',
-                            border: '1px solid #d1d5db',
-                            borderRadius: '6px',
-                            fontWeight: 500,
-                            cursor: 'pointer'
-                        }}
-                    >
-                        {cancelText}
-                    </button>
-                    <button
-                        onClick={() => {
-                            onConfirm();
-                            onClose();
-                        }}
-                        style={{
-                            padding: '8px 16px',
-                            backgroundColor: isDestructive ? '#dc2626' : '#16a34a',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '6px',
-                            fontWeight: 500,
-                            cursor: 'pointer'
-                        }}
-                    >
-                        {confirmText}
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
 export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
     const { showToast } = useToast();
-    const { user, hasPermission } = useAuth(); // Auth context
+    const { user, hasPermission } = useAuth();
     const catalogos = useCachedCatalogos();
 
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<'antecedentes' | 'analisis' | 'observaciones'>('antecedentes');
+    const [actionLoading, setActionLoading] = useState(false);
+    const [activeTab, setActiveTab] = useState<string>('antecedentes');
     const [data, setData] = useState<any>(null);
     const [laboratorios, setLaboratorios] = useState<any[]>([]);
-
-    // Editable State for Coordinacion
     const [coordinacionObs, setCoordinacionObs] = useState('');
-    const [actionLoading, setActionLoading] = useState(false);
-
-    // Modal State
-    const [modalConfig, setModalConfig] = useState<{
-        isOpen: boolean;
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [confirmAction, setConfirmAction] = useState<{
+        type: 'approve' | 'reject';
         title: string;
         message: string;
-        onConfirm: () => void;
-        isDestructive?: boolean;
-        confirmText?: string;
-    }>({
-        isOpen: false,
-        title: '',
-        message: '',
-        onConfirm: () => { },
-        isDestructive: false
-    });
+    } | null>(null);
 
-
-
-    // Memoize timeline creation data (MOVED TO TOP LEVEL TO AVOID HOOK ORDER VIOLATION)
     const timelineCreationData = useMemo(() => {
         if (!data) return undefined;
         return {
@@ -139,543 +68,319 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
     }, [data]);
 
     useEffect(() => {
-        const loadFicha = async () => {
-            if (!fichaId) return;
-            setLoading(true);
-            try {
-                // Return structure: flat (observaciones_coordinador, observaciones_jefaturatecnica, etc.)
-                // Parallel fetch: Ficha + Labs
-                const [response, labsData] = await Promise.all([
-                    fichaService.getById(fichaId),
-                    catalogos.getLaboratorios()
-                ]);
-
-                const fichaData = response.data || response;
-                setData(fichaData);
-                setLaboratorios(labsData || []);
-
-                // Ensure observation input always starts empty for a new action
-                setCoordinacionObs('');
-            } catch (error) {
-                console.error("Error loading ficha:", error);
-                showToast({ type: 'error', message: "Error al cargar ficha" });
-            } finally {
-                setLoading(false);
-            }
-        };
-
         loadFicha();
-    }, [fichaId, showToast]);
+    }, [fichaId]);
 
-    // Helper to get Lab Name
+    const loadFicha = async () => {
+        if (!fichaId) return;
+        setLoading(true);
+        try {
+            const [response, labsData] = await Promise.all([
+                fichaService.getById(fichaId),
+                catalogos.getLaboratorios()
+            ]);
+
+            const fichaData = response.data || response;
+            setData(fichaData);
+            setLaboratorios(labsData || []);
+            setCoordinacionObs('');
+        } catch (error) {
+            console.error("Error loading ficha:", error);
+            showToast({ type: 'error', message: "Error al cargar ficha" });
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const getLabName = (id: any) => {
         if (!id) return null;
         const lab = laboratorios.find((l: any) => l.id_laboratorioensayo === id || l.id_laboratorioensayo === Number(id));
         return lab ? lab.nombre_laboratorioensayo : null;
     };
 
-    const executeAccept = async () => {
-        setActionLoading(true);
-        try {
-            // Need a specific endpoint/method for Coordinacion approval or just saving obs
-            // Assuming fichaService.approveCoordinacion exists or we use a generic update
-            // If strictly following the pattern:
-            await fichaService.approveCoordinacion(fichaId, {
-                observaciones: coordinacionObs,
-                user: { id: user?.id || 0 }
-            });
-            showToast({ type: 'success', message: 'Observaciones guardadas correctamente' });
-            // Optional: stay or go back? Usually stay or refresh
-            setTimeout(() => {
-                onBack(); // Or reload
-            }, 1000);
-        } catch (error) {
-            console.error(error);
-            showToast({ type: 'error', message: 'Error al guardar observaciones' });
-        } finally {
-            setActionLoading(false);
-        }
-    };
-
     const handleAcceptClick = () => {
-        setModalConfig({
-            isOpen: true,
-            title: 'Confirmar Aprobación',
-            message: '¿Está seguro de ACEPTAR esta ficha técnicamente? Esta acción habilitará la ficha para su programación.',
-            onConfirm: executeAccept,
-            isDestructive: false,
-            confirmText: 'Aceptar Ficha'
-        });
-    };
-
-    const executeReject = async () => {
-        setActionLoading(true);
-        try {
-            await fichaService.reviewCoordinacion(fichaId, {
-                observaciones: coordinacionObs,
-                user: { id: user?.id || 0 }
-            });
-            showToast({ type: 'success', message: 'Revisión solicitada correctamente' });
-            setTimeout(() => {
-                onBack();
-            }, 1000);
-        } catch (error) {
-            console.error(error);
-            showToast({ type: 'error', message: 'Error al solicitar revisión' });
-        } finally {
-            setActionLoading(false);
+        if (!coordinacionObs.trim()) {
+            showToast({ type: 'warning', message: 'Debe ingresar una observación para aceptar' });
+            setActiveTab('observaciones');
+            return;
         }
+        setConfirmAction({
+            type: 'approve',
+            title: 'Confirmar Aprobación',
+            message: '¿Está seguro de ACEPTAR esta ficha? Esta acción habilitará la ficha para su programación.'
+        });
+        setShowConfirmModal(true);
     };
 
     const handleRejectClick = () => {
-        setModalConfig({
-            isOpen: true,
+        if (!coordinacionObs.trim()) {
+            showToast({ type: 'warning', message: 'Debe ingresar una observación para solicitar revisión' });
+            setActiveTab('observaciones');
+            return;
+        }
+        setConfirmAction({
+            type: 'reject',
             title: 'Solicitar Revisión',
-            message: '¿Está seguro de solicitar una REVISIÓN para esta ficha? Volverá al estado anterior para su corrección.',
-            onConfirm: executeReject,
-            isDestructive: true,
-            confirmText: 'Solicitar Revisión'
+            message: '¿Está seguro de solicitar una REVISIÓN? La ficha volverá al estado anterior para su corrección.'
         });
+        setShowConfirmModal(true);
     };
 
-    if (loading) {
-        return (
-            <div className="loading-container-fullscreen">
-                <div className="text-gray-500 font-medium">Cargando ficha {fichaId}...</div>
-            </div>
-        );
-    }
+    const onConfirmAction = async () => {
+        if (!confirmAction) return;
+        setActionLoading(true);
+        try {
+            if (confirmAction.type === 'approve') {
+                await fichaService.approveCoordinacion(fichaId, {
+                    observaciones: coordinacionObs,
+                    user: { id: user?.id || 0 }
+                });
+                showToast({ type: 'success', message: 'Observaciones guardadas correctamente' });
+            } else {
+                await fichaService.reviewCoordinacion(fichaId, {
+                    observaciones: coordinacionObs,
+                    user: { id: user?.id || 0 }
+                });
+                showToast({ type: 'success', message: 'Revisión solicitada correctamente' });
+            }
+            onBack();
+        } catch (error) {
+            console.error(error);
+            showToast({ type: 'error', message: `Error al procesar la ficha` });
+        } finally {
+            setActionLoading(false);
+            setShowConfirmModal(false);
+        }
+    };
 
-    if (!data) {
-        return <div className="p-8 text-center text-red-600">Error: Ficha incompleta o no encontrada.</div>;
-    }
+    if (loading && !data) return <LoadingOverlay visible />;
 
-    const enc = data;
-    const det = data.detalles || [];
-    // Data is flat now, so access directly from keys or optional nested objects
+    const getStatusProps = (status: string) => {
+        const s = (status || '').toUpperCase();
+        if (s.includes('RECHAZADA') || s.includes('CANCELADO') || s.includes('REVISAR')) return { color: 'red', label: s };
+        if (s.includes('COORDINACIÓN')) return { color: 'blue', label: s };
+        if (s.includes('PROGRAMACIÓN')) return { color: 'grape', label: s };
+        if (s.includes('PENDIENTE') || s.includes('ÁREA TÉCNICA')) return { color: 'yellow', label: 'PENDIENTE TÉCNICA' };
+        if (s.includes('ASIGNAR')) return { color: 'orange', label: s };
+        if (s.includes('VIGENTE') || s.includes('APROBADA') || s.includes('EJECUTADO') || s.includes('EN PROCESO')) return { color: 'green', label: s };
+        return { color: 'gray', label: s || 'SIN ESTADO' };
+    };
 
-    // Helper Component for Static Fields
-    const StaticField = ({ label, value, fullWidth = false }: { label: string, value: any, fullWidth?: boolean }) => (
-        <div className={`form-group ${fullWidth ? 'col-span-full' : ''}`} style={{ width: '100%', minWidth: 0 }}>
-            <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>
-                {label}
-            </label>
-            <div style={{
-                padding: '6px 10px',
-                fontSize: '0.85rem',
-                border: '1px solid #d1d5db',
-                borderRadius: '6px',
-                backgroundColor: '#f3f4f6',
-                color: '#374151',
-                minHeight: '34px',
-                display: 'flex',
-                alignItems: 'center',
-                width: '100%',
-                overflow: 'hidden',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-            }}>
-                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
+    const statusObj = getStatusProps(data?.estado_ficha);
+
+    const StaticField = ({ label, value }: { label: string, value: any }) => (
+        <Stack gap={2}>
+            <Text size="xs" fw={700} c="dimmed" tt="uppercase">{label}</Text>
+            <Paper withBorder p="xs" radius="md" bg="gray.0">
+                <Text size="sm" fw={500} truncate title={String(value || '-')}>
                     {value || '-'}
-                </span>
-            </div>
-        </div>
+                </Text>
+            </Paper>
+        </Stack>
     );
 
-
-
-    // Helper for Status Styles (Unified)
-    const getStatusStyle = (status: string) => {
-        const upperStatus = (status || '').toUpperCase();
-        let bg = '#e5e7eb'; let color = '#374151'; // Default
-
-        if (upperStatus.includes('RECHAZADA') || upperStatus.includes('ANULADA') || upperStatus.includes('REVISAR')) {
-            bg = '#fee2e2'; color = '#991b1b'; // Red
-        } else if (upperStatus.includes('COORDINACIÓN')) {
-            bg = '#dbeafe'; color = '#1e40af'; // Blue
-        } else if (upperStatus.includes('PROGRAMACIÓN')) { // Specific check before generic PENDIENTE
-            bg = '#ede9fe'; color = '#5b21b6'; // Purple
-        } else if (upperStatus.includes('PENDIENTE') || upperStatus.includes('ÁREA TÉCNICA')) {
-            bg = '#fef3c7'; color = '#92400e'; // Amber/Orange
-        } else if (upperStatus.includes('ASIGNAR')) {
-            bg = '#ffedd5'; color = '#c2410c'; // Orange Intense
-        } else if (upperStatus.includes('VIGENTE') || upperStatus.includes('APROBADA') || upperStatus.includes('EJECUTADO') || upperStatus.includes('EN PROCESO')) {
-            bg = '#dcfce7'; color = '#166534'; // Green
-        } else if (upperStatus.includes('BORRADOR')) {
-            bg = '#f3f4f6'; color = '#4b5563'; // Gray
-        }
-
-        return { backgroundColor: bg, color };
-    };
+    const det = data?.detalles || [];
+    const canProcess = hasPermission('MA_COORDINACION_APROBAR') && data?.id_validaciontecnica === 1;
 
     return (
-        <div className="fichas-ingreso-container commercial-layout">
-            <ConfirmationModal
-                isOpen={modalConfig.isOpen}
-                onClose={() => setModalConfig(prev => ({ ...prev, isOpen: false }))}
-                onConfirm={modalConfig.onConfirm}
-                title={modalConfig.title}
-                message={modalConfig.message}
-                isDestructive={modalConfig.isDestructive}
-                confirmText={modalConfig.confirmText}
-            />
-
-            <div className="header-row" style={{ display: 'flex', position: 'relative', justifyContent: 'center', alignItems: 'center', marginBottom: '1.5rem', minHeight: '40px' }}>
-                <button onClick={onBack} className="btn-back" style={{ position: 'absolute', left: 0, margin: 0 }}>
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-                    </svg>
-                    Volver
-                </button>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <h2 className="page-title-geo" style={{ margin: 0 }}>Gestión Coordinación - Ficha N° {enc.fichaingresoservicio}</h2>
-                    <span style={{
-                        ...getStatusStyle(enc.estado_ficha),
-                        fontSize: '0.85rem',
-                        padding: '2px 8px',
-                        borderRadius: '999px',
-                        fontWeight: 600,
-                        whiteSpace: 'nowrap'
-                    }}>
-                        {(() => {
-                            const txt = enc.estado_ficha || '-';
-                            return txt.toLowerCase().split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-                        })()}
-                    </span>
-                </div>
-            </div>
-
-            {/* Tabs */}
-            <div className="tabs-container">
-                <button className={`tab-button ${activeTab === 'antecedentes' ? 'active' : ''}`} onClick={() => setActiveTab('antecedentes')}>Antecedentes</button>
-                <button className={`tab-button ${activeTab === 'analisis' ? 'active' : ''}`} onClick={() => setActiveTab('analisis')}>Análisis</button>
-                <button className={`tab-button ${activeTab === 'observaciones' ? 'active' : ''}`} onClick={() => setActiveTab('observaciones')}>Observaciones / Validación</button>
-            </div>
-
-            <div className="tab-content-areaWrapper" style={{ padding: '0.5rem' }}>
-                <div className="tab-content-area" style={{ display: 'block' }}>
-
-                    {/* STATUS ALERTS - Todas bloquean botones excepto estado 1 */}
-                    <div style={{ maxWidth: '800px', margin: '0 auto 1.5rem auto' }}>
-                        {/* No puede procesar - Pendiente Técnica */}
-                        {[0, 3].includes(data?.id_validaciontecnica || 0) && (
-                            <WorkflowAlert
-                                type="warning"
-                                title="Pendiente de Aprobación Técnica"
-                                message="Esta ficha aún no ha sido aprobada por el Área Técnica. Las acciones de coordinación están deshabilitadas."
-                            />
-                        )}
-
-                        {/* No puede procesar - Rechazada por Técnica */}
-                        {data?.id_validaciontecnica === 2 && (
-                            <WorkflowAlert
-                                type="error"
-                                title="Rechazada por Área Técnica"
-                                message="Esta ficha fue rechazada por el Área Técnica. No se puede procesar en Coordinación."
-                            />
-                        )}
-
-                        {/* Ya procesada por Coordinación - Rechazada */}
-                        {data?.id_validaciontecnica === 4 && (
-                            <WorkflowAlert
-                                type="error"
-                                title="Ficha Rechazada por Coordinación"
-                                message="Esta ficha fue rechazada y devuelta al Área Técnica. No se puede procesar nuevamente."
-                            />
-                        )}
-
-                        {/* Ya procesada por Coordinación - Aprobada/En Proceso */}
-                        {[5, 6].includes(data?.id_validaciontecnica || 0) && (
-                            <WorkflowAlert
-                                type="info"
-                                title="Gestionada por Coordinación"
-                                message="Esta ficha ya ha sido procesada por Coordinación. No se puede procesar nuevamente."
-                            />
-                        )}
-
-                        {/* Anulada */}
-                        {data?.id_validaciontecnica === 7 && (
-                            <WorkflowAlert
-                                type="error"
-                                title="Ficha Cancelada"
-                                message="Esta ficha ha sido cancelada y no se puede procesar."
-                            />
-                        )}
-                    </div>
-
-                    {/* ANTECEDENTES TAB (Identical to Technical/Commercial) */}
-                    {activeTab === 'antecedentes' && (
-                        <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: '1fr' }}>
-                            <div className="form-grid-row grid-cols-4">
-                                <StaticField label="Monitoreo agua/RIL" value={enc.tipo_fichaingresoservicio} />
-                                <StaticField label="Base de operaciones" value={enc.id_lugaranalisis === 0 ? 'No Aplica' : enc.nombre_lugaranalisis} />
-                                <StaticField label="Empresa a Facturar" value={enc.id_empresa === 0 ? 'No Aplica' : enc.nombre_empresa} />
-                                <StaticField label="Empresa de servicio" value={enc.id_empresaservicio === 0 ? 'No Aplica' : enc.nombre_empresaservicios} />
-                            </div>
-
-                            <div className="form-grid-row grid-cols-4">
-                                <StaticField label="Fuente Emisora" value={enc.id_centro === 0 ? 'No Aplica' : enc.nombre_centro} />
-                                <StaticField label="Ubicación" value={enc.ubicacion} />
-                                <StaticField label="Comuna" value={enc.nombre_comuna} />
-                                <StaticField label="Región" value={enc.nombre_region} />
-                            </div>
-
-                            <div className="form-grid-row grid-cols-4">
-                                <StaticField label="Tipo de agua" value={enc.id_tipoagua === 0 ? 'No Aplica' : (enc.nombre_tipoagua || enc.tipo_agua)} />
-                                <StaticField label="Código" value={enc.codigo_centro} />
-                                <StaticField label="Contacto empresa" value={enc.id_contacto === 0 ? 'No Aplica' : enc.nombre_contacto} />
-                                <StaticField label="Objetivo del Muestreo" value={enc.id_objetivomuestreo_ma === 0 ? 'No Aplica' : enc.nombre_objetivomuestreo_ma} />
-                            </div>
-
-                            <div className="form-grid-row grid-cols-4">
-                                <StaticField label="Correo Contacto" value={enc.id_contacto === 0 ? 'No Aplica' : (enc.email_contacto || '-')} />
-                                <div style={{ gridColumn: 'span 3' }}></div>
-                            </div>
-
-                            <div className="form-grid-row grid-cols-1">
-                                <StaticField label="Tabla" value={enc.nombre_tabla_largo} fullWidth />
-                            </div>
-
-                            <div className="form-grid-row grid-cols-4">
-                                <StaticField label="¿Es ETFA?" value={enc.etfa === 'S' || enc.etfa === true ? 'Si' : 'No'} />
-                                <StaticField label="Inspector Ambiental" value={enc.agenda?.nombre_inspector || '-'} />
-                                <div style={{ gridColumn: 'span 2' }}>
-                                    <StaticField label="Punto de Muestreo" value={enc.ma_punto_muestreo} fullWidth />
-                                </div>
-                            </div>
-
-                            <div className="form-grid-row grid-cols-4">
-                                <div style={{ gridColumn: 'span 2' }}>
-                                    <StaticField label="Zona / Coordenadas" value={enc.ma_coordenadas || (enc.coordenadas_ruta ? `Ruta: ${enc.coordenadas_ruta}` : '')} fullWidth />
-                                </div>
-                            </div>
-
-                            {/* Block 2: Frecuencia */}
-                            <div style={{ marginTop: '1rem', marginBottom: '0.5rem', borderBottom: '1px solid #e5e7eb' }}></div>
-                            <div className="form-grid-row grid-cols-4">
-                                <StaticField label="Frecuencia" value={enc.agenda?.frecuencia || '-'} />
-                                <StaticField label="Periodo" value={enc.agenda?.nombre_frecuencia || '-'} />
-                                <StaticField label="Factor" value={enc.agenda?.frecuencia_factor || '-'} />
-                                <StaticField label="Total Servicios" value={enc.agenda?.total_servicios || '-'} />
-                            </div>
-
-                            {/* Block 3: Detalles Muestra */}
-                            <div style={{ marginTop: '1rem', marginBottom: '0.5rem', borderBottom: '1px solid #e5e7eb' }}></div>
-                            <div className="form-grid-row grid-cols-3">
-                                <StaticField label="Componente Ambiental" value={enc.id_tipomuestra === 0 ? 'No Aplica' : enc.nombre_tipomuestra} />
-                                <StaticField label="Sub Área" value={enc.id_subarea === 0 ? 'No Aplica' : enc.nombre_subarea} />
-                                <StaticField label="Instrumento Ambiental" value={enc.instrumento_ambiental} />
-                            </div>
-
-                            {/* Block 4: Responsable */}
-                            <div style={{ marginTop: '1rem', marginBottom: '0.5rem', borderBottom: '1px solid #e5e7eb' }}></div>
-                            <div className="form-grid-row grid-cols-4">
-                                <StaticField label="Responsable Muestreo" value={enc.responsablemuestreo} />
-                                <StaticField label="Cargo Responsable" value={enc.id_cargo === 0 ? 'No Aplica' : enc.nombre_cargo} />
-                            </div>
-
-                            <div className="form-grid-row grid-cols-5">
-                                <StaticField label="Tipo Muestreo" value={enc.id_tipomuestreo === 0 ? 'No Aplica' : enc.nombre_tipomuestreo} />
-                                <StaticField label="Tipo Muestra" value={enc.id_tipomuestra_ma === 0 ? 'No Aplica' : enc.nombre_tipomuestra_ma} />
-                                <StaticField label="Actividad" value={enc.id_actividadmuestreo === 0 ? 'No Aplica' : enc.nombre_actividadmuestreo} />
-                                <StaticField label="Duración Muestreo" value={enc.ma_duracion_muestreo} />
-                                <StaticField label="Tipo Descarga" value={enc.id_tipodescarga === 0 ? 'No Aplica' : enc.nombre_tipodescarga} />
-                            </div>
-
-                            <div className="form-grid-row grid-cols-4">
-                                <div style={{ gridColumn: 'span 2' }}>
-                                    <StaticField label="Referencia Google Maps" value={enc.referencia_googlemaps} fullWidth />
-                                </div>
-                                <StaticField label="¿Medición Caudal?" value={enc.medicion_caudal} />
-                                <StaticField label="Modalidad" value={enc.id_modalidad === 0 ? 'No Aplica' : enc.nombre_modalidad} />
-                            </div>
-
-                            {/* Block 5: Hidraulica */}
-                            <div style={{ marginTop: '1rem', marginBottom: '0.5rem', borderBottom: '1px solid #e5e7eb' }}></div>
-                            <div className="form-grid-row grid-cols-4">
-                                <StaticField label="FORMA CANAL" value={enc.id_formacanal === 0 ? 'No Aplica' : enc.nombre_formacanal} />
-                                <StaticField label="medida:" value={enc.nombre_um_formacanal || '-'} />
-                                <StaticField label="VALOR MEDIDA" value={enc.formacanal_medida || '-'} />
-                                <div style={{ minHeight: '1px' }}></div>
-                            </div>
-                            <div className="form-grid-row grid-cols-4" style={{ marginTop: '0.5rem' }}>
-                                <StaticField label="DISPOSITIVO HIDRÁULICO" value={enc.id_dispositivohidraulico === 0 ? 'No Aplica' : enc.nombre_dispositivohidraulico} />
-                                <StaticField label="medida:" value={enc.nombre_um_dispositivohidraulico || '-'} />
-                                <StaticField label="VALOR MEDIDA" value={enc.dispositivohidraulico_medida || '-'} />
-                                <div style={{ minHeight: '1px' }}></div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* ANALISIS TAB */}
-                    {activeTab === 'analisis' && (
-                        <div>
-                            {/* Same Layout as AnalysisForm Top Section */}
-                            <div className="analysis-top-section" style={{
-                                display: 'grid', gridTemplateColumns: '1fr', gap: '1.5rem', marginBottom: '1.5rem',
-                                padding: '1.5rem', border: '1px solid #e5e7eb', borderRadius: '8px', backgroundColor: 'white'
-                            }}>
-                                <div className="form-grid-row grid-cols-2">
-                                    <StaticField label="Normativa Seleccionada" value={det[0]?.nombre_normativa} />
-                                    <StaticField label="Referencia Seleccionada" value={det[0]?.nombre_normativareferencia || det[0]?.nombre_referencia} />
-                                </div>
-                            </div>
-
-                            <div className="analysis-bottom-section" style={{
-                                padding: '1.5rem',
-                                border: '1px solid #e5e7eb',
-                                borderRadius: '8px',
-                                background: 'white',
-                                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
-                            }}>
-                                <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', fontWeight: 600, color: '#374151' }}>
-                                    Análisis Solicitados ({det.length})
-                                </h3>
-                                <div style={{ overflowX: 'auto' }}>
-                                    <table style={{ width: '100%', fontSize: '0.85rem', borderCollapse: 'collapse' }}>
-                                        <thead style={{ backgroundColor: '#f9fafb' }}>
-                                            <tr>
-                                                <th style={{ padding: '8px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>Análisis</th>
-                                                <th style={{ padding: '8px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>Tipo Muestra</th>
-                                                <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #e5e7eb' }}>Límite Min</th>
-                                                <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #e5e7eb' }}>Límite Max</th>
-                                                <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #e5e7eb' }}>Error</th>
-                                                <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #e5e7eb' }}>Error Min</th>
-                                                <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #e5e7eb' }}>Error Max</th>
-                                                <th style={{ padding: '8px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>Tipo Entrega</th>
-                                                <th style={{ padding: '8px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>Lab. Principal</th>
-                                                <th style={{ padding: '8px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>Lab. Secundario</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {det.map((row: any, i: number) => {
-                                                const analysisName = row.nombre_tecnica || row.nombre_determinacion || row.nombre_examen || row.nombre_analisis || '-';
-                                                const errorYes = ['S', 's', 'Y', 'y', true].includes(row.llevaerror);
-
-                                                // Resolve Names
-                                                const labPrincipalName = getLabName(row.id_laboratorioensayo);
-                                                const labSecundarioName = getLabName(row.id_laboratorioensayo_2);
-
-                                                return (
-                                                    <tr key={i} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                                                        <td style={{ padding: '8px', fontWeight: 500 }}>{analysisName}</td>
-                                                        <td style={{ padding: '8px' }}>{row.tipo_analisis || row.nombre_tipomuestra}</td>
-                                                        <td style={{ padding: '8px', textAlign: 'right' }}>{row.limitemax_d ?? '-'}</td>
-                                                        <td style={{ padding: '8px', textAlign: 'right' }}>{row.limitemax_h ?? '-'}</td>
-                                                        <td style={{ padding: '8px', textAlign: 'right' }}>{errorYes ? 'Sí' : 'No'}</td>
-                                                        <td style={{ padding: '8px', textAlign: 'right' }}>{row.error_min ?? '-'}</td>
-                                                        <td style={{ padding: '8px', textAlign: 'right' }}>{row.error_max ?? '-'}</td>
-                                                        <td style={{ padding: '8px' }}>{row.nombre_tipoentrega || row.nombre_entrega}</td>
-                                                        <td style={{ padding: '8px' }}>
-                                                            {labPrincipalName || (row.id_laboratorioensayo ? 'Enviado' : 'Interno')}
-                                                        </td>
-                                                        <td style={{ padding: '8px' }}>
-                                                            {labSecundarioName || (row.id_laboratorioensayo_2 ? 'Enviado (Sec)' : '-')}
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                            {det.length === 0 && (
-                                                <tr>
-                                                    <td colSpan={9} style={{ textAlign: 'center', padding: '2rem', color: '#6b7280' }}>
-                                                        No hay análisis registrados.
-                                                    </td>
-                                                </tr>
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* OBSERVACIONES TAB (COORDINACION) */}
-                    {activeTab === 'observaciones' && (
-                        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-                            <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#374151', marginBottom: '1rem' }}>Línea de Tiempo</h3>
-                            <ObservationTimeline
-                                fichaId={fichaId}
-                                creationData={timelineCreationData}
-                            />
-
-                            {data?.id_validaciontecnica === 1 && (
-                                <div style={{ marginTop: '2rem', borderTop: '1px solid #e5e7eb', paddingTop: '2rem' }}>
-                                    <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#374151', marginBottom: '1rem' }}>Mi Gestión (Coordinación)</h3>
-                                    <div className="observation-action-row" style={{
-                                        borderLeft: '4px solid #8b5cf6',
-                                        paddingLeft: '1rem'
-                                    }}>
-                                        <ObservacionesForm
-                                            label="Observaciones Coordinación"
-                                            value={coordinacionObs}
-                                            onChange={setCoordinacionObs}
-                                            readOnly={data?.id_validaciontecnica !== 1 || !hasPermission('MA_COORDINACION_APROBAR')}
-                                            placeholder={hasPermission('MA_COORDINACION_APROBAR') ? "Ingrese observaciones de coordinación aquí..." : "No tiene permisos para editar observaciones"}
-                                        >
-                                            {hasPermission('MA_COORDINACION_APROBAR') && (
-                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', width: '100%' }}>
-                                                    {/* Action Buttons Row */}
-                                                    <div style={{
-                                                        display: 'flex',
-                                                        gap: '1rem',
-                                                        justifyContent: 'center'
-                                                    }}>
-                                                        <button
-                                                            onClick={handleAcceptClick}
-                                                            disabled={actionLoading || data?.id_validaciontecnica !== 1 || !coordinacionObs.trim()}
-                                                            style={{
-                                                                padding: '8px 24px',
-                                                                backgroundColor: (data?.id_validaciontecnica !== 1 || !coordinacionObs.trim()) ? '#9ca3af' : '#10b981',
-                                                                color: 'white',
-                                                                border: 'none',
-                                                                borderRadius: '6px',
-                                                                cursor: (actionLoading || data?.id_validaciontecnica !== 1 || !coordinacionObs.trim()) ? 'not-allowed' : 'pointer',
-                                                                fontWeight: 600,
-                                                                fontSize: '0.9rem',
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                gap: '8px',
-                                                                opacity: (actionLoading || data?.id_validaciontecnica !== 1 || !coordinacionObs.trim()) ? 0.7 : 1,
-                                                                boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
-                                                            }}
-                                                            title={!coordinacionObs.trim() ? "Debe ingresar observaciones para procesar" : ""}
-                                                        >
-                                                            <span>✅ Aceptar</span>
-                                                        </button>
-
-                                                        <button
-                                                            onClick={handleRejectClick}
-                                                            disabled={actionLoading || data?.id_validaciontecnica !== 1 || !coordinacionObs.trim()}
-                                                            style={{
-                                                                padding: '8px 24px',
-                                                                backgroundColor: (data?.id_validaciontecnica !== 1 || !coordinacionObs.trim()) ? '#9ca3af' : '#ef4444',
-                                                                color: 'white',
-                                                                border: 'none',
-                                                                borderRadius: '6px',
-                                                                cursor: (actionLoading || data?.id_validaciontecnica !== 1 || !coordinacionObs.trim()) ? 'not-allowed' : 'pointer',
-                                                                fontWeight: 600,
-                                                                fontSize: '0.9rem',
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                gap: '8px',
-                                                                opacity: (actionLoading || data?.id_validaciontecnica !== 1 || !coordinacionObs.trim()) ? 0.7 : 1,
-                                                                boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
-                                                            }}
-                                                            title={!coordinacionObs.trim() ? "Debe ingresar observaciones para procesar" : ""}
-                                                        >
-                                                            <span>🔄 Solicitar Revisión</span>
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </ObservacionesForm>
-                                    </div>
-                                </div>
+        <Container fluid p="md">
+            <Stack gap="lg">
+                <PageHeader 
+                    title={`Gestión Coordinación - Ficha N° ${data?.fichaingresoservicio || '-'}`}
+                    subtitle="Validación Final para Programación"
+                    onBack={onBack}
+                    rightSection={
+                        <Group gap="sm">
+                            <Badge size="xl" radius="md" variant="light" color={statusObj.color}>
+                                {statusObj.label}
+                            </Badge>
+                            {canProcess && (
+                                <Button.Group>
+                                    <Button color="green" leftSection={<IconCheck size={18} />} onClick={handleAcceptClick} loading={actionLoading}>
+                                        Aceptar
+                                    </Button>
+                                    <Button color="red" leftSection={<IconRotate size={18} />} onClick={handleRejectClick} loading={actionLoading}>
+                                        Rechazar
+                                    </Button>
+                                </Button.Group>
                             )}
-                        </div>
-                    )}
+                        </Group>
+                    }
+                />
 
-                </div>
-            </div>
-        </div>
+                <Paper withBorder p="xl" radius="lg" shadow="sm">
+                    <Stack gap="xl">
+                        {/* Status Alerts */}
+                        <Box>
+                            {[0, 3].includes(data?.id_validaciontecnica || 0) && <WorkflowAlert type="warning" title="Pendiente Técnica" message="Esta ficha aún no ha sido aprobada por el Área Técnica." />}
+                            {data?.id_validaciontecnica === 2 && <WorkflowAlert type="error" title="Rechazada Técnica" message="Esta ficha fue rechazada por el Área Técnica y devuelta a Comercial." />}
+                            {data?.id_validaciontecnica === 4 && <WorkflowAlert type="error" title="Rechazada Coordinación" message="Ficha rechazada y devuelta al Área Técnica para revisión." />}
+                            {[5, 6].includes(data?.id_validaciontecnica || 0) && <WorkflowAlert type="info" title="Gestionada" message="Ficha en proceso de programación o ejecución." />}
+                            {data?.id_validaciontecnica === 7 && <WorkflowAlert type="error" title="Ficha Cancelada" message="Esta ficha ha sido anulada." />}
+                        </Box>
+
+                        <Tabs value={activeTab} onChange={(v) => setActiveTab(v || 'antecedentes')} variant="outline" radius="md">
+                            <Tabs.List grow>
+                                <Tabs.Tab value="antecedentes" leftSection={<IconClipboardList size={18} />}>Antecedentes</Tabs.Tab>
+                                <Tabs.Tab value="analisis" leftSection={<IconFlask size={18} />}>Análisis</Tabs.Tab>
+                                <Tabs.Tab value="observaciones" leftSection={<IconHistory size={18} />}>Validación e Historial</Tabs.Tab>
+                            </Tabs.List>
+
+                            <Box mt="xl">
+                                <Tabs.Panel value="antecedentes">
+                                    <Stack gap="lg">
+                                        <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }}>
+                                            <StaticField label="Monitoreo" value={data.tipo_fichaingresoservicio} />
+                                            <StaticField label="Base Operaciones" value={data.id_lugaranalisis === 0 ? 'No Aplica' : data.nombre_lugaranalisis} />
+                                            <StaticField label="Cliente" value={data.nombre_empresa} />
+                                            <StaticField label="Empresa Servicio" value={data.nombre_empresaservicios} />
+                                        </SimpleGrid>
+
+                                        <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }}>
+                                            <StaticField label="Fuente Emisora" value={data.nombre_centro} />
+                                            <StaticField label="Comuna" value={data.nombre_comuna} />
+                                            <StaticField label="Región" value={data.nombre_region} />
+                                            <StaticField label="Código Centro" value={data.codigo_centro} />
+                                        </SimpleGrid>
+
+                                        <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }}>
+                                            <StaticField label="Tipo Agua" value={data.nombre_tipoagua || data.tipo_agua} />
+                                            <StaticField label="Contacto" value={data.nombre_contacto} />
+                                            <StaticField label="E-mail" value={data.email_contacto} />
+                                            <StaticField label="Objetivo" value={data.nombre_objetivomuestreo_ma} />
+                                        </SimpleGrid>
+
+                                        <StaticField label="Tabla / Glosa" value={data.nombre_tabla_largo} />
+
+                                        <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }}>
+                                            <StaticField label="¿Es ETFA?" value={data.etfa ? 'Sí' : 'No'} />
+                                            <StaticField label="Inspector" value={data.agenda?.nombre_inspector} />
+                                            <Box style={{ gridColumn: 'span 2' }}>
+                                                <StaticField label="Punto de Muestreo" value={data.ma_punto_muestreo} />
+                                            </Box>
+                                        </SimpleGrid>
+
+                                        <Divider label="Frecuencia y Programación" labelPosition="center" />
+                                        
+                                        <SimpleGrid cols={{ base: 1, sm: 4 }}>
+                                            <StaticField label="Frecuencia" value={data.agenda?.frecuencia} />
+                                            <StaticField label="Periodo" value={data.agenda?.nombre_frecuencia} />
+                                            <StaticField label="Factor" value={data.agenda?.frecuencia_factor} />
+                                            <StaticField label="Total Servicios" value={data.agenda?.total_servicios} />
+                                        </SimpleGrid>
+
+                                        <Divider label="Detalles del Servicio" labelPosition="center" />
+                                        
+                                        <SimpleGrid cols={{ base: 1, sm: 3 }}>
+                                            <StaticField label="Componente" value={data.nombre_tipomuestra} />
+                                            <StaticField label="Sub Área" value={data.nombre_subarea} />
+                                            <StaticField label="Instrumento" value={data.instrumento_ambiental} />
+                                        </SimpleGrid>
+
+                                        <SimpleGrid cols={{ base: 1, sm: 4 }}>
+                                            <StaticField label="Responsable" value={data.responsablemuestreo} />
+                                            <StaticField label="Cargo" value={data.nombre_cargo} />
+                                            <StaticField label="Tipo Muestreo" value={data.nombre_tipomuestreo} />
+                                            <StaticField label="Actividad" value={data.nombre_actividadmuestreo} />
+                                        </SimpleGrid>
+                                    </Stack>
+                                </Tabs.Panel>
+
+                                <Tabs.Panel value="analisis">
+                                    <Stack gap="xl">
+                                        <Paper withBorder p="md" radius="md" bg="blue.0">
+                                            <SimpleGrid cols={{ base: 1, sm: 2 }}>
+                                                <StaticField label="Normativa" value={det[0]?.nombre_normativa} />
+                                                <StaticField label="Referencia" value={det[0]?.nombre_normativareferencia || det[0]?.nombre_referencia} />
+                                            </SimpleGrid>
+                                        </Paper>
+
+                                        <ScrollArea>
+                                            <Table striped highlightOnHover withTableBorder>
+                                                <Table.Thead bg="gray.1">
+                                                    <Table.Tr>
+                                                        <Table.Th>Análisis</Table.Th>
+                                                        <Table.Th>Tipo Muestra</Table.Th>
+                                                        <Table.Th ta="right">Límite Min</Table.Th>
+                                                        <Table.Th ta="right">Límite Max</Table.Th>
+                                                        <Table.Th ta="center">Error</Table.Th>
+                                                        <Table.Th>Tipo Entrega</Table.Th>
+                                                        <Table.Th>Lab. Principal</Table.Th>
+                                                        <Table.Th>Lab. Secundario</Table.Th>
+                                                    </Table.Tr>
+                                                </Table.Thead>
+                                                <Table.Tbody>
+                                                    {det.map((row: any, i: number) => (
+                                                        <Table.Tr key={i}>
+                                                            <Table.Td fw={600}>{row.nombre_tecnica || row.nombre_determinacion || '-'}</Table.Td>
+                                                            <Table.Td>{row.tipo_analisis || row.nombre_tipomuestra || '-'}</Table.Td>
+                                                            <Table.Td ta="right">{row.limitemax_d}</Table.Td>
+                                                            <Table.Td ta="right">{row.limitemax_h}</Table.Td>
+                                                            <Table.Td ta="center">{row.llevaerror === 'S' || row.llevaerror === true ? 'Sí' : 'No'}</Table.Td>
+                                                            <Table.Td>{row.nombre_tipoentrega}</Table.Td>
+                                                            <Table.Td>{getLabName(row.id_laboratorioensayo) || 'Interno'}</Table.Td>
+                                                            <Table.Td>{getLabName(row.id_laboratorioensayo_2) || '-'}</Table.Td>
+                                                        </Table.Tr>
+                                                    ))}
+                                                </Table.Tbody>
+                                            </Table>
+                                        </ScrollArea>
+                                    </Stack>
+                                </Tabs.Panel>
+
+                                <Tabs.Panel value="observaciones">
+                                    <Stack gap="xl">
+                                        {canProcess ? (
+                                            <Paper withBorder p="md" radius="md" bg="grape.0">
+                                                <Stack gap="sm">
+                                                    <Group gap="xs">
+                                                        <IconMessageDots size={20} color="var(--mantine-color-grape-7)" />
+                                                        <Title order={5} c="grape.9">Gestión Coordinación</Title>
+                                                    </Group>
+                                                    <Text size="xs" c="grape.7">Ingrese las observaciones finales antes de aprobar para programación. Estos comentarios son fundamentales para el éxito del muestreo en terreno.</Text>
+                                                    <Textarea
+                                                        label="Instrucciones / Observaciones de Coordinación"
+                                                        placeholder="Ingrese las observaciones aquí..."
+                                                        value={coordinacionObs}
+                                                        onChange={(e) => setCoordinacionObs(e.currentTarget.value)}
+                                                        minRows={4}
+                                                        radius="md"
+                                                    />
+                                                    <Group justify="flex-end" mt="md">
+                                                        <Button color="green" leftSection={<IconCheck size={18} />} onClick={handleAcceptClick} loading={actionLoading}>
+                                                            Aprobar para Programación
+                                                        </Button>
+                                                        <Button variant="light" color="red" leftSection={<IconRotate size={18} />} onClick={handleRejectClick} loading={actionLoading}>
+                                                            Devolver a Técnica
+                                                        </Button>
+                                                    </Group>
+                                                </Stack>
+                                            </Paper>
+                                        ) : (
+                                            !hasPermission('MA_COORDINACION_APROBAR') && (
+                                                <WorkflowAlert type="warning" title="Sin Permisos" message="No tiene los permisos necesarios para realizar acciones de coordinación en esta ficha." />
+                                            )
+                                        )}
+                                        
+                                        <Box>
+                                            <Title order={4} mb="lg" fw={700}>Línea de Tiempo y Validación</Title>
+                                            <ObservationTimeline fichaId={fichaId} creationData={timelineCreationData} />
+                                        </Box>
+                                    </Stack>
+                                </Tabs.Panel>
+                            </Box>
+                        </Tabs>
+                    </Stack>
+                </Paper>
+            </Stack>
+
+            <ConfirmModal
+                isOpen={showConfirmModal}
+                title={confirmAction?.title || ''}
+                message={confirmAction?.message || ''}
+                onConfirm={onConfirmAction}
+                onCancel={() => setShowConfirmModal(false)}
+            />
+        </Container>
     );
 };

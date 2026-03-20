@@ -1,10 +1,32 @@
-import React, { useState, useEffect } from 'react';
-import '../styles/FichasIngreso.css';
+import React, { useState, useEffect, useMemo } from 'react';
 import { fichaService } from '../services/ficha.service';
 import { useCatalogos } from '../context/CatalogosContext';
 import { catalogosService } from '../services/catalogos.service';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
+import { PageHeader } from '../../../components/layout/PageHeader';
+import { 
+    Container, 
+    Stack, 
+    Paper, 
+    TextInput, 
+    Select, 
+    Button, 
+    Table, 
+    Badge, 
+    Group, 
+    ScrollArea,
+    Text,
+    Divider,
+    Box,
+    LoadingOverlay
+} from '@mantine/core';
+import { 
+    IconCalendarEvent,
+    IconUserPlus, 
+    IconDeviceFloppy, 
+    IconBolt
+} from '@tabler/icons-react';
 
 interface Props {
     fichaId: number;
@@ -23,28 +45,18 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
     const [saving, setSaving] = useState(false);
     const [muestreadores, setMuestreadores] = useState<any[]>([]);
 
-
-
-    // Muestreador assignments per row
     const [muestreadorInstalacion, setMuestreadorInstalacion] = useState<Record<number, number>>({});
     const [muestreadorRetiro, setMuestreadorRetiro] = useState<Record<number, number>>({});
-
-    // Filters / Inputs
     const [selectedDate, setSelectedDate] = useState('');
-    const [dbFieldValue, setDbFieldValue] = useState(''); // Stores nombre_frecuencia
-
-    // Editable dates per row
-    const [editableDates, setEditableDates] = useState<Record<number, string>>({});
-    const [editableRetiroDates, setEditableRetiroDates] = useState<Record<number, string>>({});
-
-    // Frequency data (dias)
+    const [dbFieldValue, setDbFieldValue] = useState(''); 
     const [frequencyDays, setFrequencyDays] = useState<number>(0);
     const [numericFrequency, setNumericFrequency] = useState<number>(1);
     const [frecuenciaFactor, setFrecuenciaFactor] = useState<number>(1);
     const [totalServicios, setTotalServicios] = useState<number>(0);
     const [duracionMuestreo, setDuracionMuestreo] = useState<number>(0);
+    const [editableDates, setEditableDates] = useState<Record<number, string>>({});
+    const [editableRetiroDates, setEditableRetiroDates] = useState<Record<number, string>>({});
 
-    // Load Data
     const loadAssignmentData = async () => {
         setLoading(true);
         try {
@@ -64,26 +76,14 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                     const existingInstalacion: Record<number, number> = {};
                     const existingRetiro: Record<number, number> = {};
 
-                    // Track first valid programmed date for header
                     let firstRowDate = '';
-                    let firstRowRetiroDate = '';
 
                     data.forEach((row: any) => {
-                        // 1. Calculate base date from DB fields (dia, mes, ano) if available
-                        let calculatedFromDB = '';
-                        if (row.dia && row.mes && row.ano) {
-                            const d = String(row.dia).padStart(2, '0');
-                            const m = String(row.mes).padStart(2, '0');
-                            const a = String(row.ano);
-                            calculatedFromDB = `${a}-${m}-${d}`;
-                        }
-
-                        // 2. Load sampling date: priority 1 (existing in DB), priority 2 (calculated from programmed fields)
                         let samplingDate = '';
-                        if (row.fecha_muestreo && row.fecha_muestreo !== '  /  /    ' && row.fecha_muestreo !== '01/01/1900' && row.fecha_muestreo !== '1900-01-01') {
+                        if (row.fecha_muestreo && !['  /  /    ', '01/01/1900', '1900-01-01'].includes(row.fecha_muestreo)) {
                             samplingDate = formatDate(row.fecha_muestreo);
-                        } else if (calculatedFromDB) {
-                            samplingDate = calculatedFromDB;
+                        } else if (row.dia && row.mes && row.ano) {
+                            samplingDate = `${row.ano}-${String(row.mes).padStart(2, '0')}-${String(row.dia).padStart(2, '0')}`;
                         }
 
                         if (samplingDate) {
@@ -91,16 +91,10 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                             if (!firstRowDate) firstRowDate = samplingDate;
                         }
 
-                        // 3. Load retirement date
-                        if (row.fecha_retiro && row.fecha_retiro !== '01/01/1900' && row.fecha_retiro !== '1900-01-01' && row.fecha_retiro !== '  /  /    ') {
-                            const dateStr = formatDate(row.fecha_retiro);
-                            if (dateStr) {
-                                existingRetiroDates[row.id_agendamam] = dateStr;
-                                if (!firstRowRetiroDate) firstRowRetiroDate = dateStr;
-                            }
+                        if (row.fecha_retiro && !['01/01/1900', '1900-01-01', '  /  /    '].includes(row.fecha_retiro)) {
+                            existingRetiroDates[row.id_agendamam] = formatDate(row.fecha_retiro);
                         }
 
-                        // 4. Load muestreadores
                         if (row.id_muestreador) existingInstalacion[row.id_agendamam] = row.id_muestreador;
                         if (row.id_muestreador2) existingRetiro[row.id_agendamam] = row.id_muestreador2;
                     });
@@ -109,8 +103,6 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                     setEditableRetiroDates(existingRetiroDates);
                     setMuestreadorInstalacion(existingInstalacion);
                     setMuestreadorRetiro(existingRetiro);
-
-                    // Auto-fill header if not already set
                     if (firstRowDate && !selectedDate) setSelectedDate(firstRowDate);
                 }
             }
@@ -151,81 +143,35 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
         if (fichaId) {
             loadInitialData();
         }
-    }, [fichaId, getCatalogo]);
-
-
-    const handleMuestreadorInstalacionChange = (rowId: number, muestreadorId: number) => {
-        setMuestreadorInstalacion(prev => ({
-            ...prev,
-            [rowId]: muestreadorId
-        }));
-        // Auto-fill retiro with same value
-        setMuestreadorRetiro(prev => ({
-            ...prev,
-            [rowId]: muestreadorId
-        }));
-    };
-
-    const handleMuestreadorRetiroChange = (rowId: number, muestreadorId: number) => {
-        setMuestreadorRetiro(prev => ({
-            ...prev,
-            [rowId]: muestreadorId
-        }));
-    };
+    }, [fichaId]);
 
     const handleCalculateDates = () => {
-        if (rows.length === 0) return;
-
-        console.log('Calculating dates based on individual row data...');
+        if (rows.length === 0 || !selectedDate) return;
 
         const newDates: Record<number, string> = {};
         const newRetiroDates: Record<number, string> = {};
-
-        // Rule: if duration is 24 or more -> add days corresponding to duration (e.g. 24h = 1 day)
-        // If duration < 24 -> same day (0 days offset)
         const dayOffset = Math.floor(duracionMuestreo / 24);
-
         const isMensual = dbFieldValue?.toUpperCase().includes('MENSUAL');
 
         rows.forEach((row, index) => {
-            let baseDateStr = '';
-
-            // If selectedDate is set, we use it as the Reference (RETIRO) for the sequence
-            if (selectedDate) {
-                const base = new Date(selectedDate + 'T00:00:00');
-                if (isMensual) {
-                    const monthOffset = Math.floor(index / numericFrequency);
-                    const partOfMonth = index % numericFrequency;
-                    const daysOffset = Math.floor((30 / numericFrequency) * partOfMonth);
-
-                    base.setMonth(base.getMonth() + monthOffset);
-                    base.setDate(base.getDate() + daysOffset);
-                } else {
-                    const interval = (frequencyDays / numericFrequency) * index;
-                    base.setDate(base.getDate() + Math.floor(interval));
-                }
-                // The calculated date is the RETIREMENT (Muestreo)
-                const retirementDateStr = base.toISOString().split('T')[0];
-                newRetiroDates[row.id_agendamam] = retirementDateStr;
-
-                // Installation is Retirement - offset
-                const instDate = new Date(retirementDateStr + 'T00:00:00');
-                instDate.setDate(instDate.getDate() - dayOffset);
-                newDates[row.id_agendamam] = instDate.toISOString().split('T')[0];
-            } else if (row.dia && row.mes && row.ano) {
-                // Fallback to row specific programmed dates if no header date is selected
-                const d = String(row.dia).padStart(2, '0');
-                const m = String(row.mes).padStart(2, '0');
-                const a = String(row.ano);
-                baseDateStr = `${a}-${m}-${d}`;
-
-                newDates[row.id_agendamam] = baseDateStr;
-
-                // Calculate retirement date adding offset
-                const retiDate = new Date(baseDateStr + 'T00:00:00');
-                retiDate.setDate(retiDate.getDate() + dayOffset);
-                newRetiroDates[row.id_agendamam] = retiDate.toISOString().split('T')[0];
+            const base = new Date(selectedDate + 'T00:00:00');
+            if (isMensual) {
+                const monthOffset = Math.floor(index / numericFrequency);
+                const partOfMonth = index % numericFrequency;
+                const daysOffset = Math.floor((30 / numericFrequency) * partOfMonth);
+                base.setMonth(base.getMonth() + monthOffset);
+                base.setDate(base.getDate() + daysOffset);
+            } else {
+                const interval = (frequencyDays / numericFrequency) * index;
+                base.setDate(base.getDate() + Math.floor(interval));
             }
+            
+            const retirementDateStr = base.toISOString().split('T')[0];
+            newRetiroDates[row.id_agendamam] = retirementDateStr;
+
+            const instDate = new Date(retirementDateStr + 'T00:00:00');
+            instDate.setDate(instDate.getDate() - dayOffset);
+            newDates[row.id_agendamam] = instDate.toISOString().split('T')[0];
         });
 
         setEditableDates(newDates);
@@ -233,37 +179,19 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
         showToast({ message: 'Fechas calculadas según programación', type: 'success' });
     };
 
-    const handleDateChange = (id: number, newDate: string) => {
-        setEditableDates(prev => ({
-            ...prev,
-            [id]: newDate
-        }));
-    };
-
-    const handleRetiroDateChange = (id: number, newDate: string) => {
-        setEditableRetiroDates(prev => ({
-            ...prev,
-            [id]: newDate
-        }));
-    };
-
     const handleSaveAssignment = async () => {
-        // Check that all rows have dates and at least instalacion muestreador
-        const rowsWithoutDates = rows.filter((row: any) => !editableDates[row.id_agendamam]);
-        if (rowsWithoutDates.length > 0) {
+        if (rows.some(r => !editableDates[r.id_agendamam])) {
             showToast({ message: 'Debe calcular o ingresar fechas para todos los registros', type: 'warning' });
             return;
         }
 
-        const rowsWithoutMuestreador = rows.filter((row: any) => !muestreadorInstalacion[row.id_agendamam]);
-        if (rowsWithoutMuestreador.length > 0) {
+        if (rows.some(r => !muestreadorInstalacion[r.id_agendamam])) {
             showToast({ message: 'Debe seleccionar Muestreador de Instalación para todos los registros', type: 'warning' });
             return;
         }
 
         setSaving(true);
         try {
-            // Build assignments array with all required data
             const assignments = rows.map((row: any) => ({
                 id: row.id_agendamam,
                 fecha: editableDates[row.id_agendamam],
@@ -277,16 +205,11 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
             const response = await fichaService.batchUpdateAgenda({
                 assignments,
                 user: user ? { id: user.id } : { id: 0 },
-                observaciones: 'Fechas y muestreadores asignados, ficha lista para ser ejecutada.'
+                observaciones: 'Asignación de recursos y programación masiva desde sistema.'
             });
 
-            // Display success message from backend
             showToast({ message: response.message || 'Asignación guardada correctamente', type: 'success' });
-
-            // Redirect to assignment list after 1.5 seconds
-            setTimeout(() => {
-                onBack();
-            }, 1500);
+            setTimeout(() => onBack(), 1500);
         } catch (error) {
             console.error("Error saving assignment:", error);
             showToast({ message: 'Error al guardar la asignación', type: 'error' });
@@ -295,423 +218,221 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
         }
     };
 
+    const muestreadorOptions = useMemo(() => 
+        muestreadores.map(m => ({ value: String(m.id_muestreador), label: m.nombre_muestreador })),
+        [muestreadores]
+    );
+
     return (
-        <div className="fichas-ingreso-container commercial-layout">
-            {/* Header */}
-            <div className="header-row">
-                <button onClick={onBack} className="btn-back">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-                    </svg>
-                    Volver
-                </button>
-                <h2 className="page-title-geo">Formulario de Asignación - Ficha {fichaId}</h2>
-            </div>
-
-            {/* Status Validation Banner Removed */}
-
-            {/* Top Inputs Section */}
-            <div style={{
-                backgroundColor: 'white',
-                padding: '1.5rem',
-                borderRadius: '12px',
-                marginBottom: '1.5rem',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                display: 'flex',
-                gap: '2rem',
-                alignItems: 'flex-start',
-                justifyContent: 'center'
-            }}>
-                {/* GROUP 1: Dates & Calculation */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', gap: '1rem' }}>
-                        <div className="form-group" style={{ flex: '0 0 100px' }}>
-                            <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#4b5563', marginBottom: '4px', display: 'block' }}>
-                                Frecuencia
-                            </label>
-                            <input
-                                type="text"
-                                value={numericFrequency}
-                                disabled
-                                style={{
-                                    width: '100%',
-                                    padding: '0.4rem',
-                                    borderRadius: '6px',
-                                    border: '1px solid #d1d5db',
-                                    backgroundColor: '#f9fafb',
-                                    color: '#6b7280',
-                                    fontSize: '0.85rem'
-                                }}
-                            />
-                        </div>
-
-                        <div className="form-group" style={{ flex: '0 0 120px' }}>
-                            <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#4b5563', marginBottom: '4px', display: 'block' }}>
-                                Periodo
-                            </label>
-                            <input
-                                type="text"
-                                value={dbFieldValue}
-                                disabled
-                                style={{
-                                    width: '100%',
-                                    padding: '0.4rem',
-                                    borderRadius: '6px',
-                                    border: '1px solid #d1d5db',
-                                    backgroundColor: '#f9fafb',
-                                    color: '#6b7280',
-                                    fontSize: '0.85rem'
-                                }}
-                            />
-                        </div>
-
-                        <div className="form-group" style={{ flex: '0 0 120px' }}>
-                            <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#4b5563', marginBottom: '4px', display: 'block' }}>
-                                Factor
-                            </label>
-                            <input
-                                type="text"
-                                value={frecuenciaFactor}
-                                disabled
-                                style={{
-                                    width: '100%',
-                                    padding: '0.4rem',
-                                    borderRadius: '6px',
-                                    border: '1px solid #d1d5db',
-                                    backgroundColor: '#f9fafb',
-                                    color: '#6b7280',
-                                    fontSize: '0.85rem'
-                                }}
-                            />
-                        </div>
-
-                        <div className="form-group" style={{ flex: '0 0 100px' }}>
-                            <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#4b5563', marginBottom: '4px', display: 'block' }}>
-                                Total Serv.
-                            </label>
-                            <input
-                                type="text"
-                                value={totalServicios}
-                                disabled
-                                style={{
-                                    width: '100%',
-                                    padding: '0.4rem',
-                                    borderRadius: '6px',
-                                    border: '1px solid #d1d5db',
-                                    backgroundColor: '#f9fafb',
-                                    color: '#6b7280',
-                                    fontSize: '0.85rem'
-                                }}
-                            />
-                        </div>
-
-                        <div className="form-group" style={{ flex: '0 0 150px' }}>
-                            <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#4b5563', marginBottom: '4px', display: 'block' }}>
-                                Fecha de Muestreo
-                            </label>
-                            <input
-                                type="date"
-                                value={selectedDate}
-                                onChange={(e) => setSelectedDate(e.target.value)}
-                                style={{
-                                    width: '100%',
-                                    padding: '0.4rem',
-                                    borderRadius: '6px',
-                                    border: '1px solid #d1d5db',
-                                    fontSize: '0.85rem',
-                                    backgroundColor: 'white',
-                                    cursor: 'text',
-                                    color: 'inherit'
-                                }}
-                            />
-                        </div>
-                    </div>
-
-                    <button
-                        onClick={handleCalculateDates}
-                        disabled={!selectedDate}
-                        className="btn-secondary"
-                        style={{
-                            padding: '0.4rem 0.8rem',
-                            fontSize: '0.8rem',
-                            height: '32px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.4rem',
-                            opacity: (!selectedDate) ? 0.5 : 1,
-                            cursor: (!selectedDate) ? 'not-allowed' : 'pointer'
-                        }}
-                    >
-                        ⚡ Calcular Fechas
-                    </button>
-                </div>
-
-                {/* Vertical Separator */}
-                <div style={{
-                    width: '1px',
-                    height: '80px',
-                    backgroundColor: '#e5e7eb',
-                    alignSelf: 'center'
-                }} />
-
-                {/* GROUP 2: Bulk Assignment & Save */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', gap: '1rem' }}>
-                        <div className="form-group" style={{ flex: '0 0 190px' }}>
-                            <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#4b5563', marginBottom: '4px', display: 'block' }}>
-                                Asignar M. Instalación a Todos
-                            </label>
-                            <select
-                                value=""
-                                onChange={(e) => {
-                                    const muestreadorId = Number(e.target.value);
-                                    if (muestreadorId) {
-                                        const newInstalacion: { [key: number]: number } = {};
-                                        const newRetiro: { [key: number]: number } = {};
-                                        rows.forEach(row => {
-                                            newInstalacion[row.id_agendamam] = muestreadorId;
-                                            newRetiro[row.id_agendamam] = muestreadorRetiro[row.id_agendamam] || muestreadorId;
-                                        });
-                                        setMuestreadorInstalacion(newInstalacion);
-                                        setMuestreadorRetiro(newRetiro);
-                                        e.target.value = ''; // Reset selector
-                                    }
-                                }}
-                                style={{
-                                    width: '100%',
-                                    padding: '0.4rem',
-                                    borderRadius: '6px',
-                                    border: '1px solid #d1d5db',
-                                    backgroundColor: '#fff',
-                                    color: '#111827',
-                                    fontSize: '0.8rem'
-                                }}
-                            >
-                                <option value="">Seleccionar...</option>
-                                {muestreadores.map(m => (
-                                    <option key={m.id_muestreador} value={m.id_muestreador}>
-                                        {m.nombre_muestreador}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div className="form-group" style={{ flex: '0 0 190px' }}>
-                            <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#4b5563', marginBottom: '4px', display: 'block' }}>
-                                Asignar M. Retiro a Todos
-                            </label>
-                            <select
-                                value=""
-                                onChange={(e) => {
-                                    const muestreadorId = Number(e.target.value);
-                                    if (muestreadorId) {
-                                        const newRetiro: { [key: number]: number } = {};
-                                        rows.forEach(row => {
-                                            newRetiro[row.id_agendamam] = muestreadorId;
-                                        });
-                                        setMuestreadorRetiro(newRetiro);
-                                        e.target.value = ''; // Reset selector
-                                    }
-                                }}
-                                style={{
-                                    width: '100%',
-                                    padding: '0.4rem',
-                                    borderRadius: '6px',
-                                    border: '1px solid #d1d5db',
-                                    backgroundColor: '#fff',
-                                    color: '#111827',
-                                    fontSize: '0.8rem'
-                                }}
-                            >
-                                <option value="">Seleccionar...</option>
-                                {muestreadores.map(m => (
-                                    <option key={m.id_muestreador} value={m.id_muestreador}>
-                                        {m.nombre_muestreador}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <button
-                            onClick={handleSaveAssignment}
-                            disabled={saving || loading}
-                            className="btn-primary"
-                            style={{
-                                backgroundColor: (saving) ? '#9333ea' : '#7c3aed',
-                                color: 'white',
-                                padding: '0.4rem 1.2rem',
-                                fontSize: '0.85rem',
-                                height: '34px',
-                                borderRadius: '8px',
-                                fontWeight: 700,
-                                border: 'none',
-                                cursor: (saving) ? 'not-allowed' : 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.4rem',
-                                opacity: 1
-                            }}
+        <Container fluid p="md">
+            <Stack gap="lg">
+                <PageHeader 
+                    title={`Asignación de Recursos - Ficha ${fichaId}`}
+                    subtitle="Defina fechas y técnicos responsables para cada servicio"
+                    onBack={onBack}
+                    rightSection={
+                        <Button 
+                            color="grape" 
+                            size="md" 
+                            leftSection={<IconDeviceFloppy size={20} />} 
+                            onClick={handleSaveAssignment} 
+                            loading={saving}
                         >
-                            {saving ? 'Guardando...' : '💾 Guardar Asignación'}
-                        </button>
-                    </div>
-                </div>
-            </div>
+                            Guardar Planificación
+                        </Button>
+                    }
+                />
 
-            {/* Table Section */}
-            <div className="responsive-table-container">
-                {loading ? (
-                    <div style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>Cargando datos...</div>
-                ) : (
-                    <div style={{ overflowX: 'auto', maxHeight: '650px', border: '1px solid #e5e7eb', borderRadius: '4px' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px' }}>
-                            <thead style={{ backgroundColor: '#f9fafb', position: 'sticky', top: 0, zIndex: 1 }}>
-                                <tr>
-                                    <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', fontSize: '9px', textAlign: 'center' }}>N°Ficha</th>
-                                    <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', fontSize: '9px', textAlign: 'center' }}>Correlativo</th>
-                                    <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', fontSize: '9px', textAlign: 'center' }}>Estado</th>
-                                    <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', fontSize: '9px', textAlign: 'center' }}>Fecha Instalación</th>
-                                    <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', fontSize: '9px', textAlign: 'center' }}>Fecha Muestreo (Retiro)</th>
-                                    <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', fontSize: '9px', textAlign: 'center' }}>Frecuencia</th>
-                                    <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', fontSize: '9px', textAlign: 'center' }}>E.Servicio</th>
-                                    <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', fontSize: '9px', textAlign: 'center' }}>Tipo Punto</th>
-                                    <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', fontSize: '9px', textAlign: 'center' }}>Sub Área</th>
-                                    <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', fontSize: '9px', textAlign: 'center' }}>Coordinador</th>
-                                    <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', backgroundColor: '#fef3c7', fontSize: '9px', minWidth: '140px', textAlign: 'center' }}>M. Instalación</th>
-                                    <th style={{ padding: '6px 4px', whiteSpace: 'nowrap', backgroundColor: '#fef3c7', fontSize: '9px', minWidth: '140px', textAlign: 'center' }}>M. Retiro</th>
-                                </tr>
-                            </thead>
-                            <tbody style={{ fontSize: '9px' }}>
-                                {rows.map((row, idx) => {
-                                    let displayDate = row.fecha_muestreo;
-                                    if (displayDate === '01/01/1900' || displayDate === '1900-01-01') {
-                                        displayDate = '';
-                                    }
+                <Paper withBorder p="xl" radius="lg" shadow="sm">
+                    <Stack gap="xl">
+                        {/* Configuration Header */}
+                        <Group align="flex-end" justify="center" gap="xl">
+                            <Paper withBorder p="md" radius="md" bg="gray.0">
+                                <Group gap="md">
+                                    <Stack gap={0}>
+                                        <Text size="xs" fw={700} c="dimmed">FRECUENCIA</Text>
+                                        <Text fw={600}>{numericFrequency}</Text>
+                                    </Stack>
+                                    <Divider orientation="vertical" />
+                                    <Stack gap={0}>
+                                        <Text size="xs" fw={700} c="dimmed">PERIODO</Text>
+                                        <Text fw={600}>{dbFieldValue || '-'}</Text>
+                                    </Stack>
+                                    <Divider orientation="vertical" />
+                                    <Stack gap={0}>
+                                        <Text size="xs" fw={700} c="dimmed">FACTOR</Text>
+                                        <Text fw={600}>{frecuenciaFactor}</Text>
+                                    </Stack>
+                                    <Divider orientation="vertical" />
+                                    <Stack gap={0}>
+                                        <Text size="xs" fw={700} c="dimmed">TOTAL SERV.</Text>
+                                        <Text fw={600}>{totalServicios}</Text>
+                                    </Stack>
+                                    <Divider orientation="vertical" />
+                                    <Stack gap={0}>
+                                        <Text size="xs" fw={700} c="dimmed">DURACIÓN</Text>
+                                        <Text fw={600}>{duracionMuestreo} HRS</Text>
+                                    </Stack>
+                                </Group>
+                            </Paper>
 
-                                    const isCancelled = row.estado_caso === 'CANCELADO' || row.id_estadomuestreo === 99 || row.nombre_estadomuestreo === 'CANCELADO' || row.nombre_estadomuestreo === 'Cancelado';
+                            <Group align="flex-end">
+                                <TextInput 
+                                    label="Fecha Referencia (Muestreo)" 
+                                    type="date" 
+                                    value={selectedDate} 
+                                    onChange={(e) => setSelectedDate(e.target.value)} 
+                                    leftSection={<IconCalendarEvent size={16} />}
+                                />
+                                <Button 
+                                    variant="light" 
+                                    color="blue" 
+                                    leftSection={<IconBolt size={18} />} 
+                                    onClick={handleCalculateDates}
+                                    disabled={!selectedDate}
+                                >
+                                    Auto-Calcular Fechas
+                                </Button>
+                            </Group>
 
-                                    return (
-                                        <tr key={idx} style={{
-                                            borderBottom: '1px solid #e5e7eb',
-                                            height: '36px',
-                                            backgroundColor: isCancelled ? '#f3f4f6' : 'transparent',
-                                            color: isCancelled ? '#9ca3af' : 'inherit',
-                                            textDecoration: isCancelled ? 'line-through' : 'none',
-                                            opacity: isCancelled ? 0.6 : 1
-                                        }}>
-                                            <td style={{ padding: '6px 8px', fontWeight: 600, whiteSpace: 'nowrap', textAlign: 'center' }}>{row.fichaingresoservicio}</td>
-                                            <td style={{ padding: '6px 8px', whiteSpace: 'nowrap', textAlign: 'center' }}>{row.frecuencia_correlativo}</td>
-                                            <td style={{ padding: '6px 8px', whiteSpace: 'nowrap', textAlign: 'center' }}>
-                                                <span style={{
-                                                    padding: '1px 6px',
-                                                    borderRadius: '9999px',
-                                                    fontSize: '9px',
-                                                    fontWeight: 600,
-                                                    backgroundColor: isCancelled ? '#e5e7eb' : (row.nombre_estadomuestreo?.includes('POR') ? '#ffedd5' : (row.nombre_estadomuestreo?.includes('PEND') ? '#fee2e2' : '#dcfce7')),
-                                                    color: isCancelled ? '#6b7280' : (row.nombre_estadomuestreo?.includes('POR') ? '#c2410c' : (row.nombre_estadomuestreo?.includes('PEND') ? '#991b1b' : '#166534')),
-                                                    textDecoration: 'none',
-                                                    display: 'inline-block'
-                                                }}>
-                                                    {isCancelled ? 'CANCELADO' : row.nombre_estadomuestreo}
-                                                </span>
-                                            </td>
-                                            <td style={{ padding: '6px 8px', whiteSpace: 'nowrap', textAlign: 'center' }}>
-                                                <input
-                                                    type="date"
-                                                    value={editableDates[row.id_agendamam] || ''}
-                                                    onChange={(e) => handleDateChange(row.id_agendamam, e.target.value)}
-                                                    disabled={isCancelled || !editableDates[row.id_agendamam]}
-                                                    placeholder="Calcular primero"
-                                                    style={{
-                                                        padding: '4px 6px',
-                                                        fontSize: '10px',
-                                                        border: editableDates[row.id_agendamam] ? '1px solid #10b981' : '1px solid #d1d5db',
-                                                        borderRadius: '4px',
-                                                        width: '110px',
-                                                        backgroundColor: editableDates[row.id_agendamam] ? '#f0fdf4' : '#f3f4f6',
-                                                        cursor: editableDates[row.id_agendamam] ? 'text' : 'not-allowed',
-                                                        color: editableDates[row.id_agendamam] ? '#1f2937' : '#9ca3af'
-                                                    }}
-                                                />
-                                            </td>
-                                            <td style={{ padding: '6px 8px', whiteSpace: 'nowrap', textAlign: 'center' }}>
-                                                <input
-                                                    type="date"
-                                                    value={editableRetiroDates[row.id_agendamam] || ''}
-                                                    onChange={(e) => handleRetiroDateChange(row.id_agendamam, e.target.value)}
-                                                    disabled={isCancelled || !editableRetiroDates[row.id_agendamam]}
-                                                    placeholder="Calcular primero"
-                                                    style={{
-                                                        padding: '4px 6px',
-                                                        fontSize: '10px',
-                                                        border: editableRetiroDates[row.id_agendamam] ? '1px solid #ef4444' : '1px solid #d1d5db',
-                                                        borderRadius: '4px',
-                                                        width: '110px',
-                                                        backgroundColor: editableRetiroDates[row.id_agendamam] ? '#fef2f2' : '#f3f4f6',
-                                                        cursor: editableRetiroDates[row.id_agendamam] ? 'text' : 'not-allowed',
-                                                        color: editableRetiroDates[row.id_agendamam] ? '#1f2937' : '#9ca3af'
-                                                    }}
-                                                />
-                                            </td>
-                                            <td style={{ padding: '6px 8px', whiteSpace: 'nowrap', textAlign: 'center' }}>{row.nombre_frecuencia}</td>
-                                            <td style={{ padding: '6px 8px', whiteSpace: 'nowrap', textAlign: 'center' }}>{row.empresa_servicio}</td>
-                                            <td style={{ padding: '6px 8px', whiteSpace: 'nowrap', textAlign: 'center' }}>{row.nombre_objetivomuestreo_ma}</td>
-                                            <td style={{ padding: '6px 8px', whiteSpace: 'nowrap', textAlign: 'center' }}>{row.nombre_subarea}</td>
-                                            <td style={{ padding: '6px 8px', whiteSpace: 'nowrap', textAlign: 'center' }}>{row.nombre_coordinador}</td>
-                                            <td style={{ padding: '6px 8px', whiteSpace: 'nowrap', backgroundColor: isCancelled ? 'transparent' : '#fffbeb', textAlign: 'center' }}>
-                                                <select
-                                                    value={muestreadorInstalacion[row.id_agendamam] ?? ''}
-                                                    disabled={isCancelled}
-                                                    onChange={(e) => handleMuestreadorInstalacionChange(row.id_agendamam, Number(e.target.value))}
-                                                    style={{
-                                                        padding: '3px 5px',
-                                                        fontSize: '10px',
-                                                        border: muestreadorInstalacion[row.id_agendamam] ? '1px solid #10b981' : '1px solid #d1d5db',
-                                                        borderRadius: '4px',
-                                                        width: '140px',
-                                                        backgroundColor: muestreadorInstalacion[row.id_agendamam] ? '#f0fdf4' : 'white'
-                                                    }}
-                                                >
-                                                    <option value="">Seleccionar...</option>
-                                                    {muestreadores.map(m => (
-                                                        <option key={m.id_muestreador} value={m.id_muestreador}>
-                                                            {m.nombre_muestreador}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                            </td>
-                                            <td style={{ padding: '6px 8px', whiteSpace: 'nowrap', backgroundColor: isCancelled ? 'transparent' : '#fffbeb', textAlign: 'center' }}>
-                                                <select
-                                                    value={muestreadorRetiro[row.id_agendamam] ?? ''}
-                                                    disabled={isCancelled}
-                                                    onChange={(e) => handleMuestreadorRetiroChange(row.id_agendamam, Number(e.target.value))}
-                                                    style={{
-                                                        padding: '3px 5px',
-                                                        fontSize: '10px',
-                                                        border: muestreadorRetiro[row.id_agendamam] ? '1px solid #10b981' : '1px solid #d1d5db',
-                                                        borderRadius: '4px',
-                                                        width: '140px',
-                                                        backgroundColor: muestreadorRetiro[row.id_agendamam] ? '#f0fdf4' : 'white'
-                                                    }}
-                                                >
-                                                    <option value="">Seleccionar...</option>
-                                                    {muestreadores.map(m => (
-                                                        <option key={m.id_muestreador} value={m.id_muestreador}>
-                                                            {m.nombre_muestreador}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-            </div>
-        </div>
+                            <Divider orientation="vertical" />
+
+                            <Group align="flex-end">
+                                <Select 
+                                    label="Asignar M. Instalación (Todos)" 
+                                    placeholder="Seleccionar..." 
+                                    data={muestreadorOptions}
+                                    onChange={(val) => {
+                                        if (val) {
+                                            const id = Number(val);
+                                            const newInst: Record<number, number> = {}; 
+                                            const newRet: Record<number, number> = {};
+                                            rows.forEach(r => {
+                                                newInst[r.id_agendamam as number] = id;
+                                                newRet[r.id_agendamam as number] = muestreadorRetiro[r.id_agendamam] || id;
+                                            });
+                                            setMuestreadorInstalacion(newInst);
+                                            setMuestreadorRetiro(newRet);
+                                        }
+                                    }}
+                                    searchable
+                                    leftSection={<IconUserPlus size={16} />}
+                                />
+                                <Select 
+                                    label="Asignar M. Retiro (Todos)" 
+                                    placeholder="Seleccionar..." 
+                                    data={muestreadorOptions}
+                                    onChange={(val) => {
+                                        if (val) {
+                                            const id = Number(val);
+                                            const newRet: Record<number, number> = {};
+                                            rows.forEach(r => { newRet[r.id_agendamam as number] = id; });
+                                            setMuestreadorRetiro(newRet);
+                                        }
+                                    }}
+                                    searchable
+                                    leftSection={<IconUserPlus size={16} />}
+                                />
+                            </Group>
+                        </Group>
+
+                        <Divider />
+
+                        {/* Assignments Table */}
+                        <Box pos="relative">
+                            <LoadingOverlay visible={loading} />
+                            <ScrollArea h={500}>
+                                <Table striped highlightOnHover withTableBorder verticalSpacing="sm">
+                                    <Table.Thead bg="gray.1">
+                                        <Table.Tr>
+                                            <Table.Th ta="center" w={80}>Correl.</Table.Th>
+                                            <Table.Th w={130}>Estado</Table.Th>
+                                            <Table.Th w={150}>F. Instalación</Table.Th>
+                                            <Table.Th w={150}>F. Muestreo</Table.Th>
+                                            <Table.Th>E. Servicio</Table.Th>
+                                            <Table.Th>Sub Área</Table.Th>
+                                            <Table.Th w={200}>M. Instalación</Table.Th>
+                                            <Table.Th w={200}>M. Retiro</Table.Th>
+                                        </Table.Tr>
+                                    </Table.Thead>
+                                    <Table.Tbody>
+                                        {rows.map((row) => {
+                                            const isCancelled = ['CANCELADO', 'ANULADO'].includes((row.nombre_estadomuestreo || '').toUpperCase());
+                                            const rowId = row.id_agendamam;
+                                            
+                                            return (
+                                                <Table.Tr key={rowId} style={{ opacity: isCancelled ? 0.5 : 1 }}>
+                                                    <Table.Td ta="center" fw={700}>{row.frecuencia_correlativo}</Table.Td>
+                                                    <Table.Td>
+                                                        <Badge 
+                                                            variant="light" 
+                                                            color={isCancelled ? 'red' : (row.nombre_estadomuestreo?.includes('POR') ? 'orange' : 'green')}
+                                                        >
+                                                            {row.nombre_estadomuestreo}
+                                                        </Badge>
+                                                    </Table.Td>
+                                                    <Table.Td>
+                                                        <TextInput 
+                                                            type="date" 
+                                                            size="xs" 
+                                                            disabled={isCancelled}
+                                                            value={editableDates[rowId] || ''} 
+                                                            onChange={(e) => setEditableDates(prev => ({ ...prev, [rowId]: e.currentTarget.value }))}
+                                                            error={!editableDates[rowId]}
+                                                        />
+                                                    </Table.Td>
+                                                    <Table.Td>
+                                                        <TextInput 
+                                                            type="date" 
+                                                            size="xs" 
+                                                            disabled={isCancelled}
+                                                            value={editableRetiroDates[rowId] || ''} 
+                                                            onChange={(e) => setEditableRetiroDates(prev => ({ ...prev, [rowId]: e.currentTarget.value }))}
+                                                            error={!editableRetiroDates[rowId]}
+                                                        />
+                                                    </Table.Td>
+                                                    <Table.Td>
+                                                        <Text size="xs" truncate maw={150}>{row.empresa_servicio}</Text>
+                                                    </Table.Td>
+                                                    <Table.Td>
+                                                        <Text size="xs">{row.nombre_subarea}</Text>
+                                                    </Table.Td>
+                                                    <Table.Td>
+                                                        <Select 
+                                                            size="xs" 
+                                                            disabled={isCancelled}
+                                                            data={muestreadorOptions}
+                                                            value={String(muestreadorInstalacion[rowId] || '')}
+                                                            onChange={(v) => {
+                                                                const id = Number(v);
+                                                                setMuestreadorInstalacion(p => ({ ...p, [rowId]: id }));
+                                                                setMuestreadorRetiro(p => ({ ...p, [rowId]: p[rowId] || id }));
+                                                            }}
+                                                            searchable
+                                                            placeholder="Técnico..."
+                                                        />
+                                                    </Table.Td>
+                                                    <Table.Td>
+                                                        <Select 
+                                                            size="xs" 
+                                                            disabled={isCancelled}
+                                                            data={muestreadorOptions}
+                                                            value={String(muestreadorRetiro[rowId] || '')}
+                                                            onChange={(v) => setMuestreadorRetiro(p => ({ ...p, [rowId]: Number(v) }))}
+                                                            searchable
+                                                            placeholder="Técnico..."
+                                                        />
+                                                    </Table.Td>
+                                                </Table.Tr>
+                                            );
+                                        })}
+                                    </Table.Tbody>
+                                </Table>
+                            </ScrollArea>
+                        </Box>
+                    </Stack>
+                </Paper>
+            </Stack>
+        </Container>
     );
 };

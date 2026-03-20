@@ -1,8 +1,35 @@
 import React, { useState, useEffect } from 'react';
+import { 
+    Container, 
+    Group, 
+    Text, 
+    Button, 
+    Table, 
+    Badge, 
+    ActionIcon, 
+    Paper, 
+    LoadingOverlay, 
+    TextInput, 
+    Select, 
+    ScrollArea, 
+    Box, 
+    Tooltip,
+    Image,
+    Modal
+} from '@mantine/core';
+import { 
+    IconPlus, 
+    IconSearch, 
+    IconEdit, 
+    IconPower, 
+    IconFileDescription,
+    IconCheck,
+    IconX
+} from '@tabler/icons-react';
 import { adminService } from '../../../services/admin.service';
 import { ConfirmModal } from '../../../components/common/ConfirmModal';
 import { MuestreadorModal } from '../components/MuestreadorModal';
-import '../admin.css';
+import { PageHeader } from '../../../components/layout/PageHeader';
 
 interface Props {
     onBack: () => void;
@@ -34,7 +61,7 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
         setLoading(true);
         try {
             const result = await adminService.getMuestreadores(searchTerm, statusFilter);
-            setMuestreadores(result.data || []); // Access data property from API response
+            setMuestreadores(result.data || []);
         } catch (error) {
             console.error('Error fetching muestreadores:', error);
         } finally {
@@ -43,7 +70,6 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
     };
 
     useEffect(() => {
-        // Debounce search slightly
         const timer = setTimeout(() => {
             fetchData();
         }, 300);
@@ -67,7 +93,6 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
 
     const confirmDisable = async () => {
         if (!muestreadorToDisable) return;
-
         try {
             await adminService.disableMuestreador(muestreadorToDisable.id_muestreador);
             fetchData();
@@ -75,7 +100,6 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
             setMuestreadorToDisable(null);
         } catch (error) {
             console.error(error);
-            alert('Error al deshabilitar');
         }
     };
 
@@ -86,7 +110,6 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
 
     const confirmEnable = async () => {
         if (!muestreadorToEnable) return;
-
         try {
             await adminService.enableMuestreador(muestreadorToEnable.id_muestreador);
             fetchData();
@@ -94,7 +117,6 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
             setMuestreadorToEnable(null);
         } catch (error) {
             console.error(error);
-            alert('Error al habilitar');
         }
     };
 
@@ -112,190 +134,156 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
             window.URL.revokeObjectURL(url);
         } catch (error) {
             console.error('Error exporting PDF:', error);
-            alert('Error al exportar PDF');
         } finally {
             setIsExporting(false);
         }
     };
 
     return (
-        <div className="admin-container">
-            <div className="admin-header-section responsive-header">
-                {/* Izquierda: botón Volver */}
-                <div style={{ justifySelf: 'start' }}>
-                    <button onClick={onBack} className="btn-back">
-                        <span className="icon-circle">←</span>
-                        Volver
-                    </button>
-                </div>
+        <Container fluid py="md">
+            <PageHeader
+                title="Gestión de Muestreadores"
+                subtitle="Administra el personal de muestreo técnico y sus firmas digitales autorizadas."
+                onBack={onBack}
+                rightSection={
+                    <Group>
+                        <Button 
+                            variant="light" 
+                            color="red" 
+                            leftSection={<IconFileDescription size={18} />}
+                            onClick={handleExportPdf}
+                            loading={isExporting}
+                            radius="md"
+                        >
+                            Exportar PDF
+                        </Button>
+                        <Button 
+                            leftSection={<IconPlus size={18} />} 
+                            onClick={handleCreate}
+                            radius="md"
+                        >
+                            Nuevo Muestreador
+                        </Button>
+                    </Group>
+                }
+            />
 
-                {/* Centro: título + subtitulo */}
-                <div style={{ justifySelf: 'center', textAlign: 'center' }}>
-                    <h1 className="admin-title" style={{ margin: '0 0 0.15rem 0' }}>Gestión de Muestreadores</h1>
-                    <p className="admin-subtitle" style={{ margin: 0 }}>Administra el personal de muestreo y sus firmas.</p>
-                </div>
-
-                {/* Derecha: botones de acción */}
-                <div style={{ justifySelf: 'end', display: 'flex', gap: '0.75rem' }}>
-                    <button 
-                        className="btn-secondary" 
-                        onClick={handleExportPdf}
-                        disabled={isExporting}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            backgroundColor: 'white',
-                            color: '#e11d48',
-                            border: '1px solid #e11d48',
-                            padding: '0.6rem 1.2rem',
-                            borderRadius: '10px',
-                            fontWeight: 600,
-                            cursor: isExporting ? 'not-allowed' : 'pointer'
-                        }}
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                        {isExporting ? 'Generando...' : 'Exportar PDF'}
-                    </button>
-                    <button className="btn-primary" onClick={handleCreate} style={{ padding: '0.6rem 1.2rem', borderRadius: '10px' }}>
-                        + Nuevo Muestreador
-                    </button>
-                </div>
-            </div>
-
-            {/* FILTROS */}
-            <div className="filters-bar" style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', background: 'white', padding: '1rem', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-                <div style={{ flex: 1 }}>
-                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.3rem', color: '#64748b' }}>Buscar por Nombre</label>
-                    <input
-                        type="text"
-                        className="form-input"
-                        placeholder="Escriba nombre..."
+            <Paper withBorder p="md" radius="md" shadow="sm" mt="xl">
+                <Group grow>
+                    <TextInput
+                        label="Buscar por Nombre"
+                        placeholder="Escriba nombre o ID..."
+                        leftSection={<IconSearch size={16} />}
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        style={{ height: '38px' }}
+                        onChange={(e) => setSearchTerm(e.currentTarget.value)}
+                        radius="md"
                     />
-                </div>
-                <div style={{ width: '200px' }}>
-                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.3rem', color: '#64748b' }}>Estado</label>
-                    <select
-                        className="form-input"
+                    <Select
+                        label="Estado"
+                        placeholder="Filtrar por estado"
+                        data={[
+                            { value: 'ACTIVOS', label: 'Solo Activos' },
+                            { value: 'INACTIVOS', label: 'Solo Inactivos' },
+                            { value: 'TODOS', label: 'Todos' }
+                        ]}
                         value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                        style={{ height: '38px', padding: '0 0.5rem', appearance: 'auto' }}
-                    >
-                        <option value="ACTIVOS">Solo Activos</option>
-                        <option value="INACTIVOS">Solo Inactivos</option>
-                        <option value="TODOS">Todos</option>
-                    </select>
-                </div>
-            </div>
+                        onChange={(val) => setStatusFilter(val || 'ACTIVOS')}
+                        radius="md"
+                    />
+                </Group>
+            </Paper>
 
-            {/* TABLA */}
-            <div className="table-container">
-                <table className="admin-table-compact">
-                    <thead>
-                        <tr>
-                            <th style={{ width: '30%' }}>Nombre / ID</th>
-                            <th style={{ width: '25%' }}>Correo Electrónico</th>
-                            <th style={{ width: '15%' }}>Estado</th>
-                            <th style={{ width: '15%' }}>Firma</th>
-                            <th style={{ width: '15%', textAlign: 'center' }}>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {loading ? (
-                            <tr>
-                                <td colSpan={5} style={{ height: '300px', border: 'none', textAlign: 'center', verticalAlign: 'middle' }}>
-                                    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-                                        <div style={{ width: '30px', height: '30px', border: '3px solid #e2e8f0', borderTopColor: '#3b82f6', borderRadius: '50%', animation: 'spinner-spin 1s linear infinite' }}></div>
-                                        <span style={{ color: '#64748b', fontSize: '0.9rem', fontWeight: 500 }}>Cargando muestreadores...</span>
-                                    </div>
-                                </td>
-                            </tr>
-                        ) : muestreadores.length === 0 ? (
-                            <tr><td colSpan={5} style={{ textAlign: 'center', padding: '3rem', color: '#6b7280' }}>No se encontraron muestreadores.</td></tr>
-                        ) : (
-                            muestreadores.map(m => (
-                                <tr key={m.id_muestreador}>
-                                    <td>
-                                        <div style={{ fontWeight: '600', color: '#111827' }}>{m.nombre_muestreador}</div>
-                                        <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>ID: {m.id_muestreador}</div>
-                                    </td>
-                                    <td style={{ color: '#4b5563' }}>{m.correo_electronico}</td>
-                                    <td>
-                                        <span className={`status-pill ${m.habilitado === 'S' ? 'status-active' : 'status-inactive'}`}>
-                                            {m.habilitado === 'S' ? 'Activo' : 'Inactivo'}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        {m.firma_muestreador ? (
-                                            <div
-                                                style={{
-                                                    width: '80px',
-                                                    height: '40px',
-                                                    border: '1px solid #e5e7eb',
-                                                    borderRadius: '4px',
-                                                    overflow: 'hidden',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    cursor: 'zoom-in',
-                                                    backgroundColor: '#f9fafb'
-                                                }}
-                                                onClick={() => setZoomedImage(m.firma_muestreador)}
-                                                title="Ver firma ampliada"
+            <Paper withBorder radius="md" shadow="sm" mt="lg" style={{ position: 'relative' }}>
+                <LoadingOverlay visible={loading} overlayProps={{ radius: "md", blur: 2 }} />
+                
+                <ScrollArea h={500}>
+                    <Table verticalSpacing="sm" highlightOnHover striped>
+                        <Table.Thead bg="blue.0">
+                            <Table.Tr>
+                                <Table.Th>Muestreador</Table.Th>
+                                <Table.Th>Contacto</Table.Th>
+                                <Table.Th>Estado</Table.Th>
+                                <Table.Th>Firma Digital</Table.Th>
+                                <Table.Th ta="center">Acciones</Table.Th>
+                            </Table.Tr>
+                        </Table.Thead>
+                        <Table.Tbody>
+                            {muestreadores.length === 0 && !loading ? (
+                                <Table.Tr>
+                                    <Table.Td colSpan={5} ta="center" py="xl">
+                                        <Text c="dimmed">No se encontraron muestreadores con los filtros aplicados.</Text>
+                                    </Table.Td>
+                                </Table.Tr>
+                            ) : (
+                                muestreadores.map((m) => (
+                                    <Table.Tr key={m.id_muestreador}>
+                                        <Table.Td>
+                                            <Box>
+                                                <Text fw={700} size="sm">{m.nombre_muestreador}</Text>
+                                                <Text size="xs" c="dimmed">ID: {m.id_muestreador}</Text>
+                                            </Box>
+                                        </Table.Td>
+                                        <Table.Td>
+                                            <Text size="sm">{m.correo_electronico || '---'}</Text>
+                                        </Table.Td>
+                                        <Table.Td>
+                                            <Badge 
+                                                color={m.habilitado === 'S' ? 'green' : 'red'} 
+                                                variant="light"
+                                                leftSection={m.habilitado === 'S' ? <IconCheck size={10} /> : <IconX size={10} />}
                                             >
-                                                <img
-                                                    src={m.firma_muestreador}
-                                                    alt="Firma"
-                                                    style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
-                                                />
-                                            </div>
-                                        ) : (
-                                            <span style={{ color: '#9ca3af', fontSize: '0.8rem', fontStyle: 'italic' }}>Sin firma</span>
-                                        )}
-                                    </td>
-                                    <td>
-                                        <div className="action-buttons" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
-                                            <button
-                                                className="btn-icon"
-                                                onClick={() => handleEdit(m)}
-                                                title="Editar"
-                                                style={{ color: '#2563eb', background: '#eff6ff', padding: '6px', borderRadius: '4px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                            >
-                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                                            </button>
-                                            {m.habilitado === 'S' && (
-                                                <button
-                                                    className="btn-icon"
-                                                    onClick={() => handleDisableClick(m)}
-                                                    title="Deshabilitar"
-                                                    style={{ color: '#dc2626', background: '#fef2f2', padding: '6px', borderRadius: '4px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                                >
-                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
-                                                </button>
+                                                {m.habilitado === 'S' ? 'Activo' : 'Inactivo'}
+                                            </Badge>
+                                        </Table.Td>
+                                        <Table.Td>
+                                            {m.firma_muestreador ? (
+                                                <Tooltip label="Ver firma ampliada">
+                                                    <Paper 
+                                                        withBorder 
+                                                        h={40} 
+                                                        w={100} 
+                                                        shadow="xs"
+                                                        onClick={() => setZoomedImage(m.firma_muestreador)}
+                                                        style={{ cursor: 'pointer', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                    >
+                                                        <Image src={m.firma_muestreador} fit="contain" h={36} />
+                                                    </Paper>
+                                                </Tooltip>
+                                            ) : (
+                                                <Text size="xs" c="dimmed" fs="italic">Sin firma registrada</Text>
                                             )}
-                                            {m.habilitado !== 'S' && (
-                                                <button
-                                                    className="btn-icon"
-                                                    onClick={() => handleEnableClick(m)}
-                                                    title="Habilitar"
-                                                    style={{ color: '#16a34a', background: '#f0fdf4', padding: '6px', borderRadius: '4px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                                >
-                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-                                                </button>
-                                            )}
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
-            </div>
+                                        </Table.Td>
+                                        <Table.Td>
+                                            <Group gap="xs" justify="center">
+                                                <Tooltip label="Editar Información">
+                                                    <ActionIcon variant="light" color="blue" onClick={() => handleEdit(m)}>
+                                                        <IconEdit size={16} />
+                                                    </ActionIcon>
+                                                </Tooltip>
+                                                
+                                                {m.habilitado === 'S' ? (
+                                                    <Tooltip label="Deshabilitar Muestreador">
+                                                        <ActionIcon variant="light" color="red" onClick={() => handleDisableClick(m)}>
+                                                            <IconPower size={16} />
+                                                        </ActionIcon>
+                                                    </Tooltip>
+                                                ) : (
+                                                    <Tooltip label="Habilitar Muestreador">
+                                                        <ActionIcon variant="light" color="green" onClick={() => handleEnableClick(m)}>
+                                                            <IconCheck size={16} />
+                                                        </ActionIcon>
+                                                    </Tooltip>
+                                                )}
+                                            </Group>
+                                        </Table.Td>
+                                    </Table.Tr>
+                                ))
+                            )}
+                        </Table.Tbody>
+                    </Table>
+                </ScrollArea>
+            </Paper>
 
-            {/* MODAL MUESTREADOR */}
             <MuestreadorModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
@@ -303,13 +291,12 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                 initialData={selectedMuestreador}
             />
 
-            {/* CONFIRM MODAL */}
             <ConfirmModal
                 isOpen={isConfirmModalOpen}
                 title="Confirmar Deshabilitación"
                 message={`¿Está seguro de deshabilitar a ${muestreadorToDisable?.nombre_muestreador}? Esta acción impedirá que el muestreador sea asignado a nuevas fichas.`}
                 confirmText="Deshabilitar"
-                confirmColor="#dc2626"
+                confirmColor="red"
                 onConfirm={confirmDisable}
                 onCancel={() => {
                     setIsConfirmModalOpen(false);
@@ -317,13 +304,12 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                 }}
             />
 
-            {/* ENABLE CONFIRM MODAL */}
             <ConfirmModal
                 isOpen={isEnableConfirmOpen}
                 title="Confirmar Habilitación"
                 message={`¿Está seguro de habilitar a ${muestreadorToEnable?.nombre_muestreador}? El muestreador podrá ser asignado a nuevas fichas.`}
                 confirmText="Habilitar"
-                confirmColor="#16a34a"
+                confirmColor="green"
                 onConfirm={confirmEnable}
                 onCancel={() => {
                     setIsEnableConfirmOpen(false);
@@ -331,22 +317,18 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                 }}
             />
 
-            {/* IMAGE ZOOM MODAL */}
-            {zoomedImage && (
-                <div className="modal-overlay" onClick={() => setZoomedImage(null)} style={{ zIndex: 10000 }}>
-                    <div style={{ position: 'relative', maxWidth: '90%', maxHeight: '90%' }}>
-                        <img src={zoomedImage} alt="Firma Ampliada" style={{ maxWidth: '100%', maxHeight: '80vh', borderRadius: '8px', boxShadow: '0 4px 20px rgba(0,0,0,0.5)' }} />
-                        <button
-                            onClick={() => setZoomedImage(null)}
-                            style={{
-                                position: 'absolute', top: '-15px', right: '-15px',
-                                background: 'white', border: 'none', borderRadius: '50%',
-                                width: '30px', height: '30px', cursor: 'pointer', fontWeight: 'bold'
-                            }}
-                        >✕</button>
-                    </div>
-                </div>
-            )}
-        </div>
+            <Modal 
+                opened={!!zoomedImage} 
+                onClose={() => setZoomedImage(null)} 
+                title="Firma Digital" 
+                centered 
+                size="lg"
+                padding="xl"
+            >
+                <Paper withBorder p="xl" bg="gray.0" radius="md">
+                    <Image src={zoomedImage} fit="contain" mah={400} />
+                </Paper>
+            </Modal>
+        </Container>
     );
 };

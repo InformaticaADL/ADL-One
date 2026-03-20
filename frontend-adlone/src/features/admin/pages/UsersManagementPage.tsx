@@ -1,8 +1,39 @@
 import React, { useState, useEffect } from 'react';
+import { 
+    Container, 
+    Stack, 
+    Group, 
+    Text, 
+    Button, 
+    TextInput, 
+    Select, 
+    Table, 
+    Badge, 
+    ActionIcon, 
+    Paper, 
+    Modal, 
+    PasswordInput,
+    Box,
+    Checkbox,
+    ScrollArea,
+    LoadingOverlay,
+    Tooltip
+} from '@mantine/core';
+import { 
+    IconSearch, 
+    IconPlus, 
+    IconEdit, 
+    IconKey, 
+    IconBan, 
+    IconCheck, 
+    IconUser,
+    IconMail,
+    IconShield
+} from '@tabler/icons-react';
 import { rbacService, type User, type CreateUserData, type UpdateUserData, type Role } from '../services/rbac.service';
 import { useToast } from '../../../contexts/ToastContext';
 import { ConfirmModal } from '../../../components/common/ConfirmModal';
-import '../admin.css';
+import { PageHeader } from '../../../components/layout/PageHeader';
 
 interface Props {
     onBack?: () => void;
@@ -14,7 +45,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
     const [roles, setRoles] = useState<Role[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-    const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('active');
+    const [filterStatus, setFilterStatus] = useState<string>('active');
 
     // Modal states
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -70,7 +101,6 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
             setLoading(true);
             const newUser = await rbacService.createUser(formData);
 
-            // Assign roles if any selected
             if (selectedRoles.length > 0) {
                 await rbacService.assignRolesToUser(newUser.id_usuario, selectedRoles);
             }
@@ -98,8 +128,6 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
         try {
             setLoading(true);
             await rbacService.updateUser(selectedUser.id_usuario, updateData);
-
-            // Update roles
             await rbacService.assignRolesToUser(selectedUser.id_usuario, selectedRoles);
 
             showToast({ type: 'success', message: 'Usuario actualizado exitosamente' });
@@ -136,7 +164,6 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
 
     const handleToggleStatus = async () => {
         if (!selectedUser) return;
-
         const newStatus = selectedUser.habilitado !== 'S';
 
         try {
@@ -171,7 +198,6 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
             clave_usuario: ''
         });
 
-        // Load user's current roles
         try {
             const userRoles = await rbacService.getUserRoles(user.id_usuario);
             setSelectedRoles(userRoles.map(r => r.id_rol));
@@ -214,7 +240,6 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
         );
     };
 
-    // Filter users
     const filteredUsers = users.filter(user => {
         const matchesSearch =
             user.nombre_usuario.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -230,567 +255,323 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
     });
 
     return (
-        <div className="admin-container">
-            <div className="admin-header-section responsive-header">
-                {/* Izquierda: Botón Volver */}
-                <div style={{ justifySelf: 'start' }}>
-                    {onBack && (
-                        <button onClick={onBack} className="btn-back">
-                            <span className="icon-circle">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <line x1="19" y1="12" x2="5" y2="12"></line>
-                                    <polyline points="12 19 5 12 12 5"></polyline>
-                                </svg>
-                            </span>
-                            Volver
-                        </button>
-                    )}
-                </div>
-
-                {/* Centro: Título y Subtítulo */}
-                <div style={{ justifySelf: 'center', textAlign: 'center' }}>
-                    <h1 className="admin-title">Gestión de Usuarios</h1>
-                    <p className="admin-subtitle">Crear, editar y administrar usuarios del sistema</p>
-                </div>
-
-                {/* Derecha: Vacío para balance */}
-                <div style={{ justifySelf: 'end' }}></div>
-            </div>
-
-            <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', maxWidth: '1400px', margin: '0 auto' }}>
-                {/* Filters and Actions */}
-                <div className="filter-card" style={{ marginBottom: '2rem' }}>
-                    <div className="filter-controls-left">
-                        <div className="search-container" style={{ width: '100%', maxWidth: '400px', backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '0 1rem' }}>
-                            <span className="search-icon-main" style={{ color: '#9ca3af', marginRight: '0.5rem' }}>🔍</span>
-                            <input
-                                type="text"
-                                placeholder="Buscar por nombre, usuario o email..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                style={{ width: '100%', border: 'none', background: 'transparent', padding: '0.75rem 0', fontSize: '0.9rem', outline: 'none', color: '#111827' }}
-                            />
-                        </div>
-
-                        <div className="vertical-divider"></div>
-
-                        <div className="filter-group">
-                            <label className="filter-label" style={{ color: '#4b5563', fontSize: '0.85rem', fontWeight: 600 }}>Estado:</label>
-                            <select
-                                className="filter-select"
-                                value={filterStatus}
-                                onChange={(e) => setFilterStatus(e.target.value as any)}
-                                style={{ minWidth: '150px', padding: '0.5rem', borderRadius: '8px', border: '1px solid #e5e7eb', backgroundColor: 'white', color: '#111827', fontSize: '0.9rem', cursor: 'pointer' }}
-                            >
-                                <option value="all">Todos los Estados</option>
-                                <option value="active">Solo Activos</option>
-                                <option value="inactive">Solo Inactivos</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <button
+        <Container fluid py="md">
+            <PageHeader
+                title="Gestión de Usuarios"
+                subtitle="Administra los accesos y roles de los integrantes del sistema."
+                onBack={onBack}
+                breadcrumbItems={[
+                    { label: 'Administración', onClick: onBack },
+                    { label: 'Informática', onClick: onBack },
+                    { label: 'Usuarios' }
+                ]}
+                rightSection={
+                    <Button 
+                        leftSection={<IconPlus size={18} />}
                         onClick={openCreateModal}
-                        className="btn-primary"
-                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem', whiteSpace: 'nowrap' }}
+                        radius="md"
+                        color="blue"
                     >
-                        <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>+</span> Nuevo Usuario
-                    </button>
-                </div>
+                        Nuevo Usuario
+                    </Button>
+                }
+            />
 
-                {/* Users Table */}
-                {loading ? (
-                    <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-                        <div style={{ width: '30px', height: '30px', border: '3px solid #e2e8f0', borderTopColor: '#3b82f6', borderRadius: '50%', animation: 'spinner-spin 1s linear infinite' }}></div>
-                        Cargando usuarios...
-                    </div>
-                ) : filteredUsers.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af' }}>
-                        No se encontraron usuarios
-                    </div>
-                ) : (
-                    <div style={{ overflowX: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-                            <thead>
-                                <tr style={{ borderBottom: '2px solid #e5e7eb', color: '#6b7280', textAlign: 'left' }}>
-                                    <th style={{ padding: '12px 8px', fontWeight: 600 }}>Usuario</th>
-                                    <th style={{ padding: '12px 8px', fontWeight: 600 }}>Nombre Real</th>
-                                    <th style={{ padding: '12px 8px', fontWeight: 600 }}>Email</th>
-                                    <th style={{ padding: '12px 8px', fontWeight: 600, textAlign: 'center' }}>Estado</th>
-                                    <th style={{ padding: '12px 8px', fontWeight: 600, textAlign: 'right' }}>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredUsers.map(user => (
-                                    <tr key={user.id_usuario} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                                        <td style={{ padding: '12px 8px', fontWeight: 600, color: '#1f2937' }}>
-                                            {user.nombre_usuario}
-                                        </td>
-                                        <td style={{ padding: '12px 8px', color: '#4b5563' }}>
-                                            {user.nombre_real}
-                                        </td>
-                                        <td style={{ padding: '12px 8px', color: '#3b82f6', fontSize: '0.8rem' }}>
-                                            {user.correo_electronico || '-'}
-                                        </td>
-                                        <td style={{ padding: '12px 8px', textAlign: 'center' }}>
-                                            <span style={{
-                                                padding: '4px 12px',
-                                                borderRadius: '99px',
-                                                fontSize: '0.75rem',
-                                                fontWeight: 600,
-                                                backgroundColor: user.habilitado === 'S' ? '#d1fae5' : '#fee2e2',
-                                                color: user.habilitado === 'S' ? '#065f46' : '#991b1b'
-                                            }}>
-                                                {user.habilitado === 'S' ? 'Activo' : 'Inactivo'}
-                                            </span>
-                                        </td>
-                                        <td style={{ padding: '12px 8px', textAlign: 'right' }}>
-                                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                                                <button
-                                                    onClick={() => openEditModal(user)}
-                                                    style={{
-                                                        padding: '6px 12px',
-                                                        backgroundColor: '#eff6ff',
-                                                        color: '#1e40af',
-                                                        border: 'none',
-                                                        borderRadius: '4px',
-                                                        cursor: 'pointer',
-                                                        fontSize: '0.75rem',
-                                                        fontWeight: 600
-                                                    }}
-                                                    title="Editar"
-                                                >
-                                                    ✏️ Editar
-                                                </button>
-                                                <button
-                                                    onClick={() => openPasswordModal(user)}
-                                                    style={{
-                                                        padding: '6px 12px',
-                                                        backgroundColor: '#fef3c7',
-                                                        color: '#92400e',
-                                                        border: 'none',
-                                                        borderRadius: '4px',
-                                                        cursor: 'pointer',
-                                                        fontSize: '0.75rem',
-                                                        fontWeight: 600
-                                                    }}
-                                                    title="Cambiar contraseña"
-                                                >
-                                                    🔑
-                                                </button>
-                                                <button
-                                                    onClick={() => openConfirmModal(user)}
-                                                    style={{
-                                                        padding: '6px 12px',
-                                                        backgroundColor: user.habilitado === 'S' ? '#fee2e2' : '#d1fae5',
-                                                        color: user.habilitado === 'S' ? '#991b1b' : '#065f46',
-                                                        border: 'none',
-                                                        borderRadius: '4px',
-                                                        cursor: 'pointer',
-                                                        fontSize: '0.75rem',
-                                                        fontWeight: 600
-                                                    }}
-                                                    title={user.habilitado === 'S' ? 'Deshabilitar' : 'Habilitar'}
-                                                >
-                                                    {user.habilitado === 'S' ? '🚫' : '✅'}
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-            </div>
+            <Stack gap="lg" mt="xl">
 
-            {/* Create/Edit Modal */}
-            {(showCreateModal || showEditModal) && (
-                <div
-                    style={{
-                        position: 'fixed',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        zIndex: 9999
-                    }}
-                    onClick={() => {
-                        setShowCreateModal(false);
-                        setShowEditModal(false);
-                        resetForm();
-                    }}
-                >
-                    <div
-                        style={{
-                            backgroundColor: 'white',
-                            borderRadius: '12px',
-                            padding: '2rem',
-                            maxWidth: '600px',
-                            width: '90%',
-                            maxHeight: '90vh',
-                            overflowY: 'auto',
-                            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <h3 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '1.5rem', color: '#111827' }}>
-                            {showCreateModal ? '➕ Crear Nuevo Usuario' : '✏️ Editar Usuario'}
-                        </h3>
+                {/* Filters Section */}
+                <Paper withBorder p="md" radius="md" shadow="sm">
+                    <Group grow align="flex-end">
+                        <TextInput 
+                            label="Búsqueda"
+                            placeholder="Nombre, usuario o email..."
+                            leftSection={<IconSearch size={16} />}
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.currentTarget.value)}
+                            radius="md"
+                        />
+                        <Select 
+                            label="Estado"
+                            placeholder="Todos"
+                            value={filterStatus}
+                            onChange={(val) => setFilterStatus(val || 'all')}
+                            data={[
+                                { value: 'all', label: 'Todos los estados' },
+                                { value: 'active', label: 'Solo Activos' },
+                                { value: 'inactive', label: 'Solo Inactivos' }
+                            ]}
+                            radius="md"
+                        />
+                    </Group>
+                </Paper>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                            <div>
-                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '4px', color: '#374151' }}>
-                                    Usuario (Login) *
-                                </label>
-                                <input
-                                    type="text"
-                                    value={formData.nombre_usuario}
-                                    onChange={(e) => setFormData({ ...formData, nombre_usuario: e.target.value })}
-                                    style={{
-                                        width: '100%',
-                                        padding: '10px',
-                                        borderRadius: '6px',
-                                        border: '1px solid #d1d5db',
-                                        fontSize: '0.9rem'
-                                    }}
-                                />
-                            </div>
+                {/* Table Section */}
+                <Paper withBorder radius="md" shadow="sm" pos="relative">
+                    <LoadingOverlay visible={loading} overlayProps={{ blur: 2 }} />
+                    <Table.ScrollContainer minWidth={800}>
+                        <Table verticalSpacing="sm" highlightOnHover>
+                            <Table.Thead bg="gray.0">
+                                <Table.Tr>
+                                    <Table.Th>Usuario</Table.Th>
+                                    <Table.Th>Nombre Real</Table.Th>
+                                    <Table.Th>Email</Table.Th>
+                                    <Table.Th ta="center">Estado</Table.Th>
+                                    <Table.Th ta="right">Acciones</Table.Th>
+                                </Table.Tr>
+                            </Table.Thead>
+                            <Table.Tbody>
+                                {filteredUsers.length > 0 ? (
+                                    filteredUsers.map((user) => (
+                                        <Table.Tr key={user.id_usuario}>
+                                            <Table.Td>
+                                                <Group gap="sm">
+                                                    <IconUser size={16} color="var(--mantine-color-blue-filled)" />
+                                                    <Text size="sm" fw={600}>{user.nombre_usuario}</Text>
+                                                </Group>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <Text size="sm">{user.nombre_real}</Text>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <Group gap="xs">
+                                                    <IconMail size={14} color="gray" />
+                                                    <Text size="xs" c="blue">{user.correo_electronico || '-'}</Text>
+                                                </Group>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <Group justify="center">
+                                                    <Badge 
+                                                        color={user.habilitado === 'S' ? 'green' : 'red'} 
+                                                        variant="light"
+                                                        radius="sm"
+                                                    >
+                                                        {user.habilitado === 'S' ? 'Activo' : 'Inactivo'}
+                                                    </Badge>
+                                                </Group>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <Group gap={8} justify="flex-end">
+                                                    <Tooltip label="Editar datos">
+                                                        <ActionIcon 
+                                                            variant="light" 
+                                                            color="blue" 
+                                                            onClick={() => openEditModal(user)}
+                                                        >
+                                                            <IconEdit size={16} />
+                                                        </ActionIcon>
+                                                    </Tooltip>
+                                                    <Tooltip label="Cambiar contraseña">
+                                                        <ActionIcon 
+                                                            variant="light" 
+                                                            color="orange" 
+                                                            onClick={() => openPasswordModal(user)}
+                                                        >
+                                                            <IconKey size={16} />
+                                                        </ActionIcon>
+                                                    </Tooltip>
+                                                    <Tooltip label={user.habilitado === 'S' ? 'Deshabilitar' : 'Habilitar'}>
+                                                        <ActionIcon 
+                                                            variant="light" 
+                                                            color={user.habilitado === 'S' ? 'red' : 'green'} 
+                                                            onClick={() => openConfirmModal(user)}
+                                                        >
+                                                            {user.habilitado === 'S' ? <IconBan size={16} /> : <IconCheck size={16} />}
+                                                        </ActionIcon>
+                                                    </Tooltip>
+                                                </Group>
+                                            </Table.Td>
+                                        </Table.Tr>
+                                    ))
+                                ) : (
+                                    <Table.Tr>
+                                        <Table.Td colSpan={5} align="center" py="xl">
+                                            <Text c="dimmed">No se encontraron usuarios que coincidan con la búsqueda</Text>
+                                        </Table.Td>
+                                    </Table.Tr>
+                                )}
+                            </Table.Tbody>
+                        </Table>
+                    </Table.ScrollContainer>
+                </Paper>
+            </Stack>
 
-                            <div>
-                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '4px', color: '#374151' }}>
-                                    Nombre Real *
-                                </label>
-                                <input
-                                    type="text"
-                                    value={formData.nombre_real}
-                                    onChange={(e) => setFormData({ ...formData, nombre_real: e.target.value })}
-                                    style={{
-                                        width: '100%',
-                                        padding: '10px',
-                                        borderRadius: '6px',
-                                        border: '1px solid #d1d5db',
-                                        fontSize: '0.9rem'
-                                    }}
-                                />
-                            </div>
+            {/* Create / Edit Modal */}
+            <Modal
+                opened={showCreateModal || showEditModal}
+                onClose={() => {
+                    setShowCreateModal(false);
+                    setShowEditModal(false);
+                    resetForm();
+                }}
+                title={
+                    <Group gap="xs">
+                        {showCreateModal ? <IconPlus size={20} /> : <IconEdit size={20} />}
+                        <Text fw={700}>{showCreateModal ? 'Crear Nuevo Usuario' : 'Editar Usuario'}</Text>
+                    </Group>
+                }
+                size="lg"
+                radius="md"
+            >
+                <Stack gap="md">
+                    <Group grow>
+                        <TextInput 
+                            label="Nombre de Usuario (Login)"
+                            placeholder="ej: jdoe"
+                            required
+                            value={formData.nombre_usuario}
+                            onChange={(e) => setFormData({...formData, nombre_usuario: e.currentTarget.value})}
+                        />
+                        <TextInput 
+                            label="Nombre Real"
+                            placeholder="ej: Juan Doe"
+                            required
+                            value={formData.nombre_real}
+                            onChange={(e) => setFormData({...formData, nombre_real: e.currentTarget.value})}
+                        />
+                    </Group>
+                    
+                    <TextInput 
+                        label="Correo Electrónico"
+                        placeholder="usuario@ejemplo.com"
+                        type="email"
+                        value={formData.correo_electronico}
+                        onChange={(e) => setFormData({...formData, correo_electronico: e.currentTarget.value})}
+                    />
 
-                            <div>
-                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '4px', color: '#374151' }}>
-                                    Email
-                                </label>
-                                <input
-                                    type="email"
-                                    value={formData.correo_electronico}
-                                    onChange={(e) => setFormData({ ...formData, correo_electronico: e.target.value })}
-                                    style={{
-                                        width: '100%',
-                                        padding: '10px',
-                                        borderRadius: '6px',
-                                        border: '1px solid #d1d5db',
-                                        fontSize: '0.9rem'
-                                    }}
-                                />
-                            </div>
+                    {showCreateModal && (
+                        <PasswordInput 
+                            label="Contraseña"
+                            placeholder="Ingresa la contraseña inicial"
+                            required
+                            value={formData.clave_usuario}
+                            onChange={(e) => setFormData({...formData, clave_usuario: e.currentTarget.value})}
+                        />
+                    )}
 
+                    <Box mt="md">
+                        <Group justify="space-between" mb="xs">
+                            <Text size="sm" fw={600} display="flex" style={{ alignItems: 'center', gap: '8px' }}>
+                                <IconShield size={16} color="var(--mantine-color-blue-filled)" /> Roles Asignados
+                            </Text>
+                            <Text size="xs" c="dimmed">{selectedRoles.length} seleccionados</Text>
+                        </Group>
+                        
+                        <TextInput 
+                            placeholder="Filtrar roles..."
+                            size="xs"
+                            mb="xs"
+                            leftSection={<IconSearch size={14} />}
+                            value={roleSearchTerm}
+                            onChange={(e) => setRoleSearchTerm(e.currentTarget.value)}
+                        />
 
-
-                            {showCreateModal && (
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '4px', color: '#374151' }}>
-                                        Contraseña *
-                                    </label>
-                                    <input
-                                        type="password"
-                                        value={formData.clave_usuario}
-                                        onChange={(e) => setFormData({ ...formData, clave_usuario: e.target.value })}
-                                        style={{
-                                            width: '100%',
-                                            padding: '10px',
-                                            borderRadius: '6px',
-                                            border: '1px solid #d1d5db',
-                                            fontSize: '0.9rem'
-                                        }}
-                                    />
-                                </div>
-                            )}
-
-                            {/* Roles Section */}
-                            <div style={{ marginTop: '0.5rem' }}>
-                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '8px', color: '#374151' }}>
-                                    🛡️ Roles
-                                </label>
-
-                                {/* Role Search Input */}
-                                <input
-                                    type="text"
-                                    placeholder="🔍 Buscar rol..."
-                                    value={roleSearchTerm}
-                                    onChange={(e) => setRoleSearchTerm(e.target.value)}
-                                    style={{
-                                        width: '100%',
-                                        padding: '8px 10px',
-                                        borderRadius: '6px',
-                                        border: '1px solid #d1d5db',
-                                        fontSize: '0.85rem',
-                                        marginBottom: '8px'
-                                    }}
-                                />
-
-                                <div style={{
-                                    maxHeight: '220px',
-                                    overflowY: 'auto',
-                                    border: '1px solid #e5e7eb',
-                                    borderRadius: '6px',
-                                    padding: '8px',
-                                    backgroundColor: '#f9fafb'
-                                }}>
-                                    {(() => {
-                                        const filteredRoles = roles.filter(role =>
-                                            role.nombre_rol.toLowerCase().includes(roleSearchTerm.toLowerCase()) ||
-                                            (role.descripcion && role.descripcion.toLowerCase().includes(roleSearchTerm.toLowerCase()))
-                                        );
-
-                                        if (roles.length === 0) {
-                                            return (
-                                                <p style={{ fontSize: '0.8rem', color: '#9ca3af', textAlign: 'center', padding: '8px' }}>
-                                                    No hay roles disponibles
-                                                </p>
-                                            );
-                                        }
-
-                                        if (filteredRoles.length === 0) {
-                                            return (
-                                                <p style={{ fontSize: '0.8rem', color: '#9ca3af', textAlign: 'center', padding: '8px' }}>
-                                                    No se encontraron roles
-                                                </p>
-                                            );
-                                        }
-
-                                        return filteredRoles.map(role => (
-                                            <label
-                                                key={role.id_rol}
-                                                style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    padding: '6px 8px',
+                        <Paper withBorder p="xs" radius="sm" bg="gray.0">
+                            <ScrollArea h={180} scrollbarSize={6}>
+                                <Stack gap={4}>
+                                    {roles
+                                        .filter(r => 
+                                            r.nombre_rol.toLowerCase().includes(roleSearchTerm.toLowerCase()) ||
+                                            (r.descripcion && r.descripcion.toLowerCase().includes(roleSearchTerm.toLowerCase()))
+                                        )
+                                        .map((role) => (
+                                            <Paper 
+                                                key={role.id_rol} 
+                                                p="xs" 
+                                                radius="xs" 
+                                                withBorder={selectedRoles.includes(role.id_rol)}
+                                                style={{ 
                                                     cursor: 'pointer',
-                                                    borderRadius: '4px',
-                                                    marginBottom: '4px',
-                                                    backgroundColor: selectedRoles.includes(role.id_rol) ? '#dbeafe' : 'transparent'
+                                                    backgroundColor: selectedRoles.includes(role.id_rol) ? 'var(--mantine-color-blue-0)' : 'transparent',
+                                                    borderColor: selectedRoles.includes(role.id_rol) ? 'var(--mantine-color-blue-2)' : 'transparent'
                                                 }}
+                                                onClick={() => toggleRole(role.id_rol)}
                                             >
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedRoles.includes(role.id_rol)}
-                                                    onChange={() => toggleRole(role.id_rol)}
-                                                    style={{ marginRight: '8px', cursor: 'pointer' }}
-                                                />
-                                                <div style={{ flex: 1 }}>
-                                                    <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#1f2937' }}>
-                                                        {role.nombre_rol}
-                                                    </div>
-                                                    {role.descripcion && (
-                                                        <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                                                            {role.descripcion}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </label>
-                                        ));
-                                    })()}
-                                </div>
-                                <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '4px' }}>
-                                    {selectedRoles.length} rol(es) seleccionado(s)
-                                </p>
-                            </div>
-                        </div>
+                                                <Group gap="sm" wrap="nowrap">
+                                                    <Checkbox 
+                                                        checked={selectedRoles.includes(role.id_rol)} 
+                                                        onChange={() => {}} // Controlled by Paper click
+                                                        tabIndex={-1}
+                                                        styles={{ input: { cursor: 'pointer' } }}
+                                                    />
+                                                    <Box>
+                                                        <Text size="sm" fw={500}>{role.nombre_rol}</Text>
+                                                        {role.descripcion && <Text size="xs" c="dimmed" lineClamp={1}>{role.descripcion}</Text>}
+                                                    </Box>
+                                                </Group>
+                                            </Paper>
+                                        ))
+                                    }
+                                </Stack>
+                            </ScrollArea>
+                        </Paper>
+                    </Box>
 
-                        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', justifyContent: 'flex-end' }}>
-                            <button
-                                onClick={() => {
-                                    setShowCreateModal(false);
-                                    setShowEditModal(false);
-                                    resetForm();
-                                }}
-                                style={{
-                                    padding: '10px 20px',
-                                    borderRadius: '6px',
-                                    border: '1px solid #d1d5db',
-                                    backgroundColor: 'white',
-                                    color: '#374151',
-                                    fontSize: '0.9rem',
-                                    fontWeight: 500,
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                onClick={showCreateModal ? handleCreateUser : handleUpdateUser}
-                                disabled={loading}
-                                style={{
-                                    padding: '10px 20px',
-                                    borderRadius: '6px',
-                                    border: 'none',
-                                    backgroundColor: '#3b82f6',
-                                    color: 'white',
-                                    fontSize: '0.9rem',
-                                    fontWeight: 600,
-                                    cursor: loading ? 'not-allowed' : 'pointer',
-                                    opacity: loading ? 0.6 : 1
-                                }}
-                            >
-                                {showCreateModal ? 'Crear Usuario' : 'Guardar Cambios'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+                    <Group justify="flex-end" mt="xl">
+                        <Button variant="subtle" color="gray" onClick={() => { setShowCreateModal(false); setShowEditModal(false); resetForm(); }}>
+                            Cancelar
+                        </Button>
+                        <Button 
+                            onClick={showCreateModal ? handleCreateUser : handleUpdateUser}
+                            loading={loading}
+                            radius="md"
+                            color="blue"
+                        >
+                            {showCreateModal ? 'Crear Usuario' : 'Guardar Cambios'}
+                        </Button>
+                    </Group>
+                </Stack>
+            </Modal>
 
             {/* Password Modal */}
-            {showPasswordModal && (
-                <div
-                    style={{
-                        position: 'fixed',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        zIndex: 9999
-                    }}
-                    onClick={() => {
-                        setShowPasswordModal(false);
-                        setNewPassword('');
-                        setConfirmPassword('');
-                        setSelectedUser(null);
-                    }}
-                >
-                    <div
-                        style={{
-                            backgroundColor: 'white',
-                            borderRadius: '12px',
-                            padding: '2rem',
-                            maxWidth: '450px',
-                            width: '90%',
-                            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <h3 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '1rem', color: '#111827' }}>
-                            🔑 Cambiar Contraseña
-                        </h3>
-                        <p style={{ fontSize: '0.9rem', color: '#6b7280', marginBottom: '1.5rem' }}>
-                            Usuario: <strong>{selectedUser?.nombre_usuario}</strong>
-                        </p>
+            <Modal
+                opened={showPasswordModal}
+                onClose={() => { setShowPasswordModal(false); setSelectedUser(null); }}
+                title={<Group gap="xs"><IconKey size={20} /><Text fw={700}>Cambiar Contraseña</Text></Group>}
+                radius="md"
+            >
+                <Stack gap="md">
+                    <Text size="sm">Usuario: <strong>{selectedUser?.nombre_usuario}</strong></Text>
+                    <PasswordInput 
+                        label="Nueva Contraseña"
+                        placeholder="Ingresa la nueva contraseña"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.currentTarget.value)}
+                    />
+                    <PasswordInput 
+                        label="Confirmar Contraseña"
+                        placeholder="Repite la contraseña"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.currentTarget.value)}
+                    />
+                    <Group justify="flex-end" mt="lg">
+                        <Button variant="subtle" color="gray" onClick={() => setShowPasswordModal(false)}>
+                            Cancelar
+                        </Button>
+                        <Button color="orange" onClick={handleUpdatePassword} loading={loading}>
+                            Actualizar Contraseña
+                        </Button>
+                    </Group>
+                </Stack>
+            </Modal>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                            <div>
-                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '4px', color: '#374151' }}>
-                                    Nueva Contraseña
-                                </label>
-                                <input
-                                    type="password"
-                                    value={newPassword}
-                                    onChange={(e) => setNewPassword(e.target.value)}
-                                    style={{
-                                        width: '100%',
-                                        padding: '10px',
-                                        borderRadius: '6px',
-                                        border: '1px solid #d1d5db',
-                                        fontSize: '0.9rem'
-                                    }}
-                                />
-                            </div>
-
-                            <div>
-                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '4px', color: '#374151' }}>
-                                    Confirmar Contraseña
-                                </label>
-                                <input
-                                    type="password"
-                                    value={confirmPassword}
-                                    onChange={(e) => setConfirmPassword(e.target.value)}
-                                    style={{
-                                        width: '100%',
-                                        padding: '10px',
-                                        borderRadius: '6px',
-                                        border: '1px solid #d1d5db',
-                                        fontSize: '0.9rem'
-                                    }}
-                                />
-                            </div>
-                        </div>
-
-                        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', justifyContent: 'flex-end' }}>
-                            <button
-                                onClick={() => {
-                                    setShowPasswordModal(false);
-                                    setNewPassword('');
-                                    setConfirmPassword('');
-                                    setSelectedUser(null);
-                                }}
-                                style={{
-                                    padding: '10px 20px',
-                                    borderRadius: '6px',
-                                    border: '1px solid #d1d5db',
-                                    backgroundColor: 'white',
-                                    color: '#374151',
-                                    fontSize: '0.9rem',
-                                    fontWeight: 500,
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                onClick={handleUpdatePassword}
-                                disabled={loading}
-                                style={{
-                                    padding: '10px 20px',
-                                    borderRadius: '6px',
-                                    border: 'none',
-                                    backgroundColor: '#f59e0b',
-                                    color: 'white',
-                                    fontSize: '0.9rem',
-                                    fontWeight: 600,
-                                    cursor: loading ? 'not-allowed' : 'pointer',
-                                    opacity: loading ? 0.6 : 1
-                                }}
-                            >
-                                Actualizar Contraseña
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Confirm Status Change Modal */}
+            {/* Confirm Status Modal */}
             <ConfirmModal
                 isOpen={showConfirmModal}
                 title={selectedUser?.habilitado === 'S' ? 'Deshabilitar Usuario' : 'Habilitar Usuario'}
                 message={
                     selectedUser?.habilitado === 'S'
-                        ? `¿Está seguro que desea deshabilitar al usuario "${selectedUser?.nombre_usuario}"? El usuario no podrá acceder al sistema.`
-                        : `¿Está seguro que desea habilitar al usuario "${selectedUser?.nombre_usuario}"? El usuario podrá acceder al sistema.`
+                        ? `¿Está seguro que desea deshabilitar al usuario "${selectedUser?.nombre_usuario}"? No podrá acceder al sistema.`
+                        : `¿Está seguro que desea habilitar al usuario "${selectedUser?.nombre_usuario}"? Podrá acceder nuevamente.`
                 }
                 confirmText={selectedUser?.habilitado === 'S' ? 'Deshabilitar' : 'Habilitar'}
                 cancelText="Cancelar"
-                confirmColor={selectedUser?.habilitado === 'S' ? '#ef4444' : '#10b981'}
+                confirmColor={selectedUser?.habilitado === 'S' ? 'var(--mantine-color-red-6)' : 'var(--mantine-color-green-6)'}
                 onConfirm={handleToggleStatus}
                 onCancel={() => {
                     setShowConfirmModal(false);
                     setSelectedUser(null);
                 }}
             />
-        </div>
+        </Container>
     );
 };

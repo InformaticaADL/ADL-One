@@ -35,7 +35,7 @@ class FichaIngresoService {
             // Map antecedente fields
             const ant = data.antecedentes || {};
             const obs = data.observaciones || '';
-            const userId = data.user?.id || 1;
+            const userId = data.user ? (data.user.id_usuario || data.user.id || 1) : 1;
 
             // Helper for empty strings/nulls
             const val = (v) => v === undefined || v === null || v === '' ? null : v;
@@ -1423,20 +1423,20 @@ class FichaIngresoService {
 
             let notifUser = user ? (user.nombre_usuario || user.usuario || user.name) : null;
 
-            // Should fetch real name if missing?
-            if (!notifUser && user && user.id) {
-                try {
-                    const uRes = await new sql.Request(transaction).query(`SELECT nombre_usuario FROM mae_usuario WHERE id_usuario = ${user.id}`);
-                    if (uRes.recordset.length > 0) {
-                        notifUser = uRes.recordset[0].nombre_usuario;
-                    }
-                } catch (e) { logger.warn('Could not fetch user name for notif', e); }
-            }
+            // Fetch owner for notif
+            let ownerId = 0;
+            try {
+                const ownerReq = new sql.Request(transaction);
+                const ownerRes = await ownerReq.query(`SELECT id_usuario FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio = ${id}`);
+                if (ownerRes.recordset.length > 0) ownerId = ownerRes.recordset[0].id_usuario;
+            } catch (e) { logger.warn('Could not fetch owner for notif', e); }
+
             notifUser = notifUser || 'Jefatura Técnica';
 
             unsService.trigger('FICHA_APROBADA_TECNICA', {
                 correlativo: String(id),
                 id_usuario_accion: user ? (user.id || user.id_usuario || 0) : 0,
+                id_usuario_propietario: ownerId,
                 usuario_accion: notifUser,
                 fecha: notifFecha,
                 observacion: observaciones || 'Validación técnica conforme.'
@@ -1491,19 +1491,20 @@ class FichaIngresoService {
 
             let notifUser = user ? (user.nombre_usuario || user.usuario || user.name) : null;
 
-            if (!notifUser && user && user.id) {
-                try {
-                    const uRes = await new sql.Request(transaction).query(`SELECT nombre_usuario FROM mae_usuario WHERE id_usuario = ${user.id}`);
-                    if (uRes.recordset.length > 0) {
-                        notifUser = uRes.recordset[0].nombre_usuario;
-                    }
-                } catch (e) { logger.warn('Could not fetch user name for notif', e); }
-            }
+            // Fetch owner for notif
+            let ownerId = 0;
+            try {
+                const ownerReq = new sql.Request(transaction);
+                const ownerRes = await ownerReq.query(`SELECT id_usuario FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio = ${id}`);
+                if (ownerRes.recordset.length > 0) ownerId = ownerRes.recordset[0].id_usuario;
+            } catch (e) { logger.warn('Could not fetch owner for notif', e); }
+
             notifUser = notifUser || 'Jefatura Técnica';
 
             unsService.trigger('FICHA_RECHAZADA_TECNICA', {
                 correlativo: String(id),
                 id_usuario_accion: user ? (user.id || user.id_usuario || 0) : 0,
+                id_usuario_propietario: ownerId,
                 usuario_accion: notifUser,
                 fecha: notifFecha,
                 observacion: observaciones || 'Sin motivo especificado'
@@ -1570,19 +1571,20 @@ class FichaIngresoService {
 
             let notifUser = user ? (user.nombre_usuario || user.usuario || user.name) : null;
 
-            if (!notifUser && user && user.id) {
-                try {
-                    const uRes = await new sql.Request(transaction).query(`SELECT nombre_usuario FROM mae_usuario WHERE id_usuario = ${user.id}`);
-                    if (uRes.recordset.length > 0) {
-                        notifUser = uRes.recordset[0].nombre_usuario;
-                    }
-                } catch (e) { logger.warn('Could not fetch user name for notif', e); }
-            }
+            // Fetch owner for notif
+            let ownerId = 0;
+            try {
+                const ownerReq = new sql.Request(transaction);
+                const ownerRes = await ownerReq.query(`SELECT id_usuario FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio = ${id}`);
+                if (ownerRes.recordset.length > 0) ownerId = ownerRes.recordset[0].id_usuario;
+            } catch (e) { logger.warn('Could not fetch owner for notif', e); }
+
             notifUser = notifUser || 'Coordinación';
 
             unsService.trigger('FICHA_APROBADA_COORDINACION', {
                 correlativo: String(id),
                 id_usuario_accion: user ? (user.id || user.id_usuario || 0) : 0,
+                id_usuario_propietario: ownerId,
                 usuario_accion: notifUser,
                 fecha: notifFecha,
                 observacion: observaciones || 'Validación coordinación conforme.'
@@ -1641,19 +1643,20 @@ class FichaIngresoService {
 
             let notifUser = user ? (user.nombre_usuario || user.usuario || user.name) : null;
 
-            if (!notifUser && user && user.id) {
-                try {
-                    const uRes = await new sql.Request(transaction).query(`SELECT nombre_usuario FROM mae_usuario WHERE id_usuario = ${user.id}`);
-                    if (uRes.recordset.length > 0) {
-                        notifUser = uRes.recordset[0].nombre_usuario;
-                    }
-                } catch (e) { logger.warn('Could not fetch user name for notif', e); }
-            }
+            // Fetch owner for notif
+            let ownerId = 0;
+            try {
+                const ownerReq = new sql.Request(transaction);
+                const ownerRes = await ownerReq.query(`SELECT id_usuario FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio = ${id}`);
+                if (ownerRes.recordset.length > 0) ownerId = ownerRes.recordset[0].id_usuario;
+            } catch (e) { logger.warn('Could not fetch owner for notif', e); }
+
             notifUser = notifUser || 'Coordinación';
 
             unsService.trigger('FICHA_RECHAZADA_COORDINACION', {
                 correlativo: String(id),
                 id_usuario_accion: user ? (user.id || user.id_usuario || 0) : 0,
+                id_usuario_propietario: ownerId,
                 usuario_accion: notifUser,
                 fecha: notifFecha,
                 observacion: observaciones || 'Ficha devuelta a revisión técnica.'
@@ -2190,6 +2193,7 @@ class FichaIngresoService {
                 // Query metadata + status (Resumen de Muestreo)
                 const metaRes = await statusReq.query(`
                     SELECT 
+                        e.id_usuario as id_usuario_propietario,
                         e.id_validaciontecnica,
                         e.fichaingresoservicio as correlativo_txt,
                         e.id_tipomuestra_ma, -- Componente
@@ -2353,6 +2357,7 @@ class FichaIngresoService {
                     unsService.trigger(eventCode, {
                         correlativo: meta.correlativo_txt || String(fid),
                         id_usuario_accion: user ? (user.id || user.id_usuario || 0) : 0,
+                        id_usuario_propietario: meta.id_usuario_propietario, // Pass owner from meta query
                         tipo_frecuencia: tipoFrecuencia,
                         total_servicios: totalServicios,
                         servicios: serviciosFinal,

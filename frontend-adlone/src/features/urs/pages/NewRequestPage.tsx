@@ -33,6 +33,7 @@ import EquipoBajaForm from '../components/EquipoBajaForm';
 import EquipoTraspasoForm from '../components/EquipoTraspasoForm';
 import NuevoEquipoForm from '../components/NuevoEquipoForm';
 import ReporteProblemaForm from '../components/ReporteProblemaForm';
+import VigenciaExtensionForm from '../components/VigenciaExtensionForm';
 import { useNavStore } from '../../../store/navStore';
 import FileIcon from '../components/FileIcon';
 
@@ -43,6 +44,7 @@ const MemoizedEquipoActivationForm = React.memo(EquipoActivationForm);
 const MemoizedEquipoBajaForm = React.memo(EquipoBajaForm);
 const MemoizedNuevoEquipoForm = React.memo(NuevoEquipoForm);
 const MemoizedReporteProblemaForm = React.memo(ReporteProblemaForm);
+const MemoizedVigenciaExtensionForm = React.memo(VigenciaExtensionForm);
 
 interface NewRequestPageProps {
     onBack?: () => void;
@@ -136,7 +138,7 @@ const NewRequestPage: React.FC<NewRequestPageProps> = ({ onBack }) => {
             <Center h="80vh" style={{ overflow: 'hidden' }}>
                 <Transition transition="fade" mounted={showSuccess} duration={500}>
                     {(styles) => (
-                        <Paper shadow="xl" p="xl" withBorder radius="md" style={{ ...styles, maxWidth: 500 }}>
+                        <Paper shadow="xl" p="xl" withBorder radius="md" style={{ ...styles, width: '100%' }}>
                             <Stack align="center" gap="lg" py="xl">
                                 <div style={{ 
                                     backgroundColor: 'var(--mantine-color-green-1)', 
@@ -163,7 +165,7 @@ const NewRequestPage: React.FC<NewRequestPageProps> = ({ onBack }) => {
     }
 
     return (
-        <Container size="md" py="xl">
+        <Container fluid py="xl">
             <Paper shadow="sm" p="lg" withBorder radius="md" style={{ backgroundColor: 'var(--mantine-color-gray-0)' }}>
                 <Stack gap="xl">
                     {/* Header */}
@@ -258,6 +260,10 @@ const NewRequestPage: React.FC<NewRequestPageProps> = ({ onBack }) => {
                                             />
                                         ) : selectedType?.id_tipo === 5 || selectedType?.id_tipo === 9 || selectedType?.nombre?.includes('Problema') ? (
                                             <MemoizedReporteProblemaForm 
+                                                onDataChange={setSubFormData}
+                                            />
+                                        ) : selectedType?.id_tipo === 7 || selectedType?.nombre?.includes('Vigencia') ? (
+                                            <MemoizedVigenciaExtensionForm 
                                                 onDataChange={setSubFormData}
                                             />
                                         ) : (selectedType?.id_tipo === 8 || selectedType?.nombre === 'Deshabilitar muestreador') ? (

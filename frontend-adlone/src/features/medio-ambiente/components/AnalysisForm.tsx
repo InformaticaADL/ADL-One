@@ -1,6 +1,33 @@
 import React, { useState, useEffect } from 'react';
 import { useToast } from '../../../contexts/ToastContext';
 import { useCachedCatalogos } from '../hooks/useCachedCatalogos';
+import { 
+    Stack, 
+    Group, 
+    Text, 
+    Paper, 
+    Grid, 
+    Select, 
+    TextInput, 
+    Button, 
+    Table, 
+    Checkbox, 
+    ScrollArea, 
+    ActionIcon, 
+    Tooltip, 
+    NumberInput,
+    Divider,
+    Badge
+} from '@mantine/core';
+import { 
+    IconSearch, 
+    IconTrash, 
+    IconDeviceFloppy, 
+    IconCheck, 
+    IconX, 
+    IconAdjustmentsHorizontal,
+    IconTable
+} from '@tabler/icons-react';
 
 interface AnalysisFormProps {
     savedAnalysis: any[];
@@ -12,8 +39,8 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
     const catalogos = useCachedCatalogos();
 
     // ===== ESTADO: Filtros de Búsqueda =====
-    const [normativa, setNormativa] = useState<string>('');
-    const [referencia, setReferencia] = useState<string>('');
+    const [normativa, setNormativa] = useState<string | null>(null);
+    const [referencia, setReferencia] = useState<string | null>(null);
     const [searchText, setSearchText] = useState<string>('');
 
     // ===== ESTADO: Catálogos =====
@@ -21,25 +48,25 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
     const [referencias, setReferencias] = useState<any[]>([]);
     const [analysisResults, setAnalysisResults] = useState<any[]>([]);
     const [tiposMuestra] = useState([
-        { id: 'Laboratorio', nombre: 'Laboratorio' },
-        { id: 'Terreno', nombre: 'Terreno' }
-    ]); // Opciones fijas
+        { value: 'Laboratorio', label: 'Laboratorio' },
+        { value: 'Terreno', label: 'Terreno' }
+    ]);
     const [laboratorios, setLaboratorios] = useState<any[]>([]);
     const [tiposEntrega, setTiposEntrega] = useState<any[]>([]);
 
     // ===== ESTADO: Configuración =====
-    const [tipoMuestra, setTipoMuestra] = useState<string>('');
+    const [tipoMuestra, setTipoMuestra] = useState<string | null>(null);
 
     // ===== ESTADO: Selección de Análisis =====
     const [selectedAnalysis, setSelectedAnalysis] = useState<Set<string>>(new Set());
-    const [tempLabs, setTempLabs] = useState<Record<string, string>>({}); // Laboratorios por parámetro
-    const [tempDeliveries, setTempDeliveries] = useState<Record<string, string>>({}); // Tipos de entrega por parámetro
+    const [tempLabs, setTempLabs] = useState<Record<string, string>>({});
+    const [tempDeliveries, setTempDeliveries] = useState<Record<string, string>>({});
 
     // ===== FUNCIONES: Carga de Catálogos =====
     useEffect(() => {
         loadNormativas();
-        loadLaboratorios(); // Cargar laboratorios al inicializar (FoxPro: Init)
-        loadTiposEntrega(); // Cargar tipos entrega al inicializar (FoxPro: Init)
+        loadLaboratorios();
+        loadTiposEntrega();
     }, []);
 
     const loadNormativas = async () => {
@@ -47,7 +74,6 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
             const data = await catalogos.getNormativas();
             setNormativas(data || []);
         } catch (error) {
-            console.error('Error loading normativas:', error);
             showToast({ type: 'error', message: 'Error al cargar normativas' });
         }
     };
@@ -57,7 +83,6 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
             const data = await catalogos.getLaboratorios();
             setLaboratorios(data || []);
         } catch (error) {
-            console.error('Error loading laboratorios:', error);
             showToast({ type: 'error', message: 'Error al cargar laboratorios' });
         }
     };
@@ -67,7 +92,6 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
             const data = await catalogos.getTiposEntrega();
             setTiposEntrega(data || []);
         } catch (error) {
-            console.error('Error loading tipos entrega:', error);
             showToast({ type: 'error', message: 'Error al cargar tipos de entrega' });
         }
     };
@@ -76,7 +100,7 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
     useEffect(() => {
         if (normativa) {
             loadReferencias(normativa);
-            setReferencia('');
+            setReferencia(null);
         } else {
             setReferencias([]);
         }
@@ -87,7 +111,7 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
             loadAnalysisResults(normativa, referencia);
         } else {
             setAnalysisResults([]);
-            setSelectedAnalysis(new Set()); // Limpiar selección
+            setSelectedAnalysis(new Set());
         }
     }, [normativa, referencia]);
 
@@ -96,7 +120,6 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
             const data = await catalogos.getReferenciasByNormativa(normativaId);
             setReferencias(data || []);
         } catch (error) {
-            console.error('Error loading referencias:', error);
             showToast({ type: 'error', message: 'Error al cargar referencias' });
         }
     };
@@ -106,7 +129,6 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
             const data = await catalogos.getAnalysisByNormativaReferencia(normativaId, referenciaId);
             setAnalysisResults(data || []);
         } catch (error) {
-            console.error('Error loading analysis:', error);
             showToast({ type: 'error', message: 'Error al cargar análisis' });
         }
     };
@@ -119,715 +141,387 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
 
     // ===== FUNCIONES: Selección de Análisis =====
     const handleSelectAll = () => {
-        const allIds = new Set(filteredAnalysis.map(a => a.id_referenciaanalisis));
+        const allIds = new Set(filteredAnalysis.map(a => String(a.id_referenciaanalisis)));
         setSelectedAnalysis(allIds);
     };
 
     const handleSelectNone = () => {
         setSelectedAnalysis(new Set());
-        setTempLabs({}); // Limpiar laboratorios temporales
+        setTempLabs({});
     };
 
     const handleToggleAnalysis = (id: string) => {
+        const idStr = String(id);
         const newSelection = new Set(selectedAnalysis);
-        if (newSelection.has(id)) {
-            newSelection.delete(id);
-            // Limpiar estados temporales si se deselecciona
+        if (newSelection.has(idStr)) {
+            newSelection.delete(idStr);
             const newTempLabs = { ...tempLabs };
-            delete newTempLabs[id];
+            delete newTempLabs[idStr];
             setTempLabs(newTempLabs);
 
             const newTempDeliveries = { ...tempDeliveries };
-            delete newTempDeliveries[id];
+            delete newTempDeliveries[idStr];
             setTempDeliveries(newTempDeliveries);
         } else {
-            newSelection.add(id);
+            newSelection.add(idStr);
+            setSearchText(''); // Cleanup search on selection
         }
         setSelectedAnalysis(newSelection);
     };
 
     const handleTempLabChange = (analysisId: string, labId: string) => {
-        setTempLabs(prev => ({
-            ...prev,
-            [analysisId]: labId
-        }));
+        setTempLabs(prev => ({ ...prev, [analysisId]: labId }));
     };
 
     const handleTempDeliveryChange = (analysisId: string, deliveryId: string) => {
-        setTempDeliveries(prev => ({
-            ...prev,
-            [analysisId]: deliveryId
-        }));
+        setTempDeliveries(prev => ({ ...prev, [analysisId]: deliveryId }));
     };
 
     // ===== FUNCIONES: Grabar Análisis =====
     const handleSaveAnalysis = () => {
-        // Validaciones base
         if (!normativa || !referencia) {
-            showToast({
-                type: 'warning',
-                message: 'Debes seleccionar una Normativa y Referencia antes de grabar',
-                duration: 4000
-            });
+            showToast({ type: 'warning', message: 'Debes seleccionar una Normativa y Referencia' });
             return;
         }
 
         if (selectedAnalysis.size === 0) {
-            showToast({
-                type: 'warning',
-                message: 'Debes seleccionar al menos un análisis',
-                duration: 4000
-            });
+            showToast({ type: 'warning', message: 'Debes seleccionar al menos un análisis' });
             return;
         }
 
         if (!tipoMuestra) {
-            showToast({
-                type: 'warning',
-                message: 'Debes seleccionar el Tipo de Muestra',
-                duration: 4000
-            });
+            showToast({ type: 'warning', message: 'Debes seleccionar el Tipo de Muestra' });
             return;
         }
 
         if (tipoMuestra === 'Laboratorio') {
-            // Validar entrega y laboratorios para tipo Laboratorio
             const missingDeliveries = Array.from(selectedAnalysis).filter(id => !tempDeliveries[id]);
             if (missingDeliveries.length > 0) {
-                showToast({
-                    type: 'warning',
-                    message: `Faltan tipos de entrega por asignar en ${missingDeliveries.length} análisis`,
-                    duration: 4000
-                });
+                showToast({ type: 'warning', message: `Faltan tipos de entrega por asignar` });
                 return;
             }
 
             const missingLabs = Array.from(selectedAnalysis).filter(id => !tempLabs[id]);
             if (missingLabs.length > 0) {
-                showToast({
-                    type: 'warning',
-                    message: `Faltan laboratorios por asignar en ${missingLabs.length} análisis`,
-                    duration: 4000
-                });
+                showToast({ type: 'warning', message: `Faltan laboratorios por asignar` });
                 return;
             }
         }
 
         const newSavedAnalysis = Array.from(selectedAnalysis).map((id, index) => {
-            const analysis = analysisResults.find(a => a.id_referenciaanalisis === id);
+            const analysis = analysisResults.find(a => String(a.id_referenciaanalisis) === id);
             
-            // Determinar tipo de entrega
             let specificDeliveryId = tempDeliveries[id];
             if (tipoMuestra === 'Terreno') {
-                const directaOption = tiposEntrega.find((t: any) =>
-                    t.nombre_tipoentrega && t.nombre_tipoentrega.toUpperCase().includes('DIRECTA')
-                );
+                const directaOption = tiposEntrega.find((t: any) => t.nombre_tipoentrega && t.nombre_tipoentrega.toUpperCase().includes('DIRECTA'));
                 specificDeliveryId = directaOption?.id_tipoentrega || '';
             }
             
             const selectedTipoEntregaObj = tiposEntrega.find((t: any) => String(t.id_tipoentrega) === String(specificDeliveryId));
-
-            // Determinar laboratorio
             const specificLabId = tempLabs[id];
             const selectedLabObj = laboratorios.find((l: any) => String(l.id_laboratorioensayo) === String(specificLabId));
 
-            let idLaboratorio = 0;
-            let nombreLaboratorio = '';
-            let idLaboratorio2 = 0;
-            let nombreLaboratorio2 = '';
-
-            if (tipoMuestra === 'Terreno') {
-                nombreLaboratorio = '';
-                idLaboratorio = 0;
-            } else {
-                nombreLaboratorio = selectedLabObj?.nombre_laboratorioensayo || '';
-                idLaboratorio = selectedLabObj?.id_laboratorioensayo || 0;
-            }
-
-            idLaboratorio2 = 0;
-            nombreLaboratorio2 = '';
-
             return {
                 ...analysis,
-
-                nombre_tecnica: analysis.nombre_tecnica,
                 tipo_analisis: tipoMuestra,
-                limitemax_d: analysis.limitemax_d,
-                limitemax_h: analysis.limitemax_h,
-                llevaerror: analysis.llevaerror,
-                error_min: analysis.error_min,
-                error_max: analysis.error_max,
                 nombre_tipoentrega: selectedTipoEntregaObj?.nombre_tipoentrega || '',
                 uf_individual: 0,
-                nombre_laboratorioensayo: nombreLaboratorio,
-                id_laboratorioensayo: idLaboratorio,
-                // New Fields
-                nombre_laboratorioensayo_2: nombreLaboratorio2,
-                id_laboratorioensayo_2: idLaboratorio2,
-
+                nombre_laboratorioensayo: tipoMuestra === 'Terreno' ? '' : (selectedLabObj?.nombre_laboratorioensayo || ''),
+                id_laboratorioensayo: tipoMuestra === 'Terreno' ? 0 : (selectedLabObj?.id_laboratorioensayo || 0),
+                nombre_laboratorioensayo_2: '',
+                id_laboratorioensayo_2: 0,
                 item: savedAnalysis.length + index + 1,
-                id_tecnica: analysis.id_tecnica,
-                estado: '',
-                cumplimiento: '',
-                cumplimiento_app: '',
                 id_tipoentrega: selectedTipoEntregaObj?.id_tipoentrega || specificDeliveryId,
                 id_transporte: 0,
-                nombre_transporte: '',
-                transporte_orden: '',
                 resultado_fecha: '  /  /    ',
-                resultado_hora: '',
-                id_normativa: analysis.id_normativa,
-                id_normativareferencia: analysis.id_normativareferencia,
-                id_referenciaanalisis: analysis.id_referenciaanalisis,
-                llevatraduccion: analysis.llevatraduccion,
-                traduccion_0: analysis.traduccion_0,
-                traduccion_1: analysis.traduccion_1,
-
                 savedId: `${id}-${Date.now()}`
             };
         });
 
         onSavedAnalysisChange([...savedAnalysis, ...newSavedAnalysis]);
-
         setSelectedAnalysis(new Set());
         setTempLabs({});
-        setTempDeliveries({}); // Limpiar entregas temporales
+        setTempDeliveries({});
         setSearchText('');
+        setTipoMuestra(null);
 
-        // Resetear campos de configuración tras grabar exitosamente
-        setTipoMuestra('');
-
-        showToast({
-            type: 'success',
-            message: `${newSavedAnalysis.length} análisis grabados correctamente`,
-            duration: 3000
-        });
+        showToast({ type: 'success', message: `${newSavedAnalysis.length} análisis grabados` });
     };
 
-
-    // Handler para cambios en celdas editables (UF)
-    const handleUfChange = (savedId: string, newValue: string) => {
+    const handleUfChange = (savedId: string, newValue: number | string) => {
         const updatedAnalysis = savedAnalysis.map((item: any) => {
-            if (item.savedId === savedId) {
-                return { ...item, uf_individual: newValue };
-            }
+            if (item.savedId === savedId) return { ...item, uf_individual: newValue };
             return item;
         });
         onSavedAnalysisChange(updatedAnalysis);
     };
 
-    // ===== FUNCIONES: Eliminar Análisis Grabado =====
     const handleDeleteSavedAnalysis = (savedId: string) => {
         onSavedAnalysisChange(savedAnalysis.filter((a: any) => a.savedId !== savedId));
-        showToast({
-            type: 'info',
-            message: 'Análisis eliminado',
-            duration: 3000
-        });
+        showToast({ type: 'info', message: 'Análisis eliminado' });
     };
 
-    // ... (inside JSX) ...
-
     return (
-        <div className="analysis-form-container">
-            {/* SECCIÓN SUPERIOR: Búsqueda y Configuración (Grilla Unificada) */}
-            <div className="analysis-unified-grid">
-                {/* COLUMNA IZQUIERDA: Búsqueda */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    <h3 className="grid-title search-title">Búsqueda de Análisis</h3>
-                    
-                    <div className="form-group grid-left">
-                        <label>Normativa</label>
-                        <select
-                            value={normativa}
-                            onChange={(e) => setNormativa(e.target.value)}
-                            onFocus={() => setReferencia('')}
-                            style={{
-                                width: '100%',
-                                padding: '6px 10px',
-                                fontSize: '0.85rem',
-                                border: '1px solid #d1d5db',
-                                borderRadius: '6px',
-                                backgroundColor: 'white',
-                                opacity: catalogos.isLoading('normativas') ? 0.7 : 1
-                            }}
-                        >
-                            <option value="">Seleccione normativa...</option>
-                            {normativas.map((n: any) => (
-                                <option key={n.id_normativa} value={n.id_normativa}>{n.nombre_normativa}</option>
-                            ))}
-                        </select>
-                    </div>
+        <Stack gap="xl" p="xs" style={{ width: '100% !important' }}>
+            <Paper withBorder p="md" radius="lg" shadow="xs" style={{ width: '100% !important' }}>
+                <Grid gutter="xl" grow style={{ width: '100% !important' }}>
+                    {/* Búsqueda */}
+                    <Grid.Col span={{ base: 12, xl: 6 }}>
+                        <Stack gap="md">
+                            <Group gap="xs">
+                                <IconSearch size={18} color="var(--mantine-color-blue-6)" />
+                                <Text fw={700} size="sm" c="blue.7">Búsqueda de Análisis</Text>
+                            </Group>
 
-                    <div className="form-group grid-left">
-                        <label>Referencia</label>
-                        <select
-                            value={referencia}
-                            onChange={(e) => setReferencia(e.target.value)}
-                            disabled={!normativa}
-                            style={{
-                                width: '100%',
-                                padding: '6px 10px',
-                                fontSize: '0.85rem',
-                                border: '1px solid #d1d5db',
-                                borderRadius: '6px',
-                                backgroundColor: normativa ? 'white' : '#f3f4f6',
-                                opacity: catalogos.isLoading(`referencias-${normativa}`) ? 0.7 : 1
-                            }}
-                        >
-                            <option value="">Seleccione referencia...</option>
-                            {referencias.map((r: any) => (
-                                <option key={r.id_normativareferencia} value={r.id_normativareferencia}>
-                                    {r.nombre_normativareferencia}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
+                            <Select 
+                                label="Normativa" post-label={catalogos.isLoading('normativas') ? '(Cargando...)' : ''}
+                                placeholder="Seleccione normativa..."
+                                data={normativas.map(n => ({ value: String(n.id_normativa), label: n.nombre_normativa }))}
+                                value={normativa}
+                                onChange={(val) => setNormativa(val || '')}
+                                searchable
+                                size="sm" radius="md"
+                            />
 
-                    <div className="form-group grid-left">
-                        <label>Buscar Análisis</label>
-                        <input
-                            type="text"
-                            value={searchText}
-                            onChange={(e) => setSearchText(e.target.value)}
-                            placeholder="Buscar por código o nombre..."
-                            disabled={!referencia}
-                            style={{
-                                width: '100%',
-                                padding: '6px 10px',
-                                fontSize: '0.85rem',
-                                border: '1px solid #d1d5db',
-                                borderRadius: '6px',
-                                backgroundColor: referencia ? 'white' : '#f3f4f6'
-                            }}
-                        />
-                    </div>
+                            <Select 
+                                label="Referencia" 
+                                placeholder="Seleccione referencia..."
+                                data={referencias.map(r => ({ value: String(r.id_normativareferencia), label: r.nombre_normativareferencia }))}
+                                value={referencia}
+                                onChange={(val) => setReferencia(val || '')}
+                                disabled={!normativa}
+                                searchable
+                                size="sm" radius="md"
+                            />
 
-                    <div className="grid-left" style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button
-                            onClick={handleSelectAll}
-                            disabled={!referencia || filteredAnalysis.length === 0}
-                            style={{
-                                flex: 1,
-                                padding: '6px 12px',
-                                fontSize: '0.8rem',
-                                backgroundColor: '#3b82f6',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '6px',
-                                cursor: (referencia && filteredAnalysis.length > 0) ? 'pointer' : 'not-allowed',
-                                opacity: (referencia && filteredAnalysis.length > 0) ? 1 : 0.5
-                            }}
-                        >
-                            Seleccionar Todos
-                        </button>
-                        <button
-                            onClick={handleSelectNone}
-                            disabled={!referencia || selectedAnalysis.size === 0}
-                            style={{
-                                flex: 1,
-                                padding: '6px 12px',
-                                fontSize: '0.8rem',
-                                backgroundColor: '#6b7280',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '6px',
-                                cursor: (referencia && selectedAnalysis.size > 0) ? 'pointer' : 'not-allowed',
-                                opacity: (referencia && selectedAnalysis.size > 0) ? 1 : 0.5
-                            }}
-                        >
-                            Seleccionar Ninguno
-                        </button>
-                    </div>
+                            <TextInput 
+                                label="Buscar Análisis"
+                                placeholder="Filtrar por nombre o código..."
+                                value={searchText}
+                                onChange={(e) => setSearchText(e.currentTarget.value)}
+                                disabled={!referencia}
+                                size="sm" radius="md"
+                                leftSection={<IconSearch size={14} />}
+                            />
 
-                    <div className="grid-left" style={{ maxHeight: '310px', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '6px' }}>
-                        <table style={{ width: '100%', fontSize: '0.85rem', borderCollapse: 'collapse' }}>
-                            <thead style={{ backgroundColor: '#f9fafb', position: 'sticky', top: 0, zIndex: 1 }}>
-                                <tr>
-                                    <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Análisis</th>
-                                    <th style={{ padding: '8px', textAlign: 'center', borderBottom: '1px solid #e5e7eb', width: '60px' }}>☑️</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {catalogos.isLoading(`analysis-${normativa}-${referencia}`) ? (
-                                    <tr>
-                                        <td colSpan={2} style={{ padding: '2rem', textAlign: 'center' }}>Cargando análisis...</td>
-                                    </tr>
-                                ) : filteredAnalysis.length > 0 ? (
-                                    filteredAnalysis.map(analysis => (
-                                        <tr key={analysis.id_referenciaanalisis} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                                            <td style={{ padding: '8px' }}>{analysis.nombre_tecnica}</td>
-                                            <td style={{ padding: '8px', textAlign: 'center' }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedAnalysis.has(analysis.id_referenciaanalisis)}
-                                                    onChange={() => handleToggleAnalysis(analysis.id_referenciaanalisis)}
-                                                    style={{ cursor: 'pointer' }}
-                                                />
-                                            </td>
-                                        </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan={2} style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af' }}>
-                                            {normativa && referencia ? 'No se encontraron análisis' : 'Seleccione Normativa y Referencia'}
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                {/* COLUMNA DERECHA: Configuración */}
-                <div className="grid-right" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignSelf: 'start' }}>
-                    <h3 className="grid-title config-title">Configuración de Análisis</h3>
-                    
-                    <div className="form-group">
-                        <label>Tipo de Muestra *</label>
-                        <select
-                            value={tipoMuestra}
-                            onChange={(e) => setTipoMuestra(e.target.value)}
-                            disabled={!referencia}
-                            style={{
-                                width: '100%',
-                                padding: '6px 10px',
-                                fontSize: '0.85rem',
-                                border: '1px solid #d1d5db',
-                                borderRadius: '6px',
-                                backgroundColor: referencia ? 'white' : '#f3f4f6'
-                            }}
-                        >
-                            <option value="">Seleccione tipo de muestra...</option>
-                            {tiposMuestra.map(t => (
-                                <option key={t.id} value={t.id}>{t.nombre}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    {selectedAnalysis.size > 0 && (
-                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                                <label style={{ fontSize: '0.75rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                    Análisis Seleccionados ({selectedAnalysis.size})
-                                </label>
-                                <button
-                                    onClick={() => setSelectedAnalysis(new Set())}
-                                    style={{ fontSize: '0.7rem', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+                            <Group grow>
+                                <Button 
+                                    variant="light" size="xs" onClick={handleSelectAll} 
+                                    disabled={!referencia || filteredAnalysis.length === 0}
+                                    leftSection={<IconCheck size={14} />}
                                 >
-                                    Limpiar Todo
-                                </button>
-                            </div>
+                                    Todos
+                                </Button>
+                                <Button 
+                                    variant="light" color="gray" size="xs" onClick={handleSelectNone} 
+                                    disabled={!referencia || selectedAnalysis.size === 0}
+                                    leftSection={<IconX size={14} />}
+                                >
+                                    Ninguno
+                                </Button>
+                            </Group>
 
-                            <div style={{
-                                padding: '0.5rem',
-                                backgroundColor: '#f8fafc',
-                                borderRadius: '12px',
-                                border: '1px solid #e2e8f0',
-                                boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)',
-                                maxHeight: '520px',
-                                overflow: 'auto'
-                            }}>
-                                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
-                                    <thead style={{ backgroundColor: '#f1f5f9', position: 'sticky', top: 0, zIndex: 1 }}>
-                                        <tr>
-                                            <th style={{ padding: '6px 10px', textAlign: 'left', borderBottom: '1px solid #e2e8f0', color: '#64748b' }}>Análisis</th>
-                                            {tipoMuestra === 'Laboratorio' && (
-                                                <>
-                                                    <th style={{ padding: '6px 10px', textAlign: 'left', borderBottom: '1px solid #e2e8f0', color: '#64748b', width: '120px' }}>Entrega</th>
-                                                    <th style={{ padding: '6px 10px', textAlign: 'left', borderBottom: '1px solid #e2e8f0', color: '#64748b', width: '160px' }}>Laboratorio</th>
-                                                </>
-                                            )}
-                                            <th style={{ padding: '6px 10px', textAlign: 'center', borderBottom: '1px solid #e2e8f0', color: '#64748b', width: '40px' }}></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {Array.from(selectedAnalysis).map(id => {
-                                            const analysis = analysisResults.find(a => a.id_referenciaanalisis === id);
-                                            const specificLabId = tempLabs[id] || '';
-                                            const specificDeliveryId = tempDeliveries[id] || '';
-                                            return (
-                                                <tr key={id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                                    <td style={{ padding: '6px 10px', fontWeight: 600, color: '#111827' }}>
-                                                        {analysis?.nombre_tecnica || id}
-                                                    </td>
+                            <ScrollArea h={300} offsetScrollbars>
+                                <Table striped highlightOnHover withTableBorder>
+                                    <Table.Thead bg="gray.0">
+                                        <Table.Tr>
+                                            <Table.Th>Análisis</Table.Th>
+                                            <Table.Th w={60} ta="center">☑️</Table.Th>
+                                        </Table.Tr>
+                                    </Table.Thead>
+                                    <Table.Tbody>
+                                        {catalogos.isLoading(`analysis-${normativa}-${referencia}`) ? (
+                                            <Table.Tr><Table.Td colSpan={2} ta="center">Cargando...</Table.Td></Table.Tr>
+                                        ) : filteredAnalysis.length > 0 ? (
+                                            filteredAnalysis.map(analysis => (
+                                                <Table.Tr key={analysis.id_referenciaanalisis}>
+                                                    <Table.Td>{analysis.nombre_tecnica}</Table.Td>
+                                                    <Table.Td ta="center">
+                                                        <Checkbox 
+                                                            checked={selectedAnalysis.has(String(analysis.id_referenciaanalisis))} 
+                                                            onChange={() => handleToggleAnalysis(analysis.id_referenciaanalisis)} 
+                                                            size="xs"
+                                                        />
+                                                    </Table.Td>
+                                                </Table.Tr>
+                                            ))
+                                        ) : (
+                                            <Table.Tr><Table.Td colSpan={2} ta="center" c="dimmed">{normativa && referencia ? 'Sin resultados' : 'Seleccione criterios'}</Table.Td></Table.Tr>
+                                        )}
+                                    </Table.Tbody>
+                                </Table>
+                            </ScrollArea>
+                        </Stack>
+                    </Grid.Col>
+
+                    {/* Configuración */}
+                    <Grid.Col span={{ base: 12, xl: 6 }}>
+                        <Stack gap="md" h="100%">
+                            <Group gap="xs">
+                                <IconAdjustmentsHorizontal size={18} color="var(--mantine-color-grape-6)" />
+                                <Text fw={700} size="sm" c="grape.7">Configuración de Análisis</Text>
+                            </Group>
+
+                            <Select 
+                                label="Tipo de Muestra *"
+                                placeholder="OBLIGATORIO"
+                                data={tiposMuestra}
+                                value={tipoMuestra}
+                                onChange={(val) => setTipoMuestra(val || '')}
+                                disabled={!referencia}
+                                size="sm" radius="md"
+                            />
+
+                            {selectedAnalysis.size > 0 && (
+                                <>
+                                    <Divider label={`Seleccionados (${selectedAnalysis.size})`} labelPosition="center" />
+                                    <ScrollArea h={345}>
+                                        <Table border={0} verticalSpacing="sm">
+                                            <Table.Thead bg="gray.0" pos="sticky" top={0} style={{ zIndex: 1 }}>
+                                                <Table.Tr>
+                                                    <Table.Th>Análisis</Table.Th>
                                                     {tipoMuestra === 'Laboratorio' && (
                                                         <>
-                                                            <td style={{ padding: '6px 10px' }}>
-                                                                <select
-                                                                    value={specificDeliveryId}
-                                                                    onChange={(e) => handleTempDeliveryChange(id, e.target.value)}
-                                                                    style={{ width: '100%', fontSize: '0.7rem', padding: '2px 4px', border: '1px solid #d1d5db', borderRadius: '4px' }}
-                                                                >
-                                                                    <option value="">...</option>
-                                                                    {tiposEntrega.map((t: any) => (
-                                                                        <option key={t.id_tipoentrega} value={t.id_tipoentrega}>{t.nombre_tipoentrega}</option>
-                                                                    ))}
-                                                                </select>
-                                                            </td>
-                                                            <td style={{ padding: '6px 10px' }}>
-                                                                <select
-                                                                    value={specificLabId}
-                                                                    onChange={(e) => handleTempLabChange(id, e.target.value)}
-                                                                    style={{ width: '100%', fontSize: '0.7rem', padding: '2px 4px', border: '1px solid #d1d5db', borderRadius: '4px' }}
-                                                                >
-                                                                    <option value="">...</option>
-                                                                    {laboratorios.map((l: any) => (
-                                                                        <option key={l.id_laboratorioensayo} value={l.id_laboratorioensayo}>{l.nombre_laboratorioensayo}</option>
-                                                                    ))}
-                                                                </select>
-                                                            </td>
+                                                            <Table.Th w={120}>Entrega</Table.Th>
+                                                            <Table.Th w={160}>Laboratorio</Table.Th>
                                                         </>
                                                     )}
-                                                    <td style={{ padding: '6px 10px', textAlign: 'center' }}>
-                                                        <button 
-                                                            onClick={() => handleToggleAnalysis(id)} 
-                                                            style={{ padding: '4px', color: '#94a3b8', background: 'none', border: 'none', cursor: 'pointer' }}
-                                                        >
-                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                 </table>
-                            </div>
-                        </div>
-                    )}
+                                                    <Table.Th w={40}></Table.Th>
+                                                </Table.Tr>
+                                            </Table.Thead>
+                                            <Table.Tbody>
+                                                {Array.from(selectedAnalysis).map(id => {
+                                                    const analysis = analysisResults.find(a => String(a.id_referenciaanalisis) === id);
+                                                    return (
+                                                        <Table.Tr key={id}>
+                                                            <Table.Td fz="xs" fw={500}>{analysis?.nombre_tecnica || id}</Table.Td>
+                                                            {tipoMuestra === 'Laboratorio' && (
+                                                                <>
+                                                                    <Table.Td>
+                                                                        <Select 
+                                                                            data={tiposEntrega.map(t => ({ value: String(t.id_tipoentrega), label: t.nombre_tipoentrega }))}
+                                                                            value={tempDeliveries[id] || ''}
+                                                                            onChange={(val) => handleTempDeliveryChange(id, val || '')}
+                                                                            size="xs" radius="xs"
+                                                                        />
+                                                                    </Table.Td>
+                                                                    <Table.Td>
+                                                                        <Select 
+                                                                            data={laboratorios.map(l => ({ value: String(l.id_laboratorioensayo), label: l.nombre_laboratorioensayo }))}
+                                                                            value={tempLabs[id] || ''}
+                                                                            onChange={(val) => handleTempLabChange(id, val || '')}
+                                                                            size="xs" radius="xs"
+                                                                        />
+                                                                    </Table.Td>
+                                                                </>
+                                                            )}
+                                                            <Table.Td>
+                                                                <ActionIcon color="red" variant="subtle" size="sm" onClick={() => handleToggleAnalysis(id)}>
+                                                                    <IconTrash size={14} />
+                                                                </ActionIcon>
+                                                            </Table.Td>
+                                                        </Table.Tr>
+                                                    );
+                                                })}
+                                            </Table.Tbody>
+                                        </Table>
+                                    </ScrollArea>
+                                </>
+                            )}
 
-                    <button
-                        onClick={handleSaveAnalysis}
-                        disabled={
-                            selectedAnalysis.size === 0 || 
-                            !tipoMuestra || 
-                            (tipoMuestra === 'Laboratorio' && (
-                                Array.from(selectedAnalysis).some(id => !tempDeliveries[id]) ||
-                                Array.from(selectedAnalysis).some(id => !tempLabs[id])
-                            ))
-                        }
-                        className="save-analysis-btn"
-                        style={{
-                            width: '100%',
-                            padding: '10px 16px',
-                            fontSize: '0.9rem',
-                            fontWeight: 600,
-                            backgroundColor: '#10b981',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '6px',
-                            cursor: (
-                                selectedAnalysis.size > 0 && 
-                                tipoMuestra && 
-                                !(tipoMuestra === 'Laboratorio' && (
-                                    Array.from(selectedAnalysis).some(id => !tempDeliveries[id]) ||
-                                    Array.from(selectedAnalysis).some(id => !tempLabs[id])
-                                ))
-                            ) ? 'pointer' : 'not-allowed',
-                            opacity: (
-                                selectedAnalysis.size > 0 && 
-                                tipoMuestra && 
-                                !(tipoMuestra === 'Laboratorio' && (
-                                    Array.from(selectedAnalysis).some(id => !tempDeliveries[id]) ||
-                                    Array.from(selectedAnalysis).some(id => !tempLabs[id])
-                                ))
-                            ) ? 1 : 0.5,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
-                            marginTop: 'auto'
-                        }}
-                    >
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-                        Grabar Análisis
-                    </button>
-                </div>
-            </div>
+                            <Button 
+                                color="teal" fullWidth h={44} mt="auto" radius="md"
+                                onClick={handleSaveAnalysis}
+                                disabled={
+                                    selectedAnalysis.size === 0 || !tipoMuestra || 
+                                    (tipoMuestra === 'Laboratorio' && (
+                                        Array.from(selectedAnalysis).some(id => !tempDeliveries[id]) ||
+                                        Array.from(selectedAnalysis).some(id => !tempLabs[id])
+                                    ))
+                                }
+                                leftSection={<IconDeviceFloppy size={20} />}
+                            >
+                                Grabar Análisis
+                            </Button>
+                        </Stack>
+                    </Grid.Col>
+                </Grid>
+            </Paper>
 
-            {/* SECCIÓN INFERIOR: Tabla de Análisis Grabados */}
-            <div className="analysis-bottom-section">
-                <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', fontWeight: 600, color: '#374151' }}>
-                    Análisis Grabados ({savedAnalysis.length})
-                </h3>
+            <Paper withBorder p="md" radius="lg" shadow="xs" style={{ width: '100% !important' }}>
+                <Stack gap="md" style={{ width: '100% !important' }}>
+                    <Group justify="space-between">
+                        <Group gap="xs">
+                            <IconTable size={18} color="var(--mantine-color-indigo-6)" />
+                            <Text fw={700} size="sm" c="indigo.7">Análisis Grabados</Text>
+                        </Group>
+                        <Badge variant="filled" color="indigo">{savedAnalysis.length}</Badge>
+                    </Group>
 
-                <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', fontSize: '0.85rem', borderCollapse: 'collapse' }}>
-                        <thead style={{ backgroundColor: '#f9fafb' }}>
-                            <tr>
-                                <th style={{ padding: '8px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>Análisis</th>
-                                <th style={{ padding: '8px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>Tipo Muestra</th>
-                                <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #e5e7eb' }}>Límite Min</th>
-                                <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #e5e7eb' }}>Límite Max</th>
-                                <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #e5e7eb' }}>Error</th>
-                                <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #e5e7eb' }}>Error Min</th>
-                                <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #e5e7eb' }}>Error Max</th>
-                                <th style={{ padding: '8px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>Tipo Entrega</th>
-                                <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #e5e7eb' }}>Valor U.F.</th>
-                                <th style={{ padding: '8px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>Lab. Derivado</th>
-                                <th style={{ padding: '8px', textAlign: 'center', borderBottom: '2px solid #e5e7eb', width: '80px' }}>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {savedAnalysis.length > 0 ? (
-                                savedAnalysis.map(analysis => {
-                                    return (
-                                        <tr key={analysis.savedId} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                                            <td style={{ padding: '8px' }}>{analysis.nombre_tecnica}</td>
-                                            <td style={{ padding: '8px' }}>{analysis.tipo_analisis}</td>
-                                            <td style={{ padding: '8px', textAlign: 'right' }}>{analysis.limitemax_d !== undefined ? analysis.limitemax_d : '-'}</td>
-                                            <td style={{ padding: '8px', textAlign: 'right' }}>{analysis.limitemax_h !== undefined ? analysis.limitemax_h : '-'}</td>
-                                            <td style={{ padding: '8px', textAlign: 'right' }}>
-                                                {['S', 's', 'Y', 'y', true].includes(analysis.llevaerror) ? 'Sí' : 'No'}
-                                            </td>
-                                            <td style={{ padding: '8px', textAlign: 'right' }}>{analysis.error_min !== undefined ? analysis.error_min : '-'}</td>
-                                            <td style={{ padding: '8px', textAlign: 'right' }}>{analysis.error_max !== undefined ? analysis.error_max : '-'}</td>
-                                            <td style={{ padding: '8px' }}>{analysis.nombre_tipoentrega}</td>
-                                            <td style={{ padding: '8px', textAlign: 'right' }}>
-                                                <input
-                                                    type="number"
-                                                    value={analysis.uf_individual}
-                                                    onChange={(e) => handleUfChange(analysis.savedId, e.target.value)}
-                                                    onFocus={() => {
-                                                        if (String(analysis.uf_individual) === '0') {
+                    <ScrollArea offsetScrollbars>
+                        <Table striped highlightOnHover withTableBorder>
+                            <Table.Thead bg="gray.0">
+                                <Table.Tr>
+                                    <Table.Th>Análisis</Table.Th>
+                                    <Table.Th>Muestra</Table.Th>
+                                    <Table.Th ta="right">L. Min</Table.Th>
+                                    <Table.Th ta="right">L. Max</Table.Th>
+                                    <Table.Th ta="center">Error</Table.Th>
+                                    <Table.Th>Entrega</Table.Th>
+                                    <Table.Th w={100} ta="right">U.F.</Table.Th>
+                                    <Table.Th>Laboratorio</Table.Th>
+                                    <Table.Th w={60} ta="center"></Table.Th>
+                                </Table.Tr>
+                            </Table.Thead>
+                            <Table.Tbody>
+                                {savedAnalysis.length > 0 ? (
+                                    savedAnalysis.map(analysis => (
+                                        <Table.Tr key={analysis.savedId}>
+                                            <Table.Td fz="sm">{analysis.nombre_tecnica}</Table.Td>
+                                            <Table.Td fz="xs">{analysis.tipo_analisis}</Table.Td>
+                                            <Table.Td fz="xs" ta="right">{analysis.limitemax_d ?? '-'}</Table.Td>
+                                            <Table.Td fz="xs" ta="right">{analysis.limitemax_h ?? '-'}</Table.Td>
+                                            <Table.Td fz="xs" ta="center">{['S', 's', 'Y', 'y', true].includes(analysis.llevaerror) ? 'Sí' : 'No'}</Table.Td>
+                                            <Table.Td fz="xs">{analysis.nombre_tipoentrega}</Table.Td>
+                                            <Table.Td>
+                                                <NumberInput 
+                                                    size="xs" radius="xs"
+                                                    value={analysis.uf_individual} 
+                                                    onChange={(val) => handleUfChange(analysis.savedId, val)}
+                                                    onFocus={(e) => {
+                                                        if (analysis.uf_individual === 0 || analysis.uf_individual === '0') {
                                                             handleUfChange(analysis.savedId, '');
                                                         }
+                                                        e.currentTarget.select();
                                                     }}
-                                                    onBlur={() => {
-                                                        if (analysis.uf_individual === '' || String(analysis.uf_individual).trim() === '') {
-                                                            handleUfChange(analysis.savedId, '0');
-                                                        }
-                                                    }}
-                                                    style={{
-                                                        width: '60px',
-                                                        padding: '2px 4px',
-                                                        border: '1px solid #d1d5db',
-                                                        borderRadius: '4px',
-                                                        textAlign: 'right'
-                                                    }}
+                                                    decimalScale={2}
+                                                    hideControls
+                                                    ta="right"
                                                 />
-                                            </td>
-                                            <td style={{ padding: '8px' }}>
-                                                <div>{analysis.nombre_laboratorioensayo || '-'}</div>
+                                            </Table.Td>
+                                            <Table.Td fz="xs">
+                                                {analysis.nombre_laboratorioensayo || '-'}
                                                 {analysis.nombre_laboratorioensayo_2 && (
-                                                    <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                                                        + {analysis.nombre_laboratorioensayo_2}
-                                                    </div>
+                                                    <Text size="10px" c="dimmed">+ {analysis.nombre_laboratorioensayo_2}</Text>
                                                 )}
-                                            </td>
-                                            <td style={{ padding: '8px', textAlign: 'center' }}>
-                                                <button
-                                                    onClick={() => handleDeleteSavedAnalysis(analysis.savedId)}
-                                                    style={{
-                                                        padding: '4px 8px',
-                                                        fontSize: '0.75rem',
-                                                        backgroundColor: '#ef4444',
-                                                        color: 'white',
-                                                        border: 'none',
-                                                        borderRadius: '4px',
-                                                        cursor: 'pointer'
-                                                    }}
-                                                >
-                                                    Eliminar
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    );
-                                })
-                            ) : (
-                                <tr>
-                                    <td colSpan={11} style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af' }}>
-                                        No hay análisis grabados
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <style>{`
-                .analysis-form-container {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 4px;
-                    padding: 1rem;
-                }
-
-                .analysis-unified-grid {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 0.5rem 2rem;
-                    padding: 1.5rem 1.5rem 4px 1.5rem; /* Minimized bottom padding */
-                    border: 1px solid #e5e7eb;
-                    border-radius: 8px;
-                    background: white;
-                    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-                    align-items: start;
-                    position: relative; /* Added for divider positioning */
-                }
-
-                /* Vertical Divider Line */
-                @media (min-width: 1025px) {
-                    .analysis-unified-grid::after {
-                        content: '';
-                        position: absolute;
-                        top: 2rem;
-                        bottom: 2rem;
-                        left: 50%;
-                        width: 1px;
-                        background-color: #e5e7eb;
-                        transform: translateX(-50%);
-                    }
-                }
-
-                .grid-title {
-                    margin: 0 0 0.5rem 0;
-                    fontSize: 1rem;
-                    fontWeight: 600;
-                    color: #374151;
-                }
-
-                .form-group {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 4px;
-                }
-
-                .form-group label {
-                    font-size: 0.75rem;
-                    font-weight: 600;
-                    color: #374151;
-                    margin-bottom: 2px;
-                    display: block;
-                }
-
-                @media (max-width: 1024px) {
-                    .analysis-unified-grid {
-                        grid-template-columns: 1fr;
-                    }
-                }
-
-                .analysis-bottom-section {
-                    padding: 1.5rem;
-                    border: 1px solid #e5e7eb;
-                    border-radius: 8px;
-                    background: white;
-                    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-                }
-
-                /* Hide spinners */
-                input[type=number]::-webkit-outer-spin-button,
-                input[type=number]::-webkit-inner-spin-button {
-                  -webkit-appearance: none;
-                  margin: 0;
-                }
-                input[type=number] {
-                  -moz-appearance: textfield;
-                }
-
-                @keyframes spin {
-                    0% { transform: rotate(0deg); }
-                    100% { transform: rotate(360deg); }
-                }
-            `}</style>
-        </div>
+                                            </Table.Td>
+                                            <Table.Td ta="center">
+                                                <Tooltip label="Eliminar grabado">
+                                                    <ActionIcon color="red" variant="subtle" size="sm" onClick={() => handleDeleteSavedAnalysis(analysis.savedId)}>
+                                                        <IconTrash size={14} />
+                                                    </ActionIcon>
+                                                </Tooltip>
+                                            </Table.Td>
+                                        </Table.Tr>
+                                    ))
+                                ) : (
+                                    <Table.Tr><Table.Td colSpan={9} ta="center" py="xl" c="dimmed">No hay análisis grabados</Table.Td></Table.Tr>
+                                )}
+                            </Table.Tbody>
+                        </Table>
+                    </ScrollArea>
+                </Stack>
+            </Paper>
+        </Stack>
     );
 };

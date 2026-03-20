@@ -1,6 +1,32 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { fichaService } from '../services/ficha.service';
-import '../styles/FichasIngreso.css';
+import { PageHeader } from '../../../components/layout/PageHeader';
+import { 
+    Container, 
+    Stack, 
+    Paper, 
+    SimpleGrid, 
+    TextInput, 
+    Button, 
+    Table, 
+    Badge, 
+    Group, 
+    ActionIcon, 
+    Tooltip,
+    ScrollArea,
+    Text,
+    Pagination,
+    Center,
+    Loader,
+    Divider
+} from '@mantine/core';
+import { 
+    IconSearch, 
+    IconEraser, 
+    IconFileDownload, 
+    IconEye,
+    IconFilter
+} from '@tabler/icons-react';
 
 interface Props {
     onBackToMenu: () => void;
@@ -12,57 +38,39 @@ export const CoordinationListView: React.FC<Props> = ({ onBackToMenu, onViewDeta
     const [searchId, setSearchId] = useState('');
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
+    
     const [currentPage, setCurrentPage] = useState(1);
     const [loading, setLoading] = useState(true);
     const [fichas, setFichas] = useState<any[]>([]);
 
-    // Constants
-    const itemsPerPage = 10;
+    const itemsPerPage = 15;
 
-    // Load Data Effect
     useEffect(() => {
-        const loadFichas = async () => {
-            setLoading(true);
-            try {
-                const response = await fichaService.getAll();
-                let data = [];
-                if (Array.isArray(response)) data = response;
-                else if (response && response.data && Array.isArray(response.data)) data = response.data;
-                else if (response && Array.isArray(response.recordset)) data = response.recordset;
-
-                setFichas(data || []);
-
-                // DEBUG: Ver qué datos recibimos para la ficha 70
-                const ficha70 = data.find((f: any) => f.id_fichaingresoservicio === 70 || f.fichaingresoservicio === '70');
-                if (ficha70) {
-                    console.log('🔍 DEBUG Ficha 70 en Coordinación:', {
-                        estado_ficha: ficha70.estado_ficha,
-                        nombre_estadomuestreo: ficha70.nombre_estadomuestreo,
-                        id_estadomuestreo: ficha70.id_estadomuestreo,
-                        id_validaciontecnica: ficha70.id_validaciontecnica,
-                        allKeys: Object.keys(ficha70)
-                    });
-                }
-
-            } catch (error) {
-                console.error("Error loading fichas:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
         loadFichas();
     }, []);
 
-    // Reset to page 1 when any filter changes
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [searchId, dateFrom, dateTo]);
+    const loadFichas = async () => {
+        setLoading(true);
+        try {
+            const response = await fichaService.getAll();
+            let data = [];
+            if (Array.isArray(response)) data = response;
+            else if (response && response.data && Array.isArray(response.data)) data = response.data;
+            else if (response && Array.isArray(response.recordset)) data = response.recordset;
+
+            setFichas(data || []);
+        } catch (error) {
+            console.error("Error loading coordination fichas:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleClearFilters = () => {
         setSearchId('');
         setDateFrom('');
         setDateTo('');
+        setCurrentPage(1);
     };
 
     const handleDownloadPdf = async (id: number) => {
@@ -77,266 +85,206 @@ export const CoordinationListView: React.FC<Props> = ({ onBackToMenu, onViewDeta
             link.parentNode?.removeChild(link);
         } catch (error) {
             console.error("Error downloading PDF:", error);
-            alert("Error al generar o descargar el PDF de la ficha.");
         }
     };
 
-    // Filter Logic
-    const filteredFichas = fichas.filter(f => {
-        const displayId = f.fichaingresoservicio || f.id_fichaingresoservicio || '';
-        const matchId = searchId ? String(displayId).includes(searchId) : true;
+    const filteredFichas = useMemo(() => {
+        return fichas.filter(f => {
+            const displayId = f.fichaingresoservicio || f.id_fichaingresoservicio || '';
+            const matchId = searchId ? String(displayId).includes(searchId) : true;
 
-        let matchDate = true;
-        if (dateFrom || dateTo) {
-            if (!f.fecha) return false;
-            // Parse dd/mm/yyyy
-            const parts = f.fecha.split('/');
-            if (parts.length === 3) {
-                const [d, m, y] = parts;
-                const rowDate = new Date(`${y}-${m}-${d}`);
+            let matchDate = true;
+            if (dateFrom || dateTo) {
+                if (!f.fecha) return false;
+                let rowDate: Date;
+                if (typeof f.fecha === 'string' && f.fecha.includes('/')) {
+                    const parts = f.fecha.split('/');
+                    rowDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+                } else {
+                    rowDate = new Date(f.fecha);
+                }
                 rowDate.setHours(0, 0, 0, 0);
 
-                if (dateFrom) {
-                    const dFrom = new Date(dateFrom);
-                    dFrom.setHours(0, 0, 0, 0);
-                    if (rowDate < dFrom) matchDate = false;
-                }
-                if (dateTo && matchDate) {
-                    const dTo = new Date(dateTo);
-                    dTo.setHours(0, 0, 0, 0);
-                    if (rowDate > dTo) matchDate = false;
-                }
+                if (dateFrom && rowDate < new Date(dateFrom)) matchDate = false;
+                if (dateTo && rowDate > new Date(dateTo)) matchDate = false;
             }
-        }
 
-        return matchId && matchDate;
-    });
+            return matchId && matchDate;
+        });
+    }, [fichas, searchId, dateFrom, dateTo]);
 
-    // Pagination Logic
-    const totalPages = Math.ceil(filteredFichas.length / itemsPerPage);
-    const displayedFichas = filteredFichas.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-    const emptyRows = itemsPerPage - displayedFichas.length;
+    const sortedFichas = useMemo(() => {
+        return [...filteredFichas].sort((a, b) => {
+            return (b.id_fichaingresoservicio || 0) - (a.id_fichaingresoservicio || 0);
+        });
+    }, [filteredFichas]);
 
-    const goToPage = (page: number) => {
-        if (page >= 1 && page <= totalPages) {
-            setCurrentPage(page);
-        }
-    };
+    const totalPages = Math.ceil(sortedFichas.length / itemsPerPage) || 1;
+    const displayedFichas = sortedFichas.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-    // Style
-    const cellStyle: React.CSSProperties = {
-        whiteSpace: 'nowrap',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        padding: '6px 8px'
+    const getStatusBadge = (status: string) => {
+        const s = (status || '').toUpperCase();
+        let color = 'gray';
+        if (s.includes('BORRADOR')) color = 'gray';
+        else if (s.includes('EMITIDA') || s.includes('VIGENTE') || s.includes('APROBADA')) color = 'green';
+        else if (s.includes('RECHAZADA') || s.includes('ANULADA')) color = 'red';
+        else if (s.includes('PENDIENTE')) color = 'yellow';
+
+        return (
+            <Badge color={color} variant="light" size="sm">
+                {status || '-'}
+            </Badge>
+        );
     };
 
     return (
-        <div className="fichas-ingreso-container commercial-layout">
-            {/* Header */}
-            <div className="header-row" style={{ display: 'flex', position: 'relative', justifyContent: 'center', alignItems: 'center', marginBottom: '1.5rem' }}>
-                <button onClick={onBackToMenu} className="btn-back" style={{ position: 'absolute', left: 0, margin: 0 }}>
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-                    </svg>
-                    Volver al Menú
-                </button>
-                <h2 className="page-title-geo" style={{ margin: 0 }}>Gestión Coordinación</h2>
-            </div>
+        <Container fluid p="md">
+            <Stack gap="lg">
+                <PageHeader 
+                    title="Bandeja de Coordinación" 
+                    subtitle="Consulta y seguimiento general de fichas de servicio"
+                    onBack={onBackToMenu}
+                    rightSection={
+                        <Group gap="xs">
+                            <Text size="sm" fw={500} c="dimmed">{filteredFichas.length} fichas encontradas</Text>
+                            <Button variant="light" color="gray" leftSection={<IconEraser size={16} />} onClick={handleClearFilters}>
+                                Limpiar Filtros
+                            </Button>
+                        </Group>
+                    }
+                />
 
-            {/* Filters */}
-            <div className="filters-container" style={{
-                backgroundColor: 'white',
-                padding: '1.5rem',
-                borderRadius: '12px',
-                marginBottom: '1.5rem',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                display: 'flex',
-                gap: '1.5rem',
-                alignItems: 'end',
-                flexWrap: 'wrap'
-            }}>
-                <div className="form-group" style={{ flex: '0 0 120px' }}>
-                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>
-                        N° Ficha
-                    </label>
-                    <input
-                        type="text"
-                        placeholder="Ej: 105"
-                        value={searchId}
-                        onChange={(e) => setSearchId(e.target.value)}
-                        style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.85rem' }}
-                    />
-                </div>
+                <Paper withBorder p="md" radius="md" shadow="xs">
+                    <Stack gap="md">
+                        <Group gap="xs" align="center">
+                            <IconFilter size={18} color="var(--mantine-color-blue-6)" />
+                            <Text fw={700} size="sm" c="blue.7">Filtros de Búsqueda</Text>
+                        </Group>
+                        <SimpleGrid cols={{ base: 1, sm: 3, md: 4 }} spacing="sm">
+                            <TextInput 
+                                label="N° Ficha" 
+                                placeholder="Eje: 105" 
+                                value={searchId} 
+                                onChange={(e) => setSearchId(e.target.value)} 
+                                size="xs"
+                                leftSection={<IconSearch size={14} />}
+                            />
+                            <TextInput 
+                                label="Fecha Desde" 
+                                type="date" 
+                                value={dateFrom} 
+                                onChange={(e) => setDateFrom(e.target.value)} 
+                                size="xs"
+                            />
+                            <TextInput 
+                                label="Fecha Hasta" 
+                                type="date" 
+                                value={dateTo} 
+                                onChange={(e) => setDateTo(e.target.value)} 
+                                size="xs"
+                            />
+                        </SimpleGrid>
+                    </Stack>
+                </Paper>
 
-                <div className="form-group" style={{ flex: '0 0 140px' }}>
-                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>
-                        Fecha Desde
-                    </label>
-                    <input
-                        type="date"
-                        value={dateFrom}
-                        onChange={(e) => setDateFrom(e.target.value)}
-                        style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.85rem' }}
-                    />
-                </div>
-
-                <div className="form-group" style={{ flex: '0 0 140px' }}>
-                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>
-                        Fecha Hasta
-                    </label>
-                    <input
-                        type="date"
-                        value={dateTo}
-                        onChange={(e) => setDateTo(e.target.value)}
-                        style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.85rem' }}
-                    />
-                </div>
-
-                <div style={{ flex: '0 0 auto', paddingBottom: '1px', display: 'flex', gap: '0.5rem' }}>
-                    <button
-                        onClick={handleClearFilters}
-                        style={{
-                            padding: '6px 10px',
-                            height: '34px',
-                            backgroundColor: 'white',
-                            border: '1px solid #d1d5db',
-                            borderRadius: '0.5rem',
-                            color: '#6b7280',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            fontWeight: 500,
-                            fontSize: '0.85rem'
-                        }}
-                        title="Limpiar Filtros"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
-                    </button>
-                </div>
-            </div>
-
-            {/* Table */}
-            <div className="responsive-table-container">
-                {loading ? (
-                    <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Cargando fichas...</div>
-                ) : (
-                    <>
-                        <table className="compact-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
-                            <thead>
-                                <tr style={{ backgroundColor: '#f9fafb', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6b7280' }}>
-                                    <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>N° Ficha</th>
-                                    <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>Estado</th>
-                                    <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>Fecha</th>
-                                    <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>Tipo</th>
-                                    <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>E. Facturar</th>
-                                    <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>E. Servicio</th>
-                                    <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>Fuente Emisora</th>
-                                    <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>Objetivo</th>
-                                    <th style={{ padding: '8px', whiteSpace: 'nowrap' }}>Sub Área</th>
-                                    <th style={{ padding: '8px', whiteSpace: 'nowrap', textAlign: 'center' }}>PDF</th>
-                                    <th style={{ padding: '8px', whiteSpace: 'nowrap', textAlign: 'center' }}>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody style={{ fontSize: '10px' }}>
-                                {displayedFichas.map((ficha, idx) => (
-                                    <tr key={idx} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                                        <td data-label="N° Ficha" style={{ fontWeight: 600, ...cellStyle }}>{ficha.fichaingresoservicio || '-'}</td>
-                                        <td data-label="Estado" style={cellStyle}>
-                                            <span style={{
-                                                padding: '1px 6px',
-                                                borderRadius: '9999px',
-                                                fontSize: '9px',
-                                                fontWeight: 600,
-                                                backgroundColor: (ficha.estado_ficha || '').includes('Borrador') ? '#f3f4f6' : (ficha.estado_ficha || '').includes('Emitida') || (ficha.estado_ficha || '').includes('VIGENTE') ? '#dcfce7' : '#fee2e2',
-                                                color: (ficha.estado_ficha || '').includes('Borrador') ? '#4b5563' : (ficha.estado_ficha || '').includes('Emitida') || (ficha.estado_ficha || '').includes('VIGENTE') ? '#166534' : '#991b1b'
-                                            }}>
-                                                {ficha.estado_ficha || '-'}
-                                            </span>
-                                        </td>
-                                        <td data-label="Fecha" style={cellStyle}>{ficha.fecha || '-'}</td>
-                                        <td data-label="Tipo" style={cellStyle}>{ficha.tipo_fichaingresoservicio || '-'}</td>
-
-                                        <td data-label="E. Facturar" style={cellStyle} title={ficha.empresa_facturar}>{ficha.empresa_facturar || '-'}</td>
-                                        <td data-label="E. Servicio" style={cellStyle} title={ficha.empresa_servicio}>{ficha.empresa_servicio || '-'}</td>
-                                        <td data-label="Fuente Emisora" style={cellStyle} title={ficha.centro}>{ficha.centro || '-'}</td>
-                                        <td data-label="Objetivo" style={cellStyle} title={ficha.nombre_objetivomuestreo_ma}>{ficha.nombre_objetivomuestreo_ma || '-'}</td>
-                                        <td data-label="Sub Área" style={cellStyle} title={ficha.nombre_subarea}>{ficha.nombre_subarea || '-'}</td>
-
-                                        <td data-label="PDF" style={{ textAlign: 'center', whiteSpace: 'nowrap', padding: '6px' }}>
-                                            <button
-                                                title="Descargar PDF"
-                                                onClick={() => handleDownloadPdf(ficha.id_fichaingresoservicio || ficha.fichaingresoservicio)}
-                                                style={{
-                                                    border: 'none',
-                                                    background: 'none',
-                                                    color: '#f43f5e',
-                                                    cursor: 'pointer',
-                                                    padding: '2px',
-                                                    display: 'inline-flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center'
-                                                }}
-                                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fff1f2'}
-                                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                                            </button>
-                                        </td>
-                                        <td data-label="Acciones" style={{ textAlign: 'center', whiteSpace: 'nowrap', padding: '6px' }}>
-                                            <button
-                                                title="Ver Detalle"
-                                                onClick={() => onViewDetail(ficha.id_fichaingresoservicio || ficha.fichaingresoservicio)}
-                                                style={{
-                                                    border: 'none',
-                                                    background: 'none',
-                                                    color: '#3b82f6',
-                                                    cursor: 'pointer',
-                                                    padding: '2px',
-                                                    display: 'inline-flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center'
-                                                }}
-                                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#eff6ff'}
-                                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
-                                {Array.from({ length: Math.max(0, emptyRows) }).map((_, i) => (
-                                    <tr key={`empty-${i}`} style={{ borderBottom: '1px solid #e5e7eb', height: '36px' }}>
-                                        <td>&nbsp;</td>
-                                        <td>&nbsp;</td>
-                                        <td>&nbsp;</td>
-                                        <td>&nbsp;</td>
-                                        <td>&nbsp;</td>
-                                        <td>&nbsp;</td>
-                                        <td>&nbsp;</td>
-                                        <td>&nbsp;</td>
-                                        <td>&nbsp;</td>
-                                        <td>&nbsp;</td>
-                                        <td>&nbsp;</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-
-                        <div className="pagination-controls" style={{ marginTop: '0' }}>
-                            <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                                Mostrando {filteredFichas.length > 0 ? ((currentPage - 1) * itemsPerPage) + 1 : 0} a {Math.min(currentPage * itemsPerPage, filteredFichas.length)} de {filteredFichas.length} registros
-                            </span>
-                            <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                <button className="pagination-btn" style={{ fontSize: '0.8rem', padding: '4px 10px' }} disabled={currentPage === 1} onClick={() => goToPage(currentPage - 1)}>Anterior</button>
-                                <div style={{ display: 'flex', alignItems: 'center', padding: '0 0.5rem', fontSize: '0.85rem', fontWeight: 500 }}>{currentPage}</div>
-                                <button className="pagination-btn" style={{ fontSize: '0.8rem', padding: '4px 10px' }} disabled={currentPage === totalPages || totalPages === 0} onClick={() => goToPage(currentPage + 1)}>Siguiente</button>
-                            </div>
-                        </div>
-                    </>
-                )}
-            </div>
-        </div>
+                <Paper withBorder radius="md" p={0} shadow="sm" style={{ overflow: 'hidden' }}>
+                    <ScrollArea h={600}>
+                        {loading ? (
+                            <Center p="xl">
+                                <Stack align="center" gap="xs">
+                                    <Loader size="lg" />
+                                    <Text size="sm" c="dimmed">Cargando bandeja de coordinación...</Text>
+                                </Stack>
+                            </Center>
+                        ) : (
+                            <Table striped highlightOnHover withTableBorder={false} verticalSpacing="xs">
+                                <Table.Thead bg="gray.1">
+                                    <Table.Tr>
+                                        <Table.Th w={100}>N° Ficha</Table.Th>
+                                        <Table.Th w={150}>Estado</Table.Th>
+                                        <Table.Th w={120}>Fecha</Table.Th>
+                                        <Table.Th w={120}>Tipo</Table.Th>
+                                        <Table.Th>E. Facturar</Table.Th>
+                                        <Table.Th>E. Servicio</Table.Th>
+                                        <Table.Th>Fuente Emisora</Table.Th>
+                                        <Table.Th>Objetivo</Table.Th>
+                                        <Table.Th>Sub Área</Table.Th>
+                                        <Table.Th ta="center" w={60}>PDF</Table.Th>
+                                        <Table.Th ta="center" w={60}>Acc.</Table.Th>
+                                    </Table.Tr>
+                                </Table.Thead>
+                                <Table.Tbody>
+                                    {displayedFichas.map((ficha) => (
+                                        <Table.Tr key={ficha.id_fichaingresoservicio || ficha.fichaingresoservicio}>
+                                            <Table.Td fw={700} c="blue.8">{ficha.fichaingresoservicio || '-'}</Table.Td>
+                                            <Table.Td>{getStatusBadge(ficha.estado_ficha)}</Table.Td>
+                                            <Table.Td fz="xs">{ficha.fecha || '-'}</Table.Td>
+                                            <Table.Td fz="xs">{ficha.tipo_fichaingresoservicio || '-'}</Table.Td>
+                                            <Table.Td>
+                                                <Text size="xs" truncate title={ficha.empresa_facturar}>{ficha.empresa_facturar || '-'}</Text>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <Text size="xs" truncate title={ficha.empresa_servicio}>{ficha.empresa_servicio || '-'}</Text>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <Text size="xs" truncate title={ficha.centro}>{ficha.centro || '-'}</Text>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <Text size="xs" truncate title={ficha.nombre_objetivomuestreo_ma}>{ficha.nombre_objetivomuestreo_ma || '-'}</Text>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <Text size="xs" truncate title={ficha.nombre_subarea}>{ficha.nombre_subarea || '-'}</Text>
+                                            </Table.Td>
+                                            <Table.Td ta="center">
+                                                <Tooltip label="Descargar PDF">
+                                                    <ActionIcon 
+                                                        color="red" 
+                                                        variant="light" 
+                                                        onClick={() => handleDownloadPdf(ficha.id_fichaingresoservicio || ficha.fichaingresoservicio)}
+                                                    >
+                                                        <IconFileDownload size={18} />
+                                                    </ActionIcon>
+                                                </Tooltip>
+                                            </Table.Td>
+                                            <Table.Td ta="center">
+                                                <Tooltip label="Ver Detalle">
+                                                    <ActionIcon 
+                                                        color="blue" 
+                                                        variant="filled" 
+                                                        onClick={() => onViewDetail(ficha.id_fichaingresoservicio || ficha.fichaingresoservicio)}
+                                                    >
+                                                        <IconEye size={18} />
+                                                    </ActionIcon>
+                                                </Tooltip>
+                                            </Table.Td>
+                                        </Table.Tr>
+                                    ))}
+                                    {displayedFichas.length === 0 && (
+                                        <Table.Tr>
+                                            <Table.Td colSpan={11} ta="center" py="xl">
+                                                <Text c="dimmed">No se encontraron fichas en la bandeja.</Text>
+                                            </Table.Td>
+                                        </Table.Tr>
+                                    )}
+                                </Table.Tbody>
+                            </Table>
+                        )}
+                    </ScrollArea>
+                    
+                    <Divider />
+                    
+                    <Center p="md">
+                        <Pagination 
+                            total={totalPages} 
+                            value={currentPage} 
+                            onChange={setCurrentPage} 
+                            radius="md" 
+                            size="sm"
+                            withEdges
+                        />
+                    </Center>
+                </Paper>
+            </Stack>
+        </Container>
     );
 };

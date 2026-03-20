@@ -1,11 +1,37 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import {
+    Stack,
+    Group,
+    Text,
+    TextInput,
+    ActionIcon,
+    Loader,
+    ScrollArea,
+    Box,
+    Center,
+    Title,
+    SegmentedControl,
+    Select,
+    Badge,
+    UnstyledButton,
+    Flex,
+} from '@mantine/core';
+import {
+    IconSearch,
+    IconPlus,
+    IconChevronRight,
+    IconCalendar,
+    IconClock,
+    IconCircleFilled,
+    IconFolderOpen
+} from '@tabler/icons-react';
 import { ursService } from '../../../services/urs.service';
 import { useNavStore } from '../../../store/navStore';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useNotificationStore } from '../../../store/notificationStore';
 import RequestDetailPanel from './RequestDetailPanel';
 import RequestActivityAndChat from './RequestActivityAndChat';
-import './UniversalInbox.css';
+import { StatusBadge } from '../../../components/ui/StatusBadge';
 
 interface Request {
     id_solicitud: number;
@@ -18,6 +44,7 @@ interface Request {
     nombre_solicitante: string;
     prioridad?: string;
     conversacion_count?: number;
+    unread_count?: number;
 }
 
 const UniversalInbox: React.FC = () => {
@@ -30,14 +57,14 @@ const UniversalInbox: React.FC = () => {
         ursInboxMode, 
         setUrsInboxMode 
     } = useNavStore();
+    
     const { user } = useAuth();
     const { markAsReadByRef } = useNotificationStore();
+    
     const [requests, setRequests] = useState<Request[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [filter, setFilter] = useState({ status: '', area: '', type: '' });
-    // const [inboxMode, setInboxMode] = useState<'RECEIVED' | 'SENT'>('RECEIVED'); // Replaced by store
-    // const [selectedRequestId, setSelectedRequestId] = useState<number | null>(null); // Replaced by store
     const [selectedRequest, setSelectedRequest] = useState<any>(null);
     const [loadingDetail, setLoadingDetail] = useState(false);
 
@@ -53,25 +80,17 @@ const UniversalInbox: React.FC = () => {
         }
     };
 
-    // Optimistic reading
     const loadRequestDetail = async (id: number, silent = false) => {
         if (!silent) setLoadingDetail(true);
         
-        // OPTIMISTIC: Mark as read in local state immediately
         setRequests(prev => prev.map(r => 
             r.id_solicitud === id ? { ...r, unread_count: 0 } : r
         ));
 
         try {
-            // Mark as read in backend and local store
             markAsReadByRef(id);
-
             const data = await ursService.getRequestDetail(id);
             setSelectedRequest(data);
-            
-            // Re-fetch inbox to sync 'unread' flags visually
-            // const updatedReqs = await ursService.getRequests(); // No need to full fetch here if we have polling
-            // setRequests(updatedReqs);
         } catch (error) {
             console.error("Error loading request detail:", error);
         } finally {
@@ -79,16 +98,14 @@ const UniversalInbox: React.FC = () => {
         }
     };
 
-
     useEffect(() => {
         loadInitialData();
     }, []);
 
-    // Handle deep-linking from notifications (Phase 25)
     useEffect(() => {
         if (pendingRequestId && !loading) {
             setSelectedRequestId(pendingRequestId);
-            setPendingRequestId(null); // Clear after use
+            setPendingRequestId(null);
         }
     }, [pendingRequestId, loading]);
 
@@ -100,27 +117,23 @@ const UniversalInbox: React.FC = () => {
         }
     }, [selectedRequestId]);
 
-    // Polling for real-time messages (Phase 13)
     useEffect(() => {
         if (!selectedRequestId) return;
         const interval = setInterval(() => {
             loadRequestDetail(selectedRequestId, true);
-        }, 5000); // 5 seconds (fast enough for local network collab)
+        }, 5000);
         return () => clearInterval(interval);
     }, [selectedRequestId]);
 
-    // Polling for the request list (Phase 27)
     useEffect(() => {
         const interval = setInterval(async () => {
             try {
                 const reqs = await ursService.getRequests();
-                // Simple functional update to avoid unnecessary re-renders if nothing changed deeply
-                // but usually we just set it since getRequests is relatively cheap
                 setRequests(reqs);
             } catch (error) {
                 console.error("Error polling inbox list:", error);
             }
-        }, 30000); // Setiap 30 seconds for the list
+        }, 30000);
         return () => clearInterval(interval);
     }, []);
 
@@ -139,19 +152,8 @@ const UniversalInbox: React.FC = () => {
         }).replace(',', '');
     };
 
-    const getStatusInfo = (status: string) => {
-        switch (status) {
-            case 'PENDIENTE': return { color: '#c2410c', label: 'Pendiente' };
-            case 'APROBADO': return { color: '#15803d', label: 'Aprobado' };
-            case 'RECHAZADO': return { color: '#b91c1c', label: 'Rechazado' };
-            case 'EN_REVISION': return { color: '#1d4ed8', label: 'En Revisión' };
-            default: return { color: '#64748b', label: status };
-        }
-    };
-
     const filteredRequests = useMemo(() => {
         return requests.filter(req => {
-            // Mode Filter (Sent vs Received)
             const isMine = Number(req.id_solicitante) === Number(user?.id);
             if (ursInboxMode === 'SENT' && !isMine) return false;
             if (ursInboxMode === 'RECEIVED' && isMine) return false;
@@ -168,182 +170,246 @@ const UniversalInbox: React.FC = () => {
         });
     }, [requests, searchTerm, filter, ursInboxMode, user]);
 
+    const groupedRequests = useMemo(() => {
+        const groups: { [key: string]: Request[] } = {};
+        filteredRequests.forEach(req => {
+            const date = new Date(req.fecha_solicitud);
+            const today = new Date();
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+
+            let group = 'Más antiguas';
+            if (date.toDateString() === today.toDateString()) group = 'Hoy';
+            else if (date.toDateString() === yesterday.toDateString()) group = 'Ayer';
+            else if (date > new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)) group = 'Esta semana';
+
+            if (!groups[group]) groups[group] = [];
+            groups[group].push(req);
+        });
+        return groups;
+    }, [filteredRequests]);
+
     return (
-        <div className="universal-dashboard">
-            {/* COLUMN 1: INBOX LIST */}
-            <div className="col-inbox">
-                <header className="inbox-header">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                        <h2>Solicitudes</h2>
-                        <button className="btn-new-solicitud" onClick={() => setActiveSubmodule('urs-new-request')}>
-                            <span>+</span> Nueva
-                        </button>
-                    </div>
+        <Box h={{ base: 'calc(100dvh - 100px)', md: '100%' }} bg="white" style={{ overflow: 'hidden' }}>
+            <Flex direction={{ base: 'column', md: 'row' }} h="100%" align="stretch" style={{ flexWrap: 'nowrap' }}>
+                {/* COLUMN 1: INBOX LIST */}
+                <Box 
+                    flex={{ base: '0 0 auto', md: '0 0 21%' }} 
+                    h={{ base: 'auto', md: '100%' }}
+                    style={{ 
+                        borderRight: '1px solid var(--mantine-color-gray-2)', 
+                        display: 'flex', 
+                        flexDirection: 'column',
+                        minWidth: 0
+                    }}
+                >
+                    {/* Header/Filters Section (Fixed) */}
+                    <Stack p="md" gap="md" style={{ borderBottom: '1px solid var(--mantine-color-gray-2)' }}>
+                        <Group justify="space-between">
+                            <Title order={4}>Solicitudes</Title>
+                            <ActionIcon 
+                                variant="filled" 
+                                color="adl-blue" 
+                                size="md" 
+                                radius="md" 
+                                onClick={() => setActiveSubmodule('urs-new-request')}
+                            >
+                                <IconPlus size={18} />
+                            </ActionIcon>
+                        </Group>
 
-                    <div className="inbox-mode-toggle">
-                        <button 
-                            className={`mode-btn ${ursInboxMode === 'RECEIVED' ? 'active' : ''}`}
-                            onClick={() => setUrsInboxMode('RECEIVED')}
-                        >
-                            📥 Recibidas
-                        </button>
-                        <button 
-                            className={`mode-btn ${ursInboxMode === 'SENT' ? 'active' : ''}`}
-                            onClick={() => setUrsInboxMode('SENT')}
-                        >
-                            📤 Enviadas
-                        </button>
-                    </div>
+                        <SegmentedControl 
+                            fullWidth
+                            value={ursInboxMode}
+                            onChange={(val) => setUrsInboxMode(val as 'RECEIVED' | 'SENT')}
+                            data={[
+                                { label: 'Recibidas', value: 'RECEIVED' },
+                                { label: 'Enviadas', value: 'SENT' }
+                            ]}
+                            color="adl-blue"
+                            radius="md"
+                        />
 
-                    <div className="branded-search-group" style={{ marginTop: '0.75rem' }}>
-                        <div className="search-input-wrapper">
-                            <span className="search-icon-v3">🔍</span>
-                            <input 
-                                type="text" 
-                                placeholder="Buscar..." 
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="search-input-v3"
+                        <TextInput 
+                            placeholder="Buscar..."
+                            leftSection={<IconSearch size={16} color="var(--mantine-color-gray-5)" />}
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            radius="md"
+                        />
+
+                        <Group grow gap="xs">
+                            <Select 
+                                label="Estado"
+                                placeholder="Seleccionar"
+                                value={filter.status}
+                                onChange={(val) => setFilter({...filter, status: val || ''})}
+                                data={[
+                                    { value: '', label: 'Todos' },
+                                    { value: 'PENDIENTE', label: 'Pendientes' },
+                                    { value: 'APROBADO', label: 'Aprobados' },
+                                    { value: 'RECHAZADO', label: 'Rechazados' }
+                                ]}
+                                size="xs"
+                                radius="md"
                             />
-                        </div>
-                    </div>
+                            <Select 
+                                label="Área"
+                                placeholder="Seleccionar"
+                                value={filter.area}
+                                onChange={(val) => setFilter({...filter, area: val || ''})}
+                                data={[
+                                    { value: '', label: 'Todas' },
+                                    { value: 'INF', label: 'TI' },
+                                    { value: 'GC', label: 'Calidad' }
+                                ]}
+                                size="xs"
+                                radius="md"
+                            />
+                        </Group>
+                    </Stack>
 
-                    <div className="branded-filters">
-                        <div className="custom-dropdown">
-                             <label className="filter-label">Estado</label>
-                             <select 
-                                className="dropdown-trigger" 
-                                value={filter.status} 
-                                onChange={(e) => setFilter({...filter, status: e.target.value})}
-                                style={{ appearance: 'none' }}
-                             >
-                                <option value="">Todos</option>
-                                <option value="PENDIENTE">⏳ Pendientes</option>
-                                <option value="APROBADO">✅ Aprobados</option>
-                                <option value="RECHAZADO">❌ Rechazados</option>
-                            </select>
-                        </div>
-                        
-                        <div className="custom-dropdown">
-                             <label className="filter-label">Área</label>
-                             <select 
-                                className="dropdown-trigger" 
-                                value={filter.area} 
-                                onChange={(e) => setFilter({...filter, area: e.target.value})}
-                                style={{ appearance: 'none' }}
-                             >
-                                <option value="">Todas</option>
-                                <option value="INF">💻 TI</option>
-                                <option value="GC">⭐ Calidad</option>
-                            </select>
-                        </div>
-                    </div>
-                </header>
-
-                <div className="inbox-list">
-                    {loading ? (
-                        <div className="v2-loading"><div className="v2-spinner"></div></div>
-                    ) : (filteredRequests.length > 0 ? (
-                        (() => {
-                            const groups: { [key: string]: Request[] } = {};
-                            filteredRequests.forEach(req => {
-                                const date = new Date(req.fecha_solicitud);
-                                const today = new Date();
-                                const yesterday = new Date();
-                                yesterday.setDate(yesterday.getDate() - 1);
-
-                                let group = 'Más antiguas';
-                                if (date.toDateString() === today.toDateString()) group = 'Hoy';
-                                else if (date.toDateString() === yesterday.toDateString()) group = 'Ayer';
-                                else if (date > new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)) group = 'Esta semana';
-
-                                if (!groups[group]) groups[group] = [];
-                                groups[group].push(req);
-                            });
-
-                            return ['Hoy', 'Ayer', 'Esta semana', 'Más antiguas'].map(label => {
-                                const groupReqs = groups[label];
+                    {/* Scrollable list Section */}
+                    <ScrollArea flex={1} p="xs">
+                        {loading ? (
+                            <Center py="xl">
+                                <Loader size="sm" color="adl-blue" />
+                            </Center>
+                        ) : filteredRequests.length > 0 ? (
+                            ['Hoy', 'Ayer', 'Esta semana', 'Más antiguas'].map(label => {
+                                const groupReqs = groupedRequests[label];
                                 if (!groupReqs || groupReqs.length === 0) return null;
                                 return (
-                                    <React.Fragment key={label}>
-                                        <div className="inbox-group-label">{label}</div>
+                                    <Stack key={label} gap="xs" mb="lg">
+                                        <Text size="xs" fw={800} c="dimmed" tt="uppercase" lts="1px" px="xs">
+                                            {label}
+                                        </Text>
                                         {groupReqs.map((req) => {
-                                            const status = getStatusInfo(req.estado);
+                                            const isActive = selectedRequestId === req.id_solicitud;
+                                            const unread = (req.unread_count || 0) > 0;
                                             const isMine = Number(req.id_solicitante) === Number(user?.id);
-                                            const unread = (req as any).unread_count > 0;
+                                            
                                             return (
-                                                <div 
-                                                    key={req.id_solicitud} 
-                                                    className={`req-item ${selectedRequestId === req.id_solicitud ? 'active' : ''} ${unread ? 'unread' : ''}`}
+                                                <UnstyledButton
+                                                    key={req.id_solicitud}
                                                     onClick={() => setSelectedRequestId(req.id_solicitud)}
+                                                    p="sm"
+                                                    style={{
+                                                        borderRadius: 'var(--mantine-radius-md)',
+                                                        backgroundColor: isActive ? 'var(--mantine-color-adl-blue-0)' : 'transparent',
+                                                        border: isActive ? '1px solid var(--mantine-color-adl-blue-2)' : '1px solid transparent',
+                                                        transition: 'all 150ms ease'
+                                                    }}
                                                 >
-                                                    <div className="req-item-top">
-                                                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                                                            <span className="req-item-id">#{req.id_solicitud}</span>
-                                                            <span className={`origin-badge ${isMine ? 'sent' : 'received'}`}>
-                                                                {isMine ? 'MÍO' : req.nombre_solicitante?.split(' ')[0]}
-                                                            </span>
-                                                        </div>
-                                                        <span className="req-item-date">{formatDateTime(req.fecha_solicitud)}</span>
-                                                    </div>
-                                                    <div className="req-item-title" style={{ fontWeight: unread ? 800 : 500 }}>{req.titulo || req.nombre_tipo}</div>
-                                                    <div className="req-item-meta">
-                                                        <span className="status-dot" style={{ backgroundColor: status.color }}></span>
-                                                        <span style={{ fontWeight: unread ? 700 : 400 }}>{status.label}</span>
-                                                        <span style={{ marginLeft: 'auto' }}>
-                                                            {unread && <span className="msg-count-dot"></span>}
-                                                        </span>
-                                                    </div>
-                                                </div>
+                                                    <Stack gap={4}>
+                                                        <Group justify="space-between" align="start" wrap="nowrap">
+                                                            <Group gap={6}>
+                                                                <Badge size="xs" color="gray" variant="light">#{req.id_solicitud}</Badge>
+                                                                {!isMine && (
+                                                                    <Text size="xs" fw={700} c="adl-blue">
+                                                                        {req.nombre_solicitante?.split(' ')[0]}
+                                                                    </Text>
+                                                                )}
+                                                            </Group>
+                                                            <Text size="xs" c="dimmed">
+                                                                {formatDateTime(req.fecha_solicitud)}
+                                                            </Text>
+                                                        </Group>
+                                                        
+                                                        <Text size="sm" fw={unread ? 800 : 600} truncate lineClamp={2} c="dark.4">
+                                                            {req.titulo || req.nombre_tipo}
+                                                        </Text>
+                                                        
+                                                        <Group justify="space-between" align="center">
+                                                            <Group gap={6}>
+                                                                <StatusBadge status={req.estado} size="xs" />
+                                                                {unread && <IconCircleFilled size={10} color="var(--mantine-color-red-6)" />}
+                                                            </Group>
+                                                            <IconChevronRight size={14} color="var(--mantine-color-gray-4)" />
+                                                        </Group>
+                                                    </Stack>
+                                                </UnstyledButton>
                                             );
                                         })}
-                                    </React.Fragment>
+                                    </Stack>
                                 );
-                            });
-                        })()
+                            })
+                        ) : (
+                            <Center py={100}>
+                                <Stack align="center" gap="xs">
+                                    <IconFolderOpen size={40} color="var(--mantine-color-gray-3)" stroke={1} />
+                                    <Text size="sm" c="dimmed">No hay solicitudes.</Text>
+                                </Stack>
+                            </Center>
+                        )}
+                    </ScrollArea>
+                </Box>
+
+                {/* COLUMN 2: DETAILS */}
+                <Box 
+                    flex={{ base: '0 0 auto', md: '0 0 54%' }}
+                    h={{ base: 'auto', md: '100%' }}
+                    style={{ 
+                        borderRight: '1px solid var(--mantine-color-gray-2)', 
+                        backgroundColor: 'var(--mantine-color-gray-0)', 
+                        display: 'flex', 
+                        flexDirection: 'column',
+                        minWidth: 0
+                    }}
+                >
+                    {loadingDetail ? (
+                        <Center h="100%">
+                            <Stack align="center" gap="md">
+                                <Loader size="md" color="adl-blue" />
+                                <Text size="sm" c="dimmed">Abriendo solicitud...</Text>
+                            </Stack>
+                        </Center>
+                    ) : selectedRequest ? (
+                        <ScrollArea flex={1} scrollbars="y">
+                            <Box p="lg">
+                                <RequestDetailPanel 
+                                    request={selectedRequest} 
+                                    onRequestUpdate={loadInitialData}
+                                    onReload={() => loadRequestDetail(selectedRequestId!, true)}
+                                />
+                            </Box>
+                        </ScrollArea>
                     ) : (
-                        <div className="empty-inbox-state">
-                            <span className="empty-icon">📂</span>
-                            <p>No hay solicitudes que mostrar.</p>
-                        </div>
-                    ))}
-                </div>
-            </div>
+                        <Center h="100%">
+                            <Stack align="center" gap="sm">
+                                <IconCalendar size={48} color="var(--mantine-color-gray-3)" stroke={1} />
+                                <Title order={4} c="dimmed">Selecciona una solicitud</Title>
+                                <Text size="sm" c="dimmed">Haz clic en la lista para ver detalles.</Text>
+                            </Stack>
+                        </Center>
+                    )}
+                </Box>
 
-            {/* COLUMN 2: DETAILS */}
-            <div className="col-details">
-                {loadingDetail ? (
-                    <div className="v2-loading"><div className="v2-spinner"></div><p>Abriendo solicitud...</p></div>
-                ) : selectedRequest ? (
-                    <RequestDetailPanel 
-                        request={selectedRequest} 
-                        onRequestUpdate={loadInitialData}
-                        onReload={() => loadRequestDetail(selectedRequestId!, true)}
-                    />
-                ) : (
-                    <div className="details-placeholder">
-                        <div className="details-placeholder-icon">📋</div>
-                        <h3>Selecciona una solicitud</h3>
-                        <p>Haz clic en cualquier item de la lista para ver sus detalles y gestión.</p>
-                    </div>
-                )}
-            </div>
-
-            {/* COLUMN 3: ACTIVITY & MESSAGES */}
-            {selectedRequest ? (
-                <RequestActivityAndChat 
-                    request={selectedRequest} 
-                    onReload={() => loadRequestDetail(selectedRequestId!, true)}
-                />
-            ) : (
-                <div className="col-activity">
-                    <div className="details-placeholder" style={{ background: 'white' }}>
-                        <div className="details-placeholder-icon">💬</div>
-                    </div>
-                </div>
-            )}
-
-        </div>
+                {/* COLUMN 3: ACTIVITY & CHAT */}
+                <Box 
+                    flex={{ base: '0 0 auto', md: '0 0 25%' }}
+                    h={{ base: 'auto', md: '100%' }}
+                    style={{ 
+                        display: 'flex', 
+                        flexDirection: 'column',
+                        minWidth: 0
+                    }}
+                >
+                    <Box flex={1} style={{ overflow: 'hidden' }}>
+                        {selectedRequest ? (
+                            <RequestActivityAndChat 
+                                request={selectedRequest} 
+                                onReload={() => loadRequestDetail(selectedRequestId!, true)}
+                            />
+                        ) : (
+                            <Center h="100%">
+                                <IconClock size={40} color="var(--mantine-color-gray-2)" />
+                            </Center>
+                        )}
+                    </Box>
+                </Box>
+            </Flex>
+        </Box>
     );
 };
 

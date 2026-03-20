@@ -1,8 +1,8 @@
 .navbar {
   background-color: light-dark(var(--mantine-color-white), var(--mantine-color-dark-6));
   height: 100vh;
-  width: 300px;
-  padding: 16px;
+  width: 240px;
+  padding: 10px;
   padding-bottom: 0;
   display: flex;
   flex-direction: column;
@@ -20,45 +20,45 @@
 }
 
 .header {
-  padding: 16px;
+  padding: 10px;
   padding-top: 0;
-  margin-left: -16px;
-  margin-right: -16px;
+  margin-left: -10px;
+  margin-right: -10px;
   color: light-dark(var(--mantine-color-black), var(--mantine-color-white));
   border-bottom: 1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
-  min-height: 70px;
+  min-height: 55px;
   display: flex;
   align-items: center;
 }
 
 .links {
   flex: 1;
-  margin-left: -16px;
-  margin-right: -16px;
+  margin-left: -10px;
+  margin-right: -10px;
 }
 
 .linksInner {
-  padding-top: 16px;
-  padding-bottom: 32px;
+  padding-top: 10px;
+  padding-bottom: 24px;
 }
 
 .footer {
-  margin-left: -16px;
-  margin-right: -16px;
+  margin-left: -10px;
+  margin-right: -10px;
   border-top: 1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
-  padding-bottom: 16px;
+  padding-bottom: 10px;
 }
 
 .section {
-  padding: 0 16px;
+  padding: 0 10px;
 }
 
 .sectionTitle {
-  margin-top: 24px;
-  margin-bottom: 8px;
+  margin-top: 16px;
+  margin-bottom: 6px;
   padding-left: 0;
   text-transform: uppercase;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 1px;
   color: var(--mantine-color-dimmed);
@@ -74,10 +74,10 @@
   font-weight: 500;
   display: block;
   width: 100%;
-  padding: 8px 16px;
+  padding: 6px 12px;
   color: light-dark(var(--mantine-color-text), var(--mantine-color-dark-0));
-  font-size: 13px;
-  border-radius: 8px;
+  font-size: 12px;
+  border-radius: 6px;
   transition: all 150ms ease;
   margin-bottom: 6px;
 }
@@ -96,9 +96,9 @@
   font-weight: 500;
   display: block;
   text-decoration: none;
-  padding: 6px 16px;
-  padding-left: 30px;
-  font-size: 13px;
+  padding: 4px 12px;
+  padding-left: 24px;
+  font-size: 12px;
   color: light-dark(var(--mantine-color-gray-7), var(--mantine-color-dark-2));
   transition: all 150ms ease;
   cursor: pointer;
@@ -132,7 +132,7 @@
 }
 
 .subItemsContainer {
-  margin-left: 31px;
+  margin-left: 23px;
   padding-left: 0;
   border-left: 1px solid light-dark(var(--mantine-color-gray-4), var(--mantine-color-dark-3));
   margin-top: -6px;
@@ -155,8 +155,8 @@
 
 .userButton {
   width: 100%;
-  padding: 12px;
-  border-radius: 8px;
+  padding: 8px;
+  border-radius: 6px;
   color: light-dark(var(--mantine-color-black), var(--mantine-color-dark-0));
   transition: background-color 150ms ease;
 }

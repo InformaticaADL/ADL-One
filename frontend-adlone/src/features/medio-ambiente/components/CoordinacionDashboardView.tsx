@@ -1,9 +1,33 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell, AreaChart, Area
 } from 'recharts';
+import { 
+  Paper, 
+  Text, 
+  Title, 
+  Group, 
+  Stack, 
+  SimpleGrid, 
+  Select, 
+  Box,
+  Tabs,
+  Button
+} from '@mantine/core';
+import { 
+  IconChevronLeft, 
+  IconFilter, 
+  IconX, 
+  IconChartBar, 
+  IconBuilding, 
+  IconMapPin, 
+  IconCalendar,
+  IconAdjustmentsHorizontal,
+  IconUsers,
+  IconInfoCircle
+} from '@tabler/icons-react';
+import { DateInput } from '@mantine/dates';
 import { fichaService } from '../services/ficha.service';
 
 interface Props {
@@ -11,6 +35,10 @@ interface Props {
 }
 
 const COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#6b7280', '#ec4899', '#06b6d4'];
+
+const normalize = (s: string) => 
+    (s || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
 
 export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
   const [loading, setLoading] = useState(true);
@@ -20,15 +48,15 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
   const [estados, setEstados] = useState<any[]>([]);
 
   // Filters State
-  const [filterMuestreador, setFilterMuestreador] = useState('');
-  const [filterEstado, setFilterEstado] = useState('');
-  const [filterEmpresaServicio, setFilterEmpresaServicio] = useState('');
-  const [filterCentro, setFilterCentro] = useState('');
-  const [filterObjetivo, setFilterObjetivo] = useState('');
-  const [filterSubArea, setFilterSubArea] = useState('');
-  const [filterDateFrom, setFilterDateFrom] = useState('');
-  const [filterDateTo, setFilterDateTo] = useState('');
-  const [activeTab, setActiveTab] = useState<'operativa' | 'comercial' | 'logistica'>('operativa');
+  const [filterMuestreador, setFilterMuestreador] = useState<string | null>(null);
+  const [filterEstado, setFilterEstado] = useState<string | null>(null);
+  const [filterEmpresaServicio, setFilterEmpresaServicio] = useState<string | null>(null);
+  const [filterCentro, setFilterCentro] = useState<string | null>(null);
+  const [filterObjetivo, setFilterObjetivo] = useState<string | null>(null);
+  const [filterSubArea, setFilterSubArea] = useState<string | null>(null);
+  const [filterDateFrom, setFilterDateFrom] = useState<Date | null>(null);
+  const [filterDateTo, setFilterDateTo] = useState<Date | null>(null);
+  const [activeTab, setActiveTab] = useState<string | null>('operativa');
 
   // Info Modal State
   const [infoModal, setInfoModal] = useState<{ title: string, definition: string, operation: string, data: string } | null>(null);
@@ -38,17 +66,13 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
   const [objetivos, setObjetivos] = useState<any[]>([]);
   const [subAreas, setSubAreas] = useState<any[]>([]);
 
-
-  const normalize = (s: string) => 
-    (s || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-
-
   useEffect(() => {
     const fetchData = async () => {
       try {
+        setLoading(true);
         const [fichasRes, opRes] = await Promise.all([
           fichaService.getAll(),
-          fichaService.getEnProceso() // Fetch ALL operational data for full enrichment
+          fichaService.getEnProceso()
         ]);
 
         let fichas = [];
@@ -76,34 +100,33 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
             ...(parentFicha || {}),
             ...e,
             _muestreador_id: e.id_muestreador || null,
-            _muestreador_name: e.muestreador || e.nombre_muestreador || 'No Asignado',
-            _status_name: e.nombre_estadomuestreo || parentFicha?.estado_ficha || 'En Proceso',
+            _muestreador_name: (e.muestreador || e.nombre_muestreador || 'No Asignado').trim(),
+            _status_name: (e.nombre_estadomuestreo || parentFicha?.estado_ficha || 'En Proceso').trim(),
             _status_id: e.id_estadomuestreo || null,
             _fecha: e.fecha || e.fecha_muestreo || parentFicha?.fecha || null,
             _id_ficha: fichaId,
-            _empresa_servicio_name: e.empresa_servicio || e.nombre_empresaservicios || parentFicha?.empresa_servicio || parentFicha?.nombre_empresaservicios || 'Otros',
-            _centro_name: e.centro || e.nombre_centro || parentFicha?.centro || parentFicha?.nombre_centro || 'Otros',
-            _objetivo_name: e.objetivo || e.nombre_objetivo || parentFicha?.objetivo || parentFicha?.nombre_objetivo || 'Otro',
-            _subarea_name: e.subarea || e.nombre_subarea || parentFicha?.subarea || parentFicha?.nombre_subarea || 'Global'
+            _empresa_servicio_name: (e.empresa_servicio || e.nombre_empresaservicios || parentFicha?.empresa_servicio || parentFicha?.nombre_empresaservicios || 'Otros').trim(),
+            _centro_name: (e.centro || e.nombre_centro || parentFicha?.centro || parentFicha?.nombre_centro || 'Otros').trim(),
+            _objetivo_name: (e.objetivo || e.nombre_objetivo || parentFicha?.objetivo || parentFicha?.nombre_objetivo || 'Otro').trim(),
+            _subarea_name: (e.subarea || e.nombre_subarea || parentFicha?.subarea || parentFicha?.nombre_subarea || 'Global').trim()
           });
         });
 
-        // 2. Add fichas that don't have operational events yet
         (fichas || []).forEach((f: any) => {
           const fichaId = f.id_fichaingresoservicio || f.id || f.fichaingresoservicio;
           if (!eventFichaIds.has(String(fichaId))) {
             enriched.push({
               ...f,
               _muestreador_id: f.id_muestreador || null,
-              _muestreador_name: f.muestreador || f.nombre_muestreador || 'No Asignado',
-              _status_name: f.estado_ficha || f.nombre_estadomuestreo || 'Pendiente Programar',
+              _muestreador_name: (f.muestreador || f.nombre_muestreador || 'No Asignado').trim(),
+              _status_name: (f.estado_ficha || f.nombre_estadomuestreo || 'Pendiente Programar').trim(),
               _status_id: f.id_estadomuestreo || null,
               _fecha: f.fecha || null,
               _id_ficha: fichaId,
-              _empresa_servicio_name: f.empresa_servicio || f.nombre_empresaservicios || 'Otros',
-              _centro_name: f.centro || f.nombre_centro || 'Otros',
-              _objetivo_name: f.objetivo || f.nombre_objetivo || 'Otro',
-              _subarea_name: f.subarea || f.nombre_subarea || 'Global'
+              _empresa_servicio_name: (f.empresa_servicio || f.nombre_empresaservicios || 'Otros').trim(),
+              _centro_name: (f.centro || f.nombre_centro || 'Otros').trim(),
+              _objetivo_name: (f.objetivo || f.nombre_objetivo || 'Otro').trim(),
+              _subarea_name: (f.subarea || f.nombre_subarea || 'Global').trim()
             });
           }
         });
@@ -116,35 +139,36 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
         const uniqueEmpresas = new Map();
         const uniqueObjetivos = new Map();
         const uniqueSubAreas = new Map();
-        const allCentros: any[] = [];
+        const uniqueCentros = new Map();
 
         enriched.forEach((f: any) => {
           if (f._muestreador_name && f._muestreador_name !== 'No Asignado') {
-            uniqueMuentreadores.set(f._muestreador_name, { id: f._muestreador_id || f._muestreador_name, nombre: f._muestreador_name });
+            uniqueMuentreadores.set(f._muestreador_name, { label: f._muestreador_name, value: f._muestreador_name });
           }
           if (f._status_name && f._status_name !== 'Sin Estado') {
-            uniqueEstados.set(f._status_name, { id: f._status_id || f._status_name, nombre: f._status_name });
+            uniqueEstados.set(f._status_name, { label: f._status_name, value: f._status_name });
           }
           if (f._empresa_servicio_name && f._empresa_servicio_name !== 'Otros') {
-            uniqueEmpresas.set(f._empresa_servicio_name, { id: f._empresa_servicio_name, nombre: f._empresa_servicio_name });
+            uniqueEmpresas.set(f._empresa_servicio_name, { label: f._empresa_servicio_name, value: f._empresa_servicio_name });
           }
           if (f._centro_name && f._centro_name !== 'Otros') {
-            allCentros.push({ nombre: f._centro_name, empresa: f._empresa_servicio_name });
+            const key = `${f._centro_name}-${f._empresa_servicio_name}`;
+            uniqueCentros.set(key, { label: f._centro_name, value: f._centro_name, empresa: f._empresa_servicio_name });
           }
           if (f._objetivo_name && f._objetivo_name !== 'Otro') {
-            uniqueObjetivos.set(f._objetivo_name, { id: f._objetivo_name, nombre: f._objetivo_name });
+            uniqueObjetivos.set(f._objetivo_name, { label: f._objetivo_name, value: f._objetivo_name });
           }
           if (f._subarea_name && f._subarea_name !== 'Global' && f._subarea_name !== 'Otro') {
-            uniqueSubAreas.set(f._subarea_name, { id: f._subarea_name, nombre: f._subarea_name });
+            uniqueSubAreas.set(f._subarea_name, { label: f._subarea_name, value: f._subarea_name });
           }
         });
 
-        setMuestreadores(Array.from(uniqueMuentreadores.values()).sort((a,b) => a.nombre.localeCompare(b.nombre)));
-        setEstados(Array.from(uniqueEstados.values()).sort((a,b) => a.nombre.localeCompare(b.nombre)));
-        setEmpresasServicio(Array.from(uniqueEmpresas.values()).sort((a,b) => a.nombre.localeCompare(b.nombre)));
-        setObjetivos(Array.from(uniqueObjetivos.values()).sort((a,b) => a.nombre.localeCompare(b.nombre)));
-        setSubAreas(Array.from(uniqueSubAreas.values()).sort((a,b) => a.nombre.localeCompare(b.nombre)));
-        setCentros(allCentros);
+        setMuestreadores(Array.from(uniqueMuentreadores.values()).sort((a,b) => a.label.localeCompare(b.label)));
+        setEstados(Array.from(uniqueEstados.values()).sort((a,b) => a.label.localeCompare(b.label)));
+        setEmpresasServicio(Array.from(uniqueEmpresas.values()).sort((a,b) => a.label.localeCompare(b.label)));
+        setObjetivos(Array.from(uniqueObjetivos.values()).sort((a,b) => a.label.localeCompare(b.label)));
+        setSubAreas(Array.from(uniqueSubAreas.values()).sort((a,b) => a.label.localeCompare(b.label)));
+        setCentros(Array.from(uniqueCentros.values()).sort((a,b) => a.label.localeCompare(b.label)));
 
       } catch (error) {
         console.error("Error loading dashboard data:", error);
@@ -155,7 +179,6 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
     fetchData();
   }, []);
 
-  // --- Filter Logic ---
   const filteredData = useMemo(() => {
     // Helper to match ISO for comparison
     const toISO = (d: any) => {
@@ -174,20 +197,12 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
     return data.filter(f => {
       // Status filter
       if (filterEstado) {
-        const val = normalize(filterEstado);
-        const match = 
-          normalize(f._status_name).includes(val) || 
-          String(f._status_id) === filterEstado;
-        if (!match) return false;
+        if (f._status_name !== filterEstado) return false;
       }
       
       // Muestreador filter
       if (filterMuestreador) {
-        const val = normalize(filterMuestreador);
-        const match = 
-          normalize(f._muestreador_name).includes(val) || 
-          String(f._muestreador_id) === filterMuestreador;
-        if (!match) return false;
+        if (f._muestreador_name !== filterMuestreador) return false;
       }
 
       // Empresa Servicio filter
@@ -215,8 +230,9 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
         const rowDateStr = toISO(f._fecha || f.fecha || f.fecha_muestreo);
         if (!rowDateStr) return false;
         
-        if (filterDateFrom && rowDateStr < filterDateFrom) return false;
-        if (filterDateTo && rowDateStr > filterDateTo) return false;
+        const rowDate = new Date(rowDateStr);
+        if (filterDateFrom && rowDate < filterDateFrom) return false;
+        if (filterDateTo && rowDate > filterDateTo) return false;
       }
 
       return true;
@@ -438,30 +454,30 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
   // --- Render Helpers ---
 
   const StatCard = ({ title, value, sub, color, icon }: { title: string, value: string | number, sub: string, color: string, icon: React.ReactNode }) => (
-    <div style={{
-      backgroundColor: 'white',
-      padding: '1.25rem',
-      borderRadius: '20px',
-      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
-      border: '1px solid #f3f4f6',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '1rem'
-    }}>
-      <div style={{ 
-        width: 48, height: 48, borderRadius: '12px', backgroundColor: `${color}15`, 
-        color, display: 'flex', alignItems: 'center', justifyContent: 'center' 
-      }}>
-        {icon}
-      </div>
-      <div>
-        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase' }}>{title}</span>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.4rem' }}>
-          <span style={{ fontSize: '1.5rem', fontWeight: 700, color: '#111827' }}>{value}</span>
-          <span style={{ fontSize: '0.7rem', color: '#9ca3af' }}>{sub}</span>
-        </div>
-      </div>
-    </div>
+    <Paper radius="lg" p="md" withBorder shadow="sm" style={{ borderLeft: `4px solid ${color}` }}>
+      <Group justify="space-between" align="center">
+        <Stack gap={0}>
+          <Text size="xs" fw={700} c="dimmed" tt="uppercase">{title}</Text>
+          <Group align="baseline" gap="xs">
+            <Text size="xl" fw={800}>{value}</Text>
+            <Text size="xs" c="dimmed">{sub}</Text>
+          </Group>
+        </Stack>
+        <Box 
+          p="xs" 
+          style={{ 
+            backgroundColor: `${color}15`, 
+            color: color,
+            borderRadius: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          {icon}
+        </Box>
+      </Group>
+    </Paper>
   );
 
   const InfoButton = ({ title, detail }: { title: string, detail: any }) => (
@@ -568,217 +584,203 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
     <div className="dashboard-container" style={{ padding: '0 1.5rem 2rem 1.5rem', animation: 'fadeIn 0.6s ease-out' }}>
       
       {/* Header & Controls */}
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        marginBottom: '2rem', 
-        position: 'relative',
-        padding: '0 1rem'
-      }}>
-        <div style={{ position: 'absolute', left: 0 }}>
-          <button onClick={onBack} className="btn-back" style={{ margin: 0, padding: '8px 16px', borderRadius: '10px' }}>
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" style={{ width: 16 }}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-            </svg>
+      <Box mb="xl" pos="relative">
+        <Group justify="space-between" align="center">
+          <Button 
+            variant="light" 
+            color="gray" 
+            leftSection={<IconChevronLeft size={16} />}
+            onClick={onBack}
+            radius="md"
+          >
             Cerrar Dashboard
-          </button>
-        </div>
+          </Button>
 
-        <div style={{ textAlign: 'center' }}>
-          <h2 style={{ fontSize: '2rem', fontWeight: 800, color: '#111827', letterSpacing: '-0.025em', marginBottom: '0.25rem' }}>
-            {activeTab === 'operativa' ? 'Gestión Operativa' : activeTab === 'comercial' ? 'Servicios y Clientes' : 'Logística de Centros'}
-          </h2>
-          <p style={{ fontSize: '1rem', color: '#6b7280', fontWeight: 500 }}>
-            {activeTab === 'operativa' ? 'Seguimiento de muestreadores y ejecución' : activeTab === 'comercial' ? 'Análisis de mercado y objetivos de servicio' : 'Rendimiento por centros y áreas ambientales'}
-          </p>
-        </div>
+          <Stack gap={0} align="center">
+            <Title order={2} fw={800} style={{ letterSpacing: '-0.025em' }}>
+              {activeTab === 'operativa' ? 'Gestión Operativa' : activeTab === 'comercial' ? 'Servicios y Clientes' : 'Logística de Centros'}
+            </Title>
+            <Text c="dimmed" fw={500} size="sm">
+              {activeTab === 'operativa' ? 'Seguimiento de muestreadores y ejecución' : activeTab === 'comercial' ? 'Análisis de mercado y objetivos de servicio' : 'Rendimiento por centros y áreas ambientales'}
+            </Text>
+          </Stack>
 
-        <div style={{ position: 'absolute', right: 0 }}>
-          <button 
+          <Button 
+            variant="outline" 
+            color="red" 
+            leftSection={<IconX size={16} />}
             onClick={() => {
-              setFilterMuestreador('');
-              setFilterEstado('');
-              setFilterEmpresaServicio('');
-              setFilterCentro('');
-              setFilterObjetivo('');
-              setFilterSubArea('');
-              setFilterDateFrom('');
-              setFilterDateTo('');
+              setFilterMuestreador(null);
+              setFilterEstado(null);
+              setFilterEmpresaServicio(null);
+              setFilterCentro(null);
+              setFilterObjetivo(null);
+              setFilterSubArea(null);
+              setFilterDateFrom(null);
+              setFilterDateTo(null);
             }}
-            className="btn-secondary"
-            style={{ 
-              padding: '8px 16px', 
-              borderRadius: '10px', 
-              fontSize: '0.85rem',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#fee2e2';
-              e.currentTarget.style.color = '#dc2626';
-              e.currentTarget.style.borderColor = '#fca5a5';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '';
-              e.currentTarget.style.color = '';
-              e.currentTarget.style.borderColor = '';
-            }}
+            radius="md"
           >
             Resetear Filtros
-          </button>
-        </div>
-      </div>
+          </Button>
+        </Group>
+      </Box>
 
-      {/* Tabs Navigation */}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', marginBottom: '1.5rem', borderBottom: '1px solid #e5e7eb', padding: '0 0.5rem' }}>
-        {[
-          { id: 'operativa', label: 'Gestión Operativa', icon: <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v10m-5-5h10M5 20h14" /></svg> },
-          { id: 'comercial', label: 'Servicios y Clientes', icon: <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M9 7a4 4 0 100-8 4 4 0 000 8z" /></svg> },
-          { id: 'logistica', label: 'Logística y Centros', icon: <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg> }
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.6rem',
-              padding: '0.75rem 0.25rem',
-              fontSize: '0.9rem',
-              fontWeight: 700,
-              color: activeTab === tab.id ? '#8b5cf6' : '#6b7280',
-              border: 'none',
-              backgroundColor: 'transparent',
-              borderBottom: activeTab === tab.id ? '3px solid #8b5cf6' : '3px solid transparent',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              marginBottom: '-2px'
-            }}
+      <Tabs value={activeTab} onChange={setActiveTab} variant="outline" radius="md" mb="xl">
+        <Tabs.List grow>
+          <Tabs.Tab 
+            value="operativa" 
+            leftSection={<IconUsers size={16} />}
+            style={{ fontWeight: 700 }}
           >
-            {tab.icon}
-            {tab.label}
-          </button>
-        ))}
-      </div>
+            Gestión Operativa
+          </Tabs.Tab>
+          <Tabs.Tab 
+            value="comercial" 
+            leftSection={<IconBuilding size={16} />}
+            style={{ fontWeight: 700 }}
+          >
+            Servicios y Clientes
+          </Tabs.Tab>
+          <Tabs.Tab 
+            value="logistica" 
+            leftSection={<IconMapPin size={16} />}
+            style={{ fontWeight: 700 }}
+          >
+            Logística y Centros
+          </Tabs.Tab>
+        </Tabs.List>
+      </Tabs>
 
       {/* Dynamic Filter Bar based on Tab */}
-      <div style={{ 
-        backgroundColor: 'white', 
-        padding: '1.25rem', 
-        borderRadius: '20px', 
-        marginBottom: '2rem', 
-        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.04)',
-        border: '1px solid #f3f4f6',
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-        gap: '1rem',
-        alignItems: 'end'
-      }}>
-        {activeTab === 'operativa' && (
-          <>
-            <div className="filter-group">
-              <label style={{ fontSize: '0.7rem', fontWeight: 700, color: '#374151', marginBottom: '0.4rem', display: 'block' }}>MUESTREADOR</label>
-              <select value={filterMuestreador} onChange={(e) => setFilterMuestreador(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '10px', border: '1px solid #e5e7eb', fontSize: '0.8rem' }}>
-                <option value="">Todos</option>
-                {muestreadores.map(m => <option key={m.id} value={m.nombre}>{m.nombre}</option>)}
-              </select>
-            </div>
-            <div className="filter-group">
-              <label style={{ fontSize: '0.7rem', fontWeight: 700, color: '#374151', marginBottom: '0.4rem', display: 'block' }}>ESTADO</label>
-              <select value={filterEstado} onChange={(e) => setFilterEstado(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '10px', border: '1px solid #e5e7eb', fontSize: '0.8rem' }}>
-                <option value="">Todos</option>
-                {estados.map(e => <option key={e.id} value={e.nombre}>{e.nombre}</option>)}
-              </select>
-            </div>
-          </>
-        )}
+      <Paper radius="lg" p="md" withBorder shadow="xs" mb="xl">
+        <SimpleGrid cols={{ base: 1, sm: 2, md: 4, lg: 5 }} spacing="md">
+          {activeTab === 'operativa' && (
+            <>
+              <Select 
+                label="Muestreador"
+                placeholder="Todos"
+                data={muestreadores}
+                value={filterMuestreador}
+                onChange={setFilterMuestreador}
+                clearable
+                leftSection={<IconUsers size={16} />}
+              />
+              <Select 
+                label="Estado"
+                placeholder="Todos"
+                data={estados}
+                value={filterEstado}
+                onChange={setFilterEstado}
+                clearable
+                leftSection={<IconAdjustmentsHorizontal size={16} />}
+              />
+            </>
+          )}
 
-        {activeTab === 'comercial' && (
-          <>
-            <div className="filter-group">
-              <label style={{ fontSize: '0.7rem', fontWeight: 700, color: '#374151', marginBottom: '0.4rem', display: 'block' }}>EMPRESA SERVICIO</label>
-              <select value={filterEmpresaServicio} onChange={(e) => { setFilterEmpresaServicio(e.target.value); setFilterCentro(''); }} style={{ width: '100%', padding: '8px', borderRadius: '10px', border: '1px solid #e5e7eb', fontSize: '0.8rem' }}>
-                <option value="">Todas</option>
-                {empresasServicio.map(e => <option key={e.id} value={e.nombre}>{e.nombre}</option>)}
-              </select>
-            </div>
-            <div className="filter-group">
-              <label style={{ fontSize: '0.7rem', fontWeight: 700, color: '#374151', marginBottom: '0.4rem', display: 'block' }}>OBJETIVO</label>
-              <select value={filterObjetivo} onChange={(e) => setFilterObjetivo(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '10px', border: '1px solid #e5e7eb', fontSize: '0.8rem' }}>
-                <option value="">Todos</option>
-                {objetivos.map(o => <option key={o.id} value={o.nombre}>{o.nombre}</option>)}
-              </select>
-            </div>
-          </>
-        )}
+          {activeTab === 'comercial' && (
+            <>
+              <Select 
+                label="Empresa Servicio"
+                placeholder="Todas"
+                data={empresasServicio}
+                value={filterEmpresaServicio}
+                onChange={(v) => { setFilterEmpresaServicio(v); setFilterCentro(null); }}
+                clearable
+                leftSection={<IconBuilding size={16} />}
+              />
+              <Select 
+                label="Objetivo"
+                placeholder="Todos"
+                data={objetivos}
+                value={filterObjetivo}
+                onChange={setFilterObjetivo}
+                clearable
+                leftSection={<IconChartBar size={16} />}
+              />
+            </>
+          )}
 
-        {activeTab === 'logistica' && (
-          <>
-            <div className="filter-group">
-              <label style={{ fontSize: '0.7rem', fontWeight: 700, color: '#374151', marginBottom: '0.4rem', display: 'block' }}>CENTRO</label>
-              <select value={filterCentro} onChange={(e) => setFilterCentro(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '10px', border: '1px solid #e5e7eb', fontSize: '0.8rem' }}>
-                <option value="">Todos</option>
-                {Array.from(new Set(centros.filter(c => !filterEmpresaServicio || c.empresa === filterEmpresaServicio).map(c => c.nombre)))
-                  .sort().map(c => <option key={c as string} value={c as string}>{c as string}</option>)}
-              </select>
-            </div>
-            <div className="filter-group">
-              <label style={{ fontSize: '0.7rem', fontWeight: 700, color: '#374151', marginBottom: '0.4rem', display: 'block' }}>SUB-ÁREA</label>
-              <select value={filterSubArea} onChange={(e) => setFilterSubArea(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '10px', border: '1px solid #e5e7eb', fontSize: '0.8rem' }}>
-                <option value="">Todas</option>
-                {subAreas.map(s => <option key={s.id} value={s.nombre}>{s.nombre}</option>)}
-              </select>
-            </div>
-          </>
-        )}
+          {activeTab === 'logistica' && (
+            <>
+              <Select 
+                label="Centro"
+                placeholder="Todos"
+                data={Array.from(new Map(centros.filter(c => !filterEmpresaServicio || c.empresa === filterEmpresaServicio).map(c => [c.value, c])).values())}
+                value={filterCentro}
+                onChange={setFilterCentro}
+                clearable
+                searchable
+                leftSection={<IconMapPin size={16} />}
+              />
+              <Select 
+                label="Sub-Área"
+                placeholder="Todas"
+                data={subAreas}
+                value={filterSubArea}
+                onChange={setFilterSubArea}
+                clearable
+                leftSection={<IconFilter size={16} />}
+              />
+            </>
+          )}
 
-        <div className="filter-group">
-          <label style={{ fontSize: '0.7rem', fontWeight: 700, color: '#374151', marginBottom: '0.4rem', display: 'block' }}>DESDE</label>
-          <input type="date" value={filterDateFrom} onChange={(e) => setFilterDateFrom(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '10px', border: '1px solid #e5e7eb', fontSize: '0.8rem' }} />
-        </div>
-        <div className="filter-group">
-          <label style={{ fontSize: '0.7rem', fontWeight: 700, color: '#374151', marginBottom: '0.4rem', display: 'block' }}>HASTA</label>
-          <input type="date" value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '10px', border: '1px solid #e5e7eb', fontSize: '0.8rem' }} />
-        </div>
-      </div>
+          <DateInput 
+            label="Desde"
+            placeholder="Fecha inicio"
+            value={filterDateFrom}
+            onChange={(val: any) => setFilterDateFrom(val)}
+            clearable
+            leftSection={<IconCalendar size={16} />}
+          />
+          <DateInput 
+            label="Hasta"
+            placeholder="Fecha fin"
+            value={filterDateTo}
+            onChange={(val: any) => setFilterDateTo(val)}
+            clearable
+            leftSection={<IconCalendar size={16} />}
+          />
+        </SimpleGrid>
+      </Paper>
 
       {/* Specialized Stat Cards by Tab */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+      <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="lg" mb="xl">
         {activeTab === 'operativa' && (
           <>
-            <StatCard title="Muestreos Totales" value={filteredData.length} sub="Unidades de trabajo" color="#8b5cf6" icon={<svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>} />
-            <StatCard title="En Proceso" value={filteredData.filter(f => normalize(f._status_name).includes('proceso')).length} sub="Activos ahora" color="#3b82f6" icon={<svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>} />
-            <StatCard title="Ejecutados" value={filteredData.filter(f => normalize(f._status_name).includes('ejecutado')).length} sub="Completados" color="#10b981" icon={<svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14" /><path d="M22 4L12 14.01l-3-3" /></svg>} />
-            <StatCard title="Cancelados" value={filteredData.filter(f => normalize(f._status_name).includes('cancela')).length} sub="Sin ejecución" color="#ef4444" icon={<svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M15 9l-6 6M9 9l6 6" /></svg>} />
+            <StatCard title="Muestreos Totales" value={filteredData.length} sub="Unidades de trabajo" color="#8b5cf6" icon={<IconChartBar size={24} />} />
+            <StatCard title="En Proceso" value={filteredData.filter(f => normalize(f._status_name).includes('proceso')).length} sub="Activos ahora" color="#3b82f6" icon={<IconAdjustmentsHorizontal size={24} />} />
+            <StatCard title="Ejecutados" value={filteredData.filter(f => normalize(f._status_name).includes('ejecutado')).length} sub="Completados" color="#10b981" icon={<IconChartBar size={24} />} />
+            <StatCard title="Cancelados" value={filteredData.filter(f => normalize(f._status_name).includes('cancela')).length} sub="Sin ejecución" color="#ef4444" icon={<IconX size={24} />} />
           </>
         )}
         {activeTab === 'comercial' && (
           <>
-            <StatCard title="Empresas Vigentes" value={new Set(filteredData.map(f => f._empresa_servicio_name)).size} sub="Proveedores" color="#8b5cf6" icon={<svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 7a4 4 0 100-8 4 4 0 000 8z" /></svg>} />
-            <StatCard title="Proyectos" value={new Set(filteredData.map(f => f._id_ficha)).size} sub="Fichas activas" color="#6366f1" icon={<svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 7l9-4 9 4-9 4-9-4zM3 13l9-4 9 4-9 4-9-4zM3 19l9-4 9 4-9 4-9-4z" /></svg>} />
-            <StatCard title="Objetivos Únicos" value={new Set(filteredData.map(f => f._objetivo_name)).size} sub="Tipos de servicio" color="#ec4899" icon={<svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" /></svg>} />
-            <StatCard title="Muestreos Totales" value={filteredData.length} sub="Volumen de servicio" color="#10b981" icon={<svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20v-6M6 20V10M18 20V4" /></svg>} />
+            <StatCard title="Empresas Vigentes" value={new Set(filteredData.map(f => f._empresa_servicio_name)).size} sub="Proveedores" color="#8b5cf6" icon={<IconBuilding size={24} />} />
+            <StatCard title="Proyectos" value={new Set(filteredData.map(f => f._id_ficha)).size} sub="Fichas activas" color="#6366f1" icon={<IconBuilding size={24} />} />
+            <StatCard title="Objetivos Únicos" value={new Set(filteredData.map(f => f._objetivo_name)).size} sub="Tipos de servicio" color="#ec4899" icon={<IconAdjustmentsHorizontal size={24} />} />
+            <StatCard title="Muestreos Totales" value={filteredData.length} sub="Volumen de servicio" color="#10b981" icon={<IconChartBar size={24} />} />
           </>
         )}
         {activeTab === 'logistica' && (
           <>
-            <StatCard title="Centros Atendidos" value={new Set(filteredData.map(f => f._centro_name)).size} sub="Ubicaciones" color="#059669" icon={<svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>} />
-            <StatCard title="Sub-Áreas" value={new Set(filteredData.map(f => f._subarea_name)).size} sub="Sectores" color="#0ea5e9" icon={<svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 6h16M4 12h16M4 18h16" /></svg>} />
-            <StatCard title="Muestreos x Centro" value={(filteredData.length / (new Set(filteredData.map(f => f._centro_name)).size || 1)).toFixed(1)} sub="Promedio carga" color="#f59e0b" icon={<svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" /></svg>} />
-            <StatCard title="Eficiencia" value={((filteredData.filter(f => normalize(f._status_name).includes('ejecutado')).length / (filteredData.length || 1)) * 100).toFixed(0) + '%'} sub="Tasa ejecución" color="#10b981" icon={<svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 12L12 22l-10-10l10-10l10 10z" /></svg>} />
+            <StatCard title="Centros Atendidos" value={new Set(filteredData.map(f => f._centro_name)).size} sub="Ubicaciones" color="#059669" icon={<IconMapPin size={24} />} />
+            <StatCard title="Sub-Áreas" value={new Set(filteredData.map(f => f._subarea_name)).size} sub="Sectores" color="#0ea5e9" icon={<IconFilter size={24} />} />
+            <StatCard title="Muestreos x Centro" value={(filteredData.length / (new Set(filteredData.map(f => f._centro_name)).size || 1)).toFixed(1)} sub="Promedio carga" color="#f59e0b" icon={<IconChartBar size={24} />} />
+            <StatCard title="Eficiencia" value={((filteredData.filter(f => normalize(f._status_name).includes('ejecutado')).length / (filteredData.length || 1)) * 100).toFixed(0) + '%'} sub="Tasa ejecución" color="#10b981" icon={<IconChartBar size={24} />} />
           </>
         )}
-      </div>
+      </SimpleGrid>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem' }}>
+      <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="xl">
         {/* Main Chart Column */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+        <Stack gap="xl">
           
           {activeTab === 'operativa' && (
-            <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '24px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', border: '1px solid #f3f4f6', position: 'relative' }}>
+            <Paper withBorder radius="lg" p="xl" shadow="sm" pos="relative">
               <InfoButton title="Carga por Muestreador" detail={chartExplanations['Carga por Muestreador']} />
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111827', marginBottom: '1.5rem', textAlign: 'center' }}>Carga por Muestreador</h3>
-              <div style={{ height: 350 }}>
+              <Title order={4} ta="center" mb="lg">Carga por Muestreador</Title>
+              <div style={{ height: 350, minWidth: 0 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={samplerAnalytics} layout="vertical" onClick={(data) => { if(data?.activeLabel) handleChartClick('muestreador', String(data.activeLabel)); }}>
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f3f4f6" />
@@ -793,14 +795,14 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-            </div>
+            </Paper>
           )}
 
           {activeTab === 'comercial' && (
-            <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '24px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', border: '1px solid #f3f4f6', position: 'relative' }}>
+            <Paper withBorder radius="lg" p="xl" shadow="sm" pos="relative">
               <InfoButton title="Carga por Empresa Servicio" detail={chartExplanations['Carga por Empresa Servicio']} />
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111827', marginBottom: '1.5rem', textAlign: 'center' }}>Carga por Empresa Servicio</h3>
-              <div style={{ height: 350 }}>
+              <Title order={4} ta="center" mb="lg">Carga por Empresa Servicio</Title>
+              <div style={{ height: 350, minWidth: 0 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={companyAnalytics} layout="vertical" onClick={(data) => { if(data?.activeLabel) handleChartClick('empresa', String(data.activeLabel)); }}>
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f3f4f6" />
@@ -811,14 +813,14 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-            </div>
+            </Paper>
           )}
 
           {activeTab === 'logistica' && (
-            <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '24px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', border: '1px solid #f3f4f6', position: 'relative' }}>
+            <Paper withBorder radius="lg" p="xl" shadow="sm" pos="relative">
               <InfoButton title="Volumen por Centro de Muestreo" detail={chartExplanations['Volumen por Centro de Muestreo']} />
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111827', marginBottom: '1.5rem', textAlign: 'center' }}>Volumen por Centro de Muestreo</h3>
-              <div style={{ height: 350 }}>
+              <Title order={4} ta="center" mb="lg">Volumen por Centro de Muestreo</Title>
+              <div style={{ height: 350, minWidth: 0 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={centerAnalytics} layout="vertical" onClick={(data) => { if(data?.activeLabel) handleChartClick('centro', String(data.activeLabel)); }}>
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f3f4f6" />
@@ -829,18 +831,18 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-            </div>
+            </Paper>
           )}
 
-          <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '24px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', border: '1px solid #f3f4f6', position: 'relative' }}>
+          <Paper withBorder radius="lg" p="xl" shadow="sm" pos="relative">
             <InfoButton 
               title={activeTab === 'operativa' ? 'Eficiencia de Ejecución' : activeTab === 'comercial' ? 'Crecimiento por Objetivo' : 'Cobertura de Centros'} 
               detail={chartExplanations[activeTab === 'operativa' ? 'Eficiencia de Ejecución' : activeTab === 'comercial' ? 'Crecimiento por Objetivo' : 'Cobertura de Centros']} 
             />
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111827', marginBottom: '1.5rem', textAlign: 'center' }}>
+            <Title order={4} ta="center" mb="lg">
               {activeTab === 'operativa' ? 'Eficiencia de Ejecución' : activeTab === 'comercial' ? 'Crecimiento por Objetivo' : 'Cobertura de Centros'}
-            </h3>
-            <div style={{ height: 250 }}>
+            </Title>
+            <div style={{ height: 250, minWidth: 0 }}>
               <ResponsiveContainer width="100%" height="100%">
                 {activeTab === 'operativa' ? (
                   <AreaChart data={trendAnalytics}>
@@ -877,21 +879,21 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
                 )}
               </ResponsiveContainer>
             </div>
-          </div>
-        </div>
+          </Paper>
+        </Stack>
 
         {/* Sidebar Column */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+        <Stack gap="xl">
           
-          <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '24px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', border: '1px solid #f3f4f6', position: 'relative' }}>
+          <Paper withBorder radius="lg" p="xl" shadow="sm" pos="relative">
             <InfoButton 
               title={activeTab === 'operativa' ? 'Distribución de Estados' : activeTab === 'comercial' ? 'Mix de Objetivos' : 'Áreas Ambientales'} 
               detail={chartExplanations[activeTab === 'operativa' ? 'Distribución de Estados' : activeTab === 'comercial' ? 'Mix de Objetivos' : 'Áreas Ambientales']} 
             />
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111827', marginBottom: '1.5rem', textAlign: 'center' }}>
+            <Title order={4} ta="center" mb="lg">
               {activeTab === 'operativa' ? 'Distribución de Estados' : activeTab === 'comercial' ? 'Mix de Objetivos' : 'Áreas Ambientales'}
-            </h3>
-            <div style={{ height: 280 }}>
+            </Title>
+            <div style={{ height: 280, minWidth: 0 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -910,58 +912,56 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
                 </PieChart>
               </ResponsiveContainer>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.5rem' }}>
+            <Stack gap="xs" mt="md">
               {(activeTab === 'operativa' ? statusAnalytics : activeTab === 'comercial' ? objectiveAnalytics : subAreaAnalytics).slice(0, 5).map((item, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => handleChartClick(activeTab === 'operativa' ? 'estado' : activeTab === 'comercial' ? 'objetivo' : 'subarea', String(item.name))}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: COLORS[i % COLORS.length] }} />
-                    <span style={{ fontSize: '0.75rem', color: '#4b5563', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' }}>{item.name}</span>
-                  </div>
-                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#111827' }}>{item.value}</span>
-                </div>
+                <Group key={i} justify="space-between" style={{ cursor: 'pointer' }} onClick={() => handleChartClick(activeTab === 'operativa' ? 'estado' : activeTab === 'comercial' ? 'objetivo' : 'subarea', String(item.name))}>
+                  <Group gap="xs">
+                    <Box style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: COLORS[i % COLORS.length] }} />
+                    <Text size="xs" c="dimmed" truncate style={{ maxWidth: 120 }}>{item.name}</Text>
+                  </Group>
+                  <Text size="xs" fw={700}>{item.value}</Text>
+                </Group>
               ))}
-            </div>
-          </div>
+            </Stack>
+          </Paper>
 
-          <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '24px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', border: '1px solid #f3f4f6', flexGrow: 1, position: 'relative' }}>
+          <Paper withBorder radius="lg" p="xl" shadow="sm" flex={1} pos="relative">
             <InfoButton 
               title={activeTab === 'operativa' ? 'Agenda para Hoy' : 'Insights de Rendimiento'} 
               detail={chartExplanations[activeTab === 'operativa' ? 'Agenda para Hoy' : 'Insights de Rendimiento']} 
             />
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111827', marginBottom: '1rem', textAlign: 'center' }}>
+            <Title order={4} ta="center" mb="lg">
                {activeTab === 'operativa' ? 'Agenda para Hoy' : 'Insights de Rendimiento'}
-            </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            </Title>
+            <Stack gap="md">
               {activeTab === 'operativa' ? (
                 todayAgenda.slice(0, 5).map((event: any, idx: number) => (
-                  <div key={idx} style={{ padding: '0.75rem', borderRadius: '12px', backgroundColor: '#f9fafb', borderLeft: `4px solid ${event.tipo_display === 'INICIO' ? '#3b82f6' : '#ef4444'}` }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#111827' }}>{event.tipo_display}</span>
-                    </div>
-                    <p style={{ fontSize: '0.8rem', color: '#4b5563', margin: 0 }}>{event.muestreador_display}</p>
-                    <p style={{ fontSize: '0.7rem', color: '#9ca3af' }}>{event._centro_name || event.nombre_empresaservicios}</p>
-                  </div>
+                  <Paper key={idx} p="sm" radius="md" withBorder style={{ borderLeft: `4px solid ${event.tipo_display === 'INICIO' ? '#3b82f6' : '#ef4444'}` }}>
+                    <Text size="xs" fw={700}>{event.tipo_display}</Text>
+                    <Text size="sm">{event.muestreador_display}</Text>
+                    <Text size="xs" c="dimmed">{event._centro_name || event.nombre_empresaservicios}</Text>
+                  </Paper>
                 ))
               ) : (
                 <>
-                  <div style={{ padding: '1rem', borderRadius: '15px', backgroundColor: '#f0f9ff' }}>
-                    <p style={{ fontSize: '0.75rem', color: '#0369a1', fontWeight: 600, marginBottom: '0.3rem' }}>MÁXIMO VOLUMEN</p>
-                    <p style={{ fontSize: '0.85rem', color: '#1e3a8a', fontWeight: 700 }}>
+                  <Paper p="md" radius="lg" bg="blue.0">
+                    <Text size="xs" c="blue.7" fw={700} mb={4}>MÁXIMO VOLUMEN</Text>
+                    <Text size="sm" fw={700}>
                       {activeTab === 'comercial' ? String(companyAnalytics[0]?.name || 'N/A') : String(centerAnalytics[0]?.name || 'N/A')}
-                    </p>
-                  </div>
-                  <div style={{ padding: '1rem', borderRadius: '15px', backgroundColor: '#fdf2f8' }}>
-                    <p style={{ fontSize: '0.75rem', color: '#be185d', fontWeight: 600, marginBottom: '0.3rem' }}>PREDOMINANTE</p>
-                    <p style={{ fontSize: '0.85rem', color: '#831843', fontWeight: 700 }}>
+                    </Text>
+                  </Paper>
+                  <Paper p="md" radius="lg" bg="pink.0">
+                    <Text size="xs" c="pink.7" fw={700} mb={4}>PREDOMINANTE</Text>
+                    <Text size="sm" fw={700}>
                       {activeTab === 'comercial' ? String(objectiveAnalytics[0]?.name || 'N/A') : String(subAreaAnalytics[0]?.name || 'N/A')}
-                    </p>
-                  </div>
+                    </Text>
+                  </Paper>
                 </>
               )}
-            </div>
-          </div>
-        </div>
-      </div>
+            </Stack>
+          </Paper>
+        </Stack>
+      </SimpleGrid>
 
       {/* Info Modal */}
       {infoModal && (
@@ -983,7 +983,7 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
             backgroundColor: 'white',
             padding: '2.5rem 2rem',
             borderRadius: '24px',
-            maxWidth: '500px',
+            maxWidth: '800px',
             width: '90%',
             boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
             position: 'relative',
@@ -1007,25 +1007,25 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
             </button>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
               <div style={{ width: 44, height: 44, borderRadius: '12px', backgroundColor: '#8b5cf615', color: '#8b5cf6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2"><path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <IconInfoCircle size={22} />
               </div>
-              <h4 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#111827', margin: 0 }}>{infoModal.title}</h4>
+              <Title order={3}>{infoModal?.title}</Title>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <Stack gap="xl">
               <div>
-                <p style={{ fontSize: '0.75rem', fontWeight: 800, color: '#8b5cf6', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem' }}>¿QUÉ ES?</p>
-                <p style={{ color: '#4b5563', lineHeight: 1.6, fontSize: '0.95rem', margin: 0 }}>{infoModal.definition}</p>
+                <Text size="xs" fw={800} c="blue" tt="uppercase" lts="0.05em" mb={4}>¿QUÉ ES?</Text>
+                <Text color="dimmed" size="sm" lh={1.6}>{infoModal?.definition}</Text>
               </div>
               <div>
-                <p style={{ fontSize: '0.75rem', fontWeight: 800, color: '#8b5cf6', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem' }}>¿CÓMO FUNCIONA?</p>
-                <p style={{ color: '#4b5563', lineHeight: 1.6, fontSize: '0.95rem', margin: 0 }}>{infoModal.operation}</p>
+                <Text size="xs" fw={800} c="blue" tt="uppercase" lts="0.05em" mb={4}>¿CÓMO FUNCIONA?</Text>
+                <Text color="dimmed" size="sm" lh={1.6}>{infoModal?.operation}</Text>
               </div>
               <div>
-                <p style={{ fontSize: '0.75rem', fontWeight: 800, color: '#8b5cf6', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem' }}>¿QUÉ MUESTRAN LOS DATOS?</p>
-                <p style={{ color: '#4b5563', lineHeight: 1.6, fontSize: '0.95rem', margin: 0 }}>{infoModal.data}</p>
+                <Text size="xs" fw={800} c="blue" tt="uppercase" lts="0.05em" mb={4}>¿QUÉ MUESTRAN LOS DATOS?</Text>
+                <Text color="dimmed" size="sm" lh={1.6}>{infoModal?.data}</Text>
               </div>
-            </div>
+            </Stack>
 
             <button 
               onClick={() => setInfoModal(null)}

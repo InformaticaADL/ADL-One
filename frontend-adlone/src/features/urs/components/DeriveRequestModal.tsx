@@ -1,6 +1,21 @@
 import React, { useState } from 'react';
 import { ursService } from '../../../services/urs.service';
-import './DeriveRequestModal.css';
+import {
+    Modal,
+    Stack,
+    Group,
+    Select,
+    Textarea,
+    Button,
+    ThemeIcon,
+    Text,
+    Loader
+} from '@mantine/core';
+import {
+    IconArrowForwardUp,
+    IconCheck,
+    IconUserPin
+} from '@tabler/icons-react';
 
 interface DeriveRequestModalProps {
     isOpen: boolean;
@@ -12,7 +27,7 @@ interface DeriveRequestModalProps {
 
 const DeriveRequestModal: React.FC<DeriveRequestModalProps> = ({ isOpen, requestId, requestTypeId, onClose, onSuccess }) => {
     const [targets, setTargets] = useState<any[]>([]);
-    const [selectedTarget, setSelectedTarget] = useState<string>(''); // Formato: "ROL:id" o "USR:id"
+    const [selectedTarget, setSelectedTarget] = useState<string | null>(null); 
     const [comment, setComment] = useState('');
     const [loading, setLoading] = useState(false);
     const [loadingTargets, setLoadingTargets] = useState(false);
@@ -27,17 +42,14 @@ const DeriveRequestModal: React.FC<DeriveRequestModalProps> = ({ isOpen, request
         }
     }, [isOpen, requestTypeId]);
 
-    if (!isOpen) return null;
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!selectedTarget) return alert('Selecciona un destino de derivación');
+    const handleSubmit = async () => {
+        if (!selectedTarget) return;
 
         const [type, id] = selectedTarget.split(':');
         setLoading(true);
         try {
             await ursService.deriveRequest(requestId, { 
-                area: 'DERIVACION', // El backend resolverá el área si es necesario o podemos pasar el nombre del rol
+                area: 'DERIVACION',
                 userId: type === 'USR' ? Number(id) : undefined,
                 roleId: type === 'ROL' ? Number(id) : undefined,
                 comment 
@@ -46,60 +58,71 @@ const DeriveRequestModal: React.FC<DeriveRequestModalProps> = ({ isOpen, request
             onClose();
         } catch (error) {
             console.error("Error deriving request:", error);
-            alert("Error al derivar la solicitud");
         } finally {
             setLoading(false);
         }
     };
 
+    const targetOptions = targets.map((t) => ({
+        value: t.id_rol ? `ROL:${t.id_rol}` : `USR:${t.id_usuario}`,
+        label: t.id_rol ? `[ROL] ${t.nombre_rol}` : `[PERSONA] ${t.nombre_usuario}`
+    }));
+
     return (
-        <div className="modal-overlay" style={{ zIndex: 1100 }}>
-            <div className="modal-content animate-pop-in urs-derive-modal">
-                <div className="modal-header">
-                    <h2>Derivar Solicitud #{requestId}</h2>
-                    <button className="btn-close" onClick={onClose}>✕</button>
-                </div>
+        <Modal 
+            opened={isOpen} 
+            onClose={onClose} 
+            title={
+                <Group gap="xs">
+                    <ThemeIcon variant="light" color="indigo" radius="md">
+                        <IconArrowForwardUp size={18} />
+                    </ThemeIcon>
+                    <Text fw={700}>Derivar Solicitud #{requestId}</Text>
+                </Group>
+            }
+            radius="lg"
+            zIndex={1100}
+        >
+            <Stack gap="md">
+                <Select 
+                    label="Destinatario Autorizado"
+                    placeholder={loadingTargets ? 'Cargando...' : 'Seleccione destino...'}
+                    data={targetOptions}
+                    value={selectedTarget}
+                    onChange={setSelectedTarget}
+                    disabled={loadingTargets}
+                    required
+                    searchable
+                    radius="md"
+                    leftSection={loadingTargets ? <Loader size={14} /> : <IconUserPin size={16} />}
+                />
 
-                <form onSubmit={handleSubmit} className="derive-form">
-                    <div className="form-group">
-                        <label>Destinatario Autorizado</label>
-                        <select 
-                            value={selectedTarget} 
-                            onChange={(e) => setSelectedTarget(e.target.value)} 
-                            required
-                            disabled={loadingTargets}
-                        >
-                            <option value="">{loadingTargets ? 'Cargando...' : 'Seleccione destino...'}</option>
-                            {targets.map((t, idx) => (
-                                <option 
-                                    key={idx} 
-                                    value={t.id_rol ? `ROL:${t.id_rol}` : `USR:${t.id_usuario}`}
-                                >
-                                    {t.id_rol ? `[ROL] ${t.nombre_rol}` : `[PERSONA] ${t.nombre_usuario}`}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
+                <Textarea 
+                    label="Comentario / Instrucciones"
+                    placeholder="Indique el motivo de la derivación o instrucciones..."
+                    rows={3}
+                    value={comment}
+                    onChange={(e) => setComment(e.currentTarget.value)}
+                    radius="md"
+                />
 
-                    <div className="form-group">
-                        <label>Comentario / Instrucciones</label>
-                        <textarea 
-                            rows={3}
-                            placeholder="Indique el motivo de la derivación o instrucciones..."
-                            value={comment}
-                            onChange={(e) => setComment(e.target.value)}
-                        ></textarea>
-                    </div>
-
-                    <div className="modal-actions">
-                        <button type="button" className="btn-secondary" onClick={onClose}>Cancelar</button>
-                        <button type="submit" className="btn-primary" disabled={loading}>
-                            {loading ? 'Derivando...' : 'Confirmar Derivación'}
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
+                <Group justify="flex-end" mt="lg">
+                    <Button variant="light" color="gray" onClick={onClose} radius="md">
+                        Cancelar
+                    </Button>
+                    <Button 
+                        color="indigo" 
+                        radius="md" 
+                        loading={loading} 
+                        disabled={!selectedTarget}
+                        leftSection={<IconCheck size={18} />}
+                        onClick={handleSubmit}
+                    >
+                        Confirmar Derivación
+                    </Button>
+                </Group>
+            </Stack>
+        </Modal>
     );
 };
 

@@ -2,14 +2,40 @@ import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { fichaService } from '../services/ficha.service';
 import { ObservacionesForm } from './ObservacionesForm';
 import { ObservationTimeline } from './ObservationTimeline';
-import { WorkflowAlert } from '../../../components/ui/WorkflowAlert'; // Import WorkflowAlert
-import { AntecedentesForm, type AntecedentesFormHandle } from './AntecedentesForm'; // Import Form
-import { AnalysisForm } from './AnalysisForm'; // Import Form
-import { ConfirmModal } from '../../../components/common/ConfirmModal'; // Import ConfirmModal
+import { WorkflowAlert } from '../../../components/ui/WorkflowAlert';
+import { AntecedentesForm, type AntecedentesFormHandle } from './AntecedentesForm';
+import { AnalysisForm } from './AnalysisForm';
+import { ConfirmModal } from '../../../components/common/ConfirmModal';
 import { useToast } from '../../../contexts/ToastContext';
 import { useCachedCatalogos } from '../hooks/useCachedCatalogos';
-import { useAuth } from '../../../contexts/AuthContext'; // Import Auth
-import '../styles/FichasIngreso.css';
+import { useAuth } from '../../../contexts/AuthContext';
+import { PageHeader } from '../../../components/layout/PageHeader';
+
+import { 
+    Button, 
+    Text, 
+    Title, 
+    Stack, 
+    Group, 
+    Paper, 
+    SimpleGrid, 
+    Container, 
+    Table,
+    Badge,
+    Tabs, 
+    ScrollArea, 
+    LoadingOverlay,
+    Box,
+    Divider
+} from '@mantine/core';
+import { 
+    IconDeviceFloppy,
+    IconX,
+    IconEdit,
+    IconClipboardList, 
+    IconFlask, 
+    IconHistory
+} from '@tabler/icons-react';
 
 interface Props {
     fichaId: number;
@@ -18,10 +44,8 @@ interface Props {
 
 const mapToAntecedentes = (enc: any, agenda: any) => {
     if (!enc) return {};
-    // Ensure agenda is at least an empty object if undefined
     agenda = agenda || {};
 
-    // Parse Coordinates
     let zona = '', utmNorte = '', utmEste = '';
     const coordStr = enc.ma_coordenadas || '';
     const coordMatch = coordStr.match(/^(.*?) UTM (\d+)E (\d+)S/);
@@ -34,17 +58,13 @@ const mapToAntecedentes = (enc: any, agenda: any) => {
         zona = parts[0] || '';
     }
 
-    // Parse Instrumento
     let selInst = '';
     let nroInst = '';
     let anioInst = '';
-
-    // Normalize input string (handle both DB field names)
     const rawInst = (enc.instrumento_ambiental || enc.ma_instrumento_ambiental || '').trim();
 
     if (rawInst && rawInst !== 'No aplica') {
         const upper = rawInst.toUpperCase();
-
         if (upper.startsWith('RCA')) selInst = 'RCA';
         else if (upper.startsWith('RES. EX') || upper.startsWith('RES EX') || upper.startsWith('RESOLUCION EX')) selInst = 'Res. Ex.';
         else if (upper.startsWith('DECRETO')) selInst = 'Decreto';
@@ -53,12 +73,8 @@ const mapToAntecedentes = (enc: any, agenda: any) => {
         else if (upper.startsWith('DGTM')) selInst = 'DGTM';
         else selInst = 'Otro';
 
-        // Extract Number/Year
-        // If it was mapped to a type, remove that type prefix to get the number
-        // For 'Otro', the whole string is the number/desc
         let rest = rawInst;
         if (selInst !== 'Otro') {
-            // Basic removal of the detected prefix (case insensitive-ish)
             if (selInst === 'Res. Ex.') rest = rawInst.replace(/^Res\.?\s*Ex(enta)?\.?\s*(N°)?/i, '').trim();
             else if (selInst === 'RCA') rest = rawInst.replace(/^RCA\s*(N°)?/i, '').trim();
             else if (selInst === 'Decreto') rest = rawInst.replace(/^Decreto\s*(N°)?/i, '').trim();
@@ -79,41 +95,23 @@ const mapToAntecedentes = (enc: any, agenda: any) => {
     }
 
     return {
-        // Form: selectedEmpresa refers to "Empresa Servicio" catalog
         selectedEmpresa: enc.id_empresaservicios,
-
-        // Form: selectedCliente refers to "Cliente" catalog (DB: id_empresa is usually the client)
         selectedCliente: enc.id_empresa,
-
-        // Form: selectedFuente refers to "Centro" catalog
         selectedFuente: enc.id_centro,
-
-        // If contact is not in ENC, might be in a join or not returned. 
-        // If it's 0, it means it's either "No Aplica" or the primary contact of the empresa.
         selectedContacto: (enc.id_contacto === 0 || !enc.id_contacto)
             ? (enc.nombre_contacto === 'No Aplica' ? 'No Aplica' : 'primary')
             : String(enc.id_contacto),
-
-        // Form: selectedObjetivo
         selectedObjetivo: enc.id_objetivomuestreo_ma,
-
         selectedComponente: enc.id_tipomuestra,
         selectedSubArea: enc.id_subarea,
-
-        // Instrument
         selectedInstrumento: selInst || enc.ma_instrumento_ambiental || '',
         nroInstrumento: nroInst || enc.ma_nro_instrumento || '',
         anioInstrumento: anioInst || enc.ma_anio_instrumento || '',
-
         selectedInspector: agenda.id_inspectorambiental || enc.id_inspectorambiental || '',
-
         responsableMuestreo: enc.responsablemuestreo,
         cargoResponsable: enc.id_cargo,
-
         selectedTipoMuestreo: enc.id_tipomuestreo,
-
         selectedTipoMuestra: enc.id_tipomuestra_ma,
-
         selectedActividad: enc.id_actividadmuestreo,
         duracion: enc.ma_duracion_muestreo,
         selectedTipoDescarga: enc.id_tipodescarga,
@@ -126,49 +124,48 @@ const mapToAntecedentes = (enc: any, agenda: any) => {
         dispositivo: enc.id_dispositivohidraulico,
         tipoMedidaDispositivo: enc.id_um_dispositivohidraulico,
         detalleDispositivo: enc.dispositivohidraulico_medida,
-
-        // FREQUENCY FIX: Read from Agenda or Enc defaults
         frecuencia: agenda.frecuencia || enc.frecuencia || enc.ma_frecuencia,
         totalServicios: agenda.total_servicios || enc.total_servicios || enc.total_servicios_ma,
         factor: agenda.frecuencia_factor || enc.frecuencia_factor,
         periodo: agenda.id_frecuencia || enc.id_frecuencia,
-
-        // Missing Fields (Monitoreo, Lugar, Punto, Coords)
         tipoMonitoreo: enc.tipo_fichaingresoservicio || '',
         selectedLugar: enc.id_lugaranalisis || '',
         puntoMuestreo: enc.ma_punto_muestreo || '',
-        zona: zona || '', // These were parsed at the top but not returned
+        zona: zona || '',
         utmNorte: utmNorte || '',
         utmEste: utmEste || '',
         glosa: enc.nombre_tabla || enc.nombre_tabla_largo || enc.glosa || enc.ma_nombre_tabla || ''
     };
 };
 
+const getStatusProps = (status: string) => {
+    const s = (status || '').toUpperCase();
+    if (s.includes('RECHAZADA') || s.includes('CANCELADO') || s.includes('REVISAR')) return { color: 'red', label: s };
+    if (s.includes('COORDINACIÓN')) return { color: 'blue', label: s };
+    if (s.includes('PROGRAMACIÓN')) return { color: 'grape', label: s };
+    if (s.includes('PENDIENTE') || s.includes('ÁREA TÉCNICA')) return { color: 'yellow', label: 'PENDIENTE TÉCNICA' };
+    if (s.includes('ASIGNAR')) return { color: 'orange', label: s };
+    if (s.includes('VIGENTE') || s.includes('APROBADA') || s.includes('EJECUTADO') || s.includes('EN PROCESO')) return { color: 'green', label: s };
+    return { color: 'gray', label: s || 'SIN ESTADO' };
+};
+
 export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
     const { showToast } = useToast();
     const catalogos = useCachedCatalogos();
-    const auth = useAuth(); // Auth hook - get full object
-    const { hasPermission } = auth; // Destructure hasPermission for existing code
+    const auth = useAuth();
+    const { hasPermission } = auth;
 
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<'antecedentes' | 'analisis' | 'observaciones'>('antecedentes');
+    const [activeTab, setActiveTab] = useState<string>('antecedentes');
     const [data, setData] = useState<any>(null);
     const [laboratorios, setLaboratorios] = useState<any[]>([]);
-
-    // Edit Mode State
     const [isEditing, setIsEditing] = useState(false);
-    const [analysisList, setAnalysisList] = useState<any[]>([]); // For Analysis Edit
+    const [analysisList, setAnalysisList] = useState<any[]>([]);
     const antecedentesRef = useRef<AntecedentesFormHandle>(null);
-
-    // New: Ref for Observation Form to allow adding comments during edit
-    // New: State for Observation Form during edit
     const [newObservation, setNewObservation] = useState('');
-
-    // Store mapped initial data in a ref to prevent re-creation on every render
-    // This ref is ONLY updated when entering edit mode (in handleEditStart)
     const mappedInitialDataRef = useRef<any>(null);
+    const [showCancelModal, setShowCancelModal] = useState(false);
 
-    // Memoize timeline creation data (MOVED TO TOP LEVEL TO AVOID HOOK ORDER VIOLATION)
     const timelineCreationData = useMemo(() => {
         if (!data) return undefined;
         return {
@@ -186,709 +183,309 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
         if (!fichaId) return;
         setLoading(true);
         try {
-            // Parallel fetch: Ficha data + Labs catalog
             const [fichaResponse, labsData] = await Promise.all([
                 fichaService.getById(fichaId),
                 catalogos.getLaboratorios()
             ]);
 
-            // Handle different response structures for Ficha
             let fichaData = null;
             if (fichaResponse && fichaResponse.success && fichaResponse.data) {
                 fichaData = fichaResponse.data;
-            } else if (fichaResponse && fichaResponse.encabezado) {
-                fichaData = fichaResponse;
-            } else if (fichaResponse && fichaResponse.fichaingresoservicio) {
+            } else if (fichaResponse && (fichaResponse.encabezado || fichaResponse.fichaingresoservicio)) {
                 fichaData = fichaResponse;
             }
 
             if (fichaData) {
                 setData(fichaData);
             } else {
-                showToast({ type: 'error', message: 'No se pudo cargar la ficha (datos inválidos)' });
+                showToast({ type: 'error', message: 'No se pudo cargar la ficha' });
             }
-
             setLaboratorios(labsData || []);
-
         } catch (error) {
-            console.error("Error loading ficha or catalogs:", error);
+            console.error("Error loading data:", error);
             showToast({ type: 'error', message: "Error al cargar datos" });
         } finally {
             setLoading(false);
         }
     };
 
-    // Helper to get Lab Name
     const getLabName = (id: any) => {
         if (!id) return null;
         const lab = laboratorios.find(l => l.id_laboratorioensayo === id || l.id_laboratorioensayo === Number(id));
         return lab ? lab.nombre_laboratorioensayo : null;
     };
 
-    const [showCancelModal, setShowCancelModal] = useState(false);
-    // const { user } = useAuth(); // Unused
-
-
-    // START EDIT MODE
     const handleEditStart = () => {
         if (!data) return;
-
-        // 1. Prepare Analysis Data
-        // Map current 'det' to 'savedAnalysis' format
-        const currentDet = data.detalles || [];
-        const mappedAnalysis = currentDet.map((row: any, index: number) => ({
+        const mappedAnalysis = (data.detalles || []).map((row: any, index: number) => ({
             ...row,
-            savedId: `edit - ${index} -${Date.now()} `, // Temporary ID for frontend key
-            // Ensure fields match what AnalysisForm expects
+            savedId: `edit-${index}-${Date.now()}`,
             nombre_tecnica: row.nombre_tecnica || row.nombre_determinacion || row.nombre_examen,
-            tipo_analisis: row.tipo_analisis || row.nombre_tipomuestra, // Fallback if name is used
-            nombre_tipoentrega: row.nombre_tipoentrega,
             nombre_laboratorioensayo: getLabName(row.id_laboratorioensayo),
-            nombre_laboratorioensayo_2: getLabName(row.id_laboratorioensayo_2),
-            // Ensure numeric IDs are set
-            id_normativa: row.id_normativa,
-            id_referenciaanalisis: row.id_referenciaanalisis,
-            id_tecnica: row.id_tecnica,
+            nombre_laboratorioensayo_2: getLabName(row.id_laboratorioensayo_2 || row.id_laboratorioensayo2),
             item: index + 1
         }));
 
-        // 2. Map Antecedentes data ONCE and store in ref BEFORE setting isEditing
-        // This ensures the ref is populated when AntecedentesForm first renders
-        // Fix: 'data' is the flat object containing Encabezado fields + agenda + detalles
-        // passing data.encabezado was undefined, causing empty mapping.
         mappedInitialDataRef.current = mapToAntecedentes(data, data.agenda);
-
-
-        // 3. Set state to trigger edit mode
         setAnalysisList(mappedAnalysis);
-        setNewObservation(''); // Reset new observation explicitly
+        setNewObservation('');
         setIsEditing(true);
         setActiveTab('antecedentes');
     };
 
-    // CANCEL EDIT
-    const handleCancelEdit = () => {
-        // Use custom modal instead of window.confirm
-        setShowCancelModal(true);
-    };
-
-    const confirmCancelEdit = () => {
-        setIsEditing(false);
-        setAnalysisList([]);
-        setNewObservation('');
-        mappedInitialDataRef.current = null; // Clear the ref
-        setShowCancelModal(false);
-        // Optional: Reload data to be safe?
-        // loadData(); // Not strictly necessary if we didn't mutate 'data' state directly
-    };
-
-    // SAVE CHANGES
     const handleSaveChanges = async () => {
-        // We need data from AntecedentesForm. 
-        // If the user hasn't visited the Antecedentes tab since clicking Edit, the Ref might be null (if conditional rendering).
-        // I will change the render logic below to keep AntecedentesForm mounted (hidden) if isEditing is true.
-
-        if (!fichaId) return;
-
-        if (!antecedentesRef.current) {
-            // Should not happen if we fix render logic
-            showToast({ type: 'error', message: 'Error: Formulario de antecedentes no inicializado.' });
-            return;
-        }
-
-        // Validation: Mandatory Observation
+        if (!fichaId || !antecedentesRef.current) return;
         if (!newObservation || !newObservation.trim()) {
-            showToast({ type: 'error', message: 'Debe ingresar una observación (En pestaña Validación) para guardar los cambios.' });
-            // Switch to Observaciones tab to show the field
+            showToast({ type: 'error', message: 'Debe ingresar una observación para guardar los cambios.' });
             setActiveTab('observaciones');
             return;
         }
 
-        const antData = antecedentesRef.current.getData();
-
-        // If newObs is empty, we don't send it or send empty string? 
-        // Backend handles empty string as "no change" or "empty observation".
-        // But we want to log it if present.
-
         const payload = {
-            antecedentes: antData,
+            antecedentes: antecedentesRef.current.getData(),
             analisis: analysisList,
-            observaciones: newObservation // Send specific new observation for history
+            observaciones: newObservation
         };
 
         try {
             setLoading(true);
-            // FIX: Include user from authStore
-            const currentUser = auth?.user;
-            const response = await fichaService.update(fichaId, payload, currentUser);
+            const response = await fichaService.update(fichaId, payload, auth?.user);
             if (response && response.success) {
                 showToast({ type: 'success', message: 'Ficha actualizada correctamente' });
                 setIsEditing(false);
                 setNewObservation('');
-                loadData(); // Reload fresh data
-                // Redirect to List (as requested)
-                if (onBack) onBack();
+                onBack();
             } else {
                 showToast({ type: 'error', message: response.message || 'Error al actualizar ficha' });
             }
         } catch (error) {
-            console.error('Update error:', error);
             showToast({ type: 'error', message: 'Excepción al guardar cambios' });
         } finally {
             setLoading(false);
         }
     };
 
-    if (loading) {
-        return (
-            <div className="loading-container-fullscreen">
-                <div className="text-gray-500 font-medium">Cargando ficha {fichaId}...</div>
-            </div>
-        );
-    }
+    if (loading && !data) return <LoadingOverlay visible />;
 
-    if (!data) return null;
+    const statusObj = getStatusProps(data?.estado_ficha);
 
-    // Destructure based on the flat structure from SP
-    const enc = data;
-    const det = data.detalles || [];
-    // Observations are on enc directly now
-
-    // Helper function to get status styles
-    const getStatusStyle = (status: string) => {
-        const upperStatus = (status || '').toUpperCase();
-
-        // Default
-        let bg = '#f3f4f6'; // Gray-100
-        let color = '#4b5563'; // Gray-600
-
-        if (upperStatus.includes('RECHAZADA') || upperStatus.includes('ANULADA') || upperStatus.includes('REVISAR')) {
-            bg = '#fee2e2'; color = '#991b1b'; // Red
-        } else if (upperStatus.includes('COORDINACIÓN')) {
-            bg = '#dbeafe'; color = '#1e40af'; // Blue
-        } else if (upperStatus.includes('PROGRAMACIÓN')) { // Specific check before generic PENDIENTE
-            bg = '#ede9fe'; color = '#5b21b6'; // Purple
-        } else if (upperStatus.includes('PENDIENTE') || upperStatus.includes('ÁREA TÉCNICA')) {
-            bg = '#fef3c7'; color = '#92400e'; // Amber/Orange
-        } else if (upperStatus.includes('ASIGNAR')) {
-            bg = '#ffedd5'; color = '#c2410c'; // Orange Intense
-        } else if (upperStatus.includes('VIGENTE') || upperStatus.includes('APROBADA') || upperStatus.includes('EJECUTADO') || upperStatus.includes('EN PROCESO')) {
-            bg = '#dcfce7'; color = '#166534'; // Green
-        } else if (upperStatus.includes('BORRADOR')) {
-            bg = '#f3f4f6'; color = '#4b5563'; // Gray
-        }
-
-        return { backgroundColor: bg, color };
-    };
-
-    // Helper Component for Static Fields
-    const StaticField = ({ label, value, fullWidth = false }: { label: string, value: any, fullWidth?: boolean }) => (
-        <div className={`form - group ${fullWidth ? 'col-span-full' : ''} `} style={{ width: '100%', minWidth: 0 }}>
-            <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>
-                {label}
-            </label>
-            <div style={{
-                padding: '6px 10px',
-                fontSize: '0.85rem',
-                border: '1px solid #d1d5db',
-                borderRadius: '6px',
-                backgroundColor: '#f3f4f6',
-                color: '#374151',
-                minHeight: '34px',
-                display: 'flex',
-                alignItems: 'center',
-                width: '100%',
-                overflow: 'hidden',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-            }}>
-                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
+    const StaticField = ({ label, value }: { label: string, value: any }) => (
+        <Stack gap={2}>
+            <Text size="xs" fw={700} c="dimmed" tt="uppercase">{label}</Text>
+            <Paper withBorder p="xs" radius="md" bg="gray.0">
+                <Text size="sm" fw={500} truncate title={String(value || '-')}>
                     {value || '-'}
-                </span>
-            </div>
-        </div>
+                </Text>
+            </Paper>
+        </Stack>
     );
 
-    // Determines if we should show the "Edit" button
-    // Comercial can only edit in the following states:
-    // 3: Pendiente Técnica
-    // 2: Rechazada Técnica
-    // 1: Pendiente Área Coordinación (Aceptada Técnica)
-    // 4: Rechazada Coordinación
-    const canEdit = hasPermission('MA_COMERCIAL_EDITAR') &&
-        !isEditing &&
-        [1, 2, 3, 4].includes(Number(enc.id_validaciontecnica));
+    const canEdit = hasPermission('MA_COMERCIAL_EDITAR') && !isEditing && [1, 2, 3, 4].includes(Number(data?.id_validaciontecnica));
 
     return (
-        <div className="fichas-ingreso-container commercial-layout">
-            <div className="header-row" style={{ display: 'flex', position: 'relative', justifyContent: 'center', alignItems: 'center', marginBottom: '1.5rem', minHeight: '40px' }}>
-                {/* LEFT SIDE: Back button */}
-                <button onClick={onBack} className="btn-back" disabled={isEditing && loading} style={{ position: 'absolute', left: 0, margin: 0 }}>
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-                    </svg>
-                    Volver
-                </button>
-
-                {/* CENTER: Title + Status */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <h2 className="page-title-geo" style={{ margin: 0 }}>Ficha N° {enc.fichaingresoservicio} {isEditing ? '(Edición)' : ''}</h2>
-                    <span style={{
-                        ...getStatusStyle(enc.estado_ficha),
-                        fontSize: '0.85rem',
-                        padding: '2px 8px',
-                        borderRadius: '999px',
-                        fontWeight: 600,
-                        whiteSpace: 'nowrap'
-                    }}>
-                        {(() => {
-                            const txt = enc.estado_ficha || '-';
-                            return txt.toLowerCase().split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-                        })()}
-                    </span>
-                </div>
-
-                {/* RIGHT SIDE: Action Buttons */}
-                <div style={{ position: 'absolute', right: 0, display: 'flex', gap: '0.5rem' }}>
-                    {isEditing ? (
-                        <>
-                            <button
-                                onClick={handleSaveChanges}
-                                disabled={loading}
-                                style={{
-                                    padding: '6px 12px',
-                                    backgroundColor: '#10b981',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '6px',
-                                    fontSize: '0.85rem',
-                                    fontWeight: 600,
-                                    cursor: loading ? 'not-allowed' : 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '6px',
-                                    opacity: loading ? 0.6 : 1,
-                                    boxShadow: '0 1px 2px rgba(16, 185, 129, 0.2)',
-                                    transition: 'all 0.2s ease'
-                                }}
-                                onMouseEnter={(e) => {
-                                    if (!loading) {
-                                        e.currentTarget.style.backgroundColor = '#059669';
-                                        e.currentTarget.style.transform = 'translateY(-1px)';
-                                    }
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.currentTarget.style.backgroundColor = '#10b981';
-                                    e.currentTarget.style.transform = 'translateY(0)';
-                                }}
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <polyline points="20 6 9 17 4 12"></polyline>
-                                </svg>
-                                {loading ? 'Descargando...' : 'Guardar'}
-                            </button>
-                            <button
-                                onClick={handleCancelEdit}
-                                disabled={loading}
-                                style={{
-                                    padding: '6px 12px',
-                                    backgroundColor: '#f3f4f6',
-                                    color: '#374151',
-                                    border: '1px solid #d1d5db',
-                                    borderRadius: '6px',
-                                    fontSize: '0.85rem',
-                                    fontWeight: 600,
-                                    cursor: loading ? 'not-allowed' : 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '6px',
-                                    opacity: loading ? 0.6 : 1,
-                                    transition: 'all 0.2s ease'
-                                }}
-                                onMouseEnter={(e) => {
-                                    if (!loading) {
-                                        e.currentTarget.style.backgroundColor = '#e5e7eb';
-                                        e.currentTarget.style.borderColor = '#9ca3af';
-                                    }
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.currentTarget.style.backgroundColor = '#f3f4f6';
-                                    e.currentTarget.style.borderColor = '#d1d5db';
-                                }}
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                                </svg>
-                                Cancelar
-                            </button>
-                        </>
-                    ) : (
-                        canEdit && (
-                            <button
-                                onClick={handleEditStart}
-                                style={{
-                                    padding: '6px 12px',
-                                    backgroundColor: '#3b82f6',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '6px',
-                                    fontSize: '0.85rem',
-                                    fontWeight: 600,
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '6px',
-                                    boxShadow: '0 1px 2px rgba(59, 130, 246, 0.2)',
-                                    transition: 'all 0.2s ease'
-                                }}
-                                onMouseEnter={(e) => {
-                                    e.currentTarget.style.backgroundColor = '#2563eb';
-                                    e.currentTarget.style.transform = 'translateY(-1px)';
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.currentTarget.style.backgroundColor = '#3b82f6';
-                                    e.currentTarget.style.transform = 'translateY(0)';
-                                }}
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                                </svg>
-                                Editar
-                            </button>
-                        )
-                    )}
-                </div>
-            </div>
-
-            {/* Tabs */}
-            <div className="tabs-container">
-                <button className={`tab-button ${activeTab === 'antecedentes' ? 'active' : ''}`} onClick={() => setActiveTab('antecedentes')}>Antecedentes</button>
-                <button className={`tab-button ${activeTab === 'analisis' ? 'active' : ''}`} onClick={() => setActiveTab('analisis')}>Análisis</button>
-                <button className={`tab-button ${activeTab === 'observaciones' ? 'active' : ''}`} onClick={() => setActiveTab('observaciones')}>Observaciones / Validación</button>
-            </div>
-
-            <div className="tab-content-areaWrapper" style={{ padding: '0.5rem' }}>
-                <div className="tab-content-area" style={{ display: 'block' }}>
-
-                    {/* Alertas informativas del flujo - NUNCA bloquean edición */}
-                    <div style={{ maxWidth: '800px', margin: '0 auto 1.5rem auto' }}>
-                        {data?.id_validaciontecnica === 3 && (
-                            <WorkflowAlert
-                                type="info"
-                                title="Pendiente de Aprobación Técnica"
-                                message="Esta ficha está en revisión por el Área Técnica."
-                            />
-                        )}
-
-                        {data?.id_validaciontecnica === 1 && (
-                            <WorkflowAlert
-                                type="info"
-                                title="Aprobada por Área Técnica"
-                                message="Esta ficha fue aprobada por Técnica y está en revisión de Coordinación."
-                            />
-                        )}
-
-                        {data?.id_validaciontecnica === 2 && (
-                            <WorkflowAlert
-                                type="warning"
-                                title="Rechazada por Área Técnica"
-                                message="Esta ficha fue rechazada por el Área Técnica. Puede realizar las correcciones necesarias y reenviarla."
-                            />
-                        )}
-
-                        {data?.id_validaciontecnica === 4 && (
-                            <WorkflowAlert
-                                type="warning"
-                                title="Rechazada por Coordinación"
-                                message="Esta ficha fue rechazada por Coordinación. Puede realizar las correcciones necesarias y reenviarla."
-                            />
-                        )}
-
-                        {data?.id_validaciontecnica === 5 && (
-                            <WorkflowAlert
-                                type="info"
-                                title="En Proceso"
-                                message="Esta ficha tiene fechas y muestreadores asignados."
-                            />
-                        )}
-
-                        {data?.id_validaciontecnica === 6 && (
-                            <WorkflowAlert
-                                type="info"
-                                title="Aprobada por Coordinación"
-                                message="Esta ficha fue aprobada y está pendiente de programación."
-                            />
-                        )}
-
-                        {data?.id_validaciontecnica === 7 && (
-                            <WorkflowAlert
-                                type="error"
-                                title="Ficha Cancelada"
-                                message="Esta ficha ha sido cancelada."
-                            />
-                        )}
-                    </div>
-
-                    {/* ANTECEDENTES TAB */}
-                    {/* If editing, we keep it mounted (via display style) if active or just always if editing? 
-                        To persist form state, we MUST keep it mounted.
-                        So: If isEditing, always render AntecedentesForm, toggle display: none.
-                    */}
-                    {/* ANTECEDENTES TAB - EDIT MODE (Keep mounted to preserve Ref) */}
-                    {isEditing && (
-                        <div style={{ display: activeTab === 'antecedentes' ? 'flex' : 'none', flexDirection: 'column', gap: '1rem' }}>
-                            <AntecedentesForm
-                                key="antecedentes-edit-form"
-                                ref={antecedentesRef}
-                                initialData={mappedInitialDataRef.current}
-                            />
-
-                            {/* Removed duplicate observations form and buttons from here */}
-                        </div>
-                    )}
-
-                    {/* ANTECEDENTES TAB - VIEW MODE */}
-                    {!isEditing && activeTab === 'antecedentes' && (
-                        <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: '1fr' }}>
-                            <div className="form-grid-row grid-cols-4">
-                                <StaticField label="Monitoreo agua/RIL" value={enc.tipo_fichaingresoservicio} />
-                                <StaticField label="Base de operaciones" value={enc.id_lugaranalisis === 0 ? 'No Aplica' : enc.nombre_lugaranalisis} />
-                                <StaticField label="Empresa a Facturar" value={enc.id_empresa === 0 ? 'No Aplica' : enc.nombre_empresa} />
-                                <StaticField label="Empresa de servicio" value={enc.id_empresaservicio === 0 ? 'No Aplica' : enc.nombre_empresaservicios} />
-                            </div>
-
-                            <div className="form-grid-row grid-cols-4">
-                                <StaticField label="Fuente Emisora" value={enc.id_centro === 0 ? 'No Aplica' : enc.nombre_centro} />
-                                <StaticField label="Ubicación" value={enc.ubicacion} />
-                                <StaticField label="Comuna" value={enc.nombre_comuna} />
-                                <StaticField label="Región" value={enc.nombre_region} />
-                            </div>
-
-                            <div className="form-grid-row grid-cols-4">
-                                <StaticField label="Tipo de agua" value={enc.id_tipoagua === 0 ? 'No Aplica' : (enc.nombre_tipoagua || enc.tipo_agua)} />
-                                <StaticField label="Código" value={enc.codigo_centro} />
-                                <StaticField label="Contacto empresa" value={enc.id_contacto === 0 ? 'No Aplica' : enc.nombre_contacto} />
-                                <StaticField label="Objetivo del Muestreo" value={enc.id_objetivomuestreo_ma === 0 ? 'No Aplica' : enc.nombre_objetivomuestreo_ma} />
-                            </div>
-
-                            <div className="form-grid-row grid-cols-4">
-                                <StaticField label="Correo Contacto" value={enc.id_contacto === 0 ? 'No Aplica' : (enc.email_contacto || '-')} />
-                                <div style={{ gridColumn: 'span 3' }}></div>
-                            </div>
-
-                            <div className="form-grid-row grid-cols-1">
-                                <StaticField label="Tabla" value={enc.nombre_tabla_largo} fullWidth />
-                            </div>
-
-                            <div className="form-grid-row grid-cols-4">
-                                <StaticField label="¿Es ETFA?" value={enc.etfa === 'S' || enc.etfa === true ? 'Si' : 'No'} />
-                                <StaticField label="Inspector Ambiental" value={enc.agenda?.nombre_inspector || '-'} />
-                                <div style={{ gridColumn: 'span 2' }}>
-                                    <StaticField label="Punto de Muestreo" value={enc.ma_punto_muestreo} fullWidth />
-                                </div>
-                            </div>
-
-                            <div className="form-grid-row grid-cols-4" style={{ alignItems: 'flex-end' }}>
-                                <div style={{ gridColumn: 'span 2', display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                                    <div style={{ flex: 1, minWidth: '200px' }}>
-                                        <StaticField label="Zona / Coordenadas" value={enc.ma_coordenadas || (enc.coordenadas_ruta ? `Ruta: ${enc.coordenadas_ruta} ` : '')} fullWidth />
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Block 2: Frecuencia */}
-                            <div style={{ marginTop: '1rem', marginBottom: '0.5rem', borderBottom: '1px solid #e5e7eb' }}></div>
-                            <div className="form-grid-row grid-cols-4">
-                                <StaticField label="Frecuencia" value={enc.agenda?.frecuencia || '-'} />
-                                <StaticField label="Periodo" value={enc.agenda?.nombre_frecuencia || '-'} />
-                                <StaticField label="Factor" value={enc.agenda?.frecuencia_factor || '-'} />
-                                <StaticField label="Total Servicios" value={enc.agenda?.total_servicios || '-'} />
-                            </div>
-
-                            {/* Block 3: Detalles Muestra */}
-                            <div style={{ marginTop: '1rem', marginBottom: '0.5rem', borderBottom: '1px solid #e5e7eb' }}></div>
-                            <div className="form-grid-row grid-cols-3">
-                                <StaticField label="Componente Ambiental" value={enc.id_tipomuestra === 0 ? 'No Aplica' : enc.nombre_tipomuestra} />
-                                <StaticField label="Sub Área" value={enc.id_subarea === 0 ? 'No Aplica' : enc.nombre_subarea} />
-                                <StaticField label="Instrumento Ambiental" value={enc.instrumento_ambiental} />
-                            </div>
-
-                            {/* Block 4: Responsable */}
-                            <div style={{ marginTop: '1rem', marginBottom: '0.5rem', borderBottom: '1px solid #e5e7eb' }}></div>
-                            <div className="form-grid-row grid-cols-4">
-                                <StaticField label="Responsable Muestreo" value={enc.responsablemuestreo} />
-                                <StaticField label="Cargo Responsable" value={enc.id_cargo === 0 ? 'No Aplica' : enc.nombre_cargo} />
-                            </div>
-
-                            <div className="form-grid-row grid-cols-5">
-                                <StaticField label="Tipo Muestreo" value={enc.id_tipomuestreo === 0 ? 'No Aplica' : enc.nombre_tipomuestreo} />
-                                <StaticField label="Tipo Muestra" value={enc.id_tipomuestra_ma === 0 ? 'No Aplica' : enc.nombre_tipomuestra_ma} />
-                                <StaticField label="Actividad" value={enc.id_actividadmuestreo === 0 ? 'No Aplica' : enc.nombre_actividadmuestreo} />
-                                <StaticField label="Duración Muestreo" value={enc.ma_duracion_muestreo} />
-                                <StaticField label="Tipo Descarga" value={enc.id_tipodescarga === 0 ? 'No Aplica' : enc.nombre_tipodescarga} />
-                            </div>
-
-                            <div className="form-grid-row grid-cols-4">
-                                <div style={{ gridColumn: 'span 2' }}>
-                                    <StaticField label="Referencia Google Maps" value={enc.referencia_googlemaps} fullWidth />
-                                </div>
-                                <StaticField label="¿Medición Caudal?" value={enc.medicion_caudal} />
-                                <StaticField label="Modalidad" value={enc.id_modalidad === 0 ? 'No Aplica' : enc.nombre_modalidad} />
-                            </div>
-
-                            {/* Block 5: Hidraulica */}
-                            <div style={{ marginTop: '1rem', marginBottom: '0.5rem', borderBottom: '1px solid #e5e7eb' }}></div>
-                            <div className="form-grid-row grid-cols-4">
-                                <StaticField label="FORMA CANAL" value={enc.id_formacanal === 0 ? 'No Aplica' : enc.nombre_formacanal} />
-                                <StaticField label="medida:" value={enc.nombre_um_formacanal || '-'} />
-                                <StaticField label="VALOR MEDIDA" value={enc.formacanal_medida || '-'} />
-                                <div style={{ minHeight: '1px' }}></div>
-                            </div>
-                            <div className="form-grid-row grid-cols-4" style={{ marginTop: '0.5rem' }}>
-                                <StaticField label="DISPOSITIVO HIDRÁULICO" value={enc.id_dispositivohidraulico === 0 ? 'No Aplica' : enc.nombre_dispositivohidraulico} />
-                                <StaticField label="medida:" value={enc.nombre_um_dispositivohidraulico || '-'} />
-                                <StaticField label="VALOR MEDIDA" value={enc.dispositivohidraulico_medida || '-'} />
-                                <div style={{ minHeight: '1px' }}></div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* ANALISIS TAB */}
-                    {activeTab === 'analisis' && (
-                        isEditing ? (
-                            <AnalysisForm
-                                savedAnalysis={analysisList}
-                                onSavedAnalysisChange={setAnalysisList}
-                            />
-                        ) : (
-                            <div>
-                                {/* Same Layout as AnalysisForm Top Section */}
-                                <div className="analysis-top-section" style={{
-                                    display: 'grid', gridTemplateColumns: '1fr', gap: '1.5rem', marginBottom: '1.5rem',
-                                    padding: '1.5rem', border: '1px solid #e5e7eb', borderRadius: '8px', backgroundColor: 'white'
-                                }}>
-                                    <div className="form-grid-row grid-cols-2">
-                                        <StaticField label="Normativa Seleccionada" value={det[0]?.nombre_normativa} />
-                                        <StaticField label="Referencia Seleccionada" value={det[0]?.nombre_normativareferencia || det[0]?.nombre_referencia} />
-                                    </div>
-                                </div>
-
-                                <div className="analysis-bottom-section" style={{
-                                    padding: '1.5rem',
-                                    border: '1px solid #e5e7eb',
-                                    borderRadius: '8px',
-                                    background: 'white',
-                                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
-                                }}>
-                                    <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', fontWeight: 600, color: '#374151' }}>
-                                        Análisis Solicitados ({det.length})
-                                    </h3>
-                                    <div style={{ overflowX: 'auto' }}>
-                                        <table style={{ width: '100%', fontSize: '0.85rem', borderCollapse: 'collapse' }}>
-                                            <thead style={{ backgroundColor: '#f9fafb' }}>
-                                                <tr>
-                                                    <th style={{ padding: '8px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>Análisis</th>
-                                                    <th style={{ padding: '8px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>Tipo Muestra</th>
-                                                    <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #e5e7eb' }}>Límite Min</th>
-                                                    <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #e5e7eb' }}>Límite Max</th>
-                                                    <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #e5e7eb' }}>Error</th>
-                                                    <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #e5e7eb' }}>Error Min</th>
-                                                    <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #e5e7eb' }}>Error Max</th>
-                                                    <th style={{ padding: '8px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>Tipo Entrega</th>
-                                                    <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #e5e7eb' }}>Valor U.F.</th>
-                                                    <th style={{ padding: '8px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>Lab. Principal</th>
-                                                    <th style={{ padding: '8px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>Lab. Secundario</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {det.map((row: any, i: number) => {
-                                                    const analysisName = row.nombre_tecnica || row.nombre_determinacion || row.nombre_examen || row.nombre_analisis || '-';
-
-                                                    // Resolve Names
-                                                    const labPrincipalName = getLabName(row.id_laboratorioensayo);
-
-                                                    // Check both possible property names for secondary lab
-                                                    const idLab2 = row.id_laboratorioensayo_2 || row.id_laboratorioensayo2;
-                                                    const labSecundarioName = getLabName(idLab2);
-
-                                                    const tipoMuestra = row.nombre_tipomuestra || row.tipo_analisis || row.tipo_muestra || row.tipomuestra || '-';
-
-                                                    return (
-                                                        <tr key={i} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                                                            <td style={{ padding: '8px' }}>{analysisName}</td>
-                                                            <td style={{ padding: '8px' }}>{tipoMuestra}</td>
-                                                            <td style={{ padding: '8px', textAlign: 'right' }}>{row.limitemax_d}</td>
-                                                            <td style={{ padding: '8px', textAlign: 'right' }}>{row.limitemax_h}</td>
-                                                            <td style={{ padding: '8px', textAlign: 'right' }}>{row.llevaerror || row.llevaerror === 'S' || row.llevaerror === true ? 'Sí' : 'No'}</td>
-                                                            <td style={{ padding: '8px', textAlign: 'right' }}>{row.error_min}</td>
-                                                            <td style={{ padding: '8px', textAlign: 'right' }}>{row.error_max}</td>
-                                                            <td style={{ padding: '8px' }}>{row.nombre_tipoentrega || '-'}</td>
-                                                            <td style={{ padding: '8px', textAlign: 'right' }}>{row.uf_individual}</td>
-                                                            <td style={{ padding: '8px' }}>
-                                                                {labPrincipalName || (row.id_laboratorioensayo ? 'Enviado' : 'Interno')}
-                                                            </td>
-                                                            <td style={{ padding: '8px' }}>
-                                                                {labSecundarioName || (idLab2 ? 'Enviado (Sec)' : '-')}
-                                                            </td>
-                                                        </tr>
-                                                    );
-                                                })}
-                                                {det.length === 0 && (
-                                                    <tr>
-                                                        <td colSpan={10} style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af' }}>
-                                                            No hay análisis registrados para esta ficha.
-                                                        </td>
-                                                    </tr>
-                                                )}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
-                        )
-                    )}
-
-                    {/* OBSERVACIONES TAB - Timeline Layout */}
-                    {/* Hide Observaciones when editing if we don't want to show it. Or show read-only */}
-                    {activeTab === 'observaciones' && (
-                        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-                            <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#374151', marginBottom: '1rem' }}>Línea de Tiempo</h3>
-                            <ObservationTimeline
-                                fichaId={fichaId}
-                                creationData={timelineCreationData}
-                            />
-
-                            {/* New Observation Field for Edit Mode */}
-                            {isEditing && (
-                                <div style={{ marginTop: '2rem', padding: '1.5rem', backgroundColor: '#f0fdf4', borderRadius: '8px', border: '1px solid #86efac' }}>
-                                    <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#166534', marginBottom: '1rem' }}>
-                                        Nueva Observación (Obligatorio para guardar)
-                                    </h3>
-                                    <ObservacionesForm
-                                        label="Ingrese el motivo del cambio o nueva observación:"
-                                        value={newObservation}
-                                        onChange={setNewObservation}
-                                        readOnly={false}
-                                        placeholder="Escriba aquí los detalles de la edición..."
-                                    />
-                                </div>
+        <Container fluid p="md" style={{ width: '100% !important', maxWidth: '100% !important' }}>
+            <Stack gap="lg">
+                <PageHeader 
+                    title={`Ficha N° ${data?.fichaingresoservicio || '-'}`}
+                    subtitle={isEditing ? 'Modo Edición' : 'Detalles de la Ficha'}
+                    onBack={onBack}
+                    rightSection={
+                        <Group gap="sm">
+                            <Badge size="xl" radius="md" variant="light" color={statusObj.color}>
+                                {statusObj.label}
+                            </Badge>
+                            {isEditing ? (
+                                <>
+                                    <Button color="green" leftSection={<IconDeviceFloppy size={18} />} onClick={handleSaveChanges} loading={loading}>
+                                        Guardar
+                                    </Button>
+                                    <Button variant="light" color="gray" leftSection={<IconX size={18} />} onClick={() => setShowCancelModal(true)}>
+                                        Cancelar
+                                    </Button>
+                                </>
+                            ) : (
+                                canEdit && (
+                                    <Button color="blue" leftSection={<IconEdit size={18} />} onClick={handleEditStart}>
+                                        Editar
+                                    </Button>
+                                )
                             )}
+                        </Group>
+                    }
+                />
 
-                        </div>
-                    )}
+                <Paper withBorder p="xl" radius="lg" shadow="sm" style={{ width: '100% !important' }}>
+                    <Stack gap="xl">
+                        {/* Alerts */}
+                        <Box>
+                            {[1, 2, 3, 4, 5, 6, 7].includes(Number(data?.id_validaciontecnica)) && (
+                                <Box mb="md">
+                                    {data.id_validaciontecnica === 3 && <WorkflowAlert type="info" title="Pendiente Técnica" message="En revisión por el Área Técnica." />}
+                                    {data.id_validaciontecnica === 1 && <WorkflowAlert type="info" title="Aprobada Técnica" message="Revisión de Coordinación pendiente." />}
+                                    {data.id_validaciontecnica === 2 && <WorkflowAlert type="warning" title="Rechazada Técnica" message="Requiere correcciones comerciales." />}
+                                    {data.id_validaciontecnica === 4 && <WorkflowAlert type="warning" title="Rechazada Coordinación" message="Requiere correcciones comerciales." />}
+                                    {data.id_validaciontecnica === 5 && <WorkflowAlert type="info" title="En Proceso" message="Ficha con programación activa." />}
+                                    {data.id_validaciontecnica === 6 && <WorkflowAlert type="info" title="Aprobada Coordinación" message="Pendiente de programación final." />}
+                                    {data.id_validaciontecnica === 7 && <WorkflowAlert type="error" title="Ficha Cancelada" message="Esta ficha ha sido anulada." />}
+                                </Box>
+                            )}
+                        </Box>
 
-                </div>
-            </div>
+                        <Tabs value={activeTab} onChange={(v) => setActiveTab(v || 'antecedentes')} variant="outline" radius="md" style={{ width: '100% !important' }}>
+                            <Tabs.List grow>
+                                <Tabs.Tab value="antecedentes" leftSection={<IconClipboardList size={18} />}>Antecedentes</Tabs.Tab>
+                                <Tabs.Tab value="analisis" leftSection={<IconFlask size={18} />}>Análisis</Tabs.Tab>
+                                <Tabs.Tab value="observaciones" leftSection={<IconHistory size={18} />}>Validación e Historial</Tabs.Tab>
+                            </Tabs.List>
 
-            {/* Confirm Modal */}
+                            <Box mt="xl">
+                                <Tabs.Panel value="antecedentes" style={{ width: '100% !important' }}>
+                                    {isEditing ? (
+                                        <AntecedentesForm ref={antecedentesRef} initialData={mappedInitialDataRef.current} />
+                                    ) : (
+                                        <Stack gap="lg">
+                                            <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }}>
+                                                <StaticField label="Monitoreo" value={data.tipo_fichaingresoservicio} />
+                                                <StaticField label="Base Operaciones" value={data.id_lugaranalisis === 0 ? 'No Aplica' : data.nombre_lugaranalisis} />
+                                                <StaticField label="Cliente" value={data.nombre_empresa} />
+                                                <StaticField label="Empresa Servicio" value={data.nombre_empresaservicios} />
+                                            </SimpleGrid>
+
+                                            <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }}>
+                                                <StaticField label="Fuente Emisora" value={data.nombre_centro} />
+                                                <StaticField label="Comuna" value={data.nombre_comuna} />
+                                                <StaticField label="Región" value={data.nombre_region} />
+                                                <StaticField label="Código Centro" value={data.codigo_centro} />
+                                            </SimpleGrid>
+
+                                            <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }}>
+                                                <StaticField label="Tipo Agua" value={data.nombre_tipoagua || data.tipo_agua} />
+                                                <StaticField label="Contacto" value={data.nombre_contacto} />
+                                                <StaticField label="E-mail" value={data.email_contacto} />
+                                                <StaticField label="Objetivo" value={data.nombre_objetivomuestreo_ma} />
+                                            </SimpleGrid>
+
+                                            <StaticField label="Tabla / Glosa" value={data.nombre_tabla_largo} />
+
+                                            <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }}>
+                                                <StaticField label="Es ETFA" value={data.etfa ? 'Sí' : 'No'} />
+                                                <StaticField label="Inspector" value={data.agenda?.nombre_inspector} />
+                                                <Box style={{ gridColumn: 'span 2' }}>
+                                                    <StaticField label="Punto de Muestreo" value={data.ma_punto_muestreo} />
+                                                </Box>
+                                            </SimpleGrid>
+                                            
+                                            <Divider label="Frecuencia y Programación" labelPosition="center" />
+                                            
+                                            <SimpleGrid cols={{ base: 1, sm: 4 }}>
+                                                <StaticField label="Frecuencia" value={data.agenda?.frecuencia} />
+                                                <StaticField label="Periodo" value={data.agenda?.nombre_frecuencia} />
+                                                <StaticField label="Factor" value={data.agenda?.frecuencia_factor} />
+                                                <StaticField label="Total Servicios" value={data.agenda?.total_servicios} />
+                                            </SimpleGrid>
+
+                                            <Divider label="Detalles del Servicio" labelPosition="center" />
+                                            
+                                            <SimpleGrid cols={{ base: 1, sm: 3 }}>
+                                                <StaticField label="Componente" value={data.nombre_tipomuestra} />
+                                                <StaticField label="Sub Área" value={data.nombre_subarea} />
+                                                <StaticField label="Instrumento" value={data.instrumento_ambiental} />
+                                            </SimpleGrid>
+
+                                            <SimpleGrid cols={{ base: 1, sm: 4 }}>
+                                                <StaticField label="Responsable" value={data.responsablemuestreo} />
+                                                <StaticField label="Cargo" value={data.nombre_cargo} />
+                                                <StaticField label="Tipo Muestreo" value={data.nombre_tipomuestreo} />
+                                                <StaticField label="Actividad" value={data.nombre_actividadmuestreo} />
+                                            </SimpleGrid>
+                                        </Stack>
+                                    )}
+                                </Tabs.Panel>
+
+                                <Tabs.Panel value="analisis" style={{ width: '100% !important' }}>
+                                    {isEditing ? (
+                                        <AnalysisForm savedAnalysis={analysisList} onSavedAnalysisChange={setAnalysisList} />
+                                    ) : (
+                                        <Stack gap="xl">
+                                            <Paper withBorder p="md" radius="md" bg="blue.0">
+                                                <SimpleGrid cols={{ base: 1, sm: 2 }}>
+                                                    <StaticField label="Normativa" value={data.detalles?.[0]?.nombre_normativa} />
+                                                    <StaticField label="Referencia" value={data.detalles?.[0]?.nombre_normativareferencia || data.detalles?.[0]?.nombre_referencia} />
+                                                </SimpleGrid>
+                                            </Paper>
+
+                                            <ScrollArea>
+                                                <Table striped highlightOnHover withTableBorder>
+                                                    <Table.Thead bg="gray.1">
+                                                        <Table.Tr>
+                                                            <Table.Th>Análisis</Table.Th>
+                                                            <Table.Th>Tipo Muestra</Table.Th>
+                                                            <Table.Th ta="right">Límite Min</Table.Th>
+                                                            <Table.Th ta="right">Límite Max</Table.Th>
+                                                            <Table.Th ta="center">Error</Table.Th>
+                                                            <Table.Th>Tipo Entrega</Table.Th>
+                                                            <Table.Th>Laboratorio</Table.Th>
+                                                        </Table.Tr>
+                                                    </Table.Thead>
+                                                    <Table.Tbody>
+                                                        {(data.detalles || []).map((row: any, i: number) => (
+                                                            <Table.Tr key={i}>
+                                                                <Table.Td fw={600}>{row.nombre_tecnica || row.nombre_determinacion || '-'}</Table.Td>
+                                                                <Table.Td>{row.nombre_tipomuestra || '-'}</Table.Td>
+                                                                <Table.Td ta="right">{row.limitemax_d}</Table.Td>
+                                                                <Table.Td ta="right">{row.limitemax_h}</Table.Td>
+                                                                <Table.Td ta="center">{row.llevaerror === 'S' || row.llevaerror === true ? 'Sí' : 'No'}</Table.Td>
+                                                                <Table.Td>{row.nombre_tipoentrega}</Table.Td>
+                                                                <Table.Td>{getLabName(row.id_laboratorioensayo) || 'Interno'}</Table.Td>
+                                                            </Table.Tr>
+                                                        ))}
+                                                    </Table.Tbody>
+                                                </Table>
+                                            </ScrollArea>
+                                        </Stack>
+                                    )}
+                                </Tabs.Panel>
+
+                                <Tabs.Panel value="observaciones" style={{ width: '100% !important' }}>
+                                    <Stack gap="xl">
+                                        {isEditing && (
+                                            <Paper withBorder p="md" radius="md" bg="green.0">
+                                                <Stack gap="sm">
+                                                    <Title order={5} c="green.9">Nueva Observación Requerida</Title>
+                                                    <Text size="xs" c="green.7">Describa los motivos de los cambios realizados. Esta observación quedará registrada en el historial.</Text>
+                                                    <ObservacionesForm
+                                                        label=""
+                                                        value={newObservation}
+                                                        onChange={setNewObservation}
+                                                        readOnly={false}
+                                                        placeholder="Describa aquí los cambios..."
+                                                    />
+                                                </Stack>
+                                            </Paper>
+                                        )}
+                                        
+                                        <Box>
+                                            <Title order={4} mb="lg" fw={700}>Línea de Tiempo y Validación</Title>
+                                            <ObservationTimeline fichaId={fichaId} creationData={timelineCreationData} />
+                                        </Box>
+                                    </Stack>
+                                </Tabs.Panel>
+                            </Box>
+                        </Tabs>
+                    </Stack>
+                </Paper>
+            </Stack>
+
             <ConfirmModal
                 isOpen={showCancelModal}
                 title="Descartar cambios"
                 message="¿Estás seguro de que deseas cancelar la edición? Los cambios no guardados se perderán."
-                onConfirm={confirmCancelEdit}
+                onConfirm={() => {
+                    setIsEditing(false);
+                    setShowCancelModal(false);
+                }}
                 onCancel={() => setShowCancelModal(false)}
             />
-        </div >
+        </Container>
     );
-}
+};

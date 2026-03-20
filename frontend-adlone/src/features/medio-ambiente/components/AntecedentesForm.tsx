@@ -1,68 +1,49 @@
-import { useEffect, useState, useRef, useImperativeHandle, forwardRef } from 'react';
+import { useEffect, useState, useRef, useImperativeHandle, forwardRef, useMemo } from 'react';
 import { useCachedCatalogos } from '../hooks/useCachedCatalogos';
 import type { LugarAnalisis, EmpresaServicio, Cliente, Contacto, Centro } from '../services/catalogos.service';
 import { useToast } from '../../../contexts/ToastContext';
-import '../styles/FichasIngreso.css';
-import '../styles/FormGrids.css';
-import { SearchableSelect } from '../../../components/ui/SearchableSelect';
+import { 
+    Stack, 
+    SimpleGrid, 
+    TextInput, 
+    Select, 
+    Text, 
+    Paper, 
+    Divider, 
+    Box, 
+    Group,
+    Badge
+} from '@mantine/core';
+import { 
+    IconInfoCircle, 
+    IconBuilding, 
+    IconMail, 
+    IconMapPin, 
+    IconFlask, 
+    IconCertificate, 
+    IconClock, 
+    IconAdjustmentsHorizontal
+} from '@tabler/icons-react';
+
 // Helper to dedup options
-const dedupOptions = (options: { id: string | number; nombre: string }[]) => {
+const dedupOptions = (options: { value: string; label: string }[]) => {
     const seen = new Set();
     return options.filter(opt => {
-        const id = String(opt.id);
-        if (seen.has(id)) return false;
-        seen.add(id);
+        const val = String(opt.value);
+        if (seen.has(val)) return false;
+        seen.add(val);
         return true;
     });
 };
-
-// Add spinner animation CSS
-const spinnerStyle = document.createElement('style');
-spinnerStyle.innerHTML = `
-    @keyframes spin {
-        from { transform: rotate(0deg); }
-        to { transform: rotate(360deg); }
-    }
-`;
-if (!document.head.querySelector('style[data-spinner]')) {
-    spinnerStyle.setAttribute('data-spinner', 'true');
-    document.head.appendChild(spinnerStyle);
-}
 
 // Define interface for exposed methods
 export interface AntecedentesFormHandle {
     getData: () => any;
 }
 
-// --- Components ---
-
-
-
-const ReadOnlyField = ({ label, value }: { label: string, value: string }) => (
-    <div className="form-group">
-        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>{label}</label>
-        <div style={{
-            padding: '6px 10px',
-            fontSize: '0.85rem',
-            border: '1px solid #e5e7eb',
-            borderRadius: '6px',
-            backgroundColor: '#f9fafb',
-            color: '#4b5563',
-            minHeight: '34px',
-            display: 'flex',
-            alignItems: 'center'
-        }}>
-            {value || '-'}
-        </div>
-    </div>
-);
-
 export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData?: any, onValidationChange?: (isValid: boolean) => void }>((props, ref) => {
     const { initialData, onValidationChange } = props;
-    // Initialize cached catalogos hook
     const catalogos = useCachedCatalogos();
-
-    // Initialize toast notifications
     const { showToast } = useToast();
 
     // Catalog State
@@ -72,16 +53,13 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
     const [contactos, setContactos] = useState<Contacto[]>([]);
     const [fuentesEmisoras, setFuentesEmisoras] = useState<Centro[]>([]);
 
-    // Error states for catalogs
-    const [_catalogErrors, setCatalogErrors] = useState<{ [key: string]: string | null }>({});
-
     // Form State
-    const [tipoMonitoreo, setTipoMonitoreo] = useState<string>('');
-    const [selectedLugar, setSelectedLugar] = useState<string>('');
-    const [selectedEmpresa, setSelectedEmpresa] = useState<string>('');
-    const [selectedCliente, setSelectedCliente] = useState<string>('');
-    const [selectedFuente, setSelectedFuente] = useState<string>('');
-    const [selectedContacto, setSelectedContacto] = useState<string>('');
+    const [tipoMonitoreo, setTipoMonitoreo] = useState<string | null>(null);
+    const [selectedLugar, setSelectedLugar] = useState<string | null>(null);
+    const [selectedEmpresa, setSelectedEmpresa] = useState<string | null>(null);
+    const [selectedCliente, setSelectedCliente] = useState<string | null>(null);
+    const [selectedFuente, setSelectedFuente] = useState<string | null>(null);
+    const [selectedContacto, setSelectedContacto] = useState<string | null>(null);
 
     // Auto-filled Address Fields
     const [ubicacion, setUbicacion] = useState<string>('');
@@ -92,121 +70,98 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
     // --- Block 2 State ---
     const [objetivos, setObjetivos] = useState<any[]>([]);
-    const [selectedObjetivo, setSelectedObjetivo] = useState<string>('');
+    const [selectedObjetivo, setSelectedObjetivo] = useState<string | null>(null);
     const [frecuencia, setFrecuencia] = useState<string>('');
     const [factor, setFactor] = useState<string>('1');
-    const [periodo, setPeriodo] = useState<string>('');
+    const [periodo, setPeriodo] = useState<string | null>(null);
     const [frecuenciasOptions, setFrecuenciasOptions] = useState<any[]>([]);
     const [totalServicios, setTotalServicios] = useState<string>('');
 
     // --- Block 3 State ---
-    const [zona, setZona] = useState<string>('');
+    const [zona, setZona] = useState<string | null>(null);
     const [utmNorte, setUtmNorte] = useState<string>('');
     const [utmEste, setUtmEste] = useState<string>('');
-    const [selectedInstrumento, setSelectedInstrumento] = useState<string>('');
+    const [selectedInstrumento, setSelectedInstrumento] = useState<string | null>(null);
     const [nroInstrumento, setNroInstrumento] = useState<string>('');
     const [anioInstrumento, setAnioInstrumento] = useState<string>('');
     const [instrumentosAmbientales, setInstrumentosAmbientales] = useState<any[]>([]);
 
     const [componentes, setComponentes] = useState<any[]>([]);
-    const [selectedComponente, setSelectedComponente] = useState<string>('');
+    const [selectedComponente, setSelectedComponente] = useState<string | null>(null);
     const [subAreas, setSubAreas] = useState<any[]>([]);
-    const [selectedSubArea, setSelectedSubArea] = useState<string>('');
-    // Glosa (Text24)
+    const [selectedSubArea, setSelectedSubArea] = useState<string | null>(null);
+    
     const [glosa, setGlosa] = useState<string>('');
-    const [esETFA, setEsETFA] = useState<string>('No'); // Si/No
+    const [esETFA, setEsETFA] = useState<string>('No');
     const [inspectores, setInspectores] = useState<any[]>([]);
-    const [selectedInspector, setSelectedInspector] = useState<string>('');
+    const [selectedInspector, setSelectedInspector] = useState<string | null>(null);
 
     // --- Block 4 State ---
-    const [responsableMuestreo, setResponsableMuestreo] = useState<string>('ADL');
+    const [responsableMuestreo, setResponsableMuestreo] = useState<string | null>('ADL');
     const [cargos, setCargos] = useState<any[]>([]);
-    const [cargoResponsable, setCargoResponsable] = useState<string>('');
+    const [cargoResponsable, setCargoResponsable] = useState<string | null>(null);
     const [puntoMuestreo, setPuntoMuestreo] = useState<string>('');
     const [tiposMuestreo, setTiposMuestreo] = useState<any[]>([]);
-    const [selectedTipoMuestreo, setSelectedTipoMuestreo] = useState<string>('');
+    const [selectedTipoMuestreo, setSelectedTipoMuestreo] = useState<string | null>(null);
     const [tiposMuestra, setTiposMuestra] = useState<any[]>([]);
-    const [selectedTipoMuestra, setSelectedTipoMuestra] = useState<string>('');
+    const [selectedTipoMuestra, setSelectedTipoMuestra] = useState<string | null>(null);
     const [actividades, setActividades] = useState<any[]>([]);
-    const [selectedActividad, setSelectedActividad] = useState<string>('');
+    const [selectedActividad, setSelectedActividad] = useState<string | null>(null);
     const [duracion, setDuracion] = useState<string>('');
     const [tiposDescarga, setTiposDescarga] = useState<any[]>([]);
-    const [selectedTipoDescarga, setSelectedTipoDescarga] = useState<string>('');
+    const [selectedTipoDescarga, setSelectedTipoDescarga] = useState<string | null>(null);
     const [refGoogle, setRefGoogle] = useState<string>('');
-    const [medicionCaudal, setMedicionCaudal] = useState<string>('');
+    const [medicionCaudal, setMedicionCaudal] = useState<string | null>(null);
     const [modalidades, setModalidades] = useState<any[]>([]);
-    const [selectedModalidad, setSelectedModalidad] = useState<string>('');
-
+    const [selectedModalidad, setSelectedModalidad] = useState<string | null>(null);
 
     // --- Block 5 State ---
     const [formasCanal, setFormasCanal] = useState<any[]>([]);
-    const [formaCanal, setFormaCanal] = useState<string>(String(initialData?.formaCanal ?? ''));
-
-    const [detalleCanal, setDetalleCanal] = useState<string>(initialData?.detalleCanal || '');
-
+    const [formaCanal, setFormaCanal] = useState<string | null>(null);
+    const [detalleCanal, setDetalleCanal] = useState<string>('');
     const [dispositivos, setDispositivos] = useState<any[]>([]);
-    const [dispositivo, setDispositivo] = useState<string>(String(initialData?.dispositivo ?? ''));
-    const [detalleDispositivo, setDetalleDispositivo] = useState<string>(initialData?.detalleDispositivo || '');
-    
-    // Measure units for canal/dispositivo
+    const [dispositivo, setDispositivo] = useState<string | null>(null);
+    const [detalleDispositivo, setDetalleDispositivo] = useState<string>('');
     const [unidadesMedida, setUnidadesMedida] = useState<any[]>([]);
-    const [tipoMedidaCanal, setTipoMedidaCanal] = useState<string>('');
-    const [tipoMedidaDispositivo, setTipoMedidaDispositivo] = useState<string>('');
-    
-    // Track hydration separately for measures to avoid "NA" initially
-    useEffect(() => {
-        if (initialData) {
-            if (initialData.tipoMedidaCanal && initialData.tipoMedidaCanal !== 'No Aplica' && initialData.tipoMedidaCanal !== 'NA') {
-                setTipoMedidaCanal(initialData.tipoMedidaCanal);
-            }
-            if (initialData.tipoMedidaDispositivo && initialData.tipoMedidaDispositivo !== 'No Aplica' && initialData.tipoMedidaDispositivo !== 'NA') {
-                setTipoMedidaDispositivo(initialData.tipoMedidaDispositivo);
-            }
-        }
-    }, [initialData]);
+    const [tipoMedidaCanal, setTipoMedidaCanal] = useState<string | null>(null);
+    const [tipoMedidaDispositivo, setTipoMedidaDispositivo] = useState<string | null>(null);
 
-    // Extra state for id_tipo_agua (separate from the display string)
-    const [idTipoAgua, setIdTipoAgua] = useState<number | null>(initialData?.idTipoAgua || null);
-
-    // Track if we're currently hydrating from initialData to prevent cascade clearing
-    // Start as TRUE if initialData exists to block initial cascades
+    const [idTipoAgua, setIdTipoAgua] = useState<number | null>(null);
     const isHydrating = useRef(!!initialData);
-    // Force false initially to ensures backup effect runs if useState misses
     const hasHydrated = useRef(false);
 
     // Validation Effect
     useEffect(() => {
         const checkValidity = () => {
             const requiredFields = [
-                tipoMonitoreo,
-                selectedLugar,
-                selectedCliente,
-                selectedFuente,
-                selectedObjetivo,
-                puntoMuestreo,
-                zona,
-                utmNorte,
-                utmEste,
-                selectedComponente,
-                selectedSubArea,
-                glosa,
-                selectedTipoMuestreo,
-                selectedTipoMuestra,
-                selectedActividad,
-                duracion,
-                responsableMuestreo,
-                cargoResponsable,
-                selectedInstrumento,
-                nroInstrumento,
-                anioInstrumento,
-                frecuencia,
-                factor,
-                periodo
+                // Bloque 1
+                tipoMonitoreo, selectedLugar, selectedCliente, selectedEmpresa, selectedFuente, selectedContacto,
+                // Bloque 2
+                selectedObjetivo, responsableMuestreo, cargoResponsable,
+                puntoMuestreo, periodo, frecuencia, factor, totalServicios,
+                // Bloque 3
+                zona, utmNorte, utmEste,
+                selectedInstrumento, nroInstrumento, anioInstrumento,
+                selectedComponente, selectedSubArea, glosa,
+                // Bloque 4
+                selectedTipoMuestreo, selectedTipoMuestra, selectedActividad, duracion,
+                selectedTipoDescarga, medicionCaudal
             ];
+
+            // Campos condicionales de Hidráulica (Bloque 5)
+            if (medicionCaudal && medicionCaudal !== 'No Aplica') {
+                requiredFields.push(selectedModalidad);
+                if (selectedModalidad && selectedModalidad !== 'No Aplica') {
+                    requiredFields.push(formaCanal, dispositivo);
+                    if (formaCanal && formaCanal !== 'No Aplica') requiredFields.push(tipoMedidaCanal, detalleCanal);
+                    if (dispositivo && dispositivo !== 'No Aplica') requiredFields.push(tipoMedidaDispositivo, detalleDispositivo);
+                }
+            }
 
             const isValid = requiredFields.every(field => {
                 if (field === null || field === undefined) return false;
-                return String(field).trim().length > 0 && String(field) !== 'null';
+                const s = String(field).trim();
+                return s.length > 0 && s !== 'null' && s !== 'undefined';
             });
 
             if (onValidationChange) {
@@ -216,29 +171,25 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
         checkValidity();
     }, [
-        tipoMonitoreo, selectedLugar, selectedCliente, selectedFuente, selectedObjetivo,
-        puntoMuestreo, zona, utmNorte, utmEste, selectedComponente, selectedSubArea,
-        glosa, selectedTipoMuestreo, selectedTipoMuestra, selectedActividad, duracion,
-        responsableMuestreo, cargoResponsable, selectedInstrumento, nroInstrumento,
-        anioInstrumento, frecuencia, factor, periodo, onValidationChange
+        tipoMonitoreo, selectedLugar, selectedCliente, selectedEmpresa, selectedFuente, selectedContacto,
+        selectedObjetivo, responsableMuestreo, cargoResponsable,
+        puntoMuestreo, periodo, frecuencia, factor, totalServicios,
+        zona, utmNorte, utmEste,
+        selectedInstrumento, nroInstrumento, anioInstrumento,
+        selectedComponente, selectedSubArea, glosa,
+        selectedTipoMuestreo, selectedTipoMuestra, selectedActividad, duracion,
+        selectedTipoDescarga, medicionCaudal,
+        selectedModalidad, formaCanal, dispositivo, tipoMedidaCanal, detalleCanal, tipoMedidaDispositivo, detalleDispositivo,
+        onValidationChange
     ]);
 
-    // Debug: Track component mount/unmount
-    useEffect(() => {
-        console.log('🟢 AntecedentesForm MOUNTED');
-        return () => {
-            console.log('🔴 AntecedentesForm UNMOUNTED');
-        };
-    }, []);
-
-
-    // Initial Data Hydration - Backup for late props
+    // Initial Data Hydration
     useEffect(() => {
         if (initialData && !hasHydrated.current) {
-            console.log('Hydrating AntecedentesForm (Backup Effect)', initialData);
+            console.log('Hydrating AntecedentesForm', initialData);
             isHydrating.current = true;
 
-            setTipoMonitoreo(initialData.tipoMonitoreo || '');
+            setTipoMonitoreo(initialData.tipoMonitoreo || null);
             setSelectedLugar(String(initialData.selectedLugar ?? ''));
             setSelectedEmpresa(String(initialData.selectedEmpresa ?? ''));
             setSelectedCliente(String(initialData.selectedCliente ?? ''));
@@ -254,12 +205,12 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
             setGlosa(initialData.glosa || '');
             setEsETFA(initialData.esETFA || 'No');
             setPuntoMuestreo(initialData.puntoMuestreo || '');
-            setZona(initialData.zona || '');
+            setZona(initialData.zona || null);
             setUtmNorte(initialData.utmNorte || '');
             setUtmEste(initialData.utmEste || '');
             setSelectedComponente(String(initialData.selectedComponente ?? ''));
             setSelectedSubArea(String(initialData.selectedSubArea ?? ''));
-            setSelectedInstrumento(initialData.selectedInstrumento || '');
+            setSelectedInstrumento(initialData.selectedInstrumento || null);
             setNroInstrumento(initialData.nroInstrumento || '');
             setAnioInstrumento(initialData.anioInstrumento || '');
             setSelectedInspector(String(initialData.selectedInspector ?? ''));
@@ -271,14 +222,14 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
             setDuracion(initialData.duracion || '');
             setSelectedTipoDescarga(String(initialData.selectedTipoDescarga ?? ''));
             setRefGoogle(initialData.refGoogle || '');
-            setMedicionCaudal(initialData.medicionCaudal || '');
+            setMedicionCaudal(initialData.medicionCaudal || null);
             setSelectedModalidad(String(initialData.selectedModalidad ?? ''));
             setFormaCanal(String(initialData.formaCanal ?? ''));
             setDetalleCanal(initialData.detalleCanal || '');
             setDispositivo(String(initialData.dispositivo ?? ''));
             setDetalleDispositivo(initialData.detalleDispositivo || '');
-            setTipoMedidaCanal(initialData.tipoMedidaCanal || '');
-            setTipoMedidaDispositivo(initialData.tipoMedidaDispositivo || '');
+            setTipoMedidaCanal(initialData.tipoMedidaCanal || null);
+            setTipoMedidaDispositivo(initialData.tipoMedidaDispositivo || null);
             setFrecuencia(String(initialData.frecuencia ?? ''));
             setFactor(String(initialData.factor ?? '1'));
             setPeriodo(String(initialData.periodo ?? ''));
@@ -288,31 +239,9 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
         }
     }, [initialData]);
 
-    // Cleanup symbols from measurement values once units are loaded
-    useEffect(() => {
-        if (initialData && unidadesMedida.length > 0) {
-            // Channel cleanup
-            if (initialData.detalleCanal && initialData.tipoMedidaCanal) {
-                const unit = unidadesMedida.find(u => String(u.id) === String(initialData.tipoMedidaCanal))?.nombre;
-                if (unit && String(initialData.detalleCanal).endsWith(unit)) {
-                    setDetalleCanal(String(initialData.detalleCanal).slice(0, -unit.length).trim());
-                }
-            }
-            // Device cleanup
-            if (initialData.detalleDispositivo && initialData.tipoMedidaDispositivo) {
-                const unit = unidadesMedida.find(u => String(u.id) === String(initialData.tipoMedidaDispositivo))?.nombre;
-                if (unit && String(initialData.detalleDispositivo).endsWith(unit)) {
-                    setDetalleDispositivo(String(initialData.detalleDispositivo).slice(0, -unit.length).trim());
-                }
-            }
-        }
-    }, [initialData, unidadesMedida]);
     useImperativeHandle(ref, () => ({
         getData: () => {
-            // Find selected contact name
             const contactoObj = contactos.find(c => String(c.id) === selectedContacto);
-            
-            // Or maybe it's the primary contact of the service company
             const empresaObj = empresas.find(e => String(e.id) === selectedEmpresa);
             let finalContactoNombre = '';
             if (contactoObj) {
@@ -321,7 +250,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 finalContactoNombre = empresaObj.contacto || '';
             }
 
-            const data = {
+            return {
                 tipoMonitoreo: tipoMonitoreo || '',
                 selectedLugar: selectedLugar || '',
                 selectedEmpresa: selectedEmpresa || '',
@@ -339,7 +268,6 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 selectedComponente: selectedComponente || '',
                 selectedSubArea: selectedSubArea || '',
                 selectedTipoDescarga: selectedTipoDescarga || '',
-                correoEmpresa: empresas.find(e => String(e.id) === selectedEmpresa)?.email || '',
                 selectedContacto: selectedContacto || '',
                 contactoNombre: finalContactoNombre,
                 selectedTipoMuestreo: selectedTipoMuestreo || '',
@@ -352,8 +280,6 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 responsableMuestreo: responsableMuestreo || '',
                 cargoResponsable: cargoResponsable || '',
                 selectedInspector: selectedInspector || '',
-
-                // Concatenate symbols to measurement values if applicable
                 detalleCanal: (() => {
                     if (!detalleCanal || detalleCanal === 'No Aplica') return detalleCanal;
                     const unit = unidadesMedida.find(u => String(u.id) === String(tipoMedidaCanal))?.nombre;
@@ -366,146 +292,76 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                     if (unit && !String(detalleDispositivo).endsWith(unit)) return `${detalleDispositivo}${unit}`;
                     return detalleDispositivo;
                 })(),
-
                 formaCanal,
                 tipoMedidaCanal,
                 dispositivo,
                 tipoMedidaDispositivo,
-                frecuencia: frecuencia || '',
-                factor: factor || '',
-                periodo: periodo || '',
-                totalServicios: totalServicios || '',
-                ubicacion: ubicacion || '',
-                comuna: comuna || '',
-                region: region || '',
-                selectedInstrumento: selectedInstrumento || '',
-                nroInstrumento: nroInstrumento || '',
-                anioInstrumento: anioInstrumento || ''
-            };
-
-            console.log('🔍 DEBUG getData() - selectedInspector:', selectedInspector);
-            console.log('🔍 DEBUG getData() - idTipoAgua:', idTipoAgua);
-            console.log('🔍 DEBUG getData() - FREQUENCY DATA:', {
                 frecuencia,
                 factor,
                 periodo,
-                totalServicios
-            });
-
-            return data;
+                totalServicios,
+                ubicacion,
+                comuna,
+                region,
+                selectedInstrumento,
+                nroInstrumento,
+                anioInstrumento
+            };
         }
     }));
 
-    // Load Catalogs on mount (Only independent ones)
+    // Cascade Effects (Maintained from original)
     useEffect(() => {
-        loadLugares();
-        loadEmpresas();
-        loadClientes();
-        loadCatalogosComplementarios();
-    }, []);
-
-    // Cascade: Monitoreo -> Sede
-    useEffect(() => {
-        console.log('🔄 [Cascade] tipoMonitoreo changed:', tipoMonitoreo, 'isHydrating:', isHydrating.current);
-        // Skip clearing if we're hydrating
-        if (isHydrating.current) {
-            console.log('⏸️ [Cascade] Skipping tipoMonitoreo cascade (hydrating)');
-            return;
-        }
-
-        // Hydration Guard
-        if (initialData && initialData.tipoMonitoreo === tipoMonitoreo && initialData.selectedLugar === selectedLugar) {
-            console.log('⏸️ [Cascade] Skipping tipoMonitoreo cascade (matches initialData)');
-            return;
-        }
-
-        if (!tipoMonitoreo) setSelectedLugar('');
+        if (isHydrating.current) return;
+        if (!tipoMonitoreo) setSelectedLugar(null);
     }, [tipoMonitoreo]);
 
-    // Cascade: Empresa de Servicio -> Fuente Emisora & Contacto & Objetivo
-    useEffect(() => {
-        console.log('🔄 [Cascade] selectedEmpresa changed:', selectedEmpresa, 'isHydrating:', isHydrating.current);
-        // Skip clearing if we're hydrating
-        if (isHydrating.current) {
-            console.log('⏸️ [Cascade] Skipping selectedEmpresa cascade (hydrating)');
-            return;
-        }
+    // 2. EMPRESA CASCADE
+    const handleEmpresaChange = (v: string | null) => {
+        setSelectedEmpresa(v || '');
+        if (isHydrating.current) return;
 
-        const isRestoring = initialData && String(initialData.selectedEmpresa) === String(selectedEmpresa);
+        // Reset dependents
+        setFuentesEmisoras([]);
+        setSelectedFuente(null);
+        setContactos([]);
+        setSelectedContacto(null);
+        setObjetivos([]);
+        setSelectedObjetivo(null);
 
-        if (!isRestoring) {
-            // Clear dependent fields if the service company changes
-            setFuentesEmisoras([]);
-            setSelectedFuente('');
-            setContactos([]);
-            setSelectedContacto('');
-            setObjetivos([]); // Reset Objetivos
-            setSelectedObjetivo('');
-        }
-
-        if (selectedEmpresa && selectedEmpresa !== 'No Aplica') {
-            const idS = Number(selectedEmpresa);
-            console.log('📡 [Cascade] Loading data for empresaServicioId:', idS);
-            
-            // Call loaders with undefined for clienteId (first arg) and idS for empresaServicioId (second arg)
+        if (v && v !== 'No Aplica') {
+            const idS = Number(v);
             loadFuentesEmisoras(undefined, idS);
             loadContactos(undefined, idS);
             loadObjetivos(undefined, idS);
         }
-    }, [selectedEmpresa, initialData]);
+    };
 
-    // Cascade: Componente -> SubArea
-    useEffect(() => {
-        console.log('🔄 [Cascade] selectedComponente changed:', selectedComponente, 'isHydrating:', isHydrating.current);
-        if (isHydrating.current) {
-            console.log('⏸️ [Cascade] Skipping selectedComponente cascade (hydrating)');
-            return;
-        }
-        const isRestoring = initialData && String(initialData.selectedComponente) === String(selectedComponente);
-        console.log('🔍 [Cascade] selectedComponente isRestoring:', isRestoring);
-        if (!isRestoring) {
-            console.log('🗑️ [Cascade] Clearing subAreas');
-            setSubAreas([]);
-            setSelectedSubArea('');
-        }
-        if (selectedComponente) {
-            loadSubAreas(selectedComponente);
-        }
-    }, [selectedComponente]);
-
-    // Cascade: Tipo Muestreo -> Tipo Muestra
-    useEffect(() => {
+    const handleComponenteChange = (val: string | null) => {
+        setSelectedComponente(val || '');
         if (isHydrating.current) return;
-        const isRestoring = initialData && String(initialData.selectedTipoMuestreo) === String(selectedTipoMuestreo);
-        if (!isRestoring) {
-            setTiposMuestra([]);
-            setSelectedTipoMuestra('');
-        }
-        if (selectedTipoMuestreo) {
-            loadTiposMuestra(selectedTipoMuestreo);
-        }
-    }, [selectedTipoMuestreo]);
+        setSubAreas([]);
+        setSelectedSubArea(null);
+        if (val && val !== 'No Aplica') loadSubAreas(val);
+    };
 
-    // Cascade: Tipo Muestra -> Actividad
-    useEffect(() => {
+    const handleTipoMuestreoChange = (val: string | null) => {
+        setSelectedTipoMuestreo(val || '');
         if (isHydrating.current) return;
-        const isRestoring = initialData && String(initialData.selectedTipoMuestra) === String(selectedTipoMuestra);
-        if (!isRestoring) {
-            setActividades([]);
-            setSelectedActividad('');
-        }
-        if (selectedTipoMuestra) {
-            loadActividades(selectedTipoMuestra);
-        }
-    }, [selectedTipoMuestra]);
+        setTiposMuestra([]);
+        setSelectedTipoMuestra(null);
+        if (val && val !== 'No Aplica') loadTiposMuestra(val);
+    };
 
+    const handleTipoMuestraChange = (val: string | null) => {
+        setSelectedTipoMuestra(val || '');
+        if (isHydrating.current) return;
+        setActividades([]);
+        setSelectedActividad(null);
+        if (val && val !== 'No Aplica') loadActividades(val);
+    };
 
-    // Auto-population (Derived Fields)
     useEffect(() => {
-        // ALLOW auto-population during hydration because initialData might not have these derived text fields,
-        // or we need to ensure they match the selected Fuente.
-        // if (isHydrating.current) return; <--- REMOVED THIS GUARD
-
         if (selectedFuente) {
             const fuente = fuentesEmisoras.find(f => f.id.toString() === selectedFuente);
             if (fuente) {
@@ -513,22 +369,16 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 setComuna(fuente.comuna || fuente.nombre_comuna || '');
                 setRegion(fuente.region || fuente.nombre_region || '');
                 setTipoAgua(fuente.tipo_agua || '');
-                // Try to find reasonable ID: id_tipoagua, or parse from somewhere if not present
                 const fuenteAny = fuente as any;
-                const idTipo = fuenteAny.id_tipoagua || fuenteAny.IdTipoAgua || fuenteAny.ID_TIPOAGUA || null;
-                setIdTipoAgua(idTipo);
+                setIdTipoAgua(fuenteAny.id_tipoagua || fuenteAny.IdTipoAgua || fuenteAny.ID_TIPOAGUA || null);
                 setCodigo(fuente.codigo || '');
             }
         } else if (!initialData) {
-            // Only clear if we're not in edit mode (no initialData)
-            setUbicacion('');
-            setComuna('');
-            setRegion('');
-            setTipoAgua('');
-            setCodigo('');
+            setUbicacion(''); setComuna(''); setRegion(''); setTipoAgua(''); setCodigo('');
         }
     }, [selectedFuente, fuentesEmisoras]);
 
+    // Data Loaders (Maintained from original)
     const loadLugares = async () => {
         try {
             const data = await catalogos.getLugaresAnalisis();
@@ -536,9 +386,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 id: item.id_lugaranalisis || item.IdLugarAnalisis || item.ID || item.id,
                 nombre: item.nombre_lugaranalisis || item.NombreLugar || item.Nombre || item.nombre
             })));
-        } catch (err: any) {
-            console.error(err);
-        }
+        } catch (err) {}
     };
 
     const loadEmpresas = async () => {
@@ -551,9 +399,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 contacto: item.contacto_empresaservicios || '',
                 email_contacto: item.email_contacto || ''
             })));
-        } catch (err: any) {
-            console.error(err);
-        }
+        } catch (err) {}
     };
 
     const loadClientes = async () => {
@@ -565,23 +411,19 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 email: item.email_empresa || '',
                 id_empresaservicio: item.id_empresaservicio || 0 
             })));
-        } catch (err: any) {
-            console.error(err);
-        }
+        } catch (err) {}
     };
 
     const loadContactos = async (clienteId?: number, empresaServicioId?: number) => {
         try {
             const data = await catalogos.getContactos(clienteId, empresaServicioId);
             setContactos(data.map((item: any) => ({
-                id: item.id_contacto || item.IdContacto || item.id,
-                nombre: item.nombre_contacto || item.NombreContacto || item.nombre || item.nombres || item.nombre_persona,
-                email: item.email || item.Email || item.email_contacto,
-                telefono: item.telefono || item.Telefono || item.fono || item.fono_contacto
+                id: item.id_contacto || item.id,
+                nombre: item.nombre_contacto || item.nombre || item.nombres || item.nombre_persona,
+                email: item.email || item.email_contacto,
+                telefono: item.telefono || item.fono_contacto
             })));
-        } catch (err: any) {
-            console.error(err);
-        }
+        } catch (err) {}
     };
 
     const loadFuentesEmisoras = async (clienteId?: number, empresaServicioId?: number) => {
@@ -593,20 +435,13 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 direccion: item.direccion || item.ubicacion,
                 comuna: item.nombre_comuna || item.comuna,
                 region: item.nombre_region || item.region,
-                tipo_agua: item.tipo_agua || item.TipoAgua || item.tipoagua || item.Tipo_Agua || item.nombre_tipoagua,
+                tipo_agua: item.tipo_agua || item.TipoAgua || item.tipoagua || item.nombre_tipoagua,
                 id_tipoagua: item.id_tipoagua || item.IdTipoAgua || item.ID_TIPOAGUA,
-                codigo: item.codigo_centro || item.Codigo || item.codigo || item.codigo_ma
+                codigo: item.codigo_centro || item.codigo || item.codigo_ma
             }));
             setFuentesEmisoras(mapped);
-
-            // Auto-select first available Fuente Emisora if not hydrating
-            if (!isHydrating.current && mapped.length > 0) {
-                console.log('✨ Auto-selecting first Fuente Emisora:', mapped[0].nombre);
-                setSelectedFuente(String(mapped[0].id));
-            }
-        } catch (err: any) {
-            console.error(err);
-        }
+            if (!isHydrating.current && mapped.length > 0) setSelectedFuente(String(mapped[0].id));
+        } catch (err) {}
     };
 
     const loadObjetivos = async (clienteId?: number, empresaServicioId?: number) => {
@@ -616,159 +451,9 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 id: o.id_objetivomuestreo_ma || o.id,
                 nombre: o.nombre_objetivomuestreo_ma || o.nombre
             })));
-        } catch (error) {
-            console.error("Error loading objetivos", error);
-        }
+        } catch (error) {}
     };
 
-    // Independent Catalog Loader
-    const loadCatalogosComplementarios = async () => {
-        try {
-            // Batch 1: Core Catalogs (Lighter requests)
-            const [comps, insp, tMuestreo, tDescarga, mods, instrs, umeds] = await Promise.all([
-                catalogos.getComponentesAmbientales(),
-                catalogos.getInspectores(),
-                catalogos.getTiposMuestreo(),
-                catalogos.getTiposDescarga(),
-                catalogos.getModalidades(),
-                catalogos.getInstrumentosAmbientales(),
-                catalogos.getUnidadesMedida()
-            ]);
-
-            setUnidadesMedida((umeds || []).map((u: any) => ({
-                id: String(u.id_umedida || u.id || ''),
-                nombre: u.nombre_umedida || u.nombre || '-'
-            })).filter(u => u.nombre !== 'NA' && u.nombre !== 'No Aplica'));
-
-            setComponentes((comps || []).map((c: any) => ({
-                id: c.id_tipomuestra || c.id,
-                nombre: c.nombre_tipomuestra || c.nombre
-            })));
-            setInspectores((insp || []).map((i: any) => ({
-                id: String(i.id_inspectorambiental || i.id_inspector || i.id || ''),
-                nombre: i.nombre_inspector || i.nombre
-            })));
-            setTiposMuestreo((tMuestreo || []).map((t: any) => ({
-                id: String(t.id_tipomuestreo || t.id || ''),
-                nombre: t.nombre_tipomuestreo || t.nombre
-            })));
-            setTiposDescarga((tDescarga || []).map((t: any) => ({
-                id: String(t.id_tipodescarga || t.id || ''),
-                nombre: t.nombre_tipodescarga || t.nombre
-            })));
-            setModalidades((mods || []).map((m: any) => ({
-                id: String(m.id_modalidad || m.id || ''),
-                nombre: m.nombre_modalidad || m.nombre
-            })));
-            setInstrumentosAmbientales((instrs || []).map((i: any) => ({
-                id: i.nombre, // Mapped 'nombre' to 'id' to preserve string saving behavior
-                nombre: i.nombre
-            })));
-
-            // Batch 2: Heavier Catalogs - Load on mount for now
-            // (Lazy loading caused issues with fields not showing options)
-            const [cargosList, freqsList, formasCanalList, dispositivosList] = await Promise.all([
-                catalogos.getCargos(),
-                catalogos.getFrecuenciasPeriodo(),
-                catalogos.getFormasCanal(),
-                catalogos.getDispositivosHidraulicos()
-            ]);
-
-            // Normalize Cargos
-            const normCargos = (cargosList || []).map((c: any, index: number) => ({
-                ...c,
-                id: String(c.id_cargo || c.ID || c.id || `cargo-${index}`),
-                nombre: c.nombre_cargo || c.Nombre || 'Sin Nombre',
-                cliente: c.cliente || c.Cliente
-            }));
-            setCargos(normCargos);
-
-            // Normalize Frecuencias
-            const normFreqs = (freqsList || []).map((f: any, index: number) => ({
-                ...f,
-                id: String(f.id_frecuenciaperiodo || f.id_frecuencia || f.id || `freq-${index}`),
-                nombre: f.nombre_frecuencia || f.nombre
-            }));
-            setFrecuenciasOptions(normFreqs);
-
-            // FORCE RE-HYDRATION: Ensure Periodo is selected once options are loaded
-            if (initialData?.periodo) {
-                const pId = String(initialData.periodo);
-                const match = normFreqs.find(f => String(f.id) === pId);
-                if (match) {
-                    setPeriodo(pId);
-                }
-            }
-
-            // Formas Canal
-            setFormasCanal((formasCanalList || []).map((f: any) => ({
-                id: String(f.id_formacanal || f.id || ''),
-                nombre: f.nombre_formacanal || f.nombre
-            })));
-
-            // Dispositivos Hidraulicos
-            setDispositivos((dispositivosList || []).map((d: any) => ({
-                id: String(d.id_dispositivohidraulico || d.id || ''),
-                nombre: d.nombre_dispositivohidraulico || d.nombre
-            })));
-
-            console.log('✅ All catalogs loaded successfully.');
-
-            // If we're in edit mode (hydrating), load dependent catalogs before disabling flag
-            if (isHydrating.current && initialData) {
-                console.log('📦 Loading dependent catalogs for edit mode...');
-
-                // Load dependent catalogs based on initialData
-                const dependentLoads: Promise<void>[] = [];
-
-                if (initialData.selectedEmpresa && initialData.selectedEmpresa !== 'No Aplica' && initialData.selectedEmpresa !== 0 && initialData.selectedEmpresa !== '0') {
-                    const idS = Number(initialData.selectedEmpresa);
-                    dependentLoads.push(
-                        loadFuentesEmisoras(undefined, idS),
-                        loadContactos(undefined, idS),
-                        loadObjetivos(undefined, idS)
-                    );
-                } else if (initialData.selectedCliente && initialData.selectedCliente !== 'No Aplica') {
-                    // Fallback for legacy data or when Empresa de Servicio is truly empty
-                    dependentLoads.push(
-                        loadFuentesEmisoras(Number(initialData.selectedCliente)),
-                        loadContactos(Number(initialData.selectedCliente)),
-                        loadObjetivos(Number(initialData.selectedCliente))
-                    );
-                }
-
-                if (initialData.selectedComponente) {
-                    dependentLoads.push(loadSubAreas(String(initialData.selectedComponente)));
-                }
-
-                if (initialData.selectedTipoMuestreo) {
-                    dependentLoads.push(loadTiposMuestra(String(initialData.selectedTipoMuestreo)));
-                }
-
-                if (initialData.selectedTipoMuestra) {
-                    dependentLoads.push(loadActividades(String(initialData.selectedTipoMuestra)));
-                }
-
-                // Wait for all dependent catalogs to load
-                await Promise.all(dependentLoads);
-                console.log('✅ Dependent catalogs loaded successfully');
-
-                // NOW it's safe to disable hydration flag
-                console.log('🔓 Disabling hydration flag - all catalogs loaded');
-                isHydrating.current = false;
-            } else if (isHydrating.current) {
-                // Not in edit mode but flag is still set (shouldn't happen)
-                console.log('🔓 Disabling hydration flag - catalogs loaded');
-                isHydrating.current = false;
-            }
-
-        } catch (error) {
-            console.error("Error loading complementarios", error);
-            setCatalogErrors(prev => ({ ...prev, complementarios: 'Error al cargar catálogos' }));
-        }
-    };
-
-    // Dependent Loaders
     const loadSubAreas = async (componenteId: string) => {
         try {
             const data = await catalogos.getSubAreas(componenteId);
@@ -776,897 +461,568 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 id: s.id_subarea || s.id,
                 nombre: s.nombre_subarea || s.nombre
             })));
-        } catch (error) { console.error('Error loading subareas', error); }
+        } catch (error) {}
     };
 
     const loadTiposMuestra = async (tipoMuestreoId: string) => {
         try {
             const data = await catalogos.getTiposMuestra(tipoMuestreoId);
             setTiposMuestra(data || []);
-        } catch (error) { console.error('Error loading tipos muestra', error); }
+        } catch (error) {}
     };
 
     const loadActividades = async (tipoMuestraId: string) => {
         try {
             const data = await catalogos.getActividadesMuestreo(tipoMuestraId);
             setActividades(data || []);
-        } catch (error) { console.error('Error loading actividades', error); }
+        } catch (error) {}
     };
 
-    // Logic for Cargo Options Filtering
-    const getFilteredCargos = () => {
-        if (responsableMuestreo === 'ADL') {
-            // FoxPro: Where id_cargo = 53
-            return cargos.filter(c => String(c.id) === '53');
-        } else if (responsableMuestreo === 'Cliente') {
-            // FoxPro: Where cliente='S'
-            return cargos.filter(c => c.cliente === 'S' || c.cliente === true);
-        }
-        return cargos;
+    const loadCatalogosComplementarios = async () => {
+        try {
+            const [comps, insp, tMuestreo, tDescarga, mods, instrs, umeds, cargosList, freqsList, formasCanalList, dispositivosList] = await Promise.all([
+                catalogos.getComponentesAmbientales(), catalogos.getInspectores(), catalogos.getTiposMuestreo(),
+                catalogos.getTiposDescarga(), catalogos.getModalidades(), catalogos.getInstrumentosAmbientales(),
+                catalogos.getUnidadesMedida(), catalogos.getCargos(), catalogos.getFrecuenciasPeriodo(),
+                catalogos.getFormasCanal(), catalogos.getDispositivosHidraulicos()
+            ]);
+
+            setUnidadesMedida((umeds || []).map((u: any) => ({ value: String(u.id_umedida || u.id || ''), label: u.nombre_umedida || u.nombre || '-' })).filter(u => u.label !== 'NA' && u.label !== 'No Aplica'));
+            setComponentes((comps || []).map((c: any) => ({ value: String(c.id_tipomuestra || c.id), label: c.nombre_tipomuestra || c.nombre })));
+            setInspectores((insp || []).map((i: any) => ({ value: String(i.id_inspectorambiental || i.id), label: i.nombre_inspector || i.nombre })));
+            setTiposMuestreo((tMuestreo || []).map((t: any) => ({ value: String(t.id_tipomuestreo || t.id), label: t.nombre_tipomuestreo || t.nombre })));
+            setTiposDescarga((tDescarga || []).map((t: any) => ({ value: String(t.id || t.id_tipodescarga), label: t.nombre || t.nombre_tipodescarga })));
+            setModalidades((mods || []).map((m: any) => ({ value: String(m.id_modalidad || m.id), label: m.nombre_modalidad || m.nombre })));
+            setInstrumentosAmbientales((instrs || []).map((i: any) => ({ value: i.nombre, label: i.nombre })));
+            setCargos((cargosList || []).map((c: any, index: number) => ({ id: String(c.id_cargo || c.id || `cargo-${index}`), nombre: c.nombre_cargo || 'Sin Nombre', cliente: c.cliente })));
+            setFrecuenciasOptions((freqsList || []).map((f: any, index: number) => ({ id: String(f.id_frecuenciaperiodo || f.id || `freq-${index}`), nombre: f.nombre_frecuencia || f.nombre, cantidad: f.cantidad, multiplicadopor: f.multiplicadopor })));
+            setFormasCanal((formasCanalList || []).map((f: any) => ({ value: String(f.id_formacanal || f.id), label: f.nombre_formacanal || f.nombre })));
+            setDispositivos((dispositivosList || []).map((d: any) => ({ value: String(d.id_dispositivohidraulico || d.id), label: d.nombre_dispositivohidraulico || d.nombre })));
+
+            if (isHydrating.current && initialData) {
+                const depLoads: Promise<any>[] = [];
+                if (initialData.selectedEmpresa && initialData.selectedEmpresa !== 'No Aplica') depLoads.push(loadFuentesEmisoras(undefined, Number(initialData.selectedEmpresa)), loadContactos(undefined, Number(initialData.selectedEmpresa)), loadObjetivos(undefined, Number(initialData.selectedEmpresa)));
+                if (initialData.selectedComponente) depLoads.push(loadSubAreas(String(initialData.selectedComponente)));
+                if (initialData.selectedTipoMuestreo) depLoads.push(loadTiposMuestra(String(initialData.selectedTipoMuestreo)));
+                if (initialData.selectedTipoMuestra) depLoads.push(loadActividades(String(initialData.selectedTipoMuestra)));
+                await Promise.all(depLoads);
+                isHydrating.current = false;
+            } else { isHydrating.current = false; }
+        } catch (error) {}
     };
 
-    // Logic: Frecuencia Periodo
-    const handlePeriodoChange = (val: string) => {
-        console.log('🔄 handlePeriodoChange called with val:', val);
-        setPeriodo(val);
-        // Find by normalized ID
-        const selectedFreq = frecuenciasOptions.find(f => String(f.id) === val);
-        console.log('🔍 selectedFreq found:', selectedFreq);
-
-        if (selectedFreq) {
-            const cant = String(selectedFreq.cantidad || 1);
-            const mult = String(selectedFreq.multiplicadopor || 1);
-            console.log('📊 Setting frecuencia:', cant, 'factor:', mult);
-
-            setFrecuencia(cant);
-            setFactor(mult);
-
-            // Calc Total
-            setTotalServicios(String(Number(cant) * Number(mult)));
-        } else if (val === 'No Aplica') {
-            setFrecuencia('No Aplica');
-            setFactor('No Aplica');
-            setTotalServicios('No Aplica');
-        } else {
-            console.warn('⚠️ No matching frequency found for periodo:', val);
-            setFrecuencia('');
-            setFactor('');
-            setTotalServicios('');
-        }
-    };
-
-    // Reactive Glosa Logic
     useEffect(() => {
-        // Skip during hydration to preserve loaded value
-        if (isHydrating.current) return;
+        loadLugares(); loadEmpresas(); loadClientes(); loadCatalogosComplementarios();
+    }, []);
 
+    // Memoized Select Data for Performance
+    const filteredCargosMemo = useMemo(() => {
+        if (responsableMuestreo === 'ADL') return cargos.filter(c => String(c.id) === '53');
+        if (responsableMuestreo === 'Cliente') return cargos.filter(c => c.cliente === 'S' || c.cliente === true);
+        return cargos;
+    }, [cargos, responsableMuestreo]);
+
+    const lugaresData = useMemo(() => [{ value: 'No Aplica', label: 'No Aplica' }, ...lugares.map(l => ({ value: String(l.id), label: l.nombre }))], [lugares]);
+    const clientesData = useMemo(() => [{ value: 'No Aplica', label: 'No Aplica' }, ...clientes.filter(c => c.nombre && c.nombre.trim().toLowerCase() !== 'no aplica').map(c => ({ value: String(c.id), label: c.nombre }))], [clientes]);
+    const empresasData = useMemo(() => [{ value: 'No Aplica', label: 'No Aplica' }, ...empresas.filter(e => e.nombre && e.nombre.trim().toLowerCase() !== 'no aplica').map(e => ({ value: String(e.id), label: e.nombre }))], [empresas]);
+    const fuentesData = useMemo(() => [{ value: 'No Aplica', label: 'No Aplica' }, ...fuentesEmisoras.map(f => ({ value: String(f.id), label: f.nombre }))], [fuentesEmisoras]);
+    const objetivosData = useMemo(() => [{ value: 'No Aplica', label: 'No Aplica' }, ...dedupOptions(objetivos.map(o => ({ value: String(o.id), label: o.nombre })))], [objetivos]);
+    const cargosData = useMemo(() => [{ value: 'No Aplica', label: 'No Aplica' }, ...dedupOptions(filteredCargosMemo.map(c => ({ value: String(c.id), label: c.nombre })))], [filteredCargosMemo]);
+    const frecuenciasData = useMemo(() => [{ value: 'No Aplica', label: 'No Aplica' }, ...dedupOptions(frecuenciasOptions.map(f => ({ value: String(f.id), label: f.nombre })))], [frecuenciasOptions]);
+    const componentesData = useMemo(() => [{ value: 'No Aplica', label: 'No Aplica' }, ...componentes], [componentes]);
+    const subAreasData = useMemo(() => [{ value: 'No Aplica', label: 'No Aplica' }, ...subAreas.map(s => ({ value: String(s.id), label: s.nombre }))], [subAreas]);
+    const inspectoresData = useMemo(() => [{ value: 'No Aplica', label: 'No Aplica' }, ...inspectores], [inspectores]);
+    const tiposMuestreoData = useMemo(() => [{ value: 'No Aplica', label: 'No Aplica' }, ...tiposMuestreo], [tiposMuestreo]);
+    const tiposMuestraData = useMemo(() => [{ value: 'No Aplica', label: 'No Aplica' }, ...tiposMuestra.map(t => ({ value: String(t.id_tipomuestra_ma), label: t.nombre_tipomuestra_ma }))], [tiposMuestra]);
+    const actividadesData = useMemo(() => [{ value: 'No Aplica', label: 'No Aplica' }, ...actividades.map(a => ({ value: String(a.id_actividadmuestreo), label: a.nombre_actividadmuestreo }))], [actividades]);
+    const tiposDescargaData = useMemo(() => [{ value: 'No Aplica', label: 'No Aplica' }, ...tiposDescarga], [tiposDescarga]);
+    const modalidadesData = useMemo(() => [{ value: 'No Aplica', label: 'No Aplica' }, ...modalidades], [modalidades]);
+    const formasCanalData = useMemo(() => [{ value: 'No Aplica', label: 'No Aplica' }, ...formasCanal], [formasCanal]);
+    const dispositivosData = useMemo(() => [{ value: 'No Aplica', label: 'No Aplica' }, ...dispositivos], [dispositivos]);
+
+    const handlePeriodoChange = (val: string | null) => {
+        setPeriodo(val);
+        const selectedFreq = frecuenciasOptions.find(f => String(f.id) === val);
+        if (selectedFreq) {
+            setFrecuencia(String(selectedFreq.cantidad || 1));
+            setFactor(String(selectedFreq.multiplicadopor || 1));
+        } else if (val === 'No Aplica') {
+            setFrecuencia('No Aplica'); setFactor('No Aplica'); setTotalServicios('No Aplica');
+        }
+    };
+
+    useEffect(() => {
+        if (isHydrating.current) return;
         if (selectedSubArea && selectedFuente && selectedObjetivo) {
             const fuenteName = fuentesEmisoras.find(f => String(f.id) === selectedFuente)?.nombre || '';
             const objName = objetivos.find(o => String(o.id) === selectedObjetivo)?.nombre || '';
-            if (fuenteName && objName) {
-                setGlosa(`${fuenteName.trim()} - ${objName.trim()}`);
-            }
-        } else if (!selectedSubArea && !initialData) {
-            // Only clear if not in edit mode
-            setGlosa('');
+            if (fuenteName && objName) setGlosa(`${fuenteName.trim()} - ${objName.trim()}`);
         }
     }, [selectedSubArea, selectedFuente, selectedObjetivo, fuentesEmisoras, objetivos]);
 
-    // Auto-select Inspector when ETFA becomes Yes
-    useEffect(() => {
-        if (isHydrating.current) return;
-        if (esETFA === 'Si' && inspectores.length > 0) {
-            // Check if current selection is valid
-            const isValid = inspectores.some(i => String(i.id) === selectedInspector);
-            if (!isValid || !selectedInspector) {
-                setSelectedInspector(String(inspectores[0].id));
-            }
-        }
-    }, [esETFA, inspectores, selectedInspector]);
-
-    // Recalculate if user manually edits Freq or Factor (FoxPro enables them)
-    useEffect(() => {
-        // ALLOW calculation during hydration to ensure total services is correct
-        // if (isHydrating.current) return; 
-
-        if (frecuencia === 'No Aplica' || factor === 'No Aplica' || periodo === 'No Aplica') {
-            setTotalServicios('No Aplica');
-        } else if (frecuencia && factor && !isNaN(Number(frecuencia)) && !isNaN(Number(factor))) {
-            setTotalServicios(String(Number(frecuencia) * Number(factor)));
-        } else {
-            setTotalServicios('');
-        }
-    }, [frecuencia, factor, periodo]);
-
-    // Auto-assign Cargo based on Responsable Muestreo (FoxPro LostFocus logic)
+    // LÓGICA AUTOMÁTICA DE CARGO
     useEffect(() => {
         if (isHydrating.current) return;
         if (responsableMuestreo === 'ADL') {
-            // Auto-assign id_cargo = 53 (Muestreador) when ADL is selected
             setCargoResponsable('53');
-        } else if (responsableMuestreo === 'Cliente') {
-            // Clear cargo to allow manual selection
-            setCargoResponsable('');
+        } else if (responsableMuestreo === 'Cliente' && cargoResponsable === '53') {
+            setCargoResponsable(null);
         }
     }, [responsableMuestreo]);
 
-    // Validation on Focus (FoxPro GotFocus)
-    const handlePeriodoFocus = () => {
-        if (!puntoMuestreo || puntoMuestreo.trim() === '') {
-            showToast({ type: 'warning', message: 'Debes ingresar el dato Punto de Muestreo', duration: 4000 });
-            // In React we can't easily force focus back to another element programmatically 
-            // without refs, but we can clear the selection or just show the alert.
-            // For better UX, we could focus the ref if we had one for puntoMuestreo.
-        }
-    };
-
-    // Initial auto-selection for ADL Default (FoxPro behavior)
     useEffect(() => {
-        if (isHydrating.current) return;
-        if (responsableMuestreo === 'ADL' && cargos.length > 0 && !cargoResponsable) {
-            // Force ID 53 if available
-            const cargoADL = cargos.find(c => String(c.id) === '53');
-            if (cargoADL) {
-                setCargoResponsable('53');
-            }
-        }
-    }, [cargos, responsableMuestreo, cargoResponsable]);
+        if (frecuencia === 'No Aplica' || factor === 'No Aplica') setTotalServicios('No Aplica');
+        else if (frecuencia && factor && !isNaN(Number(frecuencia)) && !isNaN(Number(factor))) setTotalServicios(String(Number(frecuencia) * Number(factor)));
+    }, [frecuencia, factor]);
+
+    const StaticField = ({ label, value, icon: Icon }: { label: string, value: string, icon: any }) => (
+        <Stack gap={2}>
+            <Group gap={4}>
+                <Icon size={12} color="var(--mantine-color-dimmed)" />
+                <Text size="xs" fw={700} c="dimmed" tt="uppercase">{label}</Text>
+            </Group>
+            <Paper withBorder px="xs" py={6} radius="md" bg="gray.1">
+                <Text size="sm" fw={500} truncate title={value}>{value || '-'}</Text>
+            </Paper>
+        </Stack>
+    );
 
     return (
-        <div className="antecedentes-form" style={{ padding: '0.5rem' }}>
-            {/* Grid Layout Container */}
-            <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: '1fr' }}>
-
-                {/* Row 1: Monitoreo, Base, Empresa Fac, Empresa Servicio */}
-                <div className="form-grid-row grid-cols-4">
-                    <div style={{ width: '100%', minWidth: 0 }}>
-                        <SearchableSelect
-                            label="Monitoreo agua/RIL *"
+        <Stack gap="xl" p="xs" style={{ width: '100% !important' }}>
+            {/* Block 1: Identificación */}
+            <Paper withBorder p="md" radius="lg" shadow="xs" style={{ width: '100% !important' }}>
+                <Stack gap="md">
+                    <Group gap="xs">
+                        <IconBuilding size={18} color="var(--mantine-color-blue-6)" />
+                        <Text fw={700} size="sm" c="blue.7">Identificación y Ubicación</Text>
+                    </Group>
+                    
+                    <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
+                        <Select 
+                            label="Monitoreo agua/RIL *" 
+                            placeholder="Seleccione..."
+                            data={['Compuesta', 'Puntual']}
                             value={tipoMonitoreo}
                             onChange={setTipoMonitoreo}
-                            options={[
-                                { id: 'Compuesta', nombre: 'Compuesta' },
-                                { id: 'Puntual', nombre: 'Puntual' }
-                            ]}
+                            size="sm"
+                            radius="md"
                         />
-                    </div>
-                    <div style={{ width: '100%', minWidth: 0 }}>
-                        <SearchableSelect
-                            label="Base de operaciones *"
+                        <Select 
+                            label="Base de operaciones *" 
+                            placeholder="Cargando..."
+                            data={lugaresData}
                             value={selectedLugar}
                             onChange={setSelectedLugar}
-                            options={[
-                                { id: 'No Aplica', nombre: 'No Aplica' },
-                                ...lugares.map(l => ({ id: l.id, nombre: l.nombre }))
-                            ]}
                             disabled={!tipoMonitoreo}
+                            searchable
+                            size="sm"
+                            radius="md"
                         />
-                    </div>
-                    <div style={{ width: '100%', minWidth: 0 }}>
-                        <SearchableSelect
-                            label="Empresa a Facturar *"
+                        <Select 
+                            label="Empresa a Facturar *" 
+                            placeholder="Buscar cliente..."
+                            data={clientesData}
                             value={selectedCliente}
-                            onChange={setSelectedCliente}
-                            options={[
-                                { id: 'No Aplica', nombre: 'No Aplica' },
-                                ...clientes
-                                    .filter(c => c.nombre && c.nombre.trim() !== '' && c.nombre.trim().toLowerCase() !== 'no aplica')
-                                    .map(c => ({ id: c.id, nombre: c.nombre }))
-                            ]}
+                            onChange={(v) => setSelectedCliente(v || '')}
+                            searchable
+                            size="sm"
+                            radius="md"
                         />
-                    </div>
-                    <div style={{ width: '100%', minWidth: 0 }}>
-                        <SearchableSelect
-                            label="Empresa de servicio"
+                        <Select 
+                            label="Empresa de servicio *" 
+                            placeholder="Buscar empresa..."
+                            data={empresasData}
                             value={selectedEmpresa}
-                            onChange={setSelectedEmpresa}
-                            options={[
-                                { id: 'No Aplica', nombre: 'No Aplica' },
-                                ...empresas
-                                    .filter(e => e.nombre && e.nombre.trim() !== '' && e.nombre.trim().toLowerCase() !== 'no aplica')
-                                    .map(e => ({ id: e.id, nombre: e.nombre }))
-                            ]}
+                            onChange={handleEmpresaChange}
+                            searchable
+                            size="sm"
+                            radius="md"
                         />
-                    </div>
-                </div>
+                    </SimpleGrid>
 
-                {/* Row 2: Fuente, Tipo Agua, Ubicacion, Comuna, Region */}
-                <div className="form-grid-row grid-cols-custom-5">
-                    <div style={{ width: '100%', minWidth: 0 }}>
-                        <SearchableSelect
-                            label="Fuente emisora *"
-                            value={selectedFuente}
-                            onChange={setSelectedFuente}
-                            options={[
-                                { id: 'No Aplica', nombre: 'No Aplica' },
-                                ...fuentesEmisoras.map(f => ({ id: f.id, nombre: f.nombre }))
-                            ]}
-                            disabled={!selectedEmpresa || selectedEmpresa === 'No Aplica'}
-                        />
-                    </div>
-                    <ReadOnlyField label="Tipo agua" value={tipoAgua} />
-                    <div className="form-group">
-                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>Ubicaci&oacute;n</label>
-                        <input
-                            type="text"
-                            value={ubicacion}
+                    <SimpleGrid cols={{ base: 1, sm: 2, md: 5 }} spacing="md">
+                        <Box style={{ gridColumn: 'span 2' }}>
+                            <Select 
+                                label="Fuente emisora *" 
+                                placeholder="Seleccione empresa primero"
+                                data={fuentesData}
+                                value={selectedFuente}
+                                onChange={(val) => setSelectedFuente(val || '')}
+                                disabled={!selectedEmpresa || selectedEmpresa === 'No Aplica'}
+                                searchable
+                                size="sm"
+                                radius="md"
+                            />
+                        </Box>
+                        <StaticField label="Tipo agua" value={tipoAgua} icon={IconFlask} />
+                        <StaticField label="Comuna" value={comuna} icon={IconMapPin} />
+                        <StaticField label="Región" value={region} icon={IconMapPin} />
+                    </SimpleGrid>
+
+                    <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
+                        <TextInput 
+                            label="Ubicación / Dirección" 
+                            value={ubicacion} 
                             onChange={(e) => setUbicacion(e.target.value)}
-                            style={{
-                                width: '100%',
-                                padding: '6px 10px',
-                                fontSize: '0.85rem',
-                                border: '1px solid #d1d5db',
-                                borderRadius: '6px',
-                                outline: 'none',
-                                minHeight: '34px'
-                            }}
+                            size="sm"
+                            radius="md"
                         />
-                    </div>
-                    <ReadOnlyField label="Comuna" value={comuna} />
-                    <ReadOnlyField label="Regi&oacute;n" value={region} />
-                </div>
-
-                {/* Row 3: Codigo */}
-                <div className="form-grid-row grid-cols-custom-2">
-                    <ReadOnlyField label="C&oacute;digo" value={codigo} />
-                    <div /> {/* Spacer */}
-                </div>
-
-                {/* Row 4: Contacto */}
-                <div className="form-grid-row grid-cols-3">
-                    <div style={{ width: '100%', minWidth: 0 }}>
-                        <SearchableSelect
-                            label="Contacto empresa *"
-                            value={selectedContacto}
-                            onChange={setSelectedContacto}
-                            options={[
-                                { id: 'No Aplica', nombre: 'No Aplica' },
-                                ...(empresas.find(e => String(e.id) === selectedEmpresa)?.contacto 
-                                    ? [{ id: 'primary', nombre: empresas.find(e => String(e.id) === selectedEmpresa)?.contacto || '' }] 
-                                    : []),
-                                ...contactos.map(c => ({ id: c.id, nombre: c.nombre }))
+                        <StaticField label="Código Centro" value={codigo} icon={IconInfoCircle} />
+                        <Select 
+                            label="Contacto empresa *" 
+                            placeholder="Seleccione..."
+                            data={[
+                                { value: 'No Aplica', label: 'No Aplica' },
+                                ...(empresas.find(e => String(e.id) === selectedEmpresa)?.contacto ? [{ value: 'primary', label: empresas.find(e => String(e.id) === selectedEmpresa)?.contacto || '' }] : []),
+                                ...contactos.map(c => ({ value: String(c.id), label: c.nombre }))
                             ]}
+                            value={selectedContacto}
+                            onChange={(v) => setSelectedContacto(v || '')}
                             disabled={!selectedEmpresa || selectedEmpresa === 'No Aplica'}
+                            searchable
+                            size="sm"
+                            radius="md"
                         />
-                    </div>
-                    <ReadOnlyField 
-                        label="Correo Contacto" 
-                        value={
-                            selectedContacto === 'primary' 
-                                ? (empresas.find(e => String(e.id) === selectedEmpresa)?.email_contacto || empresas.find(e => String(e.id) === selectedEmpresa)?.email || '-')
-                                : (contactos.find(c => String(c.id) === selectedContacto)?.email || '-')
-                        } 
-                    />
-                </div>
+                        <StaticField 
+                            label="E-mail Contacto" 
+                            value={selectedContacto === 'primary' ? (empresas.find(e => String(e.id) === selectedEmpresa)?.email || '-') : (contactos.find(c => String(c.id) === selectedContacto)?.email || '-')} 
+                            icon={IconMail} 
+                        />
+                    </SimpleGrid>
+                </Stack>
+            </Paper>
 
-                {/* --- Block 2: Datos del Servicio --- */}
-                <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#1f2937', marginTop: '0.5rem', marginBottom: '0.5rem', borderBottom: '1px solid #e5e7eb', paddingBottom: '0.2rem' }}>Datos del Servicio</h3>
+            {/* Block 2: Datos del Servicio */}
+            <Paper withBorder p="md" radius="lg" shadow="xs" style={{ width: '100% !important' }}>
+                <Stack gap="md">
+                    <Group gap="xs">
+                        <IconAdjustmentsHorizontal size={18} color="var(--mantine-color-grape-6)" />
+                        <Text fw={700} size="sm" c="grape.7">Datos del Servicio y Frecuencia</Text>
+                    </Group>
 
-                {/* Row 1: Objetivo, Responsable, Cargo */}
-                <div className="form-grid-row grid-cols-3">
-                    <SearchableSelect
-                        label="Objetivo del Muestreo *"
-                        value={selectedObjetivo}
-                        onChange={setSelectedObjetivo}
-                        options={[
-                            { id: 'No Aplica', nombre: 'No Aplica' },
-                            ...dedupOptions(objetivos.map((o, idx) => ({
-                                id: o.id || o.ID || o.IdObjetivo || o.id_objetio || o.id_objetivo || o.xid_objetivo || o.id_objetivomuestreo_ma || `obj-${idx}`,
-                                nombre: o.nombre || o.Nombre || o.descripcion || o.Descripcion || o.glosa || o.nombre_objetivo || o.nombre_objetivomuestreo_ma || 'Sin Nombre'
-                            })))
-                        ]}
-                        disabled={!selectedEmpresa || selectedEmpresa === 'No Aplica'}
-                    />
-                    <SearchableSelect
-                        label="Responsable Muestreo *"
-                        value={responsableMuestreo}
-                        onChange={(val) => {
-                            setResponsableMuestreo(val);
-                            if (val === 'ADL') {
-                                // FoxPro: Select ... Where id_cargo = 53
-                                // Force ID 53 if available
-                                const cargoADL = cargos.find(c => String(c.id) === '53');
-                                if (cargoADL) {
-                                    setCargoResponsable('53');
-                                } else {
-                                    // Fallback: Thisform.pageframe1.page1.combo13.Value = RTRIM(responsableM_cargo.nombre_cargo)
-                                    // In FoxPro it selects the record by ID 53 first. We try to set the ID.
-                                    // If not found, we clear it or try to find by name "Muestreador" if user insists,
-                                    // but strict ADL logic demands ID 53.
-                                    setCargoResponsable('');
-                                }
-                            } else {
-                                // FoxPro: Value = ' '
-                                setCargoResponsable('');
-                            }
-                        }}
-                        options={[
-                            { id: 'No Aplica', nombre: 'No Aplica' },
-                            { id: 'ADL', nombre: 'ADL' },
-                            { id: 'Cliente', nombre: 'Cliente' }
-                        ]}
-                    />
-                    <SearchableSelect
-                        label="Cargo *"
-                        value={cargoResponsable}
-                        onChange={setCargoResponsable}
-                        options={[
-                            { id: 'No Aplica', nombre: 'No Aplica' },
-                            ...dedupOptions(getFilteredCargos().map(c => ({
-                                id: c.id,
-                                nombre: c.nombre
-                            })))
-                        ]}
-                        disabled={responsableMuestreo === 'ADL'}
-                    />
-                </div>
+                    <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
+                        <Select 
+                            label="Objetivo del Muestreo *" 
+                            placeholder="Seleccione..."
+                            data={objetivosData}
+                            value={selectedObjetivo}
+                            onChange={(v) => setSelectedObjetivo(v || '')}
+                            disabled={!selectedEmpresa || selectedEmpresa === 'No Aplica'}
+                            searchable
+                            size="sm"
+                            radius="md"
+                        />
+                        <Select 
+                            label="Responsable Muestreo *" 
+                            data={['ADL', 'Cliente', 'No Aplica']}
+                            value={responsableMuestreo}
+                            onChange={setResponsableMuestreo}
+                            size="sm"
+                            radius="md"
+                        />
+                        <Select 
+                            label="Cargo *" 
+                            placeholder="Seleccione..."
+                            data={cargosData}
+                            value={cargoResponsable}
+                            onChange={(v) => setCargoResponsable(v || '')}
+                            disabled={responsableMuestreo === 'ADL'}
+                            size="sm"
+                            radius="md"
+                        />
+                    </SimpleGrid>
 
-                {/* Row 2: Punto, Frec Periodo, Frec Muestreo, Factor, Total */}
-                <div className="form-grid-row grid-cols-custom-5">
-                    <div className="form-group">
-                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>Punto de Muestreo *</label>
-                        <input type="text" value={puntoMuestreo} onChange={(e) => setPuntoMuestreo(e.target.value)}
-                            style={{ width: '100%', padding: '6px', fontSize: '0.85rem', border: '1px solid #d1d5db', borderRadius: '6px' }} />
-                    </div>
-                    <div onFocus={handlePeriodoFocus}>
-                        <SearchableSelect
-                            label="Frecuencia Periodo *"
+                    <Divider />
+
+                    <SimpleGrid cols={{ base: 1, sm: 2, md: 5 }} spacing="sm">
+                        <TextInput 
+                            label="Punto de Muestreo *" 
+                            value={puntoMuestreo} 
+                            onChange={(e) => setPuntoMuestreo(e.target.value)}
+                            size="sm"
+                            radius="md"
+                        />
+                        <Select 
+                            label="Frecuencia Periodo *" 
+                            data={frecuenciasData}
                             value={periodo}
                             onChange={handlePeriodoChange}
-                            options={[
-                                { id: 'No Aplica', nombre: 'No Aplica' },
-                                ...dedupOptions(frecuenciasOptions.map(f => ({
-                                    id: String(f.id),
-                                    nombre: f.nombre || f.nombre_frecuencia || 'Sin Nombre'
-                                })))
-                            ]}
-                            disabled={!puntoMuestreo || puntoMuestreo.trim() === ''}
+                            onDropdownOpen={() => {
+                                if (!puntoMuestreo.trim()) showToast({ type: 'warning', message: 'Debe ingresar el Punto de Muestreo' });
+                            }}
+                            size="sm"
+                            radius="md"
                         />
-                    </div>
-                    <div className="form-group">
-                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>Frecuencia Muestreo *</label>
-                        <input
-                            type="text"
+                        <TextInput 
+                            label="Cant. Frecuencia" 
                             value={frecuencia}
                             onChange={(e) => setFrecuencia(e.target.value)}
-                            disabled={!periodo || periodo === 'No Aplica'}
-                            style={{
-                                width: '100%',
-                                padding: '6px',
-                                fontSize: '0.85rem',
-                                border: '1px solid #d1d5db',
-                                borderRadius: '6px',
-                                backgroundColor: (!periodo || periodo === 'No Aplica') ? '#f3f4f6' : 'white',
-                                cursor: (!periodo || periodo === 'No Aplica') ? 'not-allowed' : 'text'
-                            }}
+                            size="sm"
+                            radius="md"
                         />
-                    </div>
-                    <div className="form-group">
-                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>Factor *</label>
-                        <input
-                            type="text"
-                            value={factor}
+                        <TextInput 
+                            label="Factor" 
+                            value={factor} 
                             onChange={(e) => setFactor(e.target.value)}
-                            disabled={!periodo || periodo === 'No Aplica'}
-                            style={{
-                                width: '100%',
-                                padding: '6px',
-                                fontSize: '0.85rem',
-                                border: '1px solid #d1d5db',
-                                borderRadius: '6px',
-                                backgroundColor: (!periodo || periodo === 'No Aplica') ? '#f3f4f6' : 'white',
-                                cursor: (!periodo || periodo === 'No Aplica') ? 'not-allowed' : 'text'
-                            }}
+                            size="sm"
+                            radius="md"
                         />
-                    </div>
-                    <div className="form-group">
-                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>Total Servicios</label>
-                        <input type="text" value={totalServicios} readOnly disabled
-                            style={{ width: '100%', padding: '6px', fontSize: '0.85rem', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: '#f3f4f6' }} />
-                    </div>
-                </div>
+                        <Box>
+                            <Text size="xs" fw={700} c="dimmed" mb={4} tt="uppercase">Total Servicios</Text>
+                            <Badge size="xl" radius="md" fullWidth h={34} variant="filled" color="blue">
+                                {totalServicios || '0'}
+                            </Badge>
+                        </Box>
+                    </SimpleGrid>
+                </Stack>
+            </Paper>
 
-                {/* Row 3: Coordenadas Geograficas (Zona), UTM E, UTM S */}
-                <div className="form-grid-row grid-cols-3">
-                    <SearchableSelect
-                        label="Coordenadas Geogr&aacute;ficas (Zona) *"
-                        value={zona}
-                        onChange={(val) => {
-                            setZona(val);
-                            // LostFocus Logic: Clear values on ANY change (as per FoxPro text8.Value = '')
-                            setUtmEste('');
-                            setUtmNorte('');
-                        }}
-                        onFocus={() => {
-                            // GotFocus Logic: Check Frecuencia Muestreo (Text9)
-                            if (!frecuencia || String(frecuencia).trim() === '') {
-                                showToast({ type: 'warning', message: 'Debes ingresar el dato Frecuencia Muestreo', duration: 4000 });
-                            }
-                        }}
-                        disabled={!frecuencia || String(frecuencia).trim() === ''}
-                        options={[
-                            { id: '18G', nombre: '18G' },
-                            { id: '18H', nombre: '18H' },
-                            { id: '18F', nombre: '18F' },
-                            { id: '19H', nombre: '19H' },
-                            { id: '19F', nombre: '19F' },
-                            { id: 'No aplica', nombre: 'No aplica' }
-                        ]}
-                    />
-                    <div className="form-group">
-                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>UTM (E) *</label>
-                        <input type="text" value={utmEste} onChange={(e) => setUtmEste(e.target.value)} disabled={!zona || zona === 'No aplica'}
-                            style={{ width: '100%', padding: '6px 10px', fontSize: '0.85rem', border: '1px solid #d1d5db', borderRadius: '6px', outline: 'none', minHeight: '34px', backgroundColor: (!zona || zona === 'No aplica') ? '#f3f4f6' : 'white' }} />
-                    </div>
-                    <div className="form-group">
-                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>UTM (N) *</label>
-                        <input type="text" value={utmNorte} onChange={(e) => setUtmNorte(e.target.value)} disabled={!zona || zona === 'No aplica'}
-                            style={{ width: '100%', padding: '6px 10px', fontSize: '0.85rem', border: '1px solid #d1d5db', borderRadius: '6px', outline: 'none', minHeight: '34px', backgroundColor: (!zona || zona === 'No aplica') ? '#f3f4f6' : 'white' }} />
-                    </div>
-                    <div style={{ width: '100%', minWidth: 0, display: 'flex', alignItems: 'flex-end', paddingBottom: '0' }}>
-                    </div>
-                </div>
+            {/* Block 3: Clasificación Técnica */}
+            <Paper withBorder p="md" radius="lg" shadow="xs" style={{ width: '100% !important' }}>
+                <Stack gap="md">
+                    <Group gap="xs">
+                        <IconCertificate size={18} color="var(--mantine-color-teal-6)" />
+                        <Text fw={700} size="sm" c="teal.7">Clasificación Técnica y Geográfica</Text>
+                    </Group>
 
-                {/* --- Block 3: Clasificacion Tecnica --- */}
-                <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#1f2937', marginTop: '0.5rem', marginBottom: '0.5rem', borderBottom: '1px solid #e5e7eb', paddingBottom: '0.2rem' }}>Clasificaci&oacute;n T&eacute;cnica</h3>
+                    <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
+                        <Select 
+                            label="Zona UTM *" 
+                            data={['18G', '18H', '18F', '19H', '19F', 'No aplica']}
+                            value={zona}
+                            onChange={(v) => setZona(v || '')}
+                            size="sm"
+                            radius="md"
+                        />
+                        <TextInput 
+                            label="UTM Norte *" 
+                            value={utmNorte} 
+                            onChange={(e) => setUtmNorte(e.target.value)} 
+                            disabled={!zona || zona === 'No aplica'}
+                            size="sm"
+                            radius="md"
+                        />
+                        <TextInput 
+                            label="UTM Este *" 
+                            value={utmEste} 
+                            onChange={(e) => setUtmEste(e.target.value)} 
+                            disabled={!zona || zona === 'No aplica'}
+                            size="sm"
+                            radius="md"
+                        />
+                    </SimpleGrid>
 
-                {/* Row 1: Instrumento Ambiental, Nro, Anio */}
-                <div className="form-grid-row grid-cols-3">
-                    <SearchableSelect
-                        label="Instrumento Ambiental *"
-                        value={selectedInstrumento}
-                        onChange={(val) => {
-                            setSelectedInstrumento(val);
-                            if (val === 'No aplica') {
-                                setEsETFA('No');
-                                setSelectedInspector('');
-                            } else {
-                                setEsETFA('Si');
-                                if (inspectores.length > 0) {
-                                    // Default to first inspector if available
-                                    setSelectedInspector(String(inspectores[0].id));
-                                }
-                            }
-                        }}
-                        options={[
-                            ...instrumentosAmbientales
-                        ]}
-                    />
+                    <Divider />
 
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <div className="form-group" style={{ flex: 1 }}>
-                            <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>N&deg; *</label>
-                            <input type="text" value={nroInstrumento} onChange={(e) => setNroInstrumento(e.target.value)}
-                                style={{ width: '100%', padding: '6px', fontSize: '0.85rem', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: 'white', cursor: 'text' }} />
-                        </div>
-                        <div className="form-group" style={{ flex: 1 }}>
-                            <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>A&ntilde;o *</label>
-                            <input type="text" value={anioInstrumento} onChange={(e) => setAnioInstrumento(e.target.value)}
-                                style={{ width: '100%', padding: '6px', fontSize: '0.85rem', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: 'white', cursor: 'text' }} />
-                        </div>
-                    </div>
-
-                    <SearchableSelect
-                        label="Componente Ambiental *"
-                        value={selectedComponente}
-                        onChange={(val) => {
-                            setSelectedComponente(val);
-                            setSelectedSubArea(''); // InteractiveChange: Clear Sub Area
-                        }}
-                        options={[
-                            { id: 'No Aplica', nombre: 'No Aplica' },
-                            ...componentes.map(c => ({ id: c.id, nombre: c.nombre }))
-                        ]}
-                    />
-                </div>
-
-                {/* Row 2: Sub Area */}
-                <div className="form-grid-row grid-cols-1">
-                    <SearchableSelect
-                        label="Sub &Aacute;rea *"
-                        value={selectedSubArea}
-                        onFocus={() => {
-                            if (!selectedComponente || selectedComponente === '') {
-                                showToast({ type: 'warning', message: 'Debes ingresar el dato Componente Ambiental', duration: 4000 });
-                            }
-                        }}
-                        onChange={(val) => {
-                            setSelectedSubArea(val);
-                        }}
-                        options={[
-                            { id: 'No Aplica', nombre: 'No Aplica' },
-                            ...subAreas.map(s => ({ id: s.id, nombre: s.nombre }))
-                        ]}
-                    />
-                </div>
-
-                {/* Row 3: Glosa and Counter */}
-                {/* Row 3: Glosa and Counter */}
-                <div className="form-grid-row grid-cols-1">
-                    <div className="form-group">
-                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>Nombre de la tabla (Glosa) *</label>
-                        <div style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
-                            <input
-                                type="text"
-                                value={glosa}
-                                maxLength={100}
-                                onChange={(e) => {
-                                    setGlosa(e.target.value);
+                    <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
+                        <Box style={{ gridColumn: 'span 2' }}>
+                            <Select 
+                                label="Instrumento Ambiental *" 
+                                data={instrumentosAmbientales}
+                                value={selectedInstrumento}
+                                onChange={(val) => {
+                                    setSelectedInstrumento(val || '');
+                                    if (val === 'No aplica') setEsETFA('No'); else setEsETFA('Si');
                                 }}
-                                onBlur={() => {
-                                    // LostFocus: Copy to Page2 (Analysis Tab). 
-                                }}
-                                style={{
-                                    width: '100%',
-                                    padding: '6px 60px 6px 10px', // Right padding for counter text
-                                    fontSize: '0.85rem',
-                                    border: '1px solid #d1d5db',
-                                    borderRadius: '6px',
-                                    outline: 'none',
-                                    minHeight: '34px',
-                                    backgroundColor: 'white',
-                                    cursor: 'text'
-                                }}
+                                searchable
+                                size="sm"
+                                radius="md"
                             />
-                            <span style={{
-                                position: 'absolute',
-                                right: '10px',
-                                fontSize: '0.75rem',
-                                color: '#9ca3af',
-                                fontWeight: 500,
-                                pointerEvents: 'none',
-                                backgroundColor: 'transparent'
-                            }}>
-                                {glosa ? glosa.length : 0}/100
-                            </span>
-                        </div>
-                    </div>
-                </div>
+                        </Box>
+                        <TextInput label="Número Instrumento *" value={nroInstrumento} onChange={(e) => setNroInstrumento(e.target.value)} size="sm" radius="md" />
+                        <TextInput label="Año Instrumento *" value={anioInstrumento} onChange={(e) => setAnioInstrumento(e.target.value)} size="sm" radius="md" />
+                    </SimpleGrid>
 
-                <div className="form-grid-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                    <SearchableSelect
-                        label="¿Es ETFA?"
-                        value={esETFA}
-                        onChange={setEsETFA}
-                        options={[{ id: 'Si', nombre: 'Si' }, { id: 'No', nombre: 'No' }]}
-                    />
-                    <SearchableSelect
-                        label="Inspector Ambiental"
-                        value={selectedInspector}
-                        onChange={setSelectedInspector}
-                        options={[
-                            { id: 'No Aplica', nombre: 'No Aplica' },
-                            ...inspectores.map((i: any) => ({
-                                id: String(i.id_inspectorambiental || i.id || ''),
-                                nombre: i.nombre_inspector || i.nombre || 'Sin Nombre'
-                            }))
-                        ]}
-                        // Enabled if ADL is responsible, or just enabled to allow selection
-                        disabled={responsableMuestreo !== 'ADL'}
-                    />
-                </div>
-
-                {/* Row 8: Tipo Muestreo, Tipo Muestra, Actividad, Duracion, Tipo Descarga */}
-                <div className="form-grid-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: '1rem' }}>
-                    <SearchableSelect
-                        label="Tipo Muestreo *"
-                        value={selectedTipoMuestreo}
-                        onFocus={() => {
-                            if (!glosa || glosa.trim() === '') {
-                                showToast({ type: 'warning', message: 'Debes ingresar el dato Nombre de la tabla', duration: 4000 });
-                            }
-                        }}
-                        onChange={(val) => {
-                            setSelectedTipoMuestreo(val);
-                            setSelectedTipoMuestra(''); // Reset child
-                            // Removed duplicate API call - useEffect at line 312 handles this
-                        }}
-                        options={[
-                            { id: 'No Aplica', nombre: 'No Aplica' },
-                            ...tiposMuestreo.map(t => ({ id: t.id, nombre: t.nombre }))
-                        ]}
-                    />
-                    <SearchableSelect
-                        label="Tipo Muestra *"
-                        value={selectedTipoMuestra}
-                        onFocus={() => {
-                            if (!selectedTipoMuestreo || selectedTipoMuestreo === '') {
-                                showToast({ type: 'warning', message: 'Debes ingresar el dato Tipo de muestreo', duration: 4000 });
-                            }
-                        }}
-                        onChange={(val) => {
-                            setSelectedTipoMuestra(val);
-                            setSelectedActividad(''); // Reset child
-                            // Removed duplicate API call - useEffect at line 321 handles this
-                        }}
-                        options={[
-                            { id: 'No Aplica', nombre: 'No Aplica' },
-                            ...tiposMuestra.map((t: any) => ({
-                                id: String(t.id_tipomuestra_ma || t.id || ''),
-                                nombre: t.nombre_tipomuestra_ma || t.nombre || t.Nombre || 'Sin Nombre'
-                            }))
-                        ]}
-                    />
-                    <SearchableSelect
-                        label="Actividad Muestreo *"
-                        value={selectedActividad}
-                        onFocus={() => {
-                            if (!selectedTipoMuestra || selectedTipoMuestra === '') {
-                                showToast({ type: 'warning', message: 'Debes ingresar el dato Tipo de muestra', duration: 4000 });
-                                return false;
-                            }
-                        }}
-                        onChange={(val) => {
-                            setSelectedActividad(val);
-                            if (val === 'No Aplica') setDuracion('');
-                        }}
-                        options={[
-                            { id: 'No Aplica', nombre: 'No Aplica' },
-                            ...actividades.map((a: any) => ({
-                                id: String(a.id_actividadmuestreo || a.id || ''),
-                                nombre: a.nombre_actividadmuestreo || a.nombre || a.Nombre || 'Sin Nombre'
-                            }))
-                        ]}
-                    />
-                    <div className="form-group">
-                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>Duraci&oacute;n (Hrs) *</label>
-                        <input type="number" value={duracion} onChange={(e) => setDuracion(e.target.value)}
-                            style={{
-                                width: '100%',
-                                padding: '6px',
-                                fontSize: '0.85rem',
-                                border: '1px solid #d1d5db',
-                                borderRadius: '6px',
-                                backgroundColor: 'white',
-                                cursor: 'text'
-                            }} />
-                    </div>
-                    <SearchableSelect
-                        label="Tipo Descarga"
-                        value={selectedTipoDescarga}
-                        onChange={(val) => {
-                            setSelectedTipoDescarga(val);
-                            if (val === 'No Aplica') setRefGoogle('No Aplica');
-                            else if (refGoogle === 'No Aplica') setRefGoogle('');
-                        }}
-                        options={[
-                            { id: 'No Aplica', nombre: 'No Aplica' },
-                            ...tiposDescarga.map((t: any) => ({
-                                id: String(t.id || t.ID || t.id_tipodescarga || ''),
-                                nombre: t.nombre || t.Nombre || t.nombre_tipodescarga || 'Sin Nombre'
-                            }))
-                        ]}
-                        disabled={tipoMonitoreo !== 'Puntual' && (!duracion || duracion.trim() === '')}
-                    />
-                </div>
-
-                {/* Row 9: Ref Google Maps */}
-                <div className="form-grid-row" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
-                    <div className="form-group">
-                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', marginBottom: '4px', display: 'block' }}>Referencia Google Maps</label>
-                        <input
-                            type="text"
-                            placeholder="https://maps..."
-                            value={refGoogle}
-                            onChange={(e) => setRefGoogle(e.target.value)}
-                            disabled={tipoMonitoreo !== 'Puntual' && (!selectedTipoDescarga || selectedTipoDescarga === '' || selectedTipoDescarga === 'No Aplica')}
-                            style={{
-                                width: '100%',
-                                padding: '6px',
-                                fontSize: '0.85rem',
-                                border: '1px solid #d1d5db',
-                                borderRadius: '6px',
-                                backgroundColor: (tipoMonitoreo !== 'Puntual' && (!selectedTipoDescarga || selectedTipoDescarga === '' || selectedTipoDescarga === 'No Aplica')) ? '#f3f4f6' : 'white',
-                                cursor: (tipoMonitoreo !== 'Puntual' && (!selectedTipoDescarga || selectedTipoDescarga === '' || selectedTipoDescarga === 'No Aplica')) ? 'not-allowed' : 'text'
-                            }}
+                    <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+                        <Select 
+                            label="Componente Ambiental *" 
+                            data={componentesData}
+                            value={selectedComponente}
+                            onChange={handleComponenteChange}
+                            size="sm"
+                            radius="md"
                         />
-                    </div>
-                </div>
+                        <Select 
+                            label="Sub Área *" 
+                            data={subAreasData}
+                            value={selectedSubArea}
+                            onChange={(v) => setSelectedSubArea(v || '')}
+                            disabled={!selectedComponente}
+                            size="sm"
+                            radius="md"
+                        />
+                    </SimpleGrid>
 
-                {/* Row 10: Medicion Caudal, Modalidad, Forma Canal, Dispositivo */}
-                <div className="form-grid-row grid-cols-4" style={{ alignItems: 'start' }}>
-                    <SearchableSelect 
-                        label="MEDICI&Oacute;N CAUDAL" 
-                        value={medicionCaudal} 
-                        onChange={setMedicionCaudal}
-                        options={[
-                            { id: 'No Aplica', nombre: 'No Aplica' },
-                            { id: 'Automático', nombre: 'Automático' },
-                            { id: 'Manual', nombre: 'Manual' }
-                        ]}
+                    <TextInput 
+                        label="Nombre de la Tabla (Glosa) *" 
+                        value={glosa} 
+                        onChange={(e) => setGlosa(e.target.value)} 
+                        maxLength={100}
+                        description={`${glosa.length}/100 caracteres`}
+                        size="sm"
+                        radius="md"
                     />
-                    <SearchableSelect
-                        label="MODALIDAD"
-                        value={selectedModalidad}
-                        onChange={(val) => {
-                            setSelectedModalidad(val);
-                            if (val === 'No Aplica') {
-                                setFormaCanal('No Aplica');
-                                setDetalleCanal('No Aplica');
-                                setTipoMedidaCanal('');
-                                setDispositivo('No Aplica');
-                                setDetalleDispositivo('No Aplica');
-                                setTipoMedidaDispositivo('');
-                            } else if (!val || val.trim() === '') {
-                                setFormaCanal('');
-                                setDetalleCanal('');
-                                setTipoMedidaCanal('');
-                                setDispositivo('');
-                                setDetalleDispositivo('');
-                                setTipoMedidaDispositivo('');
-                            }
-                        }}
-                        options={[
-                            { id: 'No Aplica', nombre: 'No Aplica' },
-                            ...dedupOptions(modalidades.map((m: any) => ({
-                                id: String(m.id_modalidad || m.id || m.ID || ''),
-                                nombre: m.nombre_modalidad || m.nombre || m.Nombre || 'Sin Nombre'
-                            })))
-                        ]}
-                        disabled={!medicionCaudal || medicionCaudal === '' || medicionCaudal === 'No Aplica'}
+
+                    <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+                        <Select label="¿Es ETFA?" data={['Si', 'No']} value={esETFA} onChange={(val) => setEsETFA(val || 'No')} size="sm" radius="md" />
+                        <Select 
+                            label="Inspector Ambiental" 
+                            data={inspectoresData}
+                            value={selectedInspector}
+                            onChange={(val) => setSelectedInspector(val || '')}
+                            disabled={responsableMuestreo !== 'ADL'}
+                            size="sm"
+                            radius="md"
+                        />
+                    </SimpleGrid>
+                </Stack>
+            </Paper>
+
+            {/* Block 4: Detalles Operativos */}
+            <Paper withBorder p="md" radius="lg" shadow="xs">
+                <Stack gap="md">
+                    <Group gap="xs">
+                        <IconClock size={18} color="var(--mantine-color-orange-6)" />
+                        <Text fw={700} size="sm" c="orange.7">Detalles Operativos y Descarga</Text>
+                    </Group>
+
+                    <SimpleGrid cols={{ base: 1, sm: 3, md: 5 }} spacing="sm">
+                        <Select 
+                            label="Tipo Muestreo *" 
+                            data={tiposMuestreoData}
+                            value={selectedTipoMuestreo}
+                            onChange={handleTipoMuestreoChange}
+                            size="sm"
+                            radius="md"
+                        />
+                        <Select 
+                            label="Tipo Muestra *" 
+                            data={tiposMuestraData}
+                            value={selectedTipoMuestra}
+                            onChange={handleTipoMuestraChange}
+                            disabled={!selectedTipoMuestreo}
+                            size="sm"
+                            radius="md"
+                        />
+                        <Select 
+                            label="Actividad *" 
+                            data={actividadesData}
+                            value={selectedActividad}
+                            onChange={(val) => setSelectedActividad(val || '')}
+                            disabled={!selectedTipoMuestra}
+                            size="sm"
+                            radius="md"
+                        />
+                        <TextInput 
+                            label="Duración (Hrs) *" 
+                            type="number" 
+                            value={duracion} 
+                            onChange={(e) => setDuracion(e.target.value)} 
+                            size="sm"
+                            radius="md"
+                        />
+                        <Select 
+                            label="Tipo Descarga" 
+                            data={tiposDescargaData}
+                            value={selectedTipoDescarga}
+                            onChange={(val) => setSelectedTipoDescarga(val || '')}
+                            size="sm"
+                            radius="md"
+                        />
+                    </SimpleGrid>
+
+                    <TextInput 
+                        label="Referencia Google Maps" 
+                        placeholder="https://maps..." 
+                        value={refGoogle} 
+                        onChange={(e) => setRefGoogle(e.target.value)}
+                        size="sm"
+                        radius="md"
                     />
-                    
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <SearchableSelect
-                            label="FORMA CANAL"
-                            value={formaCanal}
-                            onChange={(val) => {
-                                setFormaCanal(val);
-                                if (val === 'No Aplica' || !val) {
-                                    setTipoMedidaCanal('');
-                                    setDetalleCanal('No Aplica');
-                                } else {
-                                    setTipoMedidaCanal('');
-                                    setDetalleCanal('');
-                                }
-                            }}
-                            options={[
-                                { id: 'No Aplica', nombre: 'No Aplica' },
-                                ...formasCanal
-                            ]}
-                            disabled={!selectedModalidad || selectedModalidad === '' || selectedModalidad === 'No Aplica'}
+
+                    <Divider label="Hidráulica y Caudal" labelPosition="center" />
+
+                    <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
+                        <Select 
+                            label="Medición Caudal" 
+                            data={['Manual', 'Automático', 'No Aplica']} 
+                            value={medicionCaudal} 
+                            onChange={(val) => setMedicionCaudal(val || '')}
+                            size="sm"
+                            radius="md"
                         />
-                        <SearchableSelect
-                            placeholder="medida:"
-                            value={tipoMedidaCanal}
-                            onChange={(val) => {
-                                setTipoMedidaCanal(val);
-                                if (!val || val === 'No Aplica') setDetalleCanal('No Aplica');
-                                else setDetalleCanal('');
-                            }}
-                            options={unidadesMedida}
-                            disabled={!formaCanal || formaCanal === 'No Aplica'}
+                        <Select 
+                            label="Modalidad" 
+                            data={modalidadesData}
+                            value={selectedModalidad}
+                            onChange={(val) => setSelectedModalidad(val || '')}
+                            disabled={!medicionCaudal || medicionCaudal === 'No Aplica'}
+                            size="sm"
+                            radius="md"
                         />
-                        <div style={{ position: 'relative', width: '100%' }}>
-                            <input
-                                type="text"
-                                placeholder="Valor Medida"
-                                value={detalleCanal}
-                                onChange={(e) => {
-                                    const val = e.target.value;
-                                    const unit = unidadesMedida.find(u => String(u.id) === String(tipoMedidaCanal))?.nombre || '';
-                                    const isNumericUnit = ['°c', '° f', 'ft', 'm', 'cm', 'mm', 'pulj'].includes(unit.toLowerCase());
-                                    
-                                    if (isNumericUnit) {
-                                        // Only allow numbers, dot, comma and minus
-                                        if (/^[-]?\d*[.,]?\d*$/.test(val) || val === '') {
-                                            setDetalleCanal(val);
-                                        }
-                                    } else {
-                                        setDetalleCanal(val);
-                                    }
-                                }}
-                                disabled={!tipoMedidaCanal || tipoMedidaCanal === 'No Aplica' || tipoMedidaCanal === ''}
-                                style={{
-                                    width: '100%',
-                                    padding: '6px 10px',
-                                    paddingRight: (tipoMedidaCanal && tipoMedidaCanal !== '' && tipoMedidaCanal !== 'No Aplica') ? '40px' : '10px',
-                                    fontSize: '0.85rem',
-                                    border: '1px solid #d1d5db',
-                                    borderRadius: '6px',
-                                    height: '34px',
-                                    backgroundColor: (!tipoMedidaCanal || tipoMedidaCanal === 'No Aplica' || tipoMedidaCanal === '') ? '#f3f4f6' : 'white',
-                                    cursor: (!tipoMedidaCanal || tipoMedidaCanal === 'No Aplica' || tipoMedidaCanal === '') ? 'not-allowed' : 'text'
-                                }}
+                        <Stack gap={4}>
+                            <Select 
+                                label="Forma Canal" 
+                                data={formasCanalData}
+                                value={formaCanal}
+                                onChange={(val) => setFormaCanal(val || '')}
+                                disabled={!selectedModalidad || selectedModalidad === 'No Aplica'}
+                                size="xs"
+                                radius="md"
                             />
-                            {tipoMedidaCanal && tipoMedidaCanal !== '' && tipoMedidaCanal !== 'No Aplica' && (
-                                <span style={{
-                                    position: 'absolute',
-                                    right: '10px',
-                                    top: '50%',
-                                    transform: 'translateY(-50%)',
-                                    fontSize: '0.75rem',
-                                    color: '#9ca3af',
-                                    fontWeight: 600,
-                                    pointerEvents: 'none'
-                                }}>
-                                    {unidadesMedida.find(u => String(u.id) === String(tipoMedidaCanal))?.nombre}
-                                </span>
-                            )}
-                        </div>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <SearchableSelect
-                            label="DISPOSITIVO HIDR&Aacute;ULICO"
-                            value={dispositivo}
-                            onChange={(val) => {
-                                setDispositivo(val);
-                                if (val === 'No Aplica' || !val) {
-                                    setTipoMedidaDispositivo('');
-                                    setDetalleDispositivo('No Aplica');
-                                } else {
-                                    setTipoMedidaDispositivo('');
-                                    setDetalleDispositivo('');
-                                }
-                            }}
-                            options={[
-                                { id: 'No Aplica', nombre: 'No Aplica' },
-                                ...dispositivos
-                            ]}
-                            disabled={!selectedModalidad || selectedModalidad === '' || selectedModalidad === 'No Aplica'}
-                        />
-                        <SearchableSelect
-                            placeholder="medida:"
-                            value={tipoMedidaDispositivo}
-                            onChange={(val) => {
-                                setTipoMedidaDispositivo(val);
-                                if (!val || val === 'No Aplica') setDetalleDispositivo('No Aplica');
-                                else setDetalleDispositivo('');
-                            }}
-                            options={unidadesMedida}
-                            disabled={!dispositivo || dispositivo === 'No Aplica'}
-                        />
-                        <div style={{ position: 'relative', width: '100%' }}>
-                            <input
-                                type="text"
-                                placeholder="Valor Medida"
-                                value={detalleDispositivo}
-                                onChange={(e) => {
-                                    const val = e.target.value;
-                                    const unit = unidadesMedida.find(u => String(u.id) === String(tipoMedidaDispositivo))?.nombre || '';
-                                    const isNumericUnit = ['°c', '° f', 'ft', 'm', 'cm', 'mm', 'pulj'].includes(unit.toLowerCase());
-                                    
-                                    if (isNumericUnit) {
-                                        if (/^[-]?\d*[.,]?\d*$/.test(val) || val === '') {
-                                            setDetalleDispositivo(val);
-                                        }
-                                    } else {
-                                        setDetalleDispositivo(val);
-                                    }
-                                }}
-                                disabled={!tipoMedidaDispositivo || tipoMedidaDispositivo === 'No Aplica' || tipoMedidaDispositivo === ''}
-                                style={{
-                                    width: '100%',
-                                    padding: '6px 10px',
-                                    paddingRight: (tipoMedidaDispositivo && tipoMedidaDispositivo !== '' && tipoMedidaDispositivo !== 'No Aplica') ? '40px' : '10px',
-                                    fontSize: '0.85rem',
-                                    border: '1px solid #d1d5db',
-                                    borderRadius: '6px',
-                                    height: '34px',
-                                    backgroundColor: (!tipoMedidaDispositivo || tipoMedidaDispositivo === 'No Aplica' || tipoMedidaDispositivo === '') ? '#f3f4f6' : 'white',
-                                    cursor: (!tipoMedidaDispositivo || tipoMedidaDispositivo === 'No Aplica' || tipoMedidaDispositivo === '') ? 'not-allowed' : 'text'
-                                }}
+                            <Group gap={4} grow>
+                                <Select 
+                                    placeholder="Unidad" 
+                                    data={unidadesMedida} 
+                                    value={tipoMedidaCanal} 
+                                    onChange={(val) => setTipoMedidaCanal(val || '')} 
+                                    disabled={!formaCanal || formaCanal === 'No Aplica'}
+                                    size="xs"
+                                    radius="md"
+                                />
+                                <TextInput 
+                                    placeholder="Valor" 
+                                    value={detalleCanal} 
+                                    onChange={(e) => setDetalleCanal(e.target.value)} 
+                                    disabled={!tipoMedidaCanal}
+                                    size="xs"
+                                    radius="md"
+                                />
+                            </Group>
+                        </Stack>
+                        <Stack gap={4}>
+                            <Select 
+                                label="Dispositivo Hidr." 
+                                data={dispositivosData}
+                                value={dispositivo}
+                                onChange={(val) => setDispositivo(val || '')}
+                                disabled={!selectedModalidad || selectedModalidad === 'No Aplica'}
+                                size="xs"
+                                radius="md"
                             />
-                            {tipoMedidaDispositivo && tipoMedidaDispositivo !== '' && tipoMedidaDispositivo !== 'No Aplica' && (
-                                <span style={{
-                                    position: 'absolute',
-                                    right: '10px',
-                                    top: '50%',
-                                    transform: 'translateY(-50%)',
-                                    fontSize: '0.75rem',
-                                    color: '#9ca3af',
-                                    fontWeight: 600,
-                                    pointerEvents: 'none'
-                                }}>
-                                    {unidadesMedida.find(u => String(u.id) === String(tipoMedidaDispositivo))?.nombre}
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+                            <Group gap={4} grow>
+                                <Select 
+                                    placeholder="Unidad" 
+                                    data={unidadesMedida} 
+                                    value={tipoMedidaDispositivo} 
+                                    onChange={(val) => setTipoMedidaDispositivo(val || '')} 
+                                    disabled={!dispositivo || dispositivo === 'No Aplica'}
+                                    size="xs"
+                                    radius="md"
+                                />
+                                <TextInput 
+                                    placeholder="Valor" 
+                                    value={detalleDispositivo} 
+                                    onChange={(e) => setDetalleDispositivo(e.target.value)} 
+                                    disabled={!tipoMedidaDispositivo}
+                                    size="xs"
+                                    radius="md"
+                                />
+                            </Group>
+                        </Stack>
+                    </SimpleGrid>
+                </Stack>
+            </Paper>
+        </Stack>
     );
 });
-

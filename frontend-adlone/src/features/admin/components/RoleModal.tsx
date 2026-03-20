@@ -1,10 +1,46 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
+import { 
+    Modal, 
+    Stack, 
+    Group, 
+    TextInput, 
+    Text, 
+    Button, 
+    Tabs, 
+    ScrollArea, 
+    Checkbox, 
+    Paper, 
+    Box, 
+    Divider,
+    Collapse,
+    Grid,
+    Badge,
+    ActionIcon,
+    Tooltip,
+    Title
+} from '@mantine/core';
+import { 
+    IconSearch, 
+    IconShield, 
+    IconInfoCircle, 
+    IconChevronRight, 
+    IconChevronDown,
+    IconCheck,
+    IconX,
+    IconWorld,
+    IconBuildingHospital,
+    IconMicroscope,
+    IconFlask,
+    IconSettings,
+    IconChartBar,
+    IconLeaf
+} from '@tabler/icons-react';
 import { rbacService } from '../services/rbac.service';
 import type { Role, Permission } from '../services/rbac.service';
 import { useToast } from '../../../contexts/ToastContext';
 
 interface Props {
-    role: Role | null; // Null if creating new
+    role: Role | null;
     isOpen: boolean;
     onClose: () => void;
     onSuccess: () => void;
@@ -22,7 +58,7 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
 
     // UI States
     const [searchTerm, setSearchTerm] = useState('');
-    const [activeCategory, setActiveCategory] = useState<string>('GENERAL_INFO');
+    const [activeTab, setActiveTab] = useState<string | null>('GENERAL');
     const [expandedSubmodules, setExpandedSubmodules] = useState<Record<string, boolean>>({});
 
     useEffect(() => {
@@ -70,14 +106,11 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
             let savedRole = role;
 
             if (!savedRole) {
-                // Create
                 savedRole = await rbacService.createRole(nombre, descripcion);
             }
 
             if (savedRole) {
-                // Assign Permissions
                 await rbacService.assignPermissionsToRole(savedRole.id_rol, selectedPermissions);
-
                 showToast({ type: 'success', message: 'Rol guardado correctamente' });
                 onSuccess();
                 onClose();
@@ -91,14 +124,9 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
     };
 
     const togglePermission = (id: number) => {
-        setSelectedPermissions(prev => {
-            const isSelecting = !prev.includes(id);
-            if (isSelecting) {
-                return [...prev, id];
-            } else {
-                return prev.filter(p => p !== id);
-            }
-        });
+        setSelectedPermissions(prev => 
+            prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
+        );
     };
 
     const toggleSelectAllCategory = (perms: Permission[]) => {
@@ -106,10 +134,8 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
         const allSelected = allIds.every(id => selectedPermissions.includes(id));
 
         if (allSelected) {
-            // Deselect all
             setSelectedPermissions(prev => prev.filter(id => !allIds.includes(id)));
         } else {
-            // Select all
             setSelectedPermissions(prev => {
                 const newIds = allIds.filter(id => !prev.includes(id));
                 return [...prev, ...newIds];
@@ -117,22 +143,20 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
         }
     };
 
-    // Filter permissions based on search
     const filteredPermissions = allPermissions.filter(p =>
         p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.modulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (p.submodulo && p.submodulo.toLowerCase().includes(searchTerm.toLowerCase()))
+        (p.submodulo && p.submodulo.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        p.codigo.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    // Header structure
-    const hierarchicalPermissions = React.useMemo(() => {
+    const hierarchicalPermissions = useMemo(() => {
         const groups: Record<string, Record<string, Permission[]>> = {};
 
         filteredPermissions.forEach(p => {
             let mod = p.modulo || 'Otros';
             let sub = p.submodulo || 'General';
 
-            // FORCE MA_A_REPORTES and related permissions to 'Medio Ambiente' category exclusively as per user request
             if (['MA_A_REPORTES', 'MA_A_REPORTES_DETALLE', 'MA_A_REPORTES_REVISION'].includes(p.codigo)) {
                 mod = 'Medio Ambiente';
                 sub = 'Reportes';
@@ -140,326 +164,255 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
 
             if (!groups[mod]) groups[mod] = {};
             if (!groups[mod][sub]) groups[mod][sub] = [];
-
-            // Add if not already present
-            if (!groups[mod][sub].some(existing => existing.id_permiso === p.id_permiso)) {
-                groups[mod][sub].push(p);
-            }
+            groups[mod][sub].push(p);
         });
 
         return groups;
     }, [filteredPermissions]);
 
-    const toggleSubmoduleGroup = (moduleName: string, submoduleName: string) => {
-        const key = `${moduleName}:${submoduleName}`;
-        setExpandedSubmodules(prev => ({
-            ...prev,
-            [key]: !prev[key]
-        }));
+    const moduleIcons: Record<string, React.ReactNode> = {
+        'Informática': <IconSettings size={16} />,
+        'General': <IconWorld size={16} />,
+        'Medio Ambiente': <IconLeaf size={16} />,
+        'Administración': <IconBuildingHospital size={16} />,
+        'Laboratory': <IconFlask size={16} />,
+        'Microscopía': <IconMicroscope size={16} />,
+        'Calidad': <IconChartBar size={16} />,
+        'Otros': <IconInfoCircle size={16} />
     };
 
-    // Auto-expand submodules if searching
-    useEffect(() => {
-        if (searchTerm) {
-            const newExpanded: Record<string, boolean> = {};
-            Object.entries(hierarchicalPermissions).forEach(([mod, submods]) => {
-                Object.keys(submods).forEach(sub => {
-                    newExpanded[`${mod}:${sub}`] = true;
-                });
-            });
-            setExpandedSubmodules(newExpanded);
-        }
-    }, [searchTerm, hierarchicalPermissions]);
+    const getModuleIcon = (name: string) => {
+        const found = Object.keys(moduleIcons).find(key => name.toLowerCase().includes(key.toLowerCase()));
+        return found ? moduleIcons[found] : <IconShield size={16} />;
+    };
 
-    if (!isOpen) return null;
+    const toggleSubmodule = (mod: string, sub: string) => {
+        const key = `${mod}:${sub}`;
+        setExpandedSubmodules(prev => ({ ...prev, [key]: !prev[key] }));
+    };
 
     return (
-        <div className="modal-overlay role-modal-premium">
-            <div className="modal-content" style={{ maxWidth: '800px', width: '92%', height: '88vh', display: 'flex', flexDirection: 'column' }}>
-                <div className="modal-header">
-                    <h2 className="modal-title">
-                        <span style={{ fontSize: '2.4rem' }}>🛡️</span>
-                        {role ? 'Editar Rol' : 'Configurar Nuevo Rol'}
-                    </h2>
-                    <p style={{ margin: '0', opacity: 0.7, fontSize: '0.85rem', fontWeight: 500 }}>
-                        {role ? `Ajustando privilegios para: ${role.nombre_rol}` : 'Define las capacidades y alcances de este nuevo rol.'}
-                    </p>
-                </div>
+        <Modal
+            opened={isOpen}
+            onClose={onClose}
+            size="85%"
+            title={
+                <Group gap="xs">
+                    <IconShield size={22} color="var(--mantine-color-blue-filled)" />
+                    <Stack gap={0}>
+                        <Text fw={700}>{role ? 'Configurar Rol / Permisos' : 'Crear Nuevo Rol de Acceso'}</Text>
+                        <Text size="xs" c="dimmed">{role ? `Editando: ${role.nombre_rol}` : 'Define capacidades del sistema'}</Text>
+                    </Stack>
+                </Group>
+            }
+            radius="md"
+            styles={{ body: { padding: 0 } }}
+        >
+            <Box h="75vh" display="flex" style={{ overflow: 'hidden' }}>
+                <Tabs 
+                    orientation="vertical" 
+                    value={activeTab} 
+                    onChange={setActiveTab}
+                    variant="pills"
+                    styles={{
+                        root: { display: 'flex', width: '100%', borderTop: '1px solid var(--mantine-color-gray-2)' },
+                        list: { 
+                            width: 280, 
+                            borderRight: '1px solid var(--mantine-color-gray-2)',
+                            backgroundColor: 'var(--mantine-color-gray-0)',
+                            padding: '12px'
+                        },
+                        panel: { flex: 1, padding: '24px', overflowY: 'auto' },
+                        tab: { 
+                            justifyContent: 'flex-start',
+                            marginBottom: '4px',
+                            fontWeight: 600,
+                            padding: '10px 12px'
+                        }
+                    }}
+                >
+                    <Tabs.List>
+                        <TextInput 
+                            placeholder="Buscar permisos..."
+                            leftSection={<IconSearch size={14} />}
+                            size="xs"
+                            mb="md"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.currentTarget.value)}
+                            radius="md"
+                        />
 
-                <div className="modal-body">
-                    <div className="modal-layout-premium">
-                        {/* Sidebar Navigation / Mobile Accordion Container */}
-                        <div className="sidebar-premium">
-                            <div className="sidebar-header-premium">
-                                <div className="search-wrapper-premium">
-                                    <input
-                                        type="text"
-                                        placeholder="Buscar..."
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="search-input-premium"
-                                    />
-                                    <span className="search-icon-premium">
-                                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="3">
-                                            <circle cx="11" cy="11" r="8" />
-                                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                                        </svg>
-                                    </span>
-                                </div>
-                            </div>
+                        <Tabs.Tab value="GENERAL" leftSection={<IconInfoCircle size={16} />}>
+                            Info. General
+                        </Tabs.Tab>
 
-                            <div className="sidebar-items-premium">
-                                {/* Informacion General - Desktop Sidebar Button */}
-                                <div className="desktop-only-section">
-                                    <button
-                                        onClick={() => setActiveCategory('GENERAL_INFO')}
-                                        className={`sidebar-item-premium ${activeCategory === 'GENERAL_INFO' ? 'active' : ''}`}
+                        <Divider my="sm" label="Módulos" labelPosition="center" />
+
+                        <ScrollArea style={{ height: 'calc(75vh - 180px)' }} scrollbarSize={4}>
+                            {Object.entries(hierarchicalPermissions).map(([moduleName, submods]) => {
+                                const modulePerms = Object.values(submods).flat();
+                                const selectedInModule = modulePerms.filter(p => selectedPermissions.includes(p.id_permiso)).length;
+                                
+                                return (
+                                    <Tabs.Tab 
+                                        key={moduleName} 
+                                        value={moduleName} 
+                                        leftSection={getModuleIcon(moduleName)}
+                                        rightSection={
+                                            selectedInModule > 0 && (
+                                                <Badge size="xs" circle color="blue">{selectedInModule}</Badge>
+                                            )
+                                        }
                                     >
-                                        <span className="sidebar-icon-premium">📝</span>
-                                        <span>Información General</span>
-                                    </button>
-                                </div>
+                                        <Text size="sm" lineClamp={1}>{moduleName}</Text>
+                                    </Tabs.Tab>
+                                );
+                            })}
+                        </ScrollArea>
+                    </Tabs.List>
 
-                                {/* Mobile Only: Static General Info Form */}
-                                <div className="mobile-only-general-info">
-                                    <div className="form-group" style={{ marginBottom: '1.25rem' }}>
-                                        <label className="form-label" style={{ fontSize: '0.7rem' }}>Nombre del Rol *</label>
-                                        <input
-                                            type="text"
-                                            value={nombre}
-                                            onChange={(e) => setNombre(e.target.value)}
-                                            className="form-input"
-                                            style={{ background: '#ffffff', padding: '0.7rem 0.9rem' }}
-                                            placeholder="Ej: Administrador Tier 1"
-                                            disabled={!!role}
-                                        />
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label" style={{ fontSize: '0.7rem' }}>Descripción</label>
-                                        <textarea
-                                            value={descripcion}
-                                            onChange={(e) => setDescripcion(e.target.value)}
-                                            className="form-input"
-                                            style={{ background: '#ffffff', minHeight: '80px', padding: '0.7rem 0.9rem' }}
-                                            placeholder="Describa las responsabilidades..."
-                                        />
-                                    </div>
-                                </div>
+                    <Tabs.Panel value="GENERAL">
+                        <Stack gap="lg">
+                            <Box>
+                                <Title order={4} mb="md">Información del Rol</Title>
+                                <Text size="sm" c="dimmed" mb="xl">
+                                    Introduce el nombre y una descripción clara para que otros administradores sepan qué permite hacer este rol.
+                                </Text>
+                            </Box>
 
-                                <div className="desktop-only-divider" style={{ height: '1px', background: '#f1f5f9', margin: '0.5rem 1.5rem' }}></div>
+                            <TextInput 
+                                label="Nombre del Rol"
+                                placeholder="Ej: Administrador Maestro"
+                                required
+                                value={nombre}
+                                onChange={(e) => setNombre(e.currentTarget.value)}
+                                disabled={!!role}
+                                radius="md"
+                            />
+                            <TextInput 
+                                label="Descripción"
+                                placeholder="Describe el alcance de este rol..."
+                                value={descripcion}
+                                onChange={(e) => setDescripcion(e.currentTarget.value)}
+                                radius="md"
+                            />
 
-                                {Object.entries(hierarchicalPermissions).map(([moduleName, submodules]) => {
-                                    const modulePerms = Object.values(submodules).flat();
-                                    const selectedCount = modulePerms.filter(p => selectedPermissions.includes(p.id_permiso)).length;
-                                    const totalCount = modulePerms.length;
+                            <Paper withBorder p="md" radius="md" bg="gray.0" mt="xl">
+                                <Group gap="md">
+                                    <IconShield color="var(--mantine-color-blue-6)" />
+                                    <Box>
+                                        <Text fw={600} size="sm">Resumen de Permisos</Text>
+                                        <Text size="xs" c="dimmed">
+                                            Este rol tiene actualmente <Text component="span" fw={700} c="blue">{selectedPermissions.length}</Text> permisos otorgados de un total de {allPermissions.length}.
+                                        </Text>
+                                    </Box>
+                                </Group>
+                            </Paper>
+                        </Stack>
+                    </Tabs.Panel>
 
-                                    const getModuleIcon = (name: string) => {
-                                        const lower = name.toLowerCase();
-                                        if (lower.includes('gem')) return '🧬';
-                                        if (lower.includes('necropsía') || lower.includes('necropsia')) return '🐟';
-                                        if (lower.includes('microscopía') || lower.includes('microscopia')) return '🔬';
-                                        if (lower.includes('biología molecular')) return '🧪';
-                                        if (lower.includes('cultivo celular')) return '🧫';
-                                        if (lower.includes('bacteriología') || lower.includes('bacteriologia')) return '🦠';
-                                        if (lower.includes('screening')) return '🔍';
-                                        if (lower.includes('derivaciones')) return '📤';
-                                        if (lower.includes('medio ambiente')) return '🍃';
-                                        if (lower.includes('atl')) return '⚖️';
-                                        if (lower.includes('i+d')) return '💡';
-                                        if (lower.includes('pve')) return '🩺';
-                                        if (lower.includes('informática') || lower.includes('informatica')) return '💻';
-                                        if (lower.includes('comercial')) return '📈';
-                                        if (lower.includes('calidad')) return '⭐';
-                                        if (lower.includes('administración') || lower.includes('administracion')) return '🏢';
-                                        if (lower.includes('general')) return '🌐';
-                                        return '📦';
-                                    };
+                    {Object.entries(hierarchicalPermissions).map(([moduleName, submodules]) => (
+                        <Tabs.Panel key={moduleName} value={moduleName}>
+                            <Stack gap="xl">
+                                <Group justify="space-between" align="flex-start">
+                                    <Box>
+                                        <Title order={3}>{moduleName}</Title>
+                                        <Text size="sm" c="dimmed">Administra los accesos específicos para este módulo.</Text>
+                                    </Box>
+                                    <Button 
+                                        variant="subtle" 
+                                        size="xs"
+                                        onClick={() => toggleSelectAllCategory(Object.values(submodules).flat())}
+                                    >
+                                        {Object.values(submodules).flat().every(p => selectedPermissions.includes(p.id_permiso)) 
+                                            ? 'Desmarcar Todo' : 'Marcar Todo el Módulo'}
+                                    </Button>
+                                </Group>
 
-                                    return (
-                                        <div key={moduleName} className="mobile-accordion-section">
-                                            <button
-                                                onClick={() => setActiveCategory(prev => prev === moduleName ? '' : moduleName)}
-                                                className={`sidebar-item-premium ${activeCategory === moduleName ? 'active' : ''}`}
-                                            >
-                                                <span className="sidebar-icon-premium">{getModuleIcon(moduleName)}</span>
-                                                <span style={{ flex: 1 }}>{moduleName}</span>
-                                                <span className="sidebar-badge-premium">
-                                                    {selectedCount}/{totalCount}
-                                                </span>
-                                            </button>
+                                <Stack gap="md">
+                                    {Object.entries(submodules).map(([subName, perms]) => {
+                                        const subId = `${moduleName}:${subName}`;
+                                        const isExpanded = expandedSubmodules[subId] !== false;
 
-                                            {/* Mobile Only: Content inside accordion */}
-                                            <div className={`mobile-permissions-container ${activeCategory === moduleName ? 'expanded' : ''}`}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                                                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b' }}>PERMISOS</span>
-                                                    <button
-                                                        type="button"
-                                                        className="btn-select-group-premium"
-                                                        style={{ padding: '4px 8px', fontSize: '0.75rem' }}
-                                                        onClick={() => toggleSelectAllCategory(modulePerms)}
-                                                    >
-                                                        {modulePerms.every(p => selectedPermissions.includes(p.id_permiso)) ? 'Desmarcar' : 'Marcar'} Todo
-                                                    </button>
-                                                </div>
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                                    {Object.entries(submodules)
-                                                        .sort(([a], [b]) => {
-                                                            const isAGeneral = a.toLowerCase().includes('general');
-                                                            const isBGeneral = b.toLowerCase().includes('general');
-                                                            if (isAGeneral && !isBGeneral) return -1;
-                                                            if (!isAGeneral && isBGeneral) return 1;
-                                                            return a.localeCompare(b);
-                                                        })
-                                                        .map(([subName, perms]) => (
-                                                            <div key={subName}>
-                                                                <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', marginBottom: '0.5rem', textTransform: 'uppercase' }}>{subName}</div>
-                                                                <div className="permissions-grid-premium">
-                                                                    {perms.map(p => (
-                                                                        <div
-                                                                            key={p.id_permiso}
-                                                                            className={`permission-item-premium ${selectedPermissions.includes(p.id_permiso) ? 'selected' : ''}`}
-                                                                            onClick={() => togglePermission(p.id_permiso)}
-                                                                        >
-                                                                            <div className="checkbox-custom-premium">
-                                                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4">
-                                                                                    <polyline points="20 6 9 17 4 12" />
-                                                                                </svg>
-                                                                            </div>
-                                                                            <div className="permission-text-content">
-                                                                                <span className="permission-name-premium">{p.nombre}</span>
-                                                                            </div>
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                            </div>
+                                        return (
+                                            <Paper key={subName} withBorder p="md" radius="md">
+                                                <Group 
+                                                    justify="space-between" 
+                                                    style={{ cursor: 'pointer' }}
+                                                    onClick={() => toggleSubmodule(moduleName, subName)}
+                                                >
+                                                    <Group gap="xs">
+                                                        {isExpanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+                                                        <Text fw={700} size="sm" style={{ textTransform: 'uppercase' }}>{subName}</Text>
+                                                        <Badge size="xs" variant="outline">{perms.length} permisos</Badge>
+                                                    </Group>
+                                                    <Checkbox 
+                                                        size="xs"
+                                                        label="Marcar Submódulo"
+                                                        checked={perms.every(p => selectedPermissions.includes(p.id_permiso))}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        onChange={() => toggleSelectAllCategory(perms)}
+                                                    />
+                                                </Group>
+
+                                                <Collapse in={isExpanded}>
+                                                    <Grid mt="md" gutter="md">
+                                                        {perms.map(p => (
+                                                            <Grid.Col key={p.id_permiso} span={{ base: 12, md: 6, lg: 4 }}>
+                                                                <Paper 
+                                                                    withBorder 
+                                                                    p="xs" 
+                                                                    radius="sm"
+                                                                    bg={selectedPermissions.includes(p.id_permiso) ? 'blue.0' : 'white'}
+                                                                    style={{ 
+                                                                        cursor: 'pointer',
+                                                                        transition: 'all 0.2s',
+                                                                        borderColor: selectedPermissions.includes(p.id_permiso) ? 'var(--mantine-color-blue-3)' : undefined
+                                                                    }}
+                                                                    onClick={() => togglePermission(p.id_permiso)}
+                                                                >
+                                                                    <Group gap="xs" wrap="nowrap" align="flex-start">
+                                                                        <Checkbox 
+                                                                            checked={selectedPermissions.includes(p.id_permiso)}
+                                                                            onChange={() => {}} // Done by Paper
+                                                                            size="xs"
+                                                                            mt={3}
+                                                                        />
+                                                                        <Box style={{ flex: 1 }}>
+                                                                            <Text size="sm" fw={500} lineClamp={1}>{p.nombre}</Text>
+                                                                            <Text size="xs" c="dimmed" ff="monospace">{p.codigo}</Text>
+                                                                        </Box>
+                                                                    </Group>
+                                                                </Paper>
+                                                            </Grid.Col>
                                                         ))}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
+                                                    </Grid>
+                                                </Collapse>
+                                            </Paper>
+                                        );
+                                    })}
+                                </Stack>
+                            </Stack>
+                        </Tabs.Panel>
+                    ))}
+                </Tabs>
+            </Box>
 
-                        {/* Main Content Area (Desktop Only) */}
-                        <div className="permissions-panel-premium">
-                            {activeCategory === 'GENERAL_INFO' ? (
-                                <div style={{ maxWidth: '600px' }}>
-                                    <h3 style={{ marginBottom: '2rem', color: '#1e293b', fontWeight: 800 }}>Información del Rol</h3>
-                                    <div className="form-group" style={{ alignItems: 'flex-start' }}>
-                                        <label className="form-label" style={{ textAlign: 'left' }}>Nombre del Rol *</label>
-                                        <input
-                                            type="text"
-                                            value={nombre}
-                                            onChange={(e) => setNombre(e.target.value)}
-                                            className="form-input"
-                                            style={{ textAlign: 'left', maxWidth: '100%', background: '#f8fafc' }}
-                                            placeholder="Ej: Administrador Tier 1"
-                                            disabled={!!role}
-                                        />
-                                    </div>
-
-                                    <div className="form-group" style={{ alignItems: 'flex-start', marginTop: '1.5rem' }}>
-                                        <label className="form-label" style={{ textAlign: 'left' }}>Descripción</label>
-                                        <textarea
-                                            value={descripcion}
-                                            onChange={(e) => setDescripcion(e.target.value)}
-                                            className="form-input"
-                                            style={{ textAlign: 'left', maxWidth: '100%', minHeight: '120px', resize: 'vertical', background: '#f8fafc' }}
-                                            placeholder="Describa las responsabilidades..."
-                                        />
-                                    </div>
-                                </div>
-                            ) : (
-                                <div>
-                                    <div className="permissions-panel-header-premium">
-                                        <div>
-                                            <h3 style={{ margin: 0, color: '#1e293b', fontWeight: 800 }}>{activeCategory}</h3>
-                                            <p style={{ margin: '0.25rem 0 0 0', color: '#64748b', fontSize: '0.85rem' }}>
-                                                Gestión de permisos para el módulo seleccionado.
-                                            </p>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            className="btn-select-group-premium"
-                                            onClick={() => {
-                                                const perms = Object.values(hierarchicalPermissions[activeCategory] || {}).flat();
-                                                toggleSelectAllCategory(perms);
-                                            }}
-                                        >
-                                            {Object.values(hierarchicalPermissions[activeCategory] || {}).flat().every(p => selectedPermissions.includes(p.id_permiso)) ? 'Desmarcar' : 'Marcar'} Todo
-                                        </button>
-                                    </div>
-
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                                        {Object.entries(hierarchicalPermissions[activeCategory] || {})
-                                            .sort(([a], [b]) => {
-                                                const isAGeneral = a.toLowerCase().includes('general');
-                                                const isBGeneral = b.toLowerCase().includes('general');
-                                                if (isAGeneral && !isBGeneral) return -1;
-                                                if (!isAGeneral && isBGeneral) return 1;
-                                                return a.localeCompare(b);
-                                            })
-                                            .map(([submoduleName, perms]) => {
-                                                const subId = `${activeCategory}:${submoduleName}`;
-                                                const isSubExpanded = expandedSubmodules[subId] !== false;
-
-                                                return (
-                                                    <div key={submoduleName} className={`submodule-section-premium ${isSubExpanded ? 'expanded' : ''}`}>
-                                                        <div
-                                                            className="submodule-header-premium"
-                                                            onClick={() => toggleSubmoduleGroup(activeCategory, submoduleName)}
-                                                        >
-                                                            <div className="submodule-title-premium">
-                                                                <span className="submodule-chevron">
-                                                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                                                        <polyline points="9 18 15 12 9 6" />
-                                                                    </svg>
-                                                                </span>
-                                                                {submoduleName}
-                                                            </div>
-                                                        </div>
-
-                                                        {isSubExpanded && (
-                                                            <div className="permissions-grid-premium" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}>
-                                                                {perms.map(p => (
-                                                                    <div
-                                                                        key={p.id_permiso}
-                                                                        className={`permission-item-premium ${selectedPermissions.includes(p.id_permiso) ? 'selected' : ''}`}
-                                                                        onClick={() => togglePermission(p.id_permiso)}
-                                                                    >
-                                                                        <div className="checkbox-custom-premium">
-                                                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4">
-                                                                                <polyline points="20 6 9 17 4 12" />
-                                                                            </svg>
-                                                                        </div>
-                                                                        <div className="permission-text-content">
-                                                                            <span className="permission-name-premium">{p.nombre}</span>
-                                                                            <span className="permission-code-premium">{p.codigo}</span>
-                                                                        </div>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                );
-                                            })}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                <div className="modal-footer-premium">
-                    <button onClick={onClose} className="btn-premium-cancel">
-                        Descartar
-                    </button>
-                    <button onClick={handleSave} disabled={loading} className="btn-premium-save">
-                        {loading ? 'Guardando...' : (role ? 'Actualizar Cambios' : 'Confirmar y Guardar')}
-                    </button>
-                </div>
-            </div>
-        </div>
+            <Divider />
+            <Group justify="flex-end" p="md" bg="gray.0">
+                <Button variant="subtle" color="gray" onClick={onClose}>
+                    Cancelar / Descartar
+                </Button>
+                <Button 
+                    color="adl-blue" 
+                    loading={loading} 
+                    onClick={handleSave}
+                    leftSection={<IconCheck size={18} />}
+                    radius="md"
+                >
+                    Guardar Rol y Permisos
+                </Button>
+            </Group>
+        </Modal>
     );
 };

@@ -78,7 +78,7 @@ class UrsService {
                             cod_permiso_resolver = @resolucion,
                             formulario_config = @formulario,
                             estado = @estado,
-                            fecha_actualizacion = GETDATE()
+                            fecha_actualizacion = SYSUTCDATETIME()
                         WHERE id_tipo = @id
                     `);
                 return { id_tipo: idType, ...data };
@@ -281,7 +281,7 @@ class UrsService {
                 .query(`
                     INSERT INTO mae_solicitud (id_tipo, id_solicitante, estado, area_actual, datos_json, fecha_creacion, observaciones, prioridad)
                     OUTPUT INSERTED.id_solicitud
-                    VALUES (@idTipo, @idSol, 'PENDIENTE', @areaD, @datos, SYSDATETIMEOFFSET(), @obs, @prioridad)
+                    VALUES (@idTipo, @idSol, 'PENDIENTE', @areaD, @datos, SYSUTCDATETIME(), @obs, @prioridad)
                 `);
 
             const idSolicitud = result.recordset[0].id_solicitud;
@@ -297,7 +297,8 @@ class UrsService {
             const solicitudRes = await pool.request()
                 .input('id', sql.Numeric(10, 0), idSolicitud)
                 .query(`
-                    SELECT s.*, t.nombre as nombre_tipo, u.usuario as nombre_solicitante, s.fecha_creacion as fecha_solicitud
+                    SELECT s.*, t.nombre as nombre_tipo, u.usuario as nombre_solicitante, 
+                           CONVERT(VARCHAR(33), s.fecha_creacion, 126) + 'Z' as fecha_solicitud
                     FROM mae_solicitud s
                     JOIN mae_solicitud_tipo t ON s.id_tipo = t.id_tipo
                     JOIN mae_usuario u ON s.id_solicitante = u.id_usuario
@@ -399,7 +400,9 @@ class UrsService {
             const comentarios = await pool.request()
                 .input('id', sql.Numeric(10, 0), id)
                 .query(`
-                    SELECT c.id_comentario, c.mensaje, c.fecha, c.es_privado, c.id_usuario,
+                    SELECT c.id_comentario, c.mensaje, 
+                           CONVERT(VARCHAR(33), c.fecha, 126) + 'Z' as fecha, 
+                           c.es_privado, c.id_usuario,
                            u.usuario as nombre_usuario,
                            STRING_AGG(r.nombre_rol, ', ') as nombre_rol
                     FROM mae_solicitud_comentario c
@@ -437,7 +440,8 @@ class UrsService {
             const derivaciones = await pool.request()
                 .input('id', sql.Numeric(10, 0), id)
                 .query(`
-                    SELECT d.id_derivacion, d.id_solicitud, d.area_origen, d.area_destino, d.motivo, d.fecha,
+                    SELECT d.id_derivacion, d.id_solicitud, d.area_origen, d.area_destino, d.motivo, 
+                           CONVERT(VARCHAR(33), d.fecha, 126) + 'Z' as fecha,
                            uor.usuario as usuario_origen, udt.usuario as usuario_destino,
                            rdt.nombre_rol as rol_destino
                     FROM mae_solicitud_derivacion d
@@ -453,7 +457,9 @@ class UrsService {
             const adjuntosRes = await pool.request()
                 .input('id', sql.Numeric(10, 0), id)
                 .query(`
-                    SELECT * FROM mae_solicitud_adjunto 
+                    SELECT id_adjunto, id_solicitud, id_comentario, nombre_archivo, ruta_archivo, tipo_archivo,
+                           CONVERT(VARCHAR(33), fecha, 126) + 'Z' as fecha
+                    FROM mae_solicitud_adjunto 
                     WHERE id_solicitud = @id 
                     ORDER BY fecha ASC
                 `);
@@ -483,7 +489,8 @@ class UrsService {
  
             let query = `
                 SELECT DISTINCT s.*, t.nombre as nombre_tipo, u.usuario as nombre_solicitante, 
-                       s.fecha_creacion as fecha_solicitud, t.area_destino,
+                       CONVERT(VARCHAR(33), s.fecha_creacion, 126) + 'Z' as fecha_solicitud, 
+                       t.area_destino,
                        (SELECT COUNT(*) FROM mae_notificacion n 
                         WHERE n.id_referencia = s.id_solicitud 
                         AND n.id_usuario = @requesterId 
@@ -553,7 +560,7 @@ class UrsService {
                 .query(`
                     UPDATE mae_solicitud 
                     SET estado = @estadoName,
-                        fecha_actualizacion = SYSDATETIMEOFFSET()
+                        fecha_actualizacion = SYSUTCDATETIME()
                     OUTPUT INSERTED.*
                     WHERE id_solicitud = @id
                 `);
@@ -615,8 +622,9 @@ class UrsService {
                 .input('privado', sql.Bit, esPrivado)
                 .query(`
                     INSERT INTO mae_solicitud_comentario (id_solicitud, id_usuario, mensaje, es_privado, fecha)
-                    OUTPUT INSERTED.*
-                    VALUES (@idSol, @idUsr, @msg, @privado, SYSDATETIMEOFFSET())
+                    OUTPUT INSERTED.id_comentario, INSERTED.id_solicitud, INSERTED.id_usuario, INSERTED.mensaje, INSERTED.es_privado, 
+                           CONVERT(VARCHAR(33), INSERTED.fecha, 126) + 'Z' as fecha
+                    VALUES (@idSol, @idUsr, @msg, @privado, SYSUTCDATETIME())
                 `);
             const comentario = result.recordset[0];
 
@@ -691,7 +699,7 @@ class UrsService {
                     .input('motivo', sql.NVarChar(sql.MAX), motivo)
                     .query(`
                         INSERT INTO mae_solicitud_derivacion (id_solicitud, usuario_origen, area_origen, usuario_destino, id_rol_destino, area_destino, motivo, fecha)
-                        VALUES (@idSol, @usrOr, @areaOr, @usrDs, @rolDs, @areaDs, @motivo, SYSDATETIMEOFFSET())
+                        VALUES (@idSol, @usrOr, @areaOr, @usrDs, @rolDs, @areaDs, @motivo, SYSUTCDATETIME())
                     `);
 
                 // 2. Actualizar solicitud
@@ -700,7 +708,7 @@ class UrsService {
                     .input('area', sql.VarChar(50), areaDestino)
                     .query(`
                         UPDATE mae_solicitud 
-                        SET area_actual = @area, fecha_actualizacion = SYSDATETIMEOFFSET()
+                        SET area_actual = @area, fecha_actualizacion = SYSUTCDATETIME()
                         OUTPUT INSERTED.*
                         WHERE id_solicitud = @id
                     `);
@@ -793,7 +801,7 @@ class UrsService {
                     .input('type', sql.NVarChar(100), file.mimetype || 'application/octet-stream')
                     .query(`
                         INSERT INTO mae_solicitud_adjunto (id_solicitud, id_comentario, nombre_archivo, ruta_archivo, tipo_archivo, fecha)
-                        VALUES (@idSol, @idCom, @name, @path, @type, SYSDATETIMEOFFSET())
+                        VALUES (@idSol, @idCom, @name, @path, @type, SYSUTCDATETIME())
                     `);
             }
         } catch (error) {

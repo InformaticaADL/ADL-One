@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TextInput, Select, Stack, Group, Text, Paper, Loader } from '@mantine/core';
+import { TextInput, Select, Stack, Group, Text, Paper, Loader, Button, Box } from '@mantine/core';
 import apiClient from '../../../config/axios.config';
 
 interface EquipoActivationFormProps {
@@ -7,10 +7,12 @@ interface EquipoActivationFormProps {
 }
 
 const EquipoActivationForm: React.FC<EquipoActivationFormProps> = ({ onDataChange }) => {
+    const [altaSubtype, setAltaSubtype] = useState<'NUEVO' | 'EXISTENTE'>('EXISTENTE');
     const [nombre, setNombre] = useState('');
     const [tipo, setTipo] = useState<string | null>(null);
     const [centroId, setCentroId] = useState<string | null>(null);
     const [muestreadorId, setMuestreadorId] = useState<string | null>(null);
+    const [fechaVigencia, setFechaVigencia] = useState(new Date().toISOString().split('T')[0]);
     
     const [centros, setCentros] = useState<any[]>([]);
     const [muestreadores, setMuestreadores] = useState<any[]>([]);
@@ -48,23 +50,44 @@ const EquipoActivationForm: React.FC<EquipoActivationFormProps> = ({ onDataChang
         const responsableNombre = muestreadores.find(m => m.value === muestreadorId)?.label || '';
 
         onDataChange({
+            subtipo_alta: altaSubtype,
             nombre_equipo: nombre,
             tipo_equipo: tipo,
             id_centro: centroId,
             nombre_centro: centroNombre,
             id_responsable: muestreadorId,
             nombre_responsable: responsableNombre,
-            // Flag for specialized rendering in detail
+            fecha_vigencia: fechaVigencia,
             _form_type: 'ACTIVACION_EQUIPO'
         });
-    }, [nombre, tipo, centroId, muestreadorId, centros, muestreadores]);
+    }, [nombre, tipo, centroId, muestreadorId, centros, muestreadores, altaSubtype, fechaVigencia]);
 
     return (
-        <Paper withBorder p="md" radius="md" bg="gray.0">
+        <Paper withBorder p="md" radius="md" bg="blue.0">
             <Stack gap="md">
-                <Text fw={700} size="sm" c="dimmed" style={{ textTransform: 'uppercase' }}>
-                    Información Técnica del Equipo
-                </Text>
+                <Group justify="space-between">
+                    <Text fw={700} size="sm" c="blue.8" style={{ textTransform: 'uppercase' }}>
+                        Activación de Equipo
+                    </Text>
+                    <Group gap="xs">
+                        <Button 
+                            variant={altaSubtype === 'EXISTENTE' ? 'filled' : 'light'} 
+                            onClick={() => setAltaSubtype('EXISTENTE')}
+                            size="compact-xs"
+                            radius="xl"
+                        >
+                            Desde Existente
+                        </Button>
+                        <Button 
+                            variant={altaSubtype === 'NUEVO' ? 'filled' : 'light'} 
+                            onClick={() => setAltaSubtype('NUEVO')}
+                            size="compact-xs"
+                            radius="xl"
+                        >
+                            Nuevo Registro
+                        </Button>
+                    </Group>
+                </Group>
 
                 <Group grow>
                     <TextInput
@@ -73,6 +96,7 @@ const EquipoActivationForm: React.FC<EquipoActivationFormProps> = ({ onDataChang
                         value={nombre}
                         onChange={(e) => setNombre(e.currentTarget.value)}
                         required
+                        radius="md"
                     />
                     <Select
                         label="Tipo de Equipo"
@@ -84,17 +108,20 @@ const EquipoActivationForm: React.FC<EquipoActivationFormProps> = ({ onDataChang
                             'Sonda Nivel',
                             'GPS',
                             'Centrifuga',
+                            'Termo / Incubadora',
                             'Otro'
                         ]}
                         value={tipo}
                         onChange={setTipo}
                         required
+                        radius="md"
+                        searchable
                     />
                 </Group>
 
                 <Group grow>
                     <Select
-                        label="Ubicación (Centro / Sede)"
+                        label="Ubicación Destino"
                         placeholder={loadingCentros ? "Cargando..." : "Seleccione centro"}
                         rightSection={loadingCentros ? <Loader size={12} /> : null}
                         data={centros}
@@ -102,6 +129,7 @@ const EquipoActivationForm: React.FC<EquipoActivationFormProps> = ({ onDataChang
                         onChange={setCentroId}
                         searchable
                         required
+                        radius="md"
                     />
                     <Select
                         label="Responsable Asignado"
@@ -112,7 +140,23 @@ const EquipoActivationForm: React.FC<EquipoActivationFormProps> = ({ onDataChang
                         onChange={setMuestreadorId}
                         searchable
                         required
+                        radius="md"
                     />
+                </Group>
+
+                <Group grow>
+                    <TextInput
+                        label="Fecha de Inicio / Vigencia"
+                        type="date"
+                        value={fechaVigencia}
+                        onChange={(e) => setFechaVigencia(e.currentTarget.value)}
+                        required
+                        radius="md"
+                    />
+                    <Box style={{ visibility: 'hidden' }}>
+                        {/* Spacer to maintain grid symmetry */}
+                        <TextInput label="-" />
+                    </Box>
                 </Group>
             </Stack>
         </Paper>

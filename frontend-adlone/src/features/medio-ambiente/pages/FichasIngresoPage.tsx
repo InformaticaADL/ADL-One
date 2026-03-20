@@ -1,85 +1,105 @@
 import { useState } from 'react';
+import { 
+    Container, 
+    Stack, 
+    Title, 
+    Text, 
+    SimpleGrid, 
+    Box,
+    Divider,
+    Paper
+} from '@mantine/core';
 import { SelectionCard } from '../components/SelectionCard';
-import '../styles/FichasIngreso.css';
-
-// Aquí importamos las sub-páginas para renderizarlas cuando se selecciona una tarjeta
-// (Por ahora usaré placeholders o componentes simples dentro de este mismo archivo 
-// si el usuario quiere mantenerlo separado, lo moveré. Pero dado su aviso de ficheros <1000 lineas,
-// es mejor modularizar)
-
 import { ComercialPage } from './ComercialPage';
 import { TecnicaPage } from './TecnicaPage';
 import { CoordinacionPage } from './CoordinacionPage';
-
 import { ProtectedContent } from '../../../components/auth/ProtectedContent';
+import { useNavStore } from '../../../store/navStore';
+import { useEffect } from 'react';
 
 export const FichasIngresoPage = () => {
     const [selectedOption, setSelectedOption] = useState<string | null>(null);
+    const { pendingRequestId } = useNavStore();
 
-    // Enforce permission even if state was somehow set (extra safety, though UI hiding is primary)
-    // Actually, ProtectedContent handles the view, but if we want to prevent rendering the page component:
-    // We can rely on the buttons being hidden.
+    useEffect(() => {
+        if (pendingRequestId && !selectedOption) {
+            // Intentamos adivinar el área. Por ahora comercial si no hay más info,
+            // o técnica si el usuario tiene permisos y la ficha lo sugiere.
+            // Para simplificar, abrimos comercial como default de entrada.
+            setSelectedOption('tecnica'); // Priorizamos técnica para aprobaciones
+        }
+    }, [pendingRequestId, selectedOption]);
 
     if (selectedOption === 'comercial') {
         return (
-            <ProtectedContent permission="MA_COMERCIAL_ACCESO" fallback={<div>No tiene permisos</div>}>
+            <ProtectedContent permission="MA_COMERCIAL_ACCESO" fallback={<Text ta="center" mt="xl" c="red">No tiene permisos</Text>}>
                 <ComercialPage onBack={() => setSelectedOption(null)} />
             </ProtectedContent>
         );
     }
     if (selectedOption === 'tecnica') {
         return (
-            <ProtectedContent permission="MA_TECNICA_ACCESO" fallback={<div>No tiene permisos</div>}>
+            <ProtectedContent permission="MA_TECNICA_ACCESO" fallback={<Text ta="center" mt="xl" c="red">No tiene permisos</Text>}>
                 <TecnicaPage onBack={() => setSelectedOption(null)} />
             </ProtectedContent>
         );
     }
     if (selectedOption === 'coordinacion') {
         return (
-            <ProtectedContent permission="MA_COORDINACION_ACCESO" fallback={<div>No tiene permisos</div>}>
+            <ProtectedContent permission="MA_COORDINACION_ACCESO" fallback={<Text ta="center" mt="xl" c="red">No tiene permisos</Text>}>
                 <CoordinacionPage onBack={() => setSelectedOption(null)} />
             </ProtectedContent>
         );
     }
 
     return (
-        <div className="fichas-ingreso-container">
-            <header className="page-header">
-                <h1 className="page-title-geo">Fichas de Ingreso - Medio Ambiente</h1>
-                <p className="page-subtitle">Seleccione el área de trabajo para comenzar</p>
-            </header>
+        <Container fluid p="md">
+            <Paper withBorder p="xl" radius="lg" shadow="sm">
+                <Stack gap={40}>
+                    <Box>
+                        <Title order={1} fw={900} ta="center" fz={42} c="blue.7">
+                            Fichas de Ingreso
+                        </Title>
+                        <Text size="xl" c="dimmed" ta="center" mt="md" fw={500}>
+                            Seleccione el área de trabajo para comenzar la gestión de muestras y servicios
+                        </Text>
+                    </Box>
 
-            <div className="cards-grid">
-                <ProtectedContent permission="MA_COMERCIAL_ACCESO">
-                    <SelectionCard
-                        title="Comercial"
-                        description="Gestión de cotizaciones, clientes y oportunidades comerciales para medio ambiente."
-                        icon="💼"
-                        color="#1565c0" // Azul ADL
-                        onClick={() => setSelectedOption('comercial')}
-                    />
-                </ProtectedContent>
+                    <Divider variant="dashed" />
 
-                <ProtectedContent permission="MA_TECNICA_ACCESO">
-                    <SelectionCard
-                        title="Área Técnica"
-                        description="Ingreso de muestras técnicas, control de parámetros y gestión de análisis de laboratorio."
-                        icon="🧪"
-                        color="#2e7d32" // Verde Técnico
-                        onClick={() => setSelectedOption('tecnica')}
-                    />
-                </ProtectedContent>
+                    <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing={40}>
+                        <ProtectedContent permission="MA_COMERCIAL_ACCESO">
+                            <SelectionCard
+                                title="Comercial"
+                                description="Gestión de cotizaciones, clientes y oportunidades comerciales para medio ambiente."
+                                icon="💼"
+                                color="#1565c0" // Azul ADL
+                                onClick={() => setSelectedOption('comercial')}
+                            />
+                        </ProtectedContent>
 
-                <ProtectedContent permission="MA_COORDINACION_ACCESO">
-                    <SelectionCard
-                        title="Coordinación"
-                        description="Planificación de muestreos, logística de retiro y coordinación de personal en terreno."
-                        icon="📅"
-                        color="#f57c00" // Naranja ADL
-                        onClick={() => setSelectedOption('coordinacion')}
-                    />
-                </ProtectedContent>
-            </div>
-        </div>
+                        <ProtectedContent permission="MA_TECNICA_ACCESO">
+                            <SelectionCard
+                                title="Área Técnica"
+                                description="Ingreso de muestras técnicas, control de parámetros y gestión de análisis de laboratorio."
+                                icon="🧪"
+                                color="#2e7d32" // Verde Técnico
+                                onClick={() => setSelectedOption('tecnica')}
+                            />
+                        </ProtectedContent>
+
+                        <ProtectedContent permission="MA_COORDINACION_ACCESO">
+                            <SelectionCard
+                                title="Coordinación"
+                                description="Planificación de muestreos, logística de retiro y coordinación de personal en terreno."
+                                icon="📅"
+                                color="#f57c00" // Naranja ADL
+                                onClick={() => setSelectedOption('coordinacion')}
+                            />
+                        </ProtectedContent>
+                    </SimpleGrid>
+                </Stack>
+            </Paper>
+        </Container>
     );
 };

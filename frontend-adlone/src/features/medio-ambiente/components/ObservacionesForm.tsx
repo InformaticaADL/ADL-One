@@ -1,10 +1,14 @@
 import React from 'react';
-
+import { 
+    Textarea, 
+    Paper, 
+    Stack, 
+    Box 
+} from '@mantine/core';
 
 interface ObservacionesFormProps {
     value: string;
     onChange: (value: string) => void;
-
     label?: string;
     readOnly?: boolean;
     placeholder?: string;
@@ -26,81 +30,39 @@ const ObservacionesFormComponent: React.FC<ObservacionesFormProps> = ({
         }
     };
 
-
-
     return (
-        <div style={{
-            maxWidth: '1200px',
-            margin: '0 auto',
-            width: '100%'
-        }}>
-            <div style={{
-                padding: '1.5rem',
-                border: '1px solid #e5e7eb',
-                borderRadius: '8px',
-                backgroundColor: 'white',
-                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-                height: 'fit-content'
-            }}>
-                <div className="form-group">
-                    <label
-                        style={{
-                            fontSize: '0.85rem',
-                            fontWeight: 600,
-                            color: '#374151',
-                            marginBottom: '8px',
-                            display: 'block'
-                        }}
-                    >
-                        {label}
-                    </label>
-                    <textarea
-                        value={value}
-                        onChange={handleChange}
-                        placeholder={placeholder}
-                        readOnly={readOnly}
-                        rows={6}
-                        style={{
-                            width: '100%',
-                            padding: '10px',
-                            fontSize: '0.9rem',
-                            border: readOnly ? '1px solid #e5e7eb' : '1px solid #d1d5db',
-                            borderRadius: '6px',
-                            resize: 'vertical',
-                            fontFamily: 'inherit',
-                            minHeight: '120px',
-                            backgroundColor: readOnly ? '#f9fafb' : 'white',
-                            color: '#374151'
-                        }}
-                    />
-                    {!readOnly && (
-                        <div style={{
-                            textAlign: 'right',
-                            fontSize: '0.75rem',
-                            color: value.length >= 250 ? '#ef4444' : '#6b7280',
-                            marginTop: '4px'
-                        }}>
-                            {value.length} / 250 caracteres
-                        </div>
-                    )}
+        <Paper withBorder p="xl" radius="md" shadow="sm" style={{ width: '100%' }}>
+            <Stack gap="md">
+                <Textarea
+                    label={label}
+                    placeholder={placeholder}
+                    value={value}
+                    onChange={handleChange}
+                    readOnly={readOnly}
+                    minRows={6}
+                    autosize
+                    radius="md"
+                    size="md"
+                    description={!readOnly ? `${value.length} / 250 caracteres` : undefined}
+                    error={!readOnly && value.length >= 250 ? 'Límite de caracteres alcanzado' : undefined}
+                    styles={{
+                        label: { fontWeight: 600, marginBottom: 8 },
+                        description: { textAlign: 'right', marginTop: 4 }
+                    }}
+                />
 
-                    {children && (
-                        <div style={{
-                            marginTop: '1.5rem',
-                            borderTop: '1px solid #f3f4f6',
-                            paddingTop: '1rem',
-                            display: 'flex',
-                            justifyContent: 'flex-end',
-                            gap: '1rem'
-                        }}>
-                            {children}
-                        </div>
-                    )}
-                </div>
-            </div>
-        </div>
+                {children && (
+                    <Box pt="lg" style={{ borderTop: '1px solid var(--mantine-color-gray-2)' }}>
+                        <Stack align="flex-end" gap="md">
+                            <Box style={{ display: 'flex', gap: 'var(--mantine-spacing-md)' }}>
+                                {children}
+                            </Box>
+                        </Stack>
+                    </Box>
+                )}
+            </Stack>
+        </Paper>
     );
 };
 
-// Wrap with React.memo to prevent unnecessary re-renders and flickering
 export const ObservacionesForm = React.memo(ObservacionesFormComponent);

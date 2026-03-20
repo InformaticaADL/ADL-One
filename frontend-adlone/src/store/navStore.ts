@@ -22,6 +22,7 @@ interface NavState {
     resetNavigation: () => void; // Reset navigation state to defaults
     adminSearchTerm: string;
     setAdminSearchTerm: (term: string) => void;
+    hideNotification: (id: string | number) => void;
 }
 
 const STORAGE_KEY = 'adl_hidden_notifications';

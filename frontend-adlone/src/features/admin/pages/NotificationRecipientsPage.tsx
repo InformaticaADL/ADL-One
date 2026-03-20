@@ -1,10 +1,43 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { 
+    Container, 
+    Grid, 
+    Card, 
+    Text, 
+    Stack, 
+    Group, 
+    Select, 
+    TextInput, 
+    Checkbox, 
+    Button, 
+    ActionIcon, 
+    Badge, 
+    Loader, 
+    Modal, 
+    Table, 
+    Alert,
+    Divider,
+    Paper,
+    ScrollArea,
+    Center,
+    Tooltip
+} from '@mantine/core';
+import { 
+    IconUserPlus, 
+    IconUsers, 
+    IconMail, 
+    IconBell, 
+    IconTrash, 
+    IconSearch, 
+    IconInfoCircle,
+    IconUser,
+    IconBriefcase
+} from '@tabler/icons-react';
 import { notificationService } from '../../../services/notification.service';
 import { rbacService } from '../services/rbac.service';
 import type { Role, User } from '../services/rbac.service';
 import { useToast } from '../../../contexts/ToastContext';
-import { ConfirmModal } from '../../../components/common/ConfirmModal';
-import '../admin.css';
+import { PageHeader } from '../../../components/layout/PageHeader';
 
 interface NotificationEvent {
     id_evento: number;
@@ -21,7 +54,6 @@ interface Recipient {
     nombre_usuario?: string;
     nombre_rol?: string;
     tipo_envio: string;
-    // UNS Fields
     envia_email?: boolean;
     envia_web?: boolean;
     area_destino?: string;
@@ -36,14 +68,15 @@ export const NotificationRecipientsPage: React.FC<Props> = ({ event, onBack }) =
     const { showToast } = useToast();
     const [recipients, setRecipients] = useState<Recipient[]>([]);
     const [loading, setLoading] = useState(false);
+    const [actionLoading, setActionLoading] = useState(false);
 
     // Catalogs
     const [users, setUsers] = useState<User[]>([]);
     const [roles, setRoles] = useState<Role[]>([]);
 
     // Selection state
-    const [addType, setAddType] = useState<'USER' | 'ROLE'>('ROLE');
-    const [sendType, setSendType] = useState('TO');
+    const [addType, setAddType] = useState<string>('ROLE');
+    const [sendType, setSendType] = useState<string>('TO');
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
 
@@ -53,12 +86,13 @@ export const NotificationRecipientsPage: React.FC<Props> = ({ event, onBack }) =
     const [areaDestino, setAreaDestino] = useState('');
 
     // Modal state
-    const [showRoleMembersModal, setShowRoleMembersModal] = useState(false);
+    const [membersModalOpened, setMembersModalOpened] = useState(false);
     const [modalRoleId, setModalRoleId] = useState<number | null>(null);
     const [modalRoleMembers, setModalRoleMembers] = useState<User[]>([]);
+    const [membersLoading, setMembersLoading] = useState(false);
 
     // Confirm modal state
-    const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [deleteModalOpened, setDeleteModalOpened] = useState(false);
     const [recipientToDelete, setRecipientToDelete] = useState<number | null>(null);
 
     useEffect(() => {
@@ -97,11 +131,15 @@ export const NotificationRecipientsPage: React.FC<Props> = ({ event, onBack }) =
     const handleViewRoleMembers = async (roleId: number) => {
         try {
             setModalRoleId(roleId);
+            setMembersLoading(true);
+            setMembersModalOpened(true);
             const members = await rbacService.getUsersByRole(roleId);
             setModalRoleMembers(members);
-            setShowRoleMembersModal(true);
         } catch (error) {
             showToast({ type: 'error', message: "Error al cargar usuarios del rol" });
+            setMembersModalOpened(false);
+        } finally {
+            setMembersLoading(false);
         }
     };
 
@@ -121,7 +159,7 @@ export const NotificationRecipientsPage: React.FC<Props> = ({ event, onBack }) =
         }
 
         try {
-            setLoading(true);
+            setActionLoading(true);
             const promises = Array.from(selectedItems).map(id => {
                 const payload = {
                     idUsuario: addType === 'USER' ? id : undefined,
@@ -142,405 +180,364 @@ export const NotificationRecipientsPage: React.FC<Props> = ({ event, onBack }) =
             const msg = error.response?.data?.message || "Error al agregar";
             showToast({ type: 'error', message: msg });
         } finally {
-            setLoading(false);
+            setActionLoading(false);
         }
     };
 
-    const handleRemove = async (id: number) => {
+    const handleRemove = (id: number) => {
         setRecipientToDelete(id);
-        setShowConfirmModal(true);
+        setDeleteModalOpened(true);
     };
 
     const confirmDelete = async () => {
         if (!recipientToDelete) return;
         try {
+            setActionLoading(true);
             await notificationService.removeRecipient(recipientToDelete);
             showToast({ type: 'success', message: "Eliminado correctamente" });
             loadRecipients(event.id_evento);
         } catch (error) {
             showToast({ type: 'error', message: "Error al eliminar" });
         } finally {
-            setShowConfirmModal(false);
+            setActionLoading(false);
+            setDeleteModalOpened(false);
             setRecipientToDelete(null);
         }
     };
 
-    // Filter items based on search
-    const filteredItems = addType === 'ROLE'
-        ? roles.filter(r => r.nombre_rol.toLowerCase().includes(searchTerm.toLowerCase()))
-        : users.filter(u =>
+    const filteredItems = useMemo(() => {
+        if (addType === 'ROLE') {
+            return roles.filter(r => r.nombre_rol.toLowerCase().includes(searchTerm.toLowerCase()));
+        }
+        return users.filter(u =>
             u.nombre_usuario.toLowerCase().includes(searchTerm.toLowerCase()) ||
             u.nombre_real.toLowerCase().includes(searchTerm.toLowerCase()) ||
             (u.correo_electronico && u.correo_electronico.toLowerCase().includes(searchTerm.toLowerCase()))
         );
+    }, [addType, searchTerm, roles, users]);
 
     const selectedRole = roles.find(r => r.id_rol === modalRoleId);
 
     return (
-        <div className="admin-container">
-            <div className="admin-header-section responsive-header">
-                {/* Izquierda: botón Volver */}
-                <div style={{ justifySelf: 'start' }}>
-                    <button onClick={onBack} className="btn-back">
-                        <span className="icon-circle">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <line x1="19" y1="12" x2="5" y2="12"></line>
-                                <polyline points="12 19 5 12 12 5"></polyline>
-                            </svg>
-                        </span>
-                        Volver a Eventos
-                    </button>
-                </div>
+        <Container fluid py="md">
+            <PageHeader 
+                title="Configuración de Destinatarios"
+                subtitle={`Evento: ${event.codigo_evento} - ${event.descripcion}`}
+                onBack={onBack}
+                breadcrumbItems={[
+                    { label: 'Administración', onClick: onBack },
+                    { label: 'Notificaciones', onClick: onBack },
+                    { label: 'Destinatarios' }
+                ]}
+            />
 
-                {/* Centro: título + subtítulo */}
-                <div style={{ justifySelf: 'center', textAlign: 'center' }}>
-                    <h1 className="admin-title" style={{ margin: '0 0 0.15rem 0' }}>Configuración de Correos - Paso 2</h1>
-                    <p className="admin-subtitle" style={{ margin: 0 }}>
-                        Configurando: <span style={{ color: '#3b82f6', fontWeight: 600 }}>{event.codigo_evento}</span> - {event.descripcion}
-                    </p>
-                </div>
+            <Grid mt="xl" gutter="lg">
+                <Grid.Col span={{ base: 12, md: 5 }}>
+                    <Card withBorder radius="md" padding="lg" h="100%">
+                        <Group mb="md">
+                            <IconUserPlus size={20} color="var(--mantine-color-blue-6)" />
+                            <Text fw={700}>Agregar Destinatarios</Text>
+                        </Group>
 
-                {/* Derecha: vacío (balance) */}
-                <div></div>
-            </div>
+                        <Stack gap="md">
+                            <Grid gutter="sm">
+                                <Grid.Col span={6}>
+                                    <Select 
+                                        label="Tipo Destinatario"
+                                        value={addType}
+                                        onChange={(val) => setAddType(val || 'ROLE')}
+                                        data={[
+                                            { value: 'ROLE', label: 'Rol (Grupo)' },
+                                            { value: 'USER', label: 'Usuario Individual' }
+                                        ]}
+                                        radius="md"
+                                    />
+                                </Grid.Col>
+                                <Grid.Col span={6}>
+                                    <Select 
+                                        label="Modo de Envío"
+                                        value={sendType}
+                                        onChange={(val) => setSendType(val || 'TO')}
+                                        disabled={!enviaEmail}
+                                        data={[
+                                            { value: 'TO', label: 'Para (TO)' },
+                                            { value: 'CC', label: 'Copia (CC)' },
+                                            { value: 'BCC', label: 'Copia Oculta (BCC)' }
+                                        ]}
+                                        radius="md"
+                                    />
+                                </Grid.Col>
+                            </Grid>
 
-            <div className="recipients-grid">
-                {/* Left: Add Recipients */}
-                <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                    <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#111827', marginBottom: '1rem' }}>
-                        ➕ Agregar Destinatarios
-                    </h3>
-
-                    <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-                        <div style={{ flex: 1 }}>
-                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '4px', color: '#374151' }}>Tipo Destinatario</label>
-                            <select
-                                value={addType}
-                                onChange={(e) => setAddType(e.target.value as 'USER' | 'ROLE')}
-                                style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.85rem' }}
-                            >
-                                <option value="ROLE">Rol (Grupo)</option>
-                                <option value="USER">Usuario Específico</option>
-                            </select>
-                        </div>
-                        <div style={{ flex: 1 }}>
-                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '4px', color: '#374151' }}>Envío (Email)</label>
-                            <select
-                                value={sendType}
-                                onChange={(e) => setSendType(e.target.value)}
-                                disabled={!enviaEmail}
-                                style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.85rem', opacity: enviaEmail ? 1 : 0.5 }}
-                            >
-                                <option value="TO">Para (TO)</option>
-                                <option value="CC">Copia (CC)</option>
-                                <option value="BCC">Oculta (BCC)</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-                        <div style={{ flex: 1 }}>
-                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '4px', color: '#374151' }}>Canales Habilitados</label>
-                            <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', cursor: 'pointer' }}>
-                                    <input type="checkbox" checked={enviaEmail} onChange={e => setEnviaEmail(e.target.checked)} /> Email
-                                </label>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', cursor: 'pointer' }}>
-                                    <input type="checkbox" checked={enviaWeb} onChange={e => setEnviaWeb(e.target.checked)} /> Web
-                                </label>
-                            </div>
-                        </div>
-                        <div style={{ flex: 1 }}>
-                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '4px', color: '#374151' }}>Área Relacionada (Opcional)</label>
-                            <input 
-                                type="text"
-                                placeholder="Ej: Laboratorio, Ventas..."
-                                value={areaDestino}
-                                onChange={e => setAreaDestino(e.target.value)}
-                                style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.85rem' }}
-                            />
-                        </div>
-                    </div>
-
-                    {enviaWeb && (
-                        <div style={{ padding: '0.75rem', backgroundColor: '#f0f9ff', borderRadius: '8px', border: '1px solid #bae6fd', marginBottom: '1rem' }}>
-                            <h4 style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0369a1', marginBottom: '0.5rem' }}>Configuración Web (Campanita)</h4>
-                            <p style={{ fontSize: '0.75rem', color: '#0369a1', margin: 0 }}>
-                                ℹ️ El sistema generará mensajes inteligentes automáticamente para este evento.
-                            </p>
-                        </div>
-                    )}
-
-                    {/* Search */}
-                    <input
-                        type="text"
-                        placeholder={`Buscar ${addType === 'ROLE' ? 'rol' : 'usuario'}...`}
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        style={{
-                            width: '100%',
-                            padding: '8px 12px',
-                            borderRadius: '6px',
-                            border: '1px solid #d1d5db',
-                            fontSize: '0.85rem',
-                            marginBottom: '0.75rem'
-                        }}
-                    />
-
-                    {/* Checkbox List */}
-                    <div style={{
-                        maxHeight: '400px',
-                        overflowY: 'auto',
-                        border: '1px solid #e5e7eb',
-                        borderRadius: '6px',
-                        backgroundColor: 'white',
-                        marginBottom: '1rem'
-                    }}>
-                        {filteredItems.length === 0 ? (
-                            <div style={{ padding: '1rem', textAlign: 'center', color: '#9ca3af', fontSize: '0.85rem' }}>
-                                No se encontraron resultados
-                            </div>
-                        ) : (
-                            filteredItems.map(item => {
-                                const id = addType === 'ROLE' ? (item as Role).id_rol : (item as User).id_usuario;
-                                const isUser = addType === 'USER';
-                                const user = isUser ? (item as User) : null;
-                                const role = !isUser ? (item as Role) : null;
-
-                                return (
-                                    <div
-                                        key={id}
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            padding: '10px 12px',
-                                            borderBottom: '1px solid #f3f4f6',
-                                            cursor: 'pointer',
-                                            backgroundColor: selectedItems.has(id) ? '#eff6ff' : 'white',
-                                            transition: 'background-color 0.15s'
-                                        }}
-                                        onClick={() => handleToggleItem(id)}
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedItems.has(id)}
-                                            onChange={() => { }}
-                                            style={{ marginRight: '10px', cursor: 'pointer' }}
+                            <Group grow align="flex-end">
+                                <Stack gap={4}>
+                                    <Text size="xs" fw={700} c="dimmed">Canales Habilitados</Text>
+                                    <Group>
+                                        <Checkbox 
+                                            label="Email" 
+                                            checked={enviaEmail} 
+                                            onChange={(e) => setEnviaEmail(e.currentTarget.checked)} 
                                         />
-                                        <div style={{ flex: 1 }}>
-                                            <div style={{ fontSize: '0.85rem', color: '#1f2937', fontWeight: 500 }}>
-                                                {isUser ? user!.nombre_usuario : role!.nombre_rol}
-                                            </div>
-                                            {isUser && user!.correo_electronico && (
-                                                <div style={{ fontSize: '0.7rem', color: '#3b82f6', marginTop: '2px' }}>
-                                                    📧 {user!.correo_electronico}
-                                                </div>
-                                            )}
-                                        </div>
-                                        {!isUser && (
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleViewRoleMembers(id);
-                                                }}
-                                                style={{
-                                                    padding: '4px 8px',
-                                                    fontSize: '0.7rem',
-                                                    backgroundColor: '#e0e7ff',
-                                                    color: '#3730a3',
-                                                    border: 'none',
-                                                    borderRadius: '4px',
-                                                    cursor: 'pointer',
-                                                    fontWeight: 600
-                                                }}
-                                                title="Ver usuarios"
-                                            >
-                                                👥 Ver
-                                            </button>
+                                        <Checkbox 
+                                            label="Web" 
+                                            checked={enviaWeb} 
+                                            onChange={(e) => setEnviaWeb(e.currentTarget.checked)} 
+                                        />
+                                    </Group>
+                                </Stack>
+                                <TextInput 
+                                    label="Área Destino (Opcional)"
+                                    placeholder="Ej: Lab, Bioq..."
+                                    value={areaDestino}
+                                    onChange={(e) => setAreaDestino(e.currentTarget.value)}
+                                    radius="md"
+                                />
+                            </Group>
+
+                            {enviaWeb && (
+                                <Alert icon={<IconInfoCircle size={16} />} color="blue" radius="md" variant="light">
+                                    El sistema generará notificaciones automáticas en la campanita para este evento.
+                                </Alert>
+                            )}
+
+                            <Divider label="Selección de elementos" labelPosition="center" />
+
+                            <TextInput 
+                                placeholder={`Buscar ${addType === 'ROLE' ? 'rol' : 'usuario'}...`}
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.currentTarget.value)}
+                                leftSection={<IconSearch size={16} />}
+                                radius="md"
+                            />
+
+                            <Paper withBorder radius="md">
+                                <ScrollArea h={300} p="xs">
+                                    <Stack gap={4}>
+                                        {filteredItems.map(item => {
+                                            const id = addType === 'ROLE' ? (item as Role).id_rol : (item as User).id_usuario;
+                                            const isSelected = selectedItems.has(id);
+                                            const name = addType === 'ROLE' ? (item as Role).nombre_rol : (item as User).nombre_usuario;
+                                            const sub = addType === 'USER' ? (item as User).correo_electronico : null;
+
+                                            return (
+                                                <Group 
+                                                    key={id} 
+                                                    wrap="nowrap" 
+                                                    p="xs" 
+                                                    onClick={() => handleToggleItem(id)}
+                                                    style={{ 
+                                                        cursor: 'pointer', 
+                                                        borderRadius: 'var(--mantine-radius-sm)',
+                                                        backgroundColor: isSelected ? 'var(--mantine-color-blue-light)' : 'transparent',
+                                                        transition: 'background-color 0.1s ease'
+                                                    }}
+                                                >
+                                                    <Checkbox 
+                                                        checked={isSelected} 
+                                                        onChange={() => {}} 
+                                                        tabIndex={-1} 
+                                                        styles={{ input: { cursor: 'pointer' } }}
+                                                    />
+                                                    <Stack gap={0} flex={1}>
+                                                        <Text size="sm" fw={isSelected ? 600 : 400}>{name}</Text>
+                                                        {sub && <Text size="xs" c="dimmed">{sub}</Text>}
+                                                    </Stack>
+                                                    {addType === 'ROLE' && (
+                                                        <ActionIcon 
+                                                            variant="light" 
+                                                            onClick={(e) => { e.stopPropagation(); handleViewRoleMembers(id); }}
+                                                            size="sm"
+                                                        >
+                                                            <IconUsers size={14} />
+                                                        </ActionIcon>
+                                                    )}
+                                                </Group>
+                                            );
+                                        })}
+                                        {filteredItems.length === 0 && (
+                                            <Center py="xl">
+                                                <Text size="sm" c="dimmed">No se encontraron resultados</Text>
+                                            </Center>
                                         )}
-                                    </div>
-                                );
-                            })
+                                    </Stack>
+                                </ScrollArea>
+                            </Paper>
+
+                            <Button 
+                                onClick={handleAddSelected} 
+                                loading={actionLoading} 
+                                disabled={selectedItems.size === 0}
+                                fullWidth
+                                radius="md"
+                                leftSection={<IconUserPlus size={18} />}
+                            >
+                                Vincular Seleccionados ({selectedItems.size})
+                            </Button>
+                        </Stack>
+                    </Card>
+                </Grid.Col>
+
+                <Grid.Col span={{ base: 12, md: 7 }}>
+                    <Card withBorder radius="md" padding="lg" h="100%">
+                        <Group justify="space-between" mb="lg">
+                            <Group>
+                                <IconUsers size={20} color="var(--mantine-color-teal-6)" />
+                                <Text fw={700}>Destinatarios Configurados</Text>
+                            </Group>
+                            <Badge variant="light" color="teal">{recipients.length} reglas</Badge>
+                        </Group>
+
+                        {loading ? (
+                            <Center h={400}>
+                                <Loader type="dots" />
+                            </Center>
+                        ) : (
+                            <ScrollArea h={600}>
+                                <Table verticalSpacing="sm">
+                                    <Table.Thead>
+                                        <Table.Tr>
+                                            <Table.Th>Tipo</Table.Th>
+                                            <Table.Th>Destinatario</Table.Th>
+                                            <Table.Th>Canales</Table.Th>
+                                            <Table.Th w={50}></Table.Th>
+                                        </Table.Tr>
+                                    </Table.Thead>
+                                    <Table.Tbody>
+                                        {recipients.map(rec => (
+                                            <Table.Tr key={rec.id_relacion}>
+                                                <Table.Td>
+                                                    <Badge 
+                                                        size="xs" 
+                                                        variant="light" 
+                                                        color={rec.id_rol ? 'indigo' : 'gray'}
+                                                        leftSection={rec.id_rol ? <IconBriefcase size={10} /> : <IconUser size={10} />}
+                                                    >
+                                                        {rec.id_rol ? 'ROL' : 'USR'}
+                                                    </Badge>
+                                                </Table.Td>
+                                                <Table.Td>
+                                                    <Stack gap={2}>
+                                                        <Text size="sm" fw={600}>{rec.nombre_rol || rec.nombre_usuario}</Text>
+                                                        {rec.area_destino && <Text size="xs" c="dimmed">Área: {rec.area_destino}</Text>}
+                                                    </Stack>
+                                                </Table.Td>
+                                                <Table.Td>
+                                                    <Group gap={4}>
+                                                        {rec.envia_email && (
+                                                            <Tooltip label={`Modo: ${rec.tipo_envio}`}>
+                                                                <Badge size="xs" color="teal" variant="outline" leftSection={<IconMail size={10} />}>
+                                                                    {rec.tipo_envio}
+                                                                </Badge>
+                                                            </Tooltip>
+                                                        )}
+                                                        {rec.envia_web && (
+                                                            <Badge size="xs" color="blue" variant="outline" leftSection={<IconBell size={10} />}>
+                                                                WEB
+                                                            </Badge>
+                                                        )}
+                                                    </Group>
+                                                </Table.Td>
+                                                <Table.Td>
+                                                    <ActionIcon color="red" variant="subtle" onClick={() => handleRemove(rec.id_relacion)}>
+                                                        <IconTrash size={16} />
+                                                    </ActionIcon>
+                                                </Table.Td>
+                                            </Table.Tr>
+                                        ))}
+                                        {recipients.length === 0 && (
+                                            <Table.Tr>
+                                                <Table.Td colSpan={4}>
+                                                    <Center py={100}>
+                                                        <Stack align="center" gap="xs">
+                                                            <IconUsers size={40} color="var(--mantine-color-gray-3)" />
+                                                            <Text c="dimmed" size="sm">Sin destinatarios configurados</Text>
+                                                        </Stack>
+                                                    </Center>
+                                                </Table.Td>
+                                            </Table.Tr>
+                                        )}
+                                    </Table.Tbody>
+                                </Table>
+                            </ScrollArea>
                         )}
-                    </div>
-
-                    {/* Add Button */}
-                    <button
-                        onClick={handleAddSelected}
-                        disabled={loading || selectedItems.size === 0}
-                        style={{
-                            width: '100%',
-                            backgroundColor: selectedItems.size > 0 ? '#3b82f6' : '#9ca3af',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '6px',
-                            padding: '12px',
-                            cursor: selectedItems.size > 0 ? 'pointer' : 'not-allowed',
-                            fontWeight: 600,
-                            fontSize: '0.9rem'
-                        }}
-                    >
-                        Agregar Seleccionados ({selectedItems.size})
-                    </button>
-                </div>
-
-                {/* Right: Current Recipients */}
-                <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                    <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#111827', marginBottom: '1rem' }}>
-                        📋 Destinatarios Configurados ({recipients.length})
-                    </h3>
-
-                    <div style={{ overflowY: 'auto', maxHeight: '600px' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-                            <thead style={{ position: 'sticky', top: 0, backgroundColor: 'white', zIndex: 1 }}>
-                                <tr style={{ borderBottom: '2px solid #e5e7eb', color: '#6b7280', textAlign: 'left' }}>
-                                    <th style={{ padding: '8px', fontWeight: 600 }}>Tipo</th>
-                                    <th style={{ padding: '8px', fontWeight: 600 }}>Nombre</th>
-                                    <th style={{ padding: '8px', fontWeight: 600 }}>Modo</th>
-                                    <th style={{ padding: '8px', width: '50px' }}></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {recipients.map(rec => (
-                                    <tr key={rec.id_relacion} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                                        <td style={{ padding: '10px 8px' }}>
-                                            {rec.id_rol ? (
-                                                <span style={{ backgroundColor: '#e0e7ff', color: '#3730a3', padding: '3px 10px', borderRadius: '99px', fontSize: '0.7rem', fontWeight: 600 }}>ROL</span>
-                                            ) : (
-                                                <span style={{ backgroundColor: '#f3f4f6', color: '#374151', padding: '3px 10px', borderRadius: '99px', fontSize: '0.7rem', fontWeight: 600 }}>USUARIO</span>
-                                            )}
-                                        </td>
-                                        <td style={{ padding: '10px 8px', color: '#1f2937', fontWeight: 500 }}>
-                                            {rec.nombre_rol || rec.nombre_usuario || '-'}
-                                        </td>
-                                        <td style={{ padding: '10px 8px' }}>
-                                            <div style={{ display: 'flex', gap: '4px' }}>
-                                                {rec.envia_email && <span style={{ backgroundColor: '#ecfdf5', color: '#059669', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 700 }}>📧 EMAIL</span>}
-                                                {rec.envia_web && <span style={{ backgroundColor: '#eff6ff', color: '#2563eb', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 700 }}>🔔 WEB</span>}
-                                            </div>
-                                        </td>
-                                        <td style={{ padding: '10px 8px', textAlign: 'right' }}>
-                                            <button
-                                                onClick={() => handleRemove(rec.id_relacion)}
-                                                style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
-                                                title="Eliminar"
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
-                                {recipients.length === 0 && (
-                                    <tr>
-                                        <td colSpan={4} style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af' }}>
-                                            No hay destinatarios configurados para este evento
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
+                    </Card>
+                </Grid.Col>
+            </Grid>
 
             {/* Modal: Role Members */}
-            {showRoleMembersModal && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: 'rgba(0,0,0,0.5)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 1000
-                }} onClick={() => setShowRoleMembersModal(false)}>
-                    <div style={{
-                        backgroundColor: 'white',
-                        borderRadius: '12px',
-                        padding: '1.5rem',
-                        maxWidth: '600px',
-                        width: '90%',
-                        maxHeight: '80vh',
-                        overflowY: 'auto',
-                        boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)'
-                    }} onClick={(e) => e.stopPropagation()}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                            <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#111827' }}>
-                                👥 Usuarios del Rol: <span style={{ color: '#3b82f6' }}>{selectedRole?.nombre_rol}</span>
-                            </h3>
-                            <button
-                                onClick={() => setShowRoleMembersModal(false)}
-                                style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#9ca3af' }}
-                            >
-                                ×
-                            </button>
-                        </div>
-
-                        {modalRoleMembers.length === 0 ? (
-                            <div style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af' }}>
-                                <p>⚠️ Este rol no tiene usuarios asignados</p>
-                            </div>
-                        ) : (
-                            <div>
-                                <p style={{ fontSize: '0.85rem', color: '#6b7280', marginBottom: '1rem' }}>
-                                    {modalRoleMembers.length} usuario(s) activo(s) recibirán el correo:
-                                </p>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <Modal
+                opened={membersModalOpened}
+                onClose={() => setMembersModalOpened(false)}
+                title={
+                    <Group gap="xs">
+                        <IconUsers size={20} />
+                        <Text fw={700}>Usuarios del Rol: {selectedRole?.nombre_rol}</Text>
+                    </Group>
+                }
+                size="lg"
+                radius="md"
+            >
+                {membersLoading ? (
+                    <Center py="xl"><Loader /></Center>
+                ) : (
+                    <Stack>
+                        <Alert color="blue" variant="light">
+                            {modalRoleMembers.length} usuario(s) activo(s) recibirán notificaciones a través de este rol.
+                        </Alert>
+                        <ScrollArea h={400}>
+                            <Table verticalSpacing="xs">
+                                <Table.Thead>
+                                    <Table.Tr>
+                                        <Table.Th>Usuario</Table.Th>
+                                        <Table.Th>Correo</Table.Th>
+                                    </Table.Tr>
+                                </Table.Thead>
+                                <Table.Tbody>
                                     {modalRoleMembers.map(member => (
-                                        <div key={member.id_usuario} style={{
-                                            padding: '12px',
-                                            backgroundColor: '#f9fafb',
-                                            borderRadius: '8px',
-                                            border: '1px solid #e5e7eb'
-                                        }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                                                <div style={{ flex: 1 }}>
-                                                    <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#1f2937' }}>
-                                                        {member.nombre_usuario}
-                                                    </div>
-                                                    <div style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '2px' }}>
-                                                        {member.nombre_real}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            {member.correo_electronico && (
-                                                <div style={{
-                                                    fontSize: '0.8rem',
-                                                    color: '#3b82f6',
-                                                    marginTop: '8px',
-                                                    paddingTop: '8px',
-                                                    borderTop: '1px solid #e5e7eb',
-                                                    fontWeight: 500
-                                                }}>
-                                                    📧 {member.correo_electronico}
-                                                </div>
-                                            )}
-                                        </div>
+                                        <Table.Tr key={member.id_usuario}>
+                                            <Table.Td>
+                                                <Stack gap={0}>
+                                                    <Text size="sm" fw={600}>{member.nombre_usuario}</Text>
+                                                    <Text size="xs" c="dimmed">{member.nombre_real}</Text>
+                                                </Stack>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <Text size="sm">{member.correo_electronico || '-'}</Text>
+                                            </Table.Td>
+                                        </Table.Tr>
                                     ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
+                                    {modalRoleMembers.length === 0 && (
+                                        <Table.Tr>
+                                            <Table.Td colSpan={2}>
+                                                <Center py="xl">Este rol no tiene usuarios asignados actualmente.</Center>
+                                            </Table.Td>
+                                        </Table.Tr>
+                                    )}
+                                </Table.Tbody>
+                            </Table>
+                        </ScrollArea>
+                    </Stack>
+                )}
+            </Modal>
 
-            {/* Confirm Delete Modal */}
-            <ConfirmModal
-                isOpen={showConfirmModal}
-                title="Eliminar Destinatario"
-                message="¿Está seguro que desea eliminar este destinatario? Esta acción no se puede deshacer."
-                confirmText="Eliminar"
-                cancelText="Cancelar"
-                confirmColor="#ef4444"
-                onConfirm={confirmDelete}
-                onCancel={() => {
-                    setShowConfirmModal(false);
-                    setRecipientToDelete(null);
-                }}
-            />
-        </div>
+            {/* Modal: Confirm Delete */}
+            <Modal
+                opened={deleteModalOpened}
+                onClose={() => setDeleteModalOpened(false)}
+                title="Confirmar eliminación"
+                centered
+                radius="md"
+            >
+                <Stack>
+                    <Text size="sm">
+                        ¿Está seguro que desea eliminar este destinatario? Esta regla de notificación dejará de aplicarse inmediatamente.
+                    </Text>
+                    <Group justify="flex-end" mt="md">
+                        <Button variant="light" color="gray" onClick={() => setDeleteModalOpened(false)}>Cancelar</Button>
+                        <Button color="red" loading={actionLoading} onClick={confirmDelete}>Eliminar regla</Button>
+                    </Group>
+                </Stack>
+            </Modal>
+        </Container>
     );
 };

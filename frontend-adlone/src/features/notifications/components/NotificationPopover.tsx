@@ -57,6 +57,9 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ opened
             if (titulo.includes('equipo') || mensaje.includes('equipo')) {
                 setActiveModule('gestion_calidad');
                 setActiveSubmodule('admin-equipos-gestion');
+            } else if (titulo.includes('ficha') || mensaje.includes('ficha') || titulo.includes('programación') || mensaje.includes('muestreo')) {
+                setActiveModule('medio-ambiente');
+                setActiveSubmodule('ma-fichas-ingreso');
             } else {
                 setActiveModule('solicitudes');
                 setActiveSubmodule('');

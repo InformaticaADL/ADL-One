@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TextInput, Select, Stack, Group, Text, Paper, Textarea, Loader } from '@mantine/core';
+import { TextInput, Select, Stack, Group, Text, Paper, Textarea, Loader, Badge } from '@mantine/core';
 import apiClient from '../../../config/axios.config';
 
 interface ReporteProblemaFormProps {
@@ -47,9 +47,12 @@ const ReporteProblemaForm: React.FC<ReporteProblemaFormProps> = ({ onDataChange 
     return (
         <Paper withBorder p="md" radius="md" bg="orange.0">
             <Stack gap="md">
-                <Text fw={700} size="sm" c="orange.8" style={{ textTransform: 'uppercase' }}>
-                    Reporte de Incidencia / Problema Técnico
-                </Text>
+                <Group justify="space-between" mb={4}>
+                    <Text fw={700} size="sm" c="orange.9" style={{ textTransform: 'uppercase' }}>
+                        Reporte de Incidencia / Problema Técnico
+                    </Text>
+                    <Badge color="orange" variant="light">SERVICIO TÉCNICO</Badge>
+                </Group>
 
                 <TextInput
                     label="Asunto / Resumen corto"
@@ -57,6 +60,8 @@ const ReporteProblemaForm: React.FC<ReporteProblemaFormProps> = ({ onDataChange 
                     value={asunto}
                     onChange={(e) => setAsunto(e.currentTarget.value)}
                     required
+                    radius="md"
+                    description="Describa brevemente el problema (máx 50 caract.)"
                 />
 
                 <Group grow>
@@ -64,16 +69,17 @@ const ReporteProblemaForm: React.FC<ReporteProblemaFormProps> = ({ onDataChange 
                         label="Categoría del Problema"
                         placeholder="Seleccione categoría"
                         data={[
-                            'Fallo de Hardware',
-                            'Error de Software / App',
-                            'Problema de Conectividad',
-                            'Calibración Incorrecta',
-                            'Daño Físico',
-                            'Otro'
+                            { value: 'HARDWARE', label: 'Fallo de Hardware / Piezas' },
+                            { value: 'SOFTWARE', label: 'Error de Software / App' },
+                            { value: 'CONECTIVIDAD', label: 'Problema de Conectividad / Red' },
+                            { value: 'CALIBRACION', label: 'Descalibración / Medición Errónea' },
+                            { value: 'DANIO_FISICO', label: 'Daño Físico Visible' },
+                            { value: 'OTRO', label: 'Otro / No especificado' }
                         ]}
                         value={categoria}
                         onChange={setCategoria}
                         required
+                        radius="md"
                     />
                     <Select
                         label="Nivel de Gravedad"
@@ -87,27 +93,30 @@ const ReporteProblemaForm: React.FC<ReporteProblemaFormProps> = ({ onDataChange 
                         value={gravedad}
                         onChange={setGravedad}
                         required
+                        radius="md"
                     />
                 </Group>
 
                 <Select
                     label="Equipo Afectado (Opcional)"
-                    placeholder={loadingEquipos ? "Cargando..." : "Busque equipo afectado"}
+                    placeholder={loadingEquipos ? "Cargando inventario..." : "Busque equipo afectado"}
                     rightSection={loadingEquipos ? <Loader size={12} /> : null}
                     data={equipos}
                     value={equipoId}
                     onChange={setEquipoId}
                     searchable
                     clearable
+                    radius="md"
                 />
 
                 <Textarea
-                    label="Descripción detallada del Problema"
-                    placeholder="Explique qué sucedió, cuándo y si hay algún mensaje de error..."
+                    label="Descripción detallada"
+                    placeholder="Explique qué sucedió, cuándo, frecuencia del fallo y si hay algún mensaje de error específico..."
                     minRows={4}
                     value={descripcion}
                     onChange={(e) => setDescripcion(e.currentTarget.value)}
                     required
+                    radius="md"
                 />
             </Stack>
         </Paper>
