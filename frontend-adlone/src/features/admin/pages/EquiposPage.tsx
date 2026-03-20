@@ -45,6 +45,65 @@ import { EquipoForm } from '../components/EquipoForm';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useNavStore } from '../../../store/navStore';
+import '../admin.css';
+
+// --- Componente CustomSelect Animado ---
+interface CustomSelectProps {
+    value: string;
+    options: string[];
+    onChange: (val: string) => void;
+    width?: string;
+}
+
+const CustomSelect: React.FC<CustomSelectProps> = ({ value, options, onChange, width = '140px' }) => {
+    const [isOpen, setIsOpen] = React.useState(false);
+    const containerRef = React.useRef<HTMLDivElement>(null);
+
+    React.useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    return (
+        <div className={`custom-select-container ${isOpen ? 'open' : ''}`} style={{ width }} ref={containerRef}>
+            <div
+                className="custom-select-trigger"
+                onClick={() => setIsOpen(!isOpen)}
+                style={{ 
+                    background: 'white',
+                    color: '#374151',
+                    border: '1px solid #e5e7eb'
+                }}
+            >
+                <span>{value || 'Seleccionar'}</span>
+                <svg className="select-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+            </div>
+            {isOpen && (
+                <div className="custom-options" style={{ background: 'white', border: '1px solid #e5e7eb' }}>
+                    {options.map((opt) => (
+                        <div
+                            key={opt}
+                            className={`custom-option ${value === opt ? 'selected' : ''}`}
+                            onClick={() => {
+                                onChange(opt);
+                                setIsOpen(false);
+                            }}
+                        >
+                            {opt}
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
 
 interface Props {
     onBack: () => void;

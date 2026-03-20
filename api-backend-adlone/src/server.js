@@ -31,6 +31,8 @@ import notificationRoutes from './routes/notification.routes.js';
 import uploadRoutes from './routes/upload.routes.js';
 import ursRoutes from './routes/urs.routes.js';
 import unsRoutes from './routes/notificacion.routes.js';
+import userRoutes from './routes/user.routes.js';
+import chatRoutes from './routes/chat.routes.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -89,10 +91,19 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/urs', ursRoutes);
 app.use('/api/uns', unsRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/chat', chatRoutes);
 
 // Serve uploads directory as static
 const uploadPath = process.env.UPLOAD_PATH || path.join(__dirname, '../uploads');
 app.use('/uploads', express.static(uploadPath));
+
+// Serve profile pictures and avatars from custom path if defined
+const profilePicsPath = process.env.PROFILE_PICS_PATH;
+if (profilePicsPath) {
+    app.use('/uploads/profile_pics', express.static(profilePicsPath));
+    app.use('/uploads/avatars', express.static(profilePicsPath));
+}
 
 // Root endpoint
 app.get('/', (req, res) => {

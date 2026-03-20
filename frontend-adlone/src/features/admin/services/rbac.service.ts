@@ -22,6 +22,9 @@ export interface User {
     nombre_usuario: string;
     nombre_real: string;
     correo_electronico?: string;
+    id_cargo?: number;
+    nombre_cargo?: string;
+    roles?: string[];
     habilitado?: string;
 }
 
@@ -29,6 +32,7 @@ export interface CreateUserData {
     nombre_usuario: string;
     nombre_real: string;
     correo_electronico?: string;
+    id_cargo?: number;
     clave_usuario: string;
 }
 
@@ -36,6 +40,7 @@ export interface UpdateUserData {
     nombre_usuario: string;
     nombre_real: string;
     correo_electronico?: string;
+    id_cargo?: number;
 }
 
 class RbacService {

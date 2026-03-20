@@ -1828,6 +1828,9 @@ class FichaIngresoService {
             const enrichResult = await enrichRequest.query(`
                 SELECT
                     a.id_agendamam,
+                    a.frecuencia,
+                    a.total_servicios,
+                    a.frecuencia_factor,
                     a.fecha_muestreo,
                     a.fecha_retiro,
                     a.id_muestreador2,
@@ -1845,8 +1848,10 @@ class FichaIngresoService {
             const enrichMap = {};
             enrichResult.recordset.forEach(row => {
                 enrichMap[row.id_agendamam] = {
+                    frecuencia: row.frecuencia,
+                    total_servicios: row.total_servicios,
+                    frecuencia_factor: row.frecuencia_factor,
                     fecha_muestreo: row.fecha_muestreo,
-                    fecha_retiro: row.fecha_retiro,
                     fecha_retiro: row.fecha_retiro,
                     id_muestreador2: row.id_muestreador2,
                     nombre_muestreador2: row.nombre_muestreador2,
@@ -1859,6 +1864,9 @@ class FichaIngresoService {
             // Add missing fields to SP results
             const enrichedData = result.recordset.map(row => ({
                 ...row,
+                frecuencia: enrichMap[row.id_agendamam]?.frecuencia || row.frecuencia || 1,
+                total_servicios: enrichMap[row.id_agendamam]?.total_servicios || row.total_servicios || 1,
+                frecuencia_factor: enrichMap[row.id_agendamam]?.frecuencia_factor || row.frecuencia_factor || 1,
                 fecha_muestreo: enrichMap[row.id_agendamam]?.fecha_muestreo || null,
                 fecha_retiro: enrichMap[row.id_agendamam]?.fecha_retiro || null,
                 id_muestreador2: enrichMap[row.id_agendamam]?.id_muestreador2 || null,

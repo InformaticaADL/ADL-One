@@ -596,6 +596,26 @@ Consolidación de las notificaciones como un servicio centralizado y reactivo a 
     - Diseño unificado de correos electrónicos con compatibilidad total para Outlook y dispositivos móviles.
     - Reversión a la identificación de usuario solicitada para mantener la paridad con el sistema legacy.
 
+### 36. Resiliencia, Seguridad y Experiencia de Usuario (Marzo 2026) 🛡️✨
+Consolidación de la estabilidad del sistema y mejora de la interfaz de soporte y navegación.
+
+- **Gestión Avanzada de Contraseñas**:
+    - **Seguridad**: Ampliación de la columna `clave_usuario` a `VARCHAR(100)` para soportar contraseñas largas y seguras.
+    - **Feedback Visual**: Implementación de un indicador de fortaleza de contraseña en tiempo real con barra de progreso animada.
+    - **Validaciones**: Prevención de contraseñas idénticas a la actual y validación de coincidencia instantánea en el formulario de cambio.
+
+- **Navegación Inteligente y Contextual**:
+    - **Landing Page unificada**: Ahora, al seleccionar un módulo principal (ej: Medio Ambiente), el sistema muestra por defecto la **WelcomePage** (Inicio) con avisos y eventos relevantes.
+    - **Preservación de Contexto**: Al re-clickear una unidad ya activa, el sistema ya no resetea la vista, permitiendo que el usuario mantenga su trabajo en sub-páginas (como Fichas de Ingreso) sin interrupciones.
+
+- **Gestión de Errores Críticos (Crash Prevention)**:
+    - **ErrorBoundary Global**: Implementación de un "escudo" en `App.tsx` que captura fallos de renderizado y evita la pantalla en blanco.
+    - **ErrorPage Personalizada**: Nueva interfaz de error que utiliza la estética del login (glassmorphism) para informar códigos de error de forma clara y profesional.
+
+- **Centro de Ayuda y Soporte Integrado**:
+    - **HelpCenter Modal**: Nuevo componente accesible desde el menú de usuario con acceso directo a soporte técnico vía **WhatsApp** (+56 9 5721 8268) y **Email** (informatica@adldiagnostic.cl).
+    - **Base de Conocimientos (FAQ)**: Sistema de acordeones con respuestas a dudas frecuentes sobre el uso de la plataforma.
+
 ---
 
 ## 🏗️ Estructura Detallada del Proyecto (Frontend)

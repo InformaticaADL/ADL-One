@@ -31,6 +31,7 @@ import {
     IconShield
 } from '@tabler/icons-react';
 import { rbacService, type User, type CreateUserData, type UpdateUserData, type Role } from '../services/rbac.service';
+import { catalogosService } from '../../medio-ambiente/services/catalogos.service';
 import { useToast } from '../../../contexts/ToastContext';
 import { ConfirmModal } from '../../../components/common/ConfirmModal';
 import { PageHeader } from '../../../components/layout/PageHeader';
@@ -43,6 +44,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
     const { showToast } = useToast();
     const [users, setUsers] = useState<User[]>([]);
     const [roles, setRoles] = useState<Role[]>([]);
+    const [cargos, setCargos] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState<string>('active');
@@ -59,6 +61,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
         nombre_usuario: '',
         nombre_real: '',
         correo_electronico: '',
+        id_cargo: undefined,
         clave_usuario: ''
     });
     const [selectedRoles, setSelectedRoles] = useState<number[]>([]);
@@ -69,7 +72,17 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
     useEffect(() => {
         loadUsers();
         loadRoles();
+        loadCargos();
     }, []);
+
+    const loadCargos = async () => {
+        try {
+            const data = await catalogosService.getCargos();
+            setCargos(data);
+        } catch (error) {
+            console.error('Error loading cargos:', error);
+        }
+    };
 
     const loadUsers = async () => {
         try {
@@ -122,7 +135,8 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
         const updateData: UpdateUserData = {
             nombre_usuario: formData.nombre_usuario,
             nombre_real: formData.nombre_real,
-            correo_electronico: formData.correo_electronico
+            correo_electronico: formData.correo_electronico,
+            id_cargo: formData.id_cargo
         };
 
         try {
@@ -195,6 +209,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
             nombre_usuario: user.nombre_usuario,
             nombre_real: user.nombre_real,
             correo_electronico: user.correo_electronico || '',
+            id_cargo: user.id_cargo,
             clave_usuario: ''
         });
 
@@ -226,6 +241,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
             nombre_usuario: '',
             nombre_real: '',
             correo_electronico: '',
+            id_cargo: undefined,
             clave_usuario: ''
         });
         setSelectedRoles([]);
@@ -314,6 +330,8 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                                 <Table.Tr>
                                     <Table.Th>Usuario</Table.Th>
                                     <Table.Th>Nombre Real</Table.Th>
+                                    <Table.Th>Cargo</Table.Th>
+                                    <Table.Th>Roles</Table.Th>
                                     <Table.Th>Email</Table.Th>
                                     <Table.Th ta="center">Estado</Table.Th>
                                     <Table.Th ta="right">Acciones</Table.Th>
@@ -331,6 +349,16 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                                             </Table.Td>
                                             <Table.Td>
                                                 <Text size="sm">{user.nombre_real}</Text>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <Text size="sm">{user.nombre_cargo || '-'}</Text>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <Group gap={4}>
+                                                    {user.roles?.map((rol, i) => (
+                                                        <Badge key={i} size="xs" variant="gray" radius="xs">{rol}</Badge>
+                                                    ))}
+                                                </Group>
                                             </Table.Td>
                                             <Table.Td>
                                                 <Group gap="xs">
@@ -447,6 +475,17 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                             onChange={(e) => setFormData({...formData, clave_usuario: e.currentTarget.value})}
                         />
                     )}
+
+                    <Select 
+                        label="Cargo"
+                        placeholder="Selecciona el cargo"
+                        data={cargos.map(c => ({ value: String(c.id_cargo), label: c.nombre_cargo }))}
+                        value={formData.id_cargo ? String(formData.id_cargo) : undefined}
+                        onChange={(val) => setFormData({...formData, id_cargo: val ? Number(val) : undefined})}
+                        radius="md"
+                        searchable
+                        leftSection={<IconShield size={16} />}
+                    />
 
                     <Box mt="md">
                         <Group justify="space-between" mb="xs">

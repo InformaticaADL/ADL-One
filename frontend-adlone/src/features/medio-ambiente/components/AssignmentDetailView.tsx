@@ -345,12 +345,16 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                 <Table striped highlightOnHover withTableBorder verticalSpacing="sm">
                                     <Table.Thead bg="gray.1">
                                         <Table.Tr>
+                                            <Table.Th ta="center" w={80}>Ficha</Table.Th>
                                             <Table.Th ta="center" w={80}>Correl.</Table.Th>
                                             <Table.Th w={130}>Estado</Table.Th>
                                             <Table.Th w={150}>F. Instalación</Table.Th>
                                             <Table.Th w={150}>F. Muestreo</Table.Th>
+                                            <Table.Th>Frecuencia</Table.Th>
                                             <Table.Th>E. Servicio</Table.Th>
+                                            <Table.Th>Obj. Muestreo</Table.Th>
                                             <Table.Th>Sub Área</Table.Th>
+                                            <Table.Th>Coordinador</Table.Th>
                                             <Table.Th w={200}>M. Instalación</Table.Th>
                                             <Table.Th w={200}>M. Retiro</Table.Th>
                                         </Table.Tr>
@@ -362,6 +366,7 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                             
                                             return (
                                                 <Table.Tr key={rowId} style={{ opacity: isCancelled ? 0.5 : 1 }}>
+                                                    <Table.Td ta="center">{row.num_ficha}</Table.Td>
                                                     <Table.Td ta="center" fw={700}>{row.frecuencia_correlativo}</Table.Td>
                                                     <Table.Td>
                                                         <Badge 
@@ -392,10 +397,19 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                         />
                                                     </Table.Td>
                                                     <Table.Td>
+                                                        <Text size="xs">{row.nombre_frecuencia}</Text>
+                                                    </Table.Td>
+                                                    <Table.Td>
                                                         <Text size="xs" truncate maw={150}>{row.empresa_servicio}</Text>
                                                     </Table.Td>
                                                     <Table.Td>
+                                                        <Text size="xs" truncate maw={150}>{row.nombre_objetivomuestreo}</Text>
+                                                    </Table.Td>
+                                                    <Table.Td>
                                                         <Text size="xs">{row.nombre_subarea}</Text>
+                                                    </Table.Td>
+                                                    <Table.Td>
+                                                        <Text size="xs" truncate maw={120}>{row.nombre_coordinador}</Text>
                                                     </Table.Td>
                                                     <Table.Td>
                                                         <Select 

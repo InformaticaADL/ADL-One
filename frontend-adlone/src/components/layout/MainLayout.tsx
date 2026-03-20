@@ -53,7 +53,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
             padding={0}
             styles={{
                 main: {
-                    backgroundColor: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-8))',
+                    backgroundColor: '#f4f4f5',
                     transition: 'padding-left 300ms ease',
                     height: 'calc(100vh - var(--app-shell-header-offset, 0px))',
                     display: 'flex',

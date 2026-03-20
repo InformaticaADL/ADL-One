@@ -192,12 +192,33 @@ class RbacService {
         try {
             const pool = await getConnection();
             const result = await pool.request().query(`
-                SELECT id_usuario, nombre_usuario, usuario as nombre_real, 
-                       correo_electronico, mam_cargo, habilitado
-                FROM mae_usuario 
-                ORDER BY nombre_usuario
+                SELECT 
+                    u.id_usuario, 
+                    u.nombre_usuario, 
+                    u.usuario as nombre_real, 
+                    u.correo_electronico, 
+                    u.id_cargo,
+                    c.nombre_cargo,
+                    u.habilitado,
+                    (
+                        SELECT r.nombre_rol + ','
+                        FROM mae_rol r
+                        INNER JOIN rel_usuario_rol ur ON r.id_rol = ur.id_rol
+                        WHERE ur.id_usuario = u.id_usuario
+                        FOR XML PATH('')
+                    ) as roles_list
+                FROM mae_usuario u
+                LEFT JOIN mae_cargo c ON u.id_cargo = c.id_cargo
+                ORDER BY u.nombre_usuario
             `);
-            return result.recordset;
+
+            // Process roles_list to array
+            const users = result.recordset.map(user => ({
+                ...user,
+                roles: user.roles_list ? user.roles_list.split(',').filter(r => r) : []
+            }));
+
+            return users;
         } catch (error) {
             logger.error('Error getting all users with status:', error);
             throw error;
@@ -219,12 +240,13 @@ class RbacService {
                 .input('nombreReal', sql.VarChar(100), userData.nombre_real)
                 .input('correo', sql.VarChar(100), userData.correo_electronico)
                 .input('clave', sql.VarChar(50), userData.clave_usuario)
+                .input('idCargo', sql.Numeric(10, 0), userData.id_cargo || null)
                 .input('habilitado', sql.Char(1), 'S')
                 .query(`
-                    INSERT INTO mae_usuario (id_usuario, nombre_usuario, usuario, correo_electronico, clave_usuario, habilitado)
+                    INSERT INTO mae_usuario (id_usuario, nombre_usuario, usuario, correo_electronico, clave_usuario, id_cargo, habilitado)
                     OUTPUT INSERTED.id_usuario, INSERTED.nombre_usuario, INSERTED.usuario, 
-                           INSERTED.correo_electronico, INSERTED.habilitado
-                    VALUES (@id, @nombreUsuario, @nombreReal, @correo, @clave, @habilitado)
+                           INSERTED.correo_electronico, INSERTED.id_cargo, INSERTED.habilitado
+                    VALUES (@id, @nombreUsuario, @nombreReal, @correo, @clave, @idCargo, @habilitado)
                 `);
             return result.recordset[0];
         } catch (error) {
@@ -241,11 +263,13 @@ class RbacService {
                 .input('nombreUsuario', sql.VarChar(50), userData.nombre_usuario)
                 .input('nombreReal', sql.VarChar(100), userData.nombre_real)
                 .input('correo', sql.VarChar(100), userData.correo_electronico)
+                .input('idCargo', sql.Numeric(10, 0), userData.id_cargo || null)
                 .query(`
                     UPDATE mae_usuario 
                     SET nombre_usuario = @nombreUsuario,
                         usuario = @nombreReal,
-                        correo_electronico = @correo
+                        correo_electronico = @correo,
+                        id_cargo = @idCargo
                     WHERE id_usuario = @userId
                 `);
 
@@ -279,6 +303,29 @@ class RbacService {
             return { success: true };
         } catch (error) {
             logger.error('Error updating user password:', error);
+            throw error;
+        }
+    }
+
+    async updateUserProfilePicture(userId, photoPath) {
+        try {
+            const pool = await getConnection();
+            const result = await pool.request()
+                .input('userId', sql.Numeric(10, 0), userId)
+                .input('photoPath', sql.VarChar(200), photoPath)
+                .query(`
+                    UPDATE mae_usuario 
+                    SET foto = @photoPath
+                    WHERE id_usuario = @userId
+                `);
+
+            if (result.rowsAffected[0] === 0) {
+                throw new Error('Usuario no encontrado');
+            }
+
+            return { success: true, foto: photoPath };
+        } catch (error) {
+            logger.error('Error updating profile picture:', error);
             throw error;
         }
     }

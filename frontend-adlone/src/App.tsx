@@ -4,6 +4,7 @@ import './App.css';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { ToastContainer } from './components/Toast/Toast';
+import ErrorBoundary from './components/common/ErrorBoundary';
 
 const AppContent = () => {
   const { isAuthenticated, loading } = useAuth();
@@ -17,12 +18,14 @@ const AppContent = () => {
 
 function App() {
   return (
-    <ToastProvider>
-      <AuthProvider>
-        <AppContent />
-        <ToastContainer />
-      </AuthProvider>
-    </ToastProvider>
+    <ErrorBoundary>
+      <ToastProvider>
+        <AuthProvider>
+          <AppContent />
+          <ToastContainer />
+        </AuthProvider>
+      </ToastProvider>
+    </ErrorBoundary>
   );
 }
 
