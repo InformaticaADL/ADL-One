@@ -33,6 +33,7 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
     // ===== ESTADO: Selección de Análisis =====
     const [selectedAnalysis, setSelectedAnalysis] = useState<Set<string>>(new Set());
     const [tempLabs, setTempLabs] = useState<Record<string, string>>({}); // Laboratorios por parámetro
+    const [tempLabs2, setTempLabs2] = useState<Record<string, string>>({}); // Laboratorio 2 opcional
     const [tempDeliveries, setTempDeliveries] = useState<Record<string, string>>({}); // Tipos de entrega por parámetro
 
     // ===== FUNCIONES: Carga de Catálogos =====
@@ -137,6 +138,10 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
             delete newTempLabs[id];
             setTempLabs(newTempLabs);
 
+            const newTempLabs2 = { ...tempLabs2 };
+            delete newTempLabs2[id];
+            setTempLabs2(newTempLabs2);
+
             const newTempDeliveries = { ...tempDeliveries };
             delete newTempDeliveries[id];
             setTempDeliveries(newTempDeliveries);
@@ -148,6 +153,13 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
 
     const handleTempLabChange = (analysisId: string, labId: string) => {
         setTempLabs(prev => ({
+            ...prev,
+            [analysisId]: labId
+        }));
+    };
+
+    const handleTempLab2Change = (analysisId: string, labId: string) => {
+        setTempLabs2(prev => ({
             ...prev,
             [analysisId]: labId
         }));
@@ -231,21 +243,27 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
             const specificLabId = tempLabs[id];
             const selectedLabObj = laboratorios.find((l: any) => String(l.id_laboratorioensayo) === String(specificLabId));
 
+            // Determinar laboratorio 2 (opcional)
+            const specificLabId2 = tempLabs2[id];
+            const selectedLabObj2 = laboratorios.find((l: any) => String(l.id_laboratorioensayo) === String(specificLabId2));
+
             let idLaboratorio = 0;
             let nombreLaboratorio = '';
-            let idLaboratorio2 = 0;
+            let idLaboratorio2 = null; // Default to null as requested
             let nombreLaboratorio2 = '';
 
             if (tipoMuestra === 'Terreno') {
                 nombreLaboratorio = '';
                 idLaboratorio = 0;
+                idLaboratorio2 = null;
+                nombreLaboratorio2 = '';
             } else {
                 nombreLaboratorio = selectedLabObj?.nombre_laboratorioensayo || '';
                 idLaboratorio = selectedLabObj?.id_laboratorioensayo || 0;
+                
+                idLaboratorio2 = selectedLabObj2?.id_laboratorioensayo || null;
+                nombreLaboratorio2 = selectedLabObj2?.nombre_laboratorioensayo || '';
             }
-
-            idLaboratorio2 = 0;
-            nombreLaboratorio2 = '';
 
             return {
                 ...analysis,
@@ -291,6 +309,7 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
 
         setSelectedAnalysis(new Set());
         setTempLabs({});
+        setTempLabs2({}); // Limpiar laboratorios 2 temporales
         setTempDeliveries({}); // Limpiar entregas temporales
         setSearchText('');
 
@@ -535,7 +554,8 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                                             {tipoMuestra === 'Laboratorio' && (
                                                 <>
                                                     <th style={{ padding: '6px 10px', textAlign: 'left', borderBottom: '1px solid #e2e8f0', color: '#64748b', width: '120px' }}>Entrega</th>
-                                                    <th style={{ padding: '6px 10px', textAlign: 'left', borderBottom: '1px solid #e2e8f0', color: '#64748b', width: '160px' }}>Laboratorio</th>
+                                                    <th style={{ padding: '6px 10px', textAlign: 'left', borderBottom: '1px solid #e2e8f0', color: '#64748b', width: '140px' }}>Lab 1</th>
+                                                    <th style={{ padding: '6px 10px', textAlign: 'left', borderBottom: '1px solid #e2e8f0', color: '#64748b', width: '140px' }}>Lab 2 (Opt)</th>
                                                 </>
                                             )}
                                             <th style={{ padding: '6px 10px', textAlign: 'center', borderBottom: '1px solid #e2e8f0', color: '#64748b', width: '40px' }}></th>
@@ -572,6 +592,18 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                                                                     style={{ width: '100%', fontSize: '0.7rem', padding: '2px 4px', border: '1px solid #d1d5db', borderRadius: '4px' }}
                                                                 >
                                                                     <option value="">...</option>
+                                                                    {laboratorios.map((l: any) => (
+                                                                        <option key={l.id_laboratorioensayo} value={l.id_laboratorioensayo}>{l.nombre_laboratorioensayo}</option>
+                                                                    ))}
+                                                                </select>
+                                                            </td>
+                                                            <td style={{ padding: '6px 10px' }}>
+                                                                <select
+                                                                    value={tempLabs2[id] || ''}
+                                                                    onChange={(e) => handleTempLab2Change(id, e.target.value)}
+                                                                    style={{ width: '100%', fontSize: '0.7rem', padding: '2px 4px', border: '1px solid #d1d5db', borderRadius: '4px', backgroundColor: '#fdfdfd' }}
+                                                                >
+                                                                    <option value="">(Ninguno)</option>
                                                                     {laboratorios.map((l: any) => (
                                                                         <option key={l.id_laboratorioensayo} value={l.id_laboratorioensayo}>{l.nombre_laboratorioensayo}</option>
                                                                     ))}
