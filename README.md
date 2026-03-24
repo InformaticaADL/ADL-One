@@ -655,6 +655,16 @@ Optimización del flujo de validación técnica y ampliación de las capacidades
 
 ---
 
+### 40. Restauración de Gestión de Equipos y Solicitudes (Marzo 2026) 🔧📝
+Se restauraron y optimizaron funcionalidades críticas de inventario tras la integración de cambios.
+- **Alertas en Tabla de Equipos**: Re-implementación de la columna de alertas en la tabla principal, permitiendo identificar equipos con solicitudes pendientes visualmente.
+- **Acceso Rápido desde Edición**: Añadido un botón flotante (`Affix`) de **"Solicitudes"** en el formulario de edición de equipos, permitiendo ver el historial y estado de trámites sin cerrar el formulario.
+- **Gestión de Solicitudes Optimizada**: Rediseño de las acciones en el modal de solicitudes, reemplazando botones directos por un menú desplegable (`Mantine Menu`) para una interfaz más limpia y profesional.
+- **Lógica de Auditoría y Versiones**: Aseguramiento de la integridad de datos al aprobar o rechazar solicitudes de traspaso, baja o alta, manteniendo la trazabilidad en `mae_equipo_historial`.
+- **Limpieza de Código**: Eliminación de dependencias obsoletas y estandarización de componentes con Mantine UI v7.
+
+---
+
 ## 🏗️ Estructura Detallada del Proyecto (Frontend)
 
 ```

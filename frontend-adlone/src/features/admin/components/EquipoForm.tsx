@@ -21,11 +21,12 @@ import {
     Table, 
     Badge, 
     ScrollArea, 
-    Box, 
-    LoadingOverlay, 
+    Box,
+    LoadingOverlay,
     Modal,
     Collapse,
-    Transition
+    Transition,
+    Affix
 } from '@mantine/core';
 import { 
     IconArrowLeft, 
@@ -43,6 +44,7 @@ import { adminService } from '../../../services/admin.service';
 import { useToast } from '../../../contexts/ToastContext';
 import { useNavStore } from '../../../store/navStore';
 import { useAuth } from '../../../contexts/AuthContext';
+import { EquipmentRequestsModal } from './EquipmentRequestsModal';
 
 // Using a local HybridSelect replacement with Mantine components.
 // If strict=true, it uses Select (must be in list).
@@ -145,6 +147,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
     const [activeStep, setActiveStep] = useState(0); // 0: Form, 1: Bulk Check
     const [bulkQuantity, setBulkQuantity] = useState(1);
     const [bulkItems, setBulkItems] = useState<any[]>([]);
+    const [showRequestsModal, setShowRequestsModal] = useState(false);
 
     const { showToast } = useToast();
     const { hideNotification } = useNavStore();
@@ -704,7 +707,6 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                             error={attemptedSubmit && !formData.estado && "Obligatorio"}
                                         />
                                     </Grid.Col>
-
                                     <Grid.Col span={{ base: 12, md: 6 }}>
                                         <MantineHybridSelect
                                             label="Nombre del Equipo"
@@ -741,7 +743,6 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                             onChange={(val) => setFormData((p: any) => ({ ...p, correlativo: val }))}
                                         />
                                     </Grid.Col>
-
                                     <Grid.Col span={{ base: 12, md: 8 }}>
                                         <TextInput
                                             label="Código Final"
@@ -763,7 +764,6 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                             error={attemptedSubmit && !formData.vigencia && "Obligatorio"}
                                         />
                                     </Grid.Col>
-
                                     <Grid.Col span={{ base: 12, md: 6 }}>
                                         <Select
                                             label="Responsable (Muestreador)"
@@ -786,9 +786,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                         />
                                     </Grid.Col>
                                 </Grid>
-
                                 <Divider label="Configuración Técnica" labelPosition="center" />
-
                                 <Grid>
                                     <Grid.Col span={{ base: 12, md: 4 }}>
                                         <MantineHybridSelect
@@ -826,7 +824,6 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                             placeholder="mg/L, %"
                                         />
                                     </Grid.Col>
-
                                     <Grid.Col span={12}>
                                         <Group gap="xl" p="md" bg="gray.0">
                                             <Checkbox 
@@ -846,7 +843,6 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                             />
                                         </Group>
                                     </Grid.Col>
-
                                     <Grid.Col span={{ base: 4, md: 4 }}>
                                         <NumberInput label="Error 0" value={formData.error0} onChange={(v) => setFormData((p: any) => ({ ...p, error0: v }))} step={0.01} />
                                     </Grid.Col>
@@ -856,7 +852,6 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                     <Grid.Col span={{ base: 4, md: 4 }}>
                                         <NumberInput label="Error 30" value={formData.error30} onChange={(v) => setFormData((p: any) => ({ ...p, error30: v }))} step={0.01} />
                                     </Grid.Col>
-
                                     <Grid.Col span={12}>
                                         <Textarea
                                             label="Observaciones"
@@ -869,7 +864,6 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                         />
                                     </Grid.Col>
                                 </Grid>
-
                                 {!initialData?.id_equipo && (
                                     <Paper withBorder p="md" bg="blue.0" radius="md">
                                         <Group justify="space-between">
@@ -889,13 +883,11 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                 )}
                             </Stack>
                         </Stepper.Step>
-
                         <Stepper.Step label="Revisión Masiva" description="Confirmar seriales">
                             <Stack gap="md" mt="md">
                                 <Alert color="blue" icon={<IconInfoCircle size={18} />}>
                                     Se generarán {bulkQuantity} equipos basados en la plantilla. Puedes ajustar los códigos y sedes individualmente antes de confirmar.
                                 </Alert>
-                                
                                 <Paper withBorder radius="md" style={{ overflow: 'hidden' }}>
                                     <ScrollArea h={400}>
                                         <Table highlightOnHover verticalSpacing="xs">
@@ -967,19 +959,15 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                             </Stack>
                         </Stepper.Step>
                     </Stepper>
-
                     <Divider mt="xl" />
-
                     <Group justify="space-between">
                         {activeStep === 1 ? (
                             <Button variant="subtle" leftSection={<IconChevronLeft size={18} />} onClick={() => setActiveStep(0)}>
                                 Volver al Formulario
                             </Button>
                         ) : <Box />}
-
                         <Group>
                             <Button variant="outline" color="gray" onClick={onCancel}>Cancelar</Button>
-                            
                             {initialData?.requestId && (!initialData.id_equipo) && (
                                 <Button 
                                     variant="outline" 
@@ -989,7 +977,6 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                     Rechazar Solicitud
                                 </Button>
                             )}
-
                             <Button 
                                 color="adl-blue"
                                 disabled={!isFormValid || !(initialData?.id_equipo ? canEditEquipo : canCreateEquipo)}
@@ -1004,7 +991,6 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
             </Paper>
 
             {/* --- Modals --- */}
-
             <Modal opened={showSaveConfirm} onClose={() => setShowSaveConfirm(false)} title="Confirmar Guardado" centered size="sm">
                 <Stack align="center" py="md">
                     <IconDeviceFloppy size={48} color="var(--mantine-color-blue-6)" />
@@ -1050,6 +1036,55 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                     }}>Guardar Observación</Button>
                 </Stack>
             </Modal>
+
+            <Affix position={{ bottom: 20, right: 20 }}>
+                <Transition transition="slide-up" mounted={true}>
+                    {(transitionStyles) => (
+                        <Button
+                            leftSection={<IconDeviceFloppy size={20} />}
+                            style={{ ...transitionStyles, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)' }}
+                            onClick={handleSave}
+                            loading={loading}
+                            size="lg"
+                            radius="xl"
+                            color="adl-blue"
+                        >
+                            Guardar Cambios
+                        </Button>
+                    )}
+                </Transition>
+            </Affix>
+
+            {initialData && (
+                <Affix position={{ bottom: 90, right: 20 }}>
+                    <Transition transition="slide-up" mounted={true}>
+                        {(transitionStyles) => (
+                            <Button
+                                leftSection={<IconHistory size={20} />}
+                                style={{ ...transitionStyles, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)' }}
+                                onClick={() => setShowRequestsModal(true)}
+                                color="orange"
+                                variant="light"
+                                size="lg"
+                                radius="xl"
+                            >
+                                Solicitudes
+                            </Button>
+                        )}
+                    </Transition>
+                </Affix>
+            )}
+
+            <EquipmentRequestsModal 
+                isOpen={showRequestsModal}
+                onClose={() => setShowRequestsModal(false)}
+                idEquipo={initialData?.id_equipo || null}
+                nombreEquipo={formData.nombre}
+                codigoEquipo={formData.codigo}
+                onRefresh={() => {
+                    if (onRefreshSolicitudes) onRefreshSolicitudes();
+                }}
+            />
         </Container>
     );
 };

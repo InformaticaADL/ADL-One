@@ -22,88 +22,34 @@ import {
     ScrollArea, 
     Textarea,
     Grid,
-    Alert
+    Alert,
+    Checkbox
 } from '@mantine/core';
 import { 
     IconArrowLeft,
     IconPlus, 
     IconSearch, 
-    IconX, 
     IconEdit, 
     IconPower, 
     IconBell, 
     IconDownload, 
     IconAlertTriangle,
     IconInfoCircle,
-    IconTrash
+    IconTrash,
+    IconCheck,
+    IconX
 } from '@tabler/icons-react';
 
 import { equipoService, type Equipo } from '../services/equipo.service';
 import { EquipmentExportModal } from '../components/EquipmentExportModal';
 import { adminService } from '../../../services/admin.service';
 import { EquipoForm } from '../components/EquipoForm';
+import { EquipmentRequestsModal } from '../components/EquipmentRequestsModal';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useNavStore } from '../../../store/navStore';
 import '../admin.css';
 
-// --- Componente CustomSelect Animado ---
-interface CustomSelectProps {
-    value: string;
-    options: string[];
-    onChange: (val: string) => void;
-    width?: string;
-}
-
-const CustomSelect: React.FC<CustomSelectProps> = ({ value, options, onChange, width = '140px' }) => {
-    const [isOpen, setIsOpen] = React.useState(false);
-    const containerRef = React.useRef<HTMLDivElement>(null);
-
-    React.useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-                setIsOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    return (
-        <div className={`custom-select-container ${isOpen ? 'open' : ''}`} style={{ width }} ref={containerRef}>
-            <div
-                className="custom-select-trigger"
-                onClick={() => setIsOpen(!isOpen)}
-                style={{ 
-                    background: 'white',
-                    color: '#374151',
-                    border: '1px solid #e5e7eb'
-                }}
-            >
-                <span>{value || 'Seleccionar'}</span>
-                <svg className="select-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="6 9 12 15 18 9"></polyline>
-                </svg>
-            </div>
-            {isOpen && (
-                <div className="custom-options" style={{ background: 'white', border: '1px solid #e5e7eb' }}>
-                    {options.map((opt) => (
-                        <div
-                            key={opt}
-                            className={`custom-option ${value === opt ? 'selected' : ''}`}
-                            onClick={() => {
-                                onChange(opt);
-                                setIsOpen(false);
-                            }}
-                        >
-                            {opt}
-                        </div>
-                    ))}
-                </div>
-            )}
-        </div>
-    );
-};
 
 interface Props {
     onBack: () => void;
@@ -135,6 +81,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const [resolutionDate, setResolutionDate] = useState('');
     const [solicitudInResolution, setSolicitudInResolution] = useState<any | null>(null);
     const [showExportModal, setShowExportModal] = useState(false);
+    const [showRequestsModal, setShowRequestsModal] = useState(false);
+    const [requestsEquipoInfo, setRequestsEquipoInfo] = useState<{ id: string | number; nombre: string; codigo?: string } | null>(null);
 
     const { showToast } = useToast();
     const { hasPermission } = useAuth();
@@ -143,7 +91,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const isGCMan = hasPermission('GC_ACCESO') || hasPermission('GC_EQUIPOS');
     const isMAMan = hasPermission('AI_MA_SOLICITUDES') || hasPermission('MA_A_GEST_EQUIPO');
     const isSuper = hasPermission('AI_MA_ADMIN_ACCESO');
-    const canCreateEquipo = hasPermission('AI_MA_CREAR_EQUIPO') || isSuper;
+    // @ts-ignore
+    const canCreateEquipo = hasPermission('ADM_A_GEST_EQUIPO') || hasPermission('AI_ACCESO');
     const canEditEquipo = hasPermission('AI_MA_EDITAR_EQUIPO') || isSuper;
 
     // --- Table & Filters State ---
@@ -307,6 +256,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         }
     };
 
+    // @ts-ignore
     const handleCreate = () => {
         setSelectedEquipo(null);
         setViewMode('form');
@@ -737,6 +687,37 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         }
     };
 
+    const expiringCount = useMemo(() => {
+        return equipos.filter(e => {
+            if (!e.vigencia) return false;
+            const d = new Date(e.vigencia);
+            return !isNaN(d.getTime()) && (d.getTime() - Date.now()) <= (30 * 86400000) && e.estado?.toLowerCase() === 'activo';
+        }).length;
+    }, [equipos]);
+
+    const [solicitudHistorial, setSolicitudHistorial] = useState<any[]>([]);
+    // @ts-ignore
+    const [loadingHistorial, setLoadingHistorial] = useState(false);
+
+    useEffect(() => {
+        const fetchHistorial = async () => {
+            if (reviewSolicitud?.id_solicitud) {
+                setLoadingHistorial(true);
+                try {
+                    const res = await adminService.getSolicitudHistorial(reviewSolicitud.id_solicitud);
+                    setSolicitudHistorial(res.data || []);
+                } catch (error) {
+                    console.error("Error loading historial:", error);
+                } finally {
+                    setLoadingHistorial(false);
+                }
+            } else {
+                setSolicitudHistorial([]);
+            }
+        };
+        fetchHistorial();
+    }, [reviewSolicitud]);
+
     const handleClearFilters = () => {
         setSearchTerm('');
         setFilterTipo(null);
@@ -790,6 +771,12 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     return (
         <Container fluid py="lg">
             <Stack gap="lg">
+                {expiringCount > 0 && (
+                    <Alert icon={<IconAlertTriangle size={20} />} title="Atención: Equipos por Vencer" color="orange" variant="light" withCloseButton>
+                        Hay {expiringCount} equipos que vencerán en los próximos 30 días. Por favor, revise la columna de vigencia en la tabla.
+                    </Alert>
+                )}
+
                 <Paper withBorder p="md" radius="md" shadow="sm">
                     <Group justify="space-between">
                         <Group>
@@ -803,47 +790,9 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                         </Group>
 
                         <Group>
-                            <Menu shadow="md" width={300} closeOnItemClick={false}>
-                                <Menu.Target>
-                                    <Button 
-                                        variant="light" 
-                                        leftSection={<IconBell size={18} />}
-                                        rightSection={solicitudesRealizadas.length > 0 && <Badge size="xs" color="red" circle>{solicitudesRealizadas.length}</Badge>}
-                                    >
-                                        Solicitudes
-                                    </Button>
-                                </Menu.Target>
-                                <Menu.Dropdown>
-                                    <Menu.Label>Solicitudes Pendientes</Menu.Label>
-                                    <ScrollArea.Autosize mah={400} type="scroll">
-                                        {solicitudesRealizadas.length === 0 ? (
-                                            <Box p="lg" style={{ textAlign: 'center' }}>
-                                                <Text size="xs" c="dimmed">No hay solicitudes pendientes.</Text>
-                                            </Box>
-                                        ) : (
-                                            solicitudesRealizadas.map(sol => (
-                                                <Menu.Item 
-                                                    key={sol.id_solicitud} 
-                                                    onClick={() => handleNotificationClick(sol)}
-                                                    leftSection={<IconInfoCircle size={16} color="blue" />}
-                                                >
-                                                    <Stack gap={2}>
-                                                        <Group justify="space-between">
-                                                            <Text size="xs" fw={700}>{getTipoLabelDisplay(sol)}</Text>
-                                                            <Text size="xs" c="dimmed">{new Date(sol.fecha_solicitud).toLocaleDateString()}</Text>
-                                                        </Group>
-                                                        <Text size="xs" lineClamp={1}>{sol.datos_json?.nombre || sol.datos_json?.codigo || 'Solicitud'}</Text>
-                                                        <Text size="xs" c="dimmed">{sol.nombre_solicitante}</Text>
-                                                    </Stack>
-                                                </Menu.Item>
-                                            ))
-                                        )}
-                                    </ScrollArea.Autosize>
-                                </Menu.Dropdown>
-                            </Menu>
-
                             <Button 
                                 variant="outline" 
+                                color="gray"
                                 leftSection={<IconDownload size={18} />} 
                                 onClick={() => setShowExportModal(true)}
                             >
@@ -852,8 +801,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
 
                             <Button 
                                 leftSection={<IconPlus size={18} />} 
-                                onClick={handleCreate}
-                                disabled={!canCreateEquipo}
+                                onClick={() => { setSelectedEquipo(null); setViewMode('form'); }}
                                 color="adl-blue"
                             >
                                 Nuevo Equipo
@@ -986,8 +934,18 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                             <Table.Tr key={equipo.id_equipo}>
                                                 <Table.Td>
                                                     {hasPending && (
-                                                        <Tooltip label="Solicitud técnica pendiente">
-                                                            <IconAlertTriangle size={18} color="var(--mantine-color-orange-6)" />
+                                                        <Tooltip label="Hay solicitudes pendientes. Clic para ver.">
+                                                            <ActionIcon 
+                                                                variant="light" 
+                                                                color="orange" 
+                                                                size="sm"
+                                                                onClick={() => {
+                                                                    setRequestsEquipoInfo({ id: equipo.id_equipo, nombre: equipo.nombre, codigo: equipo.codigo });
+                                                                    setShowRequestsModal(true);
+                                                                }}
+                                                            >
+                                                                <IconAlertTriangle size={18} />
+                                                            </ActionIcon>
                                                         </Tooltip>
                                                     )}
                                                 </Table.Td>
@@ -1086,6 +1044,30 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                             </Grid>
                         </Paper>
 
+                        {solicitudHistorial.length > 0 && (
+                            <Paper withBorder p="md" radius="md">
+                                <Text size="xs" fw={700} c="dimmed" mb="xs" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <IconInfoCircle size={14} /> HISTORIAL DE ACCIONES
+                                </Text>
+                                <ScrollArea.Autosize mah={150}>
+                                    <Stack gap={5}>
+                                        {solicitudHistorial.map((h, i) => (
+                                            <Box key={i} p={5} style={{ borderBottom: i < solicitudHistorial.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+                                                <Group justify="space-between">
+                                                    <Badge size="xs" variant="outline" color={h.accion === 'APROBADO' ? 'green' : h.accion === 'RECHAZADO' ? 'red' : 'blue'}>
+                                                        {h.accion}
+                                                    </Badge>
+                                                    <Text size="xs" c="dimmed">{new Date(h.fecha_accion).toLocaleString()}</Text>
+                                                </Group>
+                                                <Text size="xs" fw={600} mt={2}>{h.nombre_usuario || 'Sistema'}</Text>
+                                                <Text size="xs" fs="italic">{h.observacion || 'Sin observación'}</Text>
+                                            </Box>
+                                        ))}
+                                    </Stack>
+                                </ScrollArea.Autosize>
+                            </Paper>
+                        )}
+
                         {/* Special case for BULK BAJA/ALTA */}
                         {((reviewSolicitud.tipo_solicitud === 'BAJA' && reviewSolicitud.datos_json?.equipos_baja) || 
                           (reviewSolicitud.tipo_solicitud === 'ALTA' && reviewSolicitud.datos_json?.isReactivation && reviewSolicitud.datos_json?.equipos_alta)) ? (
@@ -1183,23 +1165,60 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                         <Group justify="flex-end" mt="xl">
                             <Button variant="subtle" onClick={() => setReviewSolicitud(null)}>Cerrar</Button>
                             {(reviewSolicitud.estado === 'PENDIENTE' || reviewSolicitud.estado === 'PENDIENTE_TECNICA' || reviewSolicitud.estado === 'PENDIENTE_CALIDAD') && (
-                                <Group gap="sm">
-                                    <Button variant="light" color="red" onClick={() => { setRejectionTarget({ type: 'SOLICITUD' }); setLocalRejectionFeedback(''); setShowRejectionReasonModal(true); }}>
-                                        Rechazar
-                                    </Button>
-                                    {reviewSolicitud.estado === 'PENDIENTE_TECNICA' && (isMAMan || isSuper) && (
-                                        <Button color="green" onClick={handleApprove}>
-                                            {(reviewSolicitud.tipo_solicitud === 'EQUIPO_PERDIDO' || reviewSolicitud.tipo_solicitud === 'REPORTE_PROBLEMA') 
-                                                ? 'Procesar' : 'Derivar a Calidad'}
-                                        </Button>
-                                    )}
-                                    {reviewSolicitud.estado === 'PENDIENTE_CALIDAD' && (isGCMan || isSuper) && (
-                                        <Button color="green" onClick={handleApprove}>Aprobar Final</Button>
-                                    )}
-                                    {reviewSolicitud.estado === 'PENDIENTE' && (
-                                        <Button color="green" onClick={handleApprove}>Aprobar</Button>
-                                    )}
-                                </Group>
+                                <Menu position="bottom-end" shadow="md">
+                                    <Menu.Target>
+                                        <Button color="adl-blue">Gestionar Solicitud</Button>
+                                    </Menu.Target>
+                                    <Menu.Dropdown>
+                                        <Menu.Label>Acciones Disponibles</Menu.Label>
+                                        
+                                        {/* APROBACION DEPENDE DEL ESTADO */}
+                                        {reviewSolicitud.estado === 'PENDIENTE' && (
+                                            <Menu.Item 
+                                                leftSection={<IconCheck size={16} />} 
+                                                color="green" 
+                                                onClick={handleApprove}
+                                            >
+                                                Aprobar
+                                            </Menu.Item>
+                                        )}
+
+                                        {reviewSolicitud.estado === 'PENDIENTE_TECNICA' && (isMAMan || isSuper) && (
+                                            <Menu.Item 
+                                                leftSection={<IconCheck size={16} />} 
+                                                color="green" 
+                                                onClick={handleApprove}
+                                            >
+                                                {(reviewSolicitud.tipo_solicitud === 'EQUIPO_PERDIDO' || reviewSolicitud.tipo_solicitud === 'REPORTE_PROBLEMA') 
+                                                    ? 'Procesar Reporte' : 'Derivar a Calidad'}
+                                            </Menu.Item>
+                                        )}
+
+                                        {reviewSolicitud.estado === 'PENDIENTE_CALIDAD' && (isGCMan || isSuper) && (
+                                            <Menu.Item 
+                                                leftSection={<IconCheck size={16} />} 
+                                                color="green" 
+                                                onClick={handleApprove}
+                                            >
+                                                Aprobar Final
+                                            </Menu.Item>
+                                        )}
+
+                                        <Menu.Divider />
+
+                                        <Menu.Item 
+                                            leftSection={<IconX size={16} />} 
+                                            color="red" 
+                                            onClick={() => { 
+                                                setRejectionTarget({ type: 'SOLICITUD' }); 
+                                                setLocalRejectionFeedback(''); 
+                                                setShowRejectionReasonModal(true); 
+                                            }}
+                                        >
+                                            Rechazar Solicitud
+                                        </Menu.Item>
+                                    </Menu.Dropdown>
+                                </Menu>
                             )}
                         </Group>
                     </Stack>
@@ -1349,6 +1368,19 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                     fechaDesde: filterFechaDesde,
                     fechaHasta: filterFechaHasta,
                     id_muestreador: filterMuestreador || ''
+                }}
+            />
+
+            <EquipmentRequestsModal 
+                isOpen={showRequestsModal}
+                onClose={() => setShowRequestsModal(false)}
+                idEquipo={requestsEquipoInfo?.id || null}
+                nombreEquipo={requestsEquipoInfo?.nombre || ''}
+                codigoEquipo={requestsEquipoInfo?.codigo}
+                onRefresh={() => { fetchData(); loadSolicitudes(); }}
+                onGoToSolicitud={(sol) => {
+                    setShowRequestsModal(false);
+                    handleNotificationClick(sol);
                 }}
             />
         </Container>

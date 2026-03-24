@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { RequestsManager } from './RequestsManager';
 import { ursService } from '../../../services/urs.service';
 import RequestTypePermissionsPage from './RequestTypePermissionsPage';
-import './AdminUrsPage.css';
 
 interface AdminUrsPageProps {
     onBack: () => void;

@@ -270,7 +270,11 @@ export function Sidebar() {
         sidebarCollapsed,
         toggleSidebar,
         setActiveModule,
-        setActiveSubmodule
+        setActiveSubmodule,
+        setDrawerOpen,
+        setUrsInboxMode,
+        resetNavigation,
+        hideNotification
     } = useNavStore();
 
     const [openedModule, setOpenedModule] = useState<string | null>(activeModule);
@@ -369,17 +373,24 @@ export function Sidebar() {
             return;
         }
 
-        const mod = MODULES.find(m => m.id === moduleId);
-        const hasSubItems = mod && mod.links && mod.links.length > 0;
+        const mod = MODULES.find(m => m.id === moduleId) || FIXED_TOP_MODULES.find(m => m.id === moduleId);
+        const hasSubItems = mod && 'links' in mod && Array.isArray(mod.links) && mod.links.length > 0;
 
         if (hasSubItems) {
-            // Solo alternar expansión, NO navegar/redireccionar
+            // Solo alternar expansión
             setOpenedModule(openedModule === moduleId ? null : moduleId);
+            
             // Si el módulo ya es el activo, no reseteamos el submódulo
             if (activeModule !== moduleId) {
                 setActiveModule(moduleId);
                 setActiveSubmodule('');
             }
+        } else {
+            // Si no tiene subítems, navegamos directamente
+            setActiveModule(moduleId);
+            setActiveSubmodule('');
+            // No cerramos el openedModule si es el actual para mantener el estado visual
+            setOpenedModule(moduleId);
         }
     };
 
@@ -501,7 +512,7 @@ export function Sidebar() {
                             transition: 'all 200ms ease',
                             filter: 'none'
                         }}
-                        onClick={() => setActiveModule('')}
+                        onClick={() => resetNavigation()}
                     />
                     {!sidebarCollapsed ? (
                         <ActionIcon

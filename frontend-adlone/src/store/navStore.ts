@@ -80,11 +80,8 @@ export const useNavStore = create<NavState>()(
         {
             name: 'adl-nav-storage', // nombre en localStorage
             partialize: (state) => ({
-                activeModule: state.activeModule,
-                activeSubmodule: state.activeSubmodule,
-                previousSubmodule: state.previousSubmodule,
                 sidebarCollapsed: state.sidebarCollapsed
-            }), // Solo guardamos estas cuatro propiedades
+            }), // Solo guardamos sidebarCollapsed para que el inicio siempre sea limpio
         }
     )
 );

@@ -47,10 +47,15 @@ export const adminService = {
         return response.data;
     },
 
-    getSolicitudes: async (params?: { estado?: string; solo_mias?: boolean; origen_solicitud?: string; estado_tecnica?: string }) => {
+    getSolicitudes: async (params?: { estado?: string; solo_mias?: boolean; origen_solicitud?: string; estado_tecnica?: string; id_equipo?: number | string }) => {
         const response = await apiClient.get('/api/admin/solicitudes', {
             params
         });
+        return response.data;
+    },
+
+    getSolicitudesByEquipo: async (idEquipo: number | string) => {
+        const response = await apiClient.get(`/api/admin/equipos/${idEquipo}/solicitudes`);
         return response.data;
     },
 
