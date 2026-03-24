@@ -26,7 +26,6 @@ import {
     IconUser,
     IconShield,
     IconDeviceFloppy,
-    IconSearch,
     IconPlus,
     IconX,
     IconEye,
@@ -36,7 +35,6 @@ import {
     IconChevronUp,
     IconAlertTriangle,
     IconInfoCircle,
-    IconCircleCheck,
     IconSettings
 } from '@tabler/icons-react';
 

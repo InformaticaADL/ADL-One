@@ -9,8 +9,7 @@ import {
     Box, 
     ScrollArea, 
     Divider,
-    Button,
-    ThemeIcon
+    Button
 } from '@mantine/core';
 import { 
     IconBell, 
@@ -18,8 +17,7 @@ import {
     IconAlertTriangle, 
     IconCircleCheck, 
     IconCircleX,
-    IconChevronRight,
-    IconChecks
+    IconChevronRight
 } from '@tabler/icons-react';
 import { useNotificationStore, type Notification } from '../../../store/notificationStore';
 import { useNavStore } from '../../../store/navStore';
@@ -38,7 +36,7 @@ interface NotificationPopoverProps {
 
 export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ opened, onClose, children }) => {
     const { notifications, markAsRead } = useNotificationStore();
-    const { setActiveModule, setActiveSubmodule, setPendingRequestId } = useNavStore();
+    const { setActiveModule, setActiveSubmodule, setPendingRequestId, setPendingChatId } = useNavStore();
 
     const unreadNotifications = notifications.filter(n => !n.leido);
     const recentNotifications = notifications.slice(0, 5);
@@ -50,17 +48,27 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ opened
         }
 
         if (notif.id_referencia) {
-            setPendingRequestId(notif.id_referencia);
             const titulo = notif.titulo.toLowerCase();
             const mensaje = notif.mensaje.toLowerCase();
-            
-            if (titulo.includes('equipo') || mensaje.includes('equipo')) {
-                setActiveModule('gestion_calidad');
-                setActiveSubmodule('admin-equipos-gestion');
-            } else {
-                setActiveModule('solicitudes');
+            const area = (notif.area || '').toLowerCase();
+
+            if (area === 'chat' || titulo.includes('grupo') || mensaje.includes('mensaje')) {
+                setPendingChatId(notif.id_referencia);
+                setActiveModule('chat');
                 setActiveSubmodule('');
+            } else {
+                setPendingRequestId(notif.id_referencia);
+                if (titulo.includes('equipo') || mensaje.includes('equipo')) {
+                    setActiveModule('gestion_calidad');
+                    setActiveSubmodule('admin-equipos-gestion');
+                } else {
+                    setActiveModule('solicitudes');
+                    setActiveSubmodule('');
+                }
             }
+        } else if (notif.area === 'Chat') {
+             setActiveModule('chat');
+             setActiveSubmodule('');
         }
     };
 
@@ -116,7 +124,7 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ opened
                     </Group>
                     <Divider my="xs" />
 
-                    <ScrollArea.Autosize maxHeight={400} type="hover">
+                    <ScrollArea.Autosize mah={400} type="hover">
                         {notifications.length === 0 ? (
                             <Box py="xl" style={{ textAlign: 'center' }}>
                                 <IconBell size={32} color="var(--mantine-color-gray-4)" stroke={1} />

@@ -33,6 +33,7 @@ import ursRoutes from './routes/urs.routes.js';
 import unsRoutes from './routes/notificacion.routes.js';
 import userRoutes from './routes/user.routes.js';
 import chatRoutes from './routes/chat.routes.js';
+import generalChatRoutes from './routes/general-chat.routes.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -56,6 +57,15 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         logger.info('Client disconnected');
+    });
+
+    // General Chat: join/leave conversation rooms
+    socket.on('joinChat', (conversationId) => {
+        socket.join(`chat_${conversationId}`);
+    });
+
+    socket.on('leaveChat', (conversationId) => {
+        socket.leave(`chat_${conversationId}`);
     });
 });
 import { initScheduler } from './utils/scheduler.js';
@@ -93,6 +103,7 @@ app.use('/api/urs', ursRoutes);
 app.use('/api/uns', unsRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/gchat', generalChatRoutes);
 
 // Serve uploads directory as static
 const uploadPath = process.env.UPLOAD_PATH || path.join(__dirname, '../uploads');

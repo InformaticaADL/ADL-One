@@ -63,6 +63,7 @@ api-backend-adlone/
 - **React 18** - Biblioteca de UI
 - **Vite** - Build tool y dev server
 - **TypeScript** - Tipado estático
+- **Mantine UI v7** - Biblioteca de componentes y sistema de temas
 - **Zustand** - State management
 - **CSS3** - Estilos modernos con gradientes y animaciones
 
@@ -618,6 +619,25 @@ Consolidación de la estabilidad del sistema y mejora de la interfaz de soporte 
 
 ---
 
+### 37. Personalización y Perfil de Usuario (Marzo 2026) 👤✨
+Nueva interfaz dedicada para la gestión y visualización de la identidad del usuario en el sistema.
+- **Página de Mi Perfil**: Landing page personalizada que consolida la información del usuario con un diseño moderno y minimalista.
+- **Encabezado Premium**: Implementación de un header con degradados dinámicos que se adaptan al tema visual seleccionado.
+- **Organización por Módulos**: Información dividida en tarjetas claras de "Información Personal" (datos básicos) y "Seguridad y Rol" (identificación técnica).
+- **Atajos de Configuración**: Panel de preferencias integrado para cambios rápidos en la experiencia de usuario.
+.
+
+### 38. Módulo de Chat General (Tiempo Real) 💬⚡
+Sistema de comunicación instantánea integrado para fomentar la colaboración entre los usuarios de ADL One.
+- **Mensajería Omnicanal**: Soporte para chats directos (uno a uno) y creación de grupos de trabajo con múltiples integrantes.
+- **Comunicación en Tiempo Real**: Motor basado en **Socket.io** que garantiza la entrega inmediata de mensajes y avisos de "nueva conversación".
+- **Gestión de Multimedia**: Capacidad para adjuntar archivos y documentos directamente en el flujo de la conversación.
+- **Herramientas Administrativas**: Funciones para limpiar historial, eliminar mensajes específicos y gestionar miembros en conversaciones grupales.
+- **Integración con Perfiles**: Acceso rápido al perfil del contacto y posibilidad de marcar chats como favoritos para acceso prioritario.
+- **Deep-linking de Notificaciones**: Redirección automática desde las notificaciones del sistema hacia la conversación específica del chat.
+
+---
+
 ## 🏗️ Estructura Detallada del Proyecto (Frontend)
 
 ```
@@ -635,7 +655,7 @@ frontend-adlone/
 ```
 
 ## 📄 Estado Final del Proyecto
-✅ **Backend**: Node.js + Express (API RESTful, Auth JWT, Notificaciones con Adjuntos, Lógica de Exportación a Excel)
-✅ **Frontend**: React + TypeScript (Calendario de Muestreos, Catálogo Maestro Minimalista, Exportador de Datos, UI Multi-columna)
-✅ **Base de Datos**: SQL Server (Procedimientos Almacenados optimizados, Auditoría de Equipos, Alineación de Esquemas)
+✅ **Backend**: Node.js + Express (API RESTful, Auth JWT, Notificaciones con Adjuntos, Lógica de Exportación a Excel, Auditoría Avanzada, Motor de Chat Socket.io)
+✅ **Frontend**: React + TypeScript + Mantine UI (Calendario de Muestreos, Sistema de Temas Dinámicos, Perfil de Usuario, Módulo de Chat General, Exportador de Datos)
+✅ **Base de Datos**: SQL Server (Procedimientos Almacenados optimizados, Auditoría de Equipos, Alineación de Esquemas, Logs de Auditoría Global, Esquema de Mensajería)
 

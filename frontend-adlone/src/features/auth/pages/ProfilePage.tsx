@@ -18,16 +18,25 @@ import {
     UnstyledButton,
     PasswordInput,
     Button,
-    Progress
+    Progress,
+    Loader,
+    Center
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { IconUser, IconMail, IconShieldCheck, IconId, IconUserCircle, IconCamera, IconBriefcase, IconLock } from '@tabler/icons-react';
+import { IconUser, IconMail, IconShieldCheck, IconId, IconUserCircle, IconCamera, IconBriefcase, IconLock, IconMessageCircle } from '@tabler/icons-react';
 import { useAuth } from '../../../contexts/AuthContext';
+import { generalChatService } from '../../../services/general-chat.service';
+import type { UserProfile } from '../../../services/general-chat.service';
 import axios from 'axios';
 import API_CONFIG from '../../../config/api.config';
 import { useToast } from '../../../contexts/ToastContext';
 
-export const ProfilePage: React.FC = () => {
+interface ProfilePageProps {
+    userId?: number;
+    onStartChat?: (userId: number) => void;
+}
+
+export const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onStartChat }) => {
     const { user, updateUser, token } = useAuth();
     const { showToast } = useToast();
     const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -39,8 +48,42 @@ export const ProfilePage: React.FC = () => {
     const [newPassword, setNewPassword] = React.useState('');
     const [confirmPassword, setConfirmPassword] = React.useState('');
     const [loading, setLoading] = React.useState(false);
+    const [profileData, setProfileData] = React.useState<UserProfile | null>(null);
+    const [loadingProfile, setLoadingProfile] = React.useState(false);
 
-    if (!user) return null;
+    const isOwnProfile = !userId || userId === user?.id;
+
+    React.useEffect(() => {
+        if (!isOwnProfile && userId) {
+            loadUserProfile(userId);
+        } else if (user) {
+            // Map auth user to profile structure
+            setProfileData({
+                id_usuario: user.id,
+                nombre: user.name,
+                nombre_usuario: user.username,
+                email: user.email || '',
+                cargo: user.cargo || '',
+                roles: user.roles?.join(', ') || (user.role === 1 ? 'Administrador' : user.role === 2 ? 'Usuario Estándar' : 'Otro'),
+                foto: user.foto || null
+            });
+        }
+    }, [userId, user, isOwnProfile]);
+
+    const loadUserProfile = async (id: number) => {
+        setLoadingProfile(true);
+        try {
+            const data = await generalChatService.getUserProfile(id);
+            setProfileData(data);
+        } catch (err) {
+            console.error('Error loading profile:', err);
+            showToast({ message: 'Error cargando perfil', type: 'error' });
+        } finally {
+            setLoadingProfile(false);
+        }
+    };
+
+    if (!user || (!profileData && !loadingProfile)) return null;
 
     const predefinedAvatars = [
         { id: 1, path: '/uploads/avatars/avatar1.png' },
@@ -199,8 +242,15 @@ export const ProfilePage: React.FC = () => {
     const strength = getStrength(newPassword);
     const passwordsMatch = newPassword && confirmPassword ? newPassword === confirmPassword : null;
 
-    const roleName = user.role === 1 ? 'Administrador' : user.role === 2 ? 'Usuario Estándar' : 'Otro';
-    const profilePicUrl = user.foto ? `${API_CONFIG.getBaseURL()}${user.foto}` : null;
+    const profilePicUrl = profileData?.foto ? `${API_CONFIG.getBaseURL()}${profileData.foto}` : null;
+
+    if (loadingProfile) {
+        return (
+            <Container size="md" py="xl">
+                <Center style={{ height: 400 }}><Loader size="xl" color="adl-blue" /></Center>
+            </Container>
+        );
+    }
 
     return (
         <Container size="md" py="xl">
@@ -227,24 +277,26 @@ export const ProfilePage: React.FC = () => {
                                         }}
                                         onClick={handleAvatarClick}
                                     >
-                                        <Text size={rem(48)} fw={700}>{user.name.charAt(0)}</Text>
+                                        <Text size={rem(48)} fw={700}>{profileData?.nombre?.charAt(0)}</Text>
                                     </Avatar>
-                                    <ThemeIcon 
-                                        size="lg" 
-                                        radius="xl" 
-                                        variant="filled" 
-                                        color="adl-blue"
-                                        style={{ 
-                                            position: 'absolute', 
-                                            bottom: 5, 
-                                            right: 5, 
-                                            border: '2px solid white',
-                                            cursor: 'pointer'
-                                        }}
-                                        onClick={handleAvatarClick}
-                                    >
-                                        <IconCamera size={18} />
-                                    </ThemeIcon>
+                                    {isOwnProfile && (
+                                        <ThemeIcon 
+                                            size="lg" 
+                                            radius="xl" 
+                                            variant="filled" 
+                                            color="adl-blue"
+                                            style={{ 
+                                                position: 'absolute', 
+                                                bottom: 5, 
+                                                right: 5, 
+                                                border: '2px solid white',
+                                                cursor: 'pointer'
+                                            }}
+                                            onClick={handleAvatarClick}
+                                        >
+                                            <IconCamera size={18} />
+                                        </ThemeIcon>
+                                    )}
                                     <input 
                                         type="file" 
                                         ref={fileInputRef} 
@@ -255,23 +307,19 @@ export const ProfilePage: React.FC = () => {
                                 </Box>
                                 <Stack gap={4}>
                                     <Text size="xl" fw={800} style={{ fontSize: rem(32), lineHeight: 1.2 }}>
-                                        {user.name}
+                                        {profileData?.nombre}
                                     </Text>
                                     <Group gap="xs">
-                                        {user.roles && user.roles.length > 0 ? (
-                                            user.roles.map((role, idx) => (
-                                                <Badge key={idx} color="adl-blue" variant="filled" size="sm" style={{ fontWeight: 800 }}>
-                                                    {role.toUpperCase()}
-                                                </Badge>
-                                            ))
-                                        ) : (
-                                            <Badge color="adl-blue" variant="filled" size="sm" style={{ fontWeight: 800 }}>
-                                                {roleName.toUpperCase()}
+                                        {profileData?.roles?.split(', ').map((role: string, idx: number) => (
+                                            <Badge key={idx} color="adl-blue" variant="filled" size="sm" style={{ fontWeight: 800 }}>
+                                                {role.toUpperCase()}
                                             </Badge>
+                                        ))}
+                                        {profileData?.nombre_usuario && (
+                                            <Text size="sm" fw={600} c="adl-blue" style={{ opacity: 0.8 }}>
+                                                @{profileData.nombre_usuario}
+                                            </Text>
                                         )}
-                                        <Text size="sm" fw={600} c="adl-blue" style={{ opacity: 0.8 }}>
-                                            @{user.username}
-                                        </Text>
                                     </Group>
                                 </Stack>
                             </Group>
@@ -298,7 +346,7 @@ export const ProfilePage: React.FC = () => {
                                         </ThemeIcon>
                                         <Text size="sm" fw={600} c="dimmed">Nombre Completo</Text>
                                     </Group>
-                                    <Text fw={500}>{user.name}</Text>
+                                    <Text fw={500}>{profileData?.nombre}</Text>
                                 </Group>
                                 <Divider variant="dotted" />
                                 <Group justify="space-between">
@@ -308,7 +356,7 @@ export const ProfilePage: React.FC = () => {
                                         </ThemeIcon>
                                         <Text size="sm" fw={600} c="dimmed">Correo Electrónico</Text>
                                     </Group>
-                                    <Text fw={500}>{user.email || 'No especificado'}</Text>
+                                    <Text fw={500}>{profileData?.email || 'No especificado'}</Text>
                                 </Group>
                                 <Divider variant="dotted" />
                                 <Group justify="space-between">
@@ -318,7 +366,7 @@ export const ProfilePage: React.FC = () => {
                                         </ThemeIcon>
                                         <Text size="sm" fw={600} c="dimmed">Nombre de Usuario</Text>
                                     </Group>
-                                    <Text fw={500}>{user.username}</Text>
+                                    <Text fw={500}>{profileData?.nombre_usuario || 'No especificado'}</Text>
                                 </Group>
                                 <Divider variant="dotted" />
                                 <Group justify="space-between">
@@ -328,20 +376,38 @@ export const ProfilePage: React.FC = () => {
                                         </ThemeIcon>
                                         <Text size="sm" fw={600} c="dimmed">Cargo</Text>
                                     </Group>
-                                    <Text fw={500}>{user.cargo || 'No especificado'}</Text>
+                                    <Text fw={500}>{profileData?.cargo || 'No especificado'}</Text>
                                 </Group>
 
-                                <Divider my="lg" />
-
-                                <Button 
-                                    variant="light" 
-                                    color="adl-blue" 
-                                    fullWidth 
-                                    leftSection={<IconLock size={16} />}
-                                    onClick={openPassword}
-                                >
-                                    Cambiar Contraseña
-                                </Button>
+                                {isOwnProfile ? (
+                                    <>
+                                        <Divider my="lg" />
+                                        <Button 
+                                            variant="light" 
+                                            color="adl-blue" 
+                                            fullWidth 
+                                            leftSection={<IconLock size={16} />}
+                                            onClick={openPassword}
+                                        >
+                                            Cambiar Contraseña
+                                        </Button>
+                                    </>
+                                ) : (
+                                    onStartChat && (
+                                        <>
+                                            <Divider my="lg" />
+                                            <Button 
+                                                variant="filled" 
+                                                color="adl-blue" 
+                                                fullWidth 
+                                                leftSection={<IconMessageCircle size={16} />}
+                                                onClick={() => onStartChat(userId!)}
+                                            >
+                                                Enviar Mensaje
+                                            </Button>
+                                        </>
+                                    )
+                                )}
                             </Stack>
                         </Card>
                     </Grid.Col>
@@ -360,23 +426,17 @@ export const ProfilePage: React.FC = () => {
                                     <Box>
                                         <Text size="xs" fw={700} c="dimmed" mb={8} style={{ textTransform: 'uppercase' }}>Roles Asignados</Text>
                                         <Group gap={6}>
-                                            {user.roles && user.roles.length > 0 ? (
-                                                user.roles.map((role, idx) => (
-                                                    <Badge key={idx} color="adl-blue" variant="light" size="md">
-                                                        {role}
-                                                    </Badge>
-                                                ))
-                                            ) : (
-                                                <Badge color="gray" variant="light" size="md">
-                                                    {roleName}
+                                            {profileData?.roles?.split(', ').map((role: string, idx: number) => (
+                                                <Badge key={idx} color="adl-blue" variant="light" size="md">
+                                                    {role}
                                                 </Badge>
-                                            )}
+                                            ))}
                                         </Group>
                                     </Box>
                                     
                                     <Box>
                                         <Text size="xs" fw={700} c="dimmed" mb={4} style={{ textTransform: 'uppercase' }}>ID de Usuario</Text>
-                                        <Text fw={600}>#{user.id}</Text>
+                                        <Text fw={600}>#{profileData?.id_usuario}</Text>
                                     </Box>
                                 </Stack>
                             </Card>

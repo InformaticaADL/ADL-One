@@ -21,6 +21,7 @@ import NewRequestPage from '../features/urs/pages/NewRequestPage';
 import UniversalInbox from '../features/urs/components/UniversalInbox';
 import { UserNotificationsPage } from '../features/notifications/pages/UserNotificationsPage';
 import { ProfilePage } from '../features/auth/pages/ProfilePage';
+import ChatModule from '../features/chat/ChatModule';
 import { WelcomePage } from './WelcomePage';
 
 import { NotificationsPage } from '../features/admin/pages/NotificationsPage';
@@ -93,6 +94,7 @@ const DashboardPage = () => {
             // Módulos que SI tienen su propia vista de aterrizaje directa (Stand-alone)
             if (activeModule === 'solicitudes') return <UniversalInbox />;
             if (activeModule === 'notificaciones') return <UserNotificationsPage />;
+            if (activeModule === 'chat') return <ChatModule />;
             if (activeModule === 'perfil') return <ProfilePage />;
 
             // Para todo lo demás (Medio Ambiente, Calidad, Inicio, etc.), mostrar el WelcomePage

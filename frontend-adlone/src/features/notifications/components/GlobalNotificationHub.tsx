@@ -43,6 +43,13 @@ const GlobalNotificationHub: React.FC = () => {
         
         if (notif.id_referencia) {
             setPendingRequestId(notif.id_referencia);
+            
+            if (notif.area === 'Chat') {
+                setActiveModule('chat');
+                setActiveSubmodule('');
+                return;
+            }
+
             const titulo = notif.titulo.toLowerCase();
             const mensaje = notif.mensaje.toLowerCase();
             

@@ -331,20 +331,28 @@ export const saveNotificationConfig = async (req, res) => {
                 `);
         }
 
-        // 4. SYNC: If transactional, update mae_notificacion_regla (Master Rules)
-        if (eventInfo && eventInfo.es_transaccional && configs.length > 0) {
-            const firstConfig = configs[0];
+        // 4. SYNC: If transactional, update or insert mae_notificacion_regla (Master Rules)
+        if (eventInfo && eventInfo.es_transaccional) {
+            const firstConfig = configs.length > 0 ? configs[0] : { envia_email: 0, envia_web: 0 };
             await transaction.request()
                 .input('code', sql.VarChar(50), eventInfo.codigo_evento)
-                .input('email', sql.Bit, firstConfig.envia_email ?? 1)
-                .input('web', sql.Bit, firstConfig.envia_web ?? 1)
+                .input('email', sql.Bit, firstConfig.envia_email ?? 0)
+                .input('web', sql.Bit, firstConfig.envia_web ?? 0)
                 .query(`
-                    UPDATE mae_notificacion_regla 
-                    SET envia_email = @email,
-                        envia_web = @web
-                    WHERE codigo_evento = @code
+                    IF EXISTS (SELECT 1 FROM mae_notificacion_regla WHERE codigo_evento = @code)
+                    BEGIN
+                        UPDATE mae_notificacion_regla 
+                        SET envia_email = @email,
+                            envia_web = @web
+                        WHERE codigo_evento = @code
+                    END
+                    ELSE
+                    BEGIN
+                        INSERT INTO mae_notificacion_regla (codigo_evento, envia_email, envia_web, estado)
+                        VALUES (@code, @email, @web, 1)
+                    END
                 `);
-            logger.info(`UNS Sync: Updated mae_notificacion_regla for ${eventInfo.codigo_evento} (Email: ${firstConfig.envia_email}, Web: ${firstConfig.envia_web})`);
+            logger.info(`UNS Sync: Updated/Inserted mae_notificacion_regla for ${eventInfo.codigo_evento} (Email: ${firstConfig.envia_email ?? 0}, Web: ${firstConfig.envia_web ?? 0})`);
         }
 
         await transaction.commit();

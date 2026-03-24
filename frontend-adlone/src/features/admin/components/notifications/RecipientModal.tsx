@@ -137,7 +137,7 @@ export const RecipientModal: React.FC<Props> = ({ isOpen, onClose, event, onSave
     const filteredOptions = useMemo(() => {
         if (!searchTerm) return [];
         const term = searchTerm.toLowerCase();
-        const roleMatches = allRoles.filter(r => r.nombre_rol.toLowerCase().includes(term) && !selectedRoles.includes(r.id_rol)).map(r => ({ type: 'role', id: r.id_rol, label: r.nombre_rol }));
+        const roleMatches = allRoles.filter(r => r.nombre_rol.toLowerCase().includes(term) && !selectedRoles.includes(r.id_rol)).map(r => ({ type: 'role', id: r.id_rol, label: r.nombre_rol, email: undefined }));
         const userMatches = allUsers.filter(u => 
             (u.nombre_usuario?.toLowerCase().includes(term) || u.correo_electronico?.toLowerCase().includes(term)) && !selectedUsers.includes(u.id_usuario)
         ).map(u => ({ type: 'user', id: u.id_usuario, label: u.nombre_usuario, email: u.correo_electronico }));
@@ -276,7 +276,7 @@ export const RecipientModal: React.FC<Props> = ({ isOpen, onClose, event, onSave
                                         </label>
                                         
                                         <div ref={wrapperRef} style={{ position: 'relative' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', border: '2px solid #e2e8f0', borderRadius: '8px', padding: '8px 12px', backgroundColor: '#fff', transition: 'border-color 0.2s', focusWithin: { borderColor: '#3b82f6' } }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', border: '2px solid #e2e8f0', borderRadius: '8px', padding: '8px 12px', backgroundColor: '#fff', transition: 'border-color 0.2s' }}>
                                                 <Search size={18} color="#94a3b8" style={{ marginRight: '8px' }} />
                                                 <input 
                                                     type="text" 

@@ -13,6 +13,7 @@ const config = {
     encrypt: false,
     trustServerCertificate: true,
     enableArithAbort: true,
+    useUTC: true,
   },
   pool: {
     max: 25,                      // Increased from 10 to handle more concurrent requests

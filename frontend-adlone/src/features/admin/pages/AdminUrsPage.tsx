@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ursService } from '../../../services/urs.service';
-import { RequestTypePermissionsPage } from './RequestTypePermissionsPage';
+import RequestTypePermissionsPage from './RequestTypePermissionsPage';
 import './AdminUrsPage.css';
 
 interface AdminUrsPageProps {
@@ -46,7 +46,7 @@ const AdminUrsPage: React.FC<AdminUrsPageProps> = ({ onBack }) => {
     if (view === 'PERMISSIONS' && selectedType) {
         return (
             <RequestTypePermissionsPage 
-                type={selectedType} 
+                requestType={selectedType} 
                 onBack={() => {
                     setView('LIST');
                     setSelectedType(null);

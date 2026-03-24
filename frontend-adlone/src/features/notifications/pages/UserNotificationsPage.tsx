@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { 
     Container, 
     Title, 
@@ -7,19 +7,11 @@ import {
     Stack, 
     Group, 
     Badge, 
-    ActionIcon, 
-    Tooltip, 
     Divider,
-    ScrollArea,
-    Box,
-    Button
+    Box
 } from '@mantine/core';
 import { 
     IconBell, 
-    IconCheck, 
-    IconChecks, 
-    IconTrash, 
-    IconClock,
     IconCalendar,
     IconChevronRight,
     IconInfoCircle,
