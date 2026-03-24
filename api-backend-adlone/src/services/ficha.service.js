@@ -209,7 +209,7 @@ class FichaIngresoService {
 
                     let idLab2 = valNum(row.id_laboratorioensayo_2);
                     if (row.tipo_analisis && row.tipo_analisis.trim() === 'Terreno') { idLab2 = 0; }
-                    requestDet.input('id_laboratorio_2', sql.Numeric(10, 0), idLab2 || 0);
+                    requestDet.input('id_laboratorio_2', sql.Numeric(10, 0), idLab2);
 
                     requestDet.input('id_tipoentrega', sql.Numeric(10, 0), valNum(row.id_tipoentrega || ant.id_tipoentrega));
                     requestDet.input('id_transporte', sql.Numeric(10, 0), valNum(row.id_transporte || ant.id_transporte));
@@ -566,7 +566,7 @@ class FichaIngresoService {
 
                         let idLab2 = valNum(row.id_laboratorioensayo_2);
                         if (row.tipo_analisis && row.tipo_analisis.trim() === 'Terreno') { idLab2 = 0; }
-                        reqUpdateDet.input('id_laboratorio_2', sql.Numeric(10, 0), idLab2 || 0);
+                        reqUpdateDet.input('id_laboratorio_2', sql.Numeric(10, 0), idLab2);
 
                         reqUpdateDet.input('id_tipoentrega', sql.Numeric(10, 0), valNum(row.id_tipoentrega || ant.id_tipoentrega));
                         reqUpdateDet.input('id_transporte', sql.Numeric(10, 0), valNum(row.id_transporte || ant.id_transporte));
@@ -616,7 +616,7 @@ class FichaIngresoService {
 
                         let idLab2 = valNum(row.id_laboratorioensayo_2);
                         if (row.tipo_analisis && row.tipo_analisis.trim() === 'Terreno') { idLab2 = 0; }
-                        requestDet.input('id_laboratorio_2', sql.Numeric(10, 0), idLab2 || 0);
+                        requestDet.input('id_laboratorio_2', sql.Numeric(10, 0), idLab2);
 
                         requestDet.input('id_tipoentrega', sql.Numeric(10, 0), valNum(row.id_tipoentrega || ant.id_tipoentrega));
                         requestDet.input('id_transporte', sql.Numeric(10, 0), valNum(row.id_transporte || ant.id_transporte));
@@ -2813,7 +2813,7 @@ class FichaIngresoService {
                                 { label: "Error Min", property: "emin", width: 40 },
                                 { label: "Error Max", property: "emax", width: 40 },
                                 { label: "Tipo Entrega", property: "ent", width: 50 },
-                                { label: "Lab. Principal", property: "lab1", width: 70 },
+                                { label: "Lab. Derivado", property: "lab1", width: 70 },
                                 { label: "Lab. Secundario", property: "lab2", width: 70 }
                             ],
                             rows: ficha.detalles.map(a => [
@@ -2974,7 +2974,7 @@ class FichaIngresoService {
             sheet.getCell(`A${currentRow}`).font = titleStyle;
             currentRow++;
 
-            const analHeaders = ['Análisis', 'Tipo Muestra', 'Límite Min', 'Límite Max', 'Error', 'Tipo Entrega', 'Lab. Principal'];
+            const analHeaders = ['Análisis', 'Tipo Muestra', 'Límite Min', 'Límite Max', 'Error', 'Tipo Entrega', 'Lab. Derivado', 'Lab. Secundario'];
             sheet.getRow(currentRow).values = analHeaders;
             analHeaders.forEach((_, i) => {
                 sheet.getCell(currentRow, i + 1).style = headerStyle;
@@ -2990,7 +2990,8 @@ class FichaIngresoService {
                         d.limitemax_h || '-',
                         d.llevaerror === 'S' ? 'Sí' : 'No',
                         d.nombre_tipoentrega || '-',
-                        d.nombre_laboratorioensayo || '-'
+                        d.nombre_laboratorioensayo || '-',
+                        d.nombre_laboratorioensayo_2 || '-'
                     ];
                     currentRow++;
                 });

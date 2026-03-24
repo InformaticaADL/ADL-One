@@ -63,6 +63,7 @@ api-backend-adlone/
 - **React 18** - Biblioteca de UI
 - **Vite** - Build tool y dev server
 - **TypeScript** - Tipado estático
+- **Mantine UI v7** - Biblioteca de componentes y sistema de temas
 - **Zustand** - State management
 - **CSS3** - Estilos modernos con gradientes y animaciones
 
@@ -618,6 +619,42 @@ Consolidación de la estabilidad del sistema y mejora de la interfaz de soporte 
 
 ---
 
+### 37. Personalización y Perfil de Usuario (Marzo 2026) 👤✨
+Nueva interfaz dedicada para la gestión y visualización de la identidad del usuario en el sistema.
+- **Página de Mi Perfil**: Landing page personalizada que consolida la información del usuario con un diseño moderno y minimalista.
+- **Encabezado Premium**: Implementación de un header con degradados dinámicos que se adaptan al tema visual seleccionado.
+- **Organización por Módulos**: Información dividida en tarjetas claras de "Información Personal" (datos básicos) y "Seguridad y Rol" (identificación técnica).
+- **Atajos de Configuración**: Panel de preferencias integrado para cambios rápidos en la experiencia de usuario.
+.
+
+### 38. Módulo de Chat General (Tiempo Real) 💬⚡
+Sistema de comunicación instantánea integrado para fomentar la colaboración entre los usuarios de ADL One.
+- **Mensajería Omnicanal**: Soporte para chats directos (uno a uno) y creación de grupos de trabajo con múltiples integrantes.
+- **Comunicación en Tiempo Real**: Motor basado en **Socket.io** que garantiza la entrega inmediata de mensajes y avisos de "nueva conversación".
+- **Gestión de Multimedia**: Capacidad para adjuntar archivos y documentos directamente en el flujo de la conversación.
+- **Herramientas Administrativas**: Funciones para limpiar historial, eliminar mensajes específicos y gestionar miembros en conversaciones grupales.
+- **Integración con Perfiles**: Acceso rápido al perfil del contacto y posibilidad de marcar chats como favoritos para acceso prioritario.
+- **Deep-linking de Notificaciones**: Redirección automática desde las notificaciones del sistema hacia la conversación específica del chat.
+
+---
+
+### 39. Consolidación de Validación Técnica y Segundo Laboratorio (Marzo 2026) 🧪🔬
+Optimización del flujo de validación técnica y ampliación de las capacidades analíticas en el formulario de ingreso.
+
+- **Integración de Segundo Laboratorio**:
+    - El `AnalysisForm.tsx` ahora permite asignar un **Laboratorio Secundario** opcional por cada parámetro, además del laboratorio derivado principal.
+    - Captura y persistencia de campos de **Error** (`llevaerror`, `error_min`, `error_max`) alineados con los requisitos de precisión del laboratorio.
+- **Flujo de Trabajo Simplificado**:
+    - Consolidación de las acciones de **Aprobar Ficha** y **Solicitar Revisión** dentro de la pestaña "Validación e Historial" en las vistas de detalle técnica y coordinación.
+    - Eliminación de redundancia visual: los botones de estado en la cabecera fueron removidos para evitar confusiones de flujo.
+- **Refactorización de UI (Mantine)**:
+    - Reconstrucción completa del motor de selección de análisis para mayor rendimiento y limpieza visual.
+    - Implementación de ScrollAreas independientes para búsqueda y configuración, mejorando la usabilidad en pantallas con muchos parámetros.
+- **Robustez en Notificaciones (UNS)**:
+    - Fusión de plantillas de notificación para soportar eventos de Ficha, GChat y Reporte de Problemas de Equipos de forma unificada en `uns.service.js`.
+
+---
+
 ## 🏗️ Estructura Detallada del Proyecto (Frontend)
 
 ```
@@ -635,7 +672,7 @@ frontend-adlone/
 ```
 
 ## 📄 Estado Final del Proyecto
-✅ **Backend**: Node.js + Express (API RESTful, Auth JWT, Notificaciones con Adjuntos, Lógica de Exportación a Excel)
-✅ **Frontend**: React + TypeScript (Calendario de Muestreos, Catálogo Maestro Minimalista, Exportador de Datos, UI Multi-columna)
-✅ **Base de Datos**: SQL Server (Procedimientos Almacenados optimizados, Auditoría de Equipos, Alineación de Esquemas)
+✅ **Backend**: Node.js + Express (API RESTful, Auth JWT, Notificaciones con Adjuntos, Lógica de Exportación a Excel, Auditoría Avanzada, Motor de Chat Socket.io)
+✅ **Frontend**: React + TypeScript + Mantine UI (Calendario de Muestreos, Sistema de Temas Dinámicos, Perfil de Usuario, Módulo de Chat General, Exportador de Datos)
+✅ **Base de Datos**: SQL Server (Procedimientos Almacenados optimizados, Auditoría de Equipos, Alineación de Esquemas, Logs de Auditoría Global, Esquema de Mensajería)
 

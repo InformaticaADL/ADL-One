@@ -20,8 +20,8 @@ const API_CONFIG: ApiConfigType = {
             return import.meta.env.VITE_API_URL || 'http://192.168.10.68:8002';
         }
 
-        // In development, try to use the custom API URL or default to localhost
-        return import.meta.env.VITE_API_URL || 'http://localhost:8002';
+        const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+        return import.meta.env.VITE_API_URL || `http://${hostname}:8002`;
     },
 
     // Available endpoints for local network

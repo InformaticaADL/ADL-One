@@ -194,16 +194,6 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
                             <Badge size="xl" radius="md" variant="light" color={statusObj.color}>
                                 {statusObj.label}
                             </Badge>
-                            {canProcess && (
-                                <Button.Group>
-                                    <Button color="green" leftSection={<IconCheck size={18} />} onClick={handleAcceptClick} loading={actionLoading}>
-                                        Aceptar
-                                    </Button>
-                                    <Button color="red" leftSection={<IconRotate size={18} />} onClick={handleRejectClick} loading={actionLoading}>
-                                        Rechazar
-                                    </Button>
-                                </Button.Group>
-                            )}
                         </Group>
                     }
                 />

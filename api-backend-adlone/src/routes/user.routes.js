@@ -2,8 +2,11 @@ import express from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import dotenv from 'dotenv';
 import userController from '../controllers/user.controller.js';
 import { authenticate } from '../middlewares/auth.middleware.js';
+
+dotenv.config();
 
 const router = express.Router();
 

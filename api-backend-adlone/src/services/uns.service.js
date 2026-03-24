@@ -195,6 +195,36 @@ class UnsService {
                             asunto_template: 'Programación Muestreo - Ficha #{{correlativo}}',
                             mensaje: 'Se han asignado fechas y muestreadores para la ficha #{{correlativo}} por {{usuario_accion}}.',
                             cuerpo_mensaje: 'Se han asignado fechas y muestreadores para la ficha #{{correlativo}} por {{usuario_accion}}.'
+                        },
+                        'SOL_EQUIPO_REPORTE_PROBLEMA_NUEVA': {
+                            titulo: 'Nueva Solicitud: Reporte de Problema',
+                            asunto_template: 'Nueva Solicitud: Reporte de Problema',
+                            mensaje: '{{usuario_accion}} ha reportado un problema con el equipo {{equipo_nombre}}',
+                            cuerpo_mensaje: '{{usuario_accion}} ha reportado un problema con el equipo {{equipo_nombre}}'
+                        },
+                        'GCHAT_NUEVO_MENSAJE': {
+                            titulo: '{{titulo_notificacion}}',
+                            asunto_template: '{{titulo_notificacion}}',
+                            mensaje: '{{mensaje_notificacion}}',
+                            cuerpo_mensaje: '{{mensaje_notificacion}}'
+                        },
+                        'GCHAT_GRUPO_CREADO': {
+                            titulo: 'Nuevo Grupo',
+                            asunto_template: 'Nuevo Grupo',
+                            mensaje: 'Has sido agregado al grupo {{nombre_grupo}}',
+                            cuerpo_mensaje: 'Has sido agregado al grupo {{nombre_grupo}}'
+                        },
+                        'GCHAT_GRUPO_EXPULSADO': {
+                            titulo: 'Aviso de Grupo',
+                            asunto_template: 'Aviso de Grupo',
+                            mensaje: 'Has sido removido del grupo {{nombre_grupo}}',
+                            cuerpo_mensaje: 'Has sido removido del grupo {{nombre_grupo}}'
+                        },
+                        'GCHAT_GRUPO_MIEMBRO_NUEVO': {
+                            titulo: 'Miembro Nuevo',
+                            asunto_template: 'Miembro Nuevo',
+                            mensaje: '{{usuario_accion}} se ha unido al grupo {{nombre_grupo}}',
+                            cuerpo_mensaje: '{{usuario_accion}} se ha unido al grupo {{nombre_grupo}}'
                         }
                     };
 
@@ -394,7 +424,7 @@ class UnsService {
             logger.info(`UNS: Resolviendo URS para tipo ${context.id_tipo}. Encontrados: ${permsRes.recordset.length}`);
         }
 
-        // C. Casos Especiales (Propietario / Solicitante)
+        // C. Casos Especiales (Propietario / Solicitante / Chat Afectado)
         // Solo enviamos si NO se ha desactivado explícitamente en el contexto
         if (context.notificar_propietario !== false) {
             const eventsForOwner = [
@@ -406,16 +436,50 @@ class UnsService {
                 'FICHA_RECHAZADA_TECNICA',
                 'FICHA_APROBADA_COORDINACION',
                 'FICHA_RECHAZADA_COORDINACION',
-                'FICHA_ASIGNADA'
+                'FICHA_ASIGNADA',
+                'GCHAT_GRUPO_EXPULSADO', 
+                'GCHAT_GRUPO_CREADO'
             ];
             
             if (eventsForOwner.includes(codigoEvento)) {
-                const ownerId = Number(context.id_solicitante || context.id_usuario_propietario);
+                const ownerId = Number(context.id_usuario_destino || context.id_solicitante || context.id_usuario_propietario);
                 if (ownerId && ownerId !== actorId) {
-                    const existing = recipientsMap.get(ownerId) || { id_usuario: ownerId, web: true, email: true };
-                    recipientsMap.set(ownerId, existing);
+                    // Sync with Hub: Only notify if there are rules and at least one has the toggle enabled.
+                    // For legacy Fichas/Solicitudes, we default to true if no rules exist to maintain compatibility.
+                    const isGchat = codigoEvento.startsWith('GCHAT');
+                    const isFicha = codigoEvento.startsWith('FICHA');
+                    
+                    const canSendWeb = reglas.length > 0 ? reglas.some(r => r.envia_web) : (!isGchat || isFicha);
+                    const canSendEmail = reglas.length > 0 ? reglas.some(r => r.envia_email) : (!isGchat || isFicha);
+                    
+                    const existing = recipientsMap.get(ownerId) || { id_usuario: ownerId, web: false, email: false };
+                    existing.web = existing.web || canSendWeb;
+                    existing.email = existing.email || canSendEmail;
+                    
+                    if (existing.web || existing.email) {
+                        recipientsMap.set(ownerId, existing);
+                    }
                 }
             }
+        }
+
+        // D. Destinatarios Directos (Para Chat y eventos recurrentes/masivos dinámicos)
+        if (context.destinatarios_directos && Array.isArray(context.destinatarios_directos)) {
+            const isGchat = codigoEvento.startsWith('GCHAT');
+            const canSendWeb = reglas.length > 0 ? reglas.some(r => r.envia_web) : !isGchat;
+            const canSendEmail = reglas.length > 0 ? reglas.some(r => r.envia_email) : !isGchat;
+            
+            context.destinatarios_directos.forEach(uid => {
+                const id = Number(uid);
+                if (id && id !== actorId) {
+                    const existing = recipientsMap.get(id) || { id_usuario: id, web: false, email: false };
+                    existing.web = existing.web || canSendWeb;
+                    existing.email = existing.email || canSendEmail;
+                    if (existing.web || existing.email) {
+                        recipientsMap.set(id, existing);
+                    }
+                }
+            });
         }
 
         return Array.from(recipientsMap.values());
@@ -486,6 +550,8 @@ class UnsService {
                     titulo: titulo,
                     mensaje: mensaje,
                     tipo: tipo,
+                    id_referencia: idReferencia,
+                    area: area,
                     fecha_creacion: new Date()
                 });
             }

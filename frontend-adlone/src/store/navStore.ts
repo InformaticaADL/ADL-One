@@ -7,6 +7,7 @@ interface NavState {
     previousSubmodule: string;
     drawerOpen: boolean;
     pendingRequestId: number | null; // For deep-linking from notifications
+    pendingChatId: number | null; // For deep-linking to specific chat
     selectedRequestId: number | null; // Phase 27
     ursInboxMode: 'RECEIVED' | 'SENT'; // Phase 27
     hiddenNotifications: string[]; // Persistent dismissed notifications
@@ -14,6 +15,7 @@ interface NavState {
     setActiveSubmodule: (submoduleId: string) => void;
     setDrawerOpen: (isOpen: boolean) => void;
     setPendingRequestId: (id: number | null) => void;
+    setPendingChatId: (id: number | null) => void;
     setSelectedRequestId: (id: number | null) => void;
     setUrsInboxMode: (mode: 'RECEIVED' | 'SENT') => void;
     sidebarCollapsed: boolean;
@@ -36,6 +38,7 @@ export const useNavStore = create<NavState>()(
             drawerOpen: false,
             sidebarCollapsed: false,
             pendingRequestId: null,
+            pendingChatId: null,
             selectedRequestId: null,
             ursInboxMode: 'RECEIVED',
             hiddenNotifications: JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'),
@@ -49,6 +52,7 @@ export const useNavStore = create<NavState>()(
             setSidebarCollapsed: (isCollapsed) => set({ sidebarCollapsed: isCollapsed }),
             toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
             setPendingRequestId: (id) => set({ pendingRequestId: id }),
+            setPendingChatId: (id) => set({ pendingChatId: id }),
             setSelectedRequestId: (id) => set({ selectedRequestId: id }),
             setUrsInboxMode: (mode) => set({ ursInboxMode: mode }),
             hideNotification: (id: string | number) => set((state) => {

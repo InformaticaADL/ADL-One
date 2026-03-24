@@ -1,232 +1,259 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { chatService } from '../../services/chat.service';
-import type { ChatMessage, ChatContact } from '../../services/chat.service';
+import { useEffect, useCallback, useState } from 'react';
+import { Paper, Text, Loader, Center } from '@mantine/core';
+import { IconMessageCircle } from '@tabler/icons-react';
+import { useChatStore } from '../../store/chatStore';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNavStore } from '../../store/navStore';
+import { generalChatService } from '../../services/general-chat.service';
+import type { ChatMessage } from '../../services/general-chat.service';
+import { io, Socket } from 'socket.io-client';
+import API_CONFIG from '../../config/api.config';
+import ChatSidebar from './ChatSidebar';
+import ChatWindow from './ChatWindow';
+import ChatGroupModal from './ChatGroupModal';
+import ContactProfileDrawer from './ContactProfileDrawer';
 import './ChatModule.css';
+
+let chatSocket: Socket | null = null;
 
 const ChatModule: React.FC = () => {
     const { user } = useAuth();
-    const [contacts, setContacts] = useState<ChatContact[]>([]);
-    const [activeContact, setActiveContact] = useState<ChatContact | null>(null);
-    const [messages, setMessages] = useState<ChatMessage[]>([]);
-    const [newMessage, setNewMessage] = useState('');
-    const [searchQuery, setSearchQuery] = useState('');
-    const [searchResults, setSearchResults] = useState<ChatContact[]>([]);
-    const [allUsers, setAllUsers] = useState<ChatContact[]>([]);
-    const [showSearchDropdown, setShowSearchDropdown] = useState(false);
-    
-    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const {
+        conversations, activeConversation, messages, loading, messagesLoading,
+        fetchConversations, setActiveConversation, fetchMessages, addMessage,
+        updateConversationLastMessage, decrementUnread, fetchFavorites
+    } = useChatStore();
 
-    // Cargar chats recientes al inicio
+    const [groupModalOpen, setGroupModalOpen] = useState(false);
+    const [editingGroup, setEditingGroup] = useState<number | null>(null);
+    const [profileUserId, setProfileUserId] = useState<number | null>(null);
+    const [profileOpen, setProfileOpen] = useState(false);
+
+    // deep-linking from notifications
+    const { pendingChatId, setPendingChatId, activeModule } = useNavStore();
+
+    // Init: fetch conversations and favorites
     useEffect(() => {
-        loadRecentChats();
-        loadAllUsers();
-    }, [activeContact]);
+        const init = async () => {
+            await fetchConversations();
+            await fetchFavorites();
+        };
+        init();
+    }, []);
 
+
+    // Socket.IO for real-time messages
     useEffect(() => {
-        if (activeContact) {
-            loadMessages(activeContact.id_usuario);
-        }
-    }, [activeContact]);
+        if (!user?.id) return;
 
-    const loadRecentChats = async () => {
+        const baseUrl = API_CONFIG.getBaseURL();
+        chatSocket = io(baseUrl);
+
+        chatSocket.on('connect', () => {
+            chatSocket?.emit('join', user.id);
+        });
+
+        chatSocket.on('nuevoChatMensaje', (msg: ChatMessage) => {
+            const state = useChatStore.getState();
+            
+            // If the conversation is not in our list (might be hidden), re-fetch list
+            const convExists = state.conversations.find(c => c.id_conversacion === msg.id_conversacion);
+            if (!convExists) {
+                fetchConversations();
+            }
+
+            // If the message is for the active conversation, add it
+            if (state.activeConversation?.id_conversacion === msg.id_conversacion) {
+                addMessage(msg);
+                generalChatService.markAsRead(msg.id_conversacion).catch(() => {});
+            }
+            // Update conversation list
+            updateConversationLastMessage(msg.id_conversacion, msg);
+        });
+
+        chatSocket.on('chatConversacionNueva', () => {
+            fetchConversations();
+        });
+
+        chatSocket.on('chatMiembroRemovido', (data: { id_conversacion: number }) => {
+            fetchConversations();
+            const state = useChatStore.getState();
+            if (state.activeConversation?.id_conversacion === data.id_conversacion) {
+                setActiveConversation(null);
+            }
+        });
+
+        return () => {
+            chatSocket?.disconnect();
+            chatSocket = null;
+        };
+    }, [user?.id]);
+
+    // Fetch messages when active conversation changes
+    useEffect(() => {
+        if (activeConversation) {
+            fetchMessages(activeConversation.id_conversacion);
+            generalChatService.markAsRead(activeConversation.id_conversacion).catch(() => {});
+            decrementUnread(activeConversation.id_conversacion);
+        }
+    }, [activeConversation?.id_conversacion]);
+
+    const handleSelectConversation = useCallback((conv: typeof conversations[0]) => {
+        setActiveConversation(conv);
+    }, []);
+
+    const handleStartDirectChat = useCallback(async (contactId: number) => {
         try {
-            const data = await chatService.getRecentChats();
-            setContacts(data);
+            const result = await generalChatService.getOrCreateDirect(contactId);
+            await fetchConversations();
+            const state = useChatStore.getState();
+            const conv = state.conversations.find(c => Number(c.id_conversacion) === Number(result.id_conversacion));
+            if (conv) setActiveConversation(conv);
         } catch (error) {
-            console.error("Error loading recent chats:", error);
+            console.error('Error starting direct chat:', error);
         }
-    };
+    }, [fetchConversations, setActiveConversation]);
 
-    const loadAllUsers = async () => {
+    const handleSelectConversationById = useCallback(async (conversationId: number) => {
         try {
-            const data = await chatService.searchUsers(''); 
-            setAllUsers(data);
+            await generalChatService.unhideConversation(conversationId);
+            await fetchConversations();
+            const state = useChatStore.getState();
+            const conv = state.conversations.find(c => Number(c.id_conversacion) === Number(conversationId));
+            if (conv) setActiveConversation(conv);
         } catch (error) {
-            console.error("Error loading all users:", error);
+            console.error('Error opening conversation:', error);
         }
-    };
+    }, [fetchConversations, setActiveConversation]);
 
-    const loadMessages = async (targetId: number) => {
+    // Deep-linking logic (Chat)
+    useEffect(() => {
+        if (activeModule === 'chat' && pendingChatId) {
+            const conversationId = Number(pendingChatId);
+            const target = conversations.find(c => c.id_conversacion === conversationId);
+            if (target) {
+                setActiveConversation(target);
+                setPendingChatId(null); // Clear after use
+            } else if (!loading) {
+                // If not found in current loaded list, try to unhide and select
+                handleSelectConversationById(conversationId).finally(() => {
+                    setPendingChatId(null);
+                });
+            }
+        }
+    }, [activeModule, pendingChatId, conversations, loading, setActiveConversation, setPendingChatId, handleSelectConversationById]);
+
+    const handleSendMessage = useCallback(async (mensaje?: string, archivo?: File) => {
+        if (!activeConversation) return;
         try {
-            const data = await chatService.getConversation(targetId);
-            setMessages(data);
-            scrollToBottom();
-            await chatService.markAsRead(targetId);
-            loadRecentChats(); 
+            const newMsg = await generalChatService.sendMessage(activeConversation.id_conversacion, mensaje, archivo);
+            addMessage(newMsg);
+            updateConversationLastMessage(activeConversation.id_conversacion, newMsg);
         } catch (error) {
-            console.error("Error loading messages:", error);
+            console.error('Error sending message:', error);
         }
-    };
+    }, [activeConversation]);
 
-    const handleSearch = async (query: string) => {
-        setSearchQuery(query);
-        if (query.trim() === '') {
-            setSearchResults([]);
-            return;
-        }
+    const handleClearChat = useCallback(async () => {
+        if (!activeConversation) return;
         try {
-            const data = await chatService.searchUsers(query);
-            setSearchResults(data);
+            await generalChatService.clearMessages(activeConversation.id_conversacion);
+            fetchMessages(activeConversation.id_conversacion);
         } catch (error) {
-            console.error("Error searching users:", error);
+            console.error('Error clearing messages:', error);
         }
-    };
+    }, [activeConversation]);
 
-    const handleSendMessage = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!newMessage.trim() || !activeContact) return;
-
+    const handleDeleteMessage = useCallback(async (messageId: number) => {
         try {
-            const sent = await chatService.sendMessage(activeContact.id_usuario, newMessage);
-            setMessages(prev => [...prev, { ...sent, es_mio: true }]);
-            setNewMessage('');
-            scrollToBottom();
-            loadRecentChats();
+            await generalChatService.deleteMessage(messageId);
+            if (activeConversation) fetchMessages(activeConversation.id_conversacion);
         } catch (error) {
-            console.error("Error sending message:", error);
+            console.error('Error deleting message:', error);
         }
-    };
+    }, [activeConversation]);
 
-    const scrollToBottom = () => {
-        setTimeout(() => {
-            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-        }, 100);
-    };
+    const handleViewProfile = useCallback((userId: number) => {
+        setProfileUserId(userId);
+        setProfileOpen(true);
+    }, []);
 
-    const startChat = (contact: ChatContact) => {
-        setActiveContact(contact);
-        setSearchQuery('');
-        setSearchResults([]);
-        setShowSearchDropdown(false);
-    };
+    const handleGroupCreated = useCallback(async () => {
+        setGroupModalOpen(false);
+        setEditingGroup(null);
+        await fetchConversations();
+    }, []);
 
-    const displayedSearchResults = searchQuery.trim() === '' ? allUsers : searchResults;
+    const handleEditGroup = useCallback((conversationId: number) => {
+        setEditingGroup(conversationId);
+        setGroupModalOpen(true);
+    }, []);
+
+    if (loading && conversations.length === 0) {
+        return (
+            <Center style={{ height: 'calc(100vh - 84px)' }}>
+                <Loader size="lg" color="blue" />
+            </Center>
+        );
+    }
 
     return (
-        <div className="chat-container">
-            {/* Sidebar: Lista de contactos y búsqueda */}
-            <div className="chat-sidebar">
-                <div className="chat-sidebar-header">
-                    <div style={{ position: 'relative' }}>
-                        <input 
-                            type="text" 
-                            className="chat-search-input" 
-                            placeholder="Buscar persona..."
-                            value={searchQuery}
-                            onFocus={() => setShowSearchDropdown(true)}
-                            onChange={(e) => handleSearch(e.target.value)}
-                        />
-                        {showSearchDropdown && displayedSearchResults.length > 0 && (
-                            <div className="chat-searching-results">
-                                <div style={{ padding: '0.5rem 1rem', fontSize: '0.7rem', color: '#94a3b8', fontWeight: 600, borderBottom: '1px solid #f1f5f9' }}>
-                                    {searchQuery.trim() === '' ? 'SUGERENCIAS' : 'RESULTADOS DE BÚSQUEDA'}
-                                </div>
-                                {displayedSearchResults.map(res => (
-                                    <div key={res.id_usuario} className="chat-contact-item" onClick={() => startChat(res)}>
-                                        <img src={res.foto || '/default-avatar.png'} className="chat-contact-avatar small" style={{ width: 28, height: 28 }} alt="" />
-                                        <div className="chat-contact-info">
-                                            <div className="chat-contact-name" style={{ fontSize: '0.85rem' }}>{res.nombre}</div>
-                                        </div>
-                                    </div>
-                                ))}
-                                <div 
-                                    style={{ padding: '0.5rem', textAlign: 'center', fontSize: '0.7rem', color: '#3b82f6', cursor: 'pointer' }}
-                                    onClick={() => setShowSearchDropdown(false)}
-                                >
-                                    Cerrar
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-                
-                <div className="chat-contact-list">
-                    {contacts.length > 0 ? (
-                        contacts.map(c => (
-                            <div 
-                                key={c.id_usuario} 
-                                className={`chat-contact-item ${activeContact?.id_usuario === c.id_usuario ? 'active' : ''}`}
-                                onClick={() => setActiveContact(c)}
-                            >
-                                <img src={c.foto || '/default-avatar.png'} className="chat-contact-avatar" alt={c.nombre} />
-                                <div className="chat-contact-info">
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <div className="chat-contact-name">{c.nombre}</div>
-                                        {c.unread_count && c.unread_count > 0 ? (
-                                            <span className="chat-unread-badge">{c.unread_count}</span>
-                                        ) : null}
-                                    </div>
-                                    <div className="chat-contact-lastmsg">{c.ultimo_mensaje || 'Sin mensajes'}</div>
-                                </div>
-                            </div>
-                        ))
-                    ) : (
-                        <div className="chat-empty-state" style={{ padding: '2rem', textAlign: 'center' }}>
-                            <p>No tienes conversaciones recientes.</p>
-                            <p style={{ fontSize: '0.8rem' }}>Usa el buscador para iniciar una.</p>
-                        </div>
-                    )}
-                </div>
-            </div>
+        <>
+            <Paper
+                radius="md"
+                style={{
+                    display: 'flex',
+                    height: 'calc(100vh - 84px)',
+                    overflow: 'hidden',
+                    border: '1px solid var(--mantine-color-default-border)'
+                }}
+            >
+                <ChatSidebar
+                    conversations={conversations}
+                    activeConversation={activeConversation}
+                    onSelect={handleSelectConversation}
+                    onStartDirect={handleStartDirectChat}
+                    onSelectById={handleSelectConversationById}
+                    onCreateGroup={() => setGroupModalOpen(true)}
+                    onViewProfile={handleViewProfile}
+                />
 
-            {/* Ventana de Chat */}
-            <div className="chat-window">
-                {activeContact ? (
-                    <>
-                        <div className="chat-window-header">
-                            <img src={activeContact.foto || '/default-avatar.png'} className="chat-contact-avatar small" style={{ width: 32, height: 32 }} alt="" />
-                            <div style={{ marginLeft: '0.8rem' }}>
-                                <div className="chat-contact-name" style={{ marginBottom: 0 }}>{activeContact.nombre}</div>
-                                <div style={{ fontSize: '0.75rem', color: '#10b981' }}>En línea</div>
-                            </div>
-                        </div>
-
-                        <div className="chat-messages-area">
-                            {messages.map((m, i) => {
-                                const isMio = m.id_emisor === Number(user?.id);
-                                return (
-                                    <div key={i} className={`chat-message ${isMio ? 'sent' : 'received'}`}>
-                                        <div className="chat-bubble">
-                                            {m.mensaje}
-                                        </div>
-                                        <div className="chat-msg-time">
-                                            {new Date(m.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                            <div ref={messagesEndRef} />
-                        </div>
-
-                        <form className="chat-input-container" onSubmit={handleSendMessage}>
-                            <textarea 
-                                className="chat-input" 
-                                placeholder="Escribe un mensaje..."
-                                value={newMessage}
-                                onChange={(e) => setNewMessage(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && !e.shiftKey) {
-                                        e.preventDefault();
-                                        handleSendMessage(e);
-                                    }
-                                }}
-                                rows={1}
-                            />
-                            <button type="submit" className="chat-send-btn">
-                                <span style={{ fontSize: '1.2rem' }}>➤</span>
-                            </button>
-                        </form>
-                    </>
+                {activeConversation ? (
+                    <ChatWindow
+                        conversation={activeConversation}
+                        messages={messages}
+                        loading={messagesLoading}
+                        currentUserId={user?.id || 0}
+                        onSend={handleSendMessage}
+                        onClearChat={handleClearChat}
+                        onDeleteMessage={handleDeleteMessage}
+                        onViewProfile={handleViewProfile}
+                        onEditGroup={handleEditGroup}
+                    />
                 ) : (
-                    <div className="chat-empty-state">
-                        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>💬</div>
-                        <h3>Tus Mensajes</h3>
-                        <p>Selecciona una conversación para empezar.</p>
-                    </div>
+                    <Center style={{ flex: 1, flexDirection: 'column', gap: 16 }}>
+                        <IconMessageCircle size={80} stroke={1} style={{ color: 'var(--mantine-color-dimmed)' }} />
+                        <Text size="xl" c="dimmed" fw={500}>Chat General ADL One</Text>
+                        <Text size="sm" c="dimmed">Selecciona una conversación o busca un contacto para comenzar</Text>
+                    </Center>
                 )}
-            </div>
-        </div>
+            </Paper>
+
+            <ChatGroupModal
+                opened={groupModalOpen}
+                onClose={() => { setGroupModalOpen(false); setEditingGroup(null); }}
+                onCreated={handleGroupCreated}
+                editConversationId={editingGroup}
+                onViewMember={handleViewProfile}
+            />
+
+            <ContactProfileDrawer
+                opened={profileOpen}
+                onClose={() => setProfileOpen(false)}
+                userId={profileUserId}
+                onStartChat={handleStartDirectChat}
+            />
+        </>
     );
 };
 

@@ -14,7 +14,6 @@ import {
     Checkbox, 
     ScrollArea, 
     ActionIcon, 
-    Tooltip, 
     NumberInput,
     Divider,
     Badge
@@ -59,8 +58,9 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
 
     // ===== ESTADO: Selección de Análisis =====
     const [selectedAnalysis, setSelectedAnalysis] = useState<Set<string>>(new Set());
-    const [tempLabs, setTempLabs] = useState<Record<string, string>>({});
-    const [tempDeliveries, setTempDeliveries] = useState<Record<string, string>>({});
+    const [tempLabs, setTempLabs] = useState<Record<string, string>>({}); 
+    const [tempLabs2, setTempLabs2] = useState<Record<string, string>>({}); 
+    const [tempDeliveries, setTempDeliveries] = useState<Record<string, string>>({}); 
 
     // ===== FUNCIONES: Carga de Catálogos =====
     useEffect(() => {
@@ -148,6 +148,8 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
     const handleSelectNone = () => {
         setSelectedAnalysis(new Set());
         setTempLabs({});
+        setTempLabs2({});
+        setTempDeliveries({});
     };
 
     const handleToggleAnalysis = (id: string) => {
@@ -159,18 +161,26 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
             delete newTempLabs[idStr];
             setTempLabs(newTempLabs);
 
+            const newTempLabs2 = { ...tempLabs2 };
+            delete newTempLabs2[idStr];
+            setTempLabs2(newTempLabs2);
+
             const newTempDeliveries = { ...tempDeliveries };
             delete newTempDeliveries[idStr];
             setTempDeliveries(newTempDeliveries);
         } else {
             newSelection.add(idStr);
-            setSearchText(''); // Cleanup search on selection
+            setSearchText('');
         }
         setSelectedAnalysis(newSelection);
     };
 
     const handleTempLabChange = (analysisId: string, labId: string) => {
         setTempLabs(prev => ({ ...prev, [analysisId]: labId }));
+    };
+
+    const handleTempLab2Change = (analysisId: string, labId: string) => {
+        setTempLabs2(prev => ({ ...prev, [analysisId]: labId }));
     };
 
     const handleTempDeliveryChange = (analysisId: string, deliveryId: string) => {
@@ -218,18 +228,25 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
             }
             
             const selectedTipoEntregaObj = tiposEntrega.find((t: any) => String(t.id_tipoentrega) === String(specificDeliveryId));
+            
             const specificLabId = tempLabs[id];
             const selectedLabObj = laboratorios.find((l: any) => String(l.id_laboratorioensayo) === String(specificLabId));
+            
+            const specificLabId2 = tempLabs2[id];
+            const selectedLabObj2 = laboratorios.find((l: any) => String(l.id_laboratorioensayo) === String(specificLabId2));
 
             return {
                 ...analysis,
                 tipo_analisis: tipoMuestra,
                 nombre_tipoentrega: selectedTipoEntregaObj?.nombre_tipoentrega || '',
                 uf_individual: 0,
+                // Laboratorio 1
                 nombre_laboratorioensayo: tipoMuestra === 'Terreno' ? '' : (selectedLabObj?.nombre_laboratorioensayo || ''),
                 id_laboratorioensayo: tipoMuestra === 'Terreno' ? 0 : (selectedLabObj?.id_laboratorioensayo || 0),
-                nombre_laboratorioensayo_2: '',
-                id_laboratorioensayo_2: 0,
+                // Laboratorio 2
+                nombre_laboratorioensayo_2: tipoMuestra === 'Terreno' ? '' : (selectedLabObj2?.nombre_laboratorioensayo || ''),
+                id_laboratorioensayo_2: tipoMuestra === 'Terreno' ? 0 : (selectedLabObj2?.id_laboratorioensayo || 0),
+                
                 item: savedAnalysis.length + index + 1,
                 id_tipoentrega: selectedTipoEntregaObj?.id_tipoentrega || specificDeliveryId,
                 id_transporte: 0,
@@ -241,6 +258,7 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
         onSavedAnalysisChange([...savedAnalysis, ...newSavedAnalysis]);
         setSelectedAnalysis(new Set());
         setTempLabs({});
+        setTempLabs2({});
         setTempDeliveries({});
         setSearchText('');
         setTipoMuestra(null);
@@ -274,7 +292,7 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                             </Group>
 
                             <Select 
-                                label="Normativa" post-label={catalogos.isLoading('normativas') ? '(Cargando...)' : ''}
+                                label="Normativa" 
                                 placeholder="Seleccione normativa..."
                                 data={normativas.map(n => ({ value: String(n.id_normativa), label: n.nombre_normativa }))}
                                 value={normativa}
@@ -323,7 +341,7 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
 
                             <ScrollArea h={300} offsetScrollbars>
                                 <Table striped highlightOnHover withTableBorder>
-                                    <Table.Thead bg="gray.0">
+                                    <Table.Thead bg="gray.0" pos="sticky" top={0} style={{ zIndex: 1 }}>
                                         <Table.Tr>
                                             <Table.Th>Análisis</Table.Th>
                                             <Table.Th w={60} ta="center">☑️</Table.Th>
@@ -335,7 +353,7 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                                         ) : filteredAnalysis.length > 0 ? (
                                             filteredAnalysis.map(analysis => (
                                                 <Table.Tr key={analysis.id_referenciaanalisis}>
-                                                    <Table.Td>{analysis.nombre_tecnica}</Table.Td>
+                                                    <Table.Td fz="xs">{analysis.nombre_tecnica}</Table.Td>
                                                     <Table.Td ta="center">
                                                         <Checkbox 
                                                             checked={selectedAnalysis.has(String(analysis.id_referenciaanalisis))} 
@@ -383,7 +401,8 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                                                     {tipoMuestra === 'Laboratorio' && (
                                                         <>
                                                             <Table.Th w={120}>Entrega</Table.Th>
-                                                            <Table.Th w={160}>Laboratorio</Table.Th>
+                                                            <Table.Th w={160}>Lab. Derivado</Table.Th>
+                                                            <Table.Th w={160}>Lab. Secundario</Table.Th>
                                                         </>
                                                     )}
                                                     <Table.Th w={40}></Table.Th>
@@ -411,6 +430,17 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                                                                             value={tempLabs[id] || ''}
                                                                             onChange={(val) => handleTempLabChange(id, val || '')}
                                                                             size="xs" radius="xs"
+                                                                            placeholder="..."
+                                                                        />
+                                                                    </Table.Td>
+                                                                    <Table.Td>
+                                                                        <Select 
+                                                                            data={laboratorios.map(l => ({ value: String(l.id_laboratorioensayo), label: l.nombre_laboratorioensayo }))}
+                                                                            value={tempLabs2[id] || ''}
+                                                                            onChange={(val) => handleTempLab2Change(id, val || '')}
+                                                                            size="xs" radius="xs"
+                                                                            placeholder="(Opcional)"
+                                                                            clearable
                                                                         />
                                                                     </Table.Td>
                                                                 </>
@@ -459,17 +489,20 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                     </Group>
 
                     <ScrollArea offsetScrollbars>
-                        <Table striped highlightOnHover withTableBorder>
-                            <Table.Thead bg="gray.0">
+                        <Table striped highlightOnHover withTableBorder verticalSpacing="xs">
+                            <Table.Thead bg="gray.0" pos="sticky" top={0} style={{ zIndex: 1 }}>
                                 <Table.Tr>
                                     <Table.Th>Análisis</Table.Th>
                                     <Table.Th>Muestra</Table.Th>
                                     <Table.Th ta="right">L. Min</Table.Th>
                                     <Table.Th ta="right">L. Max</Table.Th>
                                     <Table.Th ta="center">Error</Table.Th>
+                                    <Table.Th ta="right">Err. Min</Table.Th>
+                                    <Table.Th ta="right">Err. Max</Table.Th>
                                     <Table.Th>Entrega</Table.Th>
                                     <Table.Th w={100} ta="right">U.F.</Table.Th>
-                                    <Table.Th>Laboratorio</Table.Th>
+                                    <Table.Th>Lab. Derivado</Table.Th>
+                                    <Table.Th>Lab. Secundario</Table.Th>
                                     <Table.Th w={60} ta="center"></Table.Th>
                                 </Table.Tr>
                             </Table.Thead>
@@ -477,11 +510,13 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                                 {savedAnalysis.length > 0 ? (
                                     savedAnalysis.map(analysis => (
                                         <Table.Tr key={analysis.savedId}>
-                                            <Table.Td fz="sm">{analysis.nombre_tecnica}</Table.Td>
+                                            <Table.Td fz="sm" fw={500}>{analysis.nombre_tecnica}</Table.Td>
                                             <Table.Td fz="xs">{analysis.tipo_analisis}</Table.Td>
                                             <Table.Td fz="xs" ta="right">{analysis.limitemax_d ?? '-'}</Table.Td>
                                             <Table.Td fz="xs" ta="right">{analysis.limitemax_h ?? '-'}</Table.Td>
                                             <Table.Td fz="xs" ta="center">{['S', 's', 'Y', 'y', true].includes(analysis.llevaerror) ? 'Sí' : 'No'}</Table.Td>
+                                            <Table.Td fz="xs" ta="right">{analysis.error_min ?? '-'}</Table.Td>
+                                            <Table.Td fz="xs" ta="right">{analysis.error_max ?? '-'}</Table.Td>
                                             <Table.Td fz="xs">{analysis.nombre_tipoentrega}</Table.Td>
                                             <Table.Td>
                                                 <NumberInput 
@@ -489,7 +524,7 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                                                     value={analysis.uf_individual} 
                                                     onChange={(val) => handleUfChange(analysis.savedId, val)}
                                                     onFocus={(e) => {
-                                                        if (analysis.uf_individual === 0 || analysis.uf_individual === '0') {
+                                                        if (String(analysis.uf_individual) === '0') {
                                                             handleUfChange(analysis.savedId, '');
                                                         }
                                                         e.currentTarget.select();
@@ -499,23 +534,17 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                                                     ta="right"
                                                 />
                                             </Table.Td>
-                                            <Table.Td fz="xs">
-                                                {analysis.nombre_laboratorioensayo || '-'}
-                                                {analysis.nombre_laboratorioensayo_2 && (
-                                                    <Text size="10px" c="dimmed">+ {analysis.nombre_laboratorioensayo_2}</Text>
-                                                )}
-                                            </Table.Td>
+                                            <Table.Td fz="xs">{analysis.nombre_laboratorioensayo || '-'}</Table.Td>
+                                            <Table.Td fz="xs">{analysis.nombre_laboratorioensayo_2 || '-'}</Table.Td>
                                             <Table.Td ta="center">
-                                                <Tooltip label="Eliminar grabado">
-                                                    <ActionIcon color="red" variant="subtle" size="sm" onClick={() => handleDeleteSavedAnalysis(analysis.savedId)}>
-                                                        <IconTrash size={14} />
-                                                    </ActionIcon>
-                                                </Tooltip>
+                                                <ActionIcon color="red" variant="subtle" size="sm" onClick={() => handleDeleteSavedAnalysis(analysis.savedId)}>
+                                                    <IconTrash size={14} />
+                                                </ActionIcon>
                                             </Table.Td>
                                         </Table.Tr>
                                     ))
                                 ) : (
-                                    <Table.Tr><Table.Td colSpan={9} ta="center" py="xl" c="dimmed">No hay análisis grabados</Table.Td></Table.Tr>
+                                    <Table.Tr><Table.Td colSpan={12} ta="center" py="xl" c="dimmed">No hay análisis grabados</Table.Td></Table.Tr>
                                 )}
                             </Table.Tbody>
                         </Table>

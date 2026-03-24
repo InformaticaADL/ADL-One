@@ -1,16 +1,23 @@
 import { getConnection } from './src/config/database.js';
 import sql from 'mssql';
 
-async function checkData() {
+async function checkDataTypes() {
     try {
         const pool = await getConnection();
-        const result = await pool.request().query('SELECT DISTINCT tipoequipo, sigla FROM mae_equipo ORDER BY tipoequipo');
-        console.log(JSON.stringify(result.recordset, null, 2));
+        
+        const result = await pool.request().query(`
+            SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_NAME = 'rel_chat_participante'
+        `);
+        
+        console.table(result.recordset);
+        
         process.exit(0);
-    } catch (error) {
-        console.error(error);
+    } catch (err) {
+        console.error('Error:', err.message);
         process.exit(1);
     }
 }
 
-checkData();
+checkDataTypes();
