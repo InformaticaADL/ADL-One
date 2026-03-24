@@ -22,8 +22,7 @@ import {
     ScrollArea, 
     Textarea,
     Grid,
-    Alert,
-    Checkbox
+    Alert
 } from '@mantine/core';
 import { 
     IconArrowLeft,
