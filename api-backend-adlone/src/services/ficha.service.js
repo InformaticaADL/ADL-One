@@ -2808,7 +2808,7 @@ class FichaIngresoService {
                                 { label: "Error Min", property: "emin", width: 40 },
                                 { label: "Error Max", property: "emax", width: 40 },
                                 { label: "Tipo Entrega", property: "ent", width: 50 },
-                                { label: "Lab. Principal", property: "lab1", width: 70 },
+                                { label: "Lab. Derivado", property: "lab1", width: 70 },
                                 { label: "Lab. Secundario", property: "lab2", width: 70 }
                             ],
                             rows: ficha.detalles.map(a => [
@@ -2969,7 +2969,7 @@ class FichaIngresoService {
             sheet.getCell(`A${currentRow}`).font = titleStyle;
             currentRow++;
 
-            const analHeaders = ['Análisis', 'Tipo Muestra', 'Límite Min', 'Límite Max', 'Error', 'Tipo Entrega', 'Lab. Principal', 'Lab. Secundario'];
+            const analHeaders = ['Análisis', 'Tipo Muestra', 'Límite Min', 'Límite Max', 'Error', 'Tipo Entrega', 'Lab. Derivado', 'Lab. Secundario'];
             sheet.getRow(currentRow).values = analHeaders;
             analHeaders.forEach((_, i) => {
                 sheet.getCell(currentRow, i + 1).style = headerStyle;

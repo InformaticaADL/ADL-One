@@ -554,8 +554,8 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                                             {tipoMuestra === 'Laboratorio' && (
                                                 <>
                                                     <th style={{ padding: '6px 10px', textAlign: 'left', borderBottom: '1px solid #e2e8f0', color: '#64748b', width: '120px' }}>Entrega</th>
-                                                    <th style={{ padding: '6px 10px', textAlign: 'left', borderBottom: '1px solid #e2e8f0', color: '#64748b', width: '140px' }}>Lab 1</th>
-                                                    <th style={{ padding: '6px 10px', textAlign: 'left', borderBottom: '1px solid #e2e8f0', color: '#64748b', width: '140px' }}>Lab 2 (Opt)</th>
+                                                    <th style={{ padding: '6px 10px', textAlign: 'left', borderBottom: '1px solid #e2e8f0', color: '#64748b', width: '140px' }}>Lab. Derivado</th>
+                                                    <th style={{ padding: '6px 10px', textAlign: 'left', borderBottom: '1px solid #e2e8f0', color: '#64748b', width: '140px' }}>Lab. Secundario</th>
                                                 </>
                                             )}
                                             <th style={{ padding: '6px 10px', textAlign: 'center', borderBottom: '1px solid #e2e8f0', color: '#64748b', width: '40px' }}></th>
@@ -694,6 +694,7 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                                 <th style={{ padding: '8px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>Tipo Entrega</th>
                                 <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #e5e7eb' }}>Valor U.F.</th>
                                 <th style={{ padding: '8px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>Lab. Derivado</th>
+                                <th style={{ padding: '8px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>Lab. Secundario</th>
                                 <th style={{ padding: '8px', textAlign: 'center', borderBottom: '2px solid #e5e7eb', width: '80px' }}>Acciones</th>
                             </tr>
                         </thead>
@@ -738,11 +739,9 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                                             </td>
                                             <td style={{ padding: '8px' }}>
                                                 <div>{analysis.nombre_laboratorioensayo || '-'}</div>
-                                                {analysis.nombre_laboratorioensayo_2 && (
-                                                    <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                                                        + {analysis.nombre_laboratorioensayo_2}
-                                                    </div>
-                                                )}
+                                            </td>
+                                            <td style={{ padding: '8px' }}>
+                                                <div>{analysis.nombre_laboratorioensayo_2 || '-'}</div>
                                             </td>
                                             <td style={{ padding: '8px', textAlign: 'center' }}>
                                                 <button
