@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
     Stack,
     Group,
@@ -59,7 +59,7 @@ const UniversalInbox: React.FC = () => {
     } = useNavStore();
     
     const { user } = useAuth();
-    const { markAsReadByRef } = useNotificationStore();
+    const { markAsReadByRef, notifications } = useNotificationStore();
     
     const [requests, setRequests] = useState<Request[]>([]);
     const [loading, setLoading] = useState(true);
@@ -67,6 +67,9 @@ const UniversalInbox: React.FC = () => {
     const [filter, setFilter] = useState({ status: '', area: '', type: '' });
     const [selectedRequest, setSelectedRequest] = useState<any>(null);
     const [loadingDetail, setLoadingDetail] = useState(false);
+
+    // Track notification count for real-time inbox refresh
+    const prevNotifCountRef = useRef(notifications.length);
 
     const loadInitialData = async () => {
         setLoading(true);
@@ -109,13 +112,40 @@ const UniversalInbox: React.FC = () => {
         }
     }, [pendingRequestId, loading]);
 
+    const itemRefs = useRef<{ [key: number]: HTMLButtonElement | null }>({});
+
+    // Effect 1: Handle detail loading and scrolling when ID change
     useEffect(() => {
         if (selectedRequestId) {
             loadRequestDetail(selectedRequestId);
+            
+            // Auto-scroll to the selected item after a short delay to ensure DOM is ready
+            setTimeout(() => {
+                const element = itemRefs.current[selectedRequestId];
+                if (element) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }, 500);
         } else {
             setSelectedRequest(null);
         }
     }, [selectedRequestId]);
+
+    // Effect 2: Auto-switch tab based on selected request ownership
+    // This runs when requests are loaded or selection changes
+    useEffect(() => {
+        if (selectedRequestId && requests.length > 0) {
+            const req = requests.find(r => r.id_solicitud === selectedRequestId);
+            if (req) {
+                const isMine = Number(req.id_solicitante) === Number(user?.id);
+                const targetMode = isMine ? 'SENT' : 'RECEIVED';
+                // Only switch if different, but don't depend on ursInboxMode to avoid locking manual changes
+                if (ursInboxMode !== targetMode) {
+                    setUrsInboxMode(targetMode);
+                }
+            }
+        }
+    }, [selectedRequestId, requests.length, user?.id]); // Removed ursInboxMode to allow manual switching thereafter
 
     useEffect(() => {
         if (!selectedRequestId) return;
@@ -124,6 +154,19 @@ const UniversalInbox: React.FC = () => {
         }, 5000);
         return () => clearInterval(interval);
     }, [selectedRequestId]);
+
+    // Real-time refresh: when new notifications arrive, refresh inbox immediately
+    useEffect(() => {
+        if (notifications.length > prevNotifCountRef.current) {
+            // A new notification arrived — refresh the inbox list
+            ursService.getRequests().then(reqs => setRequests(reqs)).catch(console.error);
+            // If a request is selected, refresh its detail too
+            if (selectedRequestId) {
+                loadRequestDetail(selectedRequestId, true);
+            }
+        }
+        prevNotifCountRef.current = notifications.length;
+    }, [notifications.length]);
 
     useEffect(() => {
         const interval = setInterval(async () => {
@@ -247,8 +290,10 @@ const UniversalInbox: React.FC = () => {
                                 data={[
                                     { value: '', label: 'Todos' },
                                     { value: 'PENDIENTE', label: 'Pendientes' },
-                                    { value: 'APROBADO', label: 'Aprobados' },
-                                    { value: 'RECHAZADO', label: 'Rechazados' }
+                                    { value: 'EN_REVISION', label: 'En Revisión' },
+                                    { value: 'ACEPTADA', label: 'Aceptadas' },
+                                    { value: 'REALIZADA', label: 'Realizadas' },
+                                    { value: 'RECHAZADA', label: 'Rechazadas' }
                                 ]}
                                 size="xs"
                                 radius="md"
@@ -292,6 +337,7 @@ const UniversalInbox: React.FC = () => {
                                             return (
                                                 <UnstyledButton
                                                     key={req.id_solicitud}
+                                                    ref={el => { itemRefs.current[req.id_solicitud] = el; }}
                                                     onClick={() => setSelectedRequestId(req.id_solicitud)}
                                                     p="sm"
                                                     style={{

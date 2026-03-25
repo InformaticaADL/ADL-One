@@ -46,10 +46,13 @@ const DeriveRequestModal: React.FC<DeriveRequestModalProps> = ({ isOpen, request
         if (!selectedTarget) return;
 
         const [type, id] = selectedTarget.split(':');
+        const targetObj = targetOptions.find(o => o.value === selectedTarget);
+        const targetLabel = targetObj ? targetObj.label : 'DERIVACION';
+
         setLoading(true);
         try {
             await ursService.deriveRequest(requestId, { 
-                area: 'DERIVACION',
+                area: targetLabel,
                 userId: type === 'USR' ? Number(id) : undefined,
                 roleId: type === 'ROL' ? Number(id) : undefined,
                 comment 
@@ -63,10 +66,23 @@ const DeriveRequestModal: React.FC<DeriveRequestModalProps> = ({ isOpen, request
         }
     };
 
-    const targetOptions = targets.map((t) => ({
-        value: t.id_rol ? `ROL:${t.id_rol}` : `USR:${t.id_usuario}`,
-        label: t.id_rol ? `[ROL] ${t.nombre_rol}` : `[PERSONA] ${t.nombre_usuario}`
-    }));
+    const targetOptions = targets.map((t) => {
+        const val = t.id_usuario ? `USR:${t.id_usuario}` : (t.id_rol ? `ROL:${t.id_rol}` : '');
+        let lbl = '';
+        
+        if (t.id_rol) {
+            lbl = t.id_usuario 
+                ? `${t.nombre_usuario || t.nombre_real || 'Usuario'} (${t.nombre_rol})` 
+                : `[ROL] ${t.nombre_rol}`;
+        } else {
+            lbl = `${t.nombre_usuario || t.nombre_real || 'Usuario'}`;
+        }
+
+        return { value: val, label: lbl };
+    }).filter(opt => opt.value);
+
+    // Debugging line (will appear in browser console)
+    if (targets.length > 0) console.log("URS Derivation Targets:", targetOptions);
 
     return (
         <Modal 
@@ -90,9 +106,11 @@ const DeriveRequestModal: React.FC<DeriveRequestModalProps> = ({ isOpen, request
                     data={targetOptions}
                     value={selectedTarget}
                     onChange={setSelectedTarget}
-                    disabled={loadingTargets}
+                    disabled={loadingTargets || targetOptions.length === 0}
                     required
                     searchable
+                    nothingFoundMessage="No se encontraron destinos"
+                    comboboxProps={{ zIndex: 2000 }}
                     radius="md"
                     leftSection={loadingTargets ? <Loader size={14} /> : <IconUserPin size={16} />}
                 />

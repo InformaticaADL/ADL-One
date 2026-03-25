@@ -26,7 +26,8 @@ import {
     Modal,
     Collapse,
     Transition,
-    Affix
+    Tooltip,
+    Indicator
 } from '@mantine/core';
 import { 
     IconArrowLeft, 
@@ -154,8 +155,6 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
     const { hasPermission } = useAuth();
 
     // Permissions
-    const isGCMan = hasPermission('GC_ACCESO') || hasPermission('GC_EQUIPOS');
-    const isMAMan = hasPermission('AI_MA_SOLICITUDES') || hasPermission('MA_A_GEST_EQUIPO');
     const isSuper = hasPermission('AI_MA_ADMIN_ACCESO');
     const canCreateEquipo = hasPermission('AI_MA_CREAR_EQUIPO') || isSuper;
     const canEditEquipo = hasPermission('AI_MA_EDITAR_EQUIPO') || isSuper;
@@ -418,59 +417,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         } finally { setLoading(false); }
     };
 
-    const handleApproveAction = async (sol: any) => {
-        setProcessingAction(true);
-        try {
-            if (sol.tipo_solicitud === 'TRASPASO') {
-                const d = sol.datos_json;
-                let fd = formData.vigencia;
-                if (d.vigencia?.includes('/')) {
-                    const [day, mon, yr] = d.vigencia.split('/');
-                    fd = `${yr}-${mon}-${day}`;
-                } else if (d.vigencia) fd = d.vigencia;
 
-                await equipoService.updateEquipo(formData.id_equipo, {
-                    ...formData,
-                    ubicacion: d.nueva_ubicacion || formData.ubicacion,
-                    id_muestreador: d.nuevo_responsable_id || formData.id_muestreador,
-                    vigencia: fd
-                });
-
-                const isTech = sol.estado === 'PENDIENTE_TECNICA';
-                await adminService.updateSolicitudStatus(sol.id_solicitud, isTech ? 'PENDIENTE_CALIDAD' : 'APROBADO', 'Procesado desde formulario', undefined, formData.id_equipo, 'APROBADO');
-                hideNotification(`${sol.id_solicitud}-${sol.estado}`);
-                showToast({ type: 'success', message: isTech ? 'Derivado a Calidad' : 'Traspaso aprobado' });
-            } else if (sol.tipo_solicitud === 'BAJA') {
-                await equipoService.deleteEquipo(formData.id_equipo);
-                let newJson = sol.datos_json;
-                if (sol.datos_json?.equipos_baja) {
-                    const updated = sol.datos_json.equipos_baja.map((e: any) => String(e.id) === String(formData.id_equipo) ? { ...e, procesado: true } : e);
-                    newJson = { ...sol.datos_json, equipos_baja: updated };
-                    const allDone = updated.every((e: any) => e.procesado);
-                    await adminService.updateSolicitudStatus(sol.id_solicitud, allDone ? 'APROBADO' : 'PENDIENTE', allDone ? 'Baja finalizada' : 'Parcial', newJson, formData.id_equipo, 'APROBADO');
-                    if (allDone) hideNotification(`${sol.id_solicitud}-PENDIENTE`);
-                } else {
-                    await adminService.updateSolicitudStatus(sol.id_solicitud, 'APROBADO', 'Baja aprobada');
-                    hideNotification(`${sol.id_solicitud}-PENDIENTE`);
-                }
-                showToast({ type: 'success', message: 'Baja procesada' });
-            } else if (sol.tipo_solicitud === 'ALTA' && sol.datos_json?.isReactivation) {
-                await equipoService.updateEquipo(formData.id_equipo, { ...formData, estado: 'Activo' });
-                let newJson = sol.datos_json;
-                if (sol.datos_json?.equipos_alta) {
-                    const updated = sol.datos_json.equipos_alta.map((e: any) => String(e.id) === String(formData.id_equipo) ? { ...e, procesado: true } : e);
-                    newJson = { ...sol.datos_json, equipos_alta: updated };
-                    const allDone = updated.every((e: any) => e.procesado);
-                    await adminService.updateSolicitudStatus(sol.id_solicitud, allDone ? 'APROBADO' : 'PENDIENTE', 'Reactivación procesada', newJson, formData.id_equipo, 'APROBADO');
-                    if (allDone) hideNotification(`${sol.id_solicitud}-PENDIENTE`);
-                }
-                showToast({ type: 'success', message: 'Reactivado' });
-            }
-            if (onRefreshSolicitudes) onRefreshSolicitudes();
-            onSave();
-        } catch { showToast({ type: 'error', message: 'Error al procesar' }); } 
-        finally { setProcessingAction(false); }
-    };
 
     const handleRejectIndividual = async () => {
         if (!rejectingSolicitud || !adminFeedback.trim()) return;
@@ -523,7 +470,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                             <Button variant="subtle" leftSection={<IconArrowLeft size={18} />} onClick={onCancel} color="gray">
                                 Volver
                             </Button>
-                            {initialData?.id_equipo ? (
+                            {initialData?.id_equipo && (
                                 <Button 
                                     variant="light" 
                                     leftSection={<IconHistory size={18} />} 
@@ -531,7 +478,15 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                 >
                                     {showHistory ? 'Ocultar Historial' : 'Ver Historial'}
                                 </Button>
-                            ) : null}
+                            )}
+                            <Button 
+                                leftSection={<IconDeviceFloppy size={18} />}
+                                onClick={handleSave}
+                                loading={loading}
+                                color="adl-blue"
+                            >
+                                {initialData?.id_equipo ? 'Guardar Cambios' : 'Crear Equipo'}
+                            </Button>
                         </Group>
                     </Group>
 
@@ -541,50 +496,8 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                         </Badge>
                     )}
 
-                    {/* Pending Requests Section */}
-                    {pendingRequests.length > 0 && (
-                        <Alert icon={<IconAlertTriangle size={18} />} title="Solicitudes Pendientes para este Equipo" color="orange" radius="md">
-                            <Stack gap="sm" mt="xs">
-                                {pendingRequests.map(sol => {
-                                    const field = sol.tipo_solicitud === 'BAJA' ? 'equipos_baja' : (sol.tipo_solicitud === 'ALTA' ? 'equipos_alta' : null);
-                                    const item = field ? sol.datos_json?.[field]?.find((e: any) => String(e.id) === String(formData.id_equipo)) : null;
-                                    const isProcessed = item?.procesado;
-                                    const isRejected = item?.rechazado;
+                    {/* Pending Requests Section Removed */}
 
-                                    return (
-                                        <Paper key={sol.id_solicitud} withBorder p="sm" radius="sm" opacity={isProcessed ? 0.6 : 1}>
-                                            <Group justify="space-between">
-                                                <Stack gap={2}>
-                                                    <Group gap="xs">
-                                                        <Badge size="xs" color={sol.tipo_solicitud === 'ALTA' ? 'green' : sol.tipo_solicitud === 'TRASPASO' ? 'blue' : 'red'}>
-                                                            {sol.tipo_solicitud}
-                                                        </Badge>
-                                                        <Text size="xs" c="dimmed">{new Date(sol.fecha_solicitud).toLocaleDateString()}</Text>
-                                                    </Group>
-                                                    <Text size="sm" fw={700}>Motivo: {sol.datos_json?.motivo || 'Sin motivo'}</Text>
-                                                    {item?.vigencia && <Text size="xs" color="green" fw={700}>vigencia Propuesta: {item.vigencia}</Text>}
-                                                    <Text size="xs" c="dimmed">Solicitante: {sol.nombre_solicitante}</Text>
-                                                </Stack>
-
-                                                {!isProcessed ? (
-                                                    <Group gap={8}>
-                                                        {((sol.state === 'EN_REVISION_TECNICA' && (isMAMan || isSuper)) || (sol.estado === 'PENDIENTE_CALIDAD' && (isGCMan || isSuper)) || sol.estado === 'PENDIENTE') && (
-                                                            <Button size="compact-xs" color="green" onClick={() => handleApproveAction(sol)}>
-                                                                {sol.estado === 'PENDIENTE_CALIDAD' ? 'Aprobar Final' : (sol.estado === 'EN_REVISION_TECNICA' ? 'Derivar' : 'Aprobar')}
-                                                            </Button>
-                                                        )}
-                                                        <Button size="compact-xs" variant="outline" color="red" onClick={() => setRejectingSolicitud(sol)}>Rechazar</Button>
-                                                    </Group>
-                                                ) : (
-                                                    <Badge color={isRejected ? 'red' : 'green'}>{isRejected ? 'RECHAZADO' : 'PROCESADO'}</Badge>
-                                                )}
-                                            </Group>
-                                        </Paper>
-                                    );
-                                })}
-                            </Stack>
-                        </Alert>
-                    )}
 
                     {/* Requested Changes (Traspaso/Alta Suggestion) */}
                     <Transition mounted={!!(initialData?.requestId && requestedChanges)} transition="fade" duration={400}>
@@ -1037,42 +950,32 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                 </Stack>
             </Modal>
 
-            <Affix position={{ bottom: 20, right: 20 }}>
-                <Transition transition="slide-up" mounted={true}>
-                    {(transitionStyles) => (
-                        <Button
-                            leftSection={<IconDeviceFloppy size={20} />}
-                            style={{ ...transitionStyles, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)' }}
-                            onClick={handleSave}
-                            loading={loading}
-                            size="lg"
-                            radius="xl"
-                            color="adl-blue"
-                        >
-                            Guardar Cambios
-                        </Button>
-                    )}
-                </Transition>
-            </Affix>
 
-            {initialData && (
-                <Affix position={{ bottom: 90, right: 20 }}>
-                    <Transition transition="slide-up" mounted={true}>
-                        {(transitionStyles) => (
-                            <Button
-                                leftSection={<IconHistory size={20} />}
-                                style={{ ...transitionStyles, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)' }}
-                                onClick={() => setShowRequestsModal(true)}
+
+            {/* Floating button for requests */}
+            {initialData?.id_equipo && pendingRequests && pendingRequests.length > 0 && (
+                <Box style={{ position: 'fixed', bottom: 40, right: 40, zIndex: 100 }}>
+                    <Indicator 
+                        inline 
+                        label={pendingRequests.length} 
+                        size={22} 
+                        color="red" 
+                        withBorder
+                    >
+                        <Tooltip label="Ver Solicitudes Pendientes" position="left">
+                            <ActionIcon 
+                                size={56} 
+                                radius="xl" 
+                                variant="filled" 
                                 color="orange"
-                                variant="light"
-                                size="lg"
-                                radius="xl"
+                                onClick={() => setShowRequestsModal(true)}
+                                style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
                             >
-                                Solicitudes
-                            </Button>
-                        )}
-                    </Transition>
-                </Affix>
+                                <IconAlertTriangle size={28} />
+                            </ActionIcon>
+                        </Tooltip>
+                    </Indicator>
+                </Box>
             )}
 
             <EquipmentRequestsModal 
@@ -1081,6 +984,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                 idEquipo={initialData?.id_equipo || null}
                 nombreEquipo={formData.nombre}
                 codigoEquipo={formData.codigo}
+                requests={pendingRequests || []}
                 onRefresh={() => {
                     if (onRefreshSolicitudes) onRefreshSolicitudes();
                 }}

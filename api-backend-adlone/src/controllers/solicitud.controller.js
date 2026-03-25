@@ -165,6 +165,19 @@ class SolicitudController {
             res.status(500).json({ message: 'Error al obtener el historial de la solicitud' });
         }
     }
+
+    async getSolicitudesByEquipo(req, res) {
+        try {
+            const { id } = req.params;
+            const solicitudes = await solicitudService.getSolicitudes({
+                id_equipo: id
+            });
+            res.json(solicitudes);
+        } catch (error) {
+            logger.error('Controller Error getting solicitudes by equipo:', error);
+            res.status(500).json({ message: 'Error al obtener solicitudes del equipo' });
+        }
+    }
 }
 
 export default new SolicitudController();

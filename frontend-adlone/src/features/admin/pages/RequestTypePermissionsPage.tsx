@@ -46,10 +46,11 @@ interface RequestType {
     id_tipo: number;
     nombre: string;
     area_destino: string;
+    modulo_destino?: string | null;
     estado: boolean;
 }
 
-type AccessType = 'ENVIO' | 'VISTA' | 'GESTION' | 'DERIVACION';
+type AccessType = 'ENVIO' | 'VISTA' | 'GESTION' | 'DERIVACION' | 'DESTINO_DERIVACION';
 
 interface PermissionEntry {
     type: 'role' | 'user';
@@ -59,6 +60,7 @@ interface PermissionEntry {
     VISTA: boolean;
     GESTION: boolean;
     DERIVACION: boolean;
+    DESTINO_DERIVACION: boolean;
     isNew?: boolean;
     membersLoaded?: boolean;
     members?: string[];
@@ -69,6 +71,7 @@ const ACCESS_LABELS: { key: AccessType; label: string; icon: React.ReactNode }[]
     { key: 'VISTA',     label: 'Solo Ver', icon: <IconEye size={14} /> },
     { key: 'GESTION',   label: 'Accionar', icon: <IconUserCheck size={14} /> },
     { key: 'DERIVACION',label: 'Derivar',  icon: <IconGitBranch size={14} /> },
+    { key: 'DESTINO_DERIVACION', label: 'Recibir Derivación', icon: <IconUser size={14} /> },
 ];
 
 interface Props {
@@ -88,6 +91,7 @@ const RequestTypePermissionsPage: React.FC<Props> = ({ requestType, onBack }) =>
     // Header edit states
     const [typeName, setTypeName] = useState(requestType.nombre);
     const [areaDestino, setAreaDestino] = useState(requestType.area_destino);
+    const [moduloDestino, setModuloDestino] = useState(requestType.modulo_destino || '');
     const [isEditingHeader, setIsEditingHeader] = useState(false);
 
     // Expanded row state
@@ -114,10 +118,10 @@ const RequestTypePermissionsPage: React.FC<Props> = ({ requestType, onBack }) =>
                 let key: string;
                 if (p.id_rol) {
                     key = `role_${p.id_rol}`;
-                    if (!map.has(key)) map.set(key, { type: 'role', id: p.id_rol, name: p.nombre_rol || `Rol ${p.id_rol}`, ENVIO: false, VISTA: false, GESTION: false, DERIVACION: false });
+                    if (!map.has(key)) map.set(key, { type: 'role', id: p.id_rol, name: p.nombre_rol || `Rol ${p.id_rol}`, ENVIO: false, VISTA: false, GESTION: false, DERIVACION: false, DESTINO_DERIVACION: false });
                 } else if (p.id_usuario) {
                     key = `user_${p.id_usuario}`;
-                    if (!map.has(key)) map.set(key, { type: 'user', id: p.id_usuario, name: p.nombre_real || p.nombre_usuario || `Usuario ${p.id_usuario}`, ENVIO: false, VISTA: false, GESTION: false, DERIVACION: false });
+                    if (!map.has(key)) map.set(key, { type: 'user', id: p.id_usuario, name: p.nombre_real || p.nombre_usuario || `Usuario ${p.id_usuario}`, ENVIO: false, VISTA: false, GESTION: false, DERIVACION: false, DESTINO_DERIVACION: false });
                 } else return;
                 map.get(key)![p.tipo_acceso as AccessType] = true;
             });
@@ -193,7 +197,7 @@ const RequestTypePermissionsPage: React.FC<Props> = ({ requestType, onBack }) =>
             return;
         }
 
-        const newEntry: PermissionEntry = { type, id, name, ENVIO: false, VISTA: false, GESTION: false, DERIVACION: false, isNew: true };
+        const newEntry: PermissionEntry = { type, id, name, ENVIO: false, VISTA: false, GESTION: false, DERIVACION: false, DESTINO_DERIVACION: false, isNew: true };
         setEntries(prev => [...prev, newEntry]);
 
         if (type === 'user') {
@@ -218,6 +222,7 @@ const RequestTypePermissionsPage: React.FC<Props> = ({ requestType, onBack }) =>
                 await ursService.createUpdateType(requestType.id_tipo, {
                     nombre: typeName,
                     area_destino: areaDestino,
+                    modulo_destino: moduloDestino || null,
                     estado: requestType.estado
                     // formulario_config and workflow_config remain the same as they are not edited here
                 });
@@ -229,7 +234,7 @@ const RequestTypePermissionsPage: React.FC<Props> = ({ requestType, onBack }) =>
             const toDeleteIds: number[] = [];
 
             entries.forEach(entry => {
-                (['ENVIO', 'VISTA', 'GESTION', 'DERIVACION'] as AccessType[]).forEach(access => {
+                (['ENVIO', 'VISTA', 'GESTION', 'DERIVACION', 'DESTINO_DERIVACION'] as AccessType[]).forEach(access => {
                     const existing = currentPerms.find((p: any) =>
                         entry.type === 'role' ? p.id_rol === entry.id && p.tipo_acceso === access
                                                : p.id_usuario === entry.id && p.tipo_acceso === access
@@ -321,6 +326,14 @@ const RequestTypePermissionsPage: React.FC<Props> = ({ requestType, onBack }) =>
                                         style={{ flex: 1 }}
                                         radius="md"
                                     />
+                                    <TextInput 
+                                        label="Módulo UI (Filtro)"
+                                        placeholder="Ej: EQUIPOS"
+                                        value={moduloDestino}
+                                        onChange={(e) => setModuloDestino(e.currentTarget.value)}
+                                        style={{ flex: 1 }}
+                                        radius="md"
+                                    />
                                     <ActionIcon variant="light" color="red" size="lg" mb={2} onClick={() => setIsEditingHeader(false)} radius="md">
                                         <IconX size={18} />
                                     </ActionIcon>
@@ -348,6 +361,12 @@ const RequestTypePermissionsPage: React.FC<Props> = ({ requestType, onBack }) =>
                                             <Text size="xs" c="dimmed" fw={500}>Estado actual</Text>
                                             <Badge variant="light" color={requestType.estado ? 'teal' : 'red'} radius="sm" mt={2}>
                                                 {requestType.estado ? 'ACTIVO' : 'INACTIVO'}
+                                            </Badge>
+                                        </Box>
+                                        <Box>
+                                            <Text size="xs" c="dimmed" fw={500}>Módulo Destino</Text>
+                                            <Badge variant="dot" color="gray" radius="sm" mt={2}>
+                                                {moduloDestino || 'NINGUNO'}
                                             </Badge>
                                         </Box>
                                     </Group>
@@ -386,7 +405,7 @@ const RequestTypePermissionsPage: React.FC<Props> = ({ requestType, onBack }) =>
                             <Table.Tbody>
                                 {entries.length === 0 ? (
                                     <Table.Tr>
-                                        <Table.Td colSpan={6} py={60}>
+                                        <Table.Td colSpan={7} py={60}>
                                             <Stack align="center" gap="xs">
                                                 <IconUsers size={40} style={{ opacity: 0.2 }} />
                                                 <Text fw={600} size="sm" c="dimmed">Sin entidades configuradas</Text>

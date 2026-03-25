@@ -663,6 +663,21 @@ Se restauraron y optimizaron funcionalidades críticas de inventario tras la int
 - **Lógica de Auditoría y Versiones**: Aseguramiento de la integridad de datos al aprobar o rechazar solicitudes de traspaso, baja o alta, manteniendo la trazabilidad en `mae_equipo_historial`.
 - **Limpieza de Código**: Eliminación de dependencias obsoletas y estandarización de componentes con Mantine UI v7.
 
+### 41. Visibilidad Genérica y Notificaciones de Acción (Marzo 2026) 🌐🔔
+Mejoras en la arquitectura de visibilidad de solicitudes y refinamiento de la comunicación transaccional.
+
+- **Visibilidad Dinámica Metadatos (`modulo_destino`)**:
+    - Implementación de un sistema basado en metadatos para decidir qué tipos de solicitud aparecen en cada módulo de la UI (ej. Equipos).
+    - Nueva columna `modulo_destino` en `mae_solicitud_tipo` y panel administrativo para su configuración, eliminando listas "hardcodeadas" en el frontend.
+- **Inbox Universal Inteligente (UX/Nav)**:
+    - **Auto-Tab Switching**: El buzón detecta automáticamente si una solicitud seleccionada es *Recibida* o *Enviada* y cambia de pestaña para asegurar su visibilidad.
+    - **Auto-Scroll**: Implementación de desplazamiento automático suave hacia la solicitud seleccionada, facilitando la ubicación de trámites antiguos.
+    - **Resolución de Bucles**: Optimización de hooks de React para evitar ciclos infinitos durante la sincronización de estados complejos.
+- **Refinamiento de Notificaciones de Acción**:
+    - **Detalle Completo en Emails**: Los correos de *Aceptar*, *Rechazar* y *Realizada* ahora inyectan dinámicamente el bloque de detalles (Equipo, Destino, Motivo), reparando la falta de contexto previa.
+    - **Formato Web Humano**: Las alertas web ahora incluyen el nombre del autor entre corchetes (ej. `[Manuel Sanchez]: observaciones`) y utilizan estados legibles (ej. "Aceptada" en lugar de `ACEPTADA`).
+    - **Soporte de Identificadores**: El motor de plantillas ahora admite tanto `nombre_equipo` como `nombre_equipo_full` para máxima compatibilidad con solicitudes de traspaso.
+
 ---
 
 ## 🏗️ Estructura Detallada del Proyecto (Frontend)

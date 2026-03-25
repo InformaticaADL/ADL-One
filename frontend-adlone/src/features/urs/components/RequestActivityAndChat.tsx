@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
     Stack,
     Group,
@@ -8,17 +8,13 @@ import {
     ScrollArea,
     ActionIcon,
     Textarea,
-    Timeline,
     ThemeIcon,
     Box,
     Badge,
-    Tooltip,
     FileButton,
     Center
 } from '@mantine/core';
 import {
-    IconArrowRight,
-    IconHistory,
     IconMessage,
     IconSend,
     IconPaperclip,
@@ -77,73 +73,49 @@ const RequestActivityAndChat: React.FC<RequestActivityAndChatProps> = ({ request
         setFiles(prev => prev.filter((_, i) => i !== index));
     };
 
-    const getUserColor = (id: number) => {
+    const getUserColor = (userId: any) => {
         const colors = [
             'blue', 'teal', 'orange', 'violet', 
-            'pink', 'gray', 'red', 'cyan'
+            'pink', 'indigo', 'cyan', 'lime', 'grape'
         ];
-        return colors[id % colors.length];
+        
+        // Simple hash for any ID type (number or string)
+        const idStr = String(userId || '0');
+        let hash = 0;
+        for (let i = 0; i < idStr.length; i++) {
+            hash = idStr.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        
+        return colors[Math.abs(hash) % colors.length];
     };
+
+    // Filtered Chat: Only user messages
+    const chatMessages = useMemo(() => {
+        return (request.conversacion || []).filter((m: any) => !m.es_sistema);
+    }, [request.conversacion]);
 
     return (
         <Stack h="100%" gap={0}>
-            {/* History Section */}
-            <Paper p="md" bg="gray.0" radius={0} style={{ borderBottom: '1px solid var(--mantine-color-gray-2)' }}>
-                <Group gap="xs" mb="md">
-                    <ThemeIcon variant="light" color="gray" size="sm" radius="md">
-                        <IconHistory size={14} />
-                    </ThemeIcon>
-                    <Title order={6} c="dimmed" tt="uppercase" lts="0.5px">Historial de Derivaciones</Title>
-                </Group>
-
-                <ScrollArea.Autosize mah={200} type="hover">
-                    {request.historial_derivaciones && request.historial_derivaciones.length > 0 ? (
-                        <Timeline active={request.historial_derivaciones.length - 1} bulletSize={20} lineWidth={2}>
-                            {request.historial_derivaciones.map((h: any, i: number) => (
-                                <Timeline.Item 
-                                    key={i} 
-                                    bullet={<IconArrowRight size={12} />}
-                                    title={
-                                        <Text size="xs" fw={700}>
-                                            {h.area_origen} <IconArrowRight size={10} style={{ verticalAlign: 'middle' }} /> {h.area_destino}
-                                        </Text>
-                                    }
-                                >
-                                    <Text size="xs" c="dimmed">Por {h.usuario_origen} • {new Date(h.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
-                                    {h.motivo && (
-                                        <Text size="xs" mt={4} style={{ fontStyle: 'italic' }}>"{h.motivo}"</Text>
-                                    )}
-                                </Timeline.Item>
-                            ))}
-                        </Timeline>
-                    ) : (
-                        <Paper p="sm" withBorder radius="md" style={{ borderStyle: 'dashed' }}>
-                            <Text size="xs" c="dimmed" ta="center">Sin derivaciones registradas.</Text>
-                        </Paper>
-                    )}
-                </ScrollArea.Autosize>
-            </Paper>
-
             {/* Chat Section */}
             <Stack gap={0} flex={1} style={{ overflow: 'hidden' }}>
                 <Group p="sm" bg="white" style={{ borderBottom: '1px solid var(--mantine-color-gray-1)' }}>
                     <ThemeIcon variant="light" color="adl-blue" size="sm" radius="md">
                         <IconMessage size={14} />
                     </ThemeIcon>
-                    <Title order={6} lts="1px">CHAT</Title>
+                    <Title order={6} lts="1px">CHAT DE COMUNICACIÓN</Title>
                 </Group>
 
                 <ScrollArea flex={1} p="md" viewportRef={viewport}>
                     <Stack gap="lg">
-                        {request.conversacion && request.conversacion.length > 0 ? (
-                            request.conversacion.map((msg: any, i: number) => {
+                        {chatMessages.length > 0 ? (
+                            chatMessages.map((msg: any, i: number) => {
                                 const isOwn = msg.es_mio;
                                 const userColor = getUserColor(msg.id_usuario);
                                 return (
                                     <Box key={i} style={{ alignSelf: isOwn ? 'flex-end' : 'flex-start', maxWidth: '85%' }}>
                                         <Group gap={6} mb={4} justify={isOwn ? 'flex-end' : 'flex-start'}>
-                                            {!isOwn && <IconUser size={12} color={`var(--mantine-color-${userColor}-6)`} />}
-                                            <Text size="xs" fw={800} c={isOwn ? 'adl-blue.7' : `${userColor}.7`}>
+                                            {!isOwn && <IconUser size={12} style={{ color: `var(--mantine-color-${userColor}-6)` }} />}
+                                            <Text size="xs" fw={800} c={isOwn ? 'blue.7' : `${userColor}.7`}>
                                                 {msg.nombre_usuario}
                                             </Text>
                                             <Text size="xs" c="dimmed">
@@ -156,7 +128,7 @@ const RequestActivityAndChat: React.FC<RequestActivityAndChatProps> = ({ request
                                             radius="lg" 
                                             shadow="xs"
                                             withBorder
-                                            bg={isOwn ? 'var(--mantine-color-blue-0)' : `var(--mantine-color-${userColor}-0)`}
+                                            bg={isOwn ? 'blue.0' : `${userColor}.0`}
                                             style={{ 
                                                 borderBottomRightRadius: isOwn ? 4 : 'var(--mantine-radius-lg)',
                                                 borderBottomLeftRadius: !isOwn ? 4 : 'var(--mantine-radius-lg)',
@@ -166,26 +138,30 @@ const RequestActivityAndChat: React.FC<RequestActivityAndChatProps> = ({ request
                                             <Text size="sm" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word' }}>{msg.mensaje}</Text>
                                             
                                             {msg.adjuntos && msg.adjuntos.length > 0 && (
-                                                <Group gap={6} mt="xs">
+                                                <Stack gap={4} mt="xs">
                                                     {msg.adjuntos.map((file: any) => (
-                                                        <Tooltip key={file.id_adjunto} label={`Descargar ${file.nombre_archivo}`}>
-                                                            <ActionIcon 
-                                                                component="a"
-                                                                href={`${import.meta.env.VITE_API_URL}/api/urs/download/${file.id_adjunto}?token=${token}`}
-                                                                variant="light" 
-                                                                color="gray" 
-                                                                size="sm"
-                                                                target="_blank"
-                                                            >
-                                                                <FileIcon mimetype={file.tipo_archivo} size={16} />
-                                                            </ActionIcon>
-                                                        </Tooltip>
+                                                        <Paper
+                                                            key={file.id_adjunto}
+                                                            component="a"
+                                                            href={`${import.meta.env.VITE_API_URL}/api/urs/download/${file.id_adjunto}?token=${token}`}
+                                                            target="_blank"
+                                                            p="xs"
+                                                            withBorder
+                                                            radius="md"
+                                                            style={{ cursor: 'pointer', textDecoration: 'none', maxWidth: '100%' }}
+                                                            styles={{ root: { '&:hover': { backgroundColor: 'var(--mantine-color-gray-0)' } } }}
+                                                        >
+                                                            <Group gap={6} wrap="nowrap">
+                                                                <FileIcon mimetype={file.tipo_archivo} filename={file.nombre_archivo} size={18} />
+                                                                <Text size="xs" fw={600} c="blue.7" truncate style={{ maxWidth: 180 }}>
+                                                                    {file.nombre_archivo}
+                                                                </Text>
+                                                            </Group>
+                                                        </Paper>
                                                     ))}
-                                                </Group>
+                                                </Stack>
                                             )}
                                         </Paper>
-                                        
-
                                     </Box>
                                 );
                             })

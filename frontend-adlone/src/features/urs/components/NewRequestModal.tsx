@@ -17,7 +17,8 @@ import {
     FileButton,
     Badge,
     Loader,
-    ScrollArea
+    ScrollArea,
+    ThemeIcon
 } from '@mantine/core';
 import {
     IconInfoCircle,

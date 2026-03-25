@@ -28,7 +28,7 @@ dayjs.locale('es');
 
 export const UserNotificationsPage = () => {
     const { notifications, fetchNotifications, markAsRead } = useNotificationStore();
-    const { setActiveModule, setActiveSubmodule, setPendingRequestId } = useNavStore();
+    const { setActiveModule, setActiveSubmodule, setPendingRequestId, setSelectedRequestId } = useNavStore();
 
     useEffect(() => {
         fetchNotifications();
@@ -40,16 +40,37 @@ export const UserNotificationsPage = () => {
         }
 
         if (notif.id_referencia) {
-            setPendingRequestId(notif.id_referencia);
             const titulo = notif.titulo.toLowerCase();
-            const mensaje = notif.mensaje.toLowerCase();
+            const area = (notif.area || '').toLowerCase();
             
-            if (titulo.includes('equipo') || mensaje.includes('equipo')) {
-                setActiveModule('gestion_calidad');
-                setActiveSubmodule('admin-equipos-gestion');
-            } else {
+            // Solicitudes: always go to URS inbox with request selected
+            if (
+                titulo.includes('solicitud') || 
+                titulo.includes('estado') || 
+                titulo.includes('derivación') || 
+                titulo.includes('derivacion') || 
+                titulo.includes('baja') ||
+                titulo.includes('traspaso') ||
+                titulo.includes('asignación') ||
+                area === 'urs' || 
+                area === 'solicitudes' ||
+                titulo.includes('equipo')
+            ) {
+                setSelectedRequestId(notif.id_referencia);
                 setActiveModule('solicitudes');
                 setActiveSubmodule('');
+            }
+            // Fichas: go to role-specific page
+            else if (titulo.includes('ficha') || area === 'fichas') {
+                setPendingRequestId(notif.id_referencia);
+                setActiveModule('medio_ambiente');
+                setActiveSubmodule('');
+            }
+            // Equipment management fallback
+            else {
+                setPendingRequestId(notif.id_referencia);
+                setActiveModule('gestion_calidad');
+                setActiveSubmodule('admin-equipos-gestion');
             }
         }
     };

@@ -16,20 +16,36 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
         const normalized = s.toUpperCase();
         switch (normalized) {
             case 'PENDIENTE':
+            case 'PENDIENTE_TECNICA':
+            case 'PENDIENTE_CALIDAD':
                 return { color: 'orange', label: 'Pendiente' };
+            case 'ACEPTADA':
+            case 'APROBADA':
+                return { color: 'teal', label: 'Aceptada' };
+            case 'REALIZADA':
+                return { color: 'green', label: 'Realizada' };
             case 'APROBADO':
             case 'COMPLETADO':
             case 'EXITOSO':
+            case 'CONCLUIDO':
                 return { color: 'green', label: 'Aprobado' };
+            case 'RECHAZADA':
             case 'RECHAZADO':
             case 'CANCELADO':
             case 'ERROR':
+            case 'RECHAZADO_TECNICA':
                 return { color: 'red', label: 'Rechazado' };
             case 'EN_REVISION':
+            case 'EN_REVISION_TECNICA':
             case 'PROCESANDO':
             case 'EJECUCIÓN':
             case 'EN_CURSO':
                 return { color: 'blue', label: 'En Revisión' };
+            case 'DERIVADO':
+            case 'DERIVACION':
+                return { color: 'indigo', label: 'Derivado' };
+            case 'OBSERVADO':
+                return { color: 'yellow', label: 'Observado' };
             default:
                 return { color: 'gray', label: s };
         }

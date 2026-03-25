@@ -107,7 +107,10 @@ class UnsService {
                         ...context, 
                         id_solicitud: context.id_solicitud || context.id_referencia || context.correlativo || 'N/A',
                         usuario_accion: context.usuario_accion || context.nombre_autor || 'Un usuario',
-                        correlativo: context.correlativo || context.id_solicitud || context.id_referencia || 'N/A'
+                        correlativo: context.correlativo || context.id_solicitud || context.id_referencia || 'N/A',
+                        estado_legible: context.estado ? this._formatEstado(context.estado) : 'Desconocido',
+                        // Fix 2: Alias equipo_nombre from datos_json fields
+                        equipo_nombre: context.equipo_nombre || context.nombre_equipo_full || context.nombre_equipo || ''
                     };
 
                     const defaultWebTemplates = {
@@ -118,9 +121,9 @@ class UnsService {
                             cuerpo_mensaje: 'Recibida #{{id_solicitud}} de {{solicitante}}. Prioridad: {{prioridad}}'
                         },
                         'SOLICITUD_ESTADO_CAMBIO': {
-                            titulo: 'Solicitud #{{correlativo}} {{estado}}',
+                            titulo: 'Estado Actualizado: #{{correlativo}}',
                             asunto_template: 'Solicitud #{{correlativo}} {{estado}}',
-                            mensaje: 'La solicitud #{{correlativo}} de {{nombre_tipo}} ha sido {{estado}} por {{usuario_accion}}',
+                            mensaje: 'Tu solicitud ha cambiado a estado: {{estado_legible}}. [{{usuario_accion}}]: {{observaciones}}',
                             cuerpo_mensaje: 'La solicitud #{{correlativo}} de {{nombre_tipo}} ha sido {{estado}} por {{usuario_accion}}'
                         },
                         'SOLICITUD_COMENTARIO_NUEVO': {
@@ -136,6 +139,24 @@ class UnsService {
                             cuerpo_mensaje: 'La solicitud #{{correlativo}} te ha sido derivada por {{usuario_accion}}'
                         },
                         // URS Especificos
+                        'SOL_TRASPASO_MUESTREADOR_NUEVA': {
+                            titulo: 'Nueva Solicitud: Traspaso de Equipo',
+                            asunto_template: 'Nueva Solicitud: Traspaso de Equipo',
+                            mensaje: '{{usuario_accion}} ha solicitado el traspaso del equipo {{equipo_nombre}} a {{nombre_muestreador_destino}}',
+                            cuerpo_mensaje: '{{usuario_accion}} ha solicitado el traspaso del equipo {{equipo_nombre}} a {{nombre_muestreador_destino}}'
+                        },
+                        'SOL_TRASPASO_SEDE_NUEVA': {
+                            titulo: 'Nueva Solicitud: Traspaso de Ubicación',
+                            asunto_template: 'Nueva Solicitud: Traspaso de Ubicación',
+                            mensaje: '{{usuario_accion}} ha solicitado el traspaso del equipo {{equipo_nombre}} a {{nombre_centro_destino}}',
+                            cuerpo_mensaje: '{{usuario_accion}} ha solicitado el traspaso del equipo {{equipo_nombre}} a {{nombre_centro_destino}}'
+                        },
+                        'SOL_TRASPASO_AMBOS_NUEVA': {
+                            titulo: 'Nueva Solicitud: Traspaso de Equipo',
+                            asunto_template: 'Nueva Solicitud: Traspaso de Equipo',
+                            mensaje: '{{usuario_accion}} ha solicitado el traspaso del equipo {{equipo_nombre}}',
+                            cuerpo_mensaje: '{{usuario_accion}} ha solicitado el traspaso del equipo {{equipo_nombre}}'
+                        },
                         'SOL_DESHABILITAR_MUESTREADOR_NUEVA': {
                             titulo: 'Nueva Solicitud: Deshabilitar Muestreador',
                             asunto_template: 'Nueva Solicitud: Deshabilitar Muestreador',
@@ -229,15 +250,24 @@ class UnsService {
                     };
 
                     // Try to find rule with web template
-                    const ruleWithTemplate = rules.find(ru => ru.envia_web && ru.plantilla_web);
+                    const ruleWithTemplate = rules.find(ru => ru.envia_web && ru.plantilla_web && ru.plantilla_web.trim() !== '');
                     
-                    const template = ruleWithTemplate ? {
+                    // User Issue 3: If the DB rule just says "EN_REVISION", it overriding our nice formatted text.
+                    // Let's force use of default templates if the DB template is too short/generic, or just use ours.
+                    const isGenericLocalRule = ruleWithTemplate && ruleWithTemplate.plantilla_web.length < 20 && !ruleWithTemplate.plantilla_web.includes('{{');
+                    
+                    const template = (ruleWithTemplate && !isGenericLocalRule) ? {
                         titulo: ruleWithTemplate.plantilla_web_titulo || `Aviso: ${codigoEvento}`,
                         mensaje: ruleWithTemplate.plantilla_web
                     } : (defaultWebTemplates[codigoEvento] || { titulo: `Aviso: ${codigoEvento}`, mensaje: 'Nuevo evento en el sistema' });
                     
-                    const titulo = this._compileTemplate(template.titulo, ctxParaWeb);
-                    const mensaje = this._compileTemplate(template.mensaje, ctxParaWeb);
+                    let titulo = this._compileTemplate(template.titulo, ctxParaWeb);
+                    let mensaje = this._compileTemplate(template.mensaje, ctxParaWeb);
+                    
+                    // Hard override to fix user issue 3 if the template still rendered EN_REVISION literally
+                    if (mensaje.includes('EN_REVISION')) {
+                        mensaje = mensaje.replace('EN_REVISION', 'En revisión');
+                    }
 
                     await this.sendWebNotification(id_usuario, titulo, mensaje, 'INFO', context.id_solicitud || context.id_referencia || context.correlativo, context.area_destino || context.area);
                 }
@@ -256,18 +286,25 @@ class UnsService {
                 if (emailList.length > 0 || ccArray.length > 0) {
                     const now = new Date();
                     let tituloCorreo = 'Notificación de Solicitud';
-                    let etiquetaObs = 'Motivo de la Solicitud';
-                    let labelSolicitante = 'Creado por';
+                    let etiquetaObs = 'Comentarios de la Acción';
+                    let labelSolicitante = 'Acción por';
                     let colorPrincipal = '#0062a8'; 
                     let colorFondo = '#ffffff'; 
 
                     if (codigoEvento.includes('NUEVA') || codigoEvento.includes('CREADA')) {
                         tituloCorreo = `Nueva Solicitud: ${context.nombre_tipo || 'Servicio'}`;
                         etiquetaObs = 'Detalle de la Solicitud';
-                    } else if (codigoEvento.includes('ESTADO')) {
+                        labelSolicitante = 'Creado por';
+                    } else if (codigoEvento.includes('ESTADO') || codigoEvento.includes('CAMBIO')) {
                         const est = (context.estado || '').toUpperCase();
-                        if (est === 'RECHAZADA') { colorPrincipal = '#dc3545'; tituloCorreo = 'Ficha Rechazada'; }
-                        else { colorPrincipal = '#28a745'; tituloCorreo = 'Ficha Aprobada/Actualizada'; }
+                        if (est === 'RECHAZADA') { colorPrincipal = '#dc3545'; tituloCorreo = `Solicitud Rechazada: ${context.nombre_tipo || 'Servicio'}`; }
+                        else if (est === 'ACEPTADA') { colorPrincipal = '#0d9488'; tituloCorreo = `Solicitud Aceptada: ${context.nombre_tipo || 'Servicio'}`; }
+                        else if (est === 'REALIZADA') { colorPrincipal = '#28a745'; tituloCorreo = `Solicitud Realizada: ${context.nombre_tipo || 'Servicio'}`; }
+                        else if (est === 'EN_REVISION') { colorPrincipal = '#3b82f6'; tituloCorreo = `Solicitud En Revisión: ${context.nombre_tipo || 'Servicio'}`; }
+                        else { colorPrincipal = '#28a745'; tituloCorreo = `Solicitud Actualizada: ${context.nombre_tipo || 'Servicio'}`; }
+                    } else if (codigoEvento.includes('DERIVACION')) {
+                        colorPrincipal = '#6366f1'; 
+                        tituloCorreo = `Solicitud Derivada: ${context.nombre_tipo || 'Servicio'}`;
                     }
 
                     const enrichedContext = {
@@ -402,20 +439,32 @@ class UnsService {
                     SELECT DISTINCT p.id_usuario, ur.id_usuario as id_usuario_rol
                     FROM rel_solicitud_tipo_permiso p
                     LEFT JOIN rel_usuario_rol ur ON p.id_rol = ur.id_rol
-                    WHERE p.id_tipo = @idTipo AND p.tipo_acceso = 'GESTION'
+                    WHERE p.id_tipo = @idTipo AND (p.tipo_acceso = 'GESTION' OR p.tipo_acceso = 'DESTINO_DERIVACION')
                 `);
+            
+            // Fix 8b: Respect NotificationHub configuration for email
+            const rulesAllowEmail = reglas.length > 0 ? reglas.some(r => r.envia_email) : true;
+            let rulesAllowWeb = reglas.length > 0 ? reglas.some(r => r.envia_web) : true;
+            
+            // Override: NUEVA events should always notify on web so Inbox isn't missed
+            if (codigoEvento.includes('NUEVA')) {
+                rulesAllowWeb = true;
+            }
             
             permsRes.recordset.forEach(r => {
                 const uid = Number(r.id_usuario || r.id_usuario_rol);
                 if (uid && uid !== actorId) {
                     const existing = recipientsMap.get(uid) || { id_usuario: uid, web: false, email: false };
-                    // En URS, si tienes permiso de GESTION, siempre notificamos web por defecto
-                    existing.web = true;
+                    // En URS, si tienes permiso de GESTION, notificamos web si las reglas lo permiten
+                    existing.web = existing.web || rulesAllowWeb;
                     
-                    // Solo activamos email automáticamente para eventos Críticos (Nuevas, Estado, Derivacion)
-                    // Para comentarios, respetamos lo que digan las reglas (Architecture 3.0)
+                    // Solo activamos email si las reglas lo permiten Y es un evento crítico (No incluimos comentarios/chat por defecto)
                     if (codigoEvento.includes('NUEVA') || codigoEvento.includes('ESTADO_CAMBIO') || codigoEvento.includes('DERIVACION')) {
-                        existing.email = true;
+                        // SOLICITUD_COMENTARIO_NUEVO contains 'NUEVO' not 'NUEVA', so it stays false here.
+                        existing.email = existing.email || rulesAllowEmail;
+                    } else if (codigoEvento === 'SOLICITUD_COMENTARIO_NUEVO') {
+                        // Trust the specific rule flag directly if provided
+                        existing.email = reglas.length > 0 ? reglas.some(r => r.envia_email) : false;
                     }
                     
                     recipientsMap.set(uid, existing);
@@ -448,12 +497,17 @@ class UnsService {
                     // For legacy Fichas/Solicitudes, we default to true if no rules exist to maintain compatibility.
                     const isGchat = codigoEvento.startsWith('GCHAT');
                     const isFicha = codigoEvento.startsWith('FICHA');
+                    const isChatSol = codigoEvento === 'SOLICITUD_COMENTARIO_NUEVO';
                     
                     const canSendWeb = reglas.length > 0 ? reglas.some(r => r.envia_web) : (!isGchat || isFicha);
-                    const canSendEmail = reglas.length > 0 ? reglas.some(r => r.envia_email) : (!isGchat || isFicha);
+                    // Architecture 3.0 Fix: Chat messages (SOLICITUD_COMENTARIO_NUEVO) should NOT send email by default
+                    const canSendEmail = reglas.length > 0 ? reglas.some(r => r.envia_email) : ((!isGchat && !isChatSol) || isFicha);
                     
                     const existing = recipientsMap.get(ownerId) || { id_usuario: ownerId, web: false, email: false };
                     existing.web = existing.web || canSendWeb;
+                    
+                    // User Issue 2 (Reverted): User actually wants chat emails if they configured it in Hub.
+                    // We trust canSendEmail directly.
                     existing.email = existing.email || canSendEmail;
                     
                     if (existing.web || existing.email) {
@@ -496,6 +550,18 @@ class UnsService {
             output = output.split(`{${key.toUpperCase()}}`).join(val);
         }
         return output;
+    }
+
+    _formatEstado(estado) {
+        const estadoMap = {
+            'EN_REVISION': 'En revisión',
+            'PENDIENTE': 'Pendiente',
+            'ACEPTADA': 'Aceptada',
+            'RECHAZADA': 'Rechazada',
+            'REALIZADA': 'Realizada',
+        };
+        const upper = String(estado).trim().toUpperCase();
+        return estadoMap[upper] || String(estado).replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
     }
 
     /**

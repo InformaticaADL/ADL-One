@@ -83,7 +83,7 @@ export const ursService = {
         return response.data;
     },
 
-    async addPermission(id: number, data: { id_rol?: number; id_usuario?: number; tipo_acceso: 'ENVIO' | 'VISTA' | 'GESTION' | 'DERIVACION' }): Promise<any> {
+    async addPermission(id: number, data: { id_rol?: number; id_usuario?: number; tipo_acceso: 'ENVIO' | 'VISTA' | 'GESTION' | 'DERIVACION' | 'DESTINO_DERIVACION' }): Promise<any> {
         const response = await apiClient.post(`/api/urs/types/${id}/permissions`, data);
         return response.data;
     },
@@ -94,7 +94,7 @@ export const ursService = {
     },
 
     async getDerivationTargets(idTipo: number): Promise<any[]> {
-        const response = await apiClient.get(`/api/urs/types/${idTipo}/derivation-targets`);
+        const response = await apiClient.get(`/api/urs/types/${idTipo}/derivation-targets?t=${Date.now()}`);
         return response.data;
     },
 

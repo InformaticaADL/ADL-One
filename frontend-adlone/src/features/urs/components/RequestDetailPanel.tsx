@@ -1,8 +1,9 @@
 import { ursService } from '../../../services/urs.service';
 import { useAuth } from '../../../contexts/AuthContext';
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import FileIcon from './FileIcon';
 import DeriveRequestModal from './DeriveRequestModal';
+import { useToast } from '../../../contexts/ToastContext';
 import {
     Stack,
     Group,
@@ -17,7 +18,13 @@ import {
     ThemeIcon,
     SimpleGrid,
     Alert,
-    Center
+    Center,
+    Modal,
+    Textarea,
+    Timeline,
+    ScrollArea,
+    Collapse,
+    UnstyledButton
 } from '@mantine/core';
 import {
     IconFileText,
@@ -34,9 +41,54 @@ import {
     IconMapPin,
     IconDeviceDesktop,
     IconAlertTriangle,
-    IconArrowsExchange
+    IconArrowsExchange,
+    IconHistory,
+    IconArrowRight,
+    IconChevronDown,
+    IconChevronUp,
+    IconCheckbox
 } from '@tabler/icons-react';
 import { StatusBadge } from '../../../components/ui/StatusBadge';
+
+/** Converts code-like strings to human-readable text */
+const CODE_VALUE_MAP: Record<string, string> = {
+    'VIDA_UTIL': 'Vida Útil',
+    'DANIO': 'Daño',
+    'DANO': 'Daño',
+    'OBSOLESCENCIA': 'Obsolescencia',
+    'PERDIDA': 'Pérdida',
+    'ROBO': 'Robo',
+    'DETERIORO': 'Deterioro',
+    'REEMPLAZO': 'Reemplazo',
+    'OTRO': 'Otro',
+    'EN_REVISION': 'En Revisión',
+    'PENDIENTE': 'Pendiente',
+    'ACEPTADA': 'Aceptada',
+    'RECHAZADA': 'Rechazada',
+    'REALIZADA': 'Realizada',
+    'NORMAL': 'Normal',
+    'ALTA': 'Alta',
+    'CRITICO': 'Crítico',
+    'URGENTE': 'Urgente',
+    'MEDIA': 'Media',
+    'BAJA': 'Baja',
+};
+
+const formatCodeValue = (value: string | null | undefined): string => {
+    if (!value) return 'N/A';
+    const upper = String(value).trim().toUpperCase();
+    if (CODE_VALUE_MAP[upper]) return CODE_VALUE_MAP[upper];
+    // Fallback: SNAKE_CASE → Title Case
+    return String(value)
+        .replace(/_/g, ' ')
+        .toLowerCase()
+        .replace(/\b\w/g, l => l.toUpperCase())
+        .replace(/\bDe\b/g, 'de')
+        .replace(/\bDel\b/g, 'del')
+        .replace(/\bY\b/g, 'y')
+        .replace(/\bEn\b/g, 'en')
+        .replace(/\bA\b/g, 'a');
+};
 
 interface RequestDetailPanelProps {
     request: any;
@@ -47,14 +99,118 @@ interface RequestDetailPanelProps {
 const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequestUpdate, onReload }) => {
     const [isDeriving, setIsDeriving] = useState(false);
     const { token } = useAuth();
+    const { showToast } = useToast();
 
-    const handleStatusUpdate = async (newStatus: string) => {
+    // Observation modal state
+    const [obsModalOpen, setObsModalOpen] = useState(false);
+    const [obsText, setObsText] = useState('');
+    const [pendingAction, setPendingAction] = useState<string | null>(null);
+    const [actionLoading, setActionLoading] = useState(false);
+    // Action history toggle
+    const [historyOpen, setHistoryOpen] = useState(false);
+
+    const isClosed = request?.estado === 'REALIZADA' || request?.estado === 'RECHAZADA';
+
+    // Build unified action history from system comments + derivations
+    const actionHistory = useMemo(() => {
+        if (!request) return [];
+        const items: { date: string; action: string; user: string; observation: string; type: string }[] = [];
+
+        // System comments (es_sistema === true or 1)
+        (request.conversacion || []).forEach((msg: any) => {
+            if (msg.es_sistema) {
+                let action = msg.mensaje || '';
+                let obs = '';
+                // Parse "Cambio de estado a X: observación"
+                const match = action.match(/^Cambio de estado a ([^:]+)(?::\s*(.+))?$/);
+                if (match) {
+                    action = match[1].trim();
+                    obs = match[2]?.trim() || '';
+                }
+                items.push({
+                    date: msg.fecha,
+                    action,
+                    user: msg.nombre_usuario || 'Sistema',
+                    observation: obs,
+                    type: 'status'
+                });
+            }
+        });
+
+        // Derivations
+        (request.historial_derivaciones || []).forEach((d: any) => {
+            items.push({
+                date: d.fecha,
+                action: `Derivada → ${d.usuario_destino || d.rol_destino || d.area_destino || 'Otro destino'}`,
+                user: d.usuario_origen || 'Sistema',
+                observation: d.motivo || '',
+                type: 'derivation'
+            });
+        });
+
+        items.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        return items;
+    }, [request]);
+
+    const getActionColor = (action: string) => {
+        const a = action.toUpperCase();
+        if (a.includes('ACEPTADA') || a.includes('APROBAD')) return 'teal';
+        if (a.includes('REALIZADA')) return 'green';
+        if (a.includes('RECHAZAD')) return 'red';
+        if (a.includes('REVISION')) return 'blue';
+        if (a.includes('DERIVAD')) return 'indigo';
+        return 'gray';
+    };
+
+    const openObservationModal = (actionType: string) => {
+        setPendingAction(actionType);
+        setObsText('');
+        setObsModalOpen(true);
+    };
+
+    const getActionLabel = (actionType: string | null) => {
+        switch (actionType) {
+            case 'ACEPTADA': return 'Aceptar Solicitud';
+            case 'RECHAZADA': return 'Rechazar Solicitud';
+            case 'EN_REVISION': return 'Poner En Revisión';
+            case 'REALIZADA': return 'Marcar como Realizada';
+            default: return 'Confirmar';
+        }
+    };
+
+    const getActionColor2 = (actionType: string | null) => {
+        switch (actionType) {
+            case 'ACEPTADA': return 'teal';
+            case 'RECHAZADA': return 'red';
+            case 'EN_REVISION': return 'blue';
+            case 'REALIZADA': return 'green';
+            default: return 'gray';
+        }
+    };
+
+    const confirmAction = async () => {
+        if (!pendingAction || !obsText.trim()) return;
+        setActionLoading(true);
         try {
-            await ursService.updateStatus(request.id_solicitud, { status: newStatus });
+            await ursService.updateStatus(request.id_solicitud, { 
+                status: pendingAction, 
+                comment: obsText.trim() 
+            });
+            const messages: Record<string, string> = {
+                'ACEPTADA': 'Solicitud aceptada correctamente',
+                'RECHAZADA': 'Solicitud rechazada',
+                'EN_REVISION': 'Solicitud puesta en revisión',
+                'REALIZADA': 'Solicitud marcada como realizada'
+            };
+            showToast({ message: messages[pendingAction] || 'Estado actualizado', type: 'success' });
+            setObsModalOpen(false);
             onReload();
             onRequestUpdate();
         } catch (error) {
-            console.error("Error updating status:", error);
+            console.error('Error updating status:', error);
+            showToast({ message: 'Error al actualizar el estado', type: 'error' });
+        } finally {
+            setActionLoading(false);
         }
     };
 
@@ -249,11 +405,15 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                                 <SimpleGrid cols={2}>
                                     <Box>
                                         <Text size="xs" c="dimmed" fw={700}>CAUSA</Text>
-                                        <Text fw={700} c="red.7">{request.datos_json?.motivo || 'N/A'}</Text>
+                                        <Text fw={700} c="red.7">
+                                            {formatCodeValue(request.datos_json?.motivo)}
+                                        </Text>
                                     </Box>
                                     <Box>
                                         <Text size="xs" c="dimmed" fw={700}>FECHA EFECTIVA</Text>
-                                        <Text fw={700}>📅 {request.datos_json?.fecha_baja ? new Date(request.datos_json.fecha_baja).toLocaleDateString() : 'N/A'}</Text>
+                                        <Text fw={700}>
+                                            📅 {request.datos_json?.fecha_baja ? request.datos_json.fecha_baja.split('-').reverse().join('/') : 'N/A'}
+                                        </Text>
                                     </Box>
                                 </SimpleGrid>
                             </Stack>
@@ -307,7 +467,7 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                                         return (
                                             <Group key={key} justify="space-between" p="xs" style={{ borderBottom: '1px solid var(--mantine-color-gray-1)' }}>
                                                 <Text size="sm" fw={600} c="dimmed" tt="capitalize">{key.replace(/_/g, ' ')}</Text>
-                                                <Text size="sm" fw={700}>{String(value)}</Text>
+                                                <Text size="sm" fw={700}>{formatCodeValue(String(value))}</Text>
                                             </Group>
                                         );
                                     })
@@ -366,53 +526,185 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                 </Stack>
             </Paper>
 
-            {/* Management Section */}
-            <Paper p="lg" radius="xl" bg="gray.0" withBorder>
+            {/* Status Messages */}
+            {request.estado === 'ACEPTADA' && (
+                <Alert icon={<IconCheck size={20} />} color="teal" variant="light" radius="lg">
+                    <Text size="sm" fw={700}>Solicitud aceptada, se le avisará cuando se haya realizado lo solicitado.</Text>
+                </Alert>
+            )}
+            {request.estado === 'REALIZADA' && (
+                <Alert icon={<IconCheckbox size={20} />} color="green" variant="light" radius="lg">
+                    <Text size="sm" fw={700}>Solicitud realizada, por ende se cierra esta solicitud.</Text>
+                </Alert>
+            )}
+            {request.estado === 'RECHAZADA' && (
+                <Alert icon={<IconX size={20} />} color="red" variant="light" radius="lg">
+                    <Text size="sm" fw={700}>Solicitud rechazada. No se pueden realizar más acciones.</Text>
+                </Alert>
+            )}
+            {request.estado === 'EN_REVISION' && (
+                <Alert icon={<IconSearch size={20} />} color="blue" variant="light" radius="lg">
+                    <Text size="sm" fw={700}>Solicitud en revisión. Se está evaluando para proceder.</Text>
+                </Alert>
+            )}
+
+            {/* Management Section - Only show if not closed */}
+            {!isClosed && (
+                <Paper p="lg" radius="xl" bg="gray.0" withBorder>
+                    <Stack gap="md">
+                        <Group gap="xs">
+                            <ThemeIcon variant="filled" color="dark" size="md" radius="md">
+                                <IconCheck size={18} />
+                            </ThemeIcon>
+                            <Title order={4}>Gestión de Solicitud</Title>
+                        </Group>
+                        
+                        {(request.can_manage || request.can_derive) ? (
+                            <Grid>
+                                {request.can_manage && request.estado !== 'ACEPTADA' && (
+                                    <>
+                                        <Grid.Col span={{ base: 12, sm: 4 }}>
+                                            <Button fullWidth leftSection={<IconCheck size={18} />} color="teal" radius="md" onClick={() => openObservationModal('ACEPTADA')}>
+                                                Aceptar
+                                            </Button>
+                                        </Grid.Col>
+                                        <Grid.Col span={{ base: 12, sm: 4 }}>
+                                            <Button fullWidth leftSection={<IconX size={18} />} color="red" radius="md" onClick={() => openObservationModal('RECHAZADA')}>
+                                                Rechazar
+                                            </Button>
+                                        </Grid.Col>
+                                        <Grid.Col span={{ base: 12, sm: 4 }}>
+                                            <Button fullWidth leftSection={<IconSearch size={18} />} color="blue" radius="md" onClick={() => openObservationModal('EN_REVISION')}>
+                                                En Revisión
+                                            </Button>
+                                        </Grid.Col>
+                                    </>
+                                )}
+                                {request.can_derive && (
+                                    <Grid.Col span={12}>
+                                        <Button fullWidth variant="light" color="adl-blue" leftSection={<IconArrowUpRight size={18} />} radius="md" onClick={() => setIsDeriving(true)}>
+                                            Derivar Solicitud
+                                        </Button>
+                                    </Grid.Col>
+                                )}
+                            </Grid>
+                        ) : (
+                            <Alert color="gray" icon={<IconLock size={20} />} radius="md">
+                                <Text size="sm" fw={700}>Modo Lectura</Text>
+                                <Text size="xs">Usted tiene acceso de visualización para este trámite.</Text>
+                            </Alert>
+                        )}
+                        
+                        {/* Marcar como Realizado - Only when ACEPTADA and user can manage */}
+                        {request.can_manage && request.estado === 'ACEPTADA' && (
+                            <Button fullWidth leftSection={<IconCheckbox size={18} />} color="green" radius="md" size="lg" onClick={() => openObservationModal('REALIZADA')}>
+                                Marcar como Realizado
+                            </Button>
+                        )}
+                    </Stack>
+                </Paper>
+            )}
+
+            {/* Action History Section */}
+            <Paper p="lg" radius="lg" withBorder>
                 <Stack gap="md">
-                    <Group gap="xs">
-                        <ThemeIcon variant="filled" color="dark" size="md" radius="md">
-                            <IconCheck size={18} />
-                        </ThemeIcon>
-                        <Title order={4}>Gestión de Solicitud</Title>
-                    </Group>
-                    
-                    { (request.can_manage || request.can_derive) ? (
-                        <Grid>
-                            {request.can_manage && (
-                                <>
-                                    <Grid.Col span={{ base: 12, sm: 4 }}>
-                                        <Button fullWidth leftSection={<IconCheck size={18} />} color="teal" radius="md" onClick={() => handleStatusUpdate('APROBADO')}>
-                                            Aprobar
-                                        </Button>
-                                    </Grid.Col>
-                                    <Grid.Col span={{ base: 12, sm: 4 }}>
-                                        <Button fullWidth leftSection={<IconX size={18} />} color="red" radius="md" onClick={() => handleStatusUpdate('RECHAZADO')}>
-                                            Rechazar
-                                        </Button>
-                                    </Grid.Col>
-                                    <Grid.Col span={{ base: 12, sm: 4 }}>
-                                        <Button fullWidth leftSection={<IconSearch size={18} />} color="blue" radius="md" onClick={() => handleStatusUpdate('EN_REVISION')}>
-                                            En Revisión
-                                        </Button>
-                                    </Grid.Col>
-                                </>
-                            )}
-                            {request.can_derive && (
-                                <Grid.Col span={12}>
-                                    <Button fullWidth variant="light" color="adl-blue" leftSection={<IconArrowUpRight size={18} />} radius="md" onClick={() => setIsDeriving(true)}>
-                                        Derivar Solicitud
-                                    </Button>
-                                </Grid.Col>
-                            )}
-                        </Grid>
-                    ) : (
-                        <Alert color="gray" icon={<IconLock size={20} />} radius="md">
-                            <Text size="sm" fw={700}>Modo Lectura</Text>
-                            <Text size="xs">Usted tiene acceso de visualización para este trámite.</Text>
-                        </Alert>
-                    )}
+                    <UnstyledButton onClick={() => setHistoryOpen(!historyOpen)} style={{ width: '100%' }}>
+                        <Group justify="space-between">
+                            <Group gap="xs">
+                                <ThemeIcon variant="light" color="gray" size="md" radius="md">
+                                    <IconHistory size={18} />
+                                </ThemeIcon>
+                                <Title order={4}>Historial de Acciones</Title>
+                                {actionHistory.length > 0 && (
+                                    <Badge size="sm" variant="filled" color="gray">{actionHistory.length}</Badge>
+                                )}
+                            </Group>
+                            {historyOpen ? <IconChevronUp size={18} /> : <IconChevronDown size={18} />}
+                        </Group>
+                    </UnstyledButton>
+
+                    <Collapse in={historyOpen}>
+                        {actionHistory.length > 0 ? (
+                            <ScrollArea.Autosize mah={300}>
+                                <Timeline active={actionHistory.length - 1} bulletSize={24} lineWidth={2} mt="sm">
+                                    {actionHistory.map((item, idx) => (
+                                        <Timeline.Item
+                                            key={idx}
+                                            bullet={item.type === 'derivation' ? <IconArrowRight size={12} /> : <IconCheck size={12} />}
+                                            color={getActionColor(item.action)}
+                                            title={
+                                                <Group gap="xs">
+                                                    <Badge size="xs" variant="light" color={getActionColor(item.action)}>
+                                                        {item.action}
+                                                    </Badge>
+                                                    <Text size="xs" c="dimmed">
+                                                        {new Date(item.date).toLocaleString('es-CL', {
+                                                            day: '2-digit', month: '2-digit', year: 'numeric',
+                                                            hour: '2-digit', minute: '2-digit'
+                                                        })}
+                                                    </Text>
+                                                </Group>
+                                            }
+                                        >
+                                            <Text c="dimmed" size="xs" mt={4}>
+                                                <Text span fw={600} c="dark">{item.user || 'Sistema'}</Text>
+                                                {' '}•{' '}
+                                                {item.observation || 'Sin detalle'}
+                                            </Text>
+                                        </Timeline.Item>
+                                    ))}
+                                </Timeline>
+                            </ScrollArea.Autosize>
+                        ) : (
+                            <Text size="sm" c="dimmed" fs="italic" ta="center" py="md">
+                                Sin movimientos registrados.
+                            </Text>
+                        )}
+                    </Collapse>
                 </Stack>
             </Paper>
+
+            {/* Observation Modal */}
+            <Modal
+                opened={obsModalOpen}
+                onClose={() => { setObsModalOpen(false); setPendingAction(null); }}
+                title={
+                    <Group gap="xs">
+                        <ThemeIcon variant="light" color={getActionColor2(pendingAction)} radius="md">
+                            <IconCheck size={18} />
+                        </ThemeIcon>
+                        <Text fw={700}>{getActionLabel(pendingAction)}</Text>
+                    </Group>
+                }
+                radius="lg"
+                zIndex={1100}
+            >
+                <Stack gap="md">
+                    <Textarea
+                        label="Observaciones"
+                        placeholder="Escriba sus observaciones para esta acción..."
+                        required
+                        minRows={3}
+                        value={obsText}
+                        onChange={(e) => setObsText(e.currentTarget.value)}
+                        radius="md"
+                    />
+                    <Group justify="flex-end" mt="md">
+                        <Button variant="light" color="gray" onClick={() => setObsModalOpen(false)} radius="md">
+                            Cancelar
+                        </Button>
+                        <Button
+                            color={getActionColor2(pendingAction)}
+                            radius="md"
+                            loading={actionLoading}
+                            disabled={!obsText.trim()}
+                            onClick={confirmAction}
+                        >
+                            {getActionLabel(pendingAction)}
+                        </Button>
+                    </Group>
+                </Stack>
+            </Modal>
 
             <DeriveRequestModal 
                 isOpen={isDeriving} 
@@ -420,6 +712,7 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                 requestTypeId={request.id_tipo}
                 onClose={() => setIsDeriving(false)} 
                 onSuccess={() => {
+                    showToast({ message: 'Solicitud derivada correctamente', type: 'success' });
                     onReload();
                     onRequestUpdate();
                 }}

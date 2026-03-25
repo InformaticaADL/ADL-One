@@ -207,6 +207,14 @@ class NotificationService {
         const attachments = [];
 
         // 0. Pre-process context: Merge datos_json into top-level for easier placeholder access
+        // Fix 5b: Guard datos_json — ensure it's always an object
+        if (context.datos_json && typeof context.datos_json === 'string') {
+            try {
+                context.datos_json = JSON.parse(context.datos_json);
+            } catch (e) {
+                context.datos_json = {};
+            }
+        }
         if (context.datos_json && typeof context.datos_json === 'object') {
             for (const [k, v] of Object.entries(context.datos_json)) {
                 if (!(k in context)) context[k] = v;
@@ -375,20 +383,43 @@ class NotificationService {
                     `;
                 } else {
                     // Generic handling for other URS request types (Formulario dinámico)
-                    const keysToSkip = ['muestreador_origen_id', 'muestreador_origen_nombre', 'tipo_traspaso', 'base_destino', 'muestreador_destino_id', 'muestreador_destino_nombre', 'reasignacion_manual', 'id_equipo', 'fecha_traspaso', 'form_type', 'id_muestreador_destino'];
+                    const keysToSkip = [
+                        'muestreador_origen_id', 'muestreador_origen_nombre', 'tipo_traspaso', 'base_destino', 
+                        'muestreador_destino_id', 'muestreador_destino_nombre', 'reasignacion_manual', 'id_equipo', 
+                        'id_equipo_original', 'fecha_traspaso', 'form_type', '_form_type', 'formType', 'FormType', 
+                        'id_muestreador_destino', 'info_actual', 'traspaso_de', 'id_solicitante', 'id_centro_destino',
+                        'nombre_equipo', 'nombre_equipo_full', 'encargado_actual', 'ubicacion_actual'
+                    ];
+                    
                     const details = Object.entries(dj)
-                        .filter(([key]) => !keysToSkip.includes(key) && typeof dj[key] !== 'object' && dj[key] !== null)
+                        .filter(([key]) => !keysToSkip.includes(key) && typeof dj[key] !== 'object' && dj[key] !== null && dj[key] !== '' && dj[key] !== 'N/A')
                         .map(([key, val]) => {
                             const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-                            return `<div style="margin-bottom: 6px;"><strong>${label}:</strong> <span style="color: #475569;">${val}</span></div>`;
+                            
+                            // Specific Traspaso Hide Logic based on traspaso_de array
+                            if (dj._form_type === 'TRASPASO_EQUIPO' && Array.isArray(dj.traspaso_de)) {
+                                if (key === 'nombre_centro_destino' && !dj.traspaso_de.includes('UBICACION')) return '';
+                                if (key === 'nombre_muestreador_destino' && !dj.traspaso_de.includes('RESPONSABLE')) return '';
+                            }
+
+                            // Fix text formatting (DAÑO, DD-MM-YYYY)
+                            let displayVal = val;
+                            if (typeof val === 'string' && val.trim().toUpperCase() === 'DANIO') displayVal = 'DAÑO';
+                            if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}(T.*)?$/.test(val)) {
+                                const parts = val.split('T')[0].split('-');
+                                if (parts.length === 3) displayVal = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                            }
+                            
+                            return `<div style="margin-bottom: 6px;"><strong>${label}:</strong> <span style="color: #475569;">${displayVal}</span></div>`;
                         }).join('');
 
-                    if (details || dj.nombre_equipo) {
+                    const eqName = dj.nombre_equipo || dj.nombre_equipo_full;
+                    if (details.trim() || eqName) {
                         equiposHtml = `
                             <div style="padding: 15px; margin-top: 15px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;">
                                 <h4 style="margin: 0 0 12px 0; color: #0062a8; font-size: 15px; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px;">Detalle de la Solicitud:</h4>
                                 <div style="font-size: 14px; color: #1e293b;">
-                                    ${dj.nombre_equipo ? `<div style="margin-bottom: 10px; font-size: 15px;"><strong>Equipo:</strong> <span style="color: #0062a8; font-weight: bold;">${dj.nombre_equipo} ${dj.codigo_equipo ? `(${dj.codigo_equipo})` : ''}</span></div>` : ''}
+                                    ${eqName ? `<div style="margin-bottom: 10px; font-size: 15px;"><strong>Equipo:</strong> <span style="color: #0062a8; font-weight: bold;">${eqName} ${dj.codigo_equipo ? `(${dj.codigo_equipo})` : ''}</span></div>` : ''}
                                     ${details}
                                 </div>
                             </div>
@@ -399,7 +430,8 @@ class NotificationService {
 
             // AVOID DUPLICATION: If the template already contains specific URS placeholders or markers,
             // we should NOT inject the automatic block unless {EQUIPOS_DETALLE} is explicitly present.
-            const hasSpecificPlaceholders = /\{muestreador_(origen|destino)_nombre\}|\{tipo_traspaso\}|Plan de Desactivación/i.test(output);
+            // Using a more robust regex for 'Plan de Desvinculación' and 'Plan de Desactivación'
+            const hasSpecificPlaceholders = /\{muestreador_(origen|destino)_nombre\}|\{tipo_traspaso\}|Plan de Desactivaci.n|Plan de Desactivacion|Plan de Desvinculaci.n|Plan de Desvinculacion/i.test(output);
             const shouldInject = !hasSpecificPlaceholders || output.includes('{EQUIPOS_DETALLE}');
 
             if (equiposHtml && shouldInject) {
@@ -411,12 +443,37 @@ class NotificationService {
                             ${equiposHtml}
                         </div>
                     `;
-                    if (output.includes('</body>')) {
-                        output = output.replace('</body>', `${injectionHtml}</body>`);
-                    } else if (output.includes('</html>')) {
-                        output = output.replace('</html>', `${injectionHtml}</html>`);
-                    } else {
-                        output += injectionHtml;
+                    // Fix 1: Inject BEFORE the firma/footer section, not after it
+                    // Look for the firma marker (ADL Diagnostic / Sistema de Gestión) and inject before it
+                    const firmaMarkers = ['ADL Diagnostic', 'Sistema de Gesti', 'Laboratorio de Diagn'];
+                    let injected = false;
+                    for (const marker of firmaMarkers) {
+                        const markerIdx = output.indexOf(marker);
+                        if (markerIdx > 0) {
+                            // Find the start of the containing element (td, div, p) before the marker
+                            const searchArea = output.substring(Math.max(0, markerIdx - 500), markerIdx);
+                            // Find the last closing tag before this marker's container
+                            const lastTdClose = searchArea.lastIndexOf('</td>');
+                            const lastDivClose = searchArea.lastIndexOf('</div>');
+                            const bestClose = Math.max(lastTdClose, lastDivClose);
+                            if (bestClose > -1) {
+                                const actualIdx = Math.max(0, markerIdx - 500) + bestClose;
+                                const tag = output.substring(actualIdx, actualIdx + 6) === '</div>' ? '</div>' : '</td>';
+                                output = output.substring(0, actualIdx + tag.length) + injectionHtml + output.substring(actualIdx + tag.length);
+                                injected = true;
+                                break;
+                            }
+                        }
+                    }
+                    // Fallback: if no firma found, inject before </body> or append
+                    if (!injected) {
+                        if (output.includes('</body>')) {
+                            output = output.replace('</body>', `${injectionHtml}</body>`);
+                        } else if (output.includes('</html>')) {
+                            output = output.replace('</html>', `${injectionHtml}</html>`);
+                        } else {
+                            output += injectionHtml;
+                        }
                     }
                 }
             }

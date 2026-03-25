@@ -234,6 +234,12 @@ class SolicitudService {
                 whereConditions.push(`(s.estado = 'PENDIENTE_CALIDAD' OR s.estado_tecnica = 'DERIVADO')`);
             }
 
+            // Fix 9: Filter by equipment ID (searches inside datos_json)
+            if (filters.id_equipo) {
+                whereConditions.push(`(JSON_VALUE(s.datos_json, '$.id_equipo') = @idEquipo OR JSON_VALUE(s.datos_json, '$.equipo_id') = @idEquipo)`);
+                request.input('idEquipo', sql.VarChar(50), String(filters.id_equipo));
+            }
+
 
             if (whereConditions.length > 0) {
                 query += ' WHERE ' + whereConditions.join(' AND ');

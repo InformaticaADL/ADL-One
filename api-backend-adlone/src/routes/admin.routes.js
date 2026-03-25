@@ -45,6 +45,7 @@ router.delete('/equipos/:id', verifyToken, equipoController.deleteEquipo);
 router.post('/equipos/check-expiration', verifyToken, equipoController.checkExpiration);
 
 // --- SOLICITUDES ---
+router.get('/equipos/:id/solicitudes', verifyToken, solicitudController.getSolicitudesByEquipo);
 router.post('/solicitudes', verifyToken, solicitudController.create);
 router.get('/solicitudes', verifyToken, solicitudController.getAll);
 router.put('/solicitudes/:id/status', verifyToken, solicitudController.updateStatus);

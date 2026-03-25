@@ -16,8 +16,7 @@ import {
     TextInput, 
     Select, 
     Pagination, 
-    Divider, 
-    Menu, 
+    Divider,
     Modal, 
     ScrollArea, 
     Textarea,
@@ -42,6 +41,7 @@ import {
 import { equipoService, type Equipo } from '../services/equipo.service';
 import { EquipmentExportModal } from '../components/EquipmentExportModal';
 import { adminService } from '../../../services/admin.service';
+import { ursService } from '../../../services/urs.service';
 import { EquipoForm } from '../components/EquipoForm';
 import { EquipmentRequestsModal } from '../components/EquipmentRequestsModal';
 import { useToast } from '../../../contexts/ToastContext';
@@ -49,6 +49,21 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { useNavStore } from '../../../store/navStore';
 import '../admin.css';
 
+const getStatusColor = (status: string) => {
+    const s = (status || '').toUpperCase().trim();
+    switch (s) {
+        case 'PENDIENTE':
+        case 'PENDIENTE_TECNICA':
+        case 'PENDIENTE_CALIDAD': return 'yellow';
+        case 'EN_REVISION':
+        case 'EN_REVISION_TECNICA': return 'cyan';
+        case 'ACEPTADA': return 'teal';
+        case 'RECHAZADA':
+        case 'RECHAZADO_TECNICA': return 'red';
+        case 'REALIZADA': return 'blue';
+        default: return 'gray';
+    }
+};
 
 interface Props {
     onBack: () => void;
@@ -87,7 +102,6 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const { hasPermission } = useAuth();
     
     // Permissions
-    const isGCMan = hasPermission('GC_ACCESO') || hasPermission('GC_EQUIPOS');
     const isMAMan = hasPermission('AI_MA_SOLICITUDES') || hasPermission('MA_A_GEST_EQUIPO');
     const isSuper = hasPermission('AI_MA_ADMIN_ACCESO');
     // @ts-ignore
@@ -224,14 +238,36 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
 
     const loadSolicitudes = async () => {
         try {
-            const targetStates = ['PENDIENTE', 'PENDIENTE_CALIDAD'].join(',');
-            const data = await adminService.getSolicitudes({ estado: targetStates });
-            const managementTypes = [
-                'ALTA', 'TRASPASO', 'BAJA', 'VIGENCIA_PROXIMA',
-                'NUEVO_EQUIPO', 'EQUIPO_PERDIDO', 'REVISION', 'REPORTE_PROBLEMA',
-                'EQUIPO_DESHABILITADO'
-            ];
-            const filteredData = data.filter((s: any) => managementTypes.includes(s.tipo_solicitud));
+            const targetStates = ['ACEPTADA'].join(',');
+            // Fetch from both legacy and new URS systems concurrently
+            const [legacyData, ursData] = await Promise.all([
+                adminService.getSolicitudes({ estado: targetStates }).catch(() => []),
+                ursService.getRequests({ estado: targetStates }).catch(() => [])
+            ]);
+            
+            // Merge results
+            const data = [...(Array.isArray(legacyData) ? legacyData : []), ...(Array.isArray(ursData) ? ursData : [])];
+            
+            // Expand matching criteria to include URS form types and common keywords
+            const filteredData = data.filter((s: any) => {
+                // 1. Dynamic check via new modulo_destino metadata
+                if (s.modulo_destino === 'EQUIPOS') return true;
+
+                // 2. Robust fallback for legacy types or URS types without metadata
+                const tipoRaw = (s.tipo_solicitud || '').toUpperCase();
+                const formType = (s.datos_json?._form_type || '').toUpperCase();
+                
+                return tipoRaw.includes('EQUIPO') || 
+                       formType.includes('EQUIPO') ||
+                       tipoRaw.includes('MUESTREADOR') ||
+                       tipoRaw.includes('REVISI') ||
+                       tipoRaw.includes('TRASPASO') ||
+                       tipoRaw.includes('ALTA') ||
+                       tipoRaw.includes('BAJA');
+            });
+            console.log("LOAD_SOLICITUDES RAW DATA:", data);
+            console.log("LOAD_SOLICITUDES FILTERED DATA:", filteredData);
+            
             setSolicitudesRealizadas(filteredData);
         } catch (error) {
             console.error("Error loading solicitudes:", error);
@@ -732,7 +768,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const getTipoLabelDisplay = (sol: any) => {
         const type = sol.tipo_solicitud;
         if (type === 'ALTA') return sol.datos_json?.isReactivation ? 'Activación' : 'Creación';
-        if (['NUEVO_EQUIPO', 'BAJA', 'TRASPASO', 'VIGENCIA_PROXIMA', 'REPORTE_PROBLEMA', 'REVISION', 'EQUIPO_PERDIDO', 'EQUIPO_DESHABILITADO'].includes(type)) {
+        if (['NUEVO_EQUIPO', 'BAJA', 'TRASPASO', 'VIGENCIA_PROXIMA', 'REPORTE_PROBLEMA', 'REVISION', 'EQUIPO_PERDIDO', 'EQUIPO_DESHABILITADO', 'BAJA_EQUIPO', 'TRASPASO_EQUIPO'].includes(type) || type.includes('EQUIPO')) {
             return type.replace(/_/g, ' ');
         }
         return type;
@@ -741,9 +777,30 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const getPendingRequestsForEquipo = (id: number) => {
         return solicitudesRealizadas.filter(sol => {
             const d = sol.datos_json || {};
-            if (sol.tipo_solicitud === 'TRASPASO' && String(d.id_equipo) === String(id)) return true;
-            if (sol.tipo_solicitud === 'BAJA' && d.equipos_baja?.some((eb: any) => String(eb.id) === String(id))) return true;
-            if (sol.tipo_solicitud === 'ALTA' && d.isReactivation && d.equipos_alta?.some((ea: any) => String(ea.id) === String(id))) return true;
+            const typeRaw = (sol.tipo_solicitud || '').toUpperCase();
+            const formType = (d._form_type || '').toUpperCase();
+            
+            // Check direct id_equipo
+            if (String(d.id_equipo) === String(id)) return true;
+            if (String(d.id_equipo_original) === String(id)) return true;
+            
+            // Special cases for bulk or specific types
+            if ((typeRaw.includes('TRASPASO') || formType.includes('TRASPASO')) && String(d.id_equipo || d.id_equipo_original) === String(id)) return true;
+            if (typeRaw.includes('BAJA') || formType.includes('BAJA')) {
+                if (d.equipos_baja?.some((eb: any) => String(eb.id) === String(id))) return true;
+                if (String(d.id_equipo || d.id_equipo_original) === String(id)) return true;
+            }
+            if ((typeRaw.includes('ALTA') || formType.includes('ALTA')) && (d.isReactivation || typeRaw.includes('REACTIVACION') || formType.includes('REACTIVACION'))) {
+                if (d.equipos_alta?.some((ea: any) => String(ea.id) === String(id))) return true;
+                if (String(d.id_equipo_original || d.id_equipo) === String(id)) return true;
+            }
+            
+            // Include other types that might reference an equipment
+            const typeMatched = ['EQUIPO_PERDIDO', 'REPORTE_PROBLEMA', 'REVISION', 'EQUIPO_DESHABILITADO', 'VIGENCIA_PROXIMA'];
+            if (typeMatched.some(t => typeRaw.includes(t) || formType.includes(t)) || typeRaw.includes('REVISI')) {
+                if (String(d.id_equipo) === String(id) || String(d.id_equipo_original) === String(id)) return true;
+            }
+            
             return false;
         });
     };
@@ -899,7 +956,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                         <Table highlightOnHover verticalSpacing="sm" horizontalSpacing="md">
                             <Table.Thead bg="gray.0">
                                 <Table.Tr>
-                                    <Table.Th w={40}></Table.Th>
+                                    <Table.Th style={{ width: 40 }}>Alerta</Table.Th>
                                     <Table.Th>Código</Table.Th>
                                     <Table.Th>Nombre</Table.Th>
                                     <Table.Th>Tipo</Table.Th>
@@ -920,7 +977,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                 ) : (
                                     equipos.map(equipo => {
                                         const isInactive = equipo.estado?.toLowerCase() === 'inactivo';
-                                        const hasPending = getPendingRequestsForEquipo(equipo.id_equipo).length > 0;
+                                        const hasAccepted = getPendingRequestsForEquipo(equipo.id_equipo).length > 0;
                                         
                                         const checkExp = (v?: string) => {
                                             if (!v) return false;
@@ -932,26 +989,27 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                         return (
                                             <Table.Tr key={equipo.id_equipo}>
                                                 <Table.Td>
-                                                    {hasPending && (
-                                                        <Tooltip label="Hay solicitudes pendientes. Clic para ver.">
+                                                    {hasAccepted && (
+                                                        <Tooltip label="Contiene solicitudes aceptadas listas para ejecutarse. Clic para abrirlas.">
                                                             <ActionIcon 
                                                                 variant="light" 
                                                                 color="orange" 
                                                                 size="sm"
-                                                                onClick={() => {
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
                                                                     setRequestsEquipoInfo({ id: equipo.id_equipo, nombre: equipo.nombre, codigo: equipo.codigo });
                                                                     setShowRequestsModal(true);
                                                                 }}
                                                             >
-                                                                <IconAlertTriangle size={18} />
+                                                                <IconAlertTriangle size={14} />
                                                             </ActionIcon>
                                                         </Tooltip>
                                                     )}
                                                 </Table.Td>
                                                 <Table.Td>
-                                                    <Badge variant="light" color="blue" radius="sm">
-                                                        {equipo.codigo}
-                                                    </Badge>
+                                                    <Text size="sm" fw={700} c="blue.7" style={{ whiteSpace: 'nowrap' }}>
+                                                        {equipo.codigo || 'S/N'}
+                                                    </Text>
                                                 </Table.Td>
                                                 <Table.Td fw={600}>{equipo.nombre}</Table.Td>
                                                 <Table.Td>{equipo.tipo}</Table.Td>
@@ -994,23 +1052,23 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                         );
                                     })
                                 )}
-                            </Table.Tbody>
-                        </Table>
-                    </ScrollArea.Autosize>
-                    <Divider />
-                    <Group justify="space-between" p="md">
-                        <Text size="xs" c="dimmed">{totalItems} equipos en total</Text>
-                        <Pagination 
-                            total={totalPages} 
-                            value={page} 
-                            onChange={setPage} 
-                            size="sm" 
-                            radius="md" 
-                            color="adl-blue"
-                        />
-                    </Group>
-                </Paper>
-            </Stack>
+                        </Table.Tbody>
+                    </Table>
+                </ScrollArea.Autosize>
+                <Divider />
+                <Group justify="space-between" p="md">
+                    <Text size="xs" c="dimmed">{totalItems} equipos en total</Text>
+                    <Pagination 
+                        total={totalPages} 
+                        value={page} 
+                        onChange={setPage} 
+                        size="sm" 
+                        radius="md" 
+                        color="adl-blue"
+                    />
+                </Group>
+            </Paper>
+        </Stack>
 
             {/* --- Modals Area --- */}
 
@@ -1019,9 +1077,16 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 opened={!!reviewSolicitud}
                 onClose={() => setReviewSolicitud(null)}
                 title={
-                    <Group gap="xs">
-                        <IconBell size={20} color="blue" />
-                        <Text fw={700}>Revisar Solicitud de {reviewSolicitud && getTipoLabelDisplay(reviewSolicitud)}</Text>
+                    <Group gap="xs" justify="space-between" style={{ flex: 1 }}>
+                        <Group gap="xs">
+                            <IconBell size={20} color="blue" />
+                            <Text fw={700}>Revisar Solicitud de {reviewSolicitud && getTipoLabelDisplay(reviewSolicitud)}</Text>
+                        </Group>
+                        {reviewSolicitud && (
+                            <Badge color={getStatusColor(reviewSolicitud.estado)} variant="filled">
+                                {reviewSolicitud.estado.replace(/_/g, ' ')}
+                            </Badge>
+                        )}
                     </Group>
                 }
                 size="lg"
@@ -1161,63 +1226,47 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                             </Box>
                         )}
 
-                        <Group justify="flex-end" mt="xl">
-                            <Button variant="subtle" onClick={() => setReviewSolicitud(null)}>Cerrar</Button>
+                        <Group justify="flex-end" mt="xl" gap="sm">
+                            <Button variant="default" onClick={() => setReviewSolicitud(null)}>Cerrar</Button>
+                            
                             {(reviewSolicitud.estado === 'PENDIENTE' || reviewSolicitud.estado === 'PENDIENTE_TECNICA' || reviewSolicitud.estado === 'PENDIENTE_CALIDAD') && (
-                                <Menu position="bottom-end" shadow="md">
-                                    <Menu.Target>
-                                        <Button color="adl-blue">Gestionar Solicitud</Button>
-                                    </Menu.Target>
-                                    <Menu.Dropdown>
-                                        <Menu.Label>Acciones Disponibles</Menu.Label>
-                                        
-                                        {/* APROBACION DEPENDE DEL ESTADO */}
-                                        {reviewSolicitud.estado === 'PENDIENTE' && (
-                                            <Menu.Item 
-                                                leftSection={<IconCheck size={16} />} 
-                                                color="green" 
-                                                onClick={handleApprove}
-                                            >
-                                                Aprobar
-                                            </Menu.Item>
-                                        )}
+                                <>
+                                    {/* RECHAZAR - Always available for pending states */}
+                                    <Button 
+                                        color="red" 
+                                        variant="outline"
+                                        leftSection={<IconX size={16} />}
+                                        onClick={() => { 
+                                            setRejectionTarget({ type: 'SOLICITUD' }); 
+                                            setLocalRejectionFeedback(''); 
+                                            setShowRejectionReasonModal(true); 
+                                        }}
+                                    >
+                                        Rechazar
+                                    </Button>
 
-                                        {reviewSolicitud.estado === 'PENDIENTE_TECNICA' && (isMAMan || isSuper) && (
-                                            <Menu.Item 
-                                                leftSection={<IconCheck size={16} />} 
-                                                color="green" 
-                                                onClick={handleApprove}
-                                            >
-                                                {(reviewSolicitud.tipo_solicitud === 'EQUIPO_PERDIDO' || reviewSolicitud.tipo_solicitud === 'REPORTE_PROBLEMA') 
-                                                    ? 'Procesar Reporte' : 'Derivar a Calidad'}
-                                            </Menu.Item>
-                                        )}
-
-                                        {reviewSolicitud.estado === 'PENDIENTE_CALIDAD' && (isGCMan || isSuper) && (
-                                            <Menu.Item 
-                                                leftSection={<IconCheck size={16} />} 
-                                                color="green" 
-                                                onClick={handleApprove}
-                                            >
-                                                Aprobar Final
-                                            </Menu.Item>
-                                        )}
-
-                                        <Menu.Divider />
-
-                                        <Menu.Item 
-                                            leftSection={<IconX size={16} />} 
-                                            color="red" 
-                                            onClick={() => { 
-                                                setRejectionTarget({ type: 'SOLICITUD' }); 
-                                                setLocalRejectionFeedback(''); 
-                                                setShowRejectionReasonModal(true); 
-                                            }}
+                                    {/* DERIVAR / EN REVISION - Depends on state */}
+                                    {reviewSolicitud.estado === 'PENDIENTE_TECNICA' && (isMAMan || isSuper) && (
+                                        <Button 
+                                            color="cyan"
+                                            onClick={handleApprove}
                                         >
-                                            Rechazar Solicitud
-                                        </Menu.Item>
-                                    </Menu.Dropdown>
-                                </Menu>
+                                            {(reviewSolicitud.tipo_solicitud === 'EQUIPO_PERDIDO' || reviewSolicitud.tipo_solicitud === 'REPORTE_PROBLEMA') 
+                                                ? 'En Revisión' : 'Derivar a Calidad'}
+                                        </Button>
+                                    )}
+
+                                    {/* APROBAR - Primary Action */}
+                                    {(reviewSolicitud.estado === 'PENDIENTE' || reviewSolicitud.estado === 'PENDIENTE_CALIDAD') && (
+                                        <Button 
+                                            color="green"
+                                            leftSection={<IconCheck size={16} />}
+                                            onClick={handleApprove}
+                                        >
+                                            {reviewSolicitud.estado === 'PENDIENTE_CALIDAD' ? 'Aprobar Final' : 'Aprobar'}
+                                        </Button>
+                                    )}
+                                </>
                             )}
                         </Group>
                     </Stack>
@@ -1376,11 +1425,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 idEquipo={requestsEquipoInfo?.id || null}
                 nombreEquipo={requestsEquipoInfo?.nombre || ''}
                 codigoEquipo={requestsEquipoInfo?.codigo}
+                requests={requestsEquipoInfo ? getPendingRequestsForEquipo(requestsEquipoInfo.id as number) : []}
                 onRefresh={() => { fetchData(); loadSolicitudes(); }}
-                onGoToSolicitud={(sol) => {
-                    setShowRequestsModal(false);
-                    handleNotificationClick(sol);
-                }}
             />
         </Container>
     );

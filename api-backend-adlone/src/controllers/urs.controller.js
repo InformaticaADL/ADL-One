@@ -101,7 +101,9 @@ class UrsController {
     async updateStatus(req, res) {
         try {
             const { id } = req.params;
-            const { estado, observaciones } = req.body;
+            // Support both frontend naming (status/comment) and legacy (estado/observaciones)
+            const estado = req.body.status || req.body.estado;
+            const observaciones = req.body.comment || req.body.observaciones || '';
             const idUsuario = req.user.id;
 
             const solicitud = await ursService.updateStatus(id, estado, idUsuario, observaciones);
@@ -127,14 +129,19 @@ class UrsController {
     async derive(req, res) {
         try {
             const { id } = req.params;
-            const { area_destino, id_usuario_destino, roleId, id_rol_destino, motivo } = req.body;
+            
+            // Allow both frontend ('area', 'userId', 'comment') and backend/legacy names
+            const areaDestino = req.body.area || req.body.area_destino || 'DERIVACION';
+            const usuarioDestino = req.body.userId || req.body.id_usuario_destino;
+            const finalRolId = req.body.roleId || req.body.id_rol_destino;
+            const motivo = req.body.comment || req.body.motivo || '';
+            
             const idUsuarioOrigen = req.user.id;
 
-            const finalRolId = roleId || id_rol_destino;
-
-            const solicitud = await ursService.derive(id, idUsuarioOrigen, area_destino, id_usuario_destino, motivo, finalRolId);
+            const solicitud = await ursService.derive(id, idUsuarioOrigen, areaDestino, usuarioDestino, motivo, finalRolId);
             res.json(solicitud);
         } catch (error) {
+            console.error('Error al derivar solicitud:', error);
             res.status(500).json({ error: 'Error al derivar solicitud' });
         }
     }

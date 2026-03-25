@@ -4,27 +4,24 @@ import {
     Table, 
     Badge, 
     Button, 
-    Group, 
-    Text, 
-    Stack, 
     LoadingOverlay, 
-    ScrollArea, 
-    Tooltip, 
-    ActionIcon, 
+    Box, 
+    ScrollArea,
     Alert,
-    Box,
-    Menu
+    Tooltip,
+    Stack,
+    Group,
+    Text
 } from '@mantine/core';
 import {
     IconCalendar,
     IconUser,
     IconMapPin,
     IconCheck,
-    IconInfoCircle,
-    IconDots,
-    IconEye,
+    IconInfoCircle
 } from '@tabler/icons-react';
 import { adminService } from '../../../services/admin.service';
+import { ursService } from '../../../services/urs.service';
 import { useToast } from '../../../contexts/ToastContext';
 
 interface EquipmentRequestsModalProps {
@@ -33,55 +30,47 @@ interface EquipmentRequestsModalProps {
     isOpen: boolean;
     onClose: () => void;
     onRefresh: () => void;
-    onGoToSolicitud?: (solicitud: any) => void;
     codigoEquipo?: string;
+    requests: any[];
 }
 
 export const EquipmentRequestsModal: React.FC<EquipmentRequestsModalProps> = ({ 
-    idEquipo, 
     nombreEquipo,
     codigoEquipo,
     isOpen, 
     onClose, 
     onRefresh,
-    onGoToSolicitud
+    requests
 }) => {
-    const [requests, setRequests] = useState<any[]>([]);
-    const [loading, setLoading] = useState(false);
+    const displayRequests = requests || [];
+    const loading = false;
     const [processingId, setProcessingId] = useState<number | null>(null);
     const { showToast } = useToast();
 
-    const fetchRequests = async () => {
-        if (!idEquipo) return;
-        setLoading(true);
-        try {
-            const res = await adminService.getSolicitudesByEquipo(idEquipo);
-            setRequests(res.data || []);
-        } catch (error) {
-            console.error('Error fetching requests for equipment:', error);
-            showToast({ type: 'error', message: 'Error al cargar las solicitudes' });
-        } finally {
-            setLoading(false);
-        }
-    };
-
     useEffect(() => {
-        if (isOpen && idEquipo) {
-            fetchRequests();
-        }
-    }, [isOpen, idEquipo]);
+        // Simple mount dependency
+    }, [isOpen]);
 
     const handleMarkAsRealizada = async (sol: any) => {
         setProcessingId(sol.id_solicitud);
         try {
-            await adminService.updateSolicitudStatus(
-                sol.id_solicitud, 
-                'REALIZADA', 
-                'Solicitud marcada como realizada desde el panel de equipos.'
-            );
+            if (sol.id_tipo || (sol.origen_tabla && sol.origen_tabla !== 'GENERAL')) {
+                // Es URS
+                await ursService.updateStatus(sol.id_solicitud, { 
+                    status: 'REALIZADA', 
+                    comment: 'Equipo gestionado y marcado como realizado automáticamente.' 
+                });
+            } else {
+                // Es Legacy
+                await adminService.updateSolicitudStatus(
+                    sol.id_solicitud, 
+                    'REALIZADA', 
+                    'Solicitud marcada como realizada desde el panel de equipos.'
+                );
+            }
             showToast({ type: 'success', message: `Solicitud #${sol.id_solicitud} marcada como realizada` });
-            fetchRequests();
             onRefresh();
+
         } catch (error) {
             console.error('Error updating status:', error);
             showToast({ type: 'error', message: 'Error al actualizar la solicitud' });
@@ -91,22 +80,43 @@ export const EquipmentRequestsModal: React.FC<EquipmentRequestsModalProps> = ({
     };
 
     const getStatusColor = (status: string) => {
-        switch (status) {
+        const s = (status || '').toUpperCase().trim();
+        switch (s) {
             case 'PENDIENTE':
             case 'PENDIENTE_TECNICA':
             case 'PENDIENTE_CALIDAD': return 'yellow';
             case 'EN_REVISION':
-            case 'EN_REVISION_TECNICA': return 'blue';
+            case 'EN_REVISION_TECNICA': return 'cyan';
             case 'ACEPTADA': return 'teal';
             case 'RECHAZADA':
             case 'RECHAZADO_TECNICA': return 'red';
-            case 'REALIZADA': return 'gray';
+            case 'REALIZADA': return 'blue';
             default: return 'gray';
         }
     };
 
     const getStatusLabel = (status: string) => {
         return (status || '').replace(/_/g, ' ');
+    };
+
+    /** Converts code-like strings to human-readable text */
+    const CODE_VALUE_MAP: Record<string, string> = {
+        'VIDA_UTIL': 'Vida Útil',
+        'DANIO': 'Daño',
+        'DANO': 'Daño',
+        'OBSOLESCENCIA': 'Obsolescencia',
+        'PERDIDA': 'Pérdida',
+        'ROBO': 'Robo',
+        'DETERIORO': 'Deterioro',
+        'REEMPLAZO': 'Reemplazo',
+        'OTRO': 'Otro',
+    };
+
+    const formatCodeValue = (value: string | null | undefined): string => {
+        if (!value) return '';
+        const upper = String(value).trim().toUpperCase();
+        if (CODE_VALUE_MAP[upper]) return CODE_VALUE_MAP[upper];
+        return String(value);
     };
 
     const renderSolicitudDetails = (sol: any) => {
@@ -116,7 +126,6 @@ export const EquipmentRequestsModal: React.FC<EquipmentRequestsModalProps> = ({
         
         const isTraspaso = type.includes('TRASPASO') || d._form_type === 'TRASPASO_EQUIPO' || d.isTransfer;
         const isAlta = type.includes('ALTA') || (type.includes('REACTIVACI') && d.isReactivation);
-        const isBaja = type.includes('BAJA') || type.includes('RETIRO');
         const isProblem = type.includes('PROBLEMA') || type.includes('FALLA');
         
         return (
@@ -125,14 +134,21 @@ export const EquipmentRequestsModal: React.FC<EquipmentRequestsModalProps> = ({
                 
                 {/* Specific Details based on Type */}
                 <Box mt={2}>
-                    {/* TRASPASO DETAILS */}
                     {isTraspaso && (
-                        <Stack gap={2}>
+                        <Stack gap={3}>
+                            {d.traspaso_de && (
+                                <Group gap={4}>
+                                    <Text size="xs" fw={700} c="dimmed">Tipo Traspaso:</Text>
+                                    <Text size="xs" fw={800} c="blue.7">
+                                        {d.traspaso_de.map((t: string) => t === 'UBICACION' ? 'Sede' : (t === 'RESPONSABLE' ? 'Muestreador' : t)).join(' y ')}
+                                    </Text>
+                                </Group>
+                            )}
                             {(d.nombre_centro_destino || d.nueva_ubicacion || d.destino || d.ubicacion_destino) && (
                                 <Group gap={4} wrap="nowrap">
                                     <IconMapPin size={12} color="var(--mantine-color-blue-6)" />
-                                    <Text size="xs" fw={700}>Destino:</Text>
-                                    <Badge size="xs" variant="filled" color="blue">
+                                    <Text size="xs" fw={700}>Sede Destino:</Text>
+                                    <Badge size="xs" variant="light" color="blue" styles={{ root: { minWidth: 'fit-content' }}}>
                                         {d.nombre_centro_destino || d.nueva_ubicacion || d.destino || d.ubicacion_destino}
                                     </Badge>
                                 </Group>
@@ -140,8 +156,8 @@ export const EquipmentRequestsModal: React.FC<EquipmentRequestsModalProps> = ({
                             {(d.nombre_muestreador_destino || d.nuevo_responsable_nombre || d.nuevo_responsable || d.responsable_destino) && (
                                 <Group gap={4} wrap="nowrap">
                                     <IconUser size={12} color="var(--mantine-color-indigo-6)" />
-                                    <Text size="xs" fw={700}>Responsable:</Text>
-                                    <Text size="xs" c="indigo.8" fw={700}>
+                                    <Text size="xs" fw={700}>Nuevo Responsable:</Text>
+                                    <Text size="xs" c="indigo.8" fw={800}>
                                         {d.nombre_muestreador_destino || d.nuevo_responsable_nombre || d.nuevo_responsable || d.responsable_destino}
                                     </Text>
                                 </Group>
@@ -173,21 +189,12 @@ export const EquipmentRequestsModal: React.FC<EquipmentRequestsModalProps> = ({
                             )}
                         </Stack>
                     )}
-
-                    {/* BAJA DETAILS */}
-                    {isBaja && d.fecha_baja && (
-                        <Group gap={4} wrap="nowrap">
-                            <IconCalendar size={12} color="var(--mantine-color-red-6)" />
-                            <Text size="xs" fw={700}>Fecha Retiro:</Text>
-                            <Text size="xs" c="red.8" fw={600}>{d.fecha_baja}</Text>
-                        </Group>
-                    )}
                 </Box>
 
                 {/* General Motive/Comments (Always at the bottom) */}
                 {(d.motivo || d.observaciones || d.descripcion || d.comentario) && (
                     <Text size="xs" c="dimmed" fs="italic" lineClamp={3}>
-                        "{d.motivo || d.observaciones || d.descripcion || d.comentario}"
+                        "{formatCodeValue(String(d.motivo || d.observaciones || d.descripcion || d.comentario))}"
                     </Text>
                 )}
             </Stack>
@@ -228,7 +235,7 @@ export const EquipmentRequestsModal: React.FC<EquipmentRequestsModalProps> = ({
             <Box pos="relative" miw={500} mih={200}>
                 <LoadingOverlay visible={loading} />
 
-                {requests.length === 0 && !loading ? (
+                {displayRequests.length === 0 && !loading ? (
                     <Alert icon={<IconInfoCircle size="1rem" />} color="blue" mt="md">
                         No hay solicitudes pendientes activas para este equipo.
                     </Alert>
@@ -246,72 +253,53 @@ export const EquipmentRequestsModal: React.FC<EquipmentRequestsModalProps> = ({
                                 </Table.Tr>
                             </Table.Thead>
                             <Table.Tbody>
-                                {requests.map((sol) => (
-                                    <Table.Tr key={`${sol.origen_tabla}-${sol.id_solicitud}`}>
-                                        <Table.Td>
-                                            <Tooltip label={sol.origen_tabla === 'GENERAL' ? 'Solicitud GERR (Sistema General)' : 'Solicitud de Equipo'}>
-                                                <Text size="sm" fw={700} c={sol.origen_tabla === 'GENERAL' ? 'indigo.7' : 'inherit'}>
-                                                    #{sol.id_solicitud}
-                                                </Text>
-                                            </Tooltip>
-                                        </Table.Td>
-                                        <Table.Td>
-                                            {renderSolicitudDetails(sol)}
-                                        </Table.Td>
-                                        <Table.Td>
-                                            <Group gap={6} wrap="nowrap">
-                                                <IconUser size={14} color="gray" />
-                                                <Text size="xs">{sol.nombre_solicitante || 'N/A'}</Text>
-                                            </Group>
-                                        </Table.Td>
-                                        <Table.Td>
-                                            <Group gap={6} wrap="nowrap">
-                                                <IconCalendar size={14} color="gray" />
-                                                <Text size="xs">{formatDate(sol.fecha_creacion)}</Text>
-                                            </Group>
-                                        </Table.Td>
-                                        <Table.Td>
-                                            <Badge color={getStatusColor(sol.estado)} variant="filled" size="sm">
-                                                {getStatusLabel(sol.estado)}
-                                            </Badge>
-                                        </Table.Td>
-                                        <Table.Td>
-                                            <Group justify="flex-end">
-                                                <Menu position="bottom-end" shadow="md" withArrow>
-                                                    <Menu.Target>
-                                                        <ActionIcon variant="subtle" color="gray">
-                                                            <IconDots size={20} />
-                                                        </ActionIcon>
-                                                    </Menu.Target>
-                                                    <Menu.Dropdown>
-                                                        <Menu.Label>Acciones de Solicitud</Menu.Label>
-                                                        
-                                                        {onGoToSolicitud && (
-                                                            <Menu.Item 
-                                                                leftSection={<IconEye size={16} />} 
-                                                                onClick={() => onGoToSolicitud(sol)}
-                                                            >
-                                                                Ver Detalles
-                                                            </Menu.Item>
-                                                        )}
-
-                                                        {(sol.estado === 'PENDIENTE' || sol.estado === 'ACEPTADA') && (
-                                                            <Menu.Item 
-                                                                leftSection={<IconCheck size={16} />} 
-                                                                color="green"
-                                                                disabled={processingId === sol.id_solicitud}
-                                                                onClick={() => handleMarkAsRealizada(sol)}
-                                                            >
-                                                                Marcar como Realizada
-                                                            </Menu.Item>
-                                                        )}
-
-                                                        {/* Optional: Add more actions if appropriate */}
-                                                    </Menu.Dropdown>
-                                                </Menu>
-                                            </Group>
-                                        </Table.Td>
-                                    </Table.Tr>
+                                {displayRequests.map((sol: any) => (
+                                    <React.Fragment key={`${sol.origen_tabla}-${sol.id_solicitud}`}>
+                                        <Table.Tr>
+                                            <Table.Td>
+                                                <Tooltip label={sol.origen_tabla === 'GENERAL' ? 'Solicitud GERR (Sistema General)' : 'Solicitud de Equipo'}>
+                                                    <Text size="sm" fw={700} c={sol.origen_tabla === 'GENERAL' ? 'indigo.7' : 'inherit'}>
+                                                        #{sol.id_solicitud}
+                                                    </Text>
+                                                </Tooltip>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                {renderSolicitudDetails(sol)}
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <Group gap={6} wrap="nowrap">
+                                                    <IconUser size={14} color="gray" />
+                                                    <Text size="xs">{sol.nombre_solicitante || 'N/A'}</Text>
+                                                </Group>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <Group gap={6} wrap="nowrap">
+                                                    <IconCalendar size={14} color="gray" />
+                                                    <Text size="xs">{formatDate(sol.fecha_creacion)}</Text>
+                                                </Group>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <Badge color={getStatusColor(sol.estado)} variant="filled" size="sm" styles={{ root: { minWidth: '80px', textAlign: 'center' }}}>
+                                                    {getStatusLabel(sol.estado)}
+                                                </Badge>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <Group justify="flex-end" gap="xs">
+                                                    {(sol.estado === 'PENDIENTE' || sol.estado === 'ACEPTADA') && (
+                                                        <Button
+                                                            size="xs"
+                                                            color="green"
+                                                            leftSection={<IconCheck size={14} />}
+                                                            loading={processingId === sol.id_solicitud}
+                                                            onClick={() => handleMarkAsRealizada(sol)}
+                                                        >
+                                                            Realizar
+                                                        </Button>
+                                                    )}
+                                                </Group>
+                                            </Table.Td>
+                                        </Table.Tr>
+                                    </React.Fragment>
                                 ))}
                             </Table.Tbody>
                         </Table>

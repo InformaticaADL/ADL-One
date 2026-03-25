@@ -16,7 +16,7 @@ class UrsService {
                 SELECT DISTINCT t.id_tipo, t.nombre, t.area_destino, 
                        t.cod_permiso_crear as permiso_acceso, 
                        t.cod_permiso_resolver as permiso_resolucion, 
-                       t.estado, t.formulario_config 
+                       t.estado, t.formulario_config, t.modulo_destino 
                 FROM mae_solicitud_tipo t
             `;
  
@@ -64,6 +64,7 @@ class UrsService {
                 .input('permiso', sql.VarChar(50), data.permiso_acceso || null)
                 .input('resolucion', sql.VarChar(50), data.permiso_resolucion || null)
                 .input('formulario', sql.NVarChar(sql.MAX), data.formulario_config ? JSON.stringify(data.formulario_config) : null)
+                .input('modulo', sql.VarChar(50), data.modulo_destino || null)
                 .input('estado', sql.Bit, data.estado ?? 1);
 
             if (idType) {
@@ -77,6 +78,7 @@ class UrsService {
                             cod_permiso_crear = @permiso,
                             cod_permiso_resolver = @resolucion,
                             formulario_config = @formulario,
+                            modulo_destino = @modulo,
                             estado = @estado,
                             fecha_actualizacion = SYSUTCDATETIME()
                         WHERE id_tipo = @id
@@ -85,9 +87,9 @@ class UrsService {
             } else {
                 // Create
                 const result = await request.query(`
-                    INSERT INTO mae_solicitud_tipo (nombre, area_destino, cod_permiso_crear, cod_permiso_resolver, formulario_config, estado)
+                    INSERT INTO mae_solicitud_tipo (nombre, area_destino, cod_permiso_crear, cod_permiso_resolver, formulario_config, modulo_destino, estado)
                     OUTPUT INSERTED.id_tipo
-                    VALUES (@nombre, @area, @permiso, @resolucion, @formulario, @estado)
+                    VALUES (@nombre, @area, @permiso, @resolucion, @formulario, @modulo, @estado)
                 `);
                 return { id_tipo: result.recordset[0].id_tipo, ...data };
             }
@@ -173,23 +175,24 @@ class UrsService {
         }
     }
 
-    /**
-     * Obtiene los candidatos válidos para derivación de un tipo de solicitud
-     */
     async getDerivationTargets(idTipo) {
         try {
             const pool = await getConnection();
+            // Phase 41: Get all configured targets (explicit users or whole roles) 
+            // from the permissions table instead of trying to expand roles manually.
             const result = await pool.request()
                 .input('id', sql.Numeric(10, 0), idTipo)
                 .query(`
-                    SELECT DISTINCT 
+                    SELECT DISTINCT
                            p.id_rol, r.nombre_rol,
                            p.id_usuario, u.nombre_usuario, u.usuario as nombre_real
                     FROM rel_solicitud_tipo_permiso p
                     LEFT JOIN mae_rol r ON p.id_rol = r.id_rol
                     LEFT JOIN mae_usuario u ON p.id_usuario = u.id_usuario
-                    WHERE p.id_tipo = @id AND p.tipo_acceso = 'DERIVACION'
+                    WHERE p.id_tipo = @id AND p.tipo_acceso = 'DESTINO_DERIVACION'
+                    AND (u.habilitado = 'S' OR u.id_usuario IS NULL)
                 `);
+            
             return result.recordset;
         } catch (error) {
             logger.error('Error in UrsService.getDerivationTargets:', error);
@@ -402,7 +405,7 @@ class UrsService {
                 .query(`
                     SELECT c.id_comentario, c.mensaje, 
                            CONVERT(VARCHAR(33), c.fecha, 126) + 'Z' as fecha, 
-                           c.es_privado, c.id_usuario,
+                           c.es_privado, c.id_usuario, c.es_sistema,
                            u.usuario as nombre_usuario,
                            STRING_AGG(r.nombre_rol, ', ') as nombre_rol
                     FROM mae_solicitud_comentario c
@@ -410,24 +413,35 @@ class UrsService {
                     LEFT JOIN rel_usuario_rol ur ON u.id_usuario = ur.id_usuario
                     LEFT JOIN mae_rol r ON ur.id_rol = r.id_rol
                     WHERE c.id_solicitud = @id 
-                    GROUP BY c.id_comentario, c.mensaje, c.fecha, c.es_privado, c.id_usuario, u.usuario
+                    GROUP BY c.id_comentario, c.mensaje, c.fecha, c.es_privado, c.id_usuario, u.usuario, c.es_sistema
                     ORDER BY c.fecha ASC
                 `);
             solicitud.conversacion = comentarios.recordset;
 
             // Determinar permisos dinámicos (Universal Permissions Phase 22)
             if (reqUserId) {
-                const permsRes = await pool.request()
+                const permsQuery = await pool.request()
                     .input('idTipo', sql.Numeric(10, 0), solicitud.id_tipo)
+                    .input('idSol', sql.Numeric(10, 0), id)
                     .input('userId', sql.Numeric(10, 0), reqUserId)
                     .query(`
                         SELECT tipo_acceso FROM rel_solicitud_tipo_permiso p
                         LEFT JOIN rel_usuario_rol ur ON (p.id_rol = ur.id_rol AND ur.id_usuario = @userId)
                         WHERE p.id_tipo = @idTipo 
                         AND (p.id_usuario = @userId OR ur.id_rol IS NOT NULL)
+                        
+                        UNION
+                        
+                        -- Permiso explícito 'GESTION' si la solicitud está derivada actualmente al usuario o su rol
+                        SELECT 'GESTION' as tipo_acceso
+                        FROM mae_solicitud_derivacion d
+                        LEFT JOIN rel_usuario_rol ur_d ON (d.id_rol_destino = ur_d.id_rol AND ur_d.id_usuario = @userId)
+                        WHERE d.id_solicitud = @idSol
+                        AND (d.usuario_destino = @userId OR ur_d.id_rol IS NOT NULL)
+                        AND d.fecha = (SELECT MAX(fecha) FROM mae_solicitud_derivacion WHERE id_solicitud = @idSol)
                     `);
                 
-                const userAccessTypes = permsRes.recordset.map(r => r.tipo_acceso);
+                const userAccessTypes = permsQuery.recordset.map(r => r.tipo_acceso);
                 solicitud.can_manage = userAccessTypes.includes('GESTION');
                 solicitud.can_view = userAccessTypes.includes('VISTA') || solicitud.can_manage;
                 solicitud.can_derive = userAccessTypes.includes('DERIVACION') || solicitud.can_manage;
@@ -490,7 +504,7 @@ class UrsService {
             let query = `
                 SELECT DISTINCT s.*, t.nombre as nombre_tipo, u.usuario as nombre_solicitante, 
                        CONVERT(VARCHAR(33), s.fecha_creacion, 126) + 'Z' as fecha_solicitud, 
-                       t.area_destino,
+                       t.area_destino, t.modulo_destino,
                        (SELECT COUNT(*) FROM mae_notificacion n 
                         WHERE n.id_referencia = s.id_solicitud 
                         AND n.id_usuario = @requesterId 
@@ -512,6 +526,14 @@ class UrsService {
                         -- OR User has 'GESTION' or 'VISTA' permission (explicitly or via role)
                         OR p.id_usuario = @requesterId
                         OR ur.id_rol IS NOT NULL
+                        -- OR It was derived to me (and it's the current derivation)
+                        OR EXISTS (
+                            SELECT 1 FROM mae_solicitud_derivacion d
+                            LEFT JOIN rel_usuario_rol ur_d ON (d.id_rol_destino = ur_d.id_rol AND ur_d.id_usuario = @requesterId)
+                            WHERE d.id_solicitud = s.id_solicitud
+                            AND (d.usuario_destino = @requesterId OR ur_d.id_rol IS NOT NULL)
+                            AND d.fecha = (SELECT MAX(fecha) FROM mae_solicitud_derivacion WHERE id_solicitud = s.id_solicitud)
+                        )
                     )
                 `;
                 request.input('requesterId', sql.Numeric(10, 0), userId);
@@ -567,9 +589,8 @@ class UrsService {
 
             const solicitud = result.recordset[0];
 
-            if (observaciones) {
-                await this.addComment(id, idUsuario, `Cambio de estado a ${nuevoEstado}: ${observaciones}`, true);
-            }
+            // 3. Registrar cambio en el hilo de la conversación con flag de sistema
+            await this.addComment(id, idUsuario, `Cambio de estado a ${nuevoEstado}${observaciones ? ': ' + observaciones : ''}`, true, [], null, true);
 
             // Trigger UNS (Phase 22: Enhanced Multi-channel)
             import('./uns.service.js').then(async uns => {
@@ -587,8 +608,15 @@ class UrsService {
                 
                 if (reqData.recordset.length > 0) {
                     const fullSol = reqData.recordset[0];
+                    // Fix 5a: Parse datos_json if it's a string to avoid char-by-char rendering in emails
+                    let parsedDatosJson = {};
+                    try {
+                        parsedDatosJson = typeof fullSol.datos_json === 'string' ? JSON.parse(fullSol.datos_json) : (fullSol.datos_json || {});
+                    } catch (e) { parsedDatosJson = {}; }
+                    
                     uns.default.trigger('SOLICITUD_ESTADO_CAMBIO', {
                         ...fullSol,
+                        datos_json: parsedDatosJson,
                         id_solicitud: id,
                         id_usuario_accion: idUsuario,
                         id_usuario_propietario: fullSol.id_solicitante,
@@ -597,7 +625,7 @@ class UrsService {
                         nombre_tipo: fullSol.nombre_tipo,
                         estado: nuevoEstado,
                         observaciones,
-                        accion: nuevoEstado === 'APROBADA' ? 'APROBACION' : (nuevoEstado === 'RECHAZADA' ? 'RECHAZO' : 'ACTUALIZACION')
+                        accion: nuevoEstado === 'ACEPTADA' ? 'APROBACION' : (nuevoEstado === 'RECHAZADA' ? 'RECHAZO' : (nuevoEstado === 'REALIZADA' ? 'REALIZACION' : (nuevoEstado === 'EN_REVISION' ? 'REVISION' : 'ACTUALIZACION')))
                     });
                 }
             });
@@ -612,19 +640,22 @@ class UrsService {
     /**
      * Agrega un comentario al hilo
      */
-    async addComment(idSolicitud, idUsuario, mensaje, esPrivado = false, files = []) {
+    async addComment(idSolicitud, idUsuario, mensaje, esPrivado = false, files = [], transaction = null, esSistema = false) {
         try {
             const pool = await getConnection();
-            const result = await pool.request()
+            const request = transaction ? new sql.Request(transaction) : pool.request();
+            
+            const result = await request
                 .input('idSol', sql.Numeric(10, 0), idSolicitud)
                 .input('idUsr', sql.Numeric(10, 0), idUsuario)
                 .input('msg', sql.NVarChar(sql.MAX), mensaje)
                 .input('privado', sql.Bit, esPrivado)
+                .input('sistema', sql.Bit, esSistema)
                 .query(`
-                    INSERT INTO mae_solicitud_comentario (id_solicitud, id_usuario, mensaje, es_privado, fecha)
-                    OUTPUT INSERTED.id_comentario, INSERTED.id_solicitud, INSERTED.id_usuario, INSERTED.mensaje, INSERTED.es_privado, 
+                    INSERT INTO mae_solicitud_comentario (id_solicitud, id_usuario, mensaje, es_privado, fecha, es_sistema)
+                    OUTPUT INSERTED.id_comentario, INSERTED.id_solicitud, INSERTED.id_usuario, INSERTED.mensaje, INSERTED.es_privado, INSERTED.es_sistema,
                            CONVERT(VARCHAR(33), INSERTED.fecha, 126) + 'Z' as fecha
-                    VALUES (@idSol, @idUsr, @msg, @privado, SYSUTCDATETIME())
+                    VALUES (@idSol, @idUsr, @msg, @privado, SYSUTCDATETIME(), @sistema)
                 `);
             const comentario = result.recordset[0];
 
@@ -633,35 +664,37 @@ class UrsService {
                 await this.processAttachments(idSolicitud, comentario.id_comentario, files);
             }
 
-            // Trigger UNS
-            import('./uns.service.js').then(async uns => {
-                    const reqData = await pool.request()
-                        .input('id', sql.Numeric(10, 0), idSolicitud)
-                        .input('idUsr', sql.Numeric(10, 0), idUsuario)
-                        .query(`
-                            SELECT s.id_tipo, s.id_solicitante, t.nombre as nombre_tipo, u.usuario as nombre_autor
-                            FROM mae_solicitud s
-                            JOIN mae_solicitud_tipo t ON s.id_tipo = t.id_tipo
-                            JOIN mae_usuario u ON u.id_usuario = @idUsr
-                            WHERE s.id_solicitud = @id
-                        `);
-                
-                if (reqData.recordset.length > 0) {
-                    const req = reqData.recordset[0];
-                    uns.default.trigger('SOLICITUD_COMENTARIO_NUEVO', {
-                        id_solicitud: idSolicitud,
-                        id_tipo: req.id_tipo,
-                        id_solicitante: req.id_solicitante,
-                        id_usuario: idUsuario,
-                        id_usuario_accion: idUsuario,
-                        id_usuario_propietario: req.id_solicitante,
-                        usuario_accion: req.nombre_autor,
-                        nombre_tipo: req.nombre_tipo,
-                        mensaje,
-                        es_privado: esPrivado
-                    });
-                }
-            });
+            // Trigger UNS — Fix 4: Only for real user comments, NOT system-generated ones
+            if (!esSistema) {
+                import('./uns.service.js').then(async uns => {
+                        const reqData = await pool.request()
+                            .input('id', sql.Numeric(10, 0), idSolicitud)
+                            .input('idUsr', sql.Numeric(10, 0), idUsuario)
+                            .query(`
+                                SELECT s.id_tipo, s.id_solicitante, t.nombre as nombre_tipo, u.usuario as nombre_autor
+                                FROM mae_solicitud s
+                                JOIN mae_solicitud_tipo t ON s.id_tipo = t.id_tipo
+                                JOIN mae_usuario u ON u.id_usuario = @idUsr
+                                WHERE s.id_solicitud = @id
+                            `);
+                    
+                    if (reqData.recordset.length > 0) {
+                        const req = reqData.recordset[0];
+                        uns.default.trigger('SOLICITUD_COMENTARIO_NUEVO', {
+                            id_solicitud: idSolicitud,
+                            id_tipo: req.id_tipo,
+                            id_solicitante: req.id_solicitante,
+                            id_usuario: idUsuario,
+                            id_usuario_accion: idUsuario,
+                            id_usuario_propietario: req.id_solicitante,
+                            usuario_accion: req.nombre_autor,
+                            nombre_tipo: req.nombre_tipo,
+                            mensaje,
+                            es_privado: esPrivado
+                        });
+                    }
+                });
+            }
 
             return comentario;
         } catch (error) {
