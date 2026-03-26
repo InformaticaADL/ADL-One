@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-    Container,
     Paper,
     Text,
     Button,
@@ -91,7 +90,7 @@ export const RequestsManager: React.FC<RequestsManagerProps> = ({ onBack, onConf
         ), [requestTypes, searchTerm]);
 
     return (
-        <Container fluid py="md">
+        <Box p="md" style={{ width: '100%' }}>
             <PageHeader 
                 title="Administración de Solicitudes"
                 subtitle="Gestiona quién puede enviar y quién puede administrar los trámites URS."
@@ -225,6 +224,6 @@ export const RequestsManager: React.FC<RequestsManagerProps> = ({ onBack, onConf
                     </Group>
                 </Paper>
             </Stack>
-        </Container>
+        </Box>
     );
 };

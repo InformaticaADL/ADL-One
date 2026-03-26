@@ -581,7 +581,7 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
   }
 
   return (
-    <div className="dashboard-container" style={{ padding: '0 1.5rem 2rem 1.5rem', animation: 'fadeIn 0.6s ease-out' }}>
+    <Box p="md" style={{ width: '100%', animation: 'fadeIn 0.6s ease-out' }}>
       
       {/* Header & Controls */}
       <Box mb="xl" pos="relative">
@@ -1055,6 +1055,6 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
           box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.1);
         }
       `}</style>
-    </div>
+    </Box>
   );
 };

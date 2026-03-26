@@ -19,6 +19,7 @@ router.get('/:id', fichaController.getById);
 router.get('/:id/pdf', fichaController.downloadPdf);
 router.get('/:id/excel', fichaController.downloadExcel);
 router.get('/:id/sampling-equipos', fichaController.getSamplingEquipos);
+router.get('/:id/execution-detail', fichaController.getExecutionDetail);
 router.post('/batch-agenda', fichaController.batchUpdateAgenda);
 router.post('/cancel-sampling', authenticate, fichaController.cancelSampling);
 router.post('/:id/agenda', fichaController.updateAgenda);

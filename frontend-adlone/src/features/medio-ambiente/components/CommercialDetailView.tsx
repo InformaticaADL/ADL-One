@@ -19,7 +19,6 @@ import {
     Group, 
     Paper, 
     SimpleGrid, 
-    Container, 
     Table,
     Badge,
     Tabs, 
@@ -283,7 +282,7 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
     const canEdit = hasPermission('MA_COMERCIAL_EDITAR') && !isEditing && [1, 2, 3, 4].includes(Number(data?.id_validaciontecnica));
 
     return (
-        <Container fluid p="md" style={{ width: '100% !important', maxWidth: '100% !important' }}>
+        <Box p="md" style={{ width: '100%' }}>
             <Stack gap="lg">
                 <PageHeader 
                     title={`Ficha N° ${data?.fichaingresoservicio || '-'}`}
@@ -486,6 +485,6 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                 }}
                 onCancel={() => setShowCancelModal(false)}
             />
-        </Container>
+        </Box>
     );
 };

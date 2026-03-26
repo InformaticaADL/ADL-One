@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { 
-    Container, 
     Paper, 
     Title, 
     Text, 
@@ -165,7 +164,7 @@ const NewRequestPage: React.FC<NewRequestPageProps> = ({ onBack }) => {
     }
 
     return (
-        <Container fluid py="xl">
+        <Box p="xl" style={{ width: '100%' }}>
             <Paper shadow="sm" p="lg" withBorder radius="md" style={{ backgroundColor: 'var(--mantine-color-gray-0)' }}>
                 <Stack gap="xl">
                     {/* Header */}
@@ -383,7 +382,7 @@ const NewRequestPage: React.FC<NewRequestPageProps> = ({ onBack }) => {
                     </Box>
                 </Stack>
             </Paper>
-        </Container>
+        </Box>
     );
 };
 

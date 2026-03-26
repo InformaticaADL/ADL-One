@@ -58,7 +58,7 @@ export const LoginForm = ({ onSubmit, isLoading = false }: LoginFormProps) => {
             <Stack gap="xl">
                 <Center flex={1}>
                     <Stack align="center" gap={0}>
-                        <Image src={logoAdl} w={180} mb="md" />
+                        <Image src={logoAdl} w={260} mb="xl" />
                         <Title order={2} fw={900}>Bienvenido</Title>
                         <Text c="dimmed" size="sm" ta="center">Ingresa tus credenciales para continuar</Text>
                     </Stack>

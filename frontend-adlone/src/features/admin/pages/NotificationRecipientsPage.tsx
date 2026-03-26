@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-    Container, 
     Grid, 
     Card, 
     Text, 
@@ -20,7 +19,8 @@ import {
     Paper,
     ScrollArea,
     Center,
-    Tooltip
+    Tooltip,
+    Box
 } from '@mantine/core';
 import { 
     IconUserPlus, 
@@ -219,7 +219,7 @@ export const NotificationRecipientsPage: React.FC<Props> = ({ event, onBack }) =
     const selectedRole = roles.find(r => r.id_rol === modalRoleId);
 
     return (
-        <Container fluid py="md">
+        <Box p="md" style={{ width: '100%' }}>
             <PageHeader 
                 title="Configuración de Destinatarios"
                 subtitle={`Evento: ${event.codigo_evento} - ${event.descripcion}`}
@@ -538,6 +538,6 @@ export const NotificationRecipientsPage: React.FC<Props> = ({ event, onBack }) =
                     </Group>
                 </Stack>
             </Modal>
-        </Container>
+        </Box>
     );
 };

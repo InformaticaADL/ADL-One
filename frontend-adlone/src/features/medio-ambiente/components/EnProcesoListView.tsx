@@ -3,7 +3,6 @@ import { fichaService } from '../services/ficha.service';
 import { useToast } from '../../../contexts/ToastContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { 
-    Container, 
     Stack, 
     Paper, 
     SimpleGrid, 
@@ -20,7 +19,8 @@ import {
     Pagination,
     Center,
     Loader,
-    Divider
+    Divider,
+    Box
 } from '@mantine/core';
 import { 
     IconSearch, 
@@ -157,7 +157,7 @@ export const EnProcesoListView: React.FC<Props> = ({ onBackToMenu, onViewDetail 
     const displayedFichas = sortedFichas.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
     return (
-        <Container fluid p="md">
+        <Box p="md" style={{ width: '100%' }}>
             <Stack gap="lg">
                 <PageHeader 
                     title="Fichas en Proceso" 
@@ -355,6 +355,6 @@ export const EnProcesoListView: React.FC<Props> = ({ onBackToMenu, onViewDetail 
                     </Center>
                 </Paper>
             </Stack>
-        </Container>
+        </Box>
     );
 };

@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-    Container,
     Paper,
     Text,
     Button,
@@ -280,7 +279,7 @@ const RequestTypePermissionsPage: React.FC<Props> = ({ requestType, onBack }) =>
         });
 
     return (
-        <Container fluid py="md">
+        <Box p="md" style={{ width: '100%' }}>
             <PageHeader
                 title={`Permisos: ${typeName}`}
                 subtitle={`Define quién puede crear, ver, gestionar o derivar el trámite "${typeName}".`}
@@ -565,7 +564,7 @@ const RequestTypePermissionsPage: React.FC<Props> = ({ requestType, onBack }) =>
                     </Paper>
                 )}
             </Stack>
-        </Container>
+        </Box>
     );
 };
 

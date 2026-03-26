@@ -16,7 +16,6 @@ import {
     Group, 
     Paper, 
     SimpleGrid, 
-    Container, 
     Divider,
     Box,
     Table,
@@ -178,7 +177,7 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
     const canProcess = hasPermission('MA_TECNICA_APROBAR') && [0, 3, 4].includes(data?.id_validaciontecnica || -1);
 
     return (
-        <Container fluid p="md">
+        <Box p="md" style={{ width: '100%' }}>
             <Stack gap="lg">
                 <PageHeader 
                     title={`Gestión Técnica - Ficha N° ${data?.fichaingresoservicio || '-'}`}
@@ -366,6 +365,6 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                 onConfirm={onConfirmAction}
                 onCancel={() => setShowConfirmModal(false)}
             />
-        </Container>
+        </Box>
     );
 };

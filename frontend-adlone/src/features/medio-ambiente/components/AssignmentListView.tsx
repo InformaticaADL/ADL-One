@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { fichaService } from '../services/ficha.service';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { 
-    Container, 
     Stack, 
     Paper, 
     SimpleGrid, 
@@ -19,7 +18,8 @@ import {
     Pagination,
     Center,
     Loader,
-    Divider
+    Divider,
+    Box
 } from '@mantine/core';
 import { 
     IconSearch, 
@@ -216,7 +216,7 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
     };
 
     return (
-        <Container fluid p="md">
+        <Box p="md" style={{ width: '100%' }}>
             <Stack gap="lg">
                 <PageHeader 
                     title="Planificación y Asignación" 
@@ -438,6 +438,6 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                     </Center>
                 </Paper>
             </Stack>
-        </Container>
+        </Box>
     );
 };

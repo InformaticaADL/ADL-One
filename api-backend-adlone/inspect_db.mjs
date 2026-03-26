@@ -14,15 +14,14 @@ const config = {
   },
 };
 
-async function checkSchema() {
+async function check() {
     try {
         const pool = await sql.connect(config);
-        const result = await pool.request().query("SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'mae_solicitud_adjunto'");
-        console.log(JSON.stringify(result.recordset, null, 2));
+        const result = await pool.request().query("SELECT TOP 10 * FROM rel_solicitud_tipo_permiso ORDER BY id_permiso_sol DESC");
+        console.table(result.recordset);
         await pool.close();
     } catch (err) {
         console.error(err);
     }
 }
-
-checkSchema();
+check();

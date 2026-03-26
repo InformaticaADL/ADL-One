@@ -6,7 +6,6 @@ import {
     ThemeIcon, 
     rem, 
     UnstyledButton,
-    Container,
     Box
 } from '@mantine/core';
 import { 
@@ -53,7 +52,7 @@ export const EquiposHub: React.FC<Props> = ({ onNavigate, onBack }) => {
     const visibleOptions = OPTIONS.filter(opt => hasPermission(opt.permission));
 
     return (
-        <Container fluid py="md">
+        <Box p="md" style={{ width: '100%' }}>
             <PageHeader 
                 title="Centro de Equipos" 
                 subtitle="Gestión y control centralizado del inventario tecnológico."
@@ -113,6 +112,6 @@ export const EquiposHub: React.FC<Props> = ({ onNavigate, onBack }) => {
                     </Card>
                 )}
             </SimpleGrid>
-        </Container>
+        </Box>
     );
 };

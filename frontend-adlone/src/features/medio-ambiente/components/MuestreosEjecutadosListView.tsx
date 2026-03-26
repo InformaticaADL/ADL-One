@@ -3,7 +3,6 @@ import { fichaService } from '../services/ficha.service';
 import { useToast } from '../../../contexts/ToastContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { 
-    Container, 
     Stack, 
     Paper, 
     SimpleGrid, 
@@ -12,32 +11,31 @@ import {
     Button, 
     Table, 
     Group, 
-    ActionIcon, 
-    Tooltip,
     ScrollArea,
     Text,
     Pagination,
     Center,
     Loader,
-    Divider
+    Divider,
+    Tooltip,
+    ActionIcon,
+    Box
 } from '@mantine/core';
 import { 
-    IconSearch, 
+    IconSearch,
     IconEraser, 
-    IconFileDescription, 
-    IconChartBar,
-    IconPhoto,
-    IconSend,
     IconFilter,
-    IconCheck
+    IconExternalLink
 } from '@tabler/icons-react';
+
+import { useNavStore } from '../../../store/navStore';
 
 interface Props {
     onBackToMenu: () => void;
-    onViewDetail: (id: number) => void;
 }
 
-export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu, onViewDetail }) => {
+export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) => {
+    const { setSelectedFicha, setActiveSubmodule } = useNavStore();
     const { showToast } = useToast();
     const [muestreos, setMuestreos] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -99,7 +97,7 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu, onV
                 if (!search) return true;
                 return (val || '').toString().toLowerCase().includes(search.toLowerCase());
             };
-            const matchCorr = check(m.frecuencia_correlativo, searchCorrelativo);
+            const matchCorr = check(m.frecuencia_correlativo, searchCorrelativo) || check(m.caso_adlab, searchCorrelativo);
             const matchCliente = check(m.cliente, searchCliente);
             const matchMues = check(m.muestreador, searchMuestreador);
             const matchObj = check(m.objetivo, searchObjetivo);
@@ -119,34 +117,9 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu, onV
     const totalPages = Math.ceil(sortedMuestreos.length / itemsPerPage) || 1;
     const displayedMuestreos = sortedMuestreos.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-    const handleDownloadPdf = async (idFicha: number) => {
-        try {
-            if (!idFicha) {
-                showToast({ type: 'error', message: "No se pudo obtener el ID de la ficha" });
-                return;
-            }
-            showToast({ type: 'info', message: "Generando reporte PDF..." });
-            const pdfBlob = await fichaService.downloadPdf(idFicha);
-            const url = window.URL.createObjectURL(pdfBlob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', `Ficha_${idFicha}.pdf`);
-            document.body.appendChild(link);
-            link.click();
-            link.parentNode?.removeChild(link);
-            window.URL.revokeObjectURL(url);
-        } catch (error) {
-            console.error("Error al descargar PDF:", error);
-            showToast({ type: 'error', message: "Error al descargar el PDF" });
-        }
-    };
-
-    const handleComingSoon = (feature: string) => {
-        showToast({ type: 'info', message: `${feature}: Funcionalidad próximamente disponible` });
-    };
 
     return (
-        <Container fluid p="md">
+        <Box p="md" style={{ width: '100%' }}>
             <Stack gap="lg">
                 <PageHeader 
                     title="Muestreos Completados" 
@@ -170,8 +143,8 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu, onV
                         </Group>
                         <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="sm">
                             <TextInput 
-                                label="Correlativo" 
-                                placeholder="Eje: 99-1..." 
+                                label="Correlativo / ID Caso" 
+                                placeholder="Eje: 99-1 o ID Caso..." 
                                 value={searchCorrelativo} 
                                 onChange={(e) => setSearchCorrelativo(e.target.value)} 
                                 size="xs"
@@ -221,30 +194,32 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu, onV
                                 </Stack>
                             </Center>
                         ) : (
-                            <Table striped highlightOnHover withTableBorder={false} verticalSpacing="xs">
+                            <Table striped highlightOnHover withTableBorder={false} verticalSpacing="xs" miw={1400}>
                                 <Table.Thead bg="gray.1">
                                     <Table.Tr>
-                                        <Table.Th w={180}>Correlativo</Table.Th>
-                                        <Table.Th w={120}>Fecha M.</Table.Th>
-                                        <Table.Th>Cliente</Table.Th>
-                                        <Table.Th>Fuente Emisora</Table.Th>
-                                        <Table.Th>Área / Objetivo</Table.Th>
-                                        <Table.Th>Muestreador</Table.Th>
-                                        <Table.Th ta="center" w={250}>Acciones</Table.Th>
+                                        <Table.Th w={80} style={{ whiteSpace: 'nowrap' }}>ID Caso</Table.Th>
+                                        <Table.Th w={150} style={{ whiteSpace: 'nowrap' }}>Correlativo</Table.Th>
+                                        <Table.Th w={110} style={{ whiteSpace: 'nowrap' }}>Fecha M.</Table.Th>
+                                        <Table.Th miw={200}>Cliente</Table.Th>
+                                        <Table.Th miw={200}>Fuente Emisora</Table.Th>
+                                        <Table.Th miw={180}>Área / Objetivo</Table.Th>
+                                        <Table.Th miw={150}>M. Inst.</Table.Th>
+                                        <Table.Th miw={150}>M. Ret.</Table.Th>
+                                        <Table.Th ta="center" w={80}>Acciones</Table.Th>
                                     </Table.Tr>
                                 </Table.Thead>
                                 <Table.Tbody>
                                     {displayedMuestreos.map((m, idx) => (
-                                        <Table.Tr key={`${m.correlativo_ficha || m.id_fichaingresoservicio}-${idx}`}>
-                                            <Table.Td>
-                                                <Group gap={5}>
-                                                    <IconCheck size={14} color="var(--mantine-color-green-6)" />
-                                                    <Text size="xs" fw={700} truncate title={m.frecuencia_correlativo}>
-                                                        {m.frecuencia_correlativo || '-'}
-                                                    </Text>
-                                                </Group>
+                                        <Table.Tr key={`${m.id_agendamam || m.correlativo_ficha || m.id_fichaingresoservicio}-${idx}`}>
+                                            <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                                                <Text size="xs" fw={700} c="blue.7">{m.caso_adlab || '-'}</Text>
                                             </Table.Td>
-                                            <Table.Td>
+                                            <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                                                <Text size="xs" fw={600} truncate title={m.frecuencia_correlativo}>
+                                                    {m.frecuencia_correlativo || '-'}
+                                                </Text>
+                                            </Table.Td>
+                                            <Table.Td style={{ whiteSpace: 'nowrap' }}>
                                                 <Text size="xs">
                                                     {m.fecha_muestreo ? new Date(m.fecha_muestreo).toLocaleDateString('es-CL', { timeZone: 'UTC' }) : '-'}
                                                 </Text>
@@ -261,56 +236,34 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu, onV
                                                     <Text size="10px" c="dimmed">{m.objetivo || '-'}</Text>
                                                 </Stack>
                                             </Table.Td>
-                                            <Table.Td>
+                                            <Table.Td style={{ whiteSpace: 'nowrap' }}>
                                                 <Text size="xs">{m.muestreador || 'Sin Asignar'}</Text>
                                             </Table.Td>
+                                            <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                                                <Text size="xs">{m.muestreador_retiro || '-'}</Text>
+                                            </Table.Td>
                                             <Table.Td ta="center">
-                                                <Group gap={5} justify="center">
-                                                    <Tooltip label="Ver Ficha">
-                                                        <Button 
-                                                            variant="light" 
-                                                            color="gray" 
-                                                            size="compact-xs" 
-                                                            leftSection={<IconChartBar size={14} />}
-                                                            onClick={() => onViewDetail(m.id_fichaingresoservicio || m.correlativo_ficha)}
-                                                        >
-                                                            Datos
-                                                        </Button>
-                                                    </Tooltip>
-                                                    <Tooltip label="Descargar Informe">
-                                                        <Button 
-                                                            variant="light" 
-                                                            color="red" 
-                                                            size="compact-xs" 
-                                                            leftSection={<IconFileDescription size={14} />}
-                                                            onClick={() => handleDownloadPdf(m.id_fichaingresoservicio || m.correlativo_ficha)}
-                                                        >
-                                                            Informe
-                                                        </Button>
-                                                    </Tooltip>
+                                                <Tooltip label="Ver Detalle Ejecución">
                                                     <ActionIcon 
-                                                        variant="subtle" 
-                                                        color="gray" 
-                                                        onClick={() => handleComingSoon("Fotos")}
-                                                        title="Ver Fotos"
+                                                        variant="light" 
+                                                        color="blue" 
+                                                        onClick={() => {
+                                                            setSelectedFicha(
+                                                                m.id_fichaingresoservicio || m.correlativo_ficha,
+                                                                m.frecuencia_correlativo
+                                                            );
+                                                            setActiveSubmodule('ma-ficha-detalle');
+                                                        }}
                                                     >
-                                                        <IconPhoto size={16} />
+                                                        <IconExternalLink size={16} />
                                                     </ActionIcon>
-                                                    <ActionIcon 
-                                                        variant="subtle" 
-                                                        color="gray" 
-                                                        onClick={() => handleComingSoon("Detalles de Envío")}
-                                                        title="Historial de Envío"
-                                                    >
-                                                        <IconSend size={16} />
-                                                    </ActionIcon>
-                                                </Group>
+                                                </Tooltip>
                                             </Table.Td>
                                         </Table.Tr>
                                     ))}
                                     {displayedMuestreos.length === 0 && (
                                         <Table.Tr>
-                                            <Table.Td colSpan={7} ta="center" py="xl">
+                                            <Table.Td colSpan={9} ta="center" py="xl">
                                                 <Text c="dimmed">No se encontraron muestreos ejecutados.</Text>
                                             </Table.Td>
                                         </Table.Tr>
@@ -319,21 +272,19 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu, onV
                             </Table>
                         )}
                     </ScrollArea>
-                    
                     <Divider />
-                    
-                    <Center p="md">
+                    <Group justify="space-between" p="md">
+                        <Text size="sm" c="dimmed">Mostrando {displayedMuestreos.length} de {filteredMuestreos.length} registros</Text>
                         <Pagination 
                             total={totalPages} 
                             value={currentPage} 
                             onChange={setCurrentPage} 
-                            radius="md" 
-                            size="sm"
-                            withEdges
+                            size="sm" 
+                            radius="md"
                         />
-                    </Center>
+                    </Group>
                 </Paper>
             </Stack>
-        </Container>
+        </Box>
     );
 };

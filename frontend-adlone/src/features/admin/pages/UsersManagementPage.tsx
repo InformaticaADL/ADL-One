@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { 
-    Container, 
     Stack, 
     Group, 
     Text, 
@@ -271,7 +270,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
     });
 
     return (
-        <Container fluid py="md">
+        <Box p="md" style={{ width: '100%' }}>
             <PageHeader
                 title="Gestión de Usuarios"
                 subtitle="Administra los accesos y roles de los integrantes del sistema."
@@ -611,6 +610,6 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                     setSelectedUser(null);
                 }}
             />
-        </Container>
+        </Box>
     );
 };

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { 
-    Container, 
     Paper, 
     TextInput, 
     PasswordInput, 
@@ -138,7 +137,7 @@ export const MuestreadorForm: React.FC<Props> = ({
     };
 
     return (
-        <Container size="md" py="xl">
+        <Box p="md" style={{ width: '100%' }}>
             <LoadingOverlay visible={loading} overlayProps={{ blur: 2 }} />
             
             <PageHeader
@@ -296,6 +295,6 @@ export const MuestreadorForm: React.FC<Props> = ({
                     )}
                 </Transition>
             </Affix>
-        </Container>
+        </Box>
     );
 };

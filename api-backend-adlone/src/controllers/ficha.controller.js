@@ -270,6 +270,22 @@ class FichaIngresoController {
             return errorResponse(res, 'Error al obtener muestreos ejecutados', 500, err.message);
         }
     }
+
+    async getExecutionDetail(req, res) {
+        try {
+            const { id } = req.params;
+            const { correlativo } = req.query;
+            if (!id || !correlativo) {
+                return errorResponse(res, 'ID de ficha y correlativo requeridos', 400);
+            }
+
+            const result = await fichaService.getExecutionDetail(id, correlativo);
+            return successResponse(res, result, 'Detalle de ejecución obtenido exitosamente');
+        } catch (err) {
+            logger.error('Error in getExecutionDetail controller:', err);
+            return errorResponse(res, 'Error al obtener detalle de ejecución', 500, err.message);
+        }
+    }
 }
 
 export default new FichaIngresoController();

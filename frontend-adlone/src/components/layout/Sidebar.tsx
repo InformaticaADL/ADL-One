@@ -1,14 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
-import { 
-    Group, 
-    ScrollArea, 
-    rem, 
-    Avatar, 
-    Text, 
-    UnstyledButton, 
-    Collapse, 
-    ThemeIcon, 
-    Box, 
+import {
+    Group,
+    ScrollArea,
+    rem,
+    Avatar,
+    Text,
+    UnstyledButton,
+    Collapse,
+    ThemeIcon,
+    Box,
     Badge,
     Menu,
     ActionIcon,
@@ -197,7 +197,7 @@ export function LinksGroup({
                         {items}
                     </div>
                 </Collapse>
-            ) }
+            )}
         </Box>
     );
 }
@@ -271,10 +271,7 @@ export function Sidebar() {
         toggleSidebar,
         setActiveModule,
         setActiveSubmodule,
-        setDrawerOpen,
-        setUrsInboxMode,
-        resetNavigation,
-        hideNotification
+        resetNavigation
     } = useNavStore();
 
     const [openedModule, setOpenedModule] = useState<string | null>(activeModule);
@@ -327,20 +324,20 @@ export function Sidebar() {
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             const target = event.target as HTMLElement;
-            
+
             if (!openedModule) return;
 
             // 1. Si clicamos FUERA del Sidebar y fuera de cualquier Popover
             const isOutsideSidebar = !target.closest(`.${classes.navbar}`);
             const isOutsidePopover = !target.closest('.mantine-Popover-dropdown');
-            
+
             // 2. Si clicamos DENTRO del Sidebar pero en un espacio vacío (no es botón ni link)
             const isInteractive = target.closest('button, a, [role="button"]');
             const isInsideSidebar = !!target.closest(`.${classes.navbar}`);
 
             // 3. PERSISTENCIA: No cerrar si es el módulo activo o contiene al submódulo activo
             const { activeModule: activeMod, activeSubmodule: activeSub } = useNavStore.getState();
-            
+
             // Si el módulo está expandido manuamente y es el activo, no cerrar
             if (openedModule === activeMod) return;
 
@@ -379,7 +376,7 @@ export function Sidebar() {
         if (hasSubItems) {
             // Solo alternar expansión
             setOpenedModule(openedModule === moduleId ? null : moduleId);
-            
+
             // Si el módulo ya es el activo, no reseteamos el submódulo
             if (activeModule !== moduleId) {
                 setActiveModule(moduleId);
@@ -500,13 +497,17 @@ export function Sidebar() {
     return (
         <nav className={`${classes.navbar} ${sidebarCollapsed ? classes.navbarCollapsed : ''}`}>
             <div className={classes.header}>
-                <Group justify={sidebarCollapsed ? "center" : "space-between"} wrap="nowrap" style={{ width: '100%', gap: sidebarCollapsed ? 0 : 'inherit' }}>
+                <Group
+                    justify={sidebarCollapsed ? "center" : "center"}
+                    wrap="nowrap"
+                    style={{ width: '100%', gap: sidebarCollapsed ? 0 : 12, padding: sidebarCollapsed ? 0 : '0 10px' }}
+                >
                     <img
                         src={sidebarCollapsed ? logoSmall : logoAdl}
                         alt="ADL Logo"
                         style={{
-                            height: sidebarCollapsed ? 28 : 50,
-                            maxWidth: sidebarCollapsed ? 28 : 180,
+                            height: sidebarCollapsed ? 28 : 55,
+                            maxWidth: sidebarCollapsed ? 28 : 200,
                             objectFit: 'contain',
                             cursor: 'pointer',
                             transition: 'all 200ms ease',
@@ -520,6 +521,7 @@ export function Sidebar() {
                             color="gray"
                             onClick={toggleSidebar}
                             size="lg"
+                            className={classes.collapseButton}
                         >
                             <IconLayoutSidebarLeftCollapse size={20} />
                         </ActionIcon>
@@ -565,9 +567,9 @@ export function Sidebar() {
                         <Menu.Target>
                             <UnstyledButton className={classes.userButton}>
                                 <Group gap="sm" wrap="nowrap">
-                                    <Avatar 
-                                        src={user?.foto ? `${API_CONFIG.getBaseURL()}${user.foto}` : null} 
-                                        radius="xl" 
+                                    <Avatar
+                                        src={user?.foto ? `${API_CONFIG.getBaseURL()}${user.foto}` : null}
+                                        radius="xl"
                                         color="blue"
                                         size={32}
                                     >
@@ -575,10 +577,13 @@ export function Sidebar() {
                                     </Avatar>
                                     {!sidebarCollapsed && (
                                         <div style={{ flex: 1, minWidth: 0 }}>
-                                            <Text style={{ fontSize: 12 }} fw={500} truncate>
+                                            <Text style={{ fontSize: 13 }} fw={600} truncate>
                                                 {user?.name || 'Usuario'}
                                             </Text>
-                                            <Text c="dimmed" style={{ fontSize: 11 }} truncate>
+                                            <Text 
+                                                c="dimmed" 
+                                                style={{ fontSize: 10, wordBreak: 'break-all', lineHeight: 1.1 }}
+                                            >
                                                 {user?.email || 'p.vremolcoy@adlone.com'}
                                             </Text>
                                         </div>
@@ -590,7 +595,7 @@ export function Sidebar() {
 
                         <Menu.Dropdown>
                             <Menu.Label>Panel de Usuario</Menu.Label>
-                            <Menu.Item 
+                            <Menu.Item
                                 leftSection={<IconUserCircle size={14} />}
                                 onClick={() => {
                                     setActiveModule('perfil');
@@ -599,15 +604,15 @@ export function Sidebar() {
                             >
                                 Mi Perfil
                             </Menu.Item>
-                            <Menu.Item 
+                            <Menu.Item
                                 leftSection={<IconQuestionMark size={14} />}
                                 onClick={() => setHelpOpened(true)}
                             >
                                 Ayuda
                             </Menu.Item>
                             <Menu.Divider />
-                            <Menu.Item 
-                                color="red" 
+                            <Menu.Item
+                                color="red"
                                 onClick={logout}
                                 leftSection={<IconLogout size={14} />}
                             >
@@ -619,7 +624,7 @@ export function Sidebar() {
             </div>
             {showBubble && notificationsRef.current && openedModule !== 'notificaciones' && (
                 <Portal>
-                    <div 
+                    <div
                         className={classes.bubbleNotification}
                         style={{
                             position: 'fixed',

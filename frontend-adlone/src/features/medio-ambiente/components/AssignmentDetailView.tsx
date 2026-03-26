@@ -6,7 +6,6 @@ import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { 
-    Container, 
     Stack, 
     Paper, 
     TextInput, 
@@ -224,7 +223,7 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
     );
 
     return (
-        <Container fluid p="md">
+        <Box p="md" style={{ width: '100%' }}>
             <Stack gap="lg">
                 <PageHeader 
                     title={`Asignación de Recursos - Ficha ${fichaId}`}
@@ -447,6 +446,6 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                     </Stack>
                 </Paper>
             </Stack>
-        </Container>
+        </Box>
     );
 };

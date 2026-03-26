@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-    Container, 
     Stack, 
     Group, 
     Title, 
@@ -812,7 +811,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     // --- Render Logic ---
     if (viewMode === 'form') {
         return (
-            <Container fluid py="xl">
+            <Box p="xl" style={{ width: '100%' }}>
                 <EquipoForm
                     initialData={selectedEquipo}
                     onCancel={() => setViewMode('list')}
@@ -820,12 +819,12 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                     pendingRequests={selectedEquipo ? getPendingRequestsForEquipo(selectedEquipo.id_equipo) : []}
                     onRefreshSolicitudes={() => { loadSolicitudes(); fetchData(); }}
                 />
-            </Container>
+            </Box>
         );
     }
 
     return (
-        <Container fluid py="lg">
+        <Box p="lg" style={{ width: '100%' }}>
             <Stack gap="lg">
                 {expiringCount > 0 && (
                     <Alert icon={<IconAlertTriangle size={20} />} title="Atención: Equipos por Vencer" color="orange" variant="light" withCloseButton>
@@ -1428,6 +1427,6 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 requests={requestsEquipoInfo ? getPendingRequestsForEquipo(requestsEquipoInfo.id as number) : []}
                 onRefresh={() => { fetchData(); loadSolicitudes(); }}
             />
-        </Container>
+        </Box>
     );
 };

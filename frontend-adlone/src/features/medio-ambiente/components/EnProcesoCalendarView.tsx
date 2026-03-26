@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { 
-    Container, 
     Stack, 
     Paper, 
     Group, 
@@ -376,7 +375,7 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
     }
 
     return (
-        <Container fluid p="md">
+        <Box p="md" style={{ width: '100%' }}>
             <Stack gap="lg">
                 <PageHeader 
                     title="Calendario de Servicios" 
@@ -996,7 +995,7 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                     </Group>
                 </Stack>
             </Modal>
-        </Container>
+        </Box>
     );
 };
 

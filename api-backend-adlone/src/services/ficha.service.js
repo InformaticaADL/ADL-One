@@ -1260,7 +1260,7 @@ class FichaIngresoService {
                     ficha.nombre_um_dispositivohidraulico = val(ficha.nombre_um_dispositivohidraulico, raw.nombre_um_dispositivohidraulico);
                     ficha.id_um_formacanal = ficha.id_um_formacanal ?? raw.id_um_formacanal;
                     ficha.id_um_dispositivohidraulico = ficha.id_um_dispositivohidraulico ?? raw.id_um_dispositivohidraulico;
-                    
+
                     // Merge raw data into ficha.agenda
                     ficha.agenda = ficha.agenda || {};
                     ficha.agenda.frecuencia = ficha.agenda.frecuencia ?? raw.frecuencia;
@@ -2235,7 +2235,7 @@ class FichaIngresoService {
                     LEFT JOIN mae_contacto cont ON e.id_contacto = cont.id_contacto
                     WHERE e.id_fichaingresoservicio = @fid
                 `);
-                
+
                 const meta = metaRes.recordset[0] || {};
                 const prevStatus = meta.id_validaciontecnica;
                 const isReprogramacion = prevStatus === 5;
@@ -2331,14 +2331,14 @@ class FichaIngresoService {
                     servicios.sort((a, b) => parseInt(a.numero) - parseInt(b.numero));
 
                     // Only show modified services if it's a rescheduling
-                    const serviciosFinal = isReprogramacion 
-                        ? servicios.filter(s => s.isModified) 
+                    const serviciosFinal = isReprogramacion
+                        ? servicios.filter(s => s.isModified)
                         : servicios;
 
                     // Skip notification if no services were actually modified and it's a reprogramming
                     if (isReprogramacion && serviciosFinal.length === 0) {
                         logger.info(`Ficha ${fid}: Reprogramación skiped because no services changed.`);
-                        continue; 
+                        continue;
                     }
 
                     // Get user name (Robust fallback logic) - Prioritize 'usuario' (Full Name)
@@ -2528,7 +2528,7 @@ class FichaIngresoService {
                     const info = detailRes.recordset[0];
                     const notifDate = new Date();
                     const notifFechaStr = notifDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
-                    
+
                     let fechaMuestreoStr = 'No asignada';
                     if (info.fecha_muestreo) {
                         fechaMuestreoStr = new Date(info.fecha_muestreo).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -2583,12 +2583,12 @@ class FichaIngresoService {
             throw error;
         }
     }
-        
+
     async generateFichaPdfBuffer(id) {
         try {
             const doc = new PDFDocument({ margin: 40, size: 'A4' });
             const buffers = [];
-            
+
             return new Promise(async (resolve, reject) => {
                 doc.on('data', buffers.push.bind(buffers));
                 doc.on('end', () => {
@@ -2610,7 +2610,7 @@ class FichaIngresoService {
         try {
             const doc = new PDFDocument({ margin: 40, size: 'A4' });
             const buffers = [];
-            
+
             return new Promise(async (resolve, reject) => {
                 doc.on('data', buffers.push.bind(buffers));
                 doc.on('end', () => {
@@ -2659,216 +2659,216 @@ class FichaIngresoService {
         // Fetch historial for observations
         const historial = await this.getHistorial(id);
 
-                // Helper to format date
-                const formatDate = (dateString) => {
-                    if (!dateString) return '';
-                    const d = new Date(dateString);
-                    if (isNaN(d.getTime())) return dateString;
-                    return d.toLocaleDateString('es-CL');
+        // Helper to format date
+        const formatDate = (dateString) => {
+            if (!dateString) return '';
+            const d = new Date(dateString);
+            if (isNaN(d.getTime())) return dateString;
+            return d.toLocaleDateString('es-CL');
+        };
+
+        // Helper for two-column details
+        const addTwoColumnDetail = (label1, value1, label2, value2) => {
+            doc.font('Helvetica-Bold').fontSize(9).text(label1, 40, doc.y, { continued: true, width: 250 });
+            doc.font('Helvetica').text(`: ${value1 || '-'}`, { continued: false });
+            const currentY = doc.y - doc.currentLineHeight();
+
+            if (label2) {
+                doc.font('Helvetica-Bold').text(label2, 300, currentY, { continued: true, width: 250 });
+                doc.font('Helvetica').text(`: ${value2 || '-'}`, { continued: false });
+            }
+            doc.moveDown(0.2);
+        };
+
+        const addSectionTitle = (title, align = 'left') => {
+            doc.moveDown(0.5);
+            const titleOpts = { align: align, width: 510 };
+            doc.font('Helvetica-Bold').fontSize(11).fillColor('#1f2937').text(title, titleOpts);
+            doc.moveTo(40, doc.y).lineTo(550, doc.y).strokeColor('#e5e7eb').stroke();
+            doc.moveDown(0.5);
+            doc.fillColor('black');
+        };
+
+        // --- HEADER LOGO & TITLE ---
+        const logoPath = path.resolve(process.cwd(), '../frontend-adlone/src/assets/images/logo-adlone.png');
+        if (fs.existsSync(logoPath)) {
+            doc.image(logoPath, 40, 30, { width: 120 });
+        }
+
+        doc.font('Helvetica-Bold').fontSize(14).fillColor('#1f4e78').text('FICHA DE INGRESO DE SERVICIO - MEDIO AMBIENTE', 40, 80, { align: 'center', width: 515 });
+        doc.fillColor('black');
+        doc.moveDown(1.5);
+
+        // --- DATOS PRINCIPALES ---
+        addSectionTitle('Información General');
+        addTwoColumnDetail('N° Ficha', ficha.fichaingresoservicio || id, 'Estado', ficha.estado_ficha || 'VIGENTE');
+        addTwoColumnDetail('Fecha Creación', formatDate(ficha.fecha_fichacomercial || ficha.fecha), 'Tipo', ficha.tipo_fichaingresoservicio);
+        addTwoColumnDetail('Monitoreo (Agua/RIL)', ficha.tipo_fichaingresoservicio, 'Tipo de Agua', ficha.nombre_tipoagua || ficha.nombre_tipoagua_ma);
+        addTwoColumnDetail('Responsable Muestreo', ficha.responsablemuestreo || ficha.responsable, 'Cargo Responsable', ficha.nombre_cargo || ficha.nombre_cargo_ma);
+
+        // --- CLIENTES Y UBICACION ---
+        addSectionTitle('Cliente, Servicio y Ubicación');
+        addTwoColumnDetail('Empresa Facturar', ficha.nombre_empresa, 'Empresa de Servicio', ficha.nombre_empresaservicios);
+        addTwoColumnDetail('Fuente Emisora', ficha.nombre_centro, 'Ubicación', ficha.ubicacion);
+        addTwoColumnDetail('Región', ficha.nombre_region, 'Comuna', ficha.nombre_comuna);
+        addTwoColumnDetail('Código', ficha.codigo_centro, 'Contacto Empresa', ficha.nombre_contacto);
+        addTwoColumnDetail('Correo Contacto', ficha.email_contacto, 'Tabla', ficha.nombre_tabla_largo);
+        addTwoColumnDetail('Objetivo Muestreo', ficha.nombre_objetivomuestreo_ma, 'Instrumento Ambiental', ficha.instrumento_ambiental);
+        addTwoColumnDetail('¿Es ETFA?', ficha.etfa === 'S' || ficha.etfa === true ? 'Sí' : 'No', 'Inspector Ambiental', ficha.agenda?.nombre_inspector || '-');
+        addTwoColumnDetail('Componente Ambiental', ficha.nombre_tipomuestra_ma || ficha.nombre_tipomuestra, 'Sub Área', ficha.nombre_subarea);
+        addTwoColumnDetail('Punto Muestreo', ficha.ma_punto_muestreo, 'Zona / Coordenadas', ficha.ma_coordenadas);
+
+        // --- MUESTREO Y PLANIFICACION ---
+        addSectionTitle('Detalles de Muestreo y Planificación');
+        addTwoColumnDetail('Frecuencia', ficha.agenda?.id_frecuencia || ficha.agenda?.frecuencia || ficha.nombre_frecuencia, 'Periodo', ficha.agenda?.frecuencia_factor);
+        addTwoColumnDetail('Multiplicado Por', ficha.agenda?.frecuencia_factor, 'Total Servicios', ficha.agenda?.total_servicios);
+        addTwoColumnDetail('Tipo Muestreo', ficha.nombre_tipomuestreo, 'Tipo Muestra', ficha.nombre_tipomuestra);
+        addTwoColumnDetail('Actividad', ficha.nombre_actividadmuestreo, 'Duración Muestreo', ficha.ma_duracion_muestreo);
+        addTwoColumnDetail('Tipo Descarga', ficha.nombre_tipodescarga, 'Referencia Maps', ficha.referencia_googlemaps);
+
+        // --- CAUDAL Y MEDICIÓN ---
+        const hasCaudalDetails = ficha.nombre_formacanal || ficha.nombre_dispositivohidraulico;
+        if (hasCaudalDetails || ficha.medicion_caudal) {
+            addSectionTitle('Medición y Caudal');
+            addTwoColumnDetail('¿Medición Caudal?', ficha.medicion_caudal || (ficha.medicioncaudal === 1 ? 'Sí' : (ficha.medicioncaudal === 2 ? 'No' : ficha.medicioncaudal)), 'Modalidad', ficha.nombre_modalidad);
+
+            if (ficha.nombre_formacanal) {
+                addTwoColumnDetail('Forma Canal', ficha.nombre_formacanal, `Valor (${ficha.nombre_um_formacanal || '-'})`, ficha.formacanal_medida);
+            }
+            if (ficha.nombre_dispositivohidraulico) {
+                addTwoColumnDetail('Disp. Hidráulico', ficha.nombre_dispositivohidraulico, `Valor (${ficha.nombre_um_dispositivohidraulico || '-'})`, ficha.dispositivohidraulico_medida);
+            }
+        }
+
+        // --- PAGINA 2: OBSERVACIONES Y ANALISIS ---
+        const hasObservations = (historial && historial.length > 0) || ficha.observaciones_comercial || ficha.observaciones_jefaturatecnica;
+        const hasAnalisis = (ficha.detalles && ficha.detalles.length > 0);
+
+        if (hasObservations || hasAnalisis) {
+            doc.addPage();
+
+            // --- OBSERVACIONES (HISTORIAL) ---
+            if (historial && historial.length > 0) {
+                addSectionTitle('Historial de Observaciones', 'left');
+                const sortedHistorial = [...historial].reverse();
+
+                const tableObs = {
+                    headers: [
+                        { label: "Fecha y Hora", property: "fecha", width: 90 },
+                        { label: "Área", property: "area", width: 80 },
+                        { label: "Usuario", property: "user", width: 100 },
+                        { label: "Observación", property: "obs", width: 245 }
+                    ],
+                    rows: sortedHistorial.map(item => {
+                        const dateStr = item.fecha ? new Date(item.fecha).toLocaleString('es-CL') : 'Sin fecha';
+                        const userStr = item.nombre_real || item.nombre_usuario || 'Sistema';
+                        const obsText = item.observacion || 'Sin observaciones.';
+
+                        let areaStr = 'Área';
+                        if (item.accion === 'CREACION_FICHA') areaStr = 'Comercial';
+                        if (item.accion === 'APROBACION_TECNICA' || item.accion === 'RECHAZO_TECNICA') areaStr = 'Técnica';
+                        if (item.accion === 'APROBACION_COORDINACION' || item.accion === 'RECHAZO_COORDINACION') areaStr = 'Coordinación';
+                        if (item.accion === 'ASIGNACION_MUESTREO' || item.accion === 'CANCELACION_MUESTREO') areaStr = 'Coord. Muestreo';
+
+                        return [dateStr, areaStr, userStr, obsText];
+                    })
                 };
 
-                // Helper for two-column details
-                const addTwoColumnDetail = (label1, value1, label2, value2) => {
-                    doc.font('Helvetica-Bold').fontSize(9).text(label1, 40, doc.y, { continued: true, width: 250 });
-                    doc.font('Helvetica').text(`: ${value1 || '-'}`, { continued: false });
-                    const currentY = doc.y - doc.currentLineHeight();
-                    
-                    if (label2) {
-                        doc.font('Helvetica-Bold').text(label2, 300, currentY, { continued: true, width: 250 });
-                        doc.font('Helvetica').text(`: ${value2 || '-'}`, { continued: false });
-                    }
-                    doc.moveDown(0.2);
-                };
+                doc.moveDown(0.5);
+                const tableWidth = 515;
+                const startX = (595 - tableWidth) / 2;
 
-                const addSectionTitle = (title, align = 'left') => {
+                doc.table(tableObs, {
+                    width: tableWidth,
+                    x: startX,
+                    prepareHeader: () => doc.font("Helvetica-Bold").fontSize(8).fillColor('black'),
+                    prepareRow: () => doc.font("Helvetica").fontSize(8).fillColor('#374151')
+                });
+            }
+            else if (ficha.observaciones_comercial || ficha.observaciones_jefaturatecnica) {
+                addSectionTitle('Observaciones');
+                if (ficha.observaciones_comercial) {
+                    doc.font('Helvetica-Bold').fontSize(9).text('Comercial: ', { continued: true });
+                    doc.font('Helvetica').text(ficha.observaciones_comercial);
                     doc.moveDown(0.5);
-                    const titleOpts = { align: align, width: 510 };
-                    doc.font('Helvetica-Bold').fontSize(11).fillColor('#1f2937').text(title, titleOpts);
-                    doc.moveTo(40, doc.y).lineTo(550, doc.y).strokeColor('#e5e7eb').stroke();
+                }
+                if (ficha.observaciones_jefaturatecnica) {
+                    doc.font('Helvetica-Bold').fontSize(9).text('Técnica: ', { continued: true });
+                    doc.font('Helvetica').text(ficha.observaciones_jefaturatecnica);
                     doc.moveDown(0.5);
-                    doc.fillColor('black');
+                }
+            }
+
+            // --- ANALISIS ---
+            if (hasAnalisis) {
+                doc.moveDown(1);
+                addSectionTitle('Análisis Físico / Químico / Hidrobiológico', 'left');
+                const tableAnalisis = {
+                    headers: [
+                        { label: "Análisis", property: "ana", width: 85 },
+                        { label: "Tipo Muestra", property: "tm", width: 50 },
+                        { label: "Límite Min", property: "lmin", width: 40 },
+                        { label: "Límite Max", property: "lmax", width: 40 },
+                        { label: "Error", property: "err", width: 30 },
+                        { label: "Error Min", property: "emin", width: 40 },
+                        { label: "Error Max", property: "emax", width: 40 },
+                        { label: "Tipo Entrega", property: "ent", width: 50 },
+                        { label: "Lab. Derivado", property: "lab1", width: 70 },
+                        { label: "Lab. Secundario", property: "lab2", width: 70 }
+                    ],
+                    rows: ficha.detalles.map(a => [
+                        a.nombre_tecnica || a.nombre_referenciaanalisis || a.nombre_matriz || '',
+                        a.tipo_analisis || 'Terreno',
+                        a.limitemax_d || '-',
+                        a.limitemax_h || '-',
+                        a.llevaerror === 'S' ? 'Sí' : 'No',
+                        a.error_min || '-',
+                        a.error_max || '-',
+                        a.nombre_tipoentrega || (a.id_tipoentrega === 1 ? 'Directa' : (a.id_tipoentrega === 2 ? 'Transporte' : '-')),
+                        a.nombre_laboratorioensayo || (a.tipo_analisis === 'Terreno' ? 'Interno' : '-'),
+                        a.nombre_laboratorioensayo_2 || '-'
+                    ])
                 };
+                doc.moveDown(0.5);
+                const analWidth = 515;
+                const analStartX = (595 - analWidth) / 2;
 
-                // --- HEADER LOGO & TITLE ---
-                const logoPath = path.resolve(process.cwd(), '../frontend-adlone/src/assets/images/logo-adlone.png');
-                if (fs.existsSync(logoPath)) {
-                    doc.image(logoPath, 40, 30, { width: 120 });
-                }
-                
-                doc.font('Helvetica-Bold').fontSize(14).fillColor('#1f4e78').text('FICHA DE INGRESO DE SERVICIO - MEDIO AMBIENTE', 40, 80, { align: 'center', width: 515 });
-                doc.fillColor('black');
-                doc.moveDown(1.5);
+                doc.table(tableAnalisis, {
+                    width: analWidth,
+                    x: analStartX,
+                    prepareHeader: () => doc.font("Helvetica-Bold").fontSize(7).fillColor('black'),
+                    prepareRow: () => doc.font("Helvetica").fontSize(7).fillColor('#374151')
+                });
+            }
+        }
 
-                // --- DATOS PRINCIPALES ---
-                addSectionTitle('Información General');
-                addTwoColumnDetail('N° Ficha', ficha.fichaingresoservicio || id, 'Estado', ficha.estado_ficha || 'VIGENTE');
-                addTwoColumnDetail('Fecha Creación', formatDate(ficha.fecha_fichacomercial || ficha.fecha), 'Tipo', ficha.tipo_fichaingresoservicio);
-                addTwoColumnDetail('Monitoreo (Agua/RIL)', ficha.tipo_fichaingresoservicio, 'Tipo de Agua', ficha.nombre_tipoagua || ficha.nombre_tipoagua_ma);
-                addTwoColumnDetail('Responsable Muestreo', ficha.responsablemuestreo || ficha.responsable, 'Cargo Responsable', ficha.nombre_cargo || ficha.nombre_cargo_ma);
+        // --- MUESTREOS (AGENDA) ---
+        if (agenda && agenda.length > 0) {
+            doc.addPage();
+            addSectionTitle('Asignación de Fechas y Muestreadores');
 
-                // --- CLIENTES Y UBICACION ---
-                addSectionTitle('Cliente, Servicio y Ubicación');
-                addTwoColumnDetail('Empresa Facturar', ficha.nombre_empresa, 'Empresa de Servicio', ficha.nombre_empresaservicios);
-                addTwoColumnDetail('Fuente Emisora', ficha.nombre_centro, 'Ubicación', ficha.ubicacion);
-                addTwoColumnDetail('Región', ficha.nombre_region, 'Comuna', ficha.nombre_comuna);
-                addTwoColumnDetail('Código', ficha.codigo_centro, 'Contacto Empresa', ficha.nombre_contacto);
-                addTwoColumnDetail('Correo Contacto', ficha.email_contacto, 'Tabla', ficha.nombre_tabla_largo);
-                addTwoColumnDetail('Objetivo Muestreo', ficha.nombre_objetivomuestreo_ma, 'Instrumento Ambiental', ficha.instrumento_ambiental);
-                addTwoColumnDetail('¿Es ETFA?', ficha.etfa === 'S' || ficha.etfa === true ? 'Sí' : 'No', 'Inspector Ambiental', ficha.agenda?.nombre_inspector || '-');
-                addTwoColumnDetail('Componente Ambiental', ficha.nombre_tipomuestra_ma || ficha.nombre_tipomuestra, 'Sub Área', ficha.nombre_subarea);
-                addTwoColumnDetail('Punto Muestreo', ficha.ma_punto_muestreo, 'Zona / Coordenadas', ficha.ma_coordenadas);
-
-                // --- MUESTREO Y PLANIFICACION ---
-                addSectionTitle('Detalles de Muestreo y Planificación');
-                addTwoColumnDetail('Frecuencia', ficha.agenda?.id_frecuencia || ficha.agenda?.frecuencia || ficha.nombre_frecuencia, 'Periodo', ficha.agenda?.frecuencia_factor);
-                addTwoColumnDetail('Multiplicado Por', ficha.agenda?.frecuencia_factor, 'Total Servicios', ficha.agenda?.total_servicios);
-                addTwoColumnDetail('Tipo Muestreo', ficha.nombre_tipomuestreo, 'Tipo Muestra', ficha.nombre_tipomuestra);
-                addTwoColumnDetail('Actividad', ficha.nombre_actividadmuestreo, 'Duración Muestreo', ficha.ma_duracion_muestreo);
-                addTwoColumnDetail('Tipo Descarga', ficha.nombre_tipodescarga, 'Referencia Maps', ficha.referencia_googlemaps);
-
-                // --- CAUDAL Y MEDICIÓN ---
-                const hasCaudalDetails = ficha.nombre_formacanal || ficha.nombre_dispositivohidraulico;
-                if (hasCaudalDetails || ficha.medicion_caudal) {
-                    addSectionTitle('Medición y Caudal');
-                    addTwoColumnDetail('¿Medición Caudal?', ficha.medicion_caudal || (ficha.medicioncaudal === 1 ? 'Sí' : (ficha.medicioncaudal === 2 ? 'No' : ficha.medicioncaudal)), 'Modalidad', ficha.nombre_modalidad);
-                    
-                    if (ficha.nombre_formacanal) {
-                        addTwoColumnDetail('Forma Canal', ficha.nombre_formacanal, `Valor (${ficha.nombre_um_formacanal || '-'})`, ficha.formacanal_medida);
-                    }
-                    if (ficha.nombre_dispositivohidraulico) {
-                        addTwoColumnDetail('Disp. Hidráulico', ficha.nombre_dispositivohidraulico, `Valor (${ficha.nombre_um_dispositivohidraulico || '-'})`, ficha.dispositivohidraulico_medida);
-                    }
-                }
-
-                // --- PAGINA 2: OBSERVACIONES Y ANALISIS ---
-                const hasObservations = (historial && historial.length > 0) || ficha.observaciones_comercial || ficha.observaciones_jefaturatecnica;
-                const hasAnalisis = (ficha.detalles && ficha.detalles.length > 0);
-
-                if (hasObservations || hasAnalisis) {
-                    doc.addPage();
-
-                    // --- OBSERVACIONES (HISTORIAL) ---
-                    if (historial && historial.length > 0) {
-                        addSectionTitle('Historial de Observaciones', 'left');
-                        const sortedHistorial = [...historial].reverse();
-                        
-                        const tableObs = {
-                            headers: [
-                                { label: "Fecha y Hora", property: "fecha", width: 90 },
-                                { label: "Área", property: "area", width: 80 },
-                                { label: "Usuario", property: "user", width: 100 },
-                                { label: "Observación", property: "obs", width: 245 }
-                            ],
-                            rows: sortedHistorial.map(item => {
-                                const dateStr = item.fecha ? new Date(item.fecha).toLocaleString('es-CL') : 'Sin fecha';
-                                const userStr = item.nombre_real || item.nombre_usuario || 'Sistema';
-                                const obsText = item.observacion || 'Sin observaciones.';
-                                
-                                let areaStr = 'Área';
-                                if (item.accion === 'CREACION_FICHA') areaStr = 'Comercial';
-                                if (item.accion === 'APROBACION_TECNICA' || item.accion === 'RECHAZO_TECNICA') areaStr = 'Técnica';
-                                if (item.accion === 'APROBACION_COORDINACION' || item.accion === 'RECHAZO_COORDINACION') areaStr = 'Coordinación';
-                                if (item.accion === 'ASIGNACION_MUESTREO' || item.accion === 'CANCELACION_MUESTREO') areaStr = 'Coord. Muestreo';
-                                
-                                return [dateStr, areaStr, userStr, obsText];
-                            })
-                        };
-                        
-                        doc.moveDown(0.5);
-                        const tableWidth = 515;
-                        const startX = (595 - tableWidth) / 2;
-                        
-                        doc.table(tableObs, {
-                            width: tableWidth,
-                            x: startX,
-                            prepareHeader: () => doc.font("Helvetica-Bold").fontSize(8).fillColor('black'),
-                            prepareRow: () => doc.font("Helvetica").fontSize(8).fillColor('#374151')
-                        });
-                    }
-                    else if (ficha.observaciones_comercial || ficha.observaciones_jefaturatecnica) {
-                        addSectionTitle('Observaciones');
-                        if (ficha.observaciones_comercial) {
-                            doc.font('Helvetica-Bold').fontSize(9).text('Comercial: ', { continued: true });
-                            doc.font('Helvetica').text(ficha.observaciones_comercial);
-                            doc.moveDown(0.5);
-                        }
-                        if (ficha.observaciones_jefaturatecnica) {
-                            doc.font('Helvetica-Bold').fontSize(9).text('Técnica: ', { continued: true });
-                            doc.font('Helvetica').text(ficha.observaciones_jefaturatecnica);
-                            doc.moveDown(0.5);
-                        }
-                    }
-
-                    // --- ANALISIS ---
-                    if (hasAnalisis) {
-                        doc.moveDown(1);
-                        addSectionTitle('Análisis Físico / Químico / Hidrobiológico', 'left');
-                        const tableAnalisis = {
-                            headers: [
-                                { label: "Análisis", property: "ana", width: 85 },
-                                { label: "Tipo Muestra", property: "tm", width: 50 },
-                                { label: "Límite Min", property: "lmin", width: 40 },
-                                { label: "Límite Max", property: "lmax", width: 40 },
-                                { label: "Error", property: "err", width: 30 },
-                                { label: "Error Min", property: "emin", width: 40 },
-                                { label: "Error Max", property: "emax", width: 40 },
-                                { label: "Tipo Entrega", property: "ent", width: 50 },
-                                { label: "Lab. Derivado", property: "lab1", width: 70 },
-                                { label: "Lab. Secundario", property: "lab2", width: 70 }
-                            ],
-                            rows: ficha.detalles.map(a => [
-                                a.nombre_tecnica || a.nombre_referenciaanalisis || a.nombre_matriz || '',
-                                a.tipo_analisis || 'Terreno',
-                                a.limitemax_d || '-',
-                                a.limitemax_h || '-',
-                                a.llevaerror === 'S' ? 'Sí' : 'No',
-                                a.error_min || '-',
-                                a.error_max || '-',
-                                a.nombre_tipoentrega || (a.id_tipoentrega === 1 ? 'Directa' : (a.id_tipoentrega === 2 ? 'Transporte' : '-')),
-                                a.nombre_laboratorioensayo || (a.tipo_analisis === 'Terreno' ? 'Interno' : '-'),
-                                a.nombre_laboratorioensayo_2 || '-'
-                            ])
-                        };
-                        doc.moveDown(0.5);
-                        const analWidth = 515;
-                        const analStartX = (595 - analWidth) / 2;
-
-                        doc.table(tableAnalisis, { 
-                            width: analWidth, 
-                            x: analStartX,
-                            prepareHeader: () => doc.font("Helvetica-Bold").fontSize(7).fillColor('black'),
-                            prepareRow: () => doc.font("Helvetica").fontSize(7).fillColor('#374151')
-                        });
-                    }
-                }
-
-                // --- MUESTREOS (AGENDA) ---
-                if (agenda && agenda.length > 0) {
-                    doc.addPage();
-                    addSectionTitle('Asignación de Fechas y Muestreadores');
-
-                    const tableAgenda = {
-                        headers: [
-                            { label: "Corr.", property: "corr", width: 90 },
-                            { label: "Fecha", property: "fecha", width: 80 },
-                            { label: "Instalación", property: "inst", width: 120 },
-                            { label: "Retiro", property: "ret", width: 120 },
-                            { label: "Estado", property: "est", width: 80 }
-                        ],
-                        rows: agenda.map(a => [
-                            a.frecuencia_correlativo || '',
-                            a.fecha_muestreo ? new Date(a.fecha_muestreo).toLocaleDateString('es-CL', { timeZone: 'UTC' }) : 'Sin fecha',
-                            a.instalacion || 'No asignado',
-                            a.retiro || '-',
-                            a.nombre_estadomuestreo || ''
-                        ])
-                    };
-                    doc.table(tableAgenda, { 
-                        width: 510, 
-                        prepareHeader: () => doc.font("Helvetica-Bold").fontSize(9).fillColor('black'),
-                        prepareRow: () => doc.font("Helvetica").fontSize(8).fillColor('#374151') 
-                    });
-                }
+            const tableAgenda = {
+                headers: [
+                    { label: "Corr.", property: "corr", width: 90 },
+                    { label: "Fecha", property: "fecha", width: 80 },
+                    { label: "Instalación", property: "inst", width: 120 },
+                    { label: "Retiro", property: "ret", width: 120 },
+                    { label: "Estado", property: "est", width: 80 }
+                ],
+                rows: agenda.map(a => [
+                    a.frecuencia_correlativo || '',
+                    a.fecha_muestreo ? new Date(a.fecha_muestreo).toLocaleDateString('es-CL', { timeZone: 'UTC' }) : 'Sin fecha',
+                    a.instalacion || 'No asignado',
+                    a.retiro || '-',
+                    a.nombre_estadomuestreo || ''
+                ])
+            };
+            doc.table(tableAgenda, {
+                width: 510,
+                prepareHeader: () => doc.font("Helvetica-Bold").fontSize(9).fillColor('black'),
+                prepareRow: () => doc.font("Helvetica").fontSize(8).fillColor('#374151')
+            });
+        }
     }
 
     async generateFichaExcelBuffer(id) {
@@ -2879,7 +2879,7 @@ class FichaIngresoService {
             const pool = await getConnection();
             const request = pool.request();
             request.input('id', sql.Numeric(10, 0), id);
-            
+
             const [agendaRes, historial] = await Promise.all([
                 request.query(`
                     SELECT a.id_agendamam, a.frecuencia_correlativo, a.fecha_muestreo,
@@ -2902,7 +2902,7 @@ class FichaIngresoService {
             // --- Estilos ---
             const titleStyle = { font: { bold: true, size: 14 } };
             const headerStyle = { font: { bold: true }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE5E7EB' } } };
-            
+
             let currentRow = 1;
 
             // --- SECCIÓN 1: INFORMACIÓN GENERAL ---
@@ -2931,7 +2931,7 @@ class FichaIngresoService {
             addRow('Comuna', ficha.municipio, 'Región', ficha.estado);
             addRow('Código Centro', ficha.codigo_centro, 'Normas/Instrumento', ficha.instrumento_ambiental);
             addRow('Responsable', ficha.responsablemuestreo, 'Cargo', ficha.nombre_cargo);
-            
+
             currentRow += 2;
 
             // --- SECCIÓN 2: HISTORIAL DE OBSERVACIONES ---
@@ -3038,10 +3038,11 @@ class FichaIngresoService {
     async getMuestreosEjecutados() {
         const pool = await getConnection();
         const request = pool.request();
-        
+
         const query = `
             SELECT 
                 a.id_agendamam,
+                a.caso_adlab,
                 a.frecuencia_correlativo,
                 a.fecha_muestreo,
                 a.id_estadomuestreo,
@@ -3060,6 +3061,7 @@ class FichaIngresoService {
                 f.id_objetivomuestreo_ma,
                 o.nombre_objetivomuestreo_ma as objetivo,
                 m.nombre_muestreador as muestreador,
+                m2.nombre_muestreador as muestreador_retiro,
                 f.estado_ficha
             FROM App_Ma_Agenda_MUESTREOS a
             JOIN App_Ma_FichaIngresoServicio_ENC f ON a.id_fichaingresoservicio = f.id_fichaingresoservicio
@@ -3070,15 +3072,272 @@ class FichaIngresoService {
             LEFT JOIN mae_subarea s ON f.id_subarea = s.id_subarea
             LEFT JOIN mae_objetivomuestreo_ma o ON f.id_objetivomuestreo_ma = o.id_objetivomuestreo_ma
             LEFT JOIN mae_muestreador m ON a.id_muestreador = m.id_muestreador
+            LEFT JOIN mae_muestreador m2 ON a.id_muestreador2 = m2.id_muestreador
             WHERE a.id_estadomuestreo = 3
             ORDER BY a.fecha_muestreo DESC, f.id_fichaingresoservicio DESC
         `;
-        
+
         try {
             const result = await request.query(query);
             return result.recordset || [];
         } catch (error) {
             logger.error('Error fetching muestreos ejecutados:', error);
+            throw error;
+        }
+    }
+
+    async getExecutionDetail(id, correlativo) {
+        try {
+            const pool = await getConnection();
+
+            const ejecutarQueryPrincipal = async (frec) => {
+                return await pool.request()
+                    .input('id', sql.Int, id)
+                    .input('frecuencia', sql.VarChar, frec)
+                    .query(`
+                        SELECT TOP 1
+                            a.id_agendamam, a.frecuencia_correlativo, a.caso_adlab,
+                            e.nombre_empresa, c.nombre_centro, f.tipo_fichaingresoservicio,
+                            CONVERT(VARCHAR(10), a.fecha_muestreo, 103) AS fecha_muestreo,
+                            o.nombre_objetivomuestreo_ma, f.instrumento_ambiental, s.nombre_subarea,
+                            f.observaciones_coordinador, f.referencia_googlemaps, f.id_fichaingresoservicio,
+                            m.nombre_muestreador AS muestreador_inicio, m2.nombre_muestreador AS muestreador_retiro,
+                            a.ma_muestreo_horai, CONVERT(VARCHAR(10), a.ma_muestreo_fechai, 23) AS ma_muestreo_fechai, a.ma_temperaturai, a.ma_phi, a.totalizador_inicio,
+                            a.ma_muestreo_horat, CONVERT(VARCHAR(10), a.ma_muestreo_fechat, 23) AS ma_muestreo_fechat, a.ma_temperaturat, a.ma_pht, a.totalizador_final,
+                            a.ma_hora_compuesta, CONVERT(VARCHAR(10), a.ma_fecha_compuesta, 23) AS ma_fecha_compuesta, a.ma_temperatura_compuesta, a.ma_ph_compuesta,
+                            a.vdd, a.id_archivo_terreno, f.medicion_caudal, dh.nombre_dispositivohidraulico,
+                            a.instalacion_completado, a.retiro_completado,
+                            a.condicionmedicion_flujolaminar, a.condicionmedicion_velocidaduniforme, a.condicionmedicion_observacion,
+                            a.nombre_observadorterreno, a.cargo_observadorterreno,
+                            a.nombre_observadorterreno_retiro, a.cargo_observadorterreno_retiro,
+                            a.observaciones_muestreador, a.observaciones_muestreador2,
+                            ct.nombre_contacto, ct.email_contacto,
+                            a.temperatura_corregidai, a.temperatura_corregidat, a.temperatura_corregidacompuesta, a.temperatura_fc,
+                            a.id_supervisor, a.id_supervisor_retiro,
+                            f.ma_coordenadas, -- Add UTM coordinates as fallback
+                            CONVERT(VARCHAR(10), a.fechaderivado, 103) AS fechaderivado, a.horaderivado,
+                            l.nombre_laboratorioensayo AS laboratorio_derivacion_nombre
+                        FROM App_Ma_FichaIngresoServicio_ENC f
+                        INNER JOIN mae_empresa e ON f.id_empresa = e.id_empresa
+                        INNER JOIN App_Ma_Agenda_MUESTREOS a ON f.id_fichaingresoservicio = a.id_fichaingresoservicio
+                        INNER JOIN mae_muestreador m ON a.id_muestreador = m.id_muestreador
+                        LEFT JOIN mae_muestreador m2 ON a.id_muestreador2 = m2.id_muestreador
+                        INNER JOIN mae_centro c ON f.id_centro = c.id_centro
+                        LEFT JOIN mae_objetivomuestreo_ma o ON f.id_objetivomuestreo_ma = o.id_objetivomuestreo_ma
+                        LEFT JOIN mae_subarea s ON f.id_subarea = s.id_subarea
+                        LEFT JOIN mae_dispositivohidraulico dh ON f.id_dispositivohidraulico = dh.id_dispositivohidraulico
+                        LEFT JOIN mae_contacto ct ON f.id_contacto = ct.id_contacto
+                        LEFT JOIN App_Ma_Resultados r 
+                            ON a.frecuencia_correlativo = r.frecuencia_correlativo
+                            AND r.tipo_analisis = 'Laboratorio'
+                        LEFT JOIN mae_laboratorioensayo l 
+                            ON r.id_laboratorioensayo = l.id_laboratorioensayo
+                        WHERE f.id_fichaingresoservicio = @id AND a.frecuencia_correlativo = @frecuencia
+                    `);
+            };
+
+            const frecuenciaOriginal = correlativo.trim();
+            let agendaResult = await ejecutarQueryPrincipal(frecuenciaOriginal);
+
+            // Fallback strategy: Pendiente -> Ejecutado
+            if (agendaResult.recordset.length === 0 && frecuenciaOriginal.includes("Pendiente")) {
+                const frecuenciaEjecutado = frecuenciaOriginal.replace("Pendiente", "Ejecutado");
+                logger.debug(`Reintentando getExecutionDetail con frecuencia Ejecutado: ${frecuenciaEjecutado}`);
+                agendaResult = await ejecutarQueryPrincipal(frecuenciaEjecutado);
+            }
+
+            if (agendaResult.recordset.length === 0) {
+                throw new Error('No se encontró la ficha con la frecuencia proporcionada');
+            }
+
+            const f = agendaResult.recordset[0];
+            const frecuenciaReal = f.frecuencia_correlativo;
+
+            // Coordinate extraction from Google Maps Link
+            let lat = null;
+            let lng = null;
+            if (f.referencia_googlemaps) {
+                // Try to extract from query parameters (e.g., query=-33.44,-70.66)
+                const queryMatch = f.referencia_googlemaps.match(/query=(-?\d+\.\d+),(-?\d+\.\d+)/);
+                if (queryMatch) {
+                    lat = queryMatch[1];
+                    lng = queryMatch[2];
+                } else {
+                    // Try to extract from path (e.g., /@ -33.44,-70.66,15z)
+                    const pathMatch = f.referencia_googlemaps.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+                    if (pathMatch) {
+                        lat = pathMatch[1];
+                        lng = pathMatch[2];
+                    }
+                }
+            }
+
+            // Structured response matching what FichaDetailView expects
+            const fichaData = {
+                ...f,
+                latitud: lat,
+                longitud: lng
+            };
+
+            // Fetch Laboratories Principal/Suplente from DET
+            const labResult = await pool.request()
+                .input('id', sql.Int, id)
+                .query(`
+                    SELECT TOP 1
+                        l1.nombre_laboratorioensayo AS lab_principal,
+                        l2.nombre_laboratorioensayo AS lab_suplente
+                    FROM App_Ma_FichaIngresoServicio_DET det
+                    LEFT JOIN mae_laboratorioensayo l1 ON det.id_laboratorioensayo = l1.id_laboratorioensayo
+                    LEFT JOIN mae_laboratorioensayo l2 ON det.id_laboratorioensayo_2 = l2.id_laboratorioensayo
+                    WHERE det.id_fichaingresoservicio = @id AND det.tipo_analisis = 'Laboratorio'
+                    ORDER BY CASE WHEN det.id_laboratorioensayo_2 > 0 THEN 0 ELSE 1 END
+                `);
+
+            const laboratorios = labResult.recordset[0] || { lab_principal: null, lab_suplente: null };
+
+            // Fetch Analysis results with sub-query for Suplente
+            const analisisResult = await pool.request()
+                .input('id', sql.Int, id)
+                .input('frecuencia', sql.VarChar, frecuenciaReal)
+                .query(`
+                    SELECT 
+                        t.nombre_tecnica AS parametro, 
+                        r.uf_individual, r.limitemax_d, r.limitemax_h,
+                        CASE 
+                            WHEN r.tipo_analisis = 'Laboratorio' THEN 'Lab'
+                            ELSE ISNULL(r.estado, '')
+                        END AS valor,
+                        r.tipo_analisis,
+                        r.id_laboratorioensayo,
+                        l.nombre_laboratorioensayo,
+                        COALESCE(detSuplente.id_laboratorioensayo_2, 0) AS id_laboratorioensayo_2,
+                        l2.nombre_laboratorioensayo AS nombre_laboratorioensayo_2
+                    FROM App_Ma_Resultados r
+                    INNER JOIN mae_tecnica t ON r.id_tecnica = t.id_tecnica
+                    LEFT JOIN mae_laboratorioensayo l ON r.id_laboratorioensayo = l.id_laboratorioensayo
+                    OUTER APPLY (
+                        SELECT TOP 1 det2.id_laboratorioensayo_2
+                        FROM App_Ma_FichaIngresoServicio_DET det2
+                        WHERE det2.id_fichaingresoservicio = r.id_fichaingresoservicio
+                          AND det2.id_laboratorioensayo_2 IS NOT NULL
+                          AND det2.id_laboratorioensayo_2 > 0
+                    ) detSuplente
+                    LEFT JOIN mae_laboratorioensayo l2 ON detSuplente.id_laboratorioensayo_2 = l2.id_laboratorioensayo
+                    WHERE r.id_fichaingresoservicio = @id AND r.frecuencia_correlativo = @frecuencia
+                    ORDER BY t.nombre_tecnica
+                `);
+
+            // Fetch Equipment
+            const equiposResult = await pool.request()
+                .input('id', sql.Int, id)
+                .input('frecuencia', sql.VarChar, frecuenciaReal)
+                .query(`
+                    SELECT 
+                        eq.nombre, eq.codigo, e.usado_instalacion, e.usado_retiro
+                    FROM App_Ma_Equipos_MUESTREOS e
+                    INNER JOIN mae_equipo eq ON e.id_equipo = eq.id_equipo
+                    WHERE e.id_fichaingresoservicio = @id AND e.frecuencia_correlativo = @frecuencia AND e.seleccionado = 'S'
+                `);
+
+            // Filesystem Media Logic
+            const media = { ma_fotografia: '' };
+            const rootFotosPath = process.env.RUTA_FOTOS || 'C:\\Users\\vremolcoy\\Documents\\FOTOS APP';
+            const correlativoFolder = path.join(rootFotosPath, frecuenciaReal.trim());
+            const signaturesRaw = [];
+
+            if (fs.existsSync(correlativoFolder)) {
+                try {
+                    const files = fs.readdirSync(correlativoFolder);
+                    const fsPhotos = [];
+                    const fsDocs = [];
+
+                    files.forEach(file => {
+                        const publicUrl = `/fotos/${frecuenciaReal.trim()}/${file}`;
+                        const lowerFile = file.toLowerCase();
+
+                        if (lowerFile.includes('firma') && lowerFile.endsWith('.png')) {
+                            signaturesRaw.push({
+                                nombre: file,
+                                ruta: publicUrl,
+                                tipo: lowerFile.includes('instalacion') ? 'instalacion' : lowerFile.includes('retiro') ? 'retiro' : 'desconocido',
+                                rol: lowerFile.includes('muestreador') ? 'muestreador' : lowerFile.includes('observador') ? 'observador' : lowerFile.includes('supervisor') ? 'supervisor' : 'otro'
+                            });
+                        } else if (lowerFile.includes('foto') && /\.(jpg|jpeg|png)$/i.test(file)) {
+                            fsPhotos.push(publicUrl);
+                        } else if (lowerFile.endsWith('.pdf')) {
+                            if (lowerFile.startsWith('foma_')) {
+                                fsDocs.push({
+                                    nombre: file,
+                                    tipo: 'FoMa',
+                                    ruta: publicUrl,
+                                    label: 'Documento FoMa'
+                                });
+                            } else if (lowerFile.startsWith('cadenacustodia_')) {
+                                const parts = file.split('_');
+                                const labName = parts.length > 2 ? parts[parts.length - 1].split('.')[0] : 'General';
+                                fsDocs.push({
+                                    nombre: file,
+                                    tipo: 'Cadena de Custodia',
+                                    ruta: publicUrl,
+                                    label: `${labName}`
+                                });
+                            }
+                        }
+                    });
+
+                    media.ma_fotografia = fsPhotos.join(';');
+                    media.documentos = fsDocs;
+                } catch (fsErr) {
+                    logger.warn(`Could not read correlativo folder ${correlativoFolder}: ${fsErr.message}`);
+                }
+            }
+
+            return {
+                ficha: f,
+                equipos: equiposResult.recordset,
+                analisis: analisisResult.recordset,
+                laboratorios: laboratorios,
+                media,
+                procesos: {
+                    instalacion: f.instalacion_completado === 'S' || f.ma_muestreo_fechai ? {
+                        nombreMuestreador: f.muestreador_inicio || 'S/D',
+                        fecha: f.ma_muestreo_fechai,
+                        hora: f.ma_muestreo_horai,
+                        nombreObservador: f.nombre_observadorterreno || 'S/D',
+                        cargoObservador: f.cargo_observadorterreno || 'S/D',
+                        observaciones: f.observaciones_muestreador || 'Sin observaciones.',
+                        supervisado: f.id_supervisor ? 'S' : 'N',
+                        firmas: signaturesRaw.filter(fi => fi.tipo === 'instalacion'),
+                        condiciones: {
+                            flujoLaminar: f.condicionmedicion_flujolaminar,
+                            velUniforme: f.condicionmedicion_velocidaduniforme,
+                            observaciones: f.condicionmedicion_observacion
+                        }
+                    } : null,
+                    retiro: f.retiro_completado === 'S' || f.ma_muestreo_fechat ? {
+                        nombreMuestreador: f.muestreador_retiro || 'S/D',
+                        fecha: f.ma_muestreo_fechat,
+                        hora: f.ma_muestreo_horat,
+                        nombreObservador: f.nombre_observadorterreno_retiro || 'S/D',
+                        cargoObservador: f.cargo_observadorterreno_retiro || 'S/D',
+                        observaciones: f.observaciones_muestreador2 || 'Sin observaciones.',
+                        supervisado: f.id_supervisor_retiro ? 'S' : 'N',
+                        derivacion: {
+                            laboratorio: f.laboratorio_derivacion_nombre || 'Interno',
+                            fecha: f.fechaderivado,
+                            hora: f.horaderivado
+                        },
+                        firmas: signaturesRaw.filter(fi => fi.tipo === 'retiro'),
+                        condiciones: {
+                            flujoLaminar: f.condicionmedicion_flujolaminar,
+                            velUniforme: f.condicionmedicion_velocidaduniforme,
+                            observaciones: f.condicionmedicion_observacion
+                        }
+                    } : null
+                }
+            };
+        } catch (error) {
+            logger.error('Error in getExecutionDetail refactored:', error);
             throw error;
         }
     }

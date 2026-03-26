@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { 
-    Container, 
     Stack, 
     Group, 
     Text, 
@@ -63,7 +62,7 @@ export const UserRolesPage: React.FC<Props> = ({ onBack }) => {
     );
 
     return (
-        <Container fluid py="md">
+        <Box p="md" style={{ width: '100%' }}>
             <PageHeader
                 title="Asignación de Roles"
                 subtitle="Vincula roles de seguridad a cada integrante para definir sus permisos."
@@ -156,6 +155,6 @@ export const UserRolesPage: React.FC<Props> = ({ onBack }) => {
                 }}
                 onSuccess={() => {}}
             />
-        </Container>
+        </Box>
     );
 };

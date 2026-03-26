@@ -14,6 +14,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { FichaExportModal } from '../components/FichaExportModal';
 import { SelectionCard } from '../components/SelectionCard';
 import { PageHeader } from '../../../components/layout/PageHeader';
+import { useNavStore } from '../../../store/navStore';
 
 import { 
     Button, 
@@ -22,7 +23,6 @@ import {
     Group, 
     Paper, 
     SimpleGrid, 
-    Container, 
     ActionIcon, 
     Box,
     TextInput,
@@ -33,8 +33,6 @@ import {
     ScrollArea
 } from '@mantine/core';
 import { 
-    IconChevronLeft, 
-    IconArrowRight,
     IconAdjustmentsHorizontal,
     IconDownload,
     IconTrash,
@@ -181,7 +179,7 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
     };
 
     return (
-        <Container fluid p="md">
+        <Box p="md" style={{ width: '100%' }}>
             <Stack gap="lg">
                 <PageHeader 
                     title="Consultar Fichas (Coordinación)"
@@ -378,14 +376,14 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
                     </Stack>
                 </Paper>
             </Stack>
-        </Container>
+        </Box>
     );
 };
 
 // --- Main Orchestrator ---
 const CoordinacionPageContent: React.FC<Props> = ({ onBack }) => {
     const { hasPermission } = useAuth();
-    const [mode, setMode] = useState<string>('menu');
+    const { maCoordMode: mode, setMaCoordMode: setMode } = useNavStore();
     const [selectedFichaId, setSelectedFichaId] = useState<number | null>(null);
     const [detailReturnMode, setDetailReturnMode] = useState<string>('list_consultar');
 
@@ -457,7 +455,6 @@ const CoordinacionPageContent: React.FC<Props> = ({ onBack }) => {
         return (
             <MuestreosEjecutadosListView
                 onBackToMenu={() => setMode('menu')}
-                onViewDetail={(id) => goToDetailConsultar(id, 'list_ejecutados')}
             />
         );
     }
@@ -471,7 +468,7 @@ const CoordinacionPageContent: React.FC<Props> = ({ onBack }) => {
     }
 
     return (
-        <Container fluid p="md">
+        <Box p="md" style={{ width: '100%' }}>
             <Stack gap="lg">
                 <PageHeader 
                     title="Gestión Coordinación"
@@ -530,7 +527,7 @@ const CoordinacionPageContent: React.FC<Props> = ({ onBack }) => {
                     </Stack>
                 </Paper>
             </Stack>
-        </Container>
+        </Box>
     );
 };
 

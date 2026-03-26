@@ -109,6 +109,10 @@ app.use('/api/gchat', generalChatRoutes);
 const uploadPath = process.env.UPLOAD_PATH || path.join(__dirname, '../uploads');
 app.use('/uploads', express.static(uploadPath));
 
+// Serve fotos directory as static
+const fotosPath = process.env.RUTA_FOTOS || 'C:\\Users\\vremolcoy\\Documents\\FOTOS APP';
+app.use('/fotos', express.static(fotosPath));
+
 // Serve profile pictures and avatars from custom path if defined
 const profilePicsPath = process.env.PROFILE_PICS_PATH;
 if (profilePicsPath) {

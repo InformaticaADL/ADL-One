@@ -9,14 +9,20 @@ interface NavState {
     pendingRequestId: number | null; // For deep-linking from notifications
     pendingChatId: number | null; // For deep-linking to specific chat
     selectedRequestId: number | null; // Phase 27
+    selectedFichaId: number | null;
+    selectedCorrelativo: string | null;
     ursInboxMode: 'RECEIVED' | 'SENT'; // Phase 27
     hiddenNotifications: string[]; // Persistent dismissed notifications
+    maArea: 'comercial' | 'tecnica' | 'coordinacion' | null;
+    maCoordMode: string;
+    maTecnicaMode: string;
     setActiveModule: (moduleId: string) => void;
     setActiveSubmodule: (submoduleId: string) => void;
     setDrawerOpen: (isOpen: boolean) => void;
     setPendingRequestId: (id: number | null) => void;
     setPendingChatId: (id: number | null) => void;
     setSelectedRequestId: (id: number | null) => void;
+    setSelectedFicha: (id: number | null, correlativo: string | null) => void;
     setUrsInboxMode: (mode: 'RECEIVED' | 'SENT') => void;
     sidebarCollapsed: boolean;
     setSidebarCollapsed: (isCollapsed: boolean) => void;
@@ -25,6 +31,9 @@ interface NavState {
     adminSearchTerm: string;
     setAdminSearchTerm: (term: string) => void;
     hideNotification: (id: string | number) => void;
+    setMaArea: (area: 'comercial' | 'tecnica' | 'coordinacion' | null) => void;
+    setMaCoordMode: (mode: string) => void;
+    setMaTecnicaMode: (mode: string) => void;
 }
 
 const STORAGE_KEY = 'adl_hidden_notifications';
@@ -40,8 +49,13 @@ export const useNavStore = create<NavState>()(
             pendingRequestId: null,
             pendingChatId: null,
             selectedRequestId: null,
+            selectedFichaId: null,
+            selectedCorrelativo: null,
             ursInboxMode: 'RECEIVED',
             hiddenNotifications: JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'),
+            maArea: null,
+            maCoordMode: 'menu',
+            maTecnicaMode: 'list',
             setActiveModule: (moduleId) => set({ activeModule: moduleId }),
             setActiveSubmodule: (submoduleId) => set((state) => ({
                 previousSubmodule: state.activeSubmodule !== submoduleId ? state.activeSubmodule : state.previousSubmodule,
@@ -54,6 +68,7 @@ export const useNavStore = create<NavState>()(
             setPendingRequestId: (id) => set({ pendingRequestId: id }),
             setPendingChatId: (id) => set({ pendingChatId: id }),
             setSelectedRequestId: (id) => set({ selectedRequestId: id }),
+            setSelectedFicha: (id, correlativo) => set({ selectedFichaId: id, selectedCorrelativo: correlativo }),
             setUrsInboxMode: (mode) => set({ ursInboxMode: mode }),
             hideNotification: (id: string | number) => set((state) => {
                 const idStr = String(id);
@@ -71,11 +86,16 @@ export const useNavStore = create<NavState>()(
                 sidebarCollapsed: false,
                 pendingRequestId: null,
                 selectedRequestId: null,
+                selectedFichaId: null,
+                selectedCorrelativo: null,
                 ursInboxMode: 'RECEIVED',
                 adminSearchTerm: '',
             }), // Reset to defaults
             adminSearchTerm: '',
             setAdminSearchTerm: (term: string) => set({ adminSearchTerm: term }),
+            setMaArea: (area) => set({ maArea: area }),
+            setMaCoordMode: (mode) => set({ maCoordMode: mode }),
+            setMaTecnicaMode: (mode) => set({ maTecnicaMode: mode }),
         }),
         {
             name: 'adl-nav-storage', // nombre en localStorage

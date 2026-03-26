@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { fichaService } from '../services/ficha.service';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { 
-    Container, 
+    Box, 
     Stack, 
     Paper, 
     SimpleGrid, 
@@ -138,7 +138,7 @@ export const CoordinationListView: React.FC<Props> = ({ onBackToMenu, onViewDeta
     };
 
     return (
-        <Container fluid p="md">
+        <Box p="md" style={{ width: '100%' }}>
             <Stack gap="lg">
                 <PageHeader 
                     title="Bandeja de Coordinación" 
@@ -285,6 +285,6 @@ export const CoordinationListView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                     </Center>
                 </Paper>
             </Stack>
-        </Container>
+        </Box>
     );
 };

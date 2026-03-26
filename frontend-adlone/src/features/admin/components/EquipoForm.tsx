@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-    Container, 
     Stack, 
     Group, 
     Title, 
@@ -451,7 +450,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
 
     // --- Renders ---
     return (
-        <Container fluid>
+        <Box p="md" style={{ width: '100%' }}>
             <LoadingOverlay visible={loading || processingAction} />
             
             <Paper shadow="sm" radius="md" p="xl" withBorder>
@@ -989,6 +988,6 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                     if (onRefreshSolicitudes) onRefreshSolicitudes();
                 }}
             />
-        </Container>
+        </Box>
     );
 };

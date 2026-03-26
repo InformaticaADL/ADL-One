@@ -6,7 +6,7 @@ import {
     ThemeIcon, 
     rem, 
     UnstyledButton,
-    Container,
+    Box,
     Badge
 } from '@mantine/core';
 import { 
@@ -37,7 +37,7 @@ export const AdminMaHub: React.FC<Props> = ({ onNavigate, onBack }) => {
     const visibleOptions = OPTIONS.filter(opt => hasPermission(opt.permission));
 
     return (
-        <Container fluid py="md">
+        <Box p="md" style={{ width: '100%' }}>
             <PageHeader 
                 title="Medio Ambiente" 
                 subtitle="Gestión de recursos, personal y equipos del área de Medio Ambiente."
@@ -102,6 +102,6 @@ export const AdminMaHub: React.FC<Props> = ({ onNavigate, onBack }) => {
                     </Card>
                 )}
             </SimpleGrid>
-        </Container>
+        </Box>
     );
 };

@@ -24,7 +24,6 @@ import {
     ThemeIcon, 
     Paper, 
     SimpleGrid, 
-    Container, 
     ActionIcon, 
     Divider,
     Box,
@@ -158,7 +157,7 @@ const CommercialForm = ({ onBackToMenu }: { onBackToMenu: () => void }) => {
     };
 
     return (
-        <Container fluid p="md" style={{ width: '100% !important', maxWidth: '100% !important' }}>
+        <Box p="md" style={{ width: '100%' }}>
             <SuccessModal
                 isOpen={showSuccessModal}
                 onClose={handleCloseSuccess}
@@ -284,13 +283,13 @@ const CommercialForm = ({ onBackToMenu }: { onBackToMenu: () => void }) => {
                     </Group>
                 </Paper>
             </Stack>
-        </Container>
+        </Box>
     );
 };
 
 const CommercialMenu = ({ onCreate, onConsult, onBack }: { onCreate: () => void, onConsult: () => void, onBack: () => void }) => {
     return (
-        <Container fluid p="md" style={{ width: '100% !important', maxWidth: '100% !important' }}>
+        <Box p="md" style={{ width: '100%' }}>
             <Stack gap="lg">
                 <PageHeader 
                     title="Gestión Comercial"
@@ -325,7 +324,7 @@ const CommercialMenu = ({ onCreate, onConsult, onBack }: { onCreate: () => void,
                     </Stack>
                 </Paper>
             </Stack>
-        </Container>
+        </Box>
     );
 };
 
@@ -454,7 +453,7 @@ const ConsultarFichasView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () 
     };
 
     return (
-        <Container fluid p="md" style={{ width: '100% !important', maxWidth: '100% !important' }}>
+        <Box p="md" style={{ width: '100%' }}>
             <Stack gap="lg">
                 <PageHeader 
                     title="Consultar Fichas Comerciales"
@@ -615,7 +614,7 @@ const ConsultarFichasView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () 
                     </Stack>
                 </Paper>
             </Stack>
-        </Container>
+        </Box>
     );
 };
 

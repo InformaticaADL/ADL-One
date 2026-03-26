@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { 
-    Container, 
     Stack, 
     Group,
     Text, 
@@ -9,7 +8,8 @@ import {
     Badge, 
     Paper, 
     LoadingOverlay,
-    Tooltip
+    Tooltip,
+    Box
 } from '@mantine/core';
 import { 
     IconPlus, 
@@ -61,7 +61,7 @@ export const RolesPage: React.FC<Props> = ({ onBack }) => {
     };
 
     return (
-        <Container fluid py="md">
+        <Box p="md" style={{ width: '100%' }}>
             <PageHeader
                 title="Administración de Roles"
                 subtitle="Gestiona los perfiles de acceso y permisos granulares del sistema."
@@ -169,6 +169,6 @@ export const RolesPage: React.FC<Props> = ({ onBack }) => {
                 onClose={() => setIsModalOpen(false)}
                 onSuccess={loadRoles}
             />
-        </Container>
+        </Box>
     );
 };

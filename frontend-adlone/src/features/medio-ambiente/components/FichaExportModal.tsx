@@ -126,7 +126,7 @@ export const FichaExportModal: React.FC<FichaExportModalProps> = ({
                 <Group justify="space-between" align="center" bg="blue.0" p="xs" style={{ borderRadius: '8px', border: '1px solid var(--mantine-color-blue-1)' }}>
                     <Group gap="xs">
                         <IconInfoCircle size={18} color="var(--mantine-color-blue-6)" />
-                        <Text size="xs" c="blue.8" italic>
+                        <Text size="xs" c="blue.8" fs="italic">
                             Los campos vacíos no aplicarán filtros. Selección específica limitará el reporte.
                         </Text>
                     </Group>

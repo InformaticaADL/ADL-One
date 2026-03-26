@@ -6,7 +6,6 @@ import {
     ThemeIcon, 
     rem, 
     UnstyledButton,
-    Container,
     Box
 } from '@mantine/core';
 import { 
@@ -58,7 +57,7 @@ export const AdminGcHub: React.FC<Props> = ({ onNavigate, onBack }) => {
     });
 
     return (
-        <Container fluid py="md">
+        <Box p="md" style={{ width: '100%' }}>
             <PageHeader 
                 title="Gestión de Calidad" 
                 subtitle="Gestión de inventarios, validación de equipos y control de calidad ADL."
@@ -118,6 +117,6 @@ export const AdminGcHub: React.FC<Props> = ({ onNavigate, onBack }) => {
                     </Card>
                 )}
             </SimpleGrid>
-        </Container>
+        </Box>
     );
 };

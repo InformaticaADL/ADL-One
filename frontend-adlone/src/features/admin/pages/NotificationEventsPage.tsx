@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-    Container, 
     Stack, 
     Grid, 
     Card, 
@@ -59,7 +58,7 @@ export const NotificationEventsPage: React.FC<Props> = ({ onBack, onSelectEvent 
             setEvents(data);
 
             // Logic to determine initial tab
-            const modules = Array.from(new Set(data.map(e => e.modulo || 'General')));
+            const modules: string[] = Array.from(new Set(data.map((e: NotificationEvent) => e.modulo || 'General')));
             if (modules.length > 0) {
                 setActiveTab(modules[0]);
             }
@@ -113,7 +112,7 @@ export const NotificationEventsPage: React.FC<Props> = ({ onBack, onSelectEvent 
     }
 
     return (
-        <Container fluid py="md">
+        <Box p="md" style={{ width: '100%' }}>
             <PageHeader 
                 title="Configuración de Notificaciones"
                 subtitle="Paso 1: Seleccione el evento del sistema que desea configurar."
@@ -186,7 +185,7 @@ export const NotificationEventsPage: React.FC<Props> = ({ onBack, onSelectEvent 
                     </Tabs>
                 )}
             </Box>
-        </Container>
+        </Box>
     );
 };
 

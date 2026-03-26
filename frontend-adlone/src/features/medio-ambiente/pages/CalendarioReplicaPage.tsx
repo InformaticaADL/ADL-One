@@ -2,33 +2,26 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { adminService } from '../../../services/admin.service';
 import { CoordinacionDetailView } from '../components/CoordinacionDetailView';
 import { 
-    Button, 
-    Text, 
-    Title, 
-    Stack, 
     Group, 
-    Paper, 
-    SimpleGrid, 
-    Container, 
+    Text, 
+    Title,
+    Button, 
+    Select, 
+    TextInput, 
+    ActionIcon, 
+    Tooltip, 
+    SimpleGrid,
+    Paper,
     Box,
-    Select,
-    Divider,
-    ScrollArea,
-    ActionIcon,
-    Tooltip,
-    Badge,
     Center,
     Loader,
-    TextInput
+    Stack
 } from '@mantine/core';
 import { 
     IconChevronLeft, 
     IconChevronRight,
-    IconAdjustmentsHorizontal,
-    IconCalendar,
-    IconCalendarEvent,
     IconArrowLeft,
-    IconFilter
+    IconFilter,
 } from '@tabler/icons-react';
 
 interface Props {
@@ -145,7 +138,7 @@ export const CalendarioReplicaPage: React.FC<Props> = ({ onBack }) => {
     }
 
     return (
-        <Container fluid py="md">
+        <Box py="md" style={{ width: '100%' }}>
             <Paper withBorder p="xl" radius="lg" shadow="sm">
                 <Stack gap="xl">
                     <Group justify="space-between" align="center">
@@ -296,7 +289,6 @@ export const CalendarioReplicaPage: React.FC<Props> = ({ onBack }) => {
                                                         <Box
                                                             px={6}
                                                             py={2}
-                                                            radius="xs"
                                                             bg={colors.bg}
                                                             style={{ 
                                                                 cursor: 'pointer', 
@@ -320,6 +312,6 @@ export const CalendarioReplicaPage: React.FC<Props> = ({ onBack }) => {
                     </Box>
                 </Stack>
             </Paper>
-        </Container>
+        </Box>
     );
 };

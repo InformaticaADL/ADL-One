@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { 
-    Container, 
     Paper, 
     Text, 
     Stack, 
@@ -112,7 +111,7 @@ export const WelcomePage: React.FC = () => {
     };
 
     return (
-        <Container size="xl" py="xl">
+        <Box p="xl" style={{ width: '100%' }}>
             <Stack gap="lg">
                 {/* INFORMACION IMPORTANTE (Article Card Style - Login Inspired) */}
                 <Paper withBorder radius="md" p={0} shadow="sm" style={{ overflow: 'hidden' }}>
@@ -428,6 +427,6 @@ export const WelcomePage: React.FC = () => {
                     </Stack>
                 )}
             </Modal>
-        </Container>
+        </Box>
     );
 };

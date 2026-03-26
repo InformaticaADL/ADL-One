@@ -1,23 +1,8 @@
 import React from 'react';
 import { 
-    Container, 
-    Paper, 
-    Text, 
-    Avatar, 
-    Group, 
-    Stack, 
-    Badge, 
-    Divider, 
-    Grid,
-    Card,
-    ThemeIcon,
-    Box,
-    rem,
-    Modal,
-    SimpleGrid,
-    UnstyledButton,
-    PasswordInput,
-    Button,
+    Box, Stack, Paper, Group, Avatar, Text, Badge, 
+    ThemeIcon, Divider, Card, Grid, rem, Button, 
+    Modal, SimpleGrid, UnstyledButton, PasswordInput,
     Progress,
     Loader,
     Center
@@ -59,11 +44,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onStartChat })
         } else if (user) {
             // Map auth user to profile structure
             setProfileData({
+                id_entidad: user.id,
                 id_usuario: user.id,
                 nombre: user.name,
                 nombre_usuario: user.username,
                 email: user.email || '',
                 cargo: user.cargo || '',
+                tipo_entidad: 'USER',
                 roles: user.roles?.join(', ') || (user.role === 1 ? 'Administrador' : user.role === 2 ? 'Usuario Estándar' : 'Otro'),
                 foto: user.foto || null
             });
@@ -246,14 +233,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onStartChat })
 
     if (loadingProfile) {
         return (
-            <Container size="md" py="xl">
+            <Box p="xl">
                 <Center style={{ height: 400 }}><Loader size="xl" color="adl-blue" /></Center>
-            </Container>
+            </Box>
         );
     }
 
     return (
-        <Container size="md" py="xl">
+        <Box py="xl" px="xs" style={{ width: '100%' }}>
             <Stack gap="xl">
                 <Paper p="xl" radius="md" withBorder style={{ 
                     background: 'linear-gradient(135deg, var(--mantine-color-adl-blue-0) 0%, var(--mantine-color-adl-blue-1) 100%)',
@@ -263,7 +250,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onStartChat })
                     borderColor: 'var(--mantine-color-adl-blue-2)'
                 }}>
                     <div style={{ position: 'relative', zIndex: 1 }}>
-                        <Group align="flex-start" justify="space-between">
+                        <Group align="flex-start" justify="flex-start">
                             <Group gap="xl">
                                 <Box style={{ position: 'relative' }}>
                                     <Avatar 
@@ -329,9 +316,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onStartChat })
                 </Paper>
 
                 <Grid gutter="xl">
-                    <Grid.Col span={{ base: 12, md: 8 }}>
+                    <Grid.Col span={{ base: 12, md: 7 }}>
                         <Card withBorder radius="md" p="xl" shadow="sm" style={{ background: 'white' }}>
-                            <Text component="div" size="lg" fw={700} mb="xl" style={{ display: 'flex', alignItems: 'center', gap: rem(8) }}>
+                            <Text component="div" size="lg" fw={700} mb="xl" style={{ display: 'flex', alignItems: 'center', gap: rem(8), whiteSpace: 'nowrap' }}>
                                 <ThemeIcon variant="light" color="adl-blue" size="md" radius="sm">
                                     <IconId size={18} />
                                 </ThemeIcon>
@@ -339,8 +326,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onStartChat })
                             </Text>
 
                             <Stack gap="lg">
-                                <Group justify="space-between">
-                                    <Group gap="sm">
+                                <Group justify="space-between" wrap="nowrap" gap="xl">
+                                    <Group gap="sm" style={{ flexShrink: 0 }}>
                                         <ThemeIcon variant="light" color="gray" size="md" radius="sm">
                                             <IconUser size={16} />
                                         </ThemeIcon>
@@ -349,8 +336,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onStartChat })
                                     <Text fw={500}>{profileData?.nombre}</Text>
                                 </Group>
                                 <Divider variant="dotted" />
-                                <Group justify="space-between">
-                                    <Group gap="sm">
+                                <Group justify="space-between" wrap="nowrap" gap="xl">
+                                    <Group gap="sm" style={{ flexShrink: 0 }}>
                                         <ThemeIcon variant="light" color="gray" size="md" radius="sm">
                                             <IconMail size={16} />
                                         </ThemeIcon>
@@ -359,7 +346,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onStartChat })
                                     <Text fw={500}>{profileData?.email || 'No especificado'}</Text>
                                 </Group>
                                 <Divider variant="dotted" />
-                                <Group justify="space-between">
+                                <Group justify="space-between" wrap="nowrap" gap="xl">
                                     <Group gap="sm">
                                         <ThemeIcon variant="light" color="gray" size="md" radius="sm">
                                             <IconUserCircle size={16} />
@@ -369,7 +356,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onStartChat })
                                     <Text fw={500}>{profileData?.nombre_usuario || 'No especificado'}</Text>
                                 </Group>
                                 <Divider variant="dotted" />
-                                <Group justify="space-between">
+                                <Group justify="space-between" wrap="nowrap" gap="xl">
                                     <Group gap="sm">
                                         <ThemeIcon variant="light" color="gray" size="md" radius="sm">
                                             <IconBriefcase size={16} />
@@ -412,10 +399,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onStartChat })
                         </Card>
                     </Grid.Col>
 
-                    <Grid.Col span={{ base: 12, md: 4 }}>
+                    <Grid.Col span={{ base: 12, md: 5 }}>
                         <Stack gap="xl">
                              <Card withBorder radius="md" p="xl" shadow="sm" style={{ background: 'white' }}>
-                                <Text component="div" size="lg" fw={700} mb="xl" style={{ display: 'flex', alignItems: 'center', gap: rem(8) }}>
+                                <Text component="div" size="lg" fw={700} mb="xl" style={{ display: 'flex', alignItems: 'center', gap: rem(8), whiteSpace: 'nowrap' }}>
                                     <ThemeIcon variant="light" color="adl-blue" size="md" radius="sm">
                                         <IconShieldCheck size={18} />
                                     </ThemeIcon>
@@ -598,6 +585,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onStartChat })
                     </Stack>
                 </form>
             </Modal>
-        </Container>
+        </Box>
     );
 };

@@ -1,6 +1,5 @@
-import { useState } from 'react';
+import { useEffect } from 'react';
 import { 
-    Container, 
     Stack, 
     Title, 
     Text, 
@@ -15,45 +14,43 @@ import { TecnicaPage } from './TecnicaPage';
 import { CoordinacionPage } from './CoordinacionPage';
 import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 import { useNavStore } from '../../../store/navStore';
-import { useEffect } from 'react';
 
 export const FichasIngresoPage = () => {
-    const [selectedOption, setSelectedOption] = useState<string | null>(null);
-    const { pendingRequestId } = useNavStore();
+    const { maArea, setMaArea, pendingRequestId } = useNavStore();
 
     useEffect(() => {
-        if (pendingRequestId && !selectedOption) {
+        if (pendingRequestId && !maArea) {
             // Intentamos adivinar el área. Por ahora comercial si no hay más info,
             // o técnica si el usuario tiene permisos y la ficha lo sugiere.
             // Para simplificar, abrimos comercial como default de entrada.
-            setSelectedOption('tecnica'); // Priorizamos técnica para aprobaciones
+            setMaArea('tecnica'); // Priorizamos técnica para aprobaciones
         }
-    }, [pendingRequestId, selectedOption]);
+    }, [pendingRequestId, maArea, setMaArea]);
 
-    if (selectedOption === 'comercial') {
+    if (maArea === 'comercial') {
         return (
             <ProtectedContent permission="MA_COMERCIAL_ACCESO" fallback={<Text ta="center" mt="xl" c="red">No tiene permisos</Text>}>
-                <ComercialPage onBack={() => setSelectedOption(null)} />
+                <ComercialPage onBack={() => setMaArea(null)} />
             </ProtectedContent>
         );
     }
-    if (selectedOption === 'tecnica') {
+    if (maArea === 'tecnica') {
         return (
             <ProtectedContent permission="MA_TECNICA_ACCESO" fallback={<Text ta="center" mt="xl" c="red">No tiene permisos</Text>}>
-                <TecnicaPage onBack={() => setSelectedOption(null)} />
+                <TecnicaPage onBack={() => setMaArea(null)} />
             </ProtectedContent>
         );
     }
-    if (selectedOption === 'coordinacion') {
+    if (maArea === 'coordinacion') {
         return (
             <ProtectedContent permission="MA_COORDINACION_ACCESO" fallback={<Text ta="center" mt="xl" c="red">No tiene permisos</Text>}>
-                <CoordinacionPage onBack={() => setSelectedOption(null)} />
+                <CoordinacionPage onBack={() => setMaArea(null)} />
             </ProtectedContent>
         );
     }
 
     return (
-        <Container fluid p="md">
+        <Box p="md" style={{ width: '100%' }}>
             <Paper withBorder p="xl" radius="lg" shadow="sm">
                 <Stack gap={40}>
                     <Box>
@@ -74,7 +71,7 @@ export const FichasIngresoPage = () => {
                                 description="Gestión de cotizaciones, clientes y oportunidades comerciales para medio ambiente."
                                 icon="💼"
                                 color="#1565c0" // Azul ADL
-                                onClick={() => setSelectedOption('comercial')}
+                                onClick={() => setMaArea('comercial')}
                             />
                         </ProtectedContent>
 
@@ -84,7 +81,7 @@ export const FichasIngresoPage = () => {
                                 description="Ingreso de muestras técnicas, control de parámetros y gestión de análisis de laboratorio."
                                 icon="🧪"
                                 color="#2e7d32" // Verde Técnico
-                                onClick={() => setSelectedOption('tecnica')}
+                                onClick={() => setMaArea('tecnica')}
                             />
                         </ProtectedContent>
 
@@ -94,12 +91,12 @@ export const FichasIngresoPage = () => {
                                 description="Planificación de muestreos, logística de retiro y coordinación de personal en terreno."
                                 icon="📅"
                                 color="#f57c00" // Naranja ADL
-                                onClick={() => setSelectedOption('coordinacion')}
+                                onClick={() => setMaArea('coordinacion')}
                             />
                         </ProtectedContent>
                     </SimpleGrid>
                 </Stack>
             </Paper>
-        </Container>
+        </Box>
     );
 };

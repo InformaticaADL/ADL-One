@@ -16,7 +16,6 @@ import {
     Group, 
     Paper, 
     SimpleGrid, 
-    Container, 
     Divider,
     Box,
     Table,
@@ -183,7 +182,7 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
     const canProcess = hasPermission('MA_COORDINACION_APROBAR') && data?.id_validaciontecnica === 1;
 
     return (
-        <Container fluid p="md">
+        <Box p="md" style={{ width: '100%' }}>
             <Stack gap="lg">
                 <PageHeader 
                     title={`Gestión Coordinación - Ficha N° ${data?.fichaingresoservicio || '-'}`}
@@ -371,6 +370,6 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
                 onConfirm={onConfirmAction}
                 onCancel={() => setShowConfirmModal(false)}
             />
-        </Container>
+        </Box>
     );
 };

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { 
-    Container, 
     Stack, 
     Group, 
     Text, 
@@ -112,7 +111,7 @@ export const AdminInfoHub: React.FC<Props> = ({ onNavigate }) => {
     }
 
     return (
-        <Container fluid py="md">
+        <Box p="md" style={{ width: '100%' }}>
             <PageHeader
                 title={currentView === 'export' ? 'Centro de Exportación' : 'Panel de Administración'}
                 subtitle={currentView === 'export' 
@@ -250,6 +249,6 @@ export const AdminInfoHub: React.FC<Props> = ({ onNavigate }) => {
                     </Paper>
                 )}
             </Stack>
-        </Container>
+        </Box>
     );
 };

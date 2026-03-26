@@ -56,6 +56,7 @@ export interface ChatMember extends ChatContact {
 
 export interface UserProfile extends ChatContact {
     roles: string | null;
+    nombre_usuario?: string | null;
 }
 
 // ─── Service ───────────────────────────────────────────────

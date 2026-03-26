@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import { 
-    Container, 
     Title, 
     Text, 
     Paper, 
@@ -114,7 +113,7 @@ export const UserNotificationsPage = () => {
     const grouped = groupNotifications();
 
     return (
-        <Container fluid py="xl">
+        <Box p="xl" style={{ width: '100%' }}>
             <Box mb="xl">
                 <Group justify="space-between" align="flex-end">
                     <div>
@@ -198,6 +197,6 @@ export const UserNotificationsPage = () => {
                     border-color: var(--mantine-color-adl-blue-2);
                 }
             `}</style>
-        </Container>
+        </Box>
     );
 };

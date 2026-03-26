@@ -719,8 +719,19 @@ frontend-adlone/
 │   └── store/               # Estados globales con Zustand (NavStore)
 ```
 
+### 43. UI Layout Standardization (Global) (Marzo 2026) 🎨
+Finalización de la transición hacia una interfaz de usuario fluida y consistente en todos los módulos operativos y administrativos.
+
+- **Migración a Diseño Fluido ("Adiós al Container")**:
+    - Reemplazo sistemático de componentes `Container` de ancho fijo por contenedores `Box` de ancho completo (`width: 100%`).
+    - **Áreas Impactadas**: Módulos de **Medio Ambiente**, **Administración**, **URS (Solicitudes)**, **Chat**, **Notificaciones** y **Perfil de Usuario**.
+    - **Uniformidad**: Estandarización del padding y espaciado horizontal para asegurar que la información aproveche todo el espacio disponible en pantalla, alineándose con el diseño de los Hubs principales.
+- **Refinamiento de Formularios Críticos**:
+    - Actualización de los formularios de **Equipo** y **Muestreador** para soportar el nuevo layout fluido sin perder integridad visual.
+- **Consistencia en Navegación**: Todas las páginas principales (Dashboard, Welcome, Home) ahora presentan un comportamiento de expansión idéntico, eliminando saltos visuales al navegar entre módulos.
+
 ## 📄 Estado Final del Proyecto
 ✅ **Backend**: Node.js + Express (API RESTful, Auth JWT, Notificaciones con Adjuntos, Lógica de Exportación a Excel, Auditoría Avanzada, Motor de Chat Socket.io)
-✅ **Frontend**: React + TypeScript + Mantine UI (Calendario de Muestreos, Sistema de Temas Dinámicos, Perfil de Usuario, Módulo de Chat General, Exportador de Datos)
+✅ **Frontend**: React + TypeScript + Mantine UI (Calendario de Muestreos, Sistema de Temas Dinámicos, Perfil de Usuario, Módulo de Chat General, Exportador de Datos, Layout Fluido Global)
 ✅ **Base de Datos**: SQL Server (Procedimientos Almacenados optimizados, Auditoría de Equipos, Alineación de Esquemas, Logs de Auditoría Global, Esquema de Mensajería)
 

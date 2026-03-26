@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { 
-    Container, 
     Group, 
     Text, 
     Button, 
@@ -214,7 +213,7 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
             onViewRequests={() => handleOpenRequests(selectedMuestreador!)}
         />
     ) : (
-        <Container fluid py="md">
+        <Box p="md" style={{ width: '100%' }}>
             <PageHeader
                 title="Gestión de Muestreadores"
                 subtitle="Administra el personal de muestreo técnico y sus firmas digitales autorizadas."
@@ -372,7 +371,7 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                     </Table>
                 </ScrollArea>
             </Paper>
-        </Container>
+        </Box>
     );
 
     return (

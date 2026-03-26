@@ -14,7 +14,6 @@ import {
     Group, 
     Paper, 
     SimpleGrid, 
-    Container, 
     ActionIcon, 
     Box,
     TextInput,
@@ -25,8 +24,6 @@ import {
     ScrollArea
 } from '@mantine/core';
 import { 
-    IconChevronLeft, 
-    IconArrowRight,
     IconAdjustmentsHorizontal,
     IconDownload,
     IconTrash,
@@ -168,7 +165,7 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
     };
 
     return (
-        <Container fluid p="md">
+        <Box p="md" style={{ width: '100%' }}>
             <Stack gap="lg">
                 <PageHeader 
                     title="Gestión Técnica"
@@ -336,29 +333,29 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
                     </Stack>
                 </Paper>
             </Stack>
-        </Container>
+        </Box>
     );
 };
 
 const TecnicaPageContent: React.FC<Props> = ({ onBack }) => {
-    const [viewMode, setViewMode] = useState<'list' | 'detail'>('list');
+    const { maTecnicaMode: viewMode, setMaTecnicaMode: setViewMode } = useNavStore();
     const [selectedFichaId, setSelectedFichaId] = useState<number | null>(null);
     const { pendingRequestId, setPendingRequestId } = useNavStore();
 
     useEffect(() => {
-        if (pendingRequestId && viewMode === 'list') {
+        if (pendingRequestId && (viewMode === 'list' || !viewMode)) {
             setSelectedFichaId(pendingRequestId);
             setViewMode('detail');
             setPendingRequestId(null);
         }
-    }, [pendingRequestId, viewMode, setPendingRequestId]);
+    }, [pendingRequestId, viewMode, setPendingRequestId, setViewMode]);
 
     const handleViewDetail = (id: number) => {
         setSelectedFichaId(id);
         setViewMode('detail');
     };
 
-    if (viewMode === 'list') {
+    if (viewMode === 'list' || !viewMode) {
         return (
             <TechnicalListView
                 onBackToMenu={onBack}

@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { MainLayout } from '../components/layout/MainLayout';
 import { useNavStore } from '../store/navStore';
 import { useAuth } from '../contexts/AuthContext';
 import { FichasIngresoPage } from '../features/medio-ambiente/pages/FichasIngresoPage';
 import { CalendarioReplicaPage } from '../features/medio-ambiente/pages/CalendarioReplicaPage';
+import { FichaDetailView } from '../features/medio-ambiente/pages/FichaDetailView';
 
 import { RolesPage } from '../features/admin/pages/RolesPage';
 import AdminUrsPage from '../features/admin/pages/AdminUrsPage';
@@ -26,7 +27,13 @@ import { NotificationsPage } from '../features/admin/pages/NotificationsPage';
 
 
 const DashboardPage = () => {
-    const { activeModule, activeSubmodule, previousSubmodule, setActiveSubmodule, resetNavigation } = useNavStore();
+    const { 
+        activeModule, 
+        activeSubmodule, 
+        previousSubmodule, 
+        setActiveSubmodule, 
+        resetNavigation
+    } = useNavStore();
     const { user, hasPermission } = useAuth();
 
     // Helper function to check if user has ANY admin info access
@@ -57,6 +64,7 @@ const DashboardPage = () => {
     const renderContent = () => {
         // --- 1. Submódulos Compartidos (Alta Prioridad) ---
         if (activeSubmodule === 'ma-fichas-ingreso') return <FichasIngresoPage />;
+        if (activeSubmodule === 'ma-ficha-detalle') return <FichaDetailView />;
         if (activeSubmodule === 'ma-calendario-replica') return <CalendarioReplicaPage onBack={() => setActiveSubmodule('medio_ambiente')} />;
         if (activeSubmodule === 'admin-equipos-gestion') return <EquiposPage onBack={() => setActiveSubmodule(previousSubmodule || ((activeModule as string) === 'gestion_calidad' ? 'gestion_calidad' : 'medio_ambiente'))} />;
         if (activeSubmodule === 'admin-muestreadores') return <MuestreadoresPage onBack={() => setActiveSubmodule('medio_ambiente')} />;
