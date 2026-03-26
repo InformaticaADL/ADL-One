@@ -52,6 +52,23 @@ export const adminController = {
         }
     },
 
+    disableMuestreadorWithReassignment: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const { reassignmentOptions } = req.body;
+            
+            if (!reassignmentOptions) {
+                return res.status(400).json({ success: false, message: 'Faltan opciones de reasignación' });
+            }
+
+            const result = await adminService.disableMuestreadorWithReassignment(id, reassignmentOptions);
+            res.json({ success: true, data: result, message: 'Muestreador deshabilitado y equipos reasignados correctamente' });
+        } catch (error) {
+            console.error('Controller disableMuestreadorWithReassignment error:', error);
+            res.status(500).json({ success: false, message: 'Error al deshabilitar muestreador con reasignación' });
+        }
+    },
+
     enableMuestreador: async (req, res) => {
         try {
             const { id } = req.params;

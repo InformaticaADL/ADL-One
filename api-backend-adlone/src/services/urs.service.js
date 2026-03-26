@@ -630,6 +630,47 @@ class UrsService {
                 }
             });
 
+            // --- Automated Execution Context (Phase 41) ---
+            if (nuevoEstado === 'REALIZADA') {
+                try {
+                    const reqData = await pool.request()
+                        .input('id', sql.Numeric(10, 0), id)
+                        .query(`
+                            SELECT s.*, t.nombre as nombre_tipo 
+                            FROM mae_solicitud s
+                            JOIN mae_solicitud_tipo t ON s.id_tipo = t.id_tipo
+                            WHERE s.id_solicitud = @id
+                        `);
+                    
+                    if (reqData.recordset.length > 0) {
+                        const fullSol = reqData.recordset[0];
+                        const type = fullSol.nombre_tipo;
+                        const currentSolDatos = JSON.parse(fullSol.datos_json || '{}');
+
+                        if (type === 'Deshabilitar muestreador' || type === 'DESHABILITAR_MUESTREADOR') {
+                            const idMuestreador = currentSolDatos.muestreador_origen_id || currentSolDatos.id_muestreador;
+                            if (idMuestreador) {
+                                // 1. Disable Sampler
+                                const { adminService } = await import('./admin.service.js');
+                                await adminService.disableMuestreador(idMuestreador);
+                                logger.info(`URS EXECUTION: Sampler ${idMuestreador} disabled.`);
+
+                                // 2. Reassign Equipment using shared service
+                                const { equipoService } = await import('./equipo.service.js');
+                                await equipoService.executeEquipmentReassignment(idMuestreador, {
+                                    tipoTraspaso: currentSolDatos.tipo_traspaso,
+                                    baseDestino: currentSolDatos.base_destino,
+                                    idDestino: currentSolDatos.muestreador_destino_id,
+                                    reasignacionManual: currentSolDatos.reasignacion_manual
+                                }, id);
+                            }
+                        }
+                    }
+                } catch (execErr) {
+                    logger.error(`Error executing automation for URS solicitud ${id}:`, execErr);
+                }
+            }
+
             return solicitud;
         } catch (error) {
             logger.error('Error in UrsService.updateStatus:', error);

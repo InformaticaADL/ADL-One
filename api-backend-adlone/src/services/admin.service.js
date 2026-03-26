@@ -65,6 +65,18 @@ export const adminService = {
         return { success: true };
     },
 
+    disableMuestreadorWithReassignment: async (id, reassignmentOptions) => {
+        // 1. Disable the sampler
+        await adminService.disableMuestreador(id);
+        logger.info(`ADMIN ACTION: Sampler ${id} disabled directly.`);
+
+        // 2. Perform reassignment
+        const { equipoService } = await import('./equipo.service.js');
+        await equipoService.executeEquipmentReassignment(id, reassignmentOptions);
+
+        return { success: true };
+    },
+
     enableMuestreador: async (id) => {
         const pool = await getConnection();
         const request = pool.request();

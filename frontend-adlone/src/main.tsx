@@ -4,6 +4,7 @@ import '@mantine/core/styles.css'
 import './index.css'
 import App from './App.tsx'
 import { MantineProvider, createTheme } from '@mantine/core'
+import { ModalsProvider } from '@mantine/modals'
 
 const theme = createTheme({
   primaryColor: 'adl-blue',
@@ -82,7 +83,9 @@ const theme = createTheme({
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <MantineProvider theme={theme} forceColorScheme="light">
-      <App />
+      <ModalsProvider>
+        <App />
+      </ModalsProvider>
     </MantineProvider>
   </StrictMode>,
 )

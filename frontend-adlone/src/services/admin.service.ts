@@ -29,6 +29,13 @@ export const adminService = {
         return response.data;
     },
 
+    disableWithReassignment: async (id: number, reassignmentOptions: any) => {
+        const response = await apiClient.post(`/api/admin/muestreadores/${id}/disable-with-reassignment`, {
+            reassignmentOptions
+        });
+        return response.data;
+    },
+
     enableMuestreador: async (id: number) => {
         const response = await apiClient.put(`/api/admin/muestreadores/${id}/enable`);
         return response.data;

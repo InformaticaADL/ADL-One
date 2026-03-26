@@ -675,8 +675,31 @@ Mejoras en la arquitectura de visibilidad de solicitudes y refinamiento de la co
     - **Resolución de Bucles**: Optimización de hooks de React para evitar ciclos infinitos durante la sincronización de estados complejos.
 - **Refinamiento de Notificaciones de Acción**:
     - **Detalle Completo en Emails**: Los correos de *Aceptar*, *Rechazar* y *Realizada* ahora inyectan dinámicamente el bloque de detalles (Equipo, Destino, Motivo), reparando la falta de contexto previa.
-    - **Formato Web Humano**: Las alertas web ahora incluyen el nombre del autor entre corchetes (ej. `[Manuel Sanchez]: observaciones`) y utilizan estados legibles (ej. "Aceptada" en lugar de `ACEPTADA`).
+    - **Formato Web Humano**: Las alertas web ahora muestran el nombre del autor de forma limpia (ej. `Manuel Sanchez: observaciones`) y utilizan estados legibles (ej. "Aceptada" en lugar de `ACEPTADA`).
     - **Soporte de Identificadores**: El motor de plantillas ahora admite tanto `nombre_equipo` como `nombre_equipo_full` para máxima compatibilidad con solicitudes de traspaso.
+
+### 42. Gestión de Muestreadores y Reasignación Automática de Equipos (Marzo 2026) 👤🔄
+Implementación de un flujo unificado y robusto para la deshabilitación de muestreadores con reasignación obligatoria de equipos.
+
+- **Reasignación Atómica**:
+    - Centralización de la lógica de trasvase en `equipoService.executeEquipmentReassignment`.
+    - Soporta tres modalidades de reasignación: **Traspaso a Base**, **A un Compañero** o **Asignación Manual** (equipo por equipo).
+    - Manejo inteligente de abreviaturas de Sede (ej. "Base Puerto Montt" -> "PM") y mapeo de IDs para cumplir con restricciones de base de datos (`VARCHAR(2)`).
+
+- **Interfaz de Deshabilitación Guiada**:
+    - Nuevo modal `SamplerDeactivationModal.tsx` integrado en la vista de administración de muestreadores.
+    - El sistema exige definir el destino de todos los equipos del muestreador antes de proceder con el cambio de estado.
+    - Sincronización total con el flujo de solicitudes URS: el marcado de solicitudes como "Realizada" ahora utiliza el mismo motor compartido, automatizando la actualización del inventario.
+
+- **Mejoras en Auditoría e Integridad**:
+    - Registro de transacciones que aseguran la consistencia entre el estado del personal y la responsabilidad de los activos técnicos.
+    - Limpieza de UI: remoción de iconos redundantes y mejora en la visualización de solicitudes asociadas desde la tabla principal.
+
+- **Archivos Modificados**:
+    - Backend: `equipo.service.js`, `admin.service.js`, `urs.service.js`, `admin.controller.js`, `admin.routes.js`.
+    - Frontend: `SamplerDeactivationModal.tsx`, `MuestreadoresPage.tsx`, `admin.service.ts`.
+
+---
 
 ---
 

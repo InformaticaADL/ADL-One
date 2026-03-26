@@ -1338,6 +1338,81 @@ export const equipoService = {
             logger.error('Error in exportEquiposExcel service:', error);
             throw error;
         }
+    },
+
+    /**
+     * Executes equipment reassignment logic (used by URS and directly by Admin)
+     */
+    executeEquipmentReassignment: async (idMuestreadorOrigen, options, requestId = null) => {
+        try {
+            const pool = await getConnection();
+            const { tipoTraspaso, baseDestino, idDestino, reasignacionManual } = options;
+            
+            const baseMap = {
+                'Base Aysén': { id: 1023, code: 'AY' },
+                'Base Puerto Montt': { id: 1024, code: 'PM' },
+                'Base Villarrica': { id: 1025, code: 'VI' },
+                'Sede Villarrica': { id: 1026, code: 'VI' },
+                'Base Punta Arenas': { id: 0, code: 'PA' }
+            };
+
+            const reqInfo = requestId ? ` (Solicitud URS ${requestId})` : ' (Acción Directa)';
+
+            if (tipoTraspaso === 'BASE') {
+                const mappedBase = baseMap[baseDestino] || { id: 0, code: (baseDestino || '').substring(0, 2).toUpperCase() };
+                await pool.request()
+                    .input('id_m', sql.Numeric(10, 0), idMuestreadorOrigen)
+                    .input('id_d', sql.Numeric(10, 0), mappedBase.id)
+                    .input('base', sql.VarChar(2), mappedBase.code)
+                    .input('obs', sql.VarChar(sql.MAX), `Traspaso a ${baseDestino} por deshabilitación de muestreador${reqInfo}.`)
+                    .query(`
+                        UPDATE mae_equipo 
+                        SET id_muestreador = @id_d, 
+                            sede = @base,
+                            observacion = @obs
+                        WHERE id_muestreador = @id_m
+                    `);
+                logger.info(`EQUIPMENT REASSIGNMENT: All equipment for ${idMuestreadorOrigen} moved to ${baseDestino}.`);
+            } else if (tipoTraspaso === 'MUESTREADOR') {
+                await pool.request()
+                    .input('id_m', sql.Numeric(10, 0), idMuestreadorOrigen)
+                    .input('id_d', sql.Numeric(10, 0), idDestino)
+                    .input('obs', sql.VarChar(sql.MAX), `Traspaso a nuevo responsable (ID ${idDestino}) por deshabilitación de muestreador${reqInfo}.`)
+                    .query(`
+                        UPDATE mae_equipo 
+                        SET id_muestreador = @id_d,
+                            observacion = @obs
+                        WHERE id_muestreador = @id_m
+                    `);
+                logger.info(`EQUIPMENT REASSIGNMENT: All equipment for ${idMuestreadorOrigen} moved to Sampler ${idDestino}.`);
+            } else if (tipoTraspaso === 'MANUAL') {
+                const reasignaciones = reasignacionManual || [];
+                for (const re of reasignaciones) {
+                    if (re.id_equipo) {
+                        const sedeManual = re.sede_nueva || 'PM';
+                        const mappedSede = baseMap[sedeManual] || { id: re.id_muestreador_nuevo || 0, code: (sedeManual.length > 2 ? sedeManual.substring(0, 2).toUpperCase() : sedeManual) };
+                        
+                        await pool.request()
+                            .input('id_e', sql.Numeric(10, 0), re.id_equipo)
+                            .input('id_d', sql.Numeric(10, 0), mappedSede.id)
+                            .input('sede', sql.VarChar(2), mappedSede.code)
+                            .input('obs', sql.VarChar(sql.MAX), `Traspaso manual por deshabilitación de muestreador${reqInfo}.`)
+                            .query(`
+                                UPDATE mae_equipo 
+                                SET id_muestreador = @id_d,
+                                    sede = @sede,
+                                    observacion = @obs
+                                WHERE id_equipo = @id_e
+                            `);
+                    }
+                }
+                logger.info(`EQUIPMENT REASSIGNMENT: ${reasignaciones.length} equipments reassigned manually.`);
+            }
+            return { success: true };
+        } catch (error) {
+            logger.error('Error in executeEquipmentReassignment service:', error);
+            throw error;
+        }
     }
 };
 

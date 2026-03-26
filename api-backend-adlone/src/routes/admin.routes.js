@@ -12,6 +12,7 @@ router.get('/muestreadores', verifyToken, adminController.getMuestreadores);
 router.post('/muestreadores', verifyToken, adminController.createMuestreador);
 router.put('/muestreadores/:id', verifyToken, adminController.updateMuestreador);
 router.delete('/muestreadores/:id', verifyToken, adminController.disableMuestreador);
+router.post('/muestreadores/:id/disable-with-reassignment', verifyToken, adminController.disableMuestreadorWithReassignment);
 router.put('/muestreadores/:id/enable', verifyToken, adminController.enableMuestreador);
 router.get('/muestreadores/check-duplicate', verifyToken, adminController.checkDuplicateMuestreador);
 router.get('/muestreadores/export-pdf', verifyToken, adminController.downloadMuestreadoresPdf);

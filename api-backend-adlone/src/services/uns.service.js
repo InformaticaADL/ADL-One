@@ -123,7 +123,7 @@ class UnsService {
                         'SOLICITUD_ESTADO_CAMBIO': {
                             titulo: 'Estado Actualizado: #{{correlativo}}',
                             asunto_template: 'Solicitud #{{correlativo}} {{estado}}',
-                            mensaje: 'Tu solicitud ha cambiado a estado: {{estado_legible}}. [{{usuario_accion}}]: {{observaciones}}',
+                            mensaje: 'Tu solicitud ha cambiado a estado: {{estado_legible}}. {{usuario_accion}}: {{observaciones}}',
                             cuerpo_mensaje: 'La solicitud #{{correlativo}} de {{nombre_tipo}} ha sido {{estado}} por {{usuario_accion}}'
                         },
                         'SOLICITUD_COMENTARIO_NUEVO': {

@@ -697,7 +697,7 @@ class SolicitudService {
                 logger.error('Error sending result notification:', notifyError);
             }
 
-            if (status === 'APROBADO' || status === 'CONCLUIDO_TECNICA') {
+            if (status === 'APROBADO' || status === 'CONCLUIDO_TECNICA' || status === 'REALIZADA') {
                 try {
                     const type = sol.tipo_solicitud;
                     const currentSolDatos = datos_json || solDatos; // Use newest data if available
