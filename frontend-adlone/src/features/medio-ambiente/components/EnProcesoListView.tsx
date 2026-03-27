@@ -22,6 +22,7 @@ import {
     Divider,
     Box
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { 
     IconSearch, 
     IconEraser, 
@@ -48,6 +49,7 @@ export const EnProcesoListView: React.FC<Props> = ({ onBackToMenu, onViewDetail 
         return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}`;
     });
     const { showToast } = useToast();
+    const isMobile = useMediaQuery('(max-width: 768px)');
 
     const [searchTipo, setSearchTipo] = useState<string | null>(null);
     const [searchEmpresaServicio, setSearchEmpresaServicio] = useState<string | null>(null);
@@ -164,9 +166,9 @@ export const EnProcesoListView: React.FC<Props> = ({ onBackToMenu, onViewDetail 
                     subtitle="Seguimiento de servicios programados y en ejecución"
                     onBack={onBackToMenu}
                     rightSection={
-                        <Group gap="xs">
-                            <Text size="sm" fw={500} c="dimmed">{filteredFichas.length} registros</Text>
-                            <Button variant="light" color="gray" leftSection={<IconEraser size={16} />} onClick={handleClearFilters}>
+                        <Group gap="xs" wrap={isMobile ? "wrap" : "nowrap"}>
+                            <Text size="xs" fw={500} c="dimmed">{filteredFichas.length} registros</Text>
+                            <Button variant="light" color="gray" size="xs" leftSection={<IconEraser size={14} />} onClick={handleClearFilters}>
                                 Limpiar Filtros
                             </Button>
                         </Group>
@@ -179,7 +181,7 @@ export const EnProcesoListView: React.FC<Props> = ({ onBackToMenu, onViewDetail 
                             <IconFilter size={18} color="var(--mantine-color-blue-6)" />
                             <Text fw={700} size="sm" c="blue.7">Filtros de Búsqueda</Text>
                         </Group>
-                        <SimpleGrid cols={{ base: 2, sm: 3, md: 4, lg: 6 }} spacing="sm">
+                        <SimpleGrid cols={{ base: 1, sm: 3, md: 4, lg: 6 }} spacing="sm">
                             <TextInput 
                                 label="N° Ficha" 
                                 placeholder="Eje: 1234" 
@@ -349,8 +351,10 @@ export const EnProcesoListView: React.FC<Props> = ({ onBackToMenu, onViewDetail 
                             value={currentPage} 
                             onChange={setCurrentPage} 
                             radius="md" 
-                            size="sm"
-                            withEdges
+                            size={isMobile ? "xs" : "sm"}
+                            siblings={isMobile ? 0 : 1}
+                            boundaries={isMobile ? 0 : 1}
+                            withEdges={!isMobile}
                         />
                     </Center>
                 </Paper>

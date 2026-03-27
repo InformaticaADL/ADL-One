@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
     Stack, 
-    Group, 
-    Title, 
+    Group,
     Text, 
     Button, 
     Table, 
@@ -22,8 +21,8 @@ import {
     Grid,
     Alert
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { 
-    IconArrowLeft,
     IconPlus, 
     IconSearch, 
     IconEdit, 
@@ -46,6 +45,7 @@ import { EquipmentRequestsModal } from '../components/EquipmentRequestsModal';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useNavStore } from '../../../store/navStore';
+import { PageHeader } from '../../../components/layout/PageHeader';
 import '../admin.css';
 
 const getStatusColor = (status: string) => {
@@ -99,6 +99,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
 
     const { showToast } = useToast();
     const { hasPermission } = useAuth();
+    const isMobile = useMediaQuery('(max-width: 768px)');
     
     // Permissions
     const isMAMan = hasPermission('AI_MA_SOLICITUDES') || hasPermission('MA_A_GEST_EQUIPO');
@@ -832,38 +833,32 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                     </Alert>
                 )}
 
-                <Paper withBorder p="md" radius="md" shadow="sm">
-                    <Group justify="space-between">
-                        <Group>
-                            <ActionIcon variant="subtle" size="lg" onClick={onBack} color="gray">
-                                <IconArrowLeft size={20} />
-                            </ActionIcon>
-                            <Box>
-                                <Title order={2}>Gestión de Equipos</Title>
-                                <Text size="sm" c="dimmed">Administra y supervisa los equipos de medición del sistema.</Text>
-                            </Box>
-                        </Group>
-
-                        <Group>
+                <PageHeader 
+                    title="Gestión de Equipos" 
+                    subtitle="Administra y supervisa los equipos de medición del sistema."
+                    onBack={onBack}
+                    rightSection={
+                        <Group gap="xs" wrap={isMobile ? "wrap" : "nowrap"}>
                             <Button 
                                 variant="outline" 
                                 color="gray"
-                                leftSection={<IconDownload size={18} />} 
+                                size="xs"
+                                leftSection={<IconDownload size={16} />} 
                                 onClick={() => setShowExportModal(true)}
                             >
                                 Exportar
                             </Button>
-
                             <Button 
-                                leftSection={<IconPlus size={18} />} 
+                                size="xs"
+                                leftSection={<IconPlus size={16} />} 
                                 onClick={() => { setSelectedEquipo(null); setViewMode('form'); }}
                                 color="adl-blue"
                             >
                                 Nuevo Equipo
                             </Button>
                         </Group>
-                    </Group>
-                </Paper>
+                    }
+                />
 
                 <Paper withBorder p="md" radius="md" shadow="xs">
                     <Grid align="flex-end">
@@ -1055,15 +1050,20 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                     </Table>
                 </ScrollArea.Autosize>
                 <Divider />
-                <Group justify="space-between" p="md">
-                    <Text size="xs" c="dimmed">{totalItems} equipos en total</Text>
+                <Group justify="space-between" p="md" wrap={isMobile ? "wrap" : "nowrap"}>
+                    <Text size="xs" c="dimmed">
+                        {isMobile ? `${totalItems} eq.` : `${totalItems} equipos en total`}
+                    </Text>
                     <Pagination 
                         total={totalPages} 
                         value={page} 
                         onChange={setPage} 
-                        size="sm" 
+                        size={isMobile ? "xs" : "sm"}
                         radius="md" 
                         color="adl-blue"
+                        siblings={isMobile ? 0 : 1}
+                        boundaries={isMobile ? 0 : 1}
+                        withEdges={!isMobile}
                     />
                 </Group>
             </Paper>

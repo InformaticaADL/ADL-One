@@ -7,6 +7,7 @@ import { useCachedCatalogos } from '../hooks/useCachedCatalogos';
 import { WorkflowAlert } from '../../../components/ui/WorkflowAlert';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { ConfirmModal } from '../../../components/common/ConfirmModal';
+import { useMediaQuery } from '@mantine/hooks';
 
 import { 
     Button, 
@@ -43,6 +44,7 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
     const { showToast } = useToast();
     const { user, hasPermission } = useAuth();
     const catalogos = useCachedCatalogos();
+    const isMobile = useMediaQuery('(max-width: 500px)');
 
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
@@ -182,9 +184,9 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
     const canProcess = hasPermission('MA_COORDINACION_APROBAR') && data?.id_validaciontecnica === 1;
 
     return (
-        <Box p="md" style={{ width: '100%' }}>
+        <Box p="md" style={{ width: '100% !important', maxWidth: '100% !important' }}>
             <Stack gap="lg">
-                <PageHeader 
+                 <PageHeader 
                     title={`Gestión Coordinación - Ficha N° ${data?.fichaingresoservicio || '-'}`}
                     subtitle="Validación Final para Programación"
                     onBack={onBack}
@@ -197,10 +199,10 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
                     }
                 />
 
-                <Paper withBorder p="xl" radius="lg" shadow="sm">
-                    <Stack gap="xl">
+                <Paper withBorder p={0} radius="lg" shadow="sm" style={{ width: '100% !important', maxWidth: '100% !important', overflow: 'hidden' }}>
+                    <Stack gap={0}>
                         {/* Status Alerts */}
-                        <Box>
+                        <Box p={isMobile ? 'md' : 'xl'} pb={0}>
                             {[0, 3].includes(data?.id_validaciontecnica || 0) && <WorkflowAlert type="warning" title="Pendiente Técnica" message="Esta ficha aún no ha sido aprobada por el Área Técnica." />}
                             {data?.id_validaciontecnica === 2 && <WorkflowAlert type="error" title="Rechazada Técnica" message="Esta ficha fue rechazada por el Área Técnica y devuelta a Comercial." />}
                             {data?.id_validaciontecnica === 4 && <WorkflowAlert type="error" title="Rechazada Coordinación" message="Ficha rechazada y devuelta al Área Técnica para revisión." />}
@@ -208,15 +210,38 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
                             {data?.id_validaciontecnica === 7 && <WorkflowAlert type="error" title="Ficha Cancelada" message="Esta ficha ha sido anulada." />}
                         </Box>
 
-                        <Tabs value={activeTab} onChange={(v) => setActiveTab(v || 'antecedentes')} variant="outline" radius="md">
+                        <Tabs value={activeTab} onChange={(v) => setActiveTab(v || 'antecedentes')} variant="outline" radius="md" mt="xl">
                             <Tabs.List grow>
-                                <Tabs.Tab value="antecedentes" leftSection={<IconClipboardList size={18} />}>Antecedentes</Tabs.Tab>
-                                <Tabs.Tab value="analisis" leftSection={<IconFlask size={18} />}>Análisis</Tabs.Tab>
-                                <Tabs.Tab value="observaciones" leftSection={<IconHistory size={18} />}>Validación e Historial</Tabs.Tab>
+                                <Tabs.Tab 
+                                    value="antecedentes" 
+                                    leftSection={<IconClipboardList size={isMobile ? 18 : 22} />} 
+                                    px={isMobile ? 'xs' : 'xl'} 
+                                    py={isMobile ? 'xs' : 'md'}
+                                    style={{ flex: '1 1 0%', fontSize: isMobile ? '0.85rem' : '1rem', fontWeight: 600, minWidth: 0, whiteSpace: 'nowrap' }}
+                                >
+                                    Antecedentes
+                                </Tabs.Tab>
+                                <Tabs.Tab 
+                                    value="analisis" 
+                                    leftSection={<IconFlask size={isMobile ? 18 : 22} />} 
+                                    px={isMobile ? 'xs' : 'xl'} 
+                                    py={isMobile ? 'xs' : 'md'}
+                                    style={{ flex: '1 1 0%', fontSize: isMobile ? '0.85rem' : '1rem', fontWeight: 600, minWidth: 0, whiteSpace: 'nowrap' }}
+                                >
+                                    Análisis
+                                </Tabs.Tab>
+                                <Tabs.Tab 
+                                    value="observaciones" 
+                                    leftSection={<IconHistory size={isMobile ? 18 : 22} />} 
+                                    px={isMobile ? 'xs' : 'xl'} 
+                                    py={isMobile ? 'xs' : 'md'}
+                                    style={{ flex: '1 1 0%', fontSize: isMobile ? '0.85rem' : '1rem', fontWeight: 600, minWidth: 0, whiteSpace: 'nowrap' }}
+                                >
+                                    Validación e Historial
+                                </Tabs.Tab>
                             </Tabs.List>
 
-                            <Box mt="xl">
-                                <Tabs.Panel value="antecedentes">
+                                <Tabs.Panel value="antecedentes" p={isMobile ? 'md' : 50} pt="xl" style={{ minHeight: '70vh' }}>
                                     <Stack gap="lg">
                                         <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }}>
                                             <StaticField label="Monitoreo" value={data.tipo_fichaingresoservicio} />
@@ -257,6 +282,9 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
                                             <StaticField label="Factor" value={data.agenda?.frecuencia_factor} />
                                             <StaticField label="Total Servicios" value={data.agenda?.total_servicios} />
                                         </SimpleGrid>
+                                        <Text size="sm" c="dimmed" fs="italic" ta="center">
+                                            {`Se realizarán ${data.agenda?.total_servicios || '—'} muestreo(s) en total, con una frecuencia de ${data.agenda?.frecuencia || '—'} vez/veces cada periodo ${(data.agenda?.nombre_frecuencia || '—').toLowerCase()}, multiplicado por un factor de ${data.agenda?.frecuencia_factor || '—'}.`}
+                                        </Text>
 
                                         <Divider label="Detalles del Servicio" labelPosition="center" />
                                         
@@ -275,7 +303,7 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
                                     </Stack>
                                 </Tabs.Panel>
 
-                                <Tabs.Panel value="analisis">
+                                <Tabs.Panel value="analisis" p={isMobile ? 'md' : 50} pt="xl">
                                     <Stack gap="xl">
                                         <Paper withBorder p="md" radius="md" bg="blue.0">
                                             <SimpleGrid cols={{ base: 1, sm: 2 }}>
@@ -317,7 +345,7 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
                                     </Stack>
                                 </Tabs.Panel>
 
-                                <Tabs.Panel value="observaciones">
+                                <Tabs.Panel value="observaciones" p={isMobile ? 'md' : 50} pt="xl">
                                     <Stack gap="xl">
                                         {canProcess ? (
                                             <Paper withBorder p="md" radius="md" bg="grape.0">
@@ -357,7 +385,6 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
                                         </Box>
                                     </Stack>
                                 </Tabs.Panel>
-                            </Box>
                         </Tabs>
                     </Stack>
                 </Paper>

@@ -10,10 +10,11 @@ import {
     Text, 
     Paper, 
     Divider, 
-    Box, 
-    Group,
-    Badge
+    Badge,
+    Box,
+    Group
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { 
     IconInfoCircle, 
     IconBuilding, 
@@ -45,6 +46,8 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
     const { initialData, onValidationChange } = props;
     const catalogos = useCachedCatalogos();
     const { showToast } = useToast();
+    const isMobile = useMediaQuery('(max-width: 768px)');
+    const isVerySmall = useMediaQuery('(max-width: 480px)');
 
     // Catalog State
     const [lugares, setLugares] = useState<LugarAnalisis[]>([]);
@@ -588,7 +591,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
     );
 
     return (
-        <Stack gap="xl" p="xs" style={{ width: '100% !important' }}>
+        <Stack gap={isMobile ? "md" : "xl"} p={isMobile ? 0 : "xs"} style={{ width: '100% !important' }}>
             {/* Block 1: Identificación */}
             <Paper withBorder p="md" radius="lg" shadow="xs" style={{ width: '100% !important' }}>
                 <Stack gap="md">
@@ -814,8 +817,8 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
                     <Divider />
 
-                    <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
-                        <Box style={{ gridColumn: 'span 2' }}>
+                    <SimpleGrid cols={{ base: 1, xs: 2, md: 4 }} spacing="md">
+                        <Box style={{ gridColumn: isVerySmall ? 'span 1' : 'span 2' }}>
                             <Select 
                                 label="Instrumento Ambiental *" 
                                 data={instrumentosAmbientales}
@@ -829,8 +832,22 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                                 radius="md"
                             />
                         </Box>
-                        <TextInput label="Número Instrumento *" value={nroInstrumento} onChange={(e) => setNroInstrumento(e.target.value)} size="sm" radius="md" />
-                        <TextInput label="Año Instrumento *" value={anioInstrumento} onChange={(e) => setAnioInstrumento(e.target.value)} size="sm" radius="md" />
+                        <TextInput 
+                            label={isVerySmall ? "Número Instrumento *" : "Número Instrumento *"} 
+                            placeholder="Ej: 123/2023"
+                            value={nroInstrumento} 
+                            onChange={(e) => setNroInstrumento(e.target.value)} 
+                            size="sm" 
+                            radius="md" 
+                        />
+                        <TextInput 
+                            label={isVerySmall ? "Año Instrumento *" : "Año Instrumento *"} 
+                            placeholder="YYYY"
+                            value={anioInstrumento} 
+                            onChange={(e) => setAnioInstrumento(e.target.value)} 
+                            size="sm" 
+                            radius="md" 
+                        />
                     </SimpleGrid>
 
                     <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">

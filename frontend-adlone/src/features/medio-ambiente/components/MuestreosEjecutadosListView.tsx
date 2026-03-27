@@ -21,6 +21,7 @@ import {
     ActionIcon,
     Box
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { 
     IconSearch,
     IconEraser, 
@@ -39,6 +40,7 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
     const { showToast } = useToast();
     const [muestreos, setMuestreos] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const isMobile = useMediaQuery('(max-width: 768px)');
 
     // Filters
     const [searchCorrelativo, setSearchCorrelativo] = useState('');
@@ -126,9 +128,9 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
                     subtitle="Histórico de servicios ejecutados y reportes generados"
                     onBack={onBackToMenu}
                     rightSection={
-                        <Group gap="xs">
-                            <Text size="sm" fw={500} c="dimmed">{filteredMuestreos.length} servicios registrados</Text>
-                            <Button variant="light" color="gray" leftSection={<IconEraser size={16} />} onClick={handleClearFilters}>
+                        <Group gap="xs" wrap={isMobile ? "wrap" : "nowrap"}>
+                            <Text size="xs" fw={500} c="dimmed">{filteredMuestreos.length} servicios registrados</Text>
+                            <Button variant="light" color="gray" size="xs" leftSection={<IconEraser size={14} />} onClick={handleClearFilters}>
                                 Limpiar Filtros
                             </Button>
                         </Group>
@@ -279,8 +281,11 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
                             total={totalPages} 
                             value={currentPage} 
                             onChange={setCurrentPage} 
-                            size="sm" 
-                            radius="md"
+                            radius="md" 
+                            size={isMobile ? "xs" : "sm"}
+                            siblings={isMobile ? 0 : 1}
+                            boundaries={isMobile ? 0 : 1}
+                            withEdges={!isMobile}
                         />
                     </Group>
                 </Paper>

@@ -15,10 +15,10 @@ import {
     Collapse,
     Grid,
     Badge,
-    ActionIcon,
-    Tooltip,
-    Title
+    Title,
+    Select
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { 
     IconSearch, 
     IconShield, 
@@ -26,7 +26,6 @@ import {
     IconChevronRight, 
     IconChevronDown,
     IconCheck,
-    IconX,
     IconWorld,
     IconBuildingHospital,
     IconMicroscope,
@@ -47,6 +46,7 @@ interface Props {
 }
 
 export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess }) => {
+    const isMobile = useMediaQuery('(max-width: 768px)');
     const { showToast } = useToast();
     const [nombre, setNombre] = useState('');
     const [descripcion, setDescripcion] = useState('');
@@ -195,7 +195,8 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
         <Modal
             opened={isOpen}
             onClose={onClose}
-            size="85%"
+            size={isMobile ? "100%" : "85%"}
+            fullScreen={isMobile}
             title={
                 <Group gap="xs">
                     <IconShield size={22} color="var(--mantine-color-blue-filled)" />
@@ -208,71 +209,125 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
             radius="md"
             styles={{ body: { padding: 0 } }}
         >
-            <Box h="75vh" display="flex" style={{ overflow: 'hidden' }}>
+            <Box h={isMobile ? "calc(100dvh - 240px)" : "75vh"} display="flex" style={{ overflow: 'hidden', flexDirection: isMobile ? 'column' : 'row' }}>
                 <Tabs 
-                    orientation="vertical" 
+                    orientation={isMobile ? "horizontal" : "vertical"} 
                     value={activeTab} 
                     onChange={setActiveTab}
                     variant="pills"
                     styles={{
-                        root: { display: 'flex', width: '100%', borderTop: '1px solid var(--mantine-color-gray-2)' },
+                        root: { display: 'flex', width: '100%', borderTop: '1px solid var(--mantine-color-gray-2)', flexDirection: isMobile ? 'column' : 'row', flex: 1, minHeight: 0 },
                         list: { 
-                            width: 280, 
-                            borderRight: '1px solid var(--mantine-color-gray-2)',
+                            width: isMobile ? '100%' : 280, 
+                            borderRight: isMobile ? 'none' : '1px solid var(--mantine-color-gray-2)',
+                            borderBottom: isMobile ? '1px solid var(--mantine-color-gray-2)' : 'none',
                             backgroundColor: 'var(--mantine-color-gray-0)',
-                            padding: '12px'
+                            padding: isMobile ? '8px' : '12px',
+                            flexDirection: isMobile ? 'row' : 'column',
+                            flexWrap: isMobile ? 'nowrap' : 'wrap',
+                            overflowX: isMobile ? 'auto' : 'visible'
                         },
-                        panel: { flex: 1, padding: '24px', overflowY: 'auto' },
+                        panel: { flex: 1, padding: isMobile ? 0 : '24px', overflowY: isMobile ? 'hidden' : 'auto', minHeight: 0, display: 'flex', flexDirection: 'column' },
                         tab: { 
                             justifyContent: 'flex-start',
-                            marginBottom: '4px',
+                            marginBottom: isMobile ? '0' : '4px',
+                            marginRight: isMobile ? '4px' : '0',
                             fontWeight: 600,
-                            padding: '10px 12px'
+                            padding: '10px 12px',
+                            whiteSpace: 'nowrap'
                         }
                     }}
                 >
-                    <Tabs.List>
-                        <TextInput 
-                            placeholder="Buscar permisos..."
-                            leftSection={<IconSearch size={14} />}
-                            size="xs"
-                            mb="md"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.currentTarget.value)}
-                            radius="md"
-                        />
+                    {isMobile ? (
+                        <Box p="md" bg="gray.0" style={{ borderBottom: '1px solid var(--mantine-color-gray-2)' }}>
+                            <Stack gap="xs">
+                                <Button 
+                                    variant={activeTab === 'GENERAL' ? 'filled' : 'light'} 
+                                    leftSection={<IconInfoCircle size={16} />}
+                                    onClick={() => setActiveTab('GENERAL')}
+                                    fullWidth
+                                    justify="flex-start"
+                                >
+                                    Info. General
+                                </Button>
 
-                        <Tabs.Tab value="GENERAL" leftSection={<IconInfoCircle size={16} />}>
-                            Info. General
-                        </Tabs.Tab>
+                                <TextInput 
+                                    placeholder="Buscar permisos..."
+                                    leftSection={<IconSearch size={14} />}
+                                    size="sm"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.currentTarget.value)}
+                                    radius="md"
+                                />
 
-                        <Divider my="sm" label="Módulos" labelPosition="center" />
+                                <Select
+                                    label="Módulos"
+                                    placeholder="Seleccionar módulo..."
+                                    data={Object.keys(hierarchicalPermissions).map(mod => ({ 
+                                        value: mod, 
+                                        label: mod 
+                                    }))}
+                                    value={activeTab === 'GENERAL' ? null : activeTab}
+                                    onChange={(val) => val && setActiveTab(val)}
+                                    leftSection={<IconSettings size={16} />}
+                                    radius="md"
+                                    clearable={false}
+                                />
+                            </Stack>
+                        </Box>
+                    ) : (
+                        <Tabs.List>
+                            <TextInput 
+                                placeholder="Buscar permisos..."
+                                leftSection={<IconSearch size={14} />}
+                                size="xs"
+                                mb="md"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.currentTarget.value)}
+                                radius="md"
+                            />
 
-                        <ScrollArea style={{ height: 'calc(75vh - 180px)' }} scrollbarSize={4}>
-                            {Object.entries(hierarchicalPermissions).map(([moduleName, submods]) => {
-                                const modulePerms = Object.values(submods).flat();
-                                const selectedInModule = modulePerms.filter(p => selectedPermissions.includes(p.id_permiso)).length;
-                                
-                                return (
-                                    <Tabs.Tab 
-                                        key={moduleName} 
-                                        value={moduleName} 
-                                        leftSection={getModuleIcon(moduleName)}
-                                        rightSection={
-                                            selectedInModule > 0 && (
-                                                <Badge size="xs" circle color="blue">{selectedInModule}</Badge>
-                                            )
-                                        }
-                                    >
-                                        <Text size="sm" lineClamp={1}>{moduleName}</Text>
-                                    </Tabs.Tab>
-                                );
-                            })}
-                        </ScrollArea>
-                    </Tabs.List>
+                            <Tabs.Tab value="GENERAL" leftSection={<IconInfoCircle size={16} />}>
+                                Info. General
+                            </Tabs.Tab>
+
+                            <Divider my="sm" label="Módulos" labelPosition="center" />
+
+                            <ScrollArea 
+                                style={{ 
+                                    height: 'calc(75vh - 180px)',
+                                    width: '100%'
+                                }} 
+                                scrollbarSize={4}
+                            >
+                                <Stack gap="xs">
+                                    {Object.entries(hierarchicalPermissions).map(([moduleName, submods]) => {
+                                        const modulePerms = Object.values(submods).flat();
+                                        const selectedInModule = modulePerms.filter(p => selectedPermissions.includes(p.id_permiso)).length;
+                                        
+                                        return (
+                                            <Tabs.Tab 
+                                                key={moduleName} 
+                                                value={moduleName} 
+                                                leftSection={getModuleIcon(moduleName)}
+                                                rightSection={
+                                                    selectedInModule > 0 && (
+                                                        <Badge size="xs" circle color="blue">{selectedInModule}</Badge>
+                                                    )
+                                                }
+                                            >
+                                                <Text size="sm" lineClamp={1}>{moduleName}</Text>
+                                            </Tabs.Tab>
+                                        );
+                                    })}
+                                </Stack>
+                            </ScrollArea>
+                        </Tabs.List>
+                    )}
 
                     <Tabs.Panel value="GENERAL">
-                        <Stack gap="lg">
+                        <ScrollArea style={{ flex: 1 }} p="md" scrollbarSize={4}>
+                            <Stack gap="lg" pb={isMobile ? 120 : 0}>
                             <Box>
                                 <Title order={4} mb="md">Información del Rol</Title>
                                 <Text size="sm" c="dimmed" mb="xl">
@@ -309,11 +364,13 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
                                 </Group>
                             </Paper>
                         </Stack>
-                    </Tabs.Panel>
+                    </ScrollArea>
+                </Tabs.Panel>
 
                     {Object.entries(hierarchicalPermissions).map(([moduleName, submodules]) => (
                         <Tabs.Panel key={moduleName} value={moduleName}>
-                            <Stack gap="xl">
+                            <ScrollArea style={{ flex: 1 }} p="md" scrollbarSize={4}>
+                                <Stack gap="xl" pb={isMobile ? 120 : 0}>
                                 <Group justify="space-between" align="flex-start">
                                     <Box>
                                         <Title order={3}>{moduleName}</Title>
@@ -323,9 +380,10 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
                                         variant="subtle" 
                                         size="xs"
                                         onClick={() => toggleSelectAllCategory(Object.values(submodules).flat())}
+                                        fullWidth={isMobile}
                                     >
                                         {Object.values(submodules).flat().every(p => selectedPermissions.includes(p.id_permiso)) 
-                                            ? 'Desmarcar Todo' : 'Marcar Todo el Módulo'}
+                                            ? 'Desmarcar' : 'Marcar Todo'}
                                     </Button>
                                 </Group>
 
@@ -393,14 +451,15 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
                                     })}
                                 </Stack>
                             </Stack>
-                        </Tabs.Panel>
+                        </ScrollArea>
+                    </Tabs.Panel>
                     ))}
                 </Tabs>
             </Box>
 
             <Divider />
-            <Group justify="flex-end" p="md" bg="gray.0">
-                <Button variant="subtle" color="gray" onClick={onClose}>
+            <Group justify="flex-end" p="lg" pb={isMobile ? 60 : 'lg'} bg="gray.0">
+                <Button variant="subtle" color="gray" onClick={onClose} fullWidth={isMobile}>
                     Cancelar / Descartar
                 </Button>
                 <Button 
@@ -409,8 +468,9 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
                     onClick={handleSave}
                     leftSection={<IconCheck size={18} />}
                     radius="md"
+                    fullWidth={isMobile}
                 >
-                    Guardar Rol y Permisos
+                    Guardar Cambios
                 </Button>
             </Group>
         </Modal>

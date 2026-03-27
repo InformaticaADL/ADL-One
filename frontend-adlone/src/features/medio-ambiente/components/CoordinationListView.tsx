@@ -20,6 +20,7 @@ import {
     Loader,
     Divider
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { 
     IconSearch, 
     IconEraser, 
@@ -42,6 +43,7 @@ export const CoordinationListView: React.FC<Props> = ({ onBackToMenu, onViewDeta
     const [currentPage, setCurrentPage] = useState(1);
     const [loading, setLoading] = useState(true);
     const [fichas, setFichas] = useState<any[]>([]);
+    const isMobile = useMediaQuery('(max-width: 768px)');
 
     const itemsPerPage = 15;
 
@@ -145,9 +147,9 @@ export const CoordinationListView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                     subtitle="Consulta y seguimiento general de fichas de servicio"
                     onBack={onBackToMenu}
                     rightSection={
-                        <Group gap="xs">
-                            <Text size="sm" fw={500} c="dimmed">{filteredFichas.length} fichas encontradas</Text>
-                            <Button variant="light" color="gray" leftSection={<IconEraser size={16} />} onClick={handleClearFilters}>
+                        <Group gap="xs" wrap={isMobile ? "wrap" : "nowrap"}>
+                            <Text size="xs" fw={500} c="dimmed">{filteredFichas.length} fichas encontradas</Text>
+                            <Button variant="light" color="gray" size="xs" leftSection={<IconEraser size={14} />} onClick={handleClearFilters}>
                                 Limpiar Filtros
                             </Button>
                         </Group>
@@ -279,8 +281,10 @@ export const CoordinationListView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                             value={currentPage} 
                             onChange={setCurrentPage} 
                             radius="md" 
-                            size="sm"
-                            withEdges
+                            size={isMobile ? "xs" : "sm"}
+                            siblings={isMobile ? 0 : 1}
+                            boundaries={isMobile ? 0 : 1}
+                            withEdges={!isMobile}
                         />
                     </Center>
                 </Paper>

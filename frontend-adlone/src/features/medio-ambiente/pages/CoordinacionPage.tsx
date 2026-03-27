@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useMediaQuery } from '@mantine/hooks';
 import { CoordinacionDetailView } from '../components/CoordinacionDetailView';
 import { AssignmentListView } from '../components/AssignmentListView';
 import { AssignmentDetailView } from '../components/AssignmentDetailView';
@@ -30,7 +31,8 @@ import {
     Table,
     Badge,
     Pagination,
-    ScrollArea
+    ScrollArea,
+    Container
 } from '@mantine/core';
 import { 
     IconAdjustmentsHorizontal,
@@ -50,6 +52,8 @@ interface Props {
 
 // --- Coordination List Component ---
 const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () => void, onViewDetail: (id: number) => void }) => {
+    useAuth();
+    const isMobile = useMediaQuery('(max-width: 500px)');
     // State
     const [searchId, setSearchId] = useState('');
     const [dateFrom, setDateFrom] = useState('');
@@ -179,7 +183,7 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
     };
 
     return (
-        <Box p="md" style={{ width: '100%' }}>
+        <Container fluid p="md" style={{ width: '100% !important', maxWidth: '100% !important' }}>
             <Stack gap="lg">
                 <PageHeader 
                     title="Consultar Fichas (Coordinación)"
@@ -197,7 +201,7 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
                     }
                 />
 
-                <Paper withBorder p="xl" radius="lg" shadow="sm">
+                <Paper withBorder p={isMobile ? 'md' : 50} radius="lg" shadow="sm" style={{ width: '100% !important', maxWidth: '100% !important' }}>
                     <Stack gap="xl">
                         <Paper withBorder p="md" radius="md" bg="gray.0">
                             <Stack gap="sm">
@@ -376,13 +380,14 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
                     </Stack>
                 </Paper>
             </Stack>
-        </Box>
+        </Container>
     );
 };
 
 // --- Main Orchestrator ---
 const CoordinacionPageContent: React.FC<Props> = ({ onBack }) => {
     const { hasPermission } = useAuth();
+    const isMobile = useMediaQuery('(max-width: 500px)');
     const { maCoordMode: mode, setMaCoordMode: setMode } = useNavStore();
     const [selectedFichaId, setSelectedFichaId] = useState<number | null>(null);
     const [detailReturnMode, setDetailReturnMode] = useState<string>('list_consultar');
@@ -468,14 +473,14 @@ const CoordinacionPageContent: React.FC<Props> = ({ onBack }) => {
     }
 
     return (
-        <Box p="md" style={{ width: '100%' }}>
+        <Container fluid p="md" style={{ width: '100% !important', maxWidth: '100% !important' }}>
             <Stack gap="lg">
                 <PageHeader 
                     title="Gestión Coordinación"
                     onBack={onBack}
                 />
 
-                <Paper withBorder p="xl" radius="lg" shadow="sm">
+                <Paper withBorder p={isMobile ? 'md' : 50} radius="lg" shadow="sm" style={{ width: '100% !important', maxWidth: '100% !important' }}>
                     <Stack gap="xl">
                         <Text size="lg" c="dimmed" ta="center">
                             Seleccione una opción para la programación y seguimiento de muestreos
@@ -527,7 +532,7 @@ const CoordinacionPageContent: React.FC<Props> = ({ onBack }) => {
                     </Stack>
                 </Paper>
             </Stack>
-        </Box>
+        </Container>
     );
 };
 

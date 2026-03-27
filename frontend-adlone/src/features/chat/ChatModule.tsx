@@ -1,5 +1,6 @@
 import { useEffect, useCallback, useState } from 'react';
-import { Paper, Text, Loader, Center } from '@mantine/core';
+import { Paper, Text, Loader, Center, useMantineTheme } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { IconMessageCircle } from '@tabler/icons-react';
 import { useChatStore } from '../../store/chatStore';
 import { useAuth } from '../../contexts/AuthContext';
@@ -28,6 +29,9 @@ const ChatModule: React.FC = () => {
     const [editingGroup, setEditingGroup] = useState<number | null>(null);
     const [profileUserId, setProfileUserId] = useState<number | null>(null);
     const [profileOpen, setProfileOpen] = useState(false);
+    
+    const theme = useMantineTheme();
+    const isMobile = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`);
 
     // deep-linking from notifications
     const { pendingChatId, setPendingChatId, activeModule } = useNavStore();
@@ -205,32 +209,38 @@ const ChatModule: React.FC = () => {
                     display: 'flex',
                     height: 'calc(100vh - 84px)',
                     overflow: 'hidden',
-                    border: '1px solid var(--mantine-color-default-border)'
                 }}
             >
-                <ChatSidebar
-                    conversations={conversations}
-                    activeConversation={activeConversation}
-                    onSelect={handleSelectConversation}
-                    onStartDirect={handleStartDirectChat}
-                    onSelectById={handleSelectConversationById}
-                    onCreateGroup={() => setGroupModalOpen(true)}
-                    onViewProfile={handleViewProfile}
-                />
+                {(!isMobile || !activeConversation) && (
+                    <ChatSidebar
+                        conversations={conversations}
+                        activeConversation={activeConversation}
+                        onSelect={handleSelectConversation}
+                        onStartDirect={handleStartDirectChat}
+                        onSelectById={handleSelectConversationById}
+                        onCreateGroup={() => setGroupModalOpen(true)}
+                        onViewProfile={handleViewProfile}
+                        isMobile={isMobile}
+                    />
+                )}
 
                 {activeConversation ? (
-                    <ChatWindow
-                        conversation={activeConversation}
-                        messages={messages}
-                        loading={messagesLoading}
-                        currentUserId={user?.id || 0}
-                        onSend={handleSendMessage}
-                        onClearChat={handleClearChat}
-                        onDeleteMessage={handleDeleteMessage}
-                        onViewProfile={handleViewProfile}
-                        onEditGroup={handleEditGroup}
-                    />
-                ) : (
+                    (!isMobile || activeConversation) && (
+                        <ChatWindow
+                            conversation={activeConversation}
+                            messages={messages}
+                            loading={messagesLoading}
+                            currentUserId={user?.id || 0}
+                            onSend={handleSendMessage}
+                            onClearChat={handleClearChat}
+                            onDeleteMessage={handleDeleteMessage}
+                            onViewProfile={handleViewProfile}
+                            onEditGroup={handleEditGroup}
+                            isMobile={isMobile}
+                            onBack={() => setActiveConversation(null)}
+                        />
+                    )
+                ) : !isMobile && (
                     <Center style={{ flex: 1, flexDirection: 'column', gap: 16 }}>
                         <IconMessageCircle size={80} stroke={1} style={{ color: 'var(--mantine-color-dimmed)' }} />
                         <Text size="xl" c="dimmed" fw={500}>Chat General ADL One</Text>

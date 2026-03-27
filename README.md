@@ -729,6 +729,25 @@ Finalización de la transición hacia una interfaz de usuario fluida y consisten
 - **Refinamiento de Formularios Críticos**:
     - Actualización de los formularios de **Equipo** y **Muestreador** para soportar el nuevo layout fluido sin perder integridad visual.
 - **Consistencia en Navegación**: Todas las páginas principales (Dashboard, Welcome, Home) ahora presentan un comportamiento de expansión idéntico, eliminando saltos visuales al navegar entre módulos.
+- **Archivos Modificados**: `AssignmentListView.tsx`, `SolicitudesMaPage.tsx`, `admin.css`.
+
+### 44. Refactor Responsivo para Tablets y Gestión de Permisos (Marzo 2026) 📱💻
+Optimización integral de la interfaz administrativa para garantizar una experiencia fluida en tablets (iPad) y dispositivos móviles, estandarizando el modelo de navegación compacta.
+
+- **Estandarización de Navegación Compacta**:
+    - Se unificó el punto de quiebre (breakpoint) a **1200px (lg)** para la activación del menú tipo "burger" y la barra lateral colapsable en `MainLayout.tsx`.
+    - Garantiza que tanto tablets en modo portrait como teléfonos tengan una navegación coherente y táctil.
+- **Optimización del Calendario en Tablets**:
+    - Ajuste dinámico de alturas de celda (100px) y aumento de tamaño de fuentes en `EnProcesoCalendarView.tsx` para mejorar la legibilidad en iPads.
+    - **Vista Anual**: Implementación de una cuadrícula de 2 columnas en tablets para evitar el hacinamiento de meses.
+    - Mayor densidad de eventos visibles (hasta 4 badges por día) antes de agrupar.
+- **Gestión de Permisos Responsiva (RequestTypePermissions)**:
+    - **Motor de Visualización Adaptable**: La tabla de permisos de trámites ahora se transforma automáticamente en una **lista de tarjetas inteligentes** en pantallas menores a 1200px.
+    - **Cabecera Dinámica**: La información básica del trámite utiliza `SimpleGrid` para apilarse verticalmente en móviles, manteniendo la jerarquía visual.
+    - **Selectores de Añadir**: Los buscadores de roles y usuarios ahora ocupan el ancho total en móviles para facilitar la selección táctil en `RequestTypePermissionsPage.tsx`.
+- **Ajustes en Modales y Formularios**:
+    - El `RecipientModal` ahora fuerza el apilamiento de columnas a partir de los 1200px, asegurando que los formularios sean cómodos de completar en cualquier tablet.
+    - Mejoras en `WelcomePage.tsx` para adaptar las secciones de servicios destacados a dispositivos medianos.
 
 ## 📄 Estado Final del Proyecto
 ✅ **Backend**: Node.js + Express (API RESTful, Auth JWT, Notificaciones con Adjuntos, Lógica de Exportación a Excel, Auditoría Avanzada, Motor de Chat Socket.io)

@@ -14,8 +14,12 @@ import {
     Box, 
     Tooltip,
     Image,
-    Modal
+    Modal,
+    Stack as MantineStack,
+    Divider,
+    SimpleGrid
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { 
     IconPlus, 
     IconSearch, 
@@ -65,6 +69,8 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
 
     const { showToast } = useToast();
     const { pendingRequestId } = useNavStore();
+
+    const isMobile = useMediaQuery('(max-width: 768px)');
 
     const fetchData = async () => {
         setLoading(true);
@@ -216,10 +222,10 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
         <Box p="md" style={{ width: '100%' }}>
             <PageHeader
                 title="Gestión de Muestreadores"
-                subtitle="Administra el personal de muestreo técnico y sus firmas digitales autorizadas."
+                subtitle={!isMobile ? "Administra el personal de muestreo técnico y sus firmas digitales autorizadas." : undefined}
                 onBack={onBack}
                 rightSection={
-                    <Group>
+                    <Group gap="xs" wrap={isMobile ? "wrap" : "nowrap"}>
                         <Button 
                             variant="light" 
                             color="red" 
@@ -227,6 +233,8 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                             onClick={handleExportPdf}
                             loading={isExporting}
                             radius="md"
+                            size={isMobile ? "xs" : "sm"}
+                            style={{ flex: isMobile ? 1 : 'auto' }}
                         >
                             Exportar PDF
                         </Button>
@@ -234,15 +242,17 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                             leftSection={<IconPlus size={18} />} 
                             onClick={handleCreate}
                             radius="md"
+                            size={isMobile ? "xs" : "sm"}
+                            style={{ flex: isMobile ? 1 : 'auto' }}
                         >
-                            Nuevo Muestreador
+                            Nuevo {isMobile ? '' : 'Muestreador'}
                         </Button>
                     </Group>
                 }
             />
 
             <Paper withBorder p="md" radius="md" shadow="sm" mt="xl">
-                <Group grow>
+                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
                     <TextInput
                         label="Buscar por Nombre"
                         placeholder="Escriba nombre o ID..."
@@ -263,113 +273,218 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                         onChange={(val) => setStatusFilter(val || 'ACTIVOS')}
                         radius="md"
                     />
-                </Group>
+                </SimpleGrid>
             </Paper>
 
             <Paper withBorder radius="md" shadow="sm" mt="lg" style={{ position: 'relative' }}>
                 <LoadingOverlay visible={loading} overlayProps={{ radius: "md", blur: 2 }} />
                 
-                <ScrollArea h={500}>
-                    <Table verticalSpacing="sm" highlightOnHover striped>
-                        <Table.Thead bg="blue.0">
-                            <Table.Tr>
-                                <Table.Th>Muestreador</Table.Th>
-                                <Table.Th>Contacto</Table.Th>
-                                <Table.Th>Estado</Table.Th>
-                                <Table.Th>Firma Digital</Table.Th>
-                                <Table.Th ta="center">Acciones</Table.Th>
-                            </Table.Tr>
-                        </Table.Thead>
-                        <Table.Tbody>
-                            {muestreadores.length === 0 && !loading ? (
+                {!isMobile ? (
+                    <ScrollArea h={500}>
+                        <Table verticalSpacing="sm" highlightOnHover striped>
+                            <Table.Thead bg="blue.0">
                                 <Table.Tr>
-                                    <Table.Td colSpan={5} ta="center" py="xl">
-                                        <Text c="dimmed">No se encontraron muestreadores con los filtros aplicados.</Text>
-                                    </Table.Td>
+                                    <Table.Th>Muestreador</Table.Th>
+                                    <Table.Th>Contacto</Table.Th>
+                                    <Table.Th>Estado</Table.Th>
+                                    <Table.Th>Firma Digital</Table.Th>
+                                    <Table.Th ta="center">Acciones</Table.Th>
                                 </Table.Tr>
-                            ) : (
-                                muestreadores.map((m) => {
-                                    const pendingReqs = getPendingRequestsForSampler(m.id_muestreador);
-                                    const hasPending = pendingReqs.length > 0;
+                            </Table.Thead>
+                            <Table.Tbody>
+                                {muestreadores.length === 0 && !loading ? (
+                                    <Table.Tr>
+                                        <Table.Td colSpan={5} ta="center" py="xl">
+                                            <Text c="dimmed">No se encontraron muestreadores con los filtros aplicados.</Text>
+                                        </Table.Td>
+                                    </Table.Tr>
+                                ) : (
+                                    muestreadores.map((m) => {
+                                        const pendingReqs = getPendingRequestsForSampler(m.id_muestreador);
+                                        const hasPending = pendingReqs.length > 0;
 
-                                    return (
-                                        <Table.Tr key={m.id_muestreador}>
-                                            <Table.Td>
+                                        return (
+                                            <Table.Tr key={m.id_muestreador}>
+                                                <Table.Td>
+                                                    <Box>
+                                                        <Text fw={700} size="sm">{m.nombre_muestreador}</Text>
+                                                        <Text size="xs" c="dimmed">ID: {m.id_muestreador}</Text>
+                                                    </Box>
+                                                </Table.Td>
+                                                <Table.Td>
+                                                    <Text size="sm">{m.correo_electronico || '---'}</Text>
+                                                </Table.Td>
+                                                <Table.Td>
+                                                    <Badge 
+                                                        color={m.habilitado === 'S' ? 'green' : 'red'} 
+                                                        variant="light"
+                                                        leftSection={m.habilitado === 'S' ? <IconCheck size={10} /> : <IconX size={10} />}
+                                                    >
+                                                        {m.habilitado === 'S' ? 'Activo' : 'Inactivo'}
+                                                    </Badge>
+                                                </Table.Td>
+                                                <Table.Td>
+                                                    {m.firma_muestreador ? (
+                                                        <Tooltip label="Ver firma ampliada">
+                                                            <Paper 
+                                                                withBorder 
+                                                                h={40} 
+                                                                w={100} 
+                                                                shadow="xs"
+                                                                onClick={() => setZoomedImage(m.firma_muestreador)}
+                                                                style={{ cursor: 'pointer', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                            >
+                                                                <Image src={m.firma_muestreador} fit="contain" h={36} />
+                                                            </Paper>
+                                                        </Tooltip>
+                                                    ) : (
+                                                        <Text size="xs" c="dimmed" fs="italic">Sin firma registrada</Text>
+                                                    )}
+                                                </Table.Td>
+                                                <Table.Td>
+                                                    <Group gap="xs" justify="center">
+                                                        <Tooltip label="Ver Solicitudes">
+                                                            <ActionIcon 
+                                                                variant="light" 
+                                                                color={hasPending ? "orange" : "gray"} 
+                                                                onClick={() => handleOpenRequests(m)}
+                                                            >
+                                                                <IconBell size={16} />
+                                                            </ActionIcon>
+                                                        </Tooltip>
+
+                                                        <Tooltip label="Editar Información">
+                                                            <ActionIcon variant="light" color="blue" onClick={() => handleEdit(m)}>
+                                                                <IconEdit size={16} />
+                                                            </ActionIcon>
+                                                        </Tooltip>
+                                                        
+                                                        {m.habilitado === 'S' ? (
+                                                            <Tooltip label="Deshabilitar Muestreador">
+                                                                <ActionIcon variant="light" color="red" onClick={() => handleDisableClick(m)}>
+                                                                    <IconPower size={16} />
+                                                                </ActionIcon>
+                                                            </Tooltip>
+                                                        ) : (
+                                                            <Tooltip label="Habilitar Muestreador">
+                                                                <ActionIcon variant="light" color="green" onClick={() => handleEnableClick(m)}>
+                                                                    <IconCheck size={16} />
+                                                                </ActionIcon>
+                                                            </Tooltip>
+                                                        )}
+                                                    </Group>
+                                                </Table.Td>
+                                            </Table.Tr>
+                                        );
+                                    })
+                                )}
+                            </Table.Tbody>
+                        </Table>
+                    </ScrollArea>
+                ) : (
+                    <MantineStack gap="md" p="md">
+                        {muestreadores.length === 0 && !loading ? (
+                            <Paper withBorder p="xl" radius="md" bg="gray.0" style={{ borderStyle: 'dashed' }}>
+                                <Text c="dimmed" ta="center">No se encontraron muestreadores.</Text>
+                            </Paper>
+                        ) : (
+                            muestreadores.map((m) => {
+                                const pendingReqs = getPendingRequestsForSampler(m.id_muestreador);
+                                const hasPending = pendingReqs.length > 0;
+
+                                return (
+                                    <Paper key={m.id_muestreador} withBorder p="md" radius="lg" shadow="xs">
+                                        <MantineStack gap="sm">
+                                            <Group justify="space-between" align="flex-start" wrap="nowrap">
                                                 <Box>
-                                                    <Text fw={700} size="sm">{m.nombre_muestreador}</Text>
-                                                    <Text size="xs" c="dimmed">ID: {m.id_muestreador}</Text>
+                                                    <Text fw={800} size="md" c="blue.8">{m.nombre_muestreador}</Text>
+                                                    <Text size="xs" c="dimmed" fw={600}>ID: {m.id_muestreador}</Text>
                                                 </Box>
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <Text size="sm">{m.correo_electronico || '---'}</Text>
-                                            </Table.Td>
-                                            <Table.Td>
                                                 <Badge 
                                                     color={m.habilitado === 'S' ? 'green' : 'red'} 
                                                     variant="light"
-                                                    leftSection={m.habilitado === 'S' ? <IconCheck size={10} /> : <IconX size={10} />}
+                                                    size="sm"
                                                 >
                                                     {m.habilitado === 'S' ? 'Activo' : 'Inactivo'}
                                                 </Badge>
-                                            </Table.Td>
-                                            <Table.Td>
+                                            </Group>
+
+                                            <Divider variant="dashed" />
+
+                                            <Box>
+                                                <Text size="xs" fw={700} c="dimmed" mb={4}>CONTACTO:</Text>
+                                                <Text size="sm" fw={600}>{m.correo_electronico || 'Sin correo registrado'}</Text>
+                                            </Box>
+
+                                            <Box>
+                                                <Text size="xs" fw={700} c="dimmed" mb={4}>FIRMA DIGITAL:</Text>
                                                 {m.firma_muestreador ? (
-                                                    <Tooltip label="Ver firma ampliada">
-                                                        <Paper 
-                                                            withBorder 
-                                                            h={40} 
-                                                            w={100} 
-                                                            shadow="xs"
-                                                            onClick={() => setZoomedImage(m.firma_muestreador)}
-                                                            style={{ cursor: 'pointer', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                                        >
-                                                            <Image src={m.firma_muestreador} fit="contain" h={36} />
-                                                        </Paper>
-                                                    </Tooltip>
+                                                    <Paper 
+                                                        withBorder p={4} radius="md" bg="gray.0" w={110} h={48}
+                                                        onClick={() => setZoomedImage(m.firma_muestreador)}
+                                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                                                    >
+                                                        <Image src={m.firma_muestreador} fit="contain" h={40} />
+                                                    </Paper>
                                                 ) : (
                                                     <Text size="xs" c="dimmed" fs="italic">Sin firma registrada</Text>
                                                 )}
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <Group gap="xs" justify="center">
-                                                    <Tooltip label="Ver Solicitudes">
-                                                        <ActionIcon 
-                                                            variant="light" 
-                                                            color={hasPending ? "orange" : "gray"} 
-                                                            onClick={() => handleOpenRequests(m)}
-                                                        >
-                                                            <IconBell size={16} />
-                                                        </ActionIcon>
-                                                    </Tooltip>
+                                            </Box>
 
-                                                    <Tooltip label="Editar Información">
-                                                        <ActionIcon variant="light" color="blue" onClick={() => handleEdit(m)}>
-                                                            <IconEdit size={16} />
-                                                        </ActionIcon>
-                                                    </Tooltip>
-                                                    
-                                                    {m.habilitado === 'S' ? (
-                                                        <Tooltip label="Deshabilitar Muestreador">
-                                                            <ActionIcon variant="light" color="red" onClick={() => handleDisableClick(m)}>
-                                                                <IconPower size={16} />
-                                                            </ActionIcon>
-                                                        </Tooltip>
-                                                    ) : (
-                                                        <Tooltip label="Habilitar Muestreador">
-                                                            <ActionIcon variant="light" color="green" onClick={() => handleEnableClick(m)}>
-                                                                <IconCheck size={16} />
-                                                            </ActionIcon>
-                                                        </Tooltip>
-                                                    )}
-                                                </Group>
-                                            </Table.Td>
-                                        </Table.Tr>
-                                    );
-                                })
-                            )}
-                        </Table.Tbody>
-                    </Table>
-                </ScrollArea>
+                                            <Divider variant="dashed" />
+
+                                            <Group grow gap="xs">
+                                                <Button 
+                                                    variant="light" 
+                                                    color={hasPending ? "orange" : "gray"} 
+                                                    onClick={() => handleOpenRequests(m)}
+                                                    leftSection={<IconBell size={16} />}
+                                                    size="xs"
+                                                    radius="md"
+                                                >
+                                                    Solicitudes
+                                                </Button>
+                                                <Button 
+                                                    variant="light" 
+                                                    color="blue" 
+                                                    onClick={() => handleEdit(m)}
+                                                    leftSection={<IconEdit size={16} />}
+                                                    size="xs"
+                                                    radius="md"
+                                                >
+                                                    Editar
+                                                </Button>
+                                                {m.habilitado === 'S' ? (
+                                                    <Button 
+                                                        variant="light" 
+                                                        color="red" 
+                                                        onClick={() => handleDisableClick(m)}
+                                                        leftSection={<IconPower size={16} />}
+                                                        size="xs"
+                                                        radius="md"
+                                                    >
+                                                        Baja
+                                                    </Button>
+                                                ) : (
+                                                    <Button 
+                                                        variant="light" 
+                                                        color="green" 
+                                                        onClick={() => handleEnableClick(m)}
+                                                        leftSection={<IconCheck size={16} />}
+                                                        size="xs"
+                                                        radius="md"
+                                                    >
+                                                        Alta
+                                                    </Button>
+                                                )}
+                                            </Group>
+                                        </MantineStack>
+                                    </Paper>
+                                );
+                            })
+                        )}
+                    </MantineStack>
+                )}
             </Paper>
         </Box>
     );

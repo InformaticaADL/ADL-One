@@ -5,7 +5,8 @@ import {
     Modal, SimpleGrid, UnstyledButton, PasswordInput,
     Progress,
     Loader,
-    Center
+    Center,
+    Flex
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { IconUser, IconMail, IconShieldCheck, IconId, IconUserCircle, IconCamera, IconBriefcase, IconLock, IconMessageCircle } from '@tabler/icons-react';
@@ -240,7 +241,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onStartChat })
     }
 
     return (
-        <Box py="xl" px="xs" style={{ width: '100%' }}>
+        <Box p="md" style={{ width: '100% !important', maxWidth: '100% !important' }}>
             <Stack gap="xl">
                 <Paper p="xl" radius="md" withBorder style={{ 
                     background: 'linear-gradient(135deg, var(--mantine-color-adl-blue-0) 0%, var(--mantine-color-adl-blue-1) 100%)',
@@ -250,12 +251,19 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onStartChat })
                     borderColor: 'var(--mantine-color-adl-blue-2)'
                 }}>
                     <div style={{ position: 'relative', zIndex: 1 }}>
-                        <Group align="flex-start" justify="flex-start">
-                            <Group gap="xl">
+                        <Flex 
+                            align="center" 
+                            justify="flex-start" 
+                            direction={{ base: 'column', sm: 'row' }}
+                            gap="xl"
+                            style={{ textAlign: 'center' }}
+                        >
+                            <Flex direction={{ base: 'column', sm: 'row' }} align="center" gap="xl">
                                 <Box style={{ position: 'relative' }}>
                                     <Avatar 
                                         src={profilePicUrl} 
-                                        size={120} 
+                                        w={{ base: 100, sm: 120 }} 
+                                        h={{ base: 100, sm: 120 }}
                                         radius={120} 
                                         color="adl-blue"
                                         style={{ 
@@ -264,7 +272,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onStartChat })
                                         }}
                                         onClick={handleAvatarClick}
                                     >
-                                        <Text size={rem(48)} fw={700}>{profileData?.nombre?.charAt(0)}</Text>
+                                        <Text fz={{ base: rem(32), sm: rem(48) }} fw={700}>{profileData?.nombre?.charAt(0)}</Text>
                                     </Avatar>
                                     {isOwnProfile && (
                                         <ThemeIcon 
@@ -292,11 +300,16 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onStartChat })
                                         onChange={handleFileChange}
                                     />
                                 </Box>
-                                <Stack gap={4}>
-                                    <Text size="xl" fw={800} style={{ fontSize: rem(32), lineHeight: 1.2 }}>
+                                <Flex direction="column" gap={4} align={{ base: 'center', sm: 'flex-start' }}>
+                                    <Text fw={800} style={{ 
+                                        lineHeight: 1.2,
+                                        textAlign: 'center'
+                                    }}
+                                    fz={{ base: rem(24), sm: rem(32) }}
+                                    >
                                         {profileData?.nombre}
                                     </Text>
-                                    <Group gap="xs">
+                                    <Flex gap="xs" justify={{ base: 'center', sm: 'flex-start' }} wrap="wrap">
                                         {profileData?.roles?.split(', ').map((role: string, idx: number) => (
                                             <Badge key={idx} color="adl-blue" variant="filled" size="sm" style={{ fontWeight: 800 }}>
                                                 {role.toUpperCase()}
@@ -307,10 +320,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onStartChat })
                                                 @{profileData.nombre_usuario}
                                             </Text>
                                         )}
-                                    </Group>
-                                </Stack>
-                            </Group>
-                        </Group>
+                                    </Flex>
+                                </Flex>
+                            </Flex>
+                        </Flex>
                     </div>
                     <div style={{ position: 'absolute', top: '-10%', right: '-5%', width: '300px', height: '300px', background: 'radial-gradient(circle, rgba(56, 189, 248, 0.1) 0%, transparent 70%)', zIndex: 0 }} />
                 </Paper>
@@ -326,45 +339,45 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onStartChat })
                             </Text>
 
                             <Stack gap="lg">
-                                <Group justify="space-between" wrap="nowrap" gap="xl">
+                                <Flex justify="space-between" align={{ base: 'flex-start', sm: 'center' }} direction={{ base: 'column', sm: 'row' }} gap={{ base: 'xs', sm: 'xl' }}>
                                     <Group gap="sm" style={{ flexShrink: 0 }}>
                                         <ThemeIcon variant="light" color="gray" size="md" radius="sm">
                                             <IconUser size={16} />
                                         </ThemeIcon>
                                         <Text size="sm" fw={600} c="dimmed">Nombre Completo</Text>
                                     </Group>
-                                    <Text fw={500}>{profileData?.nombre}</Text>
-                                </Group>
+                                    <Text fw={500} ta={{ base: 'left', sm: 'right' }}>{profileData?.nombre}</Text>
+                                </Flex>
                                 <Divider variant="dotted" />
-                                <Group justify="space-between" wrap="nowrap" gap="xl">
+                                <Flex justify="space-between" align={{ base: 'flex-start', sm: 'center' }} direction={{ base: 'column', sm: 'row' }} gap={{ base: 'xs', sm: 'xl' }}>
                                     <Group gap="sm" style={{ flexShrink: 0 }}>
                                         <ThemeIcon variant="light" color="gray" size="md" radius="sm">
                                             <IconMail size={16} />
                                         </ThemeIcon>
                                         <Text size="sm" fw={600} c="dimmed">Correo Electrónico</Text>
                                     </Group>
-                                    <Text fw={500}>{profileData?.email || 'No especificado'}</Text>
-                                </Group>
+                                    <Text fw={500} ta={{ base: 'left', sm: 'right' }} style={{ wordBreak: 'break-all' }}>{profileData?.email || 'No especificado'}</Text>
+                                </Flex>
                                 <Divider variant="dotted" />
-                                <Group justify="space-between" wrap="nowrap" gap="xl">
+                                <Flex justify="space-between" align={{ base: 'flex-start', sm: 'center' }} direction={{ base: 'column', sm: 'row' }} gap={{ base: 'xs', sm: 'xl' }}>
                                     <Group gap="sm">
                                         <ThemeIcon variant="light" color="gray" size="md" radius="sm">
                                             <IconUserCircle size={16} />
                                         </ThemeIcon>
                                         <Text size="sm" fw={600} c="dimmed">Nombre de Usuario</Text>
                                     </Group>
-                                    <Text fw={500}>{profileData?.nombre_usuario || 'No especificado'}</Text>
-                                </Group>
+                                    <Text fw={500} ta={{ base: 'left', sm: 'right' }}>{profileData?.nombre_usuario || 'No especificado'}</Text>
+                                </Flex>
                                 <Divider variant="dotted" />
-                                <Group justify="space-between" wrap="nowrap" gap="xl">
+                                <Flex justify="space-between" align={{ base: 'flex-start', sm: 'center' }} direction={{ base: 'column', sm: 'row' }} gap={{ base: 'xs', sm: 'xl' }}>
                                     <Group gap="sm">
                                         <ThemeIcon variant="light" color="gray" size="md" radius="sm">
                                             <IconBriefcase size={16} />
                                         </ThemeIcon>
                                         <Text size="sm" fw={600} c="dimmed">Cargo</Text>
                                     </Group>
-                                    <Text fw={500}>{profileData?.cargo || 'No especificado'}</Text>
-                                </Group>
+                                    <Text fw={500} ta={{ base: 'left', sm: 'right' }}>{profileData?.cargo || 'No especificado'}</Text>
+                                </Flex>
 
                                 {isOwnProfile ? (
                                     <>
@@ -426,11 +439,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onStartChat })
                                         <Text fw={600}>#{profileData?.id_usuario}</Text>
                                     </Box>
                                 </Stack>
-                            </Card>
-                        </Stack>
-                    </Grid.Col>
-                </Grid>
-            </Stack>
+                    </Card>
+                </Stack>
+            </Grid.Col>
+        </Grid>
+    </Stack>
 
             <Modal opened={opened} onClose={close} title="Cambiar foto de perfil" centered size="md">
                 <Stack gap="md">

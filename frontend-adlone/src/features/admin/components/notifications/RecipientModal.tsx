@@ -175,24 +175,24 @@ export const RecipientModal: React.FC<Props> = ({ isOpen, onClose, event, onSave
         <div className="drawer-overlay" onClick={onClose}>
             <div className={`drawer-content ${isOpen ? 'open' : ''}`} onClick={e => e.stopPropagation()}>
                 {/* Header */}
-                <div style={{ padding: '2rem 2.5rem', borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', backgroundColor: '#fff' }}>
+                <div className="modal-header">
                     <div>
-                        <div style={{ display: 'inline-block', padding: '4px 8px', backgroundColor: '#e0f2fe', color: '#0284c7', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700, marginBottom: '8px' }}>
+                        <div className="event-tag">
                             {event.codigo}
                         </div>
-                        <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, color: '#0f172a' }}>Configurar Notificación</h2>
-                        <p style={{ margin: '0.5rem 0 0 0', fontSize: '1rem', color: '#64748b' }}>{event.descripcion}</p>
+                        <h2 className="modal-title">Configurar Notificación</h2>
+                        <p className="modal-subtitle">{event.descripcion}</p>
                     </div>
-                    <button onClick={onClose} style={{ background: '#f1f5f9', border: 'none', cursor: 'pointer', color: '#64748b', padding: '8px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <button onClick={onClose} className="close-btn">
                         <X size={20} />
                     </button>
                 </div>
 
                 {/* Body - Two Columns */}
-                <div style={{ display: 'flex', flex: 1, overflow: 'hidden', backgroundColor: '#f8fafc' }}>
+                <div className="modal-body">
                     
                     {/* Left Column: Config */}
-                    <div style={{ flex: '0 0 65%', padding: '2.5rem', overflowY: 'auto', borderRight: '1px solid #e2e8f0' }}>
+                    <div className="config-column">
                         
                         {/* 1. Canales */}
                         <div style={{ marginBottom: '2.5rem' }}>
@@ -200,7 +200,7 @@ export const RecipientModal: React.FC<Props> = ({ isOpen, onClose, event, onSave
                                 <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', backgroundColor: '#3b82f6', color: 'white', borderRadius: '50%', fontSize: '12px' }}>1</span>
                                 ¿Por qué canales enviamos?
                             </h3>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                            <div className="channels-grid">
                                 {/* Channel Card: Email */}
                                 <div 
                                     onClick={() => setChannels(p => ({...p, email: !p.email}))}
@@ -378,8 +378,8 @@ export const RecipientModal: React.FC<Props> = ({ isOpen, onClose, event, onSave
                     </div>
 
                     {/* Right Column: Visual Summary */}
-                    <div style={{ flex: '0 0 35%', backgroundColor: '#fff', display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ padding: '2.5rem 2rem', flex: 1 }}>
+                    <div className="summary-column">
+                        <div className="summary-content">
                             <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#1e293b', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <CheckCircle2 size={20} color="#10b981" /> Resumen en Vivo
                             </h3>
@@ -497,7 +497,93 @@ export const RecipientModal: React.FC<Props> = ({ isOpen, onClose, event, onSave
                     box-shadow: -10px 0 25px rgba(0,0,0,0.1);
                     transform: translateX(100%);
                     animation: slideLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+                    overflow: hidden;
                 }
+                
+                .modal-header {
+                    padding: 2rem 2.5rem;
+                    border-bottom: 1px solid rgba(0,0,0,0.06);
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: flex-start;
+                    background-color: #fff;
+                }
+                
+                .event-tag {
+                    display: inline-block;
+                    padding: 4px 8px;
+                    background-color: #e0f2fe;
+                    color: #0284c7;
+                    border-radius: 4px;
+                    font-size: 0.75rem;
+                    font-weight: 700;
+                    margin-bottom: 8px;
+                }
+                
+                .modal-title {
+                    margin: 0;
+                    font-size: 1.5rem;
+                    font-weight: 800;
+                    color: #0f172a;
+                }
+                
+                .modal-subtitle {
+                    margin: 0.5rem 0 0 0;
+                    font-size: 1rem;
+                    color: #64748b;
+                }
+                
+                .close-btn {
+                    background: #f1f5f9;
+                    border: none;
+                    cursor: pointer;
+                    color: #64748b;
+                    padding: 8px;
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    transition: all 0.2s;
+                }
+                
+                .close-btn:hover {
+                    background: #e2e8f0;
+                    color: #0f172a;
+                }
+                
+                .modal-body {
+                    display: flex;
+                    flex: 1;
+                    overflow: hidden;
+                    background-color: #f8fafc;
+                }
+                
+                .config-column {
+                    flex: 0 0 65%;
+                    padding: 2.5rem;
+                    overflow-y: auto;
+                    border-right: 1px solid #e2e8f0;
+                }
+                
+                .channels-grid {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 1rem;
+                }
+                
+                .summary-column {
+                    flex: 0 0 35%;
+                    background-color: #fff;
+                    display: flex;
+                    flex-direction: column;
+                    overflow-y: auto;
+                }
+                
+                .summary-content {
+                    padding: 2.5rem 2rem;
+                    flex: 1;
+                }
+                
                 @keyframes fadeIn {
                     from { opacity: 0; }
                     to { opacity: 1; }
@@ -505,6 +591,50 @@ export const RecipientModal: React.FC<Props> = ({ isOpen, onClose, event, onSave
                 @keyframes slideLeft {
                     from { transform: translateX(100%); }
                     to { transform: translateX(0); }
+                }
+                
+                /* Compact Styles (Mobile & Tablet) */
+                @media (max-width: 1200px) {
+                    .drawer-content {
+                        width: 100%;
+                        max-width: 100%;
+                    }
+                    
+                    .modal-header {
+                        padding: 1.5rem;
+                    }
+                    
+                    .modal-title {
+                        font-size: 1.25rem;
+                    }
+                    
+                    .modal-body {
+                        flex-direction: column;
+                        overflow-y: auto;
+                    }
+                    
+                    .config-column {
+                        flex: none;
+                        width: 100%;
+                        padding: 1.5rem;
+                        border-right: none;
+                        border-bottom: 1px solid #e2e8f0;
+                        overflow-y: visible;
+                    }
+                    
+                    .channels-grid {
+                        grid-template-columns: 1fr;
+                    }
+                    
+                    .summary-column {
+                        flex: none;
+                        width: 100%;
+                        overflow-y: visible;
+                    }
+                    
+                    .summary-content {
+                        padding: 1.5rem;
+                    }
                 }
             `}</style>
         </div>

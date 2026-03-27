@@ -5,7 +5,7 @@ import {
 } from '@mantine/core';
 import {
     IconSend, IconPaperclip, IconDotsVertical, IconTrash, IconClearAll,
-    IconUsers, IconDownload, IconFile, IconUserCircle, IconSettings
+    IconUsers, IconDownload, IconFile, IconUserCircle, IconSettings, IconArrowLeft
 } from '@tabler/icons-react';
 import type { ChatConversation, ChatMessage } from '../../services/general-chat.service';
 import API_CONFIG from '../../config/api.config';
@@ -22,11 +22,13 @@ interface ChatWindowProps {
     onDeleteMessage: (messageId: number) => void;
     onViewProfile: (userId: number) => void;
     onEditGroup: (conversationId: number) => void;
+    isMobile?: boolean;
+    onBack?: () => void;
 }
 
 const ChatWindow: React.FC<ChatWindowProps> = ({
     conversation, messages, loading, currentUserId,
-    onSend, onClearChat, onDeleteMessage, onViewProfile, onEditGroup
+    onSend, onClearChat, onDeleteMessage, onViewProfile, onEditGroup, isMobile, onBack
 }) => {
     const { drafts, setDraft, clearDraft } = useChatStore();
     const [text, setText] = useState('');
@@ -195,27 +197,26 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                     borderBottom: '1px solid var(--mantine-color-default-border)',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 12
+                    gap: isMobile ? 8 : 12,
+                    minHeight: 64
                 }}
             >
-                <Avatar
-                    src={avatar}
-                    radius="xl"
-                    size={40}
-                    color={conversation.tipo === 'GRUPO' ? 'teal' : 'blue'}
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => {
-                        if (conversation.tipo === 'DIRECTA' && conversation.contacto_id) {
-                            onViewProfile(conversation.contacto_id);
-                        } else if (conversation.tipo === 'GRUPO') {
-                            onEditGroup(conversation.id_conversacion);
-                        }
-                    }}
-                >
-                    {conversation.tipo === 'GRUPO' ? <IconUsers size={20} /> : conversation.nombre_display?.charAt(0)?.toUpperCase()}
-                </Avatar>
+                {isMobile && (
+                    <ActionIcon variant="subtle" color="gray" onClick={onBack} size="lg">
+                        <IconArrowLeft size={24} />
+                    </ActionIcon>
+                )}
+
                 <Box 
-                    style={{ flex: 1, cursor: 'pointer' }}
+                    style={{ 
+                        flex: 1, 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: isMobile ? 'center' : 'flex-start',
+                        gap: 12,
+                        cursor: 'pointer',
+                        paddingRight: isMobile ? 40 : 0 // Balance the back button for centering
+                    }}
                     onClick={() => {
                         if (conversation.tipo === 'DIRECTA' && conversation.contacto_id) {
                             onViewProfile(conversation.contacto_id);
@@ -224,15 +225,30 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                         }
                     }}
                 >
-                    <Text size="sm" fw={600}>{conversation.nombre_display || 'Chat'}</Text>
-                    {conversation.tipo === 'GRUPO' && (
-                        <Text size="xs" c="dimmed">{conversation.total_miembros} miembros</Text>
+                    {!isMobile && (
+                        <Avatar
+                            src={avatar}
+                            radius="xl"
+                            size={40}
+                            color={conversation.tipo === 'GRUPO' ? 'teal' : 'blue'}
+                        >
+                            {conversation.tipo === 'GRUPO' ? <IconUsers size={20} /> : conversation.nombre_display?.charAt(0)?.toUpperCase()}
+                        </Avatar>
                     )}
+                    <Box style={{ textAlign: isMobile ? 'center' : 'left' }}>
+                        <Text size={isMobile ? 'md' : 'sm'} fw={700} truncate="end" lineClamp={1}>
+                            {conversation.nombre_display || 'Chat'}
+                        </Text>
+                        {conversation.tipo === 'GRUPO' && (
+                            <Text size="xs" c="dimmed">{conversation.total_miembros} miembros</Text>
+                        )}
+                    </Box>
                 </Box>
+
                 <Menu position="bottom-end" withArrow shadow="md">
                     <Menu.Target>
-                        <ActionIcon variant="subtle" color="gray">
-                            <IconDotsVertical size={18} />
+                        <ActionIcon variant="subtle" color="gray" size="lg">
+                            <IconDotsVertical size={20} />
                         </ActionIcon>
                     </Menu.Target>
                     <Menu.Dropdown>

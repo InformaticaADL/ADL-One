@@ -27,6 +27,7 @@ import {
     Box,
     Divider
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { 
     IconDeviceFloppy,
     IconX,
@@ -153,6 +154,8 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
     const catalogos = useCachedCatalogos();
     const auth = useAuth();
     const { hasPermission } = auth;
+    const isMobile = useMediaQuery('(max-width: 500px)');
+    const isVerySmall = useMediaQuery('(max-width: 450px)');
 
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<string>('antecedentes');
@@ -282,7 +285,7 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
     const canEdit = hasPermission('MA_COMERCIAL_EDITAR') && !isEditing && [1, 2, 3, 4].includes(Number(data?.id_validaciontecnica));
 
     return (
-        <Box p="md" style={{ width: '100%' }}>
+        <Box p="md" style={{ width: '100% !important', maxWidth: '100% !important' }}>
             <Stack gap="lg">
                 <PageHeader 
                     title={`Ficha N° ${data?.fichaingresoservicio || '-'}`}
@@ -313,10 +316,10 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                     }
                 />
 
-                <Paper withBorder p="xl" radius="lg" shadow="sm" style={{ width: '100% !important' }}>
-                    <Stack gap="xl">
+                <Paper withBorder p={0} radius="lg" shadow="sm" style={{ width: '100% !important', maxWidth: '100% !important', overflow: 'hidden' }}>
+                    <Stack gap={0}>
                         {/* Alerts */}
-                        <Box>
+                        <Box p={isMobile ? 'md' : 'xl'} pb={0}>
                             {[1, 2, 3, 4, 5, 6, 7].includes(Number(data?.id_validaciontecnica)) && (
                                 <Box mb="md">
                                     {data.id_validaciontecnica === 3 && <WorkflowAlert type="info" title="Pendiente Técnica" message="En revisión por el Área Técnica." />}
@@ -330,15 +333,38 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                             )}
                         </Box>
 
-                        <Tabs value={activeTab} onChange={(v) => setActiveTab(v || 'antecedentes')} variant="outline" radius="md" style={{ width: '100% !important' }}>
+                        <Tabs value={activeTab} onChange={(v) => setActiveTab(v || 'antecedentes')} variant="outline" radius="md" mt="xl" style={{ width: '100% !important' }}>
                             <Tabs.List grow>
-                                <Tabs.Tab value="antecedentes" leftSection={<IconClipboardList size={18} />}>Antecedentes</Tabs.Tab>
-                                <Tabs.Tab value="analisis" leftSection={<IconFlask size={18} />}>Análisis</Tabs.Tab>
-                                <Tabs.Tab value="observaciones" leftSection={<IconHistory size={18} />}>Validación e Historial</Tabs.Tab>
+                                <Tabs.Tab 
+                                    value="antecedentes" 
+                                    leftSection={<IconClipboardList size={isVerySmall ? 16 : (isMobile ? 18 : 22)} />} 
+                                    px={isVerySmall ? 4 : (isMobile ? 'xs' : 'xl')} 
+                                    py={isMobile ? 'xs' : 'md'}
+                                    style={{ flex: '1 1 0%', fontSize: isVerySmall ? '0.75rem' : (isMobile ? '0.85rem' : '1rem'), fontWeight: 600, minWidth: 0, whiteSpace: 'nowrap' }}
+                                >
+                                    {isVerySmall ? 'Antec.' : 'Antecedentes'}
+                                </Tabs.Tab>
+                                <Tabs.Tab 
+                                    value="analisis" 
+                                    leftSection={<IconFlask size={isVerySmall ? 16 : (isMobile ? 18 : 22)} />} 
+                                    px={isVerySmall ? 4 : (isMobile ? 'xs' : 'xl')} 
+                                    py={isMobile ? 'xs' : 'md'}
+                                    style={{ flex: '1 1 0%', fontSize: isVerySmall ? '0.75rem' : (isMobile ? '0.85rem' : '1rem'), fontWeight: 600, minWidth: 0, whiteSpace: 'nowrap' }}
+                                >
+                                    {isVerySmall ? 'Análisis' : 'Análisis'}
+                                </Tabs.Tab>
+                                <Tabs.Tab 
+                                    value="observaciones" 
+                                    leftSection={<IconHistory size={isVerySmall ? 16 : (isMobile ? 18 : 22)} />} 
+                                    px={isVerySmall ? 4 : (isMobile ? 'xs' : 'xl')} 
+                                    py={isMobile ? 'xs' : 'md'}
+                                    style={{ flex: '1 1 0%', fontSize: isVerySmall ? '0.75rem' : (isMobile ? '0.85rem' : '1rem'), fontWeight: 600, minWidth: 0, whiteSpace: 'nowrap' }}
+                                >
+                                    {isVerySmall ? 'Historial' : 'Validación e Historial'}
+                                </Tabs.Tab>
                             </Tabs.List>
 
-                            <Box mt="xl">
-                                <Tabs.Panel value="antecedentes" style={{ width: '100% !important' }}>
+                                <Tabs.Panel value="antecedentes" p={isMobile ? 'md' : 50} pt="xl" style={{ width: '100% !important', minHeight: '70vh' }}>
                                     {isEditing ? (
                                         <AntecedentesForm ref={antecedentesRef} initialData={mappedInitialDataRef.current} />
                                     ) : (
@@ -382,6 +408,9 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                 <StaticField label="Factor" value={data.agenda?.frecuencia_factor} />
                                                 <StaticField label="Total Servicios" value={data.agenda?.total_servicios} />
                                             </SimpleGrid>
+                                            <Text size="sm" c="dimmed" fs="italic" ta="center">
+                                                {`Se realizarán ${data.agenda?.total_servicios || '—'} muestreo(s) en total, con una frecuencia de ${data.agenda?.frecuencia || '—'} vez/veces cada periodo ${(data.agenda?.nombre_frecuencia || '—').toLowerCase()}, multiplicado por un factor de ${data.agenda?.frecuencia_factor || '—'}.`}
+                                            </Text>
 
                                             <Divider label="Detalles del Servicio" labelPosition="center" />
                                             
@@ -401,7 +430,7 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                     )}
                                 </Tabs.Panel>
 
-                                <Tabs.Panel value="analisis" style={{ width: '100% !important' }}>
+                                <Tabs.Panel value="analisis" p={isMobile ? 'md' : 50} pt="xl" style={{ width: '100% !important' }}>
                                     {isEditing ? (
                                         <AnalysisForm savedAnalysis={analysisList} onSavedAnalysisChange={setAnalysisList} />
                                     ) : (
@@ -445,7 +474,7 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                     )}
                                 </Tabs.Panel>
 
-                                <Tabs.Panel value="observaciones" style={{ width: '100% !important' }}>
+                                <Tabs.Panel value="observaciones" p={isMobile ? 'md' : 50} pt="xl" style={{ width: '100% !important' }}>
                                     <Stack gap="xl">
                                         {isEditing && (
                                             <Paper withBorder p="md" radius="md" bg="green.0">
@@ -469,12 +498,10 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                         </Box>
                                     </Stack>
                                 </Tabs.Panel>
-                            </Box>
                         </Tabs>
                     </Stack>
                 </Paper>
             </Stack>
-
             <ConfirmModal
                 isOpen={showCancelModal}
                 title="Descartar cambios"

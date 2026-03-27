@@ -16,8 +16,10 @@ import {
     ThemeIcon,
     Transition,
     Tooltip,
-    Badge
+    Badge,
+    useMantineTheme
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import {
     IconLayoutDashboard,
     IconChevronRight,
@@ -51,6 +53,8 @@ interface Funcionalidad {
 }
 
 export const NotificationHub: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
+    const theme = useMantineTheme();
+    const isMobile = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`);
     const { showToast } = useToast();
     const [catalog, setCatalog] = useState<Module[]>([]);
     const [loading, setLoading] = useState(true);
@@ -159,13 +163,13 @@ export const NotificationHub: React.FC<{ onBack?: () => void }> = ({ onBack }) =
                 subtitle="Administre destinatarios y canales de alerta para todo el sistema."
                 onBack={onBack}
                 rightSection={
-                    <Group gap="sm">
+                    <Group gap="sm" wrap={isMobile ? "wrap" : "nowrap"} style={{ flex: 1 }}>
                         <TextInput 
                             placeholder="Buscar evento o sección..."
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
                             leftSection={<IconSearch size={16} color="var(--mantine-color-gray-5)" />}
-                            w={300}
+                            w={isMobile ? "100%" : 300}
                         />
                         <Tooltip label="Refrescar catálogo">
                             <ActionIcon 

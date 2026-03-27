@@ -24,8 +24,10 @@ import {
     Timeline,
     ScrollArea,
     Collapse,
-    UnstyledButton
+    UnstyledButton,
+    useMantineTheme
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import {
     IconFileText,
     IconCalendar,
@@ -100,6 +102,8 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
     const [isDeriving, setIsDeriving] = useState(false);
     const { token } = useAuth();
     const { showToast } = useToast();
+    const theme = useMantineTheme();
+    const isMobile = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`);
 
     // Observation modal state
     const [obsModalOpen, setObsModalOpen] = useState(false);
@@ -230,26 +234,24 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
     return (
         <Stack gap="xl">
             {/* Header Section */}
-            <Paper p="lg" radius="lg" withBorder shadow="sm">
+            <Paper p={{ base: 'md', sm: 'lg' }} radius="lg" withBorder shadow="sm">
                 <Stack gap="md">
                     <Group justify="space-between">
-                        <Badge variant="light" color="gray" size="lg" radius="sm">
+                        <Badge variant="light" color="gray" size={isMobile ? 'sm' : 'lg'} radius="sm">
                             ID #{request.id_solicitud}
                         </Badge>
-                        <StatusBadge status={request.estado} size="md" />
+                        <StatusBadge status={request.estado} size={isMobile ? 'xs' : 'md'} />
                     </Group>
                     
-                    <Title order={2} style={{ letterSpacing: '-0.5px' }}>
+                    <Title order={isMobile ? 3 : 2} style={{ letterSpacing: '-0.5px' }}>
                         {request.titulo || request.nombre_tipo}
                     </Title>
                     
-                    <Group 
-                        gap="lg" 
-                        wrap="wrap" 
-                        justify="space-between" 
-                        style={{ rowGap: 'var(--mantine-spacing-md)' }}
+                    <SimpleGrid 
+                        cols={{ base: 1, xs: 2, sm: 4 }} 
+                        spacing="lg"
                     >
-                        <Group gap="xs" wrap="nowrap" style={{ flex: '1 1 200px' }}>
+                        <Group gap="xs" wrap="nowrap">
                             <ThemeIcon variant="light" color="gray" size="sm" radius="md">
                                 <IconFileText size={14} />
                             </ThemeIcon>
@@ -259,7 +261,7 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                             </Box>
                         </Group>
                         
-                        <Group gap="xs" wrap="nowrap" style={{ flex: '1 1 200px' }}>
+                        <Group gap="xs" wrap="nowrap">
                             <ThemeIcon variant="light" color="gray" size="sm" radius="md">
                                 <IconCalendar size={14} />
                             </ThemeIcon>
@@ -269,15 +271,13 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                                     {new Date(request.fecha_creacion).toLocaleDateString('es-CL', {
                                         day: '2-digit', 
                                         month: 'short', 
-                                        year: 'numeric',
-                                        hour: '2-digit',
-                                        minute: '2-digit'
+                                        year: 'numeric'
                                     })}
                                 </Text>
                             </Box>
                         </Group>
 
-                        <Group gap="xs" wrap="nowrap" style={{ flex: '1 1 150px' }}>
+                        <Group gap="xs" wrap="nowrap">
                             <ThemeIcon variant="light" color={getPriorityColor(request.prioridad)} size="sm" radius="md">
                                 <IconAlertCircle size={14} />
                             </ThemeIcon>
@@ -289,16 +289,16 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                             </Box>
                         </Group>
 
-                        <Group gap="xs" wrap="nowrap" style={{ flex: '1 1 200px' }}>
+                        <Group gap="xs" wrap="nowrap">
                             <ThemeIcon variant="light" color="adl-blue" size="sm" radius="md">
                                 <IconUser size={14} />
                             </ThemeIcon>
                             <Box>
                                 <Text size="xs" c="dimmed" fw={700} tt="uppercase">Solicitante</Text>
-                                <Text size="sm" fw={700} truncate>{request.nombre_solicitante}</Text>
+                                <Text size="sm" fw={700} truncate>{request.nombre_solicitante?.split(' ')[0]}</Text>
                             </Box>
                         </Group>
-                    </Group>
+                    </SimpleGrid>
                 </Stack>
             </Paper>
 
@@ -333,8 +333,8 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                                     </Group>
                                 </Paper>
 
-                                <Grid>
-                                    <Grid.Col span={6}>
+                                <Grid gutter="md">
+                                    <Grid.Col span={{ base: 12, xs: 6 }}>
                                         <Paper p="sm" withBorder radius="md">
                                             <Text size="xs" c="dimmed" fw={700}>Traspaso de equipos</Text>
                                             <Text fw={700} c={request.datos_json?.muestreador_origen_id ? 'teal' : 'red'}>
@@ -342,10 +342,10 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                                             </Text>
                                         </Paper>
                                     </Grid.Col>
-                                    <Grid.Col span={6}>
+                                    <Grid.Col span={{ base: 12, xs: 6 }}>
                                         <Paper p="sm" withBorder radius="md">
                                             <Text size="xs" c="dimmed" fw={700}>Tipo de traspaso</Text>
-                                            <Text fw={700}>
+                                            <Text fw={700} truncate>
                                                 {request.datos_json?.tipo_traspaso === 'IGUAL' || request.datos_json?.tipo_traspaso === 'MUESTREADOR' ? 'A un Muestreador' : 
                                                  request.datos_json?.tipo_traspaso === 'BASE' ? 'BASE' : 
                                                  request.datos_json?.tipo_traspaso === 'DISTINGO' || request.datos_json?.tipo_traspaso === 'MANUAL' ? 'Personalizado' : 
@@ -376,7 +376,7 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                                     <Text size="xs" c="blue.8" fw={800} mb={4}>NOMBRE DEL EQUIPO</Text>
                                     <Text size="xl" fw={800} c="blue.9">{request.datos_json?.nombre_equipo}</Text>
                                 </Paper>
-                                <SimpleGrid cols={2}>
+                                <SimpleGrid cols={{ base: 1, xs: 2 }}>
                                     <Paper p="sm" withBorder radius="md">
                                         <Group gap="xs">
                                             <IconDeviceDesktop size={16} />
@@ -402,7 +402,7 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                                 <Alert color="red" icon={<IconAlertTriangle size={20} />} title="Equipo Desvinculado" radius="md">
                                     <Text fw={700} size="lg">{request.datos_json?.nombre_equipo_full}</Text>
                                 </Alert>
-                                <SimpleGrid cols={2}>
+                                <SimpleGrid cols={{ base: 1, xs: 2 }}>
                                     <Box>
                                         <Text size="xs" c="dimmed" fw={700}>CAUSA</Text>
                                         <Text fw={700} c="red.7">

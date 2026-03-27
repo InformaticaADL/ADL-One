@@ -13,8 +13,11 @@ import {
     Alert,
     FileButton,
     Affix,
-    Transition
+    Transition,
+    SimpleGrid,
+    Container
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { 
     IconDeviceFloppy, 
     IconTrash, 
@@ -62,6 +65,7 @@ export const MuestreadorForm: React.FC<Props> = ({
     const [error, setError] = useState<string | null>(null);
     const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
     const { showToast } = useToast();
+    const isMobile = useMediaQuery('(max-width: 768px)');
 
     useEffect(() => {
         if (initialData) {
@@ -137,12 +141,12 @@ export const MuestreadorForm: React.FC<Props> = ({
     };
 
     return (
-        <Box p="md" style={{ width: '100%' }}>
+        <Container size="md" py={isMobile ? "md" : "xl"} px={isMobile ? "xs" : "md"}>
             <LoadingOverlay visible={loading} overlayProps={{ blur: 2 }} />
             
             <PageHeader
                 title={initialData ? 'Editar Muestreador' : 'Nuevo Muestreador'}
-                subtitle={initialData ? `Actualizando información de ${initialData.nombre_muestreador}` : 'Registra un nuevo técnico para toma de muestras'}
+                subtitle={!isMobile ? (initialData ? `Actualizando información de ${initialData.nombre_muestreador}` : 'Registra un nuevo técnico para toma de muestras') : undefined}
                 onBack={onCancel}
             />
 
@@ -160,11 +164,11 @@ export const MuestreadorForm: React.FC<Props> = ({
                         </Alert>
                     )}
 
-                    <Paper withBorder p="xl" radius="md" shadow="sm">
+                    <Paper withBorder p={isMobile ? "md" : "xl"} radius="md" shadow="sm">
                         <Stack gap="md">
-                            <Text fw={700} size="lg" c="blue.7">Información Personal</Text>
+                            <Text fw={700} size="lg" c="blue.7" ta={isMobile ? "center" : "left"}>Información Personal</Text>
                             
-                            <Group grow align="flex-start">
+                            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
                                 <TextInput
                                     label="Nombre Completo"
                                     placeholder="Ej: Juan Pérez"
@@ -183,9 +187,9 @@ export const MuestreadorForm: React.FC<Props> = ({
                                     onChange={(e) => setFormData({ ...formData, correo_electronico: e.target.value })}
                                     radius="md"
                                 />
-                            </Group>
+                            </SimpleGrid>
 
-                            <Group grow align="flex-start">
+                            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
                                 <PasswordInput
                                     label="Clave de Acceso"
                                     placeholder="******"
@@ -196,15 +200,15 @@ export const MuestreadorForm: React.FC<Props> = ({
                                     onChange={(e) => setFormData({ ...formData, clave_usuario: e.target.value })}
                                     radius="md"
                                 />
-                                <Box /> {/* Spacer */}
-                            </Group>
+                                {!isMobile && <Box />} {/* Spacer only for desktop */}
+                            </SimpleGrid>
                         </Stack>
                     </Paper>
 
-                    <Paper withBorder p="xl" radius="md" shadow="sm">
+                    <Paper withBorder p={isMobile ? "md" : "xl"} radius="md" shadow="sm">
                         <Stack gap="md">
-                            <Text fw={700} size="lg" c="blue.7">Firma Digital</Text>
-                            <Text size="sm" c="dimmed">Esta firma se utilizará para validar las fichas de muestreo electrónicamente.</Text>
+                            <Text fw={700} size="lg" c="blue.7" ta={isMobile ? "center" : "left"}>Firma Digital</Text>
+                            <Text size="sm" c="dimmed" ta={isMobile ? "center" : "left"}>Esta firma se utilizará para validar las fichas de muestreo electrónicamente.</Text>
                             
                             <Box 
                                 style={{ 
@@ -262,8 +266,8 @@ export const MuestreadorForm: React.FC<Props> = ({
                         </Stack>
                     </Paper>
 
-                    <Group justify="flex-end" mt="xl">
-                        <Button variant="subtle" color="gray" onClick={onCancel} radius="md">
+                    <Group justify="flex-end" mt="xl" grow={isMobile}>
+                        <Button variant="subtle" color="gray" onClick={onCancel} radius="md" size={isMobile ? "md" : "sm"}>
                             Cancelar
                         </Button>
                         <Button 
@@ -272,8 +276,9 @@ export const MuestreadorForm: React.FC<Props> = ({
                             loading={loading}
                             radius="md"
                             px="xl"
+                            size={isMobile ? "md" : "sm"}
                         >
-                            Guardar Muestreador
+                            Guardar {isMobile ? '' : 'Muestreador'}
                         </Button>
                     </Group>
                 </Stack>
@@ -295,6 +300,6 @@ export const MuestreadorForm: React.FC<Props> = ({
                     )}
                 </Transition>
             </Affix>
-        </Box>
+        </Container>
     );
 };

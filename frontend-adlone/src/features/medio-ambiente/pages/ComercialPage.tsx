@@ -33,8 +33,10 @@ import {
     Table,
     Badge,
     Pagination,
-    ScrollArea
+    ScrollArea,
+    Container
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { 
     IconCheck, 
     IconChevronLeft, 
@@ -98,6 +100,8 @@ const SuccessModal = ({
 };
 
 const CommercialForm = ({ onBackToMenu }: { onBackToMenu: () => void }) => {
+    const isMobile = useMediaQuery('(max-width: 550px)');
+    const isVerySmall = useMediaQuery('(max-width: 450px)');
     const { user } = useAuth();
     const { showToast } = useToast();
     const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -157,7 +161,7 @@ const CommercialForm = ({ onBackToMenu }: { onBackToMenu: () => void }) => {
     };
 
     return (
-        <Box p="md" style={{ width: '100%' }}>
+        <Container fluid w="100%" mx="auto" px={0} py="md" style={{ maxWidth: '100% !important' }}>
             <SuccessModal
                 isOpen={showSuccessModal}
                 onClose={handleCloseSuccess}
@@ -171,7 +175,7 @@ const CommercialForm = ({ onBackToMenu }: { onBackToMenu: () => void }) => {
                     onBack={onBackToMenu}
                 />
 
-                <Paper withBorder p="xl" radius="lg" shadow="sm" style={{ width: '100% !important' }}>
+                <Paper withBorder p={0} radius="lg" shadow="sm" style={{ width: '100% !important', maxWidth: '100% !important', overflow: 'hidden' }}>
                     <Tabs 
                         value={activeTab} 
                         onChange={(val) => {
@@ -182,33 +186,66 @@ const CommercialForm = ({ onBackToMenu }: { onBackToMenu: () => void }) => {
                         radius="md" 
                         style={{ width: '100% !important' }}
                     >
-                        <Tabs.List grow mb="xl">
-                            <Tabs.Tab value="antecedentes" leftSection={<IconFileText size={18} />}>
-                                Antecedentes
+                        <Tabs.List grow style={{ borderBottom: '1px solid #dee2e6' }}>
+                            <Tabs.Tab 
+                                value="antecedentes" 
+                                leftSection={<IconFileText size={isVerySmall ? 16 : (isMobile ? 18 : 22)} />}
+                                px={isVerySmall ? 4 : (isMobile ? 'xs' : 'xl')} 
+                                py={isMobile ? 'xs' : 'md'}
+                                style={{ 
+                                    flex: '1 1 0%', 
+                                    fontSize: isVerySmall ? '0.75rem' : (isMobile ? '0.85rem' : '1rem'), 
+                                    fontWeight: 600, 
+                                    minWidth: 0 
+                                }}
+                            >
+                                {isVerySmall ? 'Antec.' : 'Antecedentes'}
                             </Tabs.Tab>
-                            <Tabs.Tab value="analisis" leftSection={<IconTable size={18} />}>
-                                Análisis
+                            <Tabs.Tab 
+                                value="analisis" 
+                                leftSection={<IconTable size={isVerySmall ? 16 : (isMobile ? 18 : 22)} />}
+                                px={isVerySmall ? 4 : (isMobile ? 'xs' : 'xl')} 
+                                py={isMobile ? 'xs' : 'md'}
+                                style={{ 
+                                    flex: '1 1 0%', 
+                                    fontSize: isVerySmall ? '0.75rem' : (isMobile ? '0.85rem' : '1rem'), 
+                                    fontWeight: 600, 
+                                    minWidth: 0 
+                                }}
+                            >
+                                {isVerySmall ? 'Análisis' : 'Análisis'}
                             </Tabs.Tab>
-                            <Tabs.Tab value="observaciones" leftSection={<IconEdit size={18} />}>
-                                Observaciones
+                            <Tabs.Tab 
+                                value="observaciones" 
+                                leftSection={<IconEdit size={isVerySmall ? 16 : (isMobile ? 18 : 22)} />}
+                                px={isVerySmall ? 4 : (isMobile ? 'xs' : 'xl')} 
+                                py={isMobile ? 'xs' : 'md'}
+                                style={{ 
+                                    flex: '1 1 0%', 
+                                    fontSize: isVerySmall ? '0.75rem' : (isMobile ? '0.85rem' : '1rem'), 
+                                    fontWeight: 600, 
+                                    minWidth: 0 
+                                }}
+                            >
+                                {isVerySmall ? 'Obs.' : 'Observaciones'}
                             </Tabs.Tab>
                         </Tabs.List>
 
-                        <Tabs.Panel value="antecedentes" style={{ width: '100% !important' }}>
+                        <Tabs.Panel value="antecedentes" p={isMobile ? 'md' : 50} pt="xl" style={{ width: '100% !important', minHeight: '70vh' }}>
                             <AntecedentesForm
                                 ref={antecedentesRef}
                                 onValidationChange={setIsAntecedentesValid}
                             />
                         </Tabs.Panel>
 
-                        <Tabs.Panel value="analisis" style={{ width: '100% !important' }}>
+                        <Tabs.Panel value="analisis" p={isMobile ? 'md' : 50} pt="xl" style={{ width: '100% !important' }}>
                             <AnalysisForm
                                 savedAnalysis={savedAnalysis}
                                 onSavedAnalysisChange={setSavedAnalysis}
                             />
                         </Tabs.Panel>
 
-                        <Tabs.Panel value="observaciones" style={{ width: '100% !important' }}>
+                        <Tabs.Panel value="observaciones" p={isMobile ? 'md' : 50} pt="xl" style={{ width: '100% !important' }}>
                             <ObservacionesForm
                                 value={observaciones}
                                 onChange={setObservaciones}
@@ -216,74 +253,75 @@ const CommercialForm = ({ onBackToMenu }: { onBackToMenu: () => void }) => {
                         </Tabs.Panel>
                     </Tabs>
 
-                    <Divider mt="xl" />
-
-                    <Group justify="flex-end" gap="md" mt="xl">
-                        {activeTab === 'antecedentes' && (
-                            <Button
-                                size="md"
-                                rightSection={<IconArrowRight size={20} />}
-                                onClick={() => {
-                                    setActiveTab('analisis');
-                                    scrollToTop();
-                                }}
-                                disabled={!isAntecedentesValid}
-                            >
-                                Siguiente
-                            </Button>
-                        )}
-
-                        {activeTab === 'analisis' && (
-                            <>
-                                <Button
-                                    variant="outline"
-                                    color="gray"
-                                    size="md"
-                                    leftSection={<IconChevronLeft size={20} />}
-                                    onClick={() => setActiveTab('antecedentes')}
-                                >
-                                    Anterior
-                                </Button>
+                    <Box px={isMobile ? 'md' : 50} pb={isMobile ? 'md' : 50}>
+                        <Divider mb="xl" />
+                        <Group justify="flex-end" gap="md">
+                            {activeTab === 'antecedentes' && (
                                 <Button
                                     size="md"
                                     rightSection={<IconArrowRight size={20} />}
                                     onClick={() => {
-                                        setActiveTab('observaciones');
+                                        setActiveTab('analisis');
                                         scrollToTop();
                                     }}
-                                    disabled={savedAnalysis.length === 0}
+                                    disabled={!isAntecedentesValid}
                                 >
                                     Siguiente
                                 </Button>
-                            </>
-                        )}
+                            )}
 
-                        {activeTab === 'observaciones' && (
-                            <>
-                                <Button
-                                    variant="outline"
-                                    color="gray"
-                                    size="md"
-                                    leftSection={<IconChevronLeft size={20} />}
-                                    onClick={() => setActiveTab('analisis')}
-                                >
-                                    Anterior
-                                </Button>
-                                <Button
-                                    color="green"
-                                    size="md"
-                                    leftSection={<IconPlus size={20} />}
-                                    onClick={handleSave}
-                                    disabled={!isAntecedentesValid || savedAnalysis.length === 0 || observaciones.trim().length === 0}
-                                >
-                                    Grabar Ficha
-                                </Button>
-                            </>
-                        )}
-                    </Group>
+                            {activeTab === 'analisis' && (
+                                <>
+                                    <Button
+                                        variant="outline"
+                                        color="gray"
+                                        size="md"
+                                        leftSection={<IconChevronLeft size={20} />}
+                                        onClick={() => setActiveTab('antecedentes')}
+                                    >
+                                        Anterior
+                                    </Button>
+                                    <Button
+                                        size="md"
+                                        rightSection={<IconArrowRight size={20} />}
+                                        onClick={() => {
+                                            setActiveTab('observaciones');
+                                            scrollToTop();
+                                        }}
+                                        disabled={savedAnalysis.length === 0}
+                                    >
+                                        Siguiente
+                                    </Button>
+                                </>
+                            )}
+
+                            {activeTab === 'observaciones' && (
+                                <>
+                                    <Button
+                                        variant="outline"
+                                        color="gray"
+                                        size="md"
+                                        leftSection={<IconChevronLeft size={20} />}
+                                        onClick={() => setActiveTab('analisis')}
+                                    >
+                                        Anterior
+                                    </Button>
+                                    <Button
+                                        color="green"
+                                        size="md"
+                                        leftSection={<IconPlus size={20} />}
+                                        onClick={handleSave}
+                                        disabled={!isAntecedentesValid || savedAnalysis.length === 0 || observaciones.trim().length === 0}
+                                    >
+                                        Grabar Ficha
+                                    </Button>
+                                </>
+                            )}
+                        </Group>
+                    </Box>
                 </Paper>
             </Stack>
-        </Box>
+        </Container>
     );
 };
 
@@ -343,6 +381,7 @@ const ConsultarFichasView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () 
     const [currentPage, setCurrentPage] = useState(1);
     const [loading, setLoading] = useState(true);
     const [fichas, setFichas] = useState<any[]>([]);
+    const isMobile = useMediaQuery('(max-width: 768px)');
 
     const itemsPerPage = 10;
 
@@ -599,16 +638,19 @@ const ConsultarFichasView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () 
                             </ScrollArea>
                         </Box>
 
-                        <Group justify="space-between" mt="md">
+                        <Group justify="space-between" mt="md" wrap={isMobile ? "wrap" : "nowrap"}>
                             <Text size="xs" c="dimmed">
-                                Mostrando {filteredFichas.length > 0 ? ((currentPage - 1) * itemsPerPage) + 1 : 0} a {Math.min(currentPage * itemsPerPage, filteredFichas.length)} de {filteredFichas.length} registros
+                                {isMobile ? `${filteredFichas.length} reg.` : `Mostrando ${filteredFichas.length > 0 ? ((currentPage - 1) * itemsPerPage) + 1 : 0} a ${Math.min(currentPage * itemsPerPage, filteredFichas.length)} de ${filteredFichas.length} registros`}
                             </Text>
                             <Pagination 
                                 total={totalPages} 
                                 value={currentPage} 
                                 onChange={setCurrentPage} 
-                                size="sm" 
+                                size={isMobile ? "xs" : "sm"}
                                 radius="md"
+                                siblings={isMobile ? 0 : 1}
+                                boundaries={isMobile ? 0 : 1}
+                                withEdges={!isMobile}
                             />
                         </Group>
                     </Stack>

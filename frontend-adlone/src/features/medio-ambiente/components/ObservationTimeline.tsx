@@ -173,87 +173,89 @@ export const ObservationTimeline: React.FC<ObservationTimelineProps> = ({ fichaI
     );
 
     return (
-        <Timeline active={events.length} bulletSize={30} lineWidth={2}>
-            {events.map((event) => {
-                const isExpanded = expandedIds.has(event.id);
-                const color = getColor(event.type);
-
-                return (
-                    <Timeline.Item 
-                        key={event.id}
-                        bullet={
-                            <ThemeIcon 
-                                size={22} 
-                                radius="xl" 
-                                color={color} 
-                                variant="light"
-                            >
-                                {getIcon(event.type)}
-                            </ThemeIcon>
-                        }
-                    >
-                        <Paper withBorder radius="md" p={0} shadow="xs" style={{ overflow: 'hidden' }}>
-                            <UnstyledButton 
-                                onClick={() => toggleExpand(event.id)}
-                                w="100%"
-                                p="md"
-                                bg={isExpanded ? `${color}.0` : 'transparent'}
-                                style={{ borderBottom: isExpanded ? `1px solid var(--mantine-color-${color}-1)` : 'none' }}
-                            >
-                                <Group justify="space-between" align="flex-start" wrap="nowrap">
-                                    <Box style={{ flex: 1 }}>
-                                        <Text size="sm" fw={600} lh={1.2}>
-                                            {`Ficha ${fichaId} ${humanizeAction(event.action)}`}
-                                        </Text>
-                                        <Text size="xs" c="dimmed" mt={4}>
-                                            Responsable: <Text component="span" fw={700} c="gray.7">{event.user}</Text>
-                                        </Text>
-                                        <Text size="xs" c="dimmed">
-                                            {event.date.toLocaleString()}
-                                        </Text>
-                                    </Box>
-                                    <IconChevronDown 
-                                        size={16} 
-                                        style={{ 
-                                            transform: isExpanded ? 'rotate(180deg)' : 'none', 
-                                            transition: 'transform 200ms ease',
-                                            color: 'var(--mantine-color-gray-4)'
-                                        }} 
-                                    />
-                                </Group>
-                            </UnstyledButton>
-
-                            <Collapse in={isExpanded}>
-                                <Box p="md">
-                                    {event.stateChange && (
-                                        <Group gap="xs" mb="sm">
-                                            <Badge variant="outline" color="gray" size="sm" radius="sm">
-                                                {event.stateChange.from || 'Inicio'}
-                                            </Badge>
-                                            <Text size="xs" c="dimmed">→</Text>
-                                            <Badge variant="filled" color={color} size="sm" radius="sm">
-                                                {event.stateChange.to}
-                                            </Badge>
-                                        </Group>
-                                    )}
-
-                                    {event.observation ? (
-                                        <Paper bg="gray.0" p="sm" radius="sm" withBorder>
-                                            <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>
-                                                {event.observation}
+        <Box style={{ maxHeight: 350, overflowY: events.length >= 4 ? 'scroll' : 'auto', overflowX: 'hidden' }}>
+            <Timeline active={events.length} bulletSize={30} lineWidth={2} pr="sm">
+                {events.map((event) => {
+                    const isExpanded = expandedIds.has(event.id);
+                    const color = getColor(event.type);
+    
+                    return (
+                        <Timeline.Item 
+                            key={event.id}
+                            bullet={
+                                <ThemeIcon 
+                                    size={22} 
+                                    radius="xl" 
+                                    color={color} 
+                                    variant="light"
+                                >
+                                    {getIcon(event.type)}
+                                </ThemeIcon>
+                            }
+                        >
+                            <Paper withBorder radius="md" p={0} shadow="xs" style={{ overflow: 'hidden' }}>
+                                <UnstyledButton 
+                                    onClick={() => toggleExpand(event.id)}
+                                    w="100%"
+                                    p="md"
+                                    bg={isExpanded ? `${color}.0` : 'transparent'}
+                                    style={{ borderBottom: isExpanded ? `1px solid var(--mantine-color-${color}-1)` : 'none' }}
+                                >
+                                    <Group justify="space-between" align="flex-start" wrap="nowrap">
+                                        <Box style={{ flex: 1 }}>
+                                            <Text size="sm" fw={600} lh={1.2}>
+                                                {`Ficha ${fichaId} ${humanizeAction(event.action)}`}
                                             </Text>
-                                        </Paper>
-                                    ) : (
-                                        <Text size="xs" c="dimmed" fs="italic">
-                                            Sin observaciones registradas.
-                                        </Text>
-                                    )}
-                                </Box>
-                            </Collapse>
-                        </Paper>
-                    </Timeline.Item>
-                );
-            })}
-        </Timeline>
+                                            <Text size="xs" c="dimmed" mt={4}>
+                                                Responsable: <Text component="span" fw={700} c="gray.7">{event.user}</Text>
+                                            </Text>
+                                            <Text size="xs" c="dimmed">
+                                                {event.date.toLocaleString()}
+                                            </Text>
+                                        </Box>
+                                        <IconChevronDown 
+                                            size={16} 
+                                            style={{ 
+                                                transform: isExpanded ? 'rotate(180deg)' : 'none', 
+                                                transition: 'transform 200ms ease',
+                                                color: 'var(--mantine-color-gray-4)'
+                                            }} 
+                                        />
+                                    </Group>
+                                </UnstyledButton>
+    
+                                <Collapse in={isExpanded}>
+                                    <Box p="md">
+                                        {event.stateChange && (
+                                            <Group gap="xs" mb="sm">
+                                                <Badge variant="outline" color="gray" size="sm" radius="sm">
+                                                    {event.stateChange.from || 'Inicio'}
+                                                </Badge>
+                                                <Text size="xs" c="dimmed">→</Text>
+                                                <Badge variant="filled" color={color} size="sm" radius="sm">
+                                                    {event.stateChange.to}
+                                                </Badge>
+                                            </Group>
+                                        )}
+    
+                                        {event.observation ? (
+                                            <Paper bg="gray.0" p="sm" radius="sm" withBorder>
+                                                <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>
+                                                    {event.observation}
+                                                </Text>
+                                            </Paper>
+                                        ) : (
+                                            <Text size="xs" c="dimmed" fs="italic">
+                                                Sin observaciones registradas.
+                                            </Text>
+                                        )}
+                                    </Box>
+                                </Collapse>
+                            </Paper>
+                        </Timeline.Item>
+                    );
+                })}
+            </Timeline>
+        </Box>
     );
 };

@@ -25,6 +25,7 @@ import {
     LoadingOverlay,
     Textarea
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { 
     IconCheck, 
     IconRotate,
@@ -43,6 +44,8 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
     const { showToast } = useToast();
     const { user, hasPermission } = useAuth();
     const catalogos = useCachedCatalogos();
+    const isMobile = useMediaQuery('(max-width: 500px)');
+    const isVerySmall = useMediaQuery('(max-width: 450px)');
 
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
@@ -177,7 +180,7 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
     const canProcess = hasPermission('MA_TECNICA_APROBAR') && [0, 3, 4].includes(data?.id_validaciontecnica || -1);
 
     return (
-        <Box p="md" style={{ width: '100%' }}>
+        <Box p="md" style={{ width: '100% !important', maxWidth: '100% !important' }}>
             <Stack gap="lg">
                 <PageHeader 
                     title={`Gestión Técnica - Ficha N° ${data?.fichaingresoservicio || '-'}`}
@@ -192,10 +195,10 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                     }
                 />
 
-                <Paper withBorder p="xl" radius="lg" shadow="sm">
-                    <Stack gap="xl">
+                <Paper withBorder p={0} radius="lg" shadow="sm" style={{ width: '100% !important', maxWidth: '100% !important', overflow: 'hidden' }}>
+                    <Stack gap={0}>
                         {/* Status Alerts */}
-                        <Box>
+                        <Box p={isMobile ? 'md' : 'xl'} pb={0}>
                             {data?.id_validaciontecnica === 1 && <WorkflowAlert type="info" title="Ficha Aprobada" message="Esta ficha ya fue aprobada y enviada a Coordinación." />}
                             {data?.id_validaciontecnica === 2 && <WorkflowAlert type="error" title="Ficha Rechazada" message="Esta ficha fue rechazada y devuelta a Comercial." />}
                             {data?.id_validaciontecnica === 4 && <WorkflowAlert type="warning" title="Devuelta por Coordinación" message="Revisión técnica solicitada por el área de coordinación." />}
@@ -203,15 +206,38 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                             {data?.id_validaciontecnica === 7 && <WorkflowAlert type="error" title="Ficha Cancelada" message="Esta ficha ha sido anulada." />}
                         </Box>
 
-                        <Tabs value={activeTab} onChange={(v) => setActiveTab(v || 'antecedentes')} variant="outline" radius="md">
+                        <Tabs value={activeTab} onChange={(v) => setActiveTab(v || 'antecedentes')} variant="outline" radius="md" mt="xl">
                             <Tabs.List grow>
-                                <Tabs.Tab value="antecedentes" leftSection={<IconClipboardList size={18} />}>Antecedentes</Tabs.Tab>
-                                <Tabs.Tab value="analisis" leftSection={<IconFlask size={18} />}>Análisis</Tabs.Tab>
-                                <Tabs.Tab value="observaciones" leftSection={<IconHistory size={18} />}>Validación e Historial</Tabs.Tab>
+                                <Tabs.Tab 
+                                    value="antecedentes" 
+                                    leftSection={<IconClipboardList size={isVerySmall ? 16 : (isMobile ? 18 : 22)} />} 
+                                    px={isVerySmall ? 4 : (isMobile ? 'xs' : 'xl')} 
+                                    py={isMobile ? 'xs' : 'md'}
+                                    style={{ flex: '1 1 0%', fontSize: isVerySmall ? '0.75rem' : (isMobile ? '0.85rem' : '1rem'), fontWeight: 600, minWidth: 0, whiteSpace: 'nowrap' }}
+                                >
+                                    {isVerySmall ? 'Antec.' : 'Antecedentes'}
+                                </Tabs.Tab>
+                                <Tabs.Tab 
+                                    value="analisis" 
+                                    leftSection={<IconFlask size={isVerySmall ? 16 : (isMobile ? 18 : 22)} />} 
+                                    px={isVerySmall ? 4 : (isMobile ? 'xs' : 'xl')} 
+                                    py={isMobile ? 'xs' : 'md'}
+                                    style={{ flex: '1 1 0%', fontSize: isVerySmall ? '0.75rem' : (isMobile ? '0.85rem' : '1rem'), fontWeight: 600, minWidth: 0, whiteSpace: 'nowrap' }}
+                                >
+                                    {isVerySmall ? 'Análisis' : 'Análisis'}
+                                </Tabs.Tab>
+                                <Tabs.Tab 
+                                    value="observaciones" 
+                                    leftSection={<IconHistory size={isVerySmall ? 16 : (isMobile ? 18 : 22)} />} 
+                                    px={isVerySmall ? 4 : (isMobile ? 'xs' : 'xl')} 
+                                    py={isMobile ? 'xs' : 'md'}
+                                    style={{ flex: '1 1 0%', fontSize: isVerySmall ? '0.75rem' : (isMobile ? '0.85rem' : '1rem'), fontWeight: 600, minWidth: 0, whiteSpace: 'nowrap' }}
+                                >
+                                    {isVerySmall ? 'Historial' : 'Validación e Historial'}
+                                </Tabs.Tab>
                             </Tabs.List>
 
-                            <Box mt="xl">
-                                <Tabs.Panel value="antecedentes">
+                                <Tabs.Panel value="antecedentes" p={isMobile ? 'md' : 50} pt="xl" style={{ minHeight: '70vh' }}>
                                     <Stack gap="lg">
                                         <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }}>
                                             <StaticField label="Monitoreo" value={data.tipo_fichaingresoservicio} />
@@ -252,6 +278,9 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                             <StaticField label="Factor" value={data.agenda?.frecuencia_factor} />
                                             <StaticField label="Total Servicios" value={data.agenda?.total_servicios} />
                                         </SimpleGrid>
+                                        <Text size="sm" c="dimmed" fs="italic" ta="center">
+                                            {`Se realizarán ${data.agenda?.total_servicios || '—'} muestreo(s) en total, con una frecuencia de ${data.agenda?.frecuencia || '—'} vez/veces cada periodo ${(data.agenda?.nombre_frecuencia || '—').toLowerCase()}, multiplicado por un factor de ${data.agenda?.frecuencia_factor || '—'}.`}
+                                        </Text>
 
                                         <Divider label="Detalles del Servicio" labelPosition="center" />
                                         
@@ -270,7 +299,7 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                     </Stack>
                                 </Tabs.Panel>
 
-                                <Tabs.Panel value="analisis">
+                                <Tabs.Panel value="analisis" p={isMobile ? 'md' : 50} pt="xl">
                                     <Stack gap="xl">
                                         <Paper withBorder p="md" radius="md" bg="blue.0">
                                             <SimpleGrid cols={{ base: 1, sm: 2 }}>
@@ -312,7 +341,7 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                     </Stack>
                                 </Tabs.Panel>
 
-                                <Tabs.Panel value="observaciones">
+                                <Tabs.Panel value="observaciones" p={isMobile ? 'md' : 50} pt="xl">
                                     <Stack gap="xl">
                                         {canProcess ? (
                                             <Paper withBorder p="md" radius="md" bg="blue.0">
@@ -352,7 +381,6 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                         </Box>
                                     </Stack>
                                 </Tabs.Panel>
-                            </Box>
                         </Tabs>
                     </Stack>
                 </Paper>

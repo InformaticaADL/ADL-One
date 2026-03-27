@@ -7,8 +7,10 @@ import {
     Switch, 
     Button, 
     Badge, 
-    Tooltip
+    Tooltip,
+    useMantineTheme
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { 
     IconSettings, 
     IconMail, 
@@ -33,6 +35,8 @@ interface Props {
 }
 
 export const EventRow: React.FC<Props> = ({ event, onOpenSettings, onStatusChange }) => {
+    const theme = useMantineTheme();
+    const isMobile = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`);
     const { showToast } = useToast();
     const [saving, setSaving] = useState(false);
     const [localConfig, setLocalConfig] = useState(event.config || []);
@@ -102,8 +106,8 @@ export const EventRow: React.FC<Props> = ({ event, onOpenSettings, onStatusChang
                 e.currentTarget.style.borderColor = 'var(--mantine-color-gray-2)';
             }}
         >
-            <Group justify="space-between" wrap="nowrap">
-                <Stack gap={4} style={{ flex: 1 }}>
+            <Group justify="space-between" wrap={isMobile ? "wrap" : "nowrap"} align={isMobile ? "stretch" : "center"}>
+                <Stack gap={4} style={{ flex: 1, minWidth: isMobile ? '100%' : 0 }}>
                     <Group gap="xs">
                         <Text style={{ fontSize: '10px' }} fw={800} c="dimmed" tt="uppercase" lts="1px">
                             {event.codigo}
@@ -129,7 +133,7 @@ export const EventRow: React.FC<Props> = ({ event, onOpenSettings, onStatusChang
                     </Text>
                 </Stack>
 
-                <Group gap="xl" wrap="nowrap">
+                <Group gap={isMobile ? "sm" : "xl"} wrap={isMobile ? "wrap" : "nowrap"} style={{ width: isMobile ? '100%' : 'auto' }} justify={isMobile ? "space-between" : "flex-end"}>
                     <Group gap="md">
                         <Tooltip label="E-mail" position="top" withArrow>
                             <Group gap={8}>

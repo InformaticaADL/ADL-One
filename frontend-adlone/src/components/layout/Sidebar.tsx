@@ -262,7 +262,7 @@ const MODULES = [
     },
 ];
 
-export function Sidebar() {
+export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotCollapsed?: boolean, onNavigate?: () => void, hideLogo?: boolean }) {
     const { user, logout, hasPermission } = useAuth();
     const {
         activeModule,
@@ -274,6 +274,7 @@ export function Sidebar() {
         resetNavigation
     } = useNavStore();
 
+    const isCollapsed = forceNotCollapsed ? false : sidebarCollapsed;
     const [openedModule, setOpenedModule] = useState<string | null>(activeModule);
     const [showBubble, setShowBubble] = useState(false);
     const isFirstLoad = useRef(true);
@@ -388,6 +389,7 @@ export function Sidebar() {
             setActiveSubmodule('');
             // No cerramos el openedModule si es el actual para mantener el estado visual
             setOpenedModule(moduleId);
+            onNavigate?.();
         }
     };
 
@@ -409,7 +411,7 @@ export function Sidebar() {
                 onToggle={() => setOpenedModule(openedModule === item.id ? null : item.id)}
                 active={activeModule === item.id}
                 activeSubmodule={activeSubmodule}
-                collapsed={sidebarCollapsed}
+                collapsed={isCollapsed}
                 onClick={() => handleModuleClick(item.id)}
                 badge={(isNotificationsItem && unreadCount > 0) ? (
                     <Badge size="xs" variant="filled" color="red" className={classes.badge}>
@@ -417,7 +419,10 @@ export function Sidebar() {
                     </Badge>
                 ) : null}
                 notificationRef={isNotificationsItem ? notificationsRef : undefined} // Pass ref to notification item
-                onSubmoduleClick={(subId) => setActiveSubmodule(subId)}
+                onSubmoduleClick={(subId) => {
+                    setActiveSubmodule(subId);
+                    onNavigate?.();
+                }}
             />
         );
 
@@ -448,7 +453,10 @@ export function Sidebar() {
             activeSubmodule={activeSubmodule}
             collapsed={sidebarCollapsed}
             onClick={() => handleModuleClick(item.id)}
-            onSubmoduleClick={(subId) => setActiveSubmodule(subId)}
+            onSubmoduleClick={(subId) => {
+                setActiveSubmodule(subId);
+                onNavigate?.();
+            }}
         />
     ));
 
@@ -457,7 +465,7 @@ export function Sidebar() {
         return (
             <div className={classes.section}>
                 <Text size="xs" fw={700} c="dimmed" className={classes.sectionTitle}>
-                    {!sidebarCollapsed && title}
+                    {!isCollapsed && title}
                 </Text>
                 {mods.map((mod) => {
                     const filteredLinks = (mod.links || []).filter((link: any) => {
@@ -478,14 +486,17 @@ export function Sidebar() {
                             onToggle={() => setOpenedModule(openedModule === mod.id ? null : mod.id)}
                             active={activeModule === mod.id}
                             activeSubmodule={activeSubmodule}
-                            collapsed={sidebarCollapsed}
+                            collapsed={isCollapsed}
                             onClick={() => handleModuleClick(mod.id)}
                             links={filteredLinks.length > 0 ? filteredLinks.map((l: any) => ({
                                 label: l.label,
                                 id: l.id,
                                 permission: l.permission
                             })) : undefined}
-                            onSubmoduleClick={(subId) => setActiveSubmodule(subId)}
+                            onSubmoduleClick={(subId) => {
+                                setActiveSubmodule(subId);
+                                onNavigate?.();
+                            }}
                         />
                     );
                 })}
@@ -495,49 +506,46 @@ export function Sidebar() {
 
 
     return (
-        <nav className={`${classes.navbar} ${sidebarCollapsed ? classes.navbarCollapsed : ''}`}>
-            <div className={classes.header}>
-                <Group
-                    justify={sidebarCollapsed ? "center" : "center"}
-                    wrap="nowrap"
-                    style={{ width: '100%', gap: sidebarCollapsed ? 0 : 12, padding: sidebarCollapsed ? 0 : '0 10px' }}
-                >
-                    <img
-                        src={sidebarCollapsed ? logoSmall : logoAdl}
-                        alt="ADL Logo"
-                        style={{
-                            height: sidebarCollapsed ? 28 : 55,
-                            maxWidth: sidebarCollapsed ? 28 : 200,
-                            objectFit: 'contain',
-                            cursor: 'pointer',
-                            transition: 'all 200ms ease',
-                            filter: 'none'
-                        }}
-                        onClick={() => resetNavigation()}
-                    />
-                    {!sidebarCollapsed ? (
-                        <ActionIcon
-                            variant="subtle"
-                            color="gray"
-                            onClick={toggleSidebar}
-                            size="lg"
-                            className={classes.collapseButton}
-                        >
-                            <IconLayoutSidebarLeftCollapse size={20} />
-                        </ActionIcon>
-                    ) : (
-                        <ActionIcon
-                            variant="subtle"
-                            color="gray"
-                            onClick={toggleSidebar}
-                            size="md"
-                            style={{ position: 'absolute', top: 12, right: 4 }}
-                        >
-                            <IconLayoutSidebarRightCollapse size={18} />
-                        </ActionIcon>
-                    )}
-                </Group>
-            </div>
+        <nav className={`${classes.navbar} ${isCollapsed ? classes.navbarCollapsed : ''}`}>
+            {!hideLogo && (
+                <div className={classes.header}>
+                    <Group justify={isCollapsed ? "center" : "space-between"} wrap="nowrap" style={{ width: '100%', gap: isCollapsed ? 0 : 'inherit' }}>
+                        <img
+                            src={isCollapsed ? logoSmall : logoAdl}
+                            alt="ADL Logo"
+                            style={{
+                                height: isCollapsed ? 28 : 50,
+                                maxWidth: isCollapsed ? 28 : 180,
+                                objectFit: 'contain',
+                                cursor: 'pointer',
+                                transition: 'all 200ms ease',
+                                filter: 'none'
+                            }}
+                            onClick={() => resetNavigation()}
+                        />
+                        {!isCollapsed ? (
+                            <ActionIcon
+                                variant="subtle"
+                                color="gray"
+                                onClick={toggleSidebar}
+                                size="lg"
+                            >
+                                <IconLayoutSidebarLeftCollapse size={20} />
+                            </ActionIcon>
+                        ) : (
+                            <ActionIcon
+                                variant="subtle"
+                                color="gray"
+                                onClick={toggleSidebar}
+                                size="md"
+                                style={{ position: 'absolute', top: 12, right: 4 }}
+                            >
+                                <IconLayoutSidebarRightCollapse size={18} />
+                            </ActionIcon>
+                        )}
+                    </Group>
+                </div>
+            )}
 
             <ScrollArea className={classes.links}>
                 <div className={classes.linksInner}>
@@ -553,7 +561,7 @@ export function Sidebar() {
             </ScrollArea>
 
             <div className={classes.footer}>
-                {!sidebarCollapsed && bottomLinks.length > 0 && (
+                {!isCollapsed && bottomLinks.length > 0 && (
                     <div className={classes.section}>
                         <Text size="xs" fw={700} c="dimmed" className={classes.sectionTitle}>
                             SOPORTE
@@ -575,7 +583,7 @@ export function Sidebar() {
                                     >
                                         {user?.name?.charAt(0)}
                                     </Avatar>
-                                    {!sidebarCollapsed && (
+                                    {!isCollapsed && (
                                         <div style={{ flex: 1, minWidth: 0 }}>
                                             <Text style={{ fontSize: 13 }} fw={600} truncate>
                                                 {user?.name || 'Usuario'}
@@ -588,7 +596,7 @@ export function Sidebar() {
                                             </Text>
                                         </div>
                                     )}
-                                    {!sidebarCollapsed && <IconChevronRight size={12} stroke={1.5} />}
+                                    {!isCollapsed && <IconChevronRight size={12} stroke={1.5} />}
                                 </Group>
                             </UnstyledButton>
                         </Menu.Target>
@@ -600,13 +608,17 @@ export function Sidebar() {
                                 onClick={() => {
                                     setActiveModule('perfil');
                                     setActiveSubmodule('');
+                                    onNavigate?.();
                                 }}
                             >
                                 Mi Perfil
                             </Menu.Item>
                             <Menu.Item
                                 leftSection={<IconQuestionMark size={14} />}
-                                onClick={() => setHelpOpened(true)}
+                                onClick={() => {
+                                    setHelpOpened(true);
+                                    onNavigate?.();
+                                }}
                             >
                                 Ayuda
                             </Menu.Item>

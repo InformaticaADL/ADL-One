@@ -21,10 +21,11 @@ interface ChatSidebarProps {
     onSelectById: (conversationId: number) => void;
     onCreateGroup: () => void;
     onViewProfile: (userId: number) => void;
+    isMobile?: boolean;
 }
 
 const ChatSidebar: React.FC<ChatSidebarProps> = ({
-    conversations, activeConversation, onSelect, onStartDirect, onSelectById, onCreateGroup, onViewProfile
+    conversations, activeConversation, onSelect, onStartDirect, onSelectById, onCreateGroup, onViewProfile, isMobile
 }) => {
     const [search, setSearch] = useState('');
     const [searchResults, setSearchResults] = useState<ChatContact[]>([]);
@@ -243,8 +244,8 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
     return (
         <Box
             style={{
-                width: 340,
-                borderRight: '1px solid var(--mantine-color-default-border)',
+                width: isMobile ? '100%' : 340,
+                borderRight: isMobile ? 'none' : '1px solid var(--mantine-color-default-border)',
                 display: 'flex',
                 flexDirection: 'column',
                 background: 'var(--mantine-color-body)'

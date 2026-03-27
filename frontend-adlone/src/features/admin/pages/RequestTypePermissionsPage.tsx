@@ -16,8 +16,10 @@ import {
     Tooltip,
     Flex,
     Avatar,
-    TextInput
+    TextInput,
+    SimpleGrid
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import {
     IconUsers,
     IconUser,
@@ -80,6 +82,8 @@ interface Props {
 
 const RequestTypePermissionsPage: React.FC<Props> = ({ requestType, onBack }) => {
     const { showToast } = useToast();
+    const isMobile = useMediaQuery('(max-width: 768px)');
+    const isCompact = useMediaQuery('(max-width: 1200px)');
 
     const [entries, setEntries] = useState<PermissionEntry[]>([]);
     const [roles, setRoles] = useState<Role[]>([]);
@@ -347,28 +351,28 @@ const RequestTypePermissionsPage: React.FC<Props> = ({ requestType, onBack }) =>
                                             </ActionIcon>
                                         </Tooltip>
                                     </Group>
-                                    <Group gap="xl">
+                                    <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="lg">
                                         <Box>
                                             <Text size="xs" c="dimmed" fw={500}>Nombre del Trámite</Text>
-                                            <Text size="sm" fw={600}>{typeName}</Text>
+                                            <Text size="sm" fw={600} truncate>{typeName}</Text>
                                         </Box>
                                         <Box>
                                             <Text size="xs" c="dimmed" fw={500}>Área Destino / Responsable</Text>
-                                            <Badge variant="outline" color="blue" radius="sm" mt={2}>{areaDestino}</Badge>
+                                            <Badge variant="outline" color="blue" radius="sm" mt={2} fullWidth={isMobile} styles={{ root: { textAlign: 'center' }}}>{areaDestino}</Badge>
                                         </Box>
                                         <Box>
                                             <Text size="xs" c="dimmed" fw={500}>Estado actual</Text>
-                                            <Badge variant="light" color={requestType.estado ? 'teal' : 'red'} radius="sm" mt={2}>
+                                            <Badge variant="light" color={requestType.estado ? 'teal' : 'red'} radius="sm" mt={2} fullWidth={isMobile} styles={{ root: { textAlign: 'center' }}}>
                                                 {requestType.estado ? 'ACTIVO' : 'INACTIVO'}
                                             </Badge>
                                         </Box>
                                         <Box>
                                             <Text size="xs" c="dimmed" fw={500}>Módulo Destino</Text>
-                                            <Badge variant="dot" color="gray" radius="sm" mt={2}>
+                                            <Badge variant="dot" color="gray" radius="sm" mt={2} fullWidth={isMobile} styles={{ root: { textAlign: 'center' }}}>
                                                 {moduloDestino || 'NINGUNO'}
                                             </Badge>
                                         </Box>
-                                    </Group>
+                                    </SimpleGrid>
                                 </Box>
                             )}
                         </Box>
@@ -380,8 +384,9 @@ const RequestTypePermissionsPage: React.FC<Props> = ({ requestType, onBack }) =>
                         <Loader color="blue" size="lg" />
                     </Flex>
                 ) : (
-                    <Paper withBorder radius="lg" shadow="sm" style={{ overflow: 'hidden' }}>
-                        <Table verticalSpacing="sm">
+                    <Paper withBorder radius="lg" shadow="sm" style={{ overflow: 'hidden', backgroundColor: 'transparent', border: isCompact ? 'none' : undefined }}>
+                        {!isCompact ? (
+                            <Table verticalSpacing="sm" bg="white">
                             <Table.Thead bg="gray.0">
                                 <Table.Tr>
                                     <Table.Th>
@@ -522,11 +527,127 @@ const RequestTypePermissionsPage: React.FC<Props> = ({ requestType, onBack }) =>
                                     );
                                 })}
                             </Table.Tbody>
-                        </Table>
+                            </Table>
+                        ) : (
+                            <Stack gap="md">
+                                {entries.length === 0 ? (
+                                    <Paper withBorder p={40} radius="lg" bg="white">
+                                        <Stack align="center" gap="xs">
+                                            <IconUsers size={40} style={{ opacity: 0.2 }} />
+                                            <Text fw={600} size="sm" c="dimmed">Sin entidades configuradas</Text>
+                                            <Text size="xs" c="dimmed" ta="center">Usa los selectores de abajo para añadir roles o usuarios.</Text>
+                                        </Stack>
+                                    </Paper>
+                                ) : (
+                                    entries.map((entry, idx) => {
+                                        const isExpanded = expandedIdx === idx;
+                                        const isLoadingThis = loadingMembersIdx === idx;
+                                        const hasOverlap = entry.type === 'user' && userOverlapsWithRole(entry.id);
+
+                                        return (
+                                            <Paper key={`${entry.type}_${entry.id}`} withBorder p="md" radius="lg" shadow="xs" bg="white">
+                                                <Group justify="space-between" align="flex-start" wrap="nowrap" mb="md">
+                                                    <Group gap="sm" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
+                                                        <Avatar 
+                                                            radius="md" 
+                                                            color={entry.type === 'role' ? 'blue' : 'teal'} 
+                                                            variant="light"
+                                                            size={40}
+                                                        >
+                                                            {entry.type === 'role' ? <IconUsers size={20} /> : <IconUser size={20} />}
+                                                        </Avatar>
+                                                        <Box style={{ flex: 1, minWidth: 0 }}>
+                                                            <Text size="sm" fw={700} truncate>{entry.name}</Text>
+                                                            <Group gap={6} mt={2}>
+                                                                <Badge size="xs" variant="light" color={entry.type === 'role' ? 'blue' : 'teal'}>
+                                                                    {entry.type === 'role' ? 'ROL' : 'USUARIO'}
+                                                                </Badge>
+                                                                {entry.isNew && <Badge size="xs" color="yellow" variant="light">NUEVO</Badge>}
+                                                                {hasOverlap && (
+                                                                    <Badge size="xs" color="orange" variant="outline" leftSection={<IconAlertTriangle size={10} />}>Rol Activo</Badge>
+                                                                )}
+                                                            </Group>
+                                                        </Box>
+                                                    </Group>
+                                                    <ActionIcon variant="subtle" color="red" onClick={() => removeEntry(idx)}>
+                                                        <IconX size={18} />
+                                                    </ActionIcon>
+                                                </Group>
+
+                                                <SimpleGrid cols={2} spacing="xs" verticalSpacing="xs">
+                                                    {ACCESS_LABELS.map(a => (
+                                                        <Paper 
+                                                            key={a.key} 
+                                                            withBorder 
+                                                            p={8} 
+                                                            radius="md" 
+                                                            bg={entry[a.key] ? 'blue.0' : 'gray.0'}
+                                                            style={{ 
+                                                                border: entry[a.key] ? '1px solid var(--mantine-color-blue-2)' : '1px solid var(--mantine-color-gray-2)',
+                                                                cursor: 'pointer' 
+                                                            }}
+                                                            onClick={() => toggleCell(idx, a.key)}
+                                                        >
+                                                            <Group justify="space-between" wrap="nowrap">
+                                                                <Group gap={6} wrap="nowrap">
+                                                                    <Box c={entry[a.key] ? 'blue.6' : 'gray.5'} style={{ display: 'flex' }}>{a.icon}</Box>
+                                                                    <Text size="11px" fw={600} c={entry[a.key] ? 'blue.9' : 'gray.7'}>{a.label}</Text>
+                                                                </Group>
+                                                                <Checkbox 
+                                                                    checked={entry[a.key]} 
+                                                                    onChange={() => toggleCell(idx, a.key)} 
+                                                                    size="xs"
+                                                                    color="blue"
+                                                                    tabIndex={-1}
+                                                                    styles={{ input: { cursor: 'pointer' }}}
+                                                                />
+                                                            </Group>
+                                                        </Paper>
+                                                    ))}
+                                                </SimpleGrid>
+
+                                                <Button 
+                                                    variant="light" 
+                                                    color="gray" 
+                                                    fullWidth 
+                                                    size="xs" 
+                                                    mt="md"
+                                                    radius="md"
+                                                    leftSection={isLoadingThis ? <Loader size={12} /> : isExpanded ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />}
+                                                    onClick={() => loadMembers(idx, entry)}
+                                                >
+                                                    {entry.type === 'role' ? 'Ver Usuarios del Rol' : 'Ver Roles del Usuario'}
+                                                </Button>
+
+                                                <Collapse in={isExpanded} mt="xs">
+                                                    <Paper withBorder p="xs" radius="md" bg="gray.0">
+                                                        <Flex gap={5} wrap="wrap">
+                                                            {entry.members && entry.members.length > 0 ? entry.members.map((m, i) => (
+                                                                <Badge 
+                                                                    key={i} 
+                                                                    variant="outline" 
+                                                                    color={entry.type === 'role' ? 'blue' : 'teal'} 
+                                                                    size="xs" 
+                                                                    leftSection={entry.type === 'role' ? <IconUser size={10} /> : <IconUsers size={10} />}
+                                                                >
+                                                                    {m}
+                                                                </Badge>
+                                                            )) : (
+                                                                <Text size="xs" c="dimmed" fs="italic">No se encontraron datos asociados.</Text>
+                                                            )}
+                                                        </Flex>
+                                                    </Paper>
+                                                </Collapse>
+                                            </Paper>
+                                        );
+                                    })
+                                )}
+                            </Stack>
+                        )}
 
                         {/* Footer Adder */}
-                        <Box p="md" bg="gray.0" style={{ borderTop: '1px solid #f1f5f9' }}>
-                            <Group align="flex-start" gap="md">
+                        <Box p="md" bg={isCompact ? 'transparent' : 'gray.0'} mt={isCompact ? 'lg' : 0} style={{ borderTop: isCompact ? 'none' : '1px solid #f1f5f9' }}>
+                            <Group align="flex-start" gap="md" wrap={isMobile ? "wrap" : "nowrap"}>
                                 <Select 
                                     placeholder="Añadir Rol..."
                                     searchable
@@ -550,12 +671,13 @@ const RequestTypePermissionsPage: React.FC<Props> = ({ requestType, onBack }) =>
                                     value={null}
                                     onChange={(val) => addEntry('user', val)}
                                     styles={{ input: { backgroundColor: 'white' }}}
+                                    style={{ flex: isMobile ? '1 1 100%' : 1 }}
                                 />
-                                <Box style={{ flex: 1 }}>
-                                    <Group gap="xs" mt={5}>
+                                <Box style={{ flex: isMobile ? '1 1 100%' : 2 }}>
+                                    <Group gap="xs" mt={isMobile ? 0 : 5} justify={isMobile ? 'center' : 'flex-start'}>
                                         <IconInfoCircle size={14} color="#94a3b8" />
-                                        <Text size="xs" c="dimmed" fw={500}>
-                                            Los <strong>roles</strong> gestionan permisos de grupos. Los <strong>usuarios</strong> definen excepciones puntuales.
+                                        <Text size="xs" c="dimmed" fw={500} ta={isMobile ? 'center' : 'left'}>
+                                            Los <strong>roles</strong> gestionan permisos de grupos. Los <strong>usuarios</strong> definen excepciones.
                                         </Text>
                                     </Group>
                                 </Box>

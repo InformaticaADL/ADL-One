@@ -1,5 +1,6 @@
 import React from 'react';
 import { Group, Stack, Title, Text, ActionIcon, Breadcrumbs, Anchor, rem, Box } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { IconArrowLeft } from '@tabler/icons-react';
 
 interface PageHeaderProps {
@@ -17,6 +18,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
     breadcrumbItems,
     rightSection
 }) => {
+    const isMobile = useMediaQuery('(max-width: 768px)');
     const items = breadcrumbItems?.map((item, index) => (
         <Anchor 
             key={index} 
@@ -36,8 +38,8 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
                 <Breadcrumbs mb={10}>{items}</Breadcrumbs>
             )}
             
-            <Group justify="space-between" align="center" wrap="nowrap">
-                <Group gap="md">
+            <Group justify="space-between" align="center" wrap="wrap" gap="md">
+                <Group gap="md" style={{ flex: isMobile ? '1 1 100%' : 'auto' }}>
                     {onBack && (
                         <ActionIcon 
                             variant="subtle" 
@@ -49,18 +51,18 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
                             <IconArrowLeft style={{ width: rem(20), height: rem(20) }} stroke={2} />
                         </ActionIcon>
                     )}
-                    <Stack gap={2}>
+                    <Stack gap={2} style={{ flex: 1 }}>
                         <Title 
                             order={2} 
                             style={{ 
-                                fontSize: rem(24), 
+                                fontSize: isMobile ? rem(20) : rem(24), 
                                 lineHeight: 1.1 
                             }}
                         >
                             {title}
                         </Title>
                         {subtitle && (
-                            <Text c="dimmed" size="sm">
+                            <Text c="dimmed" size={isMobile ? "xs" : "sm"}>
                                 {subtitle}
                             </Text>
                         )}
@@ -68,7 +70,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
                 </Group>
                 
                 {rightSection && (
-                    <Box>
+                    <Box style={{ width: isMobile ? '100%' : 'auto' }}>
                         {rightSection}
                     </Box>
                 )}

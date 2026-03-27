@@ -50,8 +50,8 @@ export const FichasIngresoPage = () => {
     }
 
     return (
-        <Box p="md" style={{ width: '100%' }}>
-            <Paper withBorder p="xl" radius="lg" shadow="sm">
+        <Box p="md" style={{ width: '100% !important', maxWidth: '100% !important' }}>
+            <Paper withBorder p="xl" radius="lg" shadow="sm" style={{ width: '100% !important', maxWidth: '100% !important' }}>
                 <Stack gap={40}>
                     <Box>
                         <Title order={1} fw={900} ta="center" fz={42} c="blue.7">

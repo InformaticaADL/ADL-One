@@ -12,8 +12,11 @@ import {
     Group,
     Text,
     Accordion,
-    Divider
+    Divider,
+    Paper,
+    SimpleGrid
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { modals } from '@mantine/modals';
 import {
     IconCalendar,
@@ -50,6 +53,7 @@ export const SamplerRequestsModal: React.FC<SamplerRequestsModalProps> = ({
     const loading = false;
     const [processingId, setProcessingId] = useState<number | null>(null);
     const { showToast } = useToast();
+    const isMobile = useMediaQuery('(max-width: 768px)');
 
     const handleMarkAsRealizada = async (sol: any) => {
         const typeRaw = sol.tipo_solicitud || sol.nombre_tipo || '';
@@ -236,7 +240,8 @@ export const SamplerRequestsModal: React.FC<SamplerRequestsModalProps> = ({
                     <Text size="sm" c="dimmed">{nombreMuestreador}</Text>
                 </Box>
             }
-            size="xl"
+            size={isMobile ? "100%" : "xl"}
+            fullScreen={isMobile}
             scrollAreaComponent={ScrollArea.Autosize}
             withOverlay={false}
             trapFocus={false}
@@ -249,7 +254,7 @@ export const SamplerRequestsModal: React.FC<SamplerRequestsModalProps> = ({
                 }
             }}
         >
-            <Box pos="relative" miw={500} mih={200}>
+            <Box pos="relative" miw={isMobile ? 'auto' : 500} mih={200} p={isMobile ? "xs" : 0}>
                 <LoadingOverlay visible={loading} />
 
                 {displayRequests.length === 0 && !loading ? (
@@ -258,68 +263,116 @@ export const SamplerRequestsModal: React.FC<SamplerRequestsModalProps> = ({
                     </Alert>
                 ) : (
                     <Stack gap="md" mt="md">
-                        <Table striped highlightOnHover verticalSpacing="sm">
-                            <Table.Thead>
-                                <Table.Tr>
-                                    <Table.Th>ID</Table.Th>
-                                    <Table.Th>Tipo</Table.Th>
-                                    <Table.Th>Solicitante</Table.Th>
-                                    <Table.Th>Fecha</Table.Th>
-                                    <Table.Th>Estado</Table.Th>
-                                    <Table.Th ta="right">Acciones</Table.Th>
-                                </Table.Tr>
-                            </Table.Thead>
-                            <Table.Tbody>
-                                {displayRequests.map((sol: any) => (
-                                    <Table.Tr key={`${sol.origen_tabla}-${sol.id_solicitud}`}>
-                                        <Table.Td>
-                                            <Text size="sm" fw={700}>#{sol.id_solicitud}</Text>
-                                        </Table.Td>
-                                        <Table.Td>
-                                            {renderSolicitudDetails(sol)}
-                                        </Table.Td>
-                                        <Table.Td>
-                                            <Group gap={6} wrap="nowrap">
-                                                <IconUser size={14} color="gray" />
-                                                <Text size="xs">{sol.nombre_solicitante || 'N/A'}</Text>
-                                            </Group>
-                                        </Table.Td>
-                                        <Table.Td>
-                                            <Group gap={6} wrap="nowrap">
-                                                <IconCalendar size={14} color="gray" />
-                                                <Text size="xs">{formatDate(sol.fecha_creacion)}</Text>
-                                            </Group>
-                                        </Table.Td>
-                                        <Table.Td>
-                                            <Badge color={getStatusColor(sol.estado)} variant="filled" size="sm" styles={{ root: { minWidth: '80px', textAlign: 'center' }}}>
-                                                {getStatusLabel(sol.estado)}
-                                            </Badge>
-                                        </Table.Td>
-                                        <Table.Td>
-                                            <Group justify="flex-end" gap="xs">
-                                                {(sol.estado === 'PENDIENTE' || sol.estado === 'ACEPTADA') && (
-                                                    <Button
-                                                        size="xs"
-                                                        color="green"
-                                                        leftSection={<IconCheck size={14} />}
-                                                        loading={processingId === sol.id_solicitud}
-                                                        onClick={() => handleMarkAsRealizada(sol)}
-                                                    >
-                                                        Realizar
-                                                    </Button>
-                                                )}
-                                            </Group>
-                                        </Table.Td>
+                        {!isMobile ? (
+                            <Table striped highlightOnHover verticalSpacing="sm">
+                                <Table.Thead>
+                                    <Table.Tr>
+                                        <Table.Th>ID</Table.Th>
+                                        <Table.Th>Tipo</Table.Th>
+                                        <Table.Th>Solicitante</Table.Th>
+                                        <Table.Th>Fecha</Table.Th>
+                                        <Table.Th>Estado</Table.Th>
+                                        <Table.Th ta="right">Acciones</Table.Th>
                                     </Table.Tr>
+                                </Table.Thead>
+                                <Table.Tbody>
+                                    {displayRequests.map((sol: any) => (
+                                        <Table.Tr key={`${sol.origen_tabla}-${sol.id_solicitud}`}>
+                                            <Table.Td>
+                                                <Text size="sm" fw={700}>#{sol.id_solicitud}</Text>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                {renderSolicitudDetails(sol)}
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <Group gap={6} wrap="nowrap">
+                                                    <IconUser size={14} color="gray" />
+                                                    <Text size="xs">{sol.nombre_solicitante || 'N/A'}</Text>
+                                                </Group>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <Group gap={6} wrap="nowrap">
+                                                    <IconCalendar size={14} color="gray" />
+                                                    <Text size="xs">{formatDate(sol.fecha_creacion)}</Text>
+                                                </Group>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <Badge color={getStatusColor(sol.estado)} variant="filled" size="sm" styles={{ root: { minWidth: '80px', textAlign: 'center' }}}>
+                                                    {getStatusLabel(sol.estado)}
+                                                </Badge>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <Group justify="flex-end" gap="xs">
+                                                    {(sol.estado === 'PENDIENTE' || sol.estado === 'ACEPTADA') && (
+                                                        <Button
+                                                            size="xs"
+                                                            color="green"
+                                                            leftSection={<IconCheck size={14} />}
+                                                            loading={processingId === sol.id_solicitud}
+                                                            onClick={() => handleMarkAsRealizada(sol)}
+                                                        >
+                                                            Realizar
+                                                        </Button>
+                                                    )}
+                                                </Group>
+                                            </Table.Td>
+                                        </Table.Tr>
+                                    ))}
+                                </Table.Tbody>
+                            </Table>
+                        ) : (
+                            <Stack gap="sm">
+                                {displayRequests.map((sol: any) => (
+                                    <Paper key={`${sol.origen_tabla}-${sol.id_solicitud}`} withBorder p="md" radius="md" shadow="xs">
+                                        <Stack gap="xs">
+                                            <Group justify="space-between">
+                                                <Text size="sm" fw={800} c="blue.7">#{sol.id_solicitud}</Text>
+                                                <Badge color={getStatusColor(sol.estado)} variant="filled" size="sm">
+                                                    {getStatusLabel(sol.estado)}
+                                                </Badge>
+                                            </Group>
+                                            
+                                            <Divider variant="dashed" />
+                                            
+                                            {renderSolicitudDetails(sol)}
+                                            
+                                            <Divider variant="dashed" />
+                                            
+                                            <SimpleGrid cols={2}>
+                                                <Box>
+                                                    <Text size="xs" fw={700} c="dimmed">SOLICITANTE</Text>
+                                                    <Text size="xs" fw={600}>{sol.nombre_solicitante || 'N/A'}</Text>
+                                                </Box>
+                                                <Box>
+                                                    <Text size="xs" fw={700} c="dimmed">FECHA</Text>
+                                                    <Text size="xs" fw={600}>{formatDate(sol.fecha_creacion)}</Text>
+                                                </Box>
+                                            </SimpleGrid>
+
+                                            {(sol.estado === 'PENDIENTE' || sol.estado === 'ACEPTADA') && (
+                                                <Button
+                                                    fullWidth
+                                                    mt="xs"
+                                                    color="green"
+                                                    leftSection={<IconCheck size={16} />}
+                                                    loading={processingId === sol.id_solicitud}
+                                                    onClick={() => handleMarkAsRealizada(sol)}
+                                                    radius="md"
+                                                >
+                                                    Marcar como Realizada
+                                                </Button>
+                                            )}
+                                        </Stack>
+                                    </Paper>
                                 ))}
-                            </Table.Tbody>
-                        </Table>
+                            </Stack>
+                        )}
                     </Stack>
                 )}
             </Box>
 
             <Group justify="flex-end" mt="xl">
-                <Button variant="default" onClick={onClose}>Cerrar</Button>
+                <Button variant="default" onClick={onClose} fullWidth={isMobile}>Cerrar</Button>
             </Group>
         </Modal>
     );

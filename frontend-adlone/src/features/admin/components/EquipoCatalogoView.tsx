@@ -1,4 +1,36 @@
 import React, { useState, useEffect } from 'react';
+import { 
+    Container, 
+    Paper, 
+    Stack, 
+    Group, 
+    Title, 
+    Text, 
+    Button, 
+    Table, 
+    Badge, 
+    ActionIcon, 
+    TextInput, 
+    LoadingOverlay, 
+    SimpleGrid,
+    Box,
+    Card,
+    Tooltip,
+    Divider,
+    Transition,
+    ScrollArea
+} from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
+import { 
+    IconPlus, 
+    IconEdit, 
+    IconTrash, 
+    IconArrowLeft, 
+    IconDeviceFloppy, 
+    IconX,
+    IconSearch,
+    IconListNumbers
+} from '@tabler/icons-react';
 import { equipoService } from '../services/equipo.service';
 import { useToast } from '../../../contexts/ToastContext';
 
@@ -20,6 +52,7 @@ export const EquipoCatalogoView: React.FC<Props> = ({ onBack }) => {
     const [loading, setLoading] = useState(false);
     const [showForm, setShowForm] = useState(false);
     const [editingItem, setEditingItem] = useState<CatalogItem | null>(null);
+    const [searchTerm, setSearchTerm] = useState('');
     const [formData, setFormData] = useState<CatalogItem>({
         nombre: '',
         que_mide: '',
@@ -30,6 +63,7 @@ export const EquipoCatalogoView: React.FC<Props> = ({ onBack }) => {
     const [isSiglaManual, setIsSiglaManual] = useState(false);
 
     const { showToast } = useToast();
+    const isMobile = useMediaQuery('(max-width: 768px)');
 
     const fetchItems = async () => {
         setLoading(true);
@@ -52,7 +86,6 @@ export const EquipoCatalogoView: React.FC<Props> = ({ onBack }) => {
 
     const autoGenerateSigla = (text: string) => {
         if (!text) return '';
-        // Split by commas, remove common filler words, join with /
         return text.split(',')
             .map(part => part.trim()
                 .replace(/^(Unid\. de |Unidades de |Grados |de |en )/i, '')
@@ -71,7 +104,7 @@ export const EquipoCatalogoView: React.FC<Props> = ({ onBack }) => {
     const handleEdit = (item: CatalogItem) => {
         setEditingItem(item);
         setFormData(item);
-        setIsSiglaManual(true); // Treat existing as manual to avoid overwriting on load
+        setIsSiglaManual(true);
         setShowForm(true);
     };
 
@@ -117,212 +150,307 @@ export const EquipoCatalogoView: React.FC<Props> = ({ onBack }) => {
         }
     };
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, value } = e.target;
-        if (name === 'unidad_medida_sigla') {
-            setIsSiglaManual(true);
-        }
-        setFormData(prev => ({ ...prev, [name]: value }));
+    const filteredItems = items.filter(item => 
+        item.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.tipo_equipo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.que_mide.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    const handleCancel = () => {
+        setShowForm(false);
+        setEditingItem(null);
+        setFormData({ nombre: '', que_mide: '', unidad_medida_textual: '', unidad_medida_sigla: '', tipo_equipo: '' });
+        setIsSiglaManual(false);
     };
 
     return (
-        <div className="catalog-view-container-refined">
-            <div className="catalog-header-refined">
-                <div className="catalog-title-section-refined">
-                    <h2>
-                        <span style={{ marginRight: '0.6rem' }}>📋</span> 
-                        {showForm ? 'Modelo de Equipo' : 'Gestión de Catálogo'}
-                    </h2>
-                    <p className="catalog-subtitle-refined">
-                        {showForm 
-                            ? 'Defina los parámetros técnicos del nuevo modelo.' 
-                            : 'Administre los modelos autorizados con sus especificaciones detalladas.'}
-                    </p>
-                </div>
-                <button 
-                    onClick={showForm ? () => setShowForm(false) : onBack}
-                    className="catalog-btn-cancel-refined"
-                    style={{ padding: '0.5rem 1.25rem', fontSize: '0.8rem' }}
-                >
-                    {showForm ? '← Volver a la lista' : '← Volver al Hub'}
-                </button>
-            </div>
+        <Container size="xl" py={isMobile ? "xs" : "md"} px={isMobile ? 4 : "md"}>
+            <Paper shadow="sm" radius="md" p={{ base: 'md', sm: 'xl' }} withBorder pos="relative">
+                <LoadingOverlay visible={loading} overlayProps={{ radius: 'sm', blur: 2 }} zIndex={100} />
+                
+                <Stack gap="xl">
+                    <Group justify="space-between" align="flex-start" wrap="wrap">
+                        <Stack gap={4} style={{ flex: 1, minWidth: isMobile ? '100%' : '280px' }}>
+                            <Group gap="xs" wrap={isMobile ? "wrap" : "nowrap"} justify={isMobile ? "center" : "flex-start"}>
+                                <IconListNumbers size={28} color="var(--mantine-primary-color-filled)" style={{ flexShrink: 0 }} />
+                                <Title order={2} fw={800} size={isMobile ? "h4" : "h3"} style={{ lineHeight: 1.2, textAlign: isMobile ? 'center' : 'left' }}>
+                                    {showForm ? (editingItem ? 'Editar Modelo' : 'Nuevo Modelo de Equipo') : 'Gestión de Catálogo'}
+                                </Title>
+                            </Group>
+                            <Text c="dimmed" size="sm" ta={isMobile ? "center" : "left"}>
+                                {showForm 
+                                    ? 'Defina los parámetros técnicos del modelo en el catálogo maestro.' 
+                                    : 'Administre los modelos autorizados con sus especificaciones detalladas para el inventario.'}
+                            </Text>
+                        </Stack>
 
-            <div className="catalog-content-refined">
-                {showForm ? (
-                    <div className="catalog-form-card-refined" style={{ animation: 'pve-fadeIn 0.3s ease-out' }}>
-                        <form onSubmit={handleSubmit}>
-                            <div className="catalog-form-grid-refined">
-                                <div className="catalog-input-group-refined">
-                                    <label>Nombre del Equipo</label>
-                                    <input
-                                        type="text"
-                                        name="nombre"
-                                        value={formData.nombre}
-                                        onChange={handleChange}
-                                        placeholder="Ej: MULTIPARAMETRO"
-                                        className="catalog-input-field-refined"
-                                        required
-                                    />
-                                </div>
-                                <div className="catalog-input-group-refined">
-                                    <label>Tipo de Equipo</label>
-                                    <input
-                                        type="text"
-                                        name="tipo_equipo"
-                                        value={formData.tipo_equipo}
-                                        onChange={handleChange}
-                                        placeholder="Ej: Sonda"
-                                        className="catalog-input-field-refined"
-                                        required
-                                    />
-                                </div>
-                                <div className="catalog-input-group-refined">
-                                    <label>Qué Mide (Variables)</label>
-                                    <input
-                                        type="text"
-                                        name="que_mide"
-                                        value={formData.que_mide}
-                                        onChange={handleChange}
-                                        placeholder="Ej: pH, Temperatura, Turbiedad"
-                                        className="catalog-input-field-refined"
-                                        required
-                                    />
-                                </div>
-                                <div className="catalog-input-group-refined">
-                                    <label>Unidad de Medida</label>
-                                    <input
-                                        type="text"
-                                        name="unidad_medida_textual"
-                                        value={formData.unidad_medida_textual}
-                                        onChange={handleChange}
-                                        placeholder="Ej: Unid. de pH, °C, NTU"
-                                        className="catalog-input-field-refined"
-                                        required
-                                    />
-                                </div>
-                                <div className="catalog-input-group-refined">
-                                    <label>Sigla de Unidad</label>
-                                    <div style={{ position: 'relative' }}>
-                                        <input
-                                            type="text"
-                                            name="unidad_medida_sigla"
-                                            value={formData.unidad_medida_sigla}
-                                            onChange={handleChange}
-                                            placeholder="Ej: pH/°C/NTU"
-                                            className="catalog-input-field-refined"
-                                            style={{ width: '100%', paddingRight: '3rem' }}
-                                        />
-                                        {isSiglaManual && (
-                                            <span 
-                                                title="Manual" 
-                                                style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.7rem', color: '#94a3b8' }}
+                        <Button 
+                            variant="subtle" 
+                            color="gray" 
+                            leftSection={<IconArrowLeft size={16} />}
+                            onClick={showForm ? handleCancel : onBack}
+                            size="sm"
+                            w={{ base: '100%', sm: 'auto' }}
+                        >
+                            {showForm ? 'Volver a la lista' : 'Volver al Hub'}
+                        </Button>
+                    </Group>
+
+                    <Divider />
+
+                    {showForm ? (
+                        <Transition mounted={showForm} transition="fade" duration={400} timingFunction="ease">
+                            {(styles) => (
+                                <Box style={styles}>
+                                    <form onSubmit={handleSubmit}>
+                                        <Card withBorder radius="md" p={{ base: 'lg', sm: 'xl' }} bg="var(--mantine-color-gray-0)">
+                                            <Stack gap="lg">
+                                                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
+                                                    <TextInput
+                                                        label="Nombre del Equipo"
+                                                        placeholder="Ej: MULTIPARAMETRO"
+                                                        required
+                                                        value={formData.nombre}
+                                                        onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                                                        description="Nombre principal que identifica al modelo"
+                                                    />
+                                                    <TextInput
+                                                        label="Tipo de Equipo"
+                                                        placeholder="Ej: Sonda, Sensor, Medidor"
+                                                        required
+                                                        value={formData.tipo_equipo}
+                                                        onChange={(e) => setFormData({ ...formData, tipo_equipo: e.target.value })}
+                                                        description="Categoría técnica del equipo"
+                                                    />
+                                                    <TextInput
+                                                        label="Qué Mide (Variables)"
+                                                        placeholder="Ej: pH, Temperatura, Turbiedad"
+                                                        required
+                                                        value={formData.que_mide}
+                                                        onChange={(e) => setFormData({ ...formData, que_mide: e.target.value })}
+                                                        description="Variables que el equipo registra"
+                                                    />
+                                                    <TextInput
+                                                        label="Unidad de Medida (Detallado)"
+                                                        placeholder="Ej: Unid. de pH, Grados Celsius, NTU"
+                                                        required
+                                                        value={formData.unidad_medida_textual}
+                                                        onChange={(e) => setFormData({ ...formData, unidad_medida_textual: e.target.value })}
+                                                        description="Descripción formal de las unidades"
+                                                    />
+                                                    <Box>
+                                                        <TextInput
+                                                            label="Sigla de Unidad (Corta)"
+                                                            placeholder="Ej: pH/°C/NTU"
+                                                            value={formData.unidad_medida_sigla}
+                                                            onChange={(e) => {
+                                                                setIsSiglaManual(true);
+                                                                setFormData({ ...formData, unidad_medida_sigla: e.target.value });
+                                                            }}
+                                                            description="Versión abreviada"
+                                                            rightSection={isSiglaManual ? (
+                                                                <Tooltip label="Editado manualmente">
+                                                                    <Text size="xs" c="blue" mr="xs" style={{ cursor: 'help' }}>✍️</Text>
+                                                                </Tooltip>
+                                                            ) : null}
+                                                        />
+                                                    </Box>
+                                                </SimpleGrid>
+
+                                                <Group justify="flex-end" mt="xl" wrap="wrap-reverse" grow={isMobile}>
+                                                    <Button variant="outline" color="gray" onClick={handleCancel} leftSection={<IconX size={16} />} radius="md">
+                                                        Cancelar
+                                                    </Button>
+                                                    <Button type="submit" gradient={{ from: 'indigo', to: 'cyan' }} variant="gradient" leftSection={<IconDeviceFloppy size={18} />} radius="md">
+                                                        {editingItem ? 'Actualizar' : 'Registrar'} {isMobile ? '' : 'Modelo'}
+                                                    </Button>
+                                                </Group>
+                                            </Stack>
+                                        </Card>
+                                    </form>
+                                </Box>
+                            )}
+                        </Transition>
+                    ) : (
+                        <Transition mounted={!showForm} transition="fade" duration={400} timingFunction="ease">
+                            {(styles) => (
+                                <Stack style={styles} gap="md">
+                                        <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm" style={{ width: '100%' }}>
+                                            <TextInput
+                                                placeholder="Buscar por nombre, tipo o variable..."
+                                                leftSection={<IconSearch size={16} />}
+                                                value={searchTerm}
+                                                onChange={(e) => setSearchTerm(e.currentTarget.value)}
+                                                variant="filled"
+                                                radius="md"
+                                                size={isMobile ? "md" : "sm"}
+                                            />
+                                            <Button 
+                                                leftSection={<IconPlus size={18} />} 
+                                                onClick={() => setShowForm(true)}
+                                                radius="md"
+                                                variant="filled"
+                                                color="dark"
+                                                size={isMobile ? "md" : "sm"}
                                             >
-                                                ✍️
-                                            </span>
+                                                Agregar Nuevo Modelo
+                                            </Button>
+                                        </SimpleGrid>
+
+                                    <Paper withBorder radius="md" style={{ overflow: 'hidden' }}>
+                                        {!isMobile ? (
+                                            <ScrollArea h={650} type="auto" offsetScrollbars>
+                                                <Table verticalSpacing="sm" highlightOnHover striped style={{ minWidth: 800 }}>
+                                                    <Table.Thead bg="var(--mantine-color-gray-0)">
+                                                        <Table.Tr>
+                                                            <Table.Th>Nombre</Table.Th>
+                                                            <Table.Th>Tipo</Table.Th>
+                                                            <Table.Th>Qué Mide</Table.Th>
+                                                            <Table.Th>Sigla</Table.Th>
+                                                            <Table.Th align="right" style={{ textAlign: 'right', paddingRight: '2rem' }}>Acciones</Table.Th>
+                                                        </Table.Tr>
+                                                    </Table.Thead>
+                                                    <Table.Tbody>
+                                                        {filteredItems.length === 0 ? (
+                                                            <Table.Tr>
+                                                                <Table.Td colSpan={5} py="xl">
+                                                                    <Stack align="center" gap="xs">
+                                                                        <Text c="dimmed" size="sm">
+                                                                            {loading ? 'Cargando datos...' : (searchTerm ? 'No se encontraron coincidencias.' : 'El catálogo está vacío.')}
+                                                                        </Text>
+                                                                    </Stack>
+                                                                </Table.Td>
+                                                            </Table.Tr>
+                                                        ) : (
+                                                            filteredItems.map((item) => (
+                                                                <Table.Tr key={item.id_equipocatalogo}>
+                                                                    <Table.Td>
+                                                                        <Text fw={700} size="sm">{item.nombre}</Text>
+                                                                    </Table.Td>
+                                                                    <Table.Td>
+                                                                        <Badge variant="light" color="indigo" radius="sm">
+                                                                            {item.tipo_equipo}
+                                                                        </Badge>
+                                                                    </Table.Td>
+                                                                    <Table.Td>
+                                                                        <Text size="xs" c="dimmed" lineClamp={2} style={{ maxWidth: 300 }}>
+                                                                            {item.que_mide}
+                                                                        </Text>
+                                                                    </Table.Td>
+                                                                    <Table.Td>
+                                                                        <Badge variant="outline" color="gray" radius="sm">
+                                                                            {item.unidad_medida_sigla || 'N/A'}
+                                                                        </Badge>
+                                                                    </Table.Td>
+                                                                    <Table.Td>
+                                                                        <Group gap="xs" justify="flex-end" wrap="nowrap">
+                                                                            <Tooltip label="Editar detalles">
+                                                                                <ActionIcon 
+                                                                                    variant="light" 
+                                                                                    color="blue" 
+                                                                                    onClick={() => handleEdit(item)}
+                                                                                    radius="md"
+                                                                                >
+                                                                                    <IconEdit size={16} />
+                                                                                </ActionIcon>
+                                                                            </Tooltip>
+                                                                            <Tooltip label="Eliminar del catálogo">
+                                                                                <ActionIcon 
+                                                                                    variant="light" 
+                                                                                    color="red" 
+                                                                                    onClick={() => handleDelete(item.id_equipocatalogo!)}
+                                                                                    radius="md"
+                                                                                >
+                                                                                    <IconTrash size={16} />
+                                                                                </ActionIcon>
+                                                                            </Tooltip>
+                                                                        </Group>
+                                                                    </Table.Td>
+                                                                </Table.Tr>
+                                                            ))
+                                                        )}
+                                                    </Table.Tbody>
+                                                </Table>
+                                            </ScrollArea>
+                                        ) : (
+                                            <Stack gap="sm" p="sm">
+                                                {filteredItems.length === 0 ? (
+                                                    <Box py="xl" ta="center">
+                                                        <Text c="dimmed" size="sm">
+                                                            {loading ? 'Cargando datos...' : (searchTerm ? 'No se encontraron coincidencias.' : 'El catálogo está vacío.')}
+                                                        </Text>
+                                                    </Box>
+                                                ) : (
+                                                    filteredItems.map((item) => (
+                                                        <Paper key={item.id_equipocatalogo} withBorder p="md" radius="md" bg="var(--mantine-color-gray-0)">
+                                                            <Stack gap="xs">
+                                                                <Group justify="space-between" wrap="nowrap" align="flex-start">
+                                                                    <Box style={{ flex: 1 }}>
+                                                                        <Text fw={800} size="md" c="blue.8">{item.nombre}</Text>
+                                                                        <Badge variant="light" color="indigo" size="xs" mt={4}>
+                                                                            {item.tipo_equipo}
+                                                                        </Badge>
+                                                                    </Box>
+                                                                    <Group gap={6} wrap="nowrap">
+                                                                        <ActionIcon 
+                                                                            variant="subtle" 
+                                                                            color="blue" 
+                                                                            onClick={() => handleEdit(item)}
+                                                                            radius="md"
+                                                                            size="lg"
+                                                                        >
+                                                                            <IconEdit size={20} />
+                                                                        </ActionIcon>
+                                                                        <ActionIcon 
+                                                                            variant="subtle" 
+                                                                            color="red" 
+                                                                            onClick={() => handleDelete(item.id_equipocatalogo!)}
+                                                                            radius="md"
+                                                                            size="lg"
+                                                                        >
+                                                                            <IconTrash size={20} />
+                                                                        </ActionIcon>
+                                                                    </Group>
+                                                                </Group>
+                                                                
+                                                                <Divider variant="dashed" />
+                                                                
+                                                                <Box>
+                                                                    <Text size="xs" fw={700} c="dimmed">MIDE:</Text>
+                                                                    <Text size="sm">{item.que_mide}</Text>
+                                                                </Box>
+                                                                
+                                                                <Group justify="space-between">
+                                                                    <Box>
+                                                                        <Text size="xs" fw={700} c="dimmed">SIGLA:</Text>
+                                                                        <Badge variant="outline" color="gray" radius="sm">
+                                                                            {item.unidad_medida_sigla || 'N/A'}
+                                                                        </Badge>
+                                                                    </Box>
+                                                                    <Box ta="right">
+                                                                        <Text size="xs" fw={700} c="dimmed">ID:</Text>
+                                                                        <Text size="xs" fw={600}>#{item.id_equipocatalogo}</Text>
+                                                                    </Box>
+                                                                </Group>
+                                                            </Stack>
+                                                        </Paper>
+                                                    ))
+                                                )}
+                                            </Stack>
                                         )}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="catalog-form-actions-refined">
-                                <button type="button" onClick={() => setShowForm(false)} className="catalog-btn-cancel-refined">
-                                    Cancelar
-                                </button>
-                                <button type="submit" disabled={loading} className="catalog-btn-submit-refined">
-                                    {loading ? 'Procesando...' : (editingItem ? 'Actualizar Registro' : 'Registrar en Catálogo')}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                ) : (
-                    <div style={{ animation: 'pve-fadeIn 0.3s ease-out' }}>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1.5rem' }}>
-                            <button 
-                                onClick={() => {
-                                    setEditingItem(null);
-                                    setFormData({ nombre: '', que_mide: '', unidad_medida_textual: '', unidad_medida_sigla: '', tipo_equipo: '' });
-                                    setIsSiglaManual(false);
-                                    setShowForm(true);
-                                }} 
-                                className="catalog-btn-submit-refined"
-                                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#0f172a' }}
-                            >
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                                Agregar Nuevo Modelo
-                            </button>
-                        </div>
-                        
-                        <div className="catalog-table-wrapper-refined">
-                            <table className="catalog-premium-table-refined">
-                                <thead>
-                                    <tr>
-                                        <th>Nombre</th>
-                                        <th>Tipo</th>
-                                        <th>Qué Mide</th>
-                                        <th>Sigla</th>
-                                        <th style={{ textAlign: 'right' }}>Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {items.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={5} style={{ padding: '5rem', textAlign: 'center', color: '#94a3b8' }}>
-                                                {loading ? (
-                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-                                                        <div className="spinner" style={{ width: '24px', height: '24px', border: '3px solid #f3f3f3', borderTop: '3px solid #2563eb', borderRadius: '50%', animation: 'spin 1.1s linear infinite' }}></div>
-                                                        <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Cargando catálogo maestro...</span>
-                                                    </div>
-                                                ) : 'Catálogo vacío.'}
-                                            </td>
-                                        </tr>
-                                    ) : (
-                                        items.map((item) => (
-                                            <tr key={item.id_equipocatalogo}>
-                                                <td style={{ fontWeight: 700, color: '#0f172a' }}>{item.nombre}</td>
-                                                <td>
-                                                    <span className="catalog-badge-type-refined">
-                                                        {item.tipo_equipo}
-                                                    </span>
-                                                </td>
-                                                <td style={{ color: '#475569', fontSize: '0.85rem' }}>{item.que_mide}</td>
-                                                <td>
-                                                    <span className="catalog-badge-sigla-refined">
-                                                        {item.unidad_medida_sigla || 'N/A'}
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    <div className="catalog-action-group-refined">
-                                                        <button 
-                                                            onClick={() => handleEdit(item)} 
-                                                            title="Editar detalles"
-                                                            className="catalog-btn-icon-refined catalog-btn-edit-refined"
-                                                        >
-                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4L18.5 2.5z"></path></svg>
-                                                        </button>
-                                                        <button 
-                                                            onClick={() => handleDelete(item.id_equipocatalogo!)} 
-                                                            title="Eliminar del catálogo"
-                                                            className="catalog-btn-icon-refined catalog-btn-delete-refined"
-                                                        >
-                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))
+                                    </Paper>
+                                    
+                                    {!loading && filteredItems.length > 0 && (
+                                        <Text size="xs" c="dimmed" ta="right">
+                                            Mostrando {filteredItems.length} modelos en el catálogo
+                                        </Text>
                                     )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            <style>{`
-                @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-                @keyframes pve-fadeIn { from { opacity: 0; } to { opacity: 1; } }
-            `}</style>
-        </div>
+                                </Stack>
+                            )}
+                        </Transition>
+                    )}
+                </Stack>
+            </Paper>
+        </Container>
     );
 };

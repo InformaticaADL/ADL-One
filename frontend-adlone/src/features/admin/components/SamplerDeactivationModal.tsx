@@ -17,6 +17,7 @@ import {
     Center,
     Divider
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import {
     IconUserMinus,
     IconBuildingCommunity,
@@ -52,6 +53,7 @@ const SamplerDeactivationModal: React.FC<SamplerDeactivationModalProps> = ({
     const [loadingEquipos, setLoadingEquipos] = useState(false);
     const [equipmentCount, setEquipmentCount] = useState<number | null>(null);
     const { showToast } = useToast();
+    const isMobile = useMediaQuery('(max-width: 768px)');
 
     useEffect(() => {
         if (opened) {
@@ -148,8 +150,9 @@ const SamplerDeactivationModal: React.FC<SamplerDeactivationModalProps> = ({
             opened={opened}
             onClose={onClose}
             title={<Group gap="xs"><IconUserMinus size={20} color="var(--mantine-color-red-6)"/><Title order={4}>Deshabilitar Muestreador</Title></Group>}
-            size="lg"
-            radius="md"
+            size={isMobile ? "100%" : "lg"}
+            fullScreen={isMobile}
+            radius={isMobile ? 0 : "md"}
         >
             <Stack gap="lg">
                 <Alert icon={<IconAlertTriangle size={18} />} color="orange" radius="md">
@@ -159,7 +162,7 @@ const SamplerDeactivationModal: React.FC<SamplerDeactivationModalProps> = ({
 
                 <Stack gap="xs">
                     <Text size="sm" fw={700}>¿Qué desea hacer con los equipos? ({equipmentCount ?? '...'})</Text>
-                    <SimpleGrid cols={3} spacing="sm">
+                    <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
                         {[
                             { id: 'BASE', label: 'Traspaso a Base', icon: <IconBuildingCommunity size={20} />, color: 'blue' },
                             { id: 'MUESTREADOR', label: 'A Compañero', icon: <IconUsers size={20} />, color: 'teal' },
@@ -229,21 +232,36 @@ const SamplerDeactivationModal: React.FC<SamplerDeactivationModalProps> = ({
                                 equipmentList.length === 0 ? <Text size="sm" c="dimmed" ta="center" py="md">No hay equipos asignados.</Text> :
                                 equipmentList.map(eq => (
                                     <Paper key={eq.id_equipo} p="xs" bg="white" radius="md" style={{ border: '1px solid var(--mantine-color-gray-2)' }}>
-                                        <Group justify="space-between" wrap="nowrap">
-                                            <Group gap="xs">
-                                                <Badge variant="light" color="gray" size="xs"><IconHash size={10} /> {eq.codigo}</Badge>
-                                                <Text size="sm" fw={600} truncate>{eq.nombre}</Text>
+                                        <Stack gap={8}>
+                                            <Group justify="space-between" wrap="nowrap">
+                                                <Group gap="xs" wrap="nowrap" style={{ flex: 1 }}>
+                                                    <Badge variant="light" color="gray" size="xs"><IconHash size={10} /> {eq.codigo}</Badge>
+                                                    <Text size="sm" fw={600} truncate>{eq.nombre}</Text>
+                                                </Group>
+                                                {!isMobile && (
+                                                    <Select 
+                                                        size="xs"
+                                                        placeholder="Destino"
+                                                        data={muestreadores.filter(m => m.id_muestreador !== sampler?.id_muestreador).map(m => ({ value: String(m.id_muestreador), label: m.nombre_muestreador }))}
+                                                        value={manualAssignments[eq.id_equipo] ? String(manualAssignments[eq.id_equipo]) : null}
+                                                        onChange={(val) => setManualAssignments({ ...manualAssignments, [eq.id_equipo]: Number(val) })}
+                                                        radius="sm"
+                                                        style={{ width: 140 }}
+                                                    />
+                                                )}
                                             </Group>
-                                            <Select 
-                                                size="xs"
-                                                placeholder="Destino"
-                                                data={muestreadores.filter(m => m.id_muestreador !== sampler?.id_muestreador).map(m => ({ value: String(m.id_muestreador), label: m.nombre_muestreador }))}
-                                                value={manualAssignments[eq.id_equipo] ? String(manualAssignments[eq.id_equipo]) : null}
-                                                onChange={(val) => setManualAssignments({ ...manualAssignments, [eq.id_equipo]: Number(val) })}
-                                                radius="sm"
-                                                style={{ width: 140 }}
-                                            />
-                                        </Group>
+                                            {isMobile && (
+                                                <Select 
+                                                    size="sm"
+                                                    label="Asignar a:"
+                                                    placeholder="Seleccione destino"
+                                                    data={muestreadores.filter(m => m.id_muestreador !== sampler?.id_muestreador).map(m => ({ value: String(m.id_muestreador), label: m.nombre_muestreador }))}
+                                                    value={manualAssignments[eq.id_equipo] ? String(manualAssignments[eq.id_equipo]) : null}
+                                                    onChange={(val) => setManualAssignments({ ...manualAssignments, [eq.id_equipo]: Number(val) })}
+                                                    radius="md"
+                                                />
+                                            )}
+                                        </Stack>
                                     </Paper>
                                 ))
                             )}
@@ -251,14 +269,15 @@ const SamplerDeactivationModal: React.FC<SamplerDeactivationModalProps> = ({
                     </Paper>
                 )}
 
-                <Group justify="flex-end" mt="xl">
-                    <Button variant="light" color="gray" onClick={onClose} radius="md">
+                <Group justify="flex-end" mt="xl" grow={isMobile}>
+                    <Button variant="light" color="gray" onClick={onClose} radius="md" size={isMobile ? "md" : "sm"}>
                         Cancelar
                     </Button>
                     <Button 
                         color="red" 
                         radius="md" 
                         loading={loading} 
+                        size={isMobile ? "md" : "sm"}
                         disabled={!transferType || (transferType === 'BASE' && !targetBase) || (transferType === 'MUESTREADOR' && !targetMuestreadorId)}
                         onClick={handleConfirm}
                     >

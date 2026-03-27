@@ -1,17 +1,13 @@
 .navbar {
-  background-color: var(--mantine-color-white);
-  height: 100vh;
+  background-color: transparent;
+  height: 100%;
   width: 240px;
   padding: 10px;
   padding-bottom: 0;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--mantine-color-gray-3);
+  border-right: none;
   transition: width 300ms ease;
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 1001; /* Incrementado para estar sobre el contenido principal */
 }
 
 .navbarCollapsed {

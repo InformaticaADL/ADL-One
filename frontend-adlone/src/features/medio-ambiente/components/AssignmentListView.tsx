@@ -21,6 +21,7 @@ import {
     Divider,
     Box
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { 
     IconSearch, 
     IconEraser, 
@@ -50,6 +51,7 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
     const [currentPage, setCurrentPage] = useState(1);
     const [loading, setLoading] = useState(true);
     const [fichas, setFichas] = useState<any[]>([]);
+    const isMobile = useMediaQuery('(max-width: 768px)');
 
     const itemsPerPage = 12;
 
@@ -223,9 +225,9 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                     subtitle="Gestión de recursos y programación de muestreos"
                     onBack={onBackToMenu}
                     rightSection={
-                        <Group gap="xs">
-                            <Text size="sm" fw={500} c="dimmed">{filteredFichas.length} registros encontrados</Text>
-                            <Button variant="light" color="gray" leftSection={<IconEraser size={16} />} onClick={handleClearFilters}>
+                        <Group gap="xs" wrap={isMobile ? "wrap" : "nowrap"}>
+                            <Text size="xs" fw={500} c="dimmed">{filteredFichas.length} registros encontrados</Text>
+                            <Button variant="light" color="gray" size="xs" leftSection={<IconEraser size={14} />} onClick={handleClearFilters}>
                                 Limpiar Filtros
                             </Button>
                         </Group>
@@ -238,7 +240,7 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                             <IconFilter size={18} color="var(--mantine-color-blue-6)" />
                             <Text fw={700} size="sm" c="blue.7">Filtros de Búsqueda</Text>
                         </Group>
-                        <SimpleGrid cols={{ base: 2, sm: 3, md: 5, lg: 6 }} spacing="sm">
+                        <SimpleGrid cols={{ base: 1, sm: 3, md: 5, lg: 6 }} spacing="sm">
                             <TextInput 
                                 label="N° Ficha" 
                                 placeholder="Eje: 1234" 
@@ -432,8 +434,10 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                             value={currentPage} 
                             onChange={setCurrentPage} 
                             radius="md" 
-                            size="sm"
-                            withEdges
+                            size={isMobile ? "xs" : "sm"}
+                            siblings={isMobile ? 0 : 1}
+                            boundaries={isMobile ? 0 : 1}
+                            withEdges={!isMobile}
                         />
                     </Center>
                 </Paper>

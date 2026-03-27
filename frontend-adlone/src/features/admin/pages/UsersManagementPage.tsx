@@ -16,8 +16,11 @@ import {
     Checkbox,
     ScrollArea,
     LoadingOverlay,
-    Tooltip
+    Tooltip,
+    useMantineTheme,
+    Avatar
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { 
     IconSearch, 
     IconPlus, 
@@ -40,6 +43,8 @@ interface Props {
 }
 
 export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
+    const theme = useMantineTheme();
+    const isMobile = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`);
     const { showToast } = useToast();
     const [users, setUsers] = useState<User[]>([]);
     const [roles, setRoles] = useState<Role[]>([]);
@@ -270,14 +275,13 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
     });
 
     return (
-        <Box p="md" style={{ width: '100%' }}>
+        <Box p={isMobile ? "xs" : "md"} style={{ width: '100%' }}>
             <PageHeader
                 title="Gestión de Usuarios"
-                subtitle="Administra los accesos y roles de los integrantes del sistema."
+                subtitle="Administra accesos y roles del personal."
                 onBack={onBack}
                 breadcrumbItems={[
                     { label: 'Administración', onClick: onBack },
-                    { label: 'Informática', onClick: onBack },
                     { label: 'Usuarios' }
                 ]}
                 rightSection={
@@ -286,6 +290,8 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                         onClick={openCreateModal}
                         radius="md"
                         color="blue"
+                        fullWidth={isMobile}
+                        mt={isMobile ? "md" : 0}
                     >
                         Nuevo Usuario
                     </Button>
@@ -296,10 +302,10 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
 
                 {/* Filters Section */}
                 <Paper withBorder p="md" radius="md" shadow="sm">
-                    <Group grow align="flex-end">
+                    <Group grow={!isMobile} align="flex-end">
                         <TextInput 
                             label="Búsqueda"
-                            placeholder="Nombre, usuario o email..."
+                            placeholder="Nombre or email..."
                             leftSection={<IconSearch size={16} />}
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.currentTarget.value)}
@@ -307,11 +313,10 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                         />
                         <Select 
                             label="Estado"
-                            placeholder="Todos"
                             value={filterStatus}
                             onChange={(val) => setFilterStatus(val || 'all')}
                             data={[
-                                { value: 'all', label: 'Todos los estados' },
+                                { value: 'all', label: 'Todos' },
                                 { value: 'active', label: 'Solo Activos' },
                                 { value: 'inactive', label: 'Solo Inactivos' }
                             ]}
@@ -320,106 +325,160 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                     </Group>
                 </Paper>
 
-                {/* Table Section */}
-                <Paper withBorder radius="md" shadow="sm" pos="relative">
+                {/* Content Section */}
+                <Box pos="relative">
                     <LoadingOverlay visible={loading} overlayProps={{ blur: 2 }} />
-                    <Table.ScrollContainer minWidth={800}>
-                        <Table verticalSpacing="sm" highlightOnHover>
-                            <Table.Thead bg="gray.0">
-                                <Table.Tr>
-                                    <Table.Th>Usuario</Table.Th>
-                                    <Table.Th>Nombre Real</Table.Th>
-                                    <Table.Th>Cargo</Table.Th>
-                                    <Table.Th>Roles</Table.Th>
-                                    <Table.Th>Email</Table.Th>
-                                    <Table.Th ta="center">Estado</Table.Th>
-                                    <Table.Th ta="right">Acciones</Table.Th>
-                                </Table.Tr>
-                            </Table.Thead>
-                            <Table.Tbody>
-                                {filteredUsers.length > 0 ? (
-                                    filteredUsers.map((user) => (
-                                        <Table.Tr key={user.id_usuario}>
-                                            <Table.Td>
-                                                <Group gap="sm">
-                                                    <IconUser size={16} color="var(--mantine-color-blue-filled)" />
-                                                    <Text size="sm" fw={600}>{user.nombre_usuario}</Text>
-                                                </Group>
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <Text size="sm">{user.nombre_real}</Text>
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <Text size="sm">{user.nombre_cargo || '-'}</Text>
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <Group gap={4}>
-                                                    {user.roles?.map((rol, i) => (
-                                                        <Badge key={i} size="xs" variant="gray" radius="xs">{rol}</Badge>
-                                                    ))}
-                                                </Group>
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <Group gap="xs">
-                                                    <IconMail size={14} color="gray" />
-                                                    <Text size="xs" c="blue">{user.correo_electronico || '-'}</Text>
-                                                </Group>
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <Group justify="center">
-                                                    <Badge 
-                                                        color={user.habilitado === 'S' ? 'green' : 'red'} 
-                                                        variant="light"
-                                                        radius="sm"
-                                                    >
-                                                        {user.habilitado === 'S' ? 'Activo' : 'Inactivo'}
-                                                    </Badge>
-                                                </Group>
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <Group gap={8} justify="flex-end">
-                                                    <Tooltip label="Editar datos">
-                                                        <ActionIcon 
-                                                            variant="light" 
-                                                            color="blue" 
-                                                            onClick={() => openEditModal(user)}
-                                                        >
-                                                            <IconEdit size={16} />
-                                                        </ActionIcon>
-                                                    </Tooltip>
-                                                    <Tooltip label="Cambiar contraseña">
-                                                        <ActionIcon 
-                                                            variant="light" 
-                                                            color="orange" 
-                                                            onClick={() => openPasswordModal(user)}
-                                                        >
-                                                            <IconKey size={16} />
-                                                        </ActionIcon>
-                                                    </Tooltip>
-                                                    <Tooltip label={user.habilitado === 'S' ? 'Deshabilitar' : 'Habilitar'}>
-                                                        <ActionIcon 
-                                                            variant="light" 
-                                                            color={user.habilitado === 'S' ? 'red' : 'green'} 
-                                                            onClick={() => openConfirmModal(user)}
-                                                        >
-                                                            {user.habilitado === 'S' ? <IconBan size={16} /> : <IconCheck size={16} />}
-                                                        </ActionIcon>
-                                                    </Tooltip>
-                                                </Group>
-                                            </Table.Td>
+                    
+                    {isMobile ? (
+                        <Stack gap="sm">
+                            {filteredUsers.length > 0 ? (
+                                filteredUsers.map((user) => (
+                                    <Paper key={user.id_usuario} withBorder p="md" radius="md" shadow="xs">
+                                        <Group justify="space-between" align="flex-start" mb="sm" wrap="nowrap">
+                                            <Group gap="sm" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
+                                                <Avatar radius="md" color="blue" variant="light" size={40}>
+                                                    <IconUser size={24} />
+                                                </Avatar>
+                                                <Box style={{ flex: 1, minWidth: 0 }}>
+                                                    <Text size="sm" fw={700} truncate>{user.nombre_real}</Text>
+                                                    <Text size="xs" c="dimmed">@{user.nombre_usuario}</Text>
+                                                </Box>
+                                            </Group>
+                                            <Badge 
+                                                color={user.habilitado === 'S' ? 'green' : 'red'} 
+                                                variant="light"
+                                                size="xs"
+                                            >
+                                                {user.habilitado === 'S' ? 'ACTIVO' : 'INACTIVO'}
+                                            </Badge>
+                                        </Group>
+
+                                        <Stack gap={8} mb="md">
+                                            <Group gap="xs">
+                                                <IconMail size={14} color="gray" />
+                                                <Text size="xs" c="blue" truncate>{user.correo_electronico || '-'}</Text>
+                                            </Group>
+                                            <Group gap="xs">
+                                                <IconShield size={14} color="gray" />
+                                                <Text size="xs" fw={500}>{user.nombre_cargo || 'Sin Cargo'}</Text>
+                                            </Group>
+                                            <Group gap={4} wrap="wrap">
+                                                {user.roles?.map((rol, i) => (
+                                                    <Badge key={i} size="xs" variant="gray" radius="xs">{rol}</Badge>
+                                                ))}
+                                            </Group>
+                                        </Stack>
+
+                                        <Group gap="xs" justify="flex-end" pt="xs" style={{ borderTop: '1px solid var(--mantine-color-gray-1)' }}>
+                                            <ActionIcon variant="light" color="blue" onClick={() => openEditModal(user)} size="lg">
+                                                <IconEdit size={18} />
+                                            </ActionIcon>
+                                            <ActionIcon variant="light" color="orange" onClick={() => openPasswordModal(user)} size="lg">
+                                                <IconKey size={18} />
+                                            </ActionIcon>
+                                            <ActionIcon variant="light" color={user.habilitado === 'S' ? 'red' : 'green'} onClick={() => openConfirmModal(user)} size="lg">
+                                                {user.habilitado === 'S' ? <IconBan size={18} /> : <IconCheck size={18} />}
+                                            </ActionIcon>
+                                        </Group>
+                                    </Paper>
+                                ))
+                            ) : (
+                                <Paper withBorder p="xl" radius="md" ta="center">
+                                    <Text c="dimmed">No se encontraron usuarios</Text>
+                                </Paper>
+                            )}
+                        </Stack>
+                    ) : (
+                        <Paper withBorder radius="md" shadow="sm">
+                            <Table.ScrollContainer minWidth={800}>
+                                <Table verticalSpacing="sm" highlightOnHover>
+                                    <Table.Thead bg="gray.0">
+                                        <Table.Tr>
+                                            <Table.Th>Usuario</Table.Th>
+                                            <Table.Th>Nombre Real</Table.Th>
+                                            <Table.Th>Cargo</Table.Th>
+                                            <Table.Th>Roles</Table.Th>
+                                            <Table.Th>Email</Table.Th>
+                                            <Table.Th ta="center">Estado</Table.Th>
+                                            <Table.Th ta="right">Acciones</Table.Th>
                                         </Table.Tr>
-                                    ))
-                                ) : (
-                                    <Table.Tr>
-                                        <Table.Td colSpan={5} align="center" py="xl">
-                                            <Text c="dimmed">No se encontraron usuarios que coincidan con la búsqueda</Text>
-                                        </Table.Td>
-                                    </Table.Tr>
-                                )}
-                            </Table.Tbody>
-                        </Table>
-                    </Table.ScrollContainer>
-                </Paper>
+                                    </Table.Thead>
+                                    <Table.Tbody>
+                                        {filteredUsers.length > 0 ? (
+                                            filteredUsers.map((user) => (
+                                                <Table.Tr key={user.id_usuario}>
+                                                    <Table.Td>
+                                                        <Group gap="sm">
+                                                            <Avatar size="sm" color="blue" radius="xl" variant="light">
+                                                                <IconUser size={14} />
+                                                            </Avatar>
+                                                            <Text size="sm" fw={600}>{user.nombre_usuario}</Text>
+                                                        </Group>
+                                                    </Table.Td>
+                                                    <Table.Td>
+                                                        <Text size="sm">{user.nombre_real}</Text>
+                                                    </Table.Td>
+                                                    <Table.Td>
+                                                        <Text size="sm">{user.nombre_cargo || '-'}</Text>
+                                                    </Table.Td>
+                                                    <Table.Td>
+                                                        <Group gap={4}>
+                                                            {user.roles?.map((rol, i) => (
+                                                                <Badge key={i} size="xs" variant="gray" radius="xs">{rol}</Badge>
+                                                            ))}
+                                                        </Group>
+                                                    </Table.Td>
+                                                    <Table.Td>
+                                                        <Group gap="xs">
+                                                            <IconMail size={14} color="gray" />
+                                                            <Text size="xs" c="blue">{user.correo_electronico || '-'}</Text>
+                                                        </Group>
+                                                    </Table.Td>
+                                                    <Table.Td>
+                                                        <Group justify="center">
+                                                            <Badge 
+                                                                color={user.habilitado === 'S' ? 'green' : 'red'} 
+                                                                variant="light"
+                                                                radius="sm"
+                                                            >
+                                                                {user.habilitado === 'S' ? 'Activo' : 'Inactivo'}
+                                                            </Badge>
+                                                        </Group>
+                                                    </Table.Td>
+                                                    <Table.Td>
+                                                        <Group gap={8} justify="flex-end">
+                                                            <Tooltip label="Editar datos">
+                                                                <ActionIcon variant="light" color="blue" onClick={() => openEditModal(user)}>
+                                                                    <IconEdit size={16} />
+                                                                </ActionIcon>
+                                                            </Tooltip>
+                                                            <Tooltip label="Cambiar contraseña">
+                                                                <ActionIcon variant="light" color="orange" onClick={() => openPasswordModal(user)}>
+                                                                    <IconKey size={16} />
+                                                                </ActionIcon>
+                                                            </Tooltip>
+                                                            <Tooltip label={user.habilitado === 'S' ? 'Deshabilitar' : 'Habilitar'}>
+                                                                <ActionIcon variant="light" color={user.habilitado === 'S' ? 'red' : 'green'} onClick={() => openConfirmModal(user)}>
+                                                                    {user.habilitado === 'S' ? <IconBan size={16} /> : <IconCheck size={16} />}
+                                                                </ActionIcon>
+                                                            </Tooltip>
+                                                        </Group>
+                                                    </Table.Td>
+                                                </Table.Tr>
+                                            ))
+                                        ) : (
+                                            <Table.Tr>
+                                                <Table.Td colSpan={7} ta="center" py="xl">
+                                                    <Text c="dimmed">No se encontraron usuarios</Text>
+                                                </Table.Td>
+                                            </Table.Tr>
+                                        )}
+                                    </Table.Tbody>
+                                </Table>
+                            </Table.ScrollContainer>
+                        </Paper>
+                    )}
+                </Box>
             </Stack>
 
             {/* Create / Edit Modal */}
@@ -438,9 +497,10 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                 }
                 size="lg"
                 radius="md"
+                fullScreen={isMobile}
             >
                 <Stack gap="md">
-                    <Group grow>
+                    <Group grow={!isMobile}>
                         <TextInput 
                             label="Nombre de Usuario (Login)"
                             placeholder="ej: jdoe"
@@ -504,7 +564,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                         />
 
                         <Paper withBorder p="xs" radius="sm" bg="gray.0">
-                            <ScrollArea h={180} scrollbarSize={6}>
+                            <ScrollArea h={isMobile ? 250 : 180} scrollbarSize={6}>
                                 <Stack gap={4}>
                                     {roles
                                         .filter(r => 
@@ -553,6 +613,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                             loading={loading}
                             radius="md"
                             color="blue"
+                            fullWidth={isMobile}
                         >
                             {showCreateModal ? 'Crear Usuario' : 'Guardar Cambios'}
                         </Button>
@@ -566,6 +627,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                 onClose={() => { setShowPasswordModal(false); setSelectedUser(null); }}
                 title={<Group gap="xs"><IconKey size={20} /><Text fw={700}>Cambiar Contraseña</Text></Group>}
                 radius="md"
+                fullScreen={isMobile}
             >
                 <Stack gap="md">
                     <Text size="sm">Usuario: <strong>{selectedUser?.nombre_usuario}</strong></Text>
@@ -585,7 +647,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                         <Button variant="subtle" color="gray" onClick={() => setShowPasswordModal(false)}>
                             Cancelar
                         </Button>
-                        <Button color="orange" onClick={handleUpdatePassword} loading={loading}>
+                        <Button color="orange" onClick={handleUpdatePassword} loading={loading} fullWidth={isMobile}>
                             Actualizar Contraseña
                         </Button>
                     </Group>

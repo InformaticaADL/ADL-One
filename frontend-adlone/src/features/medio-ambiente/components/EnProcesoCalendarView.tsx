@@ -23,6 +23,7 @@ import {
 } from '@mantine/core';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useMediaQuery } from '@mantine/hooks';
 import { catalogosService } from '../services/catalogos.service';
 import { fichaService } from '../services/ficha.service';
 import { PageHeader } from '../../../components/layout/PageHeader';
@@ -81,6 +82,8 @@ interface CalendarEvent extends FichaEvento {
 export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
     const { showToast } = useToast();
     const { user, hasPermission } = useAuth();
+    const isMobile = useMediaQuery('(max-width: 768px)');
+    const isCompact = useMediaQuery('(max-width: 1200px)');
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [fichas, setFichas] = useState<FichaEvento[]>([]);
     const [selectedEmpresa, setSelectedEmpresa] = useState('');
@@ -379,20 +382,22 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
             <Stack gap="lg">
                 <PageHeader 
                     title="Calendario de Servicios" 
-                    subtitle={`${capitalizedMonth} ${currentMonth.getFullYear()}`}
+                    subtitle={!isCompact ? `${capitalizedMonth} ${currentMonth.getFullYear()}` : undefined}
                     onBack={onBackToMenu}
                     rightSection={
-                        <Group gap="xs">
-                            <Button.Group>
+                        <Group gap="xs" wrap={isCompact ? "wrap" : "nowrap"}>
+                            <Button.Group style={{ width: isCompact ? '100%' : 'auto' }}>
                                 <Button 
                                     variant={viewMode === 'month' ? 'filled' : 'light'} 
                                     onClick={() => setViewMode('month')}
                                     size="xs"
+                                    style={{ flex: 1 }}
                                 >Mes</Button>
                                 <Button 
                                     variant={viewMode === 'week' ? 'filled' : 'light'} 
                                     onClick={() => setViewMode('week')}
                                     size="xs"
+                                    style={{ flex: 1 }}
                                 >Semana</Button>
                                 <Button 
                                     variant={viewMode === 'day' ? 'filled' : 'light'} 
@@ -408,21 +413,22 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                         setViewMode('day'); 
                                     }}
                                     size="xs"
+                                    style={{ flex: 1 }}
                                 >Día</Button>
                                 <Button 
                                     variant={viewMode === 'year' ? 'filled' : 'light'} 
                                     onClick={() => setViewMode('year')}
                                     size="xs"
+                                    style={{ flex: 1 }}
                                 >Año</Button>
                             </Button.Group>
-                            <Divider orientation="vertical" />
-                            <Group gap={5}>
-                                <ActionIcon variant="light" onClick={() => changeViewDate(-1)}>
-                                    <IconChevronLeft size={18} />
+                            <Group gap={5} style={{ flex: isCompact ? '1 1 auto' : 'auto' }}>
+                                <ActionIcon variant="light" onClick={() => changeViewDate(-1)} size="md">
+                                    <IconChevronLeft size={16} />
                                 </ActionIcon>
                                 <Button variant="subtle" size="xs" onClick={() => setCurrentMonth(new Date())}>Hoy</Button>
-                                <ActionIcon variant="light" onClick={() => changeViewDate(1)}>
-                                    <IconChevronRight size={18} />
+                                <ActionIcon variant="light" onClick={() => changeViewDate(1)} size="md">
+                                    <IconChevronRight size={16} />
                                 </ActionIcon>
                             </Group>
                             <Tooltip label="Filtros Avanzados">
@@ -586,52 +592,89 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
 
                     {viewMode === 'month' && (
                         <Box py="sm">
-                            <Grid columns={7} gutter={0} style={{ borderTop: '1px solid var(--mantine-color-gray-2)', borderLeft: '1px solid var(--mantine-color-gray-2)' }}>
-                                {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map(day => (
-                                    <Grid.Col key={day} span={1}>
-                                        <Box p="xs" bg="gray.1" style={{ borderRight: '1px solid var(--mantine-color-gray-2)', borderBottom: '1px solid var(--mantine-color-gray-2)' }}>
-                                            <Text size="xs" fw={700} ta="center" c="dimmed">{day}</Text>
-                                        </Box>
+                            {/* Compact Month Navigation inside the calendar area */}
+                            {isCompact && (
+                                <Paper withBorder p="xs" radius="md" bg="blue.0" mb="md" shadow="xs">
+                                    <Group justify="space-between">
+                                        <ActionIcon variant="subtle" onClick={() => changeViewDate(-1)} size="md">
+                                            <IconChevronLeft size={20} />
+                                        </ActionIcon>
+                                        <Text fw={800} size="md" style={{ textTransform: 'capitalize' }} c="blue.9">
+                                            {capitalizedMonth} {currentMonth.getFullYear()}
+                                        </Text>
+                                        <ActionIcon variant="subtle" onClick={() => changeViewDate(1)} size="md">
+                                            <IconChevronRight size={20} />
+                                        </ActionIcon>
+                                    </Group>
+                                </Paper>
+                            )}
+
+                            <Grid columns={7} gutter={isCompact ? 4 : 5} mb="xs">
+                                {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(d => (
+                                    <Grid.Col key={d} span={1}>
+                                        <Text size={isCompact ? "10px" : "xs"} fw={800} ta="center" c="dimmed" tt="uppercase">
+                                            {d}
+                                        </Text>
                                     </Grid.Col>
                                 ))}
+                            </Grid>
+
+                            <Grid columns={7} gutter={isCompact ? 4 : 5}>
                                 {calendarCells.map((day, idx) => {
                                     const events = day ? filteredEvents.filter(ev => ev.event_dia === day && ev.event_mes === currentMonth.getMonth() + 1 && ev.event_ano === currentMonth.getFullYear()) : [];
-                                    const isToday = day === new Date().getDate() && currentMonth.getMonth() === new Date().getMonth() && currentMonth.getFullYear() === new Date().getFullYear();
+                                    const todayDate = new Date();
+                                    const isToday = day === todayDate.getDate() && currentMonth.getMonth() === todayDate.getMonth() && currentMonth.getFullYear() === todayDate.getFullYear();
 
                                     return (
                                         <Grid.Col key={idx} span={1}>
                                             <Box 
-                                                p={5} h={{ base: 80, sm: 100, md: 120 }}
+                                                p={isCompact ? 2 : 5} 
+                                                h={isMobile ? 65 : (isCompact ? 100 : 120)}
                                                 onClick={() => { if(day) { setSelectedDay(day); setViewMode('day'); } }}
                                                 style={{ 
-                                                    borderRight: '1px solid var(--mantine-color-gray-2)', 
-                                                    borderBottom: '1px solid var(--mantine-color-gray-2)',
-                                                    cursor: day ? 'pointer' : 'default'
+                                                    border: '1px solid var(--mantine-color-gray-2)',
+                                                    borderRadius: '8px',
+                                                    cursor: day ? 'pointer' : 'default',
+                                                    transition: 'all 0.1s ease',
+                                                    backgroundColor: isToday ? 'var(--mantine-color-blue-0)' : (day ? 'white' : 'transparent'),
+                                                    opacity: day ? 1 : 0.3,
+                                                    boxShadow: isToday ? '0 0 0 1px var(--mantine-color-blue-4) inset' : 'none'
                                                 }}
-                                                bg={isToday ? 'blue.0' : 'white'}
                                             >
                                                 {day && (
                                                     <>
-                                                        <Text size="xs" fw={isToday ? 800 : 500} c={isToday ? 'blue.7' : 'dark'}>{day}</Text>
-                                                        <Box mt={4}>
-                                                            <Stack gap={2}>
-                                                                {events.slice(0, 3).map((ev, eidx) => (
-                                                                    <Badge 
-                                                                        key={eidx} 
-                                                                        size="10px" 
-                                                                        variant="filled" 
-                                                                        color={getStatusColor(ev)}
-                                                                        fullWidth radius="xs"
-                                                                        styles={{ label: { padding: '2px', fontSize: '8px', textTransform: 'none' } }}
-                                                                    >
-                                                                        {ev.correlativo}
-                                                                    </Badge>
-                                                                ))}
-                                                                {events.length > 3 && (
-                                                                    <Text size="10px" ta="center" c="dimmed">+{events.length - 3}</Text>
-                                                                )}
-                                                            </Stack>
-                                                        </Box>
+                                                        <Group justify="space-between" align="center" gap={0} px={isCompact ? 2 : 4}>
+                                                            <Text size={isCompact && !isMobile ? "sm" : (isMobile ? "xs" : "sm")} fw={isToday ? 900 : 700} c={isToday ? 'blue.7' : 'dark'}>{day}</Text>
+                                                            {isMobile && events.length > 0 && (
+                                                                <Group gap={2}>
+                                                                    {events.slice(0, 2).map((_, eidx) => (
+                                                                        <Box key={eidx} h={4} w={4} bg="blue.5" style={{ borderRadius: '50%' }} />
+                                                                    ))}
+                                                                    {events.length > 2 && <Box h={2} w={2} bg="gray.4" style={{ borderRadius: '50%' }} />}
+                                                                </Group>
+                                                            )}
+                                                        </Group>
+                                                        {!isMobile && (
+                                                            <Box mt={4}>
+                                                                <Stack gap={2}>
+                                                                    {events.slice(0, isCompact ? 4 : 3).map((ev, eidx) => (
+                                                                        <Badge 
+                                                                            key={eidx} 
+                                                                            size={isCompact ? "sm" : "10px"} 
+                                                                            variant="filled" 
+                                                                            color={getStatusColor(ev)}
+                                                                            fullWidth radius="xs"
+                                                                            styles={{ label: { padding: '2px', fontSize: isCompact ? '10px' : '8px', textTransform: 'none' } }}
+                                                                        >
+                                                                            {ev.correlativo}
+                                                                        </Badge>
+                                                                    ))}
+                                                                    {events.length > (isCompact ? 4 : 3) && (
+                                                                        <Text size="10px" ta="center" c="dimmed">+{events.length - (isCompact ? 4 : 3)}</Text>
+                                                                    )}
+                                                                </Stack>
+                                                            </Box>
+                                                        )}
                                                     </>
                                                 )}
                                             </Box>
@@ -706,7 +749,7 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
 
                     {viewMode === 'year' && (
                         <Box py="sm">
-                            <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="xl">
+                            <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="xl">
                                 {Array.from({ length: 12 }).map((_, mIdx) => {
                                     const mDate = new Date(currentMonth.getFullYear(), mIdx, 1);
                                     const mName = mDate.toLocaleString('es-ES', { month: 'long' });

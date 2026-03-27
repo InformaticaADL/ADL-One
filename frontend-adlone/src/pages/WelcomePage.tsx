@@ -8,10 +8,12 @@ import {
     rem,
     Badge,
     SimpleGrid,
-    ScrollArea,
     Box,
+    Button,
+    Flex,
+    Grid,
     Modal,
-    Button
+    ScrollArea
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { 
@@ -111,22 +113,25 @@ export const WelcomePage: React.FC = () => {
     };
 
     return (
-        <Box p="xl" style={{ width: '100%' }}>
+        <Box p="md" style={{ width: '100% !important', maxWidth: '100% !important' }}>
             <Stack gap="lg">
                 {/* INFORMACION IMPORTANTE (Article Card Style - Login Inspired) */}
                 <Paper withBorder radius="md" p={0} shadow="sm" style={{ overflow: 'hidden' }}>
-                    <Group wrap="nowrap" gap={0} align="stretch" style={{ minHeight: rem(220) }}>
-                        <Box style={{ 
-                            flex: '0 0 40%', 
-                            position: 'relative', 
-                            backgroundImage: `url(${fondoLogin})`,
-                            backgroundSize: 'cover',
-                            backgroundPosition: 'center',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            padding: rem(20)
-                        }}>
+                    <Flex direction={{ base: 'column', lg: 'row' }} align="stretch" style={{ minHeight: rem(220) }}>
+                        <Box 
+                            w={{ base: '100%', lg: '40%' }} 
+                            h={{ base: rem(160), lg: 'auto' }}
+                            style={{ 
+                                position: 'relative', 
+                                backgroundImage: `url(${fondoLogin})`,
+                                backgroundSize: 'cover',
+                                backgroundPosition: 'center',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                padding: rem(20)
+                            }}
+                        >
                             <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0, 0, 0, 0.05)', zIndex: 1 }} />
                             
                             <Stack gap={rem(5)} align="center" style={{ zIndex: 2, width: '100%', padding: rem(20) }}>
@@ -144,7 +149,7 @@ export const WelcomePage: React.FC = () => {
                             </Stack>
                         </Box>
 
-                        <div style={{ padding: rem(32), flex: 1, backgroundColor: 'white' }}>
+                        <Box p={{ base: 'md', lg: 'xl' }} style={{ flex: 1, backgroundColor: 'white' }}>
                             <Group justify="space-between" mb="sm">
                                 <Badge color="orange" variant="filled" size="sm" radius="sm">INFORMACIÓN IMPORTANTE</Badge>
                                 <Text size="xs" c="dimmed" fw={700}>20 MARZO, 2026</Text>
@@ -161,8 +166,8 @@ export const WelcomePage: React.FC = () => {
                                 <Text size="sm" fw={700} c="blue.6">Leer reporte completo</Text>
                                 <IconChevronRight size={18} />
                             </Group>
-                        </div>
-                    </Group>
+                        </Box>
+                    </Flex>
                 </Paper>
 
                 {/* PRÓXIMOS EVENTOS (Card Grid Style) */}
@@ -174,7 +179,7 @@ export const WelcomePage: React.FC = () => {
                         <Text fw={700} tt="uppercase" style={{ letterSpacing: rem(1) }}>Próximos Eventos</Text>
                     </Group>
                     
-                    <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="lg">
+                    <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
                         {upcomingEvents.map(event => (
                             <Paper 
                                 key={event.id} 
@@ -220,8 +225,9 @@ export const WelcomePage: React.FC = () => {
                 <div style={{ height: rem(1.5), background: 'linear-gradient(to right, #0ea5e9, #6366f1)', borderRadius: rem(1), opacity: 0.1, margin: `${rem(5)} 0` }} />
 
                 {/* SECCIÓN INFERIOR: Listas Informativas */}
-                <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md">
-                    <Paper p="md" radius="md" withBorder shadow="xs" style={{ backgroundColor: 'var(--mantine-color-gray-0)' }}>
+                <Grid gutter="md">
+                    <Grid.Col span={{ base: 12, sm: 6, lg: 4 }} order={{ base: 2, lg: 1 }}>
+                        <Paper p="md" radius="md" withBorder shadow="xs" style={{ backgroundColor: 'var(--mantine-color-gray-0)', height: '100%' }}>
                         <Text fw={700} size={rem(12)} mb="md" c="blue.8" style={{ display: 'flex', alignItems: 'center', gap: rem(8), letterSpacing: rem(0.6) }}>
                             <IconPhone size={14} /> ANEXOS INTERNOS
                         </Text>
@@ -237,56 +243,61 @@ export const WelcomePage: React.FC = () => {
                                 ))}
                             </Stack>
                         </ScrollArea>
-                    </Paper>
+                        </Paper>
+                    </Grid.Col>
 
-                    <Paper p="md" radius="md" withBorder shadow="xs" style={{ backgroundColor: 'white' }}>
-                        <Text fw={700} size={rem(12)} mb="md" c="blue.8" style={{ display: 'flex', alignItems: 'center', gap: rem(8), letterSpacing: rem(0.5) }}>
-                            <IconDoorEnter size={16} /> ESTADO SALA DE REUNIONES
-                        </Text>
-                        <Stack gap="xs">
-                            {salasReuniones.map((sala, idx) => (
-                                <Paper 
-                                    key={idx} 
-                                    p="sm" 
-                                    radius="sm" 
-                                    withBorder 
-                                    shadow="xs" 
-                                    onClick={() => handleSalaClick(sala)}
-                                    style={{ 
-                                        borderLeft: `4px solid var(--mantine-color-${sala.color}-6)`,
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    <Group justify="space-between" wrap="nowrap">
-                                        <Stack gap={0}>
-                                            <Text size={rem(11)} fw={800} style={{ letterSpacing: rem(0.3) }}>{sala.name}</Text>
-                                            <Text size={rem(10)} c="dimmed">{sala.time}</Text>
-                                        </Stack>
-                                        <Badge color={sala.color} variant="light" size="xs" radius="xs">
-                                            {sala.status}
-                                        </Badge>
-                                    </Group>
-                                </Paper>
-                            ))}
-                        </Stack>
-                    </Paper>
+                    <Grid.Col span={{ base: 12, sm: 6, lg: 4 }} order={{ base: 1, lg: 2 }}>
+                        <Paper p="md" radius="md" withBorder shadow="xs" style={{ backgroundColor: 'white', height: '100%' }}>
+                            <Text fw={700} size={rem(12)} mb="md" c="blue.8" style={{ display: 'flex', alignItems: 'center', gap: rem(8), letterSpacing: rem(0.5) }}>
+                                <IconDoorEnter size={16} /> ESTADO SALA DE REUNIONES
+                            </Text>
+                            <Stack gap="xs">
+                                {salasReuniones.map((sala, idx) => (
+                                    <Paper 
+                                        key={idx} 
+                                        p="sm" 
+                                        radius="sm" 
+                                        withBorder 
+                                        shadow="xs" 
+                                        onClick={() => handleSalaClick(sala)}
+                                        style={{ 
+                                            borderLeft: `4px solid var(--mantine-color-${sala.color}-6)`,
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        <Group justify="space-between" wrap="nowrap">
+                                            <Stack gap={0}>
+                                                <Text size={rem(11)} fw={800} style={{ letterSpacing: rem(0.3) }}>{sala.name}</Text>
+                                                <Text size={rem(10)} c="dimmed">{sala.time}</Text>
+                                            </Stack>
+                                            <Badge color={sala.color} variant="light" size="xs" radius="xs">
+                                                {sala.status}
+                                            </Badge>
+                                        </Group>
+                                    </Paper>
+                                ))}
+                            </Stack>
+                        </Paper>
+                    </Grid.Col>
 
-                    <Paper p="md" radius="md" withBorder shadow="xs" style={{ backgroundColor: 'var(--mantine-color-gray-0)' }}>
-                        <Text fw={700} size={rem(12)} mb="md" c="blue.8" style={{ display: 'flex', alignItems: 'center', gap: rem(8), letterSpacing: rem(0.5) }}>
-                            SEDES Y SOPORTE
-                        </Text>
-                        <Stack gap="xs">
-                            {contactosUtiles.map((item, idx) => (
-                                <Paper key={idx} p="xs" radius="sm" withBorder shadow="sm" style={{ backgroundColor: 'white' }}>
-                                    <Group justify="space-between">
-                                        <Text size={rem(11)} fw={600}>{item.name}</Text>
-                                        <Text size={rem(11)} c="blue.7" fw={700}>{item.phone}</Text>
-                                    </Group>
-                                </Paper>
-                            ))}
-                        </Stack>
-                    </Paper>
-                </SimpleGrid>
+                    <Grid.Col span={{ base: 12, sm: 12, lg: 4 }} order={{ base: 3, lg: 3 }}>
+                        <Paper p="md" radius="md" withBorder shadow="xs" style={{ backgroundColor: 'var(--mantine-color-gray-0)', height: '100%' }}>
+                            <Text fw={700} size={rem(12)} mb="md" c="blue.8" style={{ display: 'flex', alignItems: 'center', gap: rem(8), letterSpacing: rem(0.5) }}>
+                                SEDES Y SOPORTE
+                            </Text>
+                            <Stack gap="xs">
+                                {contactosUtiles.map((item, idx) => (
+                                    <Paper key={idx} p="xs" radius="sm" withBorder shadow="sm" style={{ backgroundColor: 'white' }}>
+                                        <Group justify="space-between">
+                                            <Text size={rem(11)} fw={600}>{item.name}</Text>
+                                            <Text size={rem(11)} c="blue.7" fw={700}>{item.phone}</Text>
+                                        </Group>
+                                    </Paper>
+                                ))}
+                            </Stack>
+                        </Paper>
+                    </Grid.Col>
+                </Grid>
 
                 <div style={{ height: rem(4), background: 'linear-gradient(to right, #0ea5e9, #6366f1)', borderRadius: rem(2), opacity: 0.2, marginTop: rem(20) }} />
             </Stack>

@@ -20,6 +20,7 @@ import {
 } from '@tabler/icons-react';
 import { useNotificationStore, type Notification } from '../../../store/notificationStore';
 import { useNavStore } from '../../../store/navStore';
+import { handleNotificationNavigation } from '../utils/notificationNavigation';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
 
@@ -27,7 +28,10 @@ dayjs.locale('es');
 
 export const UserNotificationsPage = () => {
     const { notifications, fetchNotifications, markAsRead } = useNotificationStore();
-    const { setActiveModule, setActiveSubmodule, setPendingRequestId, setSelectedRequestId } = useNavStore();
+    const { 
+        setActiveModule, setActiveSubmodule, 
+        setPendingRequestId, setPendingChatId, setSelectedRequestId 
+    } = useNavStore();
 
     useEffect(() => {
         fetchNotifications();
@@ -38,40 +42,13 @@ export const UserNotificationsPage = () => {
             await markAsRead(notif.id_notificacion);
         }
 
-        if (notif.id_referencia) {
-            const titulo = notif.titulo.toLowerCase();
-            const area = (notif.area || '').toLowerCase();
-            
-            // Solicitudes: always go to URS inbox with request selected
-            if (
-                titulo.includes('solicitud') || 
-                titulo.includes('estado') || 
-                titulo.includes('derivación') || 
-                titulo.includes('derivacion') || 
-                titulo.includes('baja') ||
-                titulo.includes('traspaso') ||
-                titulo.includes('asignación') ||
-                area === 'urs' || 
-                area === 'solicitudes' ||
-                titulo.includes('equipo')
-            ) {
-                setSelectedRequestId(notif.id_referencia);
-                setActiveModule('solicitudes');
-                setActiveSubmodule('');
-            }
-            // Fichas: go to role-specific page
-            else if (titulo.includes('ficha') || area === 'fichas') {
-                setPendingRequestId(notif.id_referencia);
-                setActiveModule('medio_ambiente');
-                setActiveSubmodule('');
-            }
-            // Equipment management fallback
-            else {
-                setPendingRequestId(notif.id_referencia);
-                setActiveModule('gestion_calidad');
-                setActiveSubmodule('admin-equipos-gestion');
-            }
-        }
+        handleNotificationNavigation(notif, {
+            setActiveModule,
+            setActiveSubmodule,
+            setPendingRequestId,
+            setPendingChatId,
+            setSelectedRequestId
+        });
     };
 
     const getIcon = (tipo: string) => {

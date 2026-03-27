@@ -30,7 +30,6 @@ const DashboardPage = () => {
     const { 
         activeModule, 
         activeSubmodule, 
-        previousSubmodule, 
         setActiveSubmodule, 
         resetNavigation
     } = useNavStore();
@@ -66,7 +65,7 @@ const DashboardPage = () => {
         if (activeSubmodule === 'ma-fichas-ingreso') return <FichasIngresoPage />;
         if (activeSubmodule === 'ma-ficha-detalle') return <FichaDetailView />;
         if (activeSubmodule === 'ma-calendario-replica') return <CalendarioReplicaPage onBack={() => setActiveSubmodule('medio_ambiente')} />;
-        if (activeSubmodule === 'admin-equipos-gestion') return <EquiposPage onBack={() => setActiveSubmodule(previousSubmodule || ((activeModule as string) === 'gestion_calidad' ? 'gestion_calidad' : 'medio_ambiente'))} />;
+        if (activeSubmodule === 'admin-equipos-gestion') return <EquiposPage onBack={() => setActiveSubmodule('')} />;
         if (activeSubmodule === 'admin-muestreadores') return <MuestreadoresPage onBack={() => setActiveSubmodule('medio_ambiente')} />;
         if (activeSubmodule === 'urs-new-request') return <NewRequestPage onBack={() => setActiveSubmodule('urs_bandeja')} />;
 

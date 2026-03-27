@@ -1,4 +1,24 @@
 import React, { useEffect, useState } from 'react';
+import { 
+    Modal, 
+    Stack, 
+    Group, 
+    Text, 
+    Button, 
+    TextInput, 
+    Checkbox, 
+    ScrollArea, 
+    Divider, 
+    Paper,
+    Box,
+    Badge
+} from '@mantine/core';
+import { 
+    IconSearch, 
+    IconShieldCheck,
+    IconCheck
+} from '@tabler/icons-react';
+import { useMediaQuery } from '@mantine/hooks';
 import { rbacService } from '../services/rbac.service';
 import type { Role, User } from '../services/rbac.service';
 import { useToast } from '../../../contexts/ToastContext';
@@ -11,6 +31,7 @@ interface Props {
 }
 
 export const UserRoleModal: React.FC<Props> = ({ user, isOpen, onClose, onSuccess }) => {
+    const isMobile = useMediaQuery('(max-width: 768px)');
     const { showToast } = useToast();
     const [roles, setRoles] = useState<Role[]>([]);
     const [selectedRoleIds, setSelectedRoleIds] = useState<number[]>([]);
@@ -70,95 +91,111 @@ export const UserRoleModal: React.FC<Props> = ({ user, isOpen, onClose, onSucces
         }
     };
 
-    if (!isOpen || !user) return null;
+    const filteredRoles = roles.filter(role =>
+        role.nombre_rol.toLowerCase().includes(roleSearchTerm.toLowerCase()) ||
+        (role.descripcion && role.descripcion.toLowerCase().includes(roleSearchTerm.toLowerCase()))
+    );
 
     return (
-        <div className="modal-overlay">
-            <div className="modal-content">
-                <div className="modal-header" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
-                    <h2 className="modal-title" style={{ textAlign: 'center', margin: 0, width: '100%' }}>
-                        Asignar Roles: <span style={{ color: '#2563eb' }}>{user.nombre_real || user.nombre_usuario}</span>
-                    </h2>
-                    <button onClick={onClose} className="btn-close" title="Cerrar" style={{ position: 'absolute', right: '1rem' }}>×</button>
-                </div>
+        <Modal
+            opened={isOpen}
+            onClose={onClose}
+            title={
+                <Group gap="xs">
+                    <IconShieldCheck size={22} color="var(--mantine-color-blue-filled)" />
+                    <Stack gap={0}>
+                        <Text fw={700}>Asignar Roles</Text>
+                        <Text size="xs" c="dimmed">{user?.nombre_real || user?.nombre_usuario}</Text>
+                    </Stack>
+                </Group>
+            }
+            size={isMobile ? "100%" : "lg"}
+            fullScreen={isMobile}
+            radius="md"
+            styles={{ body: { padding: 0 } }}
+        >
+            <Box h={isMobile ? "calc(100dvh - 180px)" : "60vh"} display="flex" style={{ flexDirection: 'column' }}>
+                <ScrollArea style={{ flex: 1 }} p="md">
+                    <Stack gap="md" pb={isMobile ? 100 : 0}>
+                        <Box>
+                            <Text size="sm" c="dimmed" mb="md">Seleccione los roles que desea asignar a este usuario.</Text>
+                            <TextInput 
+                                placeholder="Buscar rol..."
+                                leftSection={<IconSearch size={16} />}
+                                value={roleSearchTerm}
+                                onChange={(e) => setRoleSearchTerm(e.currentTarget.value)}
+                                radius="md"
+                            />
+                        </Box>
 
-                <div className="modal-body">
-                    <p className="text-subtle" style={{ marginBottom: '1rem' }}>Seleccione los roles que desea asignar a este usuario.</p>
+                        <Divider label="Roles Disponibles" labelPosition="center" />
 
-                    {/* Role Search Input */}
-                    <input
-                        type="text"
-                        placeholder="🔍 Buscar rol..."
-                        value={roleSearchTerm}
-                        onChange={(e) => setRoleSearchTerm(e.target.value)}
-                        style={{
-                            width: '100%',
-                            padding: '10px 12px',
-                            borderRadius: '6px',
-                            border: '1px solid #d1d5db',
-                            fontSize: '0.9rem',
-                            marginBottom: '1rem'
-                        }}
-                    />
-
-                    {(() => {
-                        const filteredRoles = roles.filter(role =>
-                            role.nombre_rol.toLowerCase().includes(roleSearchTerm.toLowerCase()) ||
-                            (role.descripcion && role.descripcion.toLowerCase().includes(roleSearchTerm.toLowerCase()))
-                        );
-
-                        if (roles.length === 0) {
-                            return <p>No hay roles disponibles.</p>;
-                        }
-
-                        if (filteredRoles.length === 0) {
-                            return (
-                                <p style={{ textAlign: 'center', color: '#9ca3af', padding: '1rem' }}>
-                                    No se encontraron roles
-                                </p>
-                            );
-                        }
-
-                        return (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        {roles.length === 0 ? (
+                            <Text ta="center" py="xl" c="dimmed">No hay roles disponibles.</Text>
+                        ) : filteredRoles.length === 0 ? (
+                            <Text ta="center" py="xl" c="dimmed">No se encontraron roles.</Text>
+                        ) : (
+                            <Stack gap="xs">
                                 {filteredRoles.map(role => (
-                                    <label key={role.id_rol} style={{
-                                        display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem',
-                                        border: '1px solid #e5e7eb', borderRadius: '0.5rem', cursor: 'pointer',
-                                        backgroundColor: selectedRoleIds.includes(role.id_rol) ? '#eff6ff' : 'white',
-                                        transition: 'background-color 0.2s'
-                                    }}>
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedRoleIds.includes(role.id_rol)}
-                                            onChange={() => toggleRole(role.id_rol)}
-                                            style={{ width: '1.2rem', height: '1.2rem', cursor: 'pointer' }}
-                                        />
-                                        <div style={{ flex: 1 }}>
-                                            <div style={{ fontWeight: 600, color: '#1f2937' }}>{role.nombre_rol}</div>
-                                            <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>{role.descripcion}</div>
-                                        </div>
-                                        <div>
-                                            <span className={`status-pill ${role.estado ? 'status-active' : 'status-inactive'}`}>
-                                                {role.estado ? 'Activo' : 'Inactivo'}
-                                            </span>
-                                        </div>
-                                    </label>
+                                    <Paper 
+                                        key={role.id_rol} 
+                                        withBorder 
+                                        p="md" 
+                                        radius="md"
+                                        bg={selectedRoleIds.includes(role.id_rol) ? 'blue.0' : 'white'}
+                                        style={{ 
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s',
+                                            borderColor: selectedRoleIds.includes(role.id_rol) ? 'var(--mantine-color-blue-3)' : undefined
+                                        }}
+                                        onClick={() => toggleRole(role.id_rol)}
+                                    >
+                                        <Group gap="md" wrap="nowrap">
+                                            <Checkbox 
+                                                checked={selectedRoleIds.includes(role.id_rol)}
+                                                onChange={() => {}} // Handled by Paper
+                                                size="md"
+                                            />
+                                            <Box style={{ flex: 1 }}>
+                                                <Group justify="space-between" align="flex-start" wrap="nowrap">
+                                                    <Box>
+                                                        <Text fw={600} size="sm">{role.nombre_rol}</Text>
+                                                        <Text size="xs" c="dimmed" lineClamp={2}>{role.descripcion || 'Sin descripción'}</Text>
+                                                    </Box>
+                                                    <Badge 
+                                                        size="xs" 
+                                                        variant="light" 
+                                                        color={role.estado ? 'green' : 'red'}
+                                                    >
+                                                        {role.estado ? 'Activo' : 'Inactivo'}
+                                                    </Badge>
+                                                </Group>
+                                            </Box>
+                                        </Group>
+                                    </Paper>
                                 ))}
-                            </div>
-                        );
-                    })()}
-                </div>
+                            </Stack>
+                        )}
+                    </Stack>
+                </ScrollArea>
+            </Box>
 
-                <div className="modal-footer">
-                    <button onClick={onClose} className="btn-secondary">
-                        Cancelar
-                    </button>
-                    <button onClick={handleSave} disabled={loading} className="btn-primary">
-                        {loading ? 'Guardando...' : 'Guardar Asignaciones'}
-                    </button>
-                </div>
-            </div>
-        </div>
+            <Divider />
+            <Group justify="flex-end" p="lg" pb={isMobile ? 60 : 'lg'} bg="gray.0">
+                <Button variant="subtle" color="gray" onClick={onClose} fullWidth={isMobile}>
+                    Cancelar / Descartar
+                </Button>
+                <Button 
+                    color="adl-blue" 
+                    loading={loading} 
+                    onClick={handleSave}
+                    leftSection={<IconCheck size={18} />}
+                    radius="md"
+                    fullWidth={isMobile}
+                >
+                    {loading ? 'Guardando...' : 'Guardar Asignaciones'}
+                </Button>
+            </Group>
+        </Modal>
     );
 };

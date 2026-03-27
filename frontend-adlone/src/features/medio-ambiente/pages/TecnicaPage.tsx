@@ -23,6 +23,7 @@ import {
     Pagination,
     ScrollArea
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { 
     IconAdjustmentsHorizontal,
     IconDownload,
@@ -51,6 +52,7 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
     const [currentPage, setCurrentPage] = useState(1);
     const [loading, setLoading] = useState(true);
     const [fichas, setFichas] = useState<any[]>([]);
+    const isMobile = useMediaQuery('(max-width: 768px)');
 
     const itemsPerPage = 10;
 
@@ -318,16 +320,19 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
                             </ScrollArea>
                         </Box>
 
-                        <Group justify="space-between" mt="md">
+                        <Group justify="space-between" mt="md" wrap={isMobile ? "wrap" : "nowrap"}>
                             <Text size="xs" c="dimmed">
-                                Mostrando {filteredFichas.length > 0 ? ((currentPage - 1) * itemsPerPage) + 1 : 0} a {Math.min(currentPage * itemsPerPage, filteredFichas.length)} de {filteredFichas.length} registros
+                                {isMobile ? `${filteredFichas.length} reg.` : `Mostrando ${filteredFichas.length > 0 ? ((currentPage - 1) * itemsPerPage) + 1 : 0} a ${Math.min(currentPage * itemsPerPage, filteredFichas.length)} de ${filteredFichas.length} registros`}
                             </Text>
                             <Pagination 
                                 total={totalPages} 
                                 value={currentPage} 
                                 onChange={setCurrentPage} 
-                                size="sm" 
+                                size={isMobile ? "xs" : "sm"}
                                 radius="md"
+                                siblings={isMobile ? 0 : 1}
+                                boundaries={isMobile ? 0 : 1}
+                                withEdges={!isMobile}
                             />
                         </Group>
                     </Stack>

@@ -16,8 +16,10 @@ import {
     ActionIcon, 
     NumberInput,
     Divider,
-    Badge
+    Badge,
+    SimpleGrid
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { 
     IconSearch, 
     IconTrash, 
@@ -36,6 +38,7 @@ interface AnalysisFormProps {
 export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSavedAnalysisChange }) => {
     const { showToast } = useToast();
     const catalogos = useCachedCatalogos();
+    const isMobile = useMediaQuery('(max-width: 768px)');
 
     // ===== ESTADO: Filtros de Búsqueda =====
     const [normativa, setNormativa] = useState<string | null>(null);
@@ -280,7 +283,7 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
     };
 
     return (
-        <Stack gap="xl" p="xs" style={{ width: '100% !important' }}>
+        <Stack gap={isMobile ? "md" : "xl"} p={isMobile ? 0 : "xs"} style={{ width: '100% !important' }}>
             <Paper withBorder p="md" radius="lg" shadow="xs" style={{ width: '100% !important' }}>
                 <Grid gutter="xl" grow style={{ width: '100% !important' }}>
                     {/* Búsqueda */}
@@ -394,67 +397,118 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                                 <>
                                     <Divider label={`Seleccionados (${selectedAnalysis.size})`} labelPosition="center" />
                                     <ScrollArea h={345}>
-                                        <Table border={0} verticalSpacing="sm">
-                                            <Table.Thead bg="gray.0" pos="sticky" top={0} style={{ zIndex: 1 }}>
-                                                <Table.Tr>
-                                                    <Table.Th>Análisis</Table.Th>
-                                                    {tipoMuestra === 'Laboratorio' && (
-                                                        <>
-                                                            <Table.Th w={120}>Entrega</Table.Th>
-                                                            <Table.Th w={160}>Lab. Derivado</Table.Th>
-                                                            <Table.Th w={160}>Lab. Secundario</Table.Th>
-                                                        </>
-                                                    )}
-                                                    <Table.Th w={40}></Table.Th>
-                                                </Table.Tr>
-                                            </Table.Thead>
-                                            <Table.Tbody>
+                                        {isMobile ? (
+                                            <Stack gap="xs" pb="md">
                                                 {Array.from(selectedAnalysis).map(id => {
                                                     const analysis = analysisResults.find(a => String(a.id_referenciaanalisis) === id);
                                                     return (
-                                                        <Table.Tr key={id}>
-                                                            <Table.Td fz="xs" fw={500}>{analysis?.nombre_tecnica || id}</Table.Td>
-                                                            {tipoMuestra === 'Laboratorio' && (
-                                                                <>
-                                                                    <Table.Td>
+                                                        <Paper key={id} withBorder p="sm" radius="md" bg="gray.0">
+                                                            <Stack gap="xs">
+                                                                <Group justify="space-between" align="center" wrap="nowrap">
+                                                                    <Text fz="xs" fw={700} style={{ flex: 1 }} lineClamp={2}>
+                                                                        {analysis?.nombre_tecnica || id}
+                                                                    </Text>
+                                                                    <ActionIcon color="red" variant="subtle" size="sm" onClick={() => handleToggleAnalysis(id)}>
+                                                                        <IconTrash size={14} />
+                                                                    </ActionIcon>
+                                                                </Group>
+                                                                
+                                                                {tipoMuestra === 'Laboratorio' && (
+                                                                    <SimpleGrid cols={1} spacing="xs">
                                                                         <Select 
+                                                                            label="Tipo Entrega"
                                                                             data={tiposEntrega.map(t => ({ value: String(t.id_tipoentrega), label: t.nombre_tipoentrega }))}
                                                                             value={tempDeliveries[id] || ''}
                                                                             onChange={(val) => handleTempDeliveryChange(id, val || '')}
-                                                                            size="xs" radius="xs"
+                                                                            size="xs" radius="md"
                                                                         />
-                                                                    </Table.Td>
-                                                                    <Table.Td>
                                                                         <Select 
+                                                                            label="Laboratorio Derivado"
                                                                             data={laboratorios.map(l => ({ value: String(l.id_laboratorioensayo), label: l.nombre_laboratorioensayo }))}
                                                                             value={tempLabs[id] || ''}
                                                                             onChange={(val) => handleTempLabChange(id, val || '')}
-                                                                            size="xs" radius="xs"
-                                                                            placeholder="..."
+                                                                            size="xs" radius="md"
+                                                                            placeholder="Seleccione..."
                                                                         />
-                                                                    </Table.Td>
-                                                                    <Table.Td>
                                                                         <Select 
+                                                                            label="Laboratorio Secundario"
                                                                             data={laboratorios.map(l => ({ value: String(l.id_laboratorioensayo), label: l.nombre_laboratorioensayo }))}
                                                                             value={tempLabs2[id] || ''}
                                                                             onChange={(val) => handleTempLab2Change(id, val || '')}
-                                                                            size="xs" radius="xs"
+                                                                            size="xs" radius="md"
                                                                             placeholder="(Opcional)"
                                                                             clearable
                                                                         />
-                                                                    </Table.Td>
-                                                                </>
-                                                            )}
-                                                            <Table.Td>
-                                                                <ActionIcon color="red" variant="subtle" size="sm" onClick={() => handleToggleAnalysis(id)}>
-                                                                    <IconTrash size={14} />
-                                                                </ActionIcon>
-                                                            </Table.Td>
-                                                        </Table.Tr>
+                                                                    </SimpleGrid>
+                                                                )}
+                                                            </Stack>
+                                                        </Paper>
                                                     );
                                                 })}
-                                            </Table.Tbody>
-                                        </Table>
+                                            </Stack>
+                                        ) : (
+                                            <Table border={0} verticalSpacing="sm">
+                                                <Table.Thead bg="gray.0" pos="sticky" top={0} style={{ zIndex: 1 }}>
+                                                    <Table.Tr>
+                                                        <Table.Th>Análisis</Table.Th>
+                                                        {tipoMuestra === 'Laboratorio' && (
+                                                            <>
+                                                                <Table.Th w={120}>Entrega</Table.Th>
+                                                                <Table.Th w={160}>Lab. Derivado</Table.Th>
+                                                                <Table.Th w={160}>Lab. Secundario</Table.Th>
+                                                            </>
+                                                        )}
+                                                        <Table.Th w={40}></Table.Th>
+                                                    </Table.Tr>
+                                                </Table.Thead>
+                                                <Table.Tbody>
+                                                    {Array.from(selectedAnalysis).map(id => {
+                                                        const analysis = analysisResults.find(a => String(a.id_referenciaanalisis) === id);
+                                                        return (
+                                                            <Table.Tr key={id}>
+                                                                <Table.Td fz="xs" fw={500}>{analysis?.nombre_tecnica || id}</Table.Td>
+                                                                {tipoMuestra === 'Laboratorio' && (
+                                                                    <>
+                                                                        <Table.Td>
+                                                                            <Select 
+                                                                                data={tiposEntrega.map(t => ({ value: String(t.id_tipoentrega), label: t.nombre_tipoentrega }))}
+                                                                                value={tempDeliveries[id] || ''}
+                                                                                onChange={(val) => handleTempDeliveryChange(id, val || '')}
+                                                                                size="xs" radius="xs"
+                                                                            />
+                                                                        </Table.Td>
+                                                                        <Table.Td>
+                                                                            <Select 
+                                                                                data={laboratorios.map(l => ({ value: String(l.id_laboratorioensayo), label: l.nombre_laboratorioensayo }))}
+                                                                                value={tempLabs[id] || ''}
+                                                                                onChange={(val) => handleTempLabChange(id, val || '')}
+                                                                                size="xs" radius="xs"
+                                                                                placeholder="..."
+                                                                            />
+                                                                        </Table.Td>
+                                                                        <Table.Td>
+                                                                            <Select 
+                                                                                data={laboratorios.map(l => ({ value: String(l.id_laboratorioensayo), label: l.nombre_laboratorioensayo }))}
+                                                                                value={tempLabs2[id] || ''}
+                                                                                onChange={(val) => handleTempLab2Change(id, val || '')}
+                                                                                size="xs" radius="xs"
+                                                                                placeholder="(Opcional)"
+                                                                                clearable
+                                                                            />
+                                                                        </Table.Td>
+                                                                    </>
+                                                                )}
+                                                                <Table.Td>
+                                                                    <ActionIcon color="red" variant="subtle" size="sm" onClick={() => handleToggleAnalysis(id)}>
+                                                                        <IconTrash size={14} />
+                                                                    </ActionIcon>
+                                                                </Table.Td>
+                                                            </Table.Tr>
+                                                        );
+                                                    })}
+                                                </Table.Tbody>
+                                            </Table>
+                                        )}
                                     </ScrollArea>
                                 </>
                             )}

@@ -28,6 +28,7 @@ import {
     Tooltip,
     Indicator
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { 
     IconArrowLeft, 
     IconHistory, 
@@ -148,6 +149,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
     const [bulkQuantity, setBulkQuantity] = useState(1);
     const [bulkItems, setBulkItems] = useState<any[]>([]);
     const [showRequestsModal, setShowRequestsModal] = useState(false);
+    const isMobile = useMediaQuery('(max-width: 768px)');
 
     const { showToast } = useToast();
     const { hideNotification } = useNavStore();
@@ -456,26 +458,27 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
             <Paper shadow="sm" radius="md" p="xl" withBorder>
                 <Stack gap="xl">
                     <Group justify="space-between" align="flex-start">
-                        <Stack gap={0}>
-                            <Title order={2}>
+                        <Stack gap={0} flex={isMobile ? 'none' : 1}>
+                            <Title order={isMobile ? 3 : 2}>
                                 {requestedChanges?.isReactivation ? 'Activación de Equipo' : (initialData?.id_equipo ? 'Editar Equipo' : 'Nuevo Equipo')}
                             </Title>
-                            <Text c="dimmed" size="sm">
+                            <Text c="dimmed" size="xs">
                                 {initialData?.id_equipo ? `Modificando equipo: ${formData.codigo}` : 'Completa los datos para dar de alta nuevos equipos en el sistema.'}
                             </Text>
                         </Stack>
 
-                        <Group>
-                            <Button variant="subtle" leftSection={<IconArrowLeft size={18} />} onClick={onCancel} color="gray">
-                                Volver
+                        <Group gap="xs" style={{ width: isMobile ? '100%' : 'auto' }} grow={isMobile}>
+                            <Button variant="subtle" leftSection={<IconArrowLeft size={18} />} onClick={onCancel} color="gray" size={isMobile ? 'xs' : 'sm'}>
+                                {isMobile ? 'Volver' : 'Volver'}
                             </Button>
                             {initialData?.id_equipo && (
                                 <Button 
                                     variant="light" 
                                     leftSection={<IconHistory size={18} />} 
                                     onClick={() => setShowHistory(!showHistory)}
+                                    size={isMobile ? 'xs' : 'sm'}
                                 >
-                                    {showHistory ? 'Ocultar Historial' : 'Ver Historial'}
+                                    {isMobile ? 'Historial' : (showHistory ? 'Ocultar Historial' : 'Ver Historial')}
                                 </Button>
                             )}
                             <Button 
@@ -483,8 +486,9 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                 onClick={handleSave}
                                 loading={loading}
                                 color="adl-blue"
+                                size={isMobile ? 'xs' : 'sm'}
                             >
-                                {initialData?.id_equipo ? 'Guardar Cambios' : 'Crear Equipo'}
+                                {initialData?.id_equipo ? 'Guardar' : 'Crear'}
                             </Button>
                         </Group>
                     </Group>
@@ -506,28 +510,28 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                     <IconInfoCircle size={20} />
                                     <Text fw={700}>Cambios sugeridos por Medio Ambiente</Text>
                                 </Group>
-                                <Grid>
+                                <Grid gutter="xs">
                                     {requestedChanges.nueva_ubicacion && (
-                                        <Grid.Col span={{ base: 6, md: 4 }}>
+                                        <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
                                             <Paper p="xs" withBorder bg="white">
                                                 <Text size="xs" c="dimmed" tt="uppercase">Ubicación</Text>
-                                                <Text fw={700} color="blue">{requestedChanges.nueva_ubicacion}</Text>
+                                                <Text fw={700} color="blue" size="sm">{requestedChanges.nueva_ubicacion}</Text>
                                             </Paper>
                                         </Grid.Col>
                                     )}
                                     {requestedChanges.nuevo_responsable_id && (
-                                        <Grid.Col span={{ base: 6, md: 4 }}>
+                                        <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
                                             <Paper p="xs" withBorder bg="white">
                                                 <Text size="xs" c="dimmed" tt="uppercase">Responsable</Text>
-                                                <Text fw={700} color="blue">{muestreadores.find(m => m.id_muestreador === requestedChanges.nuevo_responsable_id)?.nombre_muestreador || '---'}</Text>
+                                                <Text fw={700} color="blue" size="sm">{muestreadores.find(m => m.id_muestreador === requestedChanges.nuevo_responsable_id)?.nombre_muestreador || '---'}</Text>
                                             </Paper>
                                         </Grid.Col>
                                     )}
                                     {requestedChanges.vigencia && (
-                                        <Grid.Col span={{ base: 6, md: 4 }}>
+                                        <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
                                             <Paper p="xs" withBorder bg="white">
                                                 <Text size="xs" c="dimmed" tt="uppercase">Vigencia</Text>
-                                                <Text fw={700} color="blue">{requestedChanges.vigencia}</Text>
+                                                <Text fw={700} color="blue" size="sm">{requestedChanges.vigencia}</Text>
                                             </Paper>
                                         </Grid.Col>
                                     )}
@@ -578,7 +582,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                         </Paper>
                     </Collapse>
 
-                    <Stepper active={activeStep} onStepClick={setActiveStep} color="adl-blue" size="sm">
+                    <Stepper active={activeStep} onStepClick={setActiveStep} color="adl-blue" size="sm" orientation={isMobile ? 'vertical' : 'horizontal'}>
                         <Stepper.Step label="Información General" description="Datos del equipo">
                             <Stack gap="xl" mt="md">
                                 <Grid>
@@ -755,13 +759,13 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                             />
                                         </Group>
                                     </Grid.Col>
-                                    <Grid.Col span={{ base: 4, md: 4 }}>
+                                    <Grid.Col span={{ base: 12, sm: 4, md: 4 }}>
                                         <NumberInput label="Error 0" value={formData.error0} onChange={(v) => setFormData((p: any) => ({ ...p, error0: v }))} step={0.01} />
                                     </Grid.Col>
-                                    <Grid.Col span={{ base: 4, md: 4 }}>
+                                    <Grid.Col span={{ base: 12, sm: 4, md: 4 }}>
                                         <NumberInput label="Error 15" value={formData.error15} onChange={(v) => setFormData((p: any) => ({ ...p, error15: v }))} step={0.01} />
                                     </Grid.Col>
-                                    <Grid.Col span={{ base: 4, md: 4 }}>
+                                    <Grid.Col span={{ base: 12, sm: 4, md: 4 }}>
                                         <NumberInput label="Error 30" value={formData.error30} onChange={(v) => setFormData((p: any) => ({ ...p, error30: v }))} step={0.01} />
                                     </Grid.Col>
                                     <Grid.Col span={12}>
@@ -806,10 +810,10 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                             <Table.Thead bg="gray.1">
                                                 <Table.Tr>
                                                     <Table.Th w={40}>#</Table.Th>
-                                                    <Table.Th>Código</Table.Th>
-                                                    <Table.Th>Ubicación</Table.Th>
-                                                    <Table.Th>Vigencia</Table.Th>
-                                                    <Table.Th>Obs.</Table.Th>
+                                                    <Table.Th style={{ minWidth: '150px' }}>Código</Table.Th>
+                                                    <Table.Th style={{ minWidth: '140px' }}>Ubicación</Table.Th>
+                                                    <Table.Th style={{ minWidth: '130px' }}>Vigencia</Table.Th>
+                                                    <Table.Th w={60}>Obs.</Table.Th>
                                                 </Table.Tr>
                                             </Table.Thead>
                                             <Table.Tbody>

@@ -15,7 +15,9 @@ import {
     Badge,
     UnstyledButton,
     Flex,
+    Paper
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import {
     IconSearch,
     IconPlus,
@@ -23,7 +25,8 @@ import {
     IconCalendar,
     IconClock,
     IconCircleFilled,
-    IconFolderOpen
+    IconFolderOpen,
+    IconArrowLeft
 } from '@tabler/icons-react';
 import { ursService } from '../../../services/urs.service';
 import { useNavStore } from '../../../store/navStore';
@@ -59,6 +62,7 @@ const UniversalInbox: React.FC = () => {
     } = useNavStore();
     
     const { user } = useAuth();
+    const isMobile = useMediaQuery('(max-width: 768px)');
     const { markAsReadByRef, notifications } = useNotificationStore();
     
     const [requests, setRequests] = useState<Request[]>([]);
@@ -235,225 +239,261 @@ const UniversalInbox: React.FC = () => {
     return (
         <Box h={{ base: 'calc(100dvh - 100px)', md: '100%' }} bg="white" style={{ overflow: 'hidden' }}>
             <Flex direction={{ base: 'column', md: 'row' }} h="100%" align="stretch" style={{ flexWrap: 'nowrap' }}>
-                {/* COLUMN 1: INBOX LIST */}
-                <Box 
-                    flex={{ base: '0 0 auto', md: '0 0 21%' }} 
-                    h={{ base: 'auto', md: '100%' }}
-                    style={{ 
-                        borderRight: '1px solid var(--mantine-color-gray-2)', 
-                        display: 'flex', 
-                        flexDirection: 'column',
-                        minWidth: 0
-                    }}
-                >
-                    {/* Header/Filters Section (Fixed) */}
-                    <Stack p="md" gap="md" style={{ borderBottom: '1px solid var(--mantine-color-gray-2)' }}>
-                        <Group justify="space-between">
-                            <Title order={4}>Solicitudes</Title>
-                            <ActionIcon 
-                                variant="filled" 
-                                color="adl-blue" 
-                                size="md" 
-                                radius="md" 
-                                onClick={() => setActiveSubmodule('urs-new-request')}
-                            >
-                                <IconPlus size={18} />
-                            </ActionIcon>
-                        </Group>
+                {/* COLUMN 1: INBOX LIST - Hide on mobile if a request is selected */}
+                {(!isMobile || !selectedRequestId) && (
+                    <Box 
+                        flex={{ base: '1', md: '0 0 21%' }} 
+                        h="100%"
+                        style={{ 
+                            borderRight: isMobile ? 'none' : '1px solid var(--mantine-color-gray-2)', 
+                            display: 'flex', 
+                            flexDirection: 'column',
+                            minWidth: 0
+                        }}
+                    >
+                        {/* Header/Filters Section (Fixed) */}
+                        <Stack p="md" gap="md" style={{ borderBottom: '1px solid var(--mantine-color-gray-2)' }}>
+                            <Group justify="space-between">
+                                <Title order={4}>Solicitudes</Title>
+                                <ActionIcon 
+                                    variant="filled" 
+                                    color="adl-blue" 
+                                    size="md" 
+                                    radius="md" 
+                                    onClick={() => setActiveSubmodule('urs-new-request')}
+                                >
+                                    <IconPlus size={18} />
+                                </ActionIcon>
+                            </Group>
 
-                        <SegmentedControl 
-                            fullWidth
-                            value={ursInboxMode}
-                            onChange={(val) => setUrsInboxMode(val as 'RECEIVED' | 'SENT')}
-                            data={[
-                                { label: 'Recibidas', value: 'RECEIVED' },
-                                { label: 'Enviadas', value: 'SENT' }
-                            ]}
-                            color="adl-blue"
-                            radius="md"
-                        />
-
-                        <TextInput 
-                            placeholder="Buscar..."
-                            leftSection={<IconSearch size={16} color="var(--mantine-color-gray-5)" />}
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            radius="md"
-                        />
-
-                        <Group grow gap="xs">
-                            <Select 
-                                label="Estado"
-                                placeholder="Seleccionar"
-                                value={filter.status}
-                                onChange={(val) => setFilter({...filter, status: val || ''})}
+                            <SegmentedControl 
+                                fullWidth
+                                value={ursInboxMode}
+                                onChange={(val) => setUrsInboxMode(val as 'RECEIVED' | 'SENT')}
                                 data={[
-                                    { value: '', label: 'Todos' },
-                                    { value: 'PENDIENTE', label: 'Pendientes' },
-                                    { value: 'EN_REVISION', label: 'En Revisión' },
-                                    { value: 'ACEPTADA', label: 'Aceptadas' },
-                                    { value: 'REALIZADA', label: 'Realizadas' },
-                                    { value: 'RECHAZADA', label: 'Rechazadas' }
+                                    { label: 'Recibidas', value: 'RECEIVED' },
+                                    { label: 'Enviadas', value: 'SENT' }
                                 ]}
-                                size="xs"
+                                color="adl-blue"
                                 radius="md"
                             />
-                            <Select 
-                                label="Área"
-                                placeholder="Seleccionar"
-                                value={filter.area}
-                                onChange={(val) => setFilter({...filter, area: val || ''})}
-                                data={[
-                                    { value: '', label: 'Todas' },
-                                    { value: 'INF', label: 'TI' },
-                                    { value: 'GC', label: 'Calidad' }
-                                ]}
-                                size="xs"
+
+                            <TextInput 
+                                placeholder="Buscar..."
+                                leftSection={<IconSearch size={16} color="var(--mantine-color-gray-5)" />}
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
                                 radius="md"
                             />
-                        </Group>
-                    </Stack>
 
-                    {/* Scrollable list Section */}
-                    <ScrollArea flex={1} p="xs">
-                        {loading ? (
-                            <Center py="xl">
-                                <Loader size="sm" color="adl-blue" />
-                            </Center>
-                        ) : filteredRequests.length > 0 ? (
-                            ['Hoy', 'Ayer', 'Esta semana', 'Más antiguas'].map(label => {
-                                const groupReqs = groupedRequests[label];
-                                if (!groupReqs || groupReqs.length === 0) return null;
-                                return (
-                                    <Stack key={label} gap="xs" mb="lg">
-                                        <Text size="xs" fw={800} c="dimmed" tt="uppercase" lts="1px" px="xs">
-                                            {label}
-                                        </Text>
-                                        {groupReqs.map((req) => {
-                                            const isActive = selectedRequestId === req.id_solicitud;
-                                            const unread = (req.unread_count || 0) > 0;
-                                            const isMine = Number(req.id_solicitante) === Number(user?.id);
-                                            
-                                            return (
-                                                <UnstyledButton
-                                                    key={req.id_solicitud}
-                                                    ref={el => { itemRefs.current[req.id_solicitud] = el; }}
-                                                    onClick={() => setSelectedRequestId(req.id_solicitud)}
-                                                    p="sm"
-                                                    style={{
-                                                        borderRadius: 'var(--mantine-radius-md)',
-                                                        backgroundColor: isActive ? 'var(--mantine-color-adl-blue-0)' : 'transparent',
-                                                        border: isActive ? '1px solid var(--mantine-color-adl-blue-2)' : '1px solid transparent',
-                                                        transition: 'all 150ms ease'
-                                                    }}
-                                                >
-                                                    <Stack gap={4}>
-                                                        <Group justify="space-between" align="start" wrap="nowrap">
-                                                            <Group gap={6}>
-                                                                <Badge size="xs" color="gray" variant="light">#{req.id_solicitud}</Badge>
-                                                                {!isMine && (
-                                                                    <Text size="xs" fw={700} c="adl-blue">
-                                                                        {req.nombre_solicitante?.split(' ')[0]}
-                                                                    </Text>
-                                                                )}
+                            <Group grow gap="xs">
+                                <Select 
+                                    label="Estado"
+                                    placeholder="Seleccionar"
+                                    value={filter.status}
+                                    onChange={(val) => setFilter({...filter, status: val || ''})}
+                                    data={[
+                                        { value: '', label: 'Todos' },
+                                        { value: 'PENDIENTE', label: 'Pendientes' },
+                                        { value: 'EN_REVISION', label: 'En Revisión' },
+                                        { value: 'ACEPTADA', label: 'Aceptadas' },
+                                        { value: 'REALIZADA', label: 'Realizadas' },
+                                        { value: 'RECHAZADA', label: 'Rechazadas' }
+                                    ]}
+                                    size="xs"
+                                    radius="md"
+                                />
+                                <Select 
+                                    label="Área"
+                                    placeholder="Seleccionar"
+                                    value={filter.area}
+                                    onChange={(val) => setFilter({...filter, area: val || ''})}
+                                    data={[
+                                        { value: '', label: 'Todas' },
+                                        { value: 'INF', label: 'TI' },
+                                        { value: 'GC', label: 'Calidad' }
+                                    ]}
+                                    size="xs"
+                                    radius="md"
+                                />
+                            </Group>
+                        </Stack>
+
+                        {/* Scrollable list Section */}
+                        <ScrollArea flex={1} p="xs">
+                            {loading ? (
+                                <Center py="xl">
+                                    <Loader size="sm" color="adl-blue" />
+                                </Center>
+                            ) : filteredRequests.length > 0 ? (
+                                ['Hoy', 'Ayer', 'Esta semana', 'Más antiguas'].map(label => {
+                                    const groupReqs = groupedRequests[label];
+                                    if (!groupReqs || groupReqs.length === 0) return null;
+                                    return (
+                                        <Stack key={label} gap="xs" mb="lg">
+                                            <Text size="xs" fw={800} c="dimmed" tt="uppercase" lts="1px" px="xs">
+                                                {label}
+                                            </Text>
+                                            {groupReqs.map((req) => {
+                                                const isActive = selectedRequestId === req.id_solicitud;
+                                                const unread = (req.unread_count || 0) > 0;
+                                                const isMine = Number(req.id_solicitante) === Number(user?.id);
+                                                
+                                                return (
+                                                    <UnstyledButton
+                                                        key={req.id_solicitud}
+                                                        ref={el => { itemRefs.current[req.id_solicitud] = el; }}
+                                                        onClick={() => setSelectedRequestId(req.id_solicitud)}
+                                                        p="sm"
+                                                        style={{
+                                                            borderRadius: 'var(--mantine-radius-md)',
+                                                            backgroundColor: isActive ? 'var(--mantine-color-adl-blue-0)' : 'transparent',
+                                                            border: isActive ? '1px solid var(--mantine-color-adl-blue-2)' : '1px solid transparent',
+                                                            transition: 'all 150ms ease'
+                                                        }}
+                                                    >
+                                                        <Stack gap={4}>
+                                                            <Group justify="space-between" align="start" wrap="nowrap">
+                                                                <Group gap={6}>
+                                                                    <Badge size="xs" color="gray" variant="light">#{req.id_solicitud}</Badge>
+                                                                    {!isMine && (
+                                                                        <Text size="xs" fw={700} c="adl-blue">
+                                                                            {req.nombre_solicitante?.split(' ')[0]}
+                                                                        </Text>
+                                                                    )}
+                                                                </Group>
+                                                                <Text size="xs" c="dimmed">
+                                                                    {formatDateTime(req.fecha_solicitud)}
+                                                                </Text>
                                                             </Group>
-                                                            <Text size="xs" c="dimmed">
-                                                                {formatDateTime(req.fecha_solicitud)}
+                                                            
+                                                            <Text size="sm" fw={unread ? 800 : 600} truncate lineClamp={2} c="dark.4">
+                                                                {req.titulo || req.nombre_tipo}
                                                             </Text>
-                                                        </Group>
-                                                        
-                                                        <Text size="sm" fw={unread ? 800 : 600} truncate lineClamp={2} c="dark.4">
-                                                            {req.titulo || req.nombre_tipo}
-                                                        </Text>
-                                                        
-                                                        <Group justify="space-between" align="center">
-                                                            <Group gap={6}>
-                                                                <StatusBadge status={req.estado} size="xs" />
-                                                                {unread && <IconCircleFilled size={10} color="var(--mantine-color-red-6)" />}
+                                                            
+                                                            <Group justify="space-between" align="center">
+                                                                <Group gap={6}>
+                                                                    <StatusBadge status={req.estado} size="xs" />
+                                                                    {unread && <IconCircleFilled size={10} color="var(--mantine-color-red-6)" />}
+                                                                </Group>
+                                                                <IconChevronRight size={14} color="var(--mantine-color-gray-4)" />
                                                             </Group>
-                                                            <IconChevronRight size={14} color="var(--mantine-color-gray-4)" />
-                                                        </Group>
-                                                    </Stack>
-                                                </UnstyledButton>
-                                            );
-                                        })}
+                                                        </Stack>
+                                                    </UnstyledButton>
+                                                );
+                                            })}
+                                        </Stack>
+                                    );
+                                })
+                            ) : (
+                                <Center py={100}>
+                                    <Stack align="center" gap="xs">
+                                        <IconFolderOpen size={40} color="var(--mantine-color-gray-3)" stroke={1} />
+                                        <Text size="sm" c="dimmed">No hay solicitudes.</Text>
                                     </Stack>
-                                );
-                            })
+                                </Center>
+                            )}
+                        </ScrollArea>
+                    </Box>
+                )}
+
+                {/* COLUMN 2: DETAILS - Show on dynamic basis on mobile */}
+                {(!isMobile || selectedRequestId) && (
+                    <Box 
+                        flex={{ base: '1', md: '0 0 54%' }}
+                        h="100%"
+                        style={{ 
+                            borderRight: isMobile ? 'none' : '1px solid var(--mantine-color-gray-2)', 
+                            backgroundColor: 'white', 
+                            display: 'flex', 
+                            flexDirection: 'column',
+                            minWidth: 0
+                        }}
+                    >
+                        {/* Mobile Header for Details */}
+                        {isMobile && selectedRequestId && (
+                            <Paper p="sm" withBorder radius={0} style={{ borderTop: 0, borderLeft: 0, borderRight: 0 }}>
+                                <Group justify="space-between" align="center">
+                                    <Group gap="xs">
+                                        <ActionIcon variant="light" color="gray" onClick={() => setSelectedRequestId(null)}>
+                                            <IconArrowLeft size={18} />
+                                        </ActionIcon>
+                                        <Text fw={800} size="sm">Detalle de Solicitud</Text>
+                                    </Group>
+                                    <Badge variant="outline" color="gray" size="sm">#{selectedRequestId}</Badge>
+                                </Group>
+                            </Paper>
+                        )}
+
+                        {loadingDetail ? (
+                            <Center h="100%">
+                                <Stack align="center" gap="md">
+                                    <Loader size="md" color="adl-blue" />
+                                    <Text size="sm" c="dimmed">Abriendo solicitud...</Text>
+                                </Stack>
+                            </Center>
+                        ) : selectedRequest ? (
+                            <ScrollArea flex={1} scrollbars="y">
+                                <Box p="lg">
+                                    <RequestDetailPanel 
+                                        request={selectedRequest} 
+                                        onRequestUpdate={loadInitialData}
+                                        onReload={() => loadRequestDetail(selectedRequestId!, true)}
+                                    />
+                                </Box>
+                                
+                                {/* On Mobile, Activity section appears at bottom of flow */}
+                                {isMobile && (
+                                    <>
+                                        <Box p="xs" bg="gray.1">
+                                            <Text size="xs" fw={800} c="dimmed" tt="uppercase">Actividad y Chat</Text>
+                                        </Box>
+                                        <Box p="sm">
+                                            <RequestActivityAndChat 
+                                                request={selectedRequest} 
+                                                onReload={() => loadRequestDetail(selectedRequestId!, true)}
+                                            />
+                                        </Box>
+                                    </>
+                                )}
+                            </ScrollArea>
                         ) : (
-                            <Center py={100}>
-                                <Stack align="center" gap="xs">
-                                    <IconFolderOpen size={40} color="var(--mantine-color-gray-3)" stroke={1} />
-                                    <Text size="sm" c="dimmed">No hay solicitudes.</Text>
+                            <Center h="100%">
+                                <Stack align="center" gap="sm">
+                                    <IconCalendar size={48} color="var(--mantine-color-gray-3)" stroke={1} />
+                                    <Title order={4} c="dimmed">Selecciona una solicitud</Title>
+                                    <Text size="sm" c="dimmed">Haz clic en la lista para ver detalles.</Text>
                                 </Stack>
                             </Center>
                         )}
-                    </ScrollArea>
-                </Box>
+                    </Box>
+                )}
 
-                {/* COLUMN 2: DETAILS */}
-                <Box 
-                    flex={{ base: '0 0 auto', md: '0 0 54%' }}
-                    h={{ base: 'auto', md: '100%' }}
-                    style={{ 
-                        borderRight: '1px solid var(--mantine-color-gray-2)', 
-                        backgroundColor: 'var(--mantine-color-gray-0)', 
-                        display: 'flex', 
-                        flexDirection: 'column',
-                        minWidth: 0
-                    }}
-                >
-                    {loadingDetail ? (
-                        <Center h="100%">
-                            <Stack align="center" gap="md">
-                                <Loader size="md" color="adl-blue" />
-                                <Text size="sm" c="dimmed">Abriendo solicitud...</Text>
-                            </Stack>
-                        </Center>
-                    ) : selectedRequest ? (
-                        <ScrollArea flex={1} scrollbars="y">
-                            <Box p="lg">
-                                <RequestDetailPanel 
+                {/* COLUMN 3: ACTIVITY & CHAT (Desktop only or specific layout) */}
+                {!isMobile && (
+                    <Box 
+                        flex="0 0 25%"
+                        h="100%"
+                        style={{ 
+                            display: 'flex', 
+                            flexDirection: 'column',
+                            minWidth: 0
+                        }}
+                    >
+                        <Box flex={1} style={{ overflow: 'hidden' }}>
+                            {selectedRequest ? (
+                                <RequestActivityAndChat 
                                     request={selectedRequest} 
-                                    onRequestUpdate={loadInitialData}
                                     onReload={() => loadRequestDetail(selectedRequestId!, true)}
                                 />
-                            </Box>
-                        </ScrollArea>
-                    ) : (
-                        <Center h="100%">
-                            <Stack align="center" gap="sm">
-                                <IconCalendar size={48} color="var(--mantine-color-gray-3)" stroke={1} />
-                                <Title order={4} c="dimmed">Selecciona una solicitud</Title>
-                                <Text size="sm" c="dimmed">Haz clic en la lista para ver detalles.</Text>
-                            </Stack>
-                        </Center>
-                    )}
-                </Box>
-
-                {/* COLUMN 3: ACTIVITY & CHAT */}
-                <Box 
-                    flex={{ base: '0 0 auto', md: '0 0 25%' }}
-                    h={{ base: 'auto', md: '100%' }}
-                    style={{ 
-                        display: 'flex', 
-                        flexDirection: 'column',
-                        minWidth: 0
-                    }}
-                >
-                    <Box flex={1} style={{ overflow: 'hidden' }}>
-                        {selectedRequest ? (
-                            <RequestActivityAndChat 
-                                request={selectedRequest} 
-                                onReload={() => loadRequestDetail(selectedRequestId!, true)}
-                            />
-                        ) : (
-                            <Center h="100%">
-                                <IconClock size={40} color="var(--mantine-color-gray-2)" />
-                            </Center>
-                        )}
+                            ) : (
+                                <Center h="100%">
+                                    <IconClock size={40} color="var(--mantine-color-gray-2)" />
+                                </Center>
+                            )}
+                        </Box>
                     </Box>
-                </Box>
+                )}
             </Flex>
         </Box>
     );
