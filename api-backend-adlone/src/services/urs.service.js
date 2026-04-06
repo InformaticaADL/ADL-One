@@ -258,19 +258,37 @@ class UrsService {
      * Crea una nueva solicitud unificada
      */
     async createRequest(idTipo, idSolicitante, datos, prioridad = 'NORMAL', areaActual = null, observaciones = '', files = []) {
+        logger.info('URS: createRequest called', { idTipo, idSolicitante, datos });
         const pool = await getConnection();
         const transaction = new sql.Transaction(pool);
-        
         try {
             await transaction.begin();
 
-            // Si no se especifica areaActual, intentamos obtenerla del tipo de solicitud
             if (!areaActual) {
                 const tipoRes = await new sql.Request(transaction)
                     .input('idTipo', sql.Numeric(10, 0), idTipo)
                     .query('SELECT area_destino FROM mae_solicitud_tipo WHERE id_tipo = @idTipo');
                 if (tipoRes.recordset.length > 0) {
                     areaActual = tipoRes.recordset[0].area_destino;
+                }
+            }
+
+            // Mobile Integration: Auto-resolve Equipment Name from mae_equipo
+            const eqId = datos?.id_equipo || datos?.equipo_id || datos?.idEquipo || datos?.equipo;
+            if (eqId && (!datos.nombre_equipo_full || datos.nombre_equipo_full === 'Cargando...')) {
+                try {
+                    logger.info(`URS: Resolving equipment ID: ${eqId}`);
+                    const eqRes = await pool.request()
+                        .input('eqId', sql.Int, Number(eqId))
+                        .query("SELECT LTRIM(RTRIM(nombre)) + ' [' + LTRIM(RTRIM(codigo)) + ']' as full_name FROM mae_equipo WHERE id_equipo = @eqId");
+                    if (eqRes.recordset.length > 0) {
+                        datos.nombre_equipo_full = eqRes.recordset[0].full_name;
+                        logger.info(`URS: Equipment resolved: ${datos.nombre_equipo_full}`);
+                    } else {
+                        logger.warn(`URS: Equipment not found for ID: ${eqId}`);
+                    }
+                } catch (resErr) {
+                    logger.error('URS: Error resolving equipment:', resErr);
                 }
             }
 
@@ -341,8 +359,12 @@ class UrsService {
                     eventOverride = 'SOL_EQUIPO_ALTA_NUEVA';
                 } else if (nombreTipoUpper.includes('NUEVO EQUIPO')) {
                     eventOverride = 'SOL_EQUIPO_NUEVO_EQUIPO_NUEVA';
-                } else if (nombreTipoUpper.includes('REPORTE')) {
-                    eventOverride = 'SOL_EQUIPO_REPORTE_PROBLEMA_NUEVA';
+                } else if (Number(idTipo) === 10 || nombreTipoUpper.includes('REPORTE')) {
+                    eventOverride = Number(idTipo) === 10 ? 'AVISO_PROBLEMA_NUEVO' : 'SOL_EQUIPO_REPORTE_PROBLEMA_NUEVA';
+                } else if (Number(idTipo) === 11) {
+                    eventOverride = 'AVISO_PERDIDO_NUEVO';
+                } else if (Number(idTipo) === 12) {
+                    eventOverride = 'AVISO_CANCELACION_NUEVA';
                 }
 
                 await uns.default.trigger(eventOverride, {
@@ -353,8 +375,9 @@ class UrsService {
                     id_solicitante: idSolicitante,
                     id_usuario_accion: idSolicitante,
                     id_usuario_propietario: idSolicitante,
-                    solicitante: solicitud.nombre_solicitante,
-                    usuario_accion: solicitud.nombre_solicitante,
+                    usuario_accion: datos.nombre_tecnico ? datos.nombre_tecnico : solicitud.nombre_solicitante,
+                    nombre_solicitante: datos.nombre_tecnico ? datos.nombre_tecnico : solicitud.nombre_solicitante,
+                    equipo_nombre: datos.nombre_equipo_full || datos.equipo_nombre || 'N/A',
                     nombre_tipo: solicitud.nombre_tipo,
                     prioridad: prioridad,
                     area_destino: areaActual,
@@ -398,6 +421,11 @@ class UrsService {
             const solicitud = requestQueryResult.recordset[0];
             solicitud.datos_json = JSON.parse(solicitud.datos_json || '{}');
             solicitud.workflow_config = JSON.parse(solicitud.workflow_config || 'null');
+
+            // Interception for Mobile App Requests (Generic User overwrite)
+            if (solicitud.datos_json.nombre_tecnico) {
+                solicitud.nombre_solicitante = solicitud.datos_json.nombre_tecnico;
+            }
 
             // Cargar Comentarios/Conversación (Phase 13: Include Role/Area)
             const comentarios = await pool.request()
@@ -559,10 +587,19 @@ class UrsService {
             query += ' ORDER BY s.fecha_creacion DESC';
             
             const result = await request.query(query);
-            return result.recordset.map(s => ({
-                ...s,
-                datos_json: JSON.parse(s.datos_json || '{}')
-            }));
+            return result.recordset.map(s => {
+                let parsedDatos = {};
+                try {
+                    parsedDatos = JSON.parse(s.datos_json || '{}');
+                } catch(e) {}
+                
+                return {
+                    ...s,
+                    // Interception for Mobile App Requests (Generic User overwrite)
+                    nombre_solicitante: parsedDatos.nombre_tecnico ? parsedDatos.nombre_tecnico : s.nombre_solicitante,
+                    datos_json: parsedDatos
+                };
+            });
         } catch (error) {
             logger.error('Error in UrsService.getRequests:', error);
             throw error;

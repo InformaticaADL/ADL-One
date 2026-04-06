@@ -49,7 +49,7 @@ global.io = io;
 
 io.on('connection', (socket) => {
     logger.info(`New client connected: ${socket.id}`);
-    
+
     socket.on('join', (userId) => {
         socket.join(`user_${userId}`);
         logger.info(`User ${userId} joined their notification room`);

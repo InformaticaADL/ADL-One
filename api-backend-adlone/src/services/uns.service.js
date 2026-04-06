@@ -138,6 +138,43 @@ class UnsService {
                             mensaje: 'La solicitud #{{correlativo}} te ha sido derivada por {{usuario_accion}}',
                             cuerpo_mensaje: 'La solicitud #{{correlativo}} te ha sido derivada por {{usuario_accion}}'
                         },
+                        // Avisos Móviles (URS)
+                        'AVISO_PROBLEMA_NUEVO': {
+                            titulo: 'Reporte de Problema Técnico',
+                            asunto_template: 'Problema Reportado (Móvil): {{equipo_nombre}}',
+                            mensaje: '{{usuario_accion}} reportó un problema con el equipo {{equipo_nombre}}',
+                            cuerpo_mensaje: '{{usuario_accion}} reportó un problema con el equipo {{equipo_nombre}}'
+                        },
+                        'AVISO_PERDIDO_NUEVO': {
+                            titulo: 'Reporte de Extravío/Robo',
+                            asunto_template: 'Extravío de Equipo (Móvil): {{equipo_nombre}}',
+                            mensaje: '{{usuario_accion}} reportó el extravío del equipo {{equipo_nombre}}. Fecha suceso: {{fecha_suceso}}',
+                            cuerpo_mensaje: '{{usuario_accion}} reportó el extravío del equipo {{equipo_nombre}}. Fecha suceso: {{fecha_suceso}}'
+                        },
+                        'AVISO_CANCELACION_NUEVA': {
+                            titulo: 'Cancelación de Muestreo',
+                            asunto_template: 'Cancelación de Muestreo (Móvil)',
+                            mensaje: '{{usuario_accion}} ha reportado la anulación de un servicio',
+                            cuerpo_mensaje: '{{usuario_accion}} ha reportado la anulación de un servicio'
+                        },
+                        'AVISO_CONSULTA_NUEVA': {
+                            titulo: 'Consulta de Terreno',
+                            asunto_template: 'Consulta de Terreno (Móvil)',
+                            mensaje: '{{usuario_accion}} envió una solicitud/consulta desde la App',
+                            cuerpo_mensaje: '{{usuario_accion}} envió una solicitud/consulta desde la App'
+                        },
+                        'AVISO_CONSULTA_EQUIPO_NUEVA': {
+                            titulo: 'Consulta: Equipo',
+                            asunto_template: 'Consulta sobre Equipo (Móvil): {{equipo_nombre}}',
+                            mensaje: '{{usuario_accion}} consultó sobre el equipo {{equipo_nombre}}',
+                            cuerpo_mensaje: '{{usuario_accion}} consultó sobre el equipo {{equipo_nombre}}'
+                        },
+                        'AVISO_CONSULTA_FICHA_NUEVA': {
+                            titulo: 'Consulta: Ficha/Servicio',
+                            asunto_template: 'Consulta sobre Ficha (Móvil): {{ficha_nombre}}',
+                            mensaje: '{{usuario_accion}} consultó sobre la ficha/servicio: {{ficha_nombre}}',
+                            cuerpo_mensaje: '{{usuario_accion}} consultó sobre la ficha/servicio: {{ficha_nombre}}'
+                        },
                         // URS Especificos
                         'SOL_TRASPASO_MUESTREADOR_NUEVA': {
                             titulo: 'Nueva Solicitud: Traspaso de Equipo',
@@ -312,7 +349,7 @@ class UnsService {
                         CORRELATIVO: context.correlativo || context.id_solicitud || context.id_referencia || 'N/A',
                         USUARIO: context.usuario_accion || context.nombre_solicitante || context.nombre_autor || 'Sistema',
                         SOLICITANTE: context.nombre_solicitante || context.solicitante || context.usuario_accion || context.nombre_autor || 'Usuario',
-                        FECHA: now.toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' }),
+                        FECHA: now.toLocaleDateString('es-CL'),
                         HORA: now.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }),
                         TIPO_SOLICITUD: context.nombre_tipo || 'Notificación General',
                         OBSERVACION: context.observaciones || context.mensaje || 'Sin observaciones adicionales.',
@@ -321,6 +358,11 @@ class UnsService {
                         LABEL_SOLICITANTE: labelSolicitante,
                         COLOR_PRINCIPAL: colorPrincipal,
                         COLOR_FONDO: colorFondo,
+                        LOGO_BASE64: '{LOGO_BASE64}', // Marcador para que NotificationService lo reemplace con el CID
+                        equipo_nombre: context.equipo_nombre || 'No especificado',
+                        ficha_nombre: context.ficha_nombre || 'No especificada',
+                        fecha_suceso: context.fecha_suceso || 'No especificada',
+                        estado_legible: context.estado_tipo_nombre || context.nombre_tipo || 'Aviso Móvil',
                         APP_URL: context.APP_URL || process.env.APP_URL || 'http://localhost:5173'
                     };
 
