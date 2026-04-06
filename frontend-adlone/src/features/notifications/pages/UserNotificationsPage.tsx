@@ -20,7 +20,6 @@ import {
 } from '@tabler/icons-react';
 import { useNotificationStore, type Notification } from '../../../store/notificationStore';
 import { useNavStore } from '../../../store/navStore';
-import { handleNotificationNavigation } from '../utils/notificationNavigation';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
 
@@ -28,10 +27,7 @@ dayjs.locale('es');
 
 export const UserNotificationsPage = () => {
     const { notifications, fetchNotifications, markAsRead } = useNotificationStore();
-    const { 
-        setActiveModule, setActiveSubmodule, 
-        setPendingRequestId, setPendingChatId, setSelectedRequestId 
-    } = useNavStore();
+    const { setActiveModule, setActiveSubmodule, setPendingRequestId, setSelectedRequestId } = useNavStore();
 
     useEffect(() => {
         fetchNotifications();
@@ -42,13 +38,50 @@ export const UserNotificationsPage = () => {
             await markAsRead(notif.id_notificacion);
         }
 
-        handleNotificationNavigation(notif, {
-            setActiveModule,
-            setActiveSubmodule,
-            setPendingRequestId,
-            setPendingChatId,
-            setSelectedRequestId
-        });
+        if (notif.id_referencia) {
+            const titulo = notif.titulo.toLowerCase();
+            const area = (notif.area || '').toLowerCase();
+            
+            // Solicitudes: always go to URS inbox with request selected
+            // Solicitudes / URS / Avisos Móviles
+            const isRequest = 
+                titulo.includes('solicitud') || 
+                titulo.includes('estado') || 
+                titulo.includes('derivación') || 
+                titulo.includes('derivacion') || 
+                titulo.includes('baja') ||
+                titulo.includes('traspaso') ||
+                titulo.includes('asignación') ||
+                titulo.includes('equipo') ||
+                titulo.includes('reporte') ||
+                titulo.includes('consulta') ||
+                titulo.includes('extravío') ||
+                titulo.includes('extravio') ||
+                titulo.includes('problema') ||
+                titulo.includes('anulación') ||
+                titulo.includes('anulacion') ||
+                titulo.includes('servicio') ||
+                area === 'urs' || 
+                area === 'solicitudes';
+
+            if (isRequest) {
+                setSelectedRequestId(notif.id_referencia);
+                setActiveModule('solicitudes');
+                setActiveSubmodule('');
+            }
+            // Fichas: go to role-specific page
+            else if (titulo.includes('ficha') || area === 'fichas') {
+                setPendingRequestId(notif.id_referencia);
+                setActiveModule('medio_ambiente');
+                setActiveSubmodule('');
+            }
+            // Fallback: still route to solicitudes as it is the most likely destination for ID references
+            else {
+                setSelectedRequestId(notif.id_referencia);
+                setActiveModule('solicitudes');
+                setActiveSubmodule('');
+            }
+        }
     };
 
     const getIcon = (tipo: string) => {

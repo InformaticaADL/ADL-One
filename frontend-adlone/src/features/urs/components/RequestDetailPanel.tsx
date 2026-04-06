@@ -24,10 +24,8 @@ import {
     Timeline,
     ScrollArea,
     Collapse,
-    UnstyledButton,
-    useMantineTheme
+    UnstyledButton
 } from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
 import {
     IconFileText,
     IconCalendar,
@@ -102,8 +100,6 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
     const [isDeriving, setIsDeriving] = useState(false);
     const { token } = useAuth();
     const { showToast } = useToast();
-    const theme = useMantineTheme();
-    const isMobile = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`);
 
     // Observation modal state
     const [obsModalOpen, setObsModalOpen] = useState(false);
@@ -196,9 +192,9 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
         if (!pendingAction || !obsText.trim()) return;
         setActionLoading(true);
         try {
-            await ursService.updateStatus(request.id_solicitud, { 
-                status: pendingAction, 
-                comment: obsText.trim() 
+            await ursService.updateStatus(request.id_solicitud, {
+                status: pendingAction,
+                comment: obsText.trim()
             });
             const messages: Record<string, string> = {
                 'ACEPTADA': 'Solicitud aceptada correctamente',
@@ -234,24 +230,38 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
     return (
         <Stack gap="xl">
             {/* Header Section */}
-            <Paper p={{ base: 'md', sm: 'lg' }} radius="lg" withBorder shadow="sm">
+            <Paper p="lg" radius="lg" withBorder shadow="sm">
                 <Stack gap="md">
                     <Group justify="space-between">
-                        <Badge variant="light" color="gray" size={isMobile ? 'sm' : 'lg'} radius="sm">
+                        <Badge variant="light" color="gray" size="lg" radius="sm">
                             ID #{request.id_solicitud}
                         </Badge>
-                        <StatusBadge status={request.estado} size={isMobile ? 'xs' : 'md'} />
+                        <StatusBadge status={request.estado} size="md" />
                     </Group>
-                    
-                    <Title order={isMobile ? 3 : 2} style={{ letterSpacing: '-0.5px' }}>
+
+                    <Title order={2} style={{ letterSpacing: '-0.5px' }}>
                         {request.titulo || request.nombre_tipo}
                     </Title>
-                    
-                    <SimpleGrid 
-                        cols={{ base: 1, xs: 2, sm: 4 }} 
-                        spacing="lg"
+
+                    {Number(request.id_solicitante) === 466 && (
+                        <Alert
+                            variant="light"
+                            color="blue"
+                            radius="md"
+                            p="xs"
+                            styles={{ label: { fontSize: '12px', fontWeight: 700 } }}
+                        >
+                            📱 Enviado desde la app móvil de muestreadores ADL Sampling
+                        </Alert>
+                    )}
+
+                    <Group
+                        gap="lg"
+                        wrap="wrap"
+                        justify="space-between"
+                        style={{ rowGap: 'var(--mantine-spacing-md)' }}
                     >
-                        <Group gap="xs" wrap="nowrap">
+                        <Group gap="xs" wrap="nowrap" style={{ flex: '1 1 200px' }}>
                             <ThemeIcon variant="light" color="gray" size="sm" radius="md">
                                 <IconFileText size={14} />
                             </ThemeIcon>
@@ -260,8 +270,8 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                                 <Text size="sm" fw={700} truncate>{request.nombre_tipo}</Text>
                             </Box>
                         </Group>
-                        
-                        <Group gap="xs" wrap="nowrap">
+
+                        <Group gap="xs" wrap="nowrap" style={{ flex: '1 1 200px' }}>
                             <ThemeIcon variant="light" color="gray" size="sm" radius="md">
                                 <IconCalendar size={14} />
                             </ThemeIcon>
@@ -269,15 +279,17 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                                 <Text size="xs" c="dimmed" fw={700} tt="uppercase">Creada</Text>
                                 <Text size="sm" fw={700}>
                                     {new Date(request.fecha_creacion).toLocaleDateString('es-CL', {
-                                        day: '2-digit', 
-                                        month: 'short', 
-                                        year: 'numeric'
+                                        day: '2-digit',
+                                        month: 'short',
+                                        year: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
                                     })}
                                 </Text>
                             </Box>
                         </Group>
 
-                        <Group gap="xs" wrap="nowrap">
+                        <Group gap="xs" wrap="nowrap" style={{ flex: '1 1 150px' }}>
                             <ThemeIcon variant="light" color={getPriorityColor(request.prioridad)} size="sm" radius="md">
                                 <IconAlertCircle size={14} />
                             </ThemeIcon>
@@ -289,16 +301,16 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                             </Box>
                         </Group>
 
-                        <Group gap="xs" wrap="nowrap">
+                        <Group gap="xs" wrap="nowrap" style={{ flex: '1 1 200px' }}>
                             <ThemeIcon variant="light" color="adl-blue" size="sm" radius="md">
                                 <IconUser size={14} />
                             </ThemeIcon>
                             <Box>
                                 <Text size="xs" c="dimmed" fw={700} tt="uppercase">Solicitante</Text>
-                                <Text size="sm" fw={700} truncate>{request.nombre_solicitante?.split(' ')[0]}</Text>
+                                <Text size="sm" fw={700} truncate>{request.nombre_solicitante}</Text>
                             </Box>
                         </Group>
-                    </SimpleGrid>
+                    </Group>
                 </Stack>
             </Paper>
 
@@ -318,7 +330,7 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                         </ThemeIcon>
                         <Title order={4}>Detalle de la Información</Title>
                     </Group>
-                    
+
                     <Divider />
 
                     <Box pt="sm">
@@ -333,8 +345,8 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                                     </Group>
                                 </Paper>
 
-                                <Grid gutter="md">
-                                    <Grid.Col span={{ base: 12, xs: 6 }}>
+                                <Grid>
+                                    <Grid.Col span={6}>
                                         <Paper p="sm" withBorder radius="md">
                                             <Text size="xs" c="dimmed" fw={700}>Traspaso de equipos</Text>
                                             <Text fw={700} c={request.datos_json?.muestreador_origen_id ? 'teal' : 'red'}>
@@ -342,14 +354,14 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                                             </Text>
                                         </Paper>
                                     </Grid.Col>
-                                    <Grid.Col span={{ base: 12, xs: 6 }}>
+                                    <Grid.Col span={6}>
                                         <Paper p="sm" withBorder radius="md">
                                             <Text size="xs" c="dimmed" fw={700}>Tipo de traspaso</Text>
-                                            <Text fw={700} truncate>
-                                                {request.datos_json?.tipo_traspaso === 'IGUAL' || request.datos_json?.tipo_traspaso === 'MUESTREADOR' ? 'A un Muestreador' : 
-                                                 request.datos_json?.tipo_traspaso === 'BASE' ? 'BASE' : 
-                                                 request.datos_json?.tipo_traspaso === 'DISTINGO' || request.datos_json?.tipo_traspaso === 'MANUAL' ? 'Personalizado' : 
-                                                 request.datos_json?.tipo_traspaso || 'N/A'}
+                                            <Text fw={700}>
+                                                {request.datos_json?.tipo_traspaso === 'IGUAL' || request.datos_json?.tipo_traspaso === 'MUESTREADOR' ? 'A un Muestreador' :
+                                                    request.datos_json?.tipo_traspaso === 'BASE' ? 'BASE' :
+                                                        request.datos_json?.tipo_traspaso === 'DISTINGO' || request.datos_json?.tipo_traspaso === 'MANUAL' ? 'Personalizado' :
+                                                            request.datos_json?.tipo_traspaso || 'N/A'}
                                             </Text>
                                         </Paper>
                                     </Grid.Col>
@@ -376,7 +388,7 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                                     <Text size="xs" c="blue.8" fw={800} mb={4}>NOMBRE DEL EQUIPO</Text>
                                     <Text size="xl" fw={800} c="blue.9">{request.datos_json?.nombre_equipo}</Text>
                                 </Paper>
-                                <SimpleGrid cols={{ base: 1, xs: 2 }}>
+                                <SimpleGrid cols={2}>
                                     <Paper p="sm" withBorder radius="md">
                                         <Group gap="xs">
                                             <IconDeviceDesktop size={16} />
@@ -397,12 +409,12 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                                     </Paper>
                                 </SimpleGrid>
                             </Stack>
-                        ) : (request.id_tipo === 2 || request.id_tipo === 6 || request.id_tipo === 10 || request.datos_json?._form_type === 'BAJA_EQUIPO') ? (
+                        ) : (request.id_tipo === 2 || request.id_tipo === 6 || request.datos_json?._form_type === 'BAJA_EQUIPO') ? (
                             <Stack gap="md">
                                 <Alert color="red" icon={<IconAlertTriangle size={20} />} title="Equipo Desvinculado" radius="md">
                                     <Text fw={700} size="lg">{request.datos_json?.nombre_equipo_full}</Text>
                                 </Alert>
-                                <SimpleGrid cols={{ base: 1, xs: 2 }}>
+                                <SimpleGrid cols={2}>
                                     <Box>
                                         <Text size="xs" c="dimmed" fw={700}>CAUSA</Text>
                                         <Text fw={700} c="red.7">
@@ -417,13 +429,51 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                                     </Box>
                                 </SimpleGrid>
                             </Stack>
+                        ) : ([10, 11, 12, 13, 14, 15].includes(Number(request.id_tipo))) ? (
+                            <Stack gap="md">
+                                <Paper p="md" bg={Number(request.id_tipo) === 12 ? "red.0" : "blue.0"} radius="md" withBorder style={{ borderLeft: `4px solid var(--mantine-color-${Number(request.id_tipo) === 12 ? 'red' : 'blue'}-6)` }}>
+                                    <Text size="xs" c={Number(request.id_tipo) === 12 ? "red.8" : "blue.8"} fw={800} mb={4} tt="uppercase">
+                                        {Number(request.id_tipo) === 11 ? 'Equipo Referenciado (Extravío)' :
+                                            Number(request.id_tipo) === 10 ? 'Equipo Referenciado (Revisión)' :
+                                                Number(request.id_tipo) === 14 ? 'Equipo Referenciado (Consulta)' :
+                                                    Number(request.id_tipo) === 15 ? 'Ficha/Servicio Referenciado (Consulta)' :
+                                                        Number(request.id_tipo) === 12 ? 'Servicio a Anular' :
+                                                            'Consulta General'}
+                                    </Text>
+                                    <Text size="lg" fw={800} c={Number(request.id_tipo) === 12 ? "red.9" : "blue.9"}>
+                                        {[12, 15].includes(Number(request.id_tipo)) ? (
+                                            request.datos_json?.correlativo || request.datos_json?.id_muestreo || request.datos_json?.caso_adlab || request.datos_json?.nombre_ficha_full || 'Referencia de servicio'
+                                        ) : (
+                                            request.datos_json?.nombre_equipo_full || (request.datos_json?.id_equipo ? `Equipo ID: ${request.datos_json.id_equipo}` : (Number(request.id_tipo) === 13 ? 'N/A' : 'Datos no disponibles'))
+                                        )}
+                                    </Text>
+                                </Paper>
+
+                                {(request.datos_json?.fecha_extravio || request.datos_json?.fecha_suceso || request.datos_json?.fecha_ocurrencia) && (
+                                    <Paper p="sm" withBorder radius="md">
+                                        <Group gap="xs">
+                                            <IconCalendar size={16} color="var(--mantine-color-blue-6)" />
+                                            <Box>
+                                                <Text size="xs" c="dimmed" fw={700} tt="uppercase">Fecha del Suceso</Text>
+                                                <Text size="sm" fw={700}>
+                                                    📅 {(() => {
+                                                        const d = request.datos_json?.fecha_extravio || request.datos_json?.fecha_suceso || request.datos_json?.fecha_ocurrencia;
+                                                        if (!d) return 'N/A';
+                                                        return String(d).includes('-') ? String(d).split('T')[0].split('-').reverse().join('/') : String(d);
+                                                    })()}
+                                                </Text>
+                                            </Box>
+                                        </Group>
+                                    </Paper>
+                                )}
+                            </Stack>
                         ) : (request.id_tipo === 3 || request.datos_json?._form_type === 'TRASPASO_EQUIPO') ? (
-                             <Stack gap="md">
+                            <Stack gap="md">
                                 <Paper p="md" bg="teal.0" radius="md" withBorder>
                                     <Text size="xs" c="teal.8" fw={800} mb={4}>EQUIPO EN TRASPASO</Text>
                                     <Text size="lg" fw={800} c="teal.9">{request.datos_json?.nombre_equipo_full}</Text>
                                 </Paper>
-                                
+
                                 {request.datos_json?.traspaso_de?.includes('UBICACION') && (
                                     <Paper p="md" withBorder radius="md">
                                         <Text size="xs" fw={800} c="dimmed" mb="xs">CAMBIO DE UBICACIÓN</Text>
@@ -457,7 +507,7 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                                         </Group>
                                     </Paper>
                                 )}
-                             </Stack>
+                            </Stack>
                         ) : (
                             /* Generic Display */
                             <Stack gap="xs">
@@ -490,11 +540,11 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                         <Title order={4}>Archivos Adjuntos</Title>
                     </Group>
                     <Divider />
-                    
+
                     {request.archivos_adjuntos && request.archivos_adjuntos.length > 0 ? (
                         <Stack gap="sm">
                             {request.archivos_adjuntos.map((file: any) => (
-                                <Paper 
+                                <Paper
                                     key={file.id_adjunto}
                                     component="a"
                                     href={`${import.meta.env.VITE_API_URL}/api/urs/download/${file.id_adjunto}?token=${token}`}
@@ -558,7 +608,7 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                             </ThemeIcon>
                             <Title order={4}>Gestión de Solicitud</Title>
                         </Group>
-                        
+
                         {(request.can_manage || request.can_derive) ? (
                             <Grid>
                                 {request.can_manage && request.estado !== 'ACEPTADA' && (
@@ -594,7 +644,7 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                                 <Text size="xs">Usted tiene acceso de visualización para este trámite.</Text>
                             </Alert>
                         )}
-                        
+
                         {/* Marcar como Realizado - Only when ACEPTADA and user can manage */}
                         {request.can_manage && request.estado === 'ACEPTADA' && (
                             <Button fullWidth leftSection={<IconCheckbox size={18} />} color="green" radius="md" size="lg" onClick={() => openObservationModal('REALIZADA')}>
@@ -706,11 +756,11 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                 </Stack>
             </Modal>
 
-            <DeriveRequestModal 
-                isOpen={isDeriving} 
-                requestId={request.id_solicitud} 
+            <DeriveRequestModal
+                isOpen={isDeriving}
+                requestId={request.id_solicitud}
                 requestTypeId={request.id_tipo}
-                onClose={() => setIsDeriving(false)} 
+                onClose={() => setIsDeriving(false)}
                 onSuccess={() => {
                     showToast({ message: 'Solicitud derivada correctamente', type: 'success' });
                     onReload();

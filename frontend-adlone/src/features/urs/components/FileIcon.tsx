@@ -8,8 +8,8 @@ interface FileIconProps {
 
 const FileIcon: React.FC<FileIconProps> = ({ mimetype = '', filename = '', size = 24 }) => {
     const getFileType = () => {
-        const m = mimetype.toLowerCase();
-        const f = filename.toLowerCase();
+        const m = (mimetype || '').toLowerCase();
+        const f = (filename || '').toLowerCase();
 
         if (m.includes('pdf') || f.endsWith('.pdf')) return 'pdf';
         if (m.includes('sheet') || m.includes('excel') || m.includes('csv') || f.endsWith('.xlsx') || f.endsWith('.xls') || f.endsWith('.csv')) return 'excel';

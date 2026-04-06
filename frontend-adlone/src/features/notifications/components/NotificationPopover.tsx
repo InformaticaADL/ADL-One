@@ -21,8 +21,6 @@ import {
 } from '@tabler/icons-react';
 import { useNotificationStore, type Notification } from '../../../store/notificationStore';
 import { useNavStore } from '../../../store/navStore';
-import { handleNotificationNavigation } from '../utils/notificationNavigation';
-import { useMediaQuery } from '@mantine/hooks';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/es';
@@ -39,8 +37,6 @@ interface NotificationPopoverProps {
 export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ opened, onClose, children }) => {
     const { notifications, markAsRead } = useNotificationStore();
     const { setActiveModule, setActiveSubmodule, setPendingRequestId, setPendingChatId, setSelectedRequestId } = useNavStore();
-    const isMobile = useMediaQuery('(max-width: 500px)');
-    const isTablet = useMediaQuery('(max-width: 1024px)');
 
     const unreadNotifications = notifications.filter(n => !n.leido);
     const recentNotifications = notifications.slice(0, 5);
@@ -51,13 +47,45 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ opened
             await markAsRead(notif.id_notificacion);
         }
 
-        handleNotificationNavigation(notif, {
-            setActiveModule,
-            setActiveSubmodule,
-            setPendingRequestId,
-            setPendingChatId,
-            setSelectedRequestId
-        });
+        if (notif.id_referencia) {
+            const titulo = (notif.titulo || '').toLowerCase();
+            const mensaje = (notif.mensaje || '').toLowerCase();
+            const area = (notif.area || '').toLowerCase();
+
+            // Solicitudes: route to URS inbox with request selected
+            const isRequest = 
+                titulo.includes('solicitud') || titulo.includes('estado') ||
+                titulo.includes('derivación') || titulo.includes('derivacion') ||
+                titulo.includes('baja') || titulo.includes('traspaso') ||
+                titulo.includes('asignación') || titulo.includes('equipo') ||
+                titulo.includes('activación') || titulo.includes('comentario') ||
+                titulo.includes('mensaje en #') || titulo.includes('nuevo mensaje') ||
+                titulo.includes('consulta') || mensaje.includes('ficha/servicio') ||
+                area === 'urs' || area === 'solicitudes' ||
+                area === 'gestión de calidad' || area === 'gestion de calidad';
+
+            if (isRequest) {
+                setSelectedRequestId(notif.id_referencia);
+                setActiveModule('solicitudes');
+                setActiveSubmodule('');
+            } else if (area === 'chat' || titulo.includes('grupo')) {
+                setPendingChatId(notif.id_referencia);
+                setActiveModule('chat');
+                setActiveSubmodule('');
+            } else if (titulo.includes('ficha') || (mensaje.includes('ficha') && !mensaje.includes('ficha/servicio')) || titulo.includes('programación') || mensaje.includes('muestreo')) {
+                setPendingRequestId(notif.id_referencia);
+                setActiveModule('medio-ambiente');
+                setActiveSubmodule('ma-fichas-ingreso');
+            } else {
+                // Fallback: still route to solicitudes
+                setSelectedRequestId(notif.id_referencia);
+                setActiveModule('solicitudes');
+                setActiveSubmodule('');
+            }
+        } else if (notif.area === 'Chat') {
+            setActiveModule('chat');
+            setActiveSubmodule('');
+        }
     };
 
     const getIcon = (tipo: string) => {
@@ -79,13 +107,11 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ opened
         <Popover 
             opened={opened} 
             onClose={onClose} 
-            width={isMobile ? 'calc(100vw - 20px)' : 350} 
-            position={isMobile ? 'bottom' : (isTablet ? 'bottom-start' : 'right-start')} 
-            withArrow={!isMobile} 
-            withinPortal
-            zIndex={1000}
+            width={350} 
+            position="right-start" 
+            withArrow 
             shadow="xl"
-            offset={isMobile ? 5 : 15}
+            offset={15}
             transitionProps={{ transition: 'pop-top-left', duration: 200 }}
             styles={{
                 dropdown: {
@@ -114,7 +140,7 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ opened
                     </Group>
                     <Divider my="xs" />
 
-                    <ScrollArea.Autosize mah={isMobile ? '60vh' : 400} type="hover">
+                    <ScrollArea.Autosize mah={400} type="hover">
                         {notifications.length === 0 ? (
                             <Box py="xl" style={{ textAlign: 'center' }}>
                                 <IconBell size={32} color="var(--mantine-color-gray-4)" stroke={1} />

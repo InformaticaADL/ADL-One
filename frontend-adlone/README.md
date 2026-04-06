@@ -1,73 +1,35 @@
-# React + TypeScript + Vite
+# ADL ONE - Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Este es el repositorio del frontend para la aplicación ADL ONE, construida utilizando React, TypeScript y Vite.
 
-Currently, two official plugins are available:
+## Cambios Recientes (Actualización)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Durante la última sesión de desarrollo se implementaron las siguientes características principales:
 
-## React Compiler
+1. **Sistema de Notificaciones Contextuales:**
+   - Incorporación de componentes de visualización de notificaciones para mostrar alertas del sistema y actualizaciones de estado a los usuarios.
+   - Integración de notificaciones de manera global para advertencias en tiempo real.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+2. **Gestión de Solicitudes (URS):**
+   - Mejoras en el panel de detalles de la solicitud (`RequestDetailPanel`) incluyendo un **Historial de Acciones** interactivo en formato de línea de tiempo.
+   - Implementación de flujos de control de estado: botones de acción rápida para marcar solicitudes según su estado (ej. "En Revisión").
+   - Nueva funcionalidad para derivar solicitudes a través de modales dedicados (`DeriveRequestModal`).
+   - Mejoras en la visualización de iconos de archivos adjuntos.
 
-## Expanding the ESLint configuration
+3. **Integración con el Backend:**
+   - Ajustes en la configuración de la API.
+   - Actualización sincrónica frente a los desarrollos de backend para URS y planificadores de tareas automáticas (Schedulers) para el ciclo de vida de las notificaciones e incidentes.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Tecnologías Utilizadas
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- **React:** Biblioteca de UI.
+- **TypeScript:** Tipado estático para escalabilidad en JavaScript.
+- **Vite:** Herramienta de construcción y servidor de desarrollo rápido.
+- **Mantine UI:** Componentes de interfaz de usuario limpios y responsivos.
+- **Tabler Icons:** Iconografía de la plataforma.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Comandos Útiles
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+- `npm run dev`: Inicia el servidor de desarrollo local.
+- `npm run build`: Compila la aplicación para producción.
+- `npm run lint`: Ejecuta ESLint para mantener la calidad del código.
