@@ -25,6 +25,9 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
     const [opened, { toggle, close }] = useDisclosure();
     const viewportRef = useRef<HTMLDivElement>(null);
 
+    // Modules that manage their own internal scroll per column — bypass wrapper padding/overflow
+    const isFullHeightModule = !activeSubmodule && (activeModule === 'solicitudes' || activeModule === 'chat');
+
     // Auto-close sidebar on compact view when navigating (only on terminal submodule selection)
     useEffect(() => {
         if (isCompact && activeSubmodule) {
@@ -78,6 +81,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                     transition: 'padding-left 300ms ease',
                     display: 'flex',
                     flexDirection: 'column',
+                    height: '100%',
                     paddingLeft: isCompact ? 0 : undefined 
                 }
             }}
@@ -114,7 +118,6 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
             <AppShell.Main>
                 <Box style={{ 
                     position: 'relative', 
-                    flex: 1, 
                     display: 'flex', 
                     flexDirection: 'column',
                     height: '100%',
@@ -125,8 +128,14 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                     )}
                     <Box 
                         ref={viewportRef}
-                        style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', overflowY: 'auto' }} 
-                        p={{ base: 'xs', md: 'md' }} 
+                        style={{ 
+                            flex: 1, 
+                            display: 'flex', 
+                            flexDirection: 'column', 
+                            minHeight: 0,
+                            overflowY: isFullHeightModule ? 'hidden' : 'auto'
+                        }} 
+                        p={isFullHeightModule ? 0 : { base: 'xs', md: 'md' }} 
                         pb={0}
                     >
                         {children}

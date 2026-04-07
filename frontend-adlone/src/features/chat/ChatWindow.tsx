@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
 import {
     Box, ScrollArea, TextInput, ActionIcon, Avatar, Text, Group, Paper,
-    Tooltip, Menu, Loader, Center, FileButton, Badge
+    Tooltip, Menu, Loader, Center, FileButton, Badge, Modal, Button, Stack, Popover
 } from '@mantine/core';
 import {
     IconSend, IconPaperclip, IconDotsVertical, IconTrash, IconClearAll,
-    IconUsers, IconDownload, IconFile, IconUserCircle, IconSettings, IconArrowLeft
+    IconUsers, IconDownload, IconFile, IconUserCircle, IconSettings, IconArrowLeft, IconMoodSmile
 } from '@tabler/icons-react';
+import EmojiPicker, { Theme } from 'emoji-picker-react';
 import type { ChatConversation, ChatMessage } from '../../services/general-chat.service';
 import API_CONFIG from '../../config/api.config';
 import { ConfirmModal } from '../../components/common/ConfirmModal';
@@ -38,6 +39,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const viewport = useRef<HTMLDivElement>(null);
     const fileResetRef = useRef<() => void>(null);
+    const [selectedImage, setSelectedImage] = useState<{ url: string, messageId: number, name: string } | null>(null);
 
     // Track current state for draft saving on switch/unmount
     const lastConvId = useRef<number>(conversation.id_conversacion);
@@ -138,6 +140,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         }, 100);
     };
 
+    const handleFileClick = (messageId: number) => {
+        if (!messageId) return;
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        const url = `${baseUrl}/api/gchat/download/${messageId}${token ? `?token=${token}` : ''}`;
+        window.open(url, '_blank');
+    };
+
     const handleFileUpload = (files: File[] | File | null) => {
         if (!files) return;
         const newFiles = Array.isArray(files) ? files : [files];
@@ -188,7 +197,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     let lastDate = '';
 
     return (
-        <Box style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--mantine-color-body)' }}>
+        <Box style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--mantine-color-body)' }}>
             {/* Header */}
             <Box
                 p="sm"
@@ -356,8 +365,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                                                                     objectFit: 'cover',
                                                                     cursor: 'pointer'
                                                                 }}
-                                                                onClick={() => handleDownload(msg.id_mensaje)}
-                                                                title="Presione para descargar"
+                                                                onClick={() => setSelectedImage({
+                                                                    url: `${baseUrl}${msg.archivo_ruta}`,
+                                                                    messageId: msg.id_mensaje,
+                                                                    name: msg.archivo_nombre!
+                                                                })}
+                                                                title="Presione para ver imagen ampliada"
                                                             />
                                                         </Box>
                                                     ) : (
@@ -373,8 +386,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                                                                 cursor: 'pointer',
                                                                 color: isMine ? 'white' : 'inherit' // Ensure readability
                                                             }}
-                                                            onClick={() => handleDownload(msg.id_mensaje)}
-                                                            title="Presione para descargar archivo"
+                                                            onClick={() => handleFileClick(msg.id_mensaje)}
+                                                            title="Presione para descargar y abrir archivo"
                                                         >
                                                             <IconFile size={20} style={{ color: isMine ? 'white' : 'var(--mantine-color-gray-7)' }} />
                                                             <Box style={{ flex: 1, minWidth: 0 }}>
@@ -481,6 +494,25 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                 )}
 
                 <Box style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
+                    <Popover position="top-start" withArrow shadow="md" withinPortal>
+                        <Popover.Target>
+                            <Tooltip label="Insertar emoji">
+                                <ActionIcon
+                                    variant="subtle"
+                                    color="gray"
+                                    size="lg"
+                                    radius="md"
+                                    disabled={sending}
+                                >
+                                    <IconMoodSmile size={20} />
+                                </ActionIcon>
+                            </Tooltip>
+                        </Popover.Target>
+                        <Popover.Dropdown p={0}>
+                            <EmojiPicker onEmojiClick={(emojiData) => setText(prev => prev + emojiData.emoji)} width={300} height={350} theme={Theme.AUTO} />
+                        </Popover.Dropdown>
+                    </Popover>
+
                     <FileButton onChange={handleFileUpload} accept="*/*" multiple resetRef={fileResetRef}>
                         {(props) => (
                             <Tooltip label="Adjuntar archivo">
@@ -535,6 +567,59 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                 }}
                 onCancel={() => setConfirmClear(false)}
             />
+
+            {/* Image Viewer Local Overlay */}
+            {selectedImage && (
+                <Box
+                    style={{
+                        position: 'absolute',
+                        top: 0, left: 0, right: 0, bottom: 0,
+                        backgroundColor: 'rgba(0, 0, 0, 0.75)',
+                        zIndex: 200,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backdropFilter: 'blur(2px)'
+                    }}
+                    onClick={() => setSelectedImage(null)}
+                >
+                    <Box 
+                        onClick={(e) => e.stopPropagation()}
+                        p="md"
+                        style={{
+                            backgroundColor: 'var(--mantine-color-body)',
+                            borderRadius: '8px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '12px',
+                            maxWidth: '90%',
+                            maxHeight: '90%'
+                        }}
+                    >
+                        <Group justify="space-between" wrap="nowrap">
+                            <Text fw={600} size="sm" truncate>{selectedImage.name || 'Visor de Imagen'}</Text>
+                            <ActionIcon variant="subtle" color="gray" onClick={() => setSelectedImage(null)}>
+                                <IconClearAll size={16} />
+                            </ActionIcon>
+                        </Group>
+                        <Box style={{ flex: 1, overflow: 'hidden', display: 'flex', justifyContent: 'center' }}>
+                            <img 
+                                src={selectedImage.url} 
+                                alt={selectedImage.name} 
+                                style={{ maxWidth: '100%', maxHeight: '60vh', objectFit: 'contain' }} 
+                            />
+                        </Box>
+                        <Button 
+                            leftSection={<IconDownload size={16} />} 
+                            onClick={() => handleDownload(selectedImage.messageId)}
+                            fullWidth
+                            color="blue"
+                        >
+                            Descargar Imagen Original
+                        </Button>
+                    </Box>
+                </Box>
+            )}
         </Box>
     );
 };

@@ -183,7 +183,7 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
     };
 
     return (
-        <Container fluid p="md" style={{ width: '100% !important', maxWidth: '100% !important' }}>
+        <Box p="md" style={{ width: '100%' }}>
             <Stack gap="lg">
                 <PageHeader 
                     title="Consultar Fichas (Coordinación)"
@@ -201,171 +201,136 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
                     }
                 />
 
-                <Paper withBorder p={isMobile ? 'md' : 50} radius="lg" shadow="sm" style={{ width: '100% !important', maxWidth: '100% !important' }}>
-                    <Stack gap="xl">
-                        <Paper withBorder p="md" radius="md" bg="gray.0">
-                            <Stack gap="sm">
-                                <Group justify="space-between">
-                                    <Group gap="xs">
-                                        <IconAdjustmentsHorizontal size={20} color="gray" />
-                                        <Text fw={600} size="sm">Filtros de Búsqueda</Text>
-                                    </Group>
-                                    <Button 
-                                        variant="subtle" 
-                                        size="compact-xs" 
-                                        color="gray" 
-                                        leftSection={<IconTrash size={14} />}
-                                        onClick={handleClearFilters}
-                                    >
-                                        Limpiar Filtros
-                                    </Button>
-                                </Group>
-                                
-                                <SimpleGrid cols={{ base: 1, sm: 2, md: 4, lg: 6 }} spacing="sm">
-                                    <TextInput
-                                        label="N° Ficha"
-                                        placeholder="Buscar..."
-                                        value={searchId}
-                                        onChange={(e) => setSearchId(e.target.value)}
-                                        size="xs"
-                                    />
-                                    <Select
-                                        label="Estado"
-                                        placeholder="Seleccionar..."
-                                        data={uniqueEstados.map(v => ({ value: v, label: v }))}
-                                        value={searchEstado}
-                                        onChange={(v) => setSearchEstado(v || '')}
-                                        size="xs"
-                                        searchable
-                                        clearable
-                                    />
-                                    <TextInput label="Fecha Desde" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} size="xs" />
-                                    <TextInput label="Fecha Hasta" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} size="xs" />
-                                    <Select label="Tipo" placeholder="Seleccionar..." data={uniqueTipos.map(v => ({ value: v, label: v }))} value={searchTipo} onChange={(v) => setSearchTipo(v || '')} size="xs" searchable clearable />
-                                    <Select label="E. Facturar" placeholder="Seleccionar..." data={uniqueEmpFacturar.map(v => ({ value: v, label: v }))} value={searchEmpresaFacturar} onChange={(v) => setSearchEmpresaFacturar(v || '')} size="xs" searchable clearable />
-                                </SimpleGrid>
-                            </Stack>
-                        </Paper>
+                <Paper withBorder p="md" radius="md" shadow="xs">
+                    <Stack gap="md">
+                        <Group justify="space-between">
+                            <Group gap="xs">
+                                <IconAdjustmentsHorizontal size={20} color="var(--mantine-color-blue-6)" />
+                                <Text fw={700} size="sm" c="blue.7">Filtros de Búsqueda</Text>
+                            </Group>
+                            <Button 
+                                variant="subtle" 
+                                size="compact-xs" 
+                                color="gray" 
+                                leftSection={<IconTrash size={14} />}
+                                onClick={handleClearFilters}
+                            >
+                                Limpiar Filtros
+                            </Button>
+                        </Group>
+                        
+                        <SimpleGrid cols={{ base: 1, sm: 2, md: 4, lg: 6 }} spacing="sm">
+                            <TextInput label="N° Ficha" placeholder="Buscar..." value={searchId} onChange={(e) => setSearchId(e.target.value)} size="xs" />
+                            <Select label="Estado" placeholder="Seleccionar..." data={uniqueEstados.map(v => ({ value: v, label: v }))} value={searchEstado} onChange={(v) => setSearchEstado(v || '')} size="xs" searchable clearable />
+                            <TextInput label="Fecha Desde" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} size="xs" />
+                            <TextInput label="Fecha Hasta" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} size="xs" />
+                            <Select label="Tipo" placeholder="Seleccionar..." data={uniqueTipos.map(v => ({ value: v, label: v }))} value={searchTipo} onChange={(v) => setSearchTipo(v || '')} size="xs" searchable clearable />
+                            <Select label="E. Facturar" placeholder="Seleccionar..." data={uniqueEmpFacturar.map(v => ({ value: v, label: v }))} value={searchEmpresaFacturar} onChange={(v) => setSearchEmpresaFacturar(v || '')} size="xs" searchable clearable />
+                        </SimpleGrid>
+                    </Stack>
+                </Paper>
 
-                        <FichaExportModal 
-                            isOpen={showExportModal}
-                            onClose={() => setShowExportModal(false)}
-                            initialFilters={{
-                                ficha: searchId,
-                                estado: searchEstado,
-                                fechaDesde: dateFrom,
-                                fechaHasta: dateTo,
-                                tipo: searchTipo,
-                                empresaFacturar: searchEmpresaFacturar,
-                                empresaServicio: searchEmpresaServicio,
-                                centro: searchCentro,
-                                objetivo: searchObjetivo,
-                                subArea: searchSubArea,
-                                usuario: searchUsuario
-                            }}
-                            catalogos={{
-                                estados: uniqueEstados,
-                                tipos: uniqueTipos,
-                                empresasFacturar: uniqueEmpFacturar,
-                                empresasServicio: uniqueEmpServicio,
-                                centros: uniqueCentros,
-                                objetivos: uniqueObjetivos,
-                                subAreas: uniqueSubAreas,
-                                fichas: uniqueFichas,
-                                usuarios: uniqueUsuarios
-                            }}
-                        />
+                <FichaExportModal 
+                    isOpen={showExportModal}
+                    onClose={() => setShowExportModal(false)}
+                    initialFilters={{
+                        ficha: searchId, estado: searchEstado, fechaDesde: dateFrom, fechaHasta: dateTo, tipo: searchTipo, empresaFacturar: searchEmpresaFacturar, empresaServicio: searchEmpresaServicio, centro: searchCentro, objetivo: searchObjetivo, subArea: searchSubArea, usuario: searchUsuario
+                    }}
+                    catalogos={{
+                        estados: uniqueEstados, tipos: uniqueTipos, empresasFacturar: uniqueEmpFacturar, empresasServicio: uniqueEmpServicio, centros: uniqueCentros, objetivos: uniqueObjetivos, subAreas: uniqueSubAreas, fichas: uniqueFichas, usuarios: uniqueUsuarios
+                    }}
+                />
 
-                        <Box pos="relative">
-                            <ScrollArea h={550} offsetScrollbars>
-                                <Table verticalSpacing="sm" highlightOnHover striped withTableBorder>
-                                    <Table.Thead bg="gray.1">
-                                        <Table.Tr>
-                                            <Table.Th w={80}>ID</Table.Th>
-                                            <Table.Th w={180}>Estado</Table.Th>
-                                            <Table.Th w={100}>Fecha</Table.Th>
-                                            <Table.Th w={150}>Facturar a</Table.Th>
-                                            <Table.Th>E. Servicio</Table.Th>
-                                            <Table.Th>Objetivo</Table.Th>
-                                            <Table.Th w={60}>PDF</Table.Th>
-                                            <Table.Th w={60}>Ver</Table.Th>
-                                        </Table.Tr>
-                                    </Table.Thead>
-                                    <Table.Tbody>
-                                        {loading ? (
-                                            <Table.Tr>
-                                                <Table.Td colSpan={8} align="center" py="xl">
-                                                    <Text c="dimmed">Cargando datos...</Text>
+                <Paper withBorder radius="md" p={0} shadow="sm" style={{ overflow: 'hidden' }}>
+                    <ScrollArea h={550} offsetScrollbars>
+                        <Table verticalSpacing="sm" highlightOnHover striped withTableBorder={false}>
+                            <Table.Thead bg="gray.1">
+                                <Table.Tr>
+                                    <Table.Th w={80}>ID</Table.Th>
+                                    <Table.Th w={180}>Estado</Table.Th>
+                                    <Table.Th w={100}>Fecha</Table.Th>
+                                    <Table.Th w={150}>Facturar a</Table.Th>
+                                    <Table.Th>E. Servicio</Table.Th>
+                                    <Table.Th>Objetivo</Table.Th>
+                                    <Table.Th w={60} ta="center">PDF</Table.Th>
+                                    <Table.Th w={60} ta="center">Ver</Table.Th>
+                                </Table.Tr>
+                            </Table.Thead>
+                            <Table.Tbody>
+                                {loading ? (
+                                    <Table.Tr>
+                                        <Table.Td colSpan={8} ta="center" py="xl">
+                                            <Text c="dimmed">Cargando datos...</Text>
+                                        </Table.Td>
+                                    </Table.Tr>
+                                ) : displayedFichas.length === 0 ? (
+                                    <Table.Tr>
+                                        <Table.Td colSpan={8} ta="center" py="xl">
+                                            <Text c="dimmed">No se encontraron registros</Text>
+                                        </Table.Td>
+                                    </Table.Tr>
+                                ) : (
+                                    displayedFichas.map((ficha, idx) => {
+                                        const status = getStatusProps(ficha.estado_ficha);
+                                        return (
+                                            <Table.Tr key={idx}>
+                                                <Table.Td fw={700} c="blue.8">{ficha.fichaingresoservicio || '-'}</Table.Td>
+                                                <Table.Td>
+                                                    <Badge color={status.color} variant="light" size="sm" fullWidth>
+                                                        {status.label}
+                                                    </Badge>
+                                                </Table.Td>
+                                                <Table.Td fz="xs">{ficha.fecha}</Table.Td>
+                                                <Table.Td fz="xs" style={{ minWidth: 150 }} title={ficha.empresa_facturar}>
+                                                    {ficha.empresa_facturar}
+                                                </Table.Td>
+                                                <Table.Td fz="xs" style={{ minWidth: 150 }} title={ficha.empresa_servicio}>
+                                                    {ficha.empresa_servicio}
+                                                </Table.Td>
+                                                <Table.Td fz="xs" style={{ minWidth: 150 }} title={ficha.nombre_objetivomuestreo_ma}>
+                                                    {ficha.nombre_objetivomuestreo_ma}
+                                                </Table.Td>
+                                                <Table.Td ta="center">
+                                                    {(ficha.estado_ficha || '').toUpperCase().includes('EN PROCESO') && (
+                                                        <ActionIcon 
+                                                            color="red" 
+                                                            variant="light"
+                                                            onClick={async (e) => {
+                                                                e.stopPropagation();
+                                                                const idFicha = ficha.id_fichaingresoservicio || ficha.fichaingresoservicio;
+                                                                const pdfBlob = await fichaService.downloadPdf(Number(idFicha));
+                                                                const url = window.URL.createObjectURL(pdfBlob);
+                                                                const link = document.createElement('a');
+                                                                link.href = url;
+                                                                link.setAttribute('download', `Ficha_${idFicha}.pdf`);
+                                                                document.body.appendChild(link);
+                                                                link.click();
+                                                                document.body.removeChild(link);
+                                                            }}
+                                                        >
+                                                            <IconDownload size={18} />
+                                                        </ActionIcon>
+                                                    )}
+                                                </Table.Td>
+                                                <Table.Td ta="center">
+                                                    <ActionIcon 
+                                                        color="grape" 
+                                                        variant="filled"
+                                                        onClick={() => onViewDetail(ficha.id_fichaingresoservicio || ficha.fichaingresoservicio)}
+                                                    >
+                                                        <IconEdit size={18} />
+                                                    </ActionIcon>
                                                 </Table.Td>
                                             </Table.Tr>
-                                        ) : displayedFichas.length === 0 ? (
-                                            <Table.Tr>
-                                                <Table.Td colSpan={8} align="center" py="xl">
-                                                    <Text c="dimmed">No se encontraron registros</Text>
-                                                </Table.Td>
-                                            </Table.Tr>
-                                        ) : (
-                                            displayedFichas.map((ficha, idx) => {
-                                                const status = getStatusProps(ficha.estado_ficha);
-                                                return (
-                                                    <Table.Tr key={idx}>
-                                                        <Table.Td fw={700}>{ficha.fichaingresoservicio || '-'}</Table.Td>
-                                                        <Table.Td>
-                                                            <Badge color={status.color} variant="light" size="sm" fullWidth>
-                                                                {status.label}
-                                                            </Badge>
-                                                        </Table.Td>
-                                                        <Table.Td fz="xs">{ficha.fecha}</Table.Td>
-                                                        <Table.Td fz="xs" style={{ minWidth: 150 }} title={ficha.empresa_facturar}>
-                                                            {ficha.empresa_facturar}
-                                                        </Table.Td>
-                                                        <Table.Td fz="xs" style={{ minWidth: 150 }} title={ficha.empresa_servicio}>
-                                                            {ficha.empresa_servicio}
-                                                        </Table.Td>
-                                                        <Table.Td fz="xs" style={{ minWidth: 150 }} title={ficha.nombre_objetivomuestreo_ma}>
-                                                            {ficha.nombre_objetivomuestreo_ma}
-                                                        </Table.Td>
-                                                        <Table.Td align="center">
-                                                            {(ficha.estado_ficha || '').toUpperCase().includes('EN PROCESO') && (
-                                                                <ActionIcon 
-                                                                    color="red" 
-                                                                    variant="subtle"
-                                                                    onClick={async (e) => {
-                                                                        e.stopPropagation();
-                                                                        const idFicha = ficha.id_fichaingresoservicio || ficha.fichaingresoservicio;
-                                                                        const pdfBlob = await fichaService.downloadPdf(Number(idFicha));
-                                                                        const url = window.URL.createObjectURL(pdfBlob);
-                                                                        const link = document.createElement('a');
-                                                                        link.href = url;
-                                                                        link.setAttribute('download', `Ficha_${idFicha}.pdf`);
-                                                                        document.body.appendChild(link);
-                                                                        link.click();
-                                                                        document.body.removeChild(link);
-                                                                    }}
-                                                                >
-                                                                    <IconDownload size={18} />
-                                                                </ActionIcon>
-                                                            )}
-                                                        </Table.Td>
-                                                        <Table.Td align="center">
-                                                            <ActionIcon 
-                                                                color="grape" 
-                                                                variant="light"
-                                                                onClick={() => onViewDetail(ficha.id_fichaingresoservicio || ficha.fichaingresoservicio)}
-                                                            >
-                                                                <IconEdit size={18} />
-                                                            </ActionIcon>
-                                                        </Table.Td>
-                                                    </Table.Tr>
-                                                )
-                                            })
-                                        )}
-                                    </Table.Tbody>
-                                </Table>
-                            </ScrollArea>
-                        </Box>
-
-                        <Group justify="space-between" mt="md">
+                                        )
+                                    })
+                                )}
+                            </Table.Tbody>
+                        </Table>
+                    </ScrollArea>
+                    
+                    <Box p="md" style={{ borderTop: '1px solid var(--mantine-color-gray-2)' }}>
+                        <Group justify="space-between">
                             <Text size="xs" c="dimmed">
                                 Mostrando {filteredFichas.length > 0 ? ((currentPage - 1) * itemsPerPage) + 1 : 0} a {Math.min(currentPage * itemsPerPage, filteredFichas.length)} de {filteredFichas.length} registros
                             </Text>
@@ -377,10 +342,10 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
                                 radius="md"
                             />
                         </Group>
-                    </Stack>
+                    </Box>
                 </Paper>
             </Stack>
-        </Container>
+        </Box>
     );
 };
 

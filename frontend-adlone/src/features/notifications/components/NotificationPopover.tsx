@@ -41,6 +41,14 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ opened
     const unreadNotifications = notifications.filter(n => !n.leido);
     const recentNotifications = notifications.slice(0, 5);
 
+    const formatTitle = (title: string) => {
+        if (!title) return '';
+        if (title.includes('_')) {
+            return title.replace(/^Aviso:\s*/i, '').replace(/_/g, ' ');
+        }
+        return title;
+    };
+
     const handleItemClick = async (notif: Notification) => {
         onClose();
         if (!notif.leido) {
@@ -165,7 +173,7 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ opened
                                             <Box style={{ paddingTop: 2 }}>{getIcon(notif.tipo)}</Box>
                                             <div style={{ flex: 1 }}>
                                                 <Text size="xs" fw={700} lineClamp={1} c={notif.leido ? 'dark.3' : 'dark.7'}>
-                                                    {notif.titulo}
+                                                    {formatTitle(notif.titulo)}
                                                 </Text>
                                                 <Text size="xs" c="dimmed" lineClamp={2} mb={2}>
                                                     {notif.mensaje}

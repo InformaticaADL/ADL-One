@@ -246,7 +246,20 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                     <Title order={isMobile ? 3 : 2} style={{ letterSpacing: '-0.5px' }}>
                         {request.titulo || request.nombre_tipo}
                     </Title>
-                    
+
+                    {/* Mobile App Badge — inside header card, after title */}
+                    {Number(request.id_solicitante) === 466 && (
+                        <Alert
+                            variant="light"
+                            color="blue"
+                            radius="md"
+                            p="xs"
+                            styles={{ label: { fontSize: '12px', fontWeight: 700 } }}
+                        >
+                            📱 Enviado desde la app móvil de muestreadores ADL Sampling
+                        </Alert>
+                    )}
+
                     <SimpleGrid 
                         cols={{ base: 1, xs: 2, sm: 4 }} 
                         spacing="lg"

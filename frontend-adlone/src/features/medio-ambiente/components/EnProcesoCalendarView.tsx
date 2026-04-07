@@ -396,13 +396,11 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                     variant={viewMode === 'month' ? 'filled' : 'light'} 
                                     onClick={() => setViewMode('month')}
                                     size="xs"
-                                    style={{ flex: 1 }}
                                 >Mes</Button>
                                 <Button 
                                     variant={viewMode === 'week' ? 'filled' : 'light'} 
                                     onClick={() => setViewMode('week')}
                                     size="xs"
-                                    style={{ flex: 1 }}
                                 >Semana</Button>
                                 <Button 
                                     variant={viewMode === 'day' ? 'filled' : 'light'} 
@@ -418,13 +416,11 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                         setViewMode('day'); 
                                     }}
                                     size="xs"
-                                    style={{ flex: 1 }}
                                 >Día</Button>
                                 <Button 
                                     variant={viewMode === 'year' ? 'filled' : 'light'} 
                                     onClick={() => setViewMode('year')}
                                     size="xs"
-                                    style={{ flex: 1 }}
                                 >Año</Button>
                             </Button.Group>
                             <Group gap={5} style={{ flex: isCompact ? '1 1 auto' : 'auto' }}>

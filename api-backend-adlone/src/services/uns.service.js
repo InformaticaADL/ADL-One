@@ -86,6 +86,55 @@ class UnsService {
             // assign the first available rule to ensure we use the DB templates instead of hardcoded ones.
             const primaryRule = rules.length > 0 ? rules[0] : null;
 
+            // Fallback for comment events: if no recipients resolved from DB rules or SP,
+            // check rel_solicitud_tipo_notificacion and notify request owner + GESTION users.
+            if (recipientsById.size === 0 && codigoEvento === 'SOLICITUD_COMENTARIO_NUEVO') {
+                try {
+                    const actorId = Number(context.id_usuario_accion || context.id_usuario || 0);
+
+                    // Check per-type notification config
+                    const notifCfgRes = await pool.request()
+                        .input('idTipo', sql.Numeric(10, 0), context.id_tipo || null)
+                        .query(`SELECT notifica_web, notifica_email FROM rel_solicitud_tipo_notificacion 
+                                WHERE id_tipo = @idTipo AND accion = 'COMENTARIO'`);
+
+                    const webEnabled = notifCfgRes.recordset.length === 0 || notifCfgRes.recordset[0].notifica_web;
+                    const emailEnabled = notifCfgRes.recordset.length > 0 && notifCfgRes.recordset[0].notifica_email;
+
+                    if (webEnabled) {
+                        // Always notify request owner
+                        const ownerId = Number(context.id_usuario_propietario || context.id_solicitante || 0);
+                        if (ownerId && ownerId !== actorId) {
+                            recipientsById.set(ownerId, { id_usuario: ownerId, web: true, email: emailEnabled });
+                        }
+
+                        // Also notify all users with GESTION permission for this request type
+                        if (context.id_tipo) {
+                            const gestoresRes = await pool.request()
+                                .input('idTipo', sql.Numeric(10, 0), context.id_tipo)
+                                .query(`
+                                    SELECT DISTINCT u.id_usuario FROM rel_solicitud_tipo_permiso p
+                                    JOIN rel_usuario_rol ur ON p.id_rol = ur.id_rol
+                                    JOIN mae_usuario u ON u.id_usuario = ur.id_usuario
+                                    WHERE p.id_tipo = @idTipo AND p.tipo_acceso = 'GESTION' AND u.habilitado = 'S'
+                                    UNION
+                                    SELECT p2.id_usuario FROM rel_solicitud_tipo_permiso p2
+                                    WHERE p2.id_tipo = @idTipo AND p2.id_usuario IS NOT NULL AND p2.tipo_acceso = 'GESTION'
+                                `);
+                            gestoresRes.recordset.forEach(r => {
+                                const uid = Number(r.id_usuario);
+                                if (uid && uid !== actorId && !recipientsById.has(uid)) {
+                                    recipientsById.set(uid, { id_usuario: uid, web: true, email: emailEnabled });
+                                }
+                            });
+                        }
+                        logger.info(`UNS Fallback COMENTARIO: ${recipientsById.size} destinatarios resueltos para solicitud #${context.id_solicitud}`);
+                    }
+                } catch (fbErr) {
+                    logger.warn('UNS: Error en fallback de comentario:', fbErr.message);
+                }
+            }
+
             const recipients = Array.from(recipientsById.values()).map(r => {
                 if (!r.regla && primaryRule) {
                    return { ...r, regla: primaryRule };
@@ -97,6 +146,7 @@ class UnsService {
                 logger.info(`[UNS] No hay destinatarios para evento: ${codigoEvento} (id_tipo: ${context.id_tipo || 'N/A'})`);
                 return;
             }
+
 
             // Global CC for Email
             const globalCC = dispatchRes.recordset[0]?.global_cc || null;

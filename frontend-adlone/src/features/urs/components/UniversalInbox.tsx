@@ -238,7 +238,7 @@ const UniversalInbox: React.FC = () => {
     }, [filteredRequests]);
 
     return (
-        <Box h={{ base: 'calc(100dvh - 100px)', md: '100%' }} bg="white" style={{ overflow: 'hidden' }}>
+        <Box h={{ base: 'calc(100dvh - 100px)', lg: 'calc(100dvh - var(--app-shell-header-height, 0px))' }} bg="white" style={{ overflow: 'hidden' }}>
             <Flex direction={{ base: 'column', md: 'row' }} h="100%" align="stretch" style={{ flexWrap: 'nowrap' }}>
                 {/* COLUMN 1: INBOX LIST - Hide on mobile if a request is selected */}
                 {(!isMobile || !selectedRequestId) && (

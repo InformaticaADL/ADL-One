@@ -34,7 +34,7 @@ export const WelcomePage: React.FC = () => {
     const [selectedEvent, setSelectedEvent] = useState<any>(null);
     const [selectedSala, setSelectedSala] = useState<any>(null);
     const { showToast } = useToast();
-    const isBannerFinished = true;
+    const isBannerFinished = false;
 
     // Mock data for demonstration
     const upcomingEvents = [
@@ -47,7 +47,7 @@ export const WelcomePage: React.FC = () => {
             description: 'Coordinación semanal de actividades, revisión de protocolos y gestión de insumos críticos para la operación de la unidad.',
             location: 'Sala de Conferencias B',
             organizer: 'Dirección Técnica',
-            isFinished: true
+            isFinished: false
         },
 
         { 
@@ -59,7 +59,7 @@ export const WelcomePage: React.FC = () => {
             description: 'Actualización programada de sistemas críticos y respaldos de base de datos. Se esperan intermitencias en servicios internos.',
             location: 'Centro de Datos / Remoto',
             organizer: 'Informática ADL',
-            isFinished: true
+            isFinished: false
         },
 
         { 
@@ -71,7 +71,7 @@ export const WelcomePage: React.FC = () => {
             description: 'Revisión anual de procesos del sistema de gestión de calidad. Todos los departamentos deben tener su documentación al día.',
             location: 'Instalaciones Centrales',
             organizer: 'Calidad',
-            isFinished: true
+            isFinished: false
         },
 
     ];
@@ -172,7 +172,9 @@ export const WelcomePage: React.FC = () => {
                         </Box>
 
                         <Box p={{ base: 'md', lg: 'xl' }} style={{ flex: 1, backgroundColor: 'white', position: 'relative' }}>
-                            <div className="stamp-overlay-finalizado">FINALIZADO</div>
+                            {isBannerFinished && (
+                                <div className="stamp-overlay-finalizado">FINALIZADO</div>
+                            )}
 
                             <Group justify="space-between" mb="sm">
                                 <Badge color="orange" variant="filled" size="sm" radius="sm">INFORMACIÓN IMPORTANTE</Badge>
@@ -231,7 +233,9 @@ export const WelcomePage: React.FC = () => {
                                 }}
                                 onClick={() => handleEventClick(event)}
                             >
-                                <div className="stamp-overlay-finalizado event-card-stamp">FINALIZADO</div>
+                                {event.isFinished && (
+                                    <div className="stamp-overlay-finalizado event-card-stamp">FINALIZADO</div>
+                                )}
                                 <Stack gap="md">
 
                                     <Group justify="space-between">

@@ -13,7 +13,8 @@ import {
   Select, 
   Box,
   Tabs,
-  Button
+  Button,
+  ActionIcon
 } from '@mantine/core';
 import { 
   IconChevronLeft, 
@@ -586,15 +587,15 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
       {/* Header & Controls */}
       <Box mb="xl" pos="relative">
         <Group justify="space-between" align="center">
-          <Button 
+          <ActionIcon 
             variant="light" 
             color="gray" 
-            leftSection={<IconChevronLeft size={16} />}
+            size="xl"
             onClick={onBack}
             radius="md"
           >
-            Cerrar Dashboard
-          </Button>
+            <IconChevronLeft size={24} />
+          </ActionIcon>
 
           <Stack gap={0} align="center">
             <Title order={2} fw={800} style={{ letterSpacing: '-0.025em' }}>

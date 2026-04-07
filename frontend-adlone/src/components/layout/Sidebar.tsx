@@ -109,7 +109,7 @@ export function LinksGroup({
 
     if (collapsed) {
         return (
-            <Box style={{ marginBottom: 6 }}>
+            <Box style={{ marginBottom: 6 }} ref={notificationRef}>
                 {hasLinks ? (
                     <Menu position="right-start" withArrow shadow="md" offset={10}>
                         <Menu.Target>
@@ -121,7 +121,7 @@ export function LinksGroup({
                                     <Icon style={{ width: 16, height: 16 }} />
                                 </ThemeIcon>
                                 {badge && (
-                                    <div ref={notificationRef} style={{ position: 'absolute', top: -4, right: -4, zIndex: 10 }}>
+                                    <div style={{ position: 'absolute', top: -4, right: -4, zIndex: 10 }}>
                                         {badge}
                                     </div>
                                 )}
@@ -150,7 +150,7 @@ export function LinksGroup({
                                 <Icon style={{ width: 16, height: 16 }} />
                             </ThemeIcon>
                             {badge && (
-                                <div ref={notificationRef} style={{ position: 'absolute', top: -4, right: -4, zIndex: 10 }}>
+                                <div style={{ position: 'absolute', top: -4, right: -4, zIndex: 10 }}>
                                     {badge}
                                 </div>
                             )}
@@ -162,7 +162,7 @@ export function LinksGroup({
     }
 
     return (
-        <Box style={{ marginBottom: 6 }}>
+        <Box style={{ marginBottom: 6 }} ref={notificationRef}>
             <UnstyledButton
                 onClick={() => {
                     if (hasLinks) onToggle();
@@ -176,7 +176,7 @@ export function LinksGroup({
                             <Icon style={{ width: 16, height: 16 }} />
                         </ThemeIcon>
                         <Box ml="md" style={{ flex: 1, fontSize: 12, fontWeight: 500 }}>{label}</Box>
-                        {badge && <Box ref={notificationRef} ml="sm">{badge}</Box>}
+                        {badge && <Box ml="sm">{badge}</Box>}
                     </Box>
                     {hasLinks && (
                         <IconChevronRight
@@ -509,20 +509,22 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotC
         <nav className={`${classes.navbar} ${isCollapsed ? classes.navbarCollapsed : ''}`}>
             {!hideLogo && (
                 <div className={classes.header}>
-                    <Group justify={isCollapsed ? "center" : "space-between"} wrap="nowrap" style={{ width: '100%', gap: isCollapsed ? 0 : 'inherit' }}>
-                        <img
-                            src={isCollapsed ? logoSmall : logoAdl}
-                            alt="ADL Logo"
-                            style={{
-                                height: isCollapsed ? 28 : 50,
-                                maxWidth: isCollapsed ? 28 : 180,
-                                objectFit: 'contain',
-                                cursor: 'pointer',
-                                transition: 'all 200ms ease',
-                                filter: 'none'
-                            }}
-                            onClick={() => resetNavigation()}
-                        />
+                    <Box style={{ width: '100%', display: 'flex', alignItems: 'center', position: 'relative' }}>
+                        <Box style={{ flex: 1, display: 'flex', justifyContent: 'center', paddingLeft: isCollapsed ? 0 : 28 }}>
+                            <img
+                                src={isCollapsed ? logoSmall : logoAdl}
+                                alt="ADL Logo"
+                                style={{
+                                    height: isCollapsed ? 32 : 50,
+                                    maxWidth: isCollapsed ? 32 : 180,
+                                    objectFit: 'contain',
+                                    cursor: 'pointer',
+                                    transition: 'all 200ms ease',
+                                    filter: 'none'
+                                }}
+                                onClick={() => resetNavigation()}
+                            />
+                        </Box>
                         {!isCollapsed ? (
                             <ActionIcon
                                 variant="subtle"
@@ -538,12 +540,12 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotC
                                 color="gray"
                                 onClick={toggleSidebar}
                                 size="md"
-                                style={{ position: 'absolute', top: 12, right: 4 }}
+                                style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)' }}
                             >
                                 <IconLayoutSidebarRightCollapse size={18} />
                             </ActionIcon>
                         )}
-                    </Group>
+                    </Box>
                 </div>
             )}
 
@@ -644,7 +646,7 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotC
                             left: notificationsRef.current.getBoundingClientRect().right + 10,
                         }}
                     >
-                        ¡Nueva notificación!
+                        {notifications[0]?.titulo || '¡Nueva notificación!'}
                     </div>
                 </Portal>
             )}
