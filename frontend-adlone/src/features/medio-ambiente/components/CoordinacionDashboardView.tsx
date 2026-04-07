@@ -548,7 +548,7 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
       operation: 'Muestra la relevancia de cada objetivo de muestreo dentro del volumen total comercial.',
       data: 'Ayuda a entender el perfil de servicio más común de la empresa y hacia dónde se orientan los recursos.'
     },
-    'Insights de Rendimiento': {
+    'Hallazgos de Rendimiento': {
       definition: 'Métricas clave de éxito y máximos operativos.',
       operation: 'Calcula automáticamente el proveedor con mayor volumen y la categoría predominante en el conjunto de datos activo.',
       data: 'Destaca directamente los puntos más relevantes del dashboard sin necesidad de analizar cada gráfico individual.'
@@ -927,11 +927,11 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
 
           <Paper withBorder radius="lg" p="xl" shadow="sm" flex={1} pos="relative">
             <InfoButton 
-              title={activeTab === 'operativa' ? 'Agenda para Hoy' : 'Insights de Rendimiento'} 
-              detail={chartExplanations[activeTab === 'operativa' ? 'Agenda para Hoy' : 'Insights de Rendimiento']} 
+              title={activeTab === 'operativa' ? 'Agenda para Hoy' : 'Hallazgos de Rendimiento'} 
+              detail={chartExplanations[activeTab === 'operativa' ? 'Agenda para Hoy' : 'Hallazgos de Rendimiento']} 
             />
             <Title order={4} ta="center" mb="lg">
-               {activeTab === 'operativa' ? 'Agenda para Hoy' : 'Insights de Rendimiento'}
+               {activeTab === 'operativa' ? 'Agenda para Hoy' : 'Hallazgos de Rendimiento'}
             </Title>
             <Stack gap="md">
               {activeTab === 'operativa' ? (

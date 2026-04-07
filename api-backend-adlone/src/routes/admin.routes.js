@@ -28,6 +28,7 @@ router.get('/export-table', verifyToken, adminController.getExportData);
 router.get('/export-pdf', verifyToken, adminController.downloadBulkPdf);
 
 // --- EQUIPOS ---
+router.get('/equipos/comparison-resampling', verifyToken, equipoController.getEquipmentComparison);
 router.get('/equipos/catalogo', verifyToken, equipoController.getEquipoCatalogo);
 router.post('/equipos/catalogo', verifyToken, equipoController.createEquipoCatalogo);
 router.put('/equipos/catalogo/:id', verifyToken, equipoController.updateEquipoCatalogo);

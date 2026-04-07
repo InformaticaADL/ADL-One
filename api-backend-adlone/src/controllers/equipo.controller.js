@@ -181,6 +181,20 @@ export const equipoController = {
             console.error('Controller deleteEquipoCatalogo error:', error);
             res.status(500).json({ success: false, message: 'Error al eliminar el equipo del catálogo' });
         }
+    },
+
+    getEquipmentComparison: async (req, res) => {
+        try {
+            const { idOriginal, idNueva, idMuestreador } = req.query;
+            if (!idOriginal || !idNueva || !idMuestreador) {
+                return res.status(400).json({ success: false, message: 'Faltan parámetros idOriginal, idNueva e idMuestreador' });
+            }
+            const result = await equipoService.getEquipmentComparisonForResampling(idOriginal, idNueva, idMuestreador);
+            res.json({ success: true, data: result });
+        } catch (error) {
+            console.error('Controller getEquipmentComparison error:', error);
+            res.status(500).json({ success: false, message: 'Error al obtener la comparación de equipos' });
+        }
     }
 };
 

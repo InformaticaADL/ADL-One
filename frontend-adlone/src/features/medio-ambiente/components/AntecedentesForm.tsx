@@ -231,8 +231,8 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
             setDetalleCanal(initialData.detalleCanal || '');
             setDispositivo(String(initialData.dispositivo ?? ''));
             setDetalleDispositivo(initialData.detalleDispositivo || '');
-            setTipoMedidaCanal(initialData.tipoMedidaCanal || null);
-            setTipoMedidaDispositivo(initialData.tipoMedidaDispositivo || null);
+            setTipoMedidaCanal(initialData.tipoMedidaCanal ? String(initialData.tipoMedidaCanal) : null);
+            setTipoMedidaDispositivo(initialData.tipoMedidaDispositivo ? String(initialData.tipoMedidaDispositivo) : null);
             setFrecuencia(String(initialData.frecuencia ?? ''));
             setFactor(String(initialData.factor ?? '1'));
             setPeriodo(String(initialData.periodo ?? ''));
@@ -241,6 +241,54 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
             hasHydrated.current = true;
         }
     }, [initialData]);
+
+    // Handle Legacy Unit extraction from string
+    useEffect(() => {
+        if (unidadesMedida.length > 0) {
+            const isUnitEmpty = (u: any) => !u || String(u) === '0' || String(u) === '-1' || String(u) === 'null';
+            const normalize = (s: string) => s.trim().toUpperCase().replace(/Μ|µ/g, 'U').replace(/\s+/g, '');
+            const sortedUnits = [...unidadesMedida].sort((a,b) => b.label.length - a.label.length);
+
+            if (typeof detalleCanal === 'string' && detalleCanal.trim()) {
+                const det = normalize(detalleCanal);
+                const match = sortedUnits.find(u => u.label !== 'No Aplica' && u.label !== '-' && det.endsWith(normalize(u.label)));
+                if (match) {
+                    if (isUnitEmpty(tipoMedidaCanal)) setTipoMedidaCanal(match.value);
+                    const regex = new RegExp(match.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i');
+                    const withoutStr = detalleCanal.replace(regex, '').trim();
+                    if (withoutStr === detalleCanal) { // fallback
+                         if (detalleCanal !== detalleCanal.slice(0, -match.label.length).trim()) setDetalleCanal(detalleCanal.slice(0, -match.label.length).trim());
+                    } else if (detalleCanal !== withoutStr) {
+                         setDetalleCanal(withoutStr);
+                    }
+                }
+            }
+            if (typeof detalleDispositivo === 'string' && detalleDispositivo.trim()) {
+                const det = normalize(detalleDispositivo);
+                const match = sortedUnits.find(u => u.label !== 'No Aplica' && u.label !== '-' && det.endsWith(normalize(u.label)));
+                if (match) {
+                    if (isUnitEmpty(tipoMedidaDispositivo)) setTipoMedidaDispositivo(match.value);
+                    const regex = new RegExp(match.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i');
+                    const withoutStr = detalleDispositivo.replace(regex, '').trim();
+                    if (withoutStr === detalleDispositivo) { // fallback
+                         if (detalleDispositivo !== detalleDispositivo.slice(0, -match.label.length).trim()) setDetalleDispositivo(detalleDispositivo.slice(0, -match.label.length).trim());
+                    } else if (detalleDispositivo !== withoutStr) {
+                         setDetalleDispositivo(withoutStr);
+                    }
+                }
+            }
+        }
+    }, [unidadesMedida, tipoMedidaCanal, detalleCanal, tipoMedidaDispositivo, detalleDispositivo]);
+
+    // Handle Legacy string-to-ID conversion for Frecuencia Periodo
+    useEffect(() => {
+        if (frecuenciasOptions.length > 0 && typeof periodo === 'string' && isNaN(Number(periodo)) && periodo !== 'No Aplica') {
+            const match = frecuenciasOptions.find(f => f.nombre?.toLowerCase() === periodo.toLowerCase().trim());
+            if (match) {
+                setPeriodo(String(match.id));
+            }
+        }
+    }, [frecuenciasOptions, periodo]);
 
     useImperativeHandle(ref, () => ({
         getData: () => {
@@ -498,7 +546,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
             setModalidades((mods || []).map((m: any) => ({ value: String(m.id_modalidad || m.id), label: m.nombre_modalidad || m.nombre })));
             setInstrumentosAmbientales((instrs || []).map((i: any) => ({ value: i.nombre, label: i.nombre })));
             setCargos((cargosList || []).map((c: any, index: number) => ({ id: String(c.id_cargo || c.id || `cargo-${index}`), nombre: c.nombre_cargo || 'Sin Nombre', cliente: c.cliente })));
-            setFrecuenciasOptions((freqsList || []).map((f: any, index: number) => ({ id: String(f.id_frecuenciaperiodo || f.id || `freq-${index}`), nombre: f.nombre_frecuencia || f.nombre, cantidad: f.cantidad, multiplicadopor: f.multiplicadopor })));
+            setFrecuenciasOptions((freqsList || []).map((f: any, index: number) => ({ id: String(f.id_frecuencia || f.id_frecuenciaperiodo || f.id || `freq-${index}`), nombre: f.nombre_frecuencia || f.nombre, cantidad: f.cantidad, multiplicadopor: f.multiplicadopor })));
             setFormasCanal((formasCanalList || []).map((f: any) => ({ value: String(f.id_formacanal || f.id), label: f.nombre_formacanal || f.nombre })));
             setDispositivos((dispositivosList || []).map((d: any) => ({ value: String(d.id_dispositivohidraulico || d.id), label: d.nombre_dispositivohidraulico || d.nombre })));
 
@@ -777,6 +825,12 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             </Badge>
                         </Box>
                     </SimpleGrid>
+
+                    {periodo && periodo !== 'No Aplica' && frecuencia && factor && totalServicios && (
+                        <Text size="xs" c="dimmed" fs="italic" mt={-4} ta="center">
+                            Se realizarán <Text component="span" fw={700} size="xs">{totalServicios}</Text> muestreo(s) en total, con una frecuencia de <Text component="span" fw={700} size="xs">{frecuencia}</Text> vez/veces cada periodo <Text component="span" fw={700} size="xs">{frecuenciasData.find(f => f.value === periodo)?.label?.toLowerCase() || periodo}</Text>, multiplicado por un factor de <Text component="span" fw={700} size="xs">{factor}</Text>.
+                        </Text>
+                    )}
                 </Stack>
             </Paper>
 

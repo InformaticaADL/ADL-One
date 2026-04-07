@@ -187,7 +187,7 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
         <Box p="md" style={{ width: '100% !important', maxWidth: '100% !important' }}>
             <Stack gap="lg">
                  <PageHeader 
-                    title={`Gestión Coordinación - Ficha N° ${data?.fichaingresoservicio || '-'}`}
+                    title={`Gestión Coordinación - Ficha N° ${data?.fichaingresoservicio || '-'}${data?.es_remuestreo === 'S' ? ` (REMUESTREO DE LA FICHA N° ${data?.id_ficha_original})` : ''}`}
                     subtitle="Validación Final para Programación"
                     onBack={onBack}
                     rightSection={

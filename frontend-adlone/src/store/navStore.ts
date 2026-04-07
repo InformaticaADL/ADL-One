@@ -14,6 +14,7 @@ interface NavState {
     ursInboxMode: 'RECEIVED' | 'SENT'; // Phase 27
     hiddenNotifications: string[]; // Persistent dismissed notifications
     maArea: 'comercial' | 'tecnica' | 'coordinacion' | null;
+    maComercialMode: 'menu' | 'create' | 'consult' | 'detail' | 'history';
     maCoordMode: string;
     maTecnicaMode: string;
     setActiveModule: (moduleId: string) => void;
@@ -32,6 +33,7 @@ interface NavState {
     setAdminSearchTerm: (term: string) => void;
     hideNotification: (id: string | number) => void;
     setMaArea: (area: 'comercial' | 'tecnica' | 'coordinacion' | null) => void;
+    setMaComercialMode: (mode: 'menu' | 'create' | 'consult' | 'detail' | 'history') => void;
     setMaCoordMode: (mode: string) => void;
     setMaTecnicaMode: (mode: string) => void;
 }
@@ -54,6 +56,7 @@ export const useNavStore = create<NavState>()(
             ursInboxMode: 'RECEIVED',
             hiddenNotifications: JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'),
             maArea: null,
+            maComercialMode: 'menu',
             maCoordMode: 'menu',
             maTecnicaMode: 'list',
             setActiveModule: (moduleId) => set({ activeModule: moduleId }),
@@ -90,10 +93,15 @@ export const useNavStore = create<NavState>()(
                 selectedCorrelativo: null,
                 ursInboxMode: 'RECEIVED',
                 adminSearchTerm: '',
+                maArea: null,
+                maComercialMode: 'menu',
+                maCoordMode: 'menu',
+                maTecnicaMode: 'list',
             }), // Reset to defaults
             adminSearchTerm: '',
             setAdminSearchTerm: (term: string) => set({ adminSearchTerm: term }),
             setMaArea: (area) => set({ maArea: area }),
+            setMaComercialMode: (mode) => set({ maComercialMode: mode }),
             setMaCoordMode: (mode) => set({ maCoordMode: mode }),
             setMaTecnicaMode: (mode) => set({ maTecnicaMode: mode }),
         }),

@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { FichasIngresoPage } from '../features/medio-ambiente/pages/FichasIngresoPage';
 import { CalendarioReplicaPage } from '../features/medio-ambiente/pages/CalendarioReplicaPage';
 import { FichaDetailView } from '../features/medio-ambiente/pages/FichaDetailView';
+import { RemuestreoPage } from '../features/medio-ambiente/pages/RemuestreoPage';
 
 import { RolesPage } from '../features/admin/pages/RolesPage';
 import AdminUrsPage from '../features/admin/pages/AdminUrsPage';
@@ -64,6 +65,7 @@ const DashboardPage = () => {
         // --- 1. Submódulos Compartidos (Alta Prioridad) ---
         if (activeSubmodule === 'ma-fichas-ingreso') return <FichasIngresoPage />;
         if (activeSubmodule === 'ma-ficha-detalle') return <FichaDetailView />;
+        if (activeSubmodule === 'ma-remuestreo') return <RemuestreoPage />;
         if (activeSubmodule === 'ma-calendario-replica') return <CalendarioReplicaPage onBack={() => setActiveSubmodule('medio_ambiente')} />;
         if (activeSubmodule === 'admin-equipos-gestion') return <EquiposPage onBack={() => setActiveSubmodule('')} />;
         if (activeSubmodule === 'admin-muestreadores') return <MuestreadoresPage onBack={() => setActiveSubmodule('medio_ambiente')} />;

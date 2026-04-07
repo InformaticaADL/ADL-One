@@ -183,7 +183,7 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
         <Box p="md" style={{ width: '100% !important', maxWidth: '100% !important' }}>
             <Stack gap="lg">
                 <PageHeader 
-                    title={`Gestión Técnica - Ficha N° ${data?.fichaingresoservicio || '-'}`}
+                    title={`Gestión Técnica - Ficha N° ${data?.fichaingresoservicio || '-'}${data?.es_remuestreo === 'S' ? ` (REMUESTREO DE LA FICHA N° ${data?.id_ficha_original})` : ''}`}
                     subtitle="Revisión y Validación Técnica"
                     onBack={onBack}
                     rightSection={

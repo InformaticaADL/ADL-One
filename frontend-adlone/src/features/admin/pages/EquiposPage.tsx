@@ -971,7 +971,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                 ) : (
                                     equipos.map(equipo => {
                                         const isInactive = equipo.estado?.toLowerCase() === 'inactivo';
-                                        const hasAccepted = getPendingRequestsForEquipo(equipo.id_equipo).length > 0;
+                                        const pendingRequests = getPendingRequestsForEquipo(equipo.id_equipo);
+                                        const hasAccepted = pendingRequests.some(req => req.estado === 'ACEPTADA');
                                         
                                         const checkExp = (v?: string) => {
                                             if (!v) return false;

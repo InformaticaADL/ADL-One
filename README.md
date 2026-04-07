@@ -1,4 +1,4 @@
-# ADL One - Sistema de Gestión Empresarial
+﻿# ADL One - Sistema de Gestión Empresarial
 
 Sistema empresarial profesional desarrollado con arquitectura moderna y escalable.
 
@@ -715,23 +715,7 @@ frontend-adlone/
 │   │   ├── comercial/       # Fichas Comerciales y Análisis
 │   │   └── tecnica/         # Validaciones y Flujo Técnico
 │   ├── services/            # Servicios de comunicación con API (Axios)
-│   ├── contexts/            # Contextos de React (Auth, Permisos)
-│   └── store/               # Estados globales con Zustand (NavStore)
-```
-
-### 43. UI Layout Standardization (Global) (Marzo 2026) 🎨
-Finalización de la transición hacia una interfaz de usuario fluida y consistente en todos los módulos operativos y administrativos.
-
-- **Migración a Diseño Fluido ("Adiós al Container")**:
-    - Reemplazo sistemático de componentes `Container` de ancho fijo por contenedores `Box` de ancho completo (`width: 100%`).
-    - **Áreas Impactadas**: Módulos de **Medio Ambiente**, **Administración**, **URS (Solicitudes)**, **Chat**, **Notificaciones** y **Perfil de Usuario**.
-    - **Uniformidad**: Estandarización del padding y espaciado horizontal para asegurar que la información aproveche todo el espacio disponible en pantalla, alineándose con el diseño de los Hubs principales.
-- **Refinamiento de Formularios Críticos**:
-    - Actualización de los formularios de **Equipo** y **Muestreador** para soportar el nuevo layout fluido sin perder integridad visual.
-- **Consistencia en Navegación**: Todas las páginas principales (Dashboard, Welcome, Home) ahora presentan un comportamiento de expansión idéntico, eliminando saltos visuales al navegar entre módulos.
-- **Archivos Modificados**: `AssignmentListView.tsx`, `SolicitudesMaPage.tsx`, `admin.css`.
-
-### 44. Refactor Responsivo para Tablets y Gestión de Permisos (Marzo 2026) 📱💻
+�### 44. Refactor Responsivo para Tablets y Gestión de Permisos (Marzo 2026) 📱💻
 Optimización integral de la interfaz administrativa para garantizar una experiencia fluida en tablets (iPad) y dispositivos móviles, estandarizando el modelo de navegación compacta.
 
 - **Estandarización de Navegación Compacta**:
@@ -749,8 +733,76 @@ Optimización integral de la interfaz administrativa para garantizar una experie
     - El `RecipientModal` ahora fuerza el apilamiento de columnas a partir de los 1200px, asegurando que los formularios sean cómodos de completar en cualquier tablet.
     - Mejoras en `WelcomePage.tsx` para adaptar las secciones de servicios destacados a dispositivos medianos.
 
+### 45. Módulo de Remuestreo y Permisos Comerciales (Abril 2026) 🔄🔐
+Implementación del flujo completo de creación de fichas de remuestreo y permisos granulares para el módulo comercial.
+
+- **Creación de Fichas de Remuestreo**:
+    - Nuevas columnas `es_remuestreo` e `id_ficha_original` en `App_Ma_FichaIngresoServicio_ENC` para rastrear el origen de cada remuestreo.
+    - Actualización de `solicitud.service.js` para persistir y validar los campos de remuestreo al crear una ficha.
+    - Hidratación determinista de formularios: carga libre de race conditions para todos los campos, incluyendo dropdowns dependientes.
+- **Notificaciones de Remuestreo**:
+    - Creación de la plantilla de evento `FICHA_REMUESTREO_CREADA` con corrección de capitalización ("Nueva ficha de remuestreo").
+    - Disparo automático de email y notificación web al crear una ficha de remuestreo.
+- **Permisos Granulares Comerciales**:
+    - Registro de códigos `MA_COMERCIAL_HISTORIAL_ACCESO` y `MA_COMERCIAL_HISTORIAL_DETALLE` en base de datos y UI de configuración de roles.
+    - Integración de `ProtectedContent` y hook `hasPermission` para condicionar acceso a módulos, historial y acciones de remuestreo.
+- **Mejoras de UI/UX**:
+    - Refactor de `Sidebar.tsx` con micro-animaciones y tipografía *Inter*.
+    - Actualizaciones visuales en `AssignmentDetailView`, `CommercialDetailView`, `CoordinacionDashboardView` y `EnProcesoCalendarView`.
+    - Refactor responsive de la gestión de usuarios con tarjetas móviles y diseño premium.
+    - Interceptor Axios en `axios.config.ts` para autorización centralizada y manejo de errores.
+- **Archivos Modificados**:
+    - Backend: `solicitud.service.js`, `ficha.service.js`, `equipo.controller.js`, `equipo.service.js`, `uns.service.js`, `catalogos.service.js`, `admin.routes.js`
+    - Frontend: `ProtectedContent.tsx`, `Sidebar.tsx`, `AuthContext.tsx`, `AssignmentDetailView.tsx`, `CommercialDetailView.tsx`, `ComercialPage.tsx`, `FichaDetailView.tsx`, `FichasIngresoPage.tsx`, `EnProcesoCalendarView.tsx`, `navStore.ts`, `admin.service.ts`
+
+
+### 46. Mejoras en Gestión de Equipos y UX de Solicitudes (Abril 2026) ⚙️✨
+Refinamiento integral del módulo de Gestión de Equipos y la experiencia de usuario al crear solicitudes, corrigiendo lógica de alertas, visibilidad condicional de formularios y rediseño de la pantalla de éxito.
+
+- **Corrección de Lógica de Alertas en Equipos**:
+    - El ícono de alerta (`IconAlertTriangle`) en la tabla de equipos ahora solo se muestra cuando existe al menos una solicitud con estado **`ACEPTADA`** asociada al equipo.
+    - Las solicitudes en estado `PENDIENTE` ya no disparan la visibilidad del ícono, evitando falsos positivos.
+    - Filtrado en `loadSolicitudes()` actualizado para consultar exclusivamente solicitudes con `estado = 'ACEPTADA'` desde ambos servicios (`adminService` y `ursService`).
+
+- **Formulario de Equipos — Ocultamiento de Revisión Masiva en Edición**:
+    - El paso de `Stepper` "Revisión Masiva" (para creación en lote) ahora se oculta condicionalmente cuando se está editando un equipo existente (`initialData?.id_equipo`).
+    - Solo se renderiza durante el flujo de creación de nuevos equipos, eliminando confusión visual en la edición.
+
+- **Rediseño de Pantalla de Éxito al Crear Solicitud**:
+    - **Overlay con Glassmorphism**: La pantalla de éxito ya no reemplaza el contenido de la página. Se muestra como un overlay fijo con `backdropFilter: blur(8px)` sobre el formulario.
+    - **Animaciones Premium**: Ícono de check con `bounceIn`, tarjeta con `scaleIn`, y barra de progreso animada que indica el tiempo de redirección.
+    - **Badge con ID de Solicitud**: Se muestra el número de la solicitud creada (ej. `Solicitud #123`) para confirmación visual inmediata.
+    - **Redirección Inteligente**: Al completar la animación (~2.8s), el sistema navega automáticamente a la bandeja de Solicitudes y abre directamente la solicitud recién creada en la pestaña "Enviadas".
+
+- **Mejora de Loading durante Envío de Solicitud**:
+    - Implementación de `LoadingOverlay` de Mantine con `blur: 3` durante el proceso de envío, difuminando el contenido del formulario para indicar actividad.
+
+- **Archivos Modificados**:
+    - Frontend: `EquiposPage.tsx`, `EquipoForm.tsx`, `NewRequestPage.tsx`.
+
+
 ## 📄 Estado Final del Proyecto
 ✅ **Backend**: Node.js + Express (API RESTful, Auth JWT, Notificaciones con Adjuntos, Lógica de Exportación a Excel, Auditoría Avanzada, Motor de Chat Socket.io)
 ✅ **Frontend**: React + TypeScript + Mantine UI (Calendario de Muestreos, Sistema de Temas Dinámicos, Perfil de Usuario, Módulo de Chat General, Exportador de Datos, Layout Fluido Global)
 ✅ **Base de Datos**: SQL Server (Procedimientos Almacenados optimizados, Auditoría de Equipos, Alineación de Esquemas, Logs de Auditoría Global, Esquema de Mensajería)
+on corrección de capitalización.
+  - Nuevas rutas y lógica de permisos granulares (`MA_COMERCIAL_HISTORIAL_ACCESO`, `MA_COMERCIAL_HISTORIAL_DETALLE`).
 
+- **Frontend**:
+  - Integrado `ProtectedContent` y el hook `hasPermission` para control de acceso.
+  - Refactor de `Sidebar.tsx` con micro‑animaciones y tipografía *Inter*.
+  - Mejoras de hidratación de datos en los formularios de remuestreo.
+  - Actualizaciones de UI en múltiples componentes (AssignmentDetailView, CommercialDetailView, CoordinationDetailView, etc.) con +1 287 inserciones y -577 eliminaciones.
+  - Refactor responsive de la gestión de usuarios: tarjetas móviles, diseño premium.
+
+- **Configuración**:
+  - Interceptor Axios en `axios.config.ts` para autorización y manejo de errores.
+  - Nuevos servicios y componentes de archivo (`FileIcon.tsx`).
+
+Estos cambios siguen el estilo y la estética premium del proyecto.
+
+
+## 📄 Estado Final del Proyecto
+✅ **Backend**: Node.js + Express (API RESTful, Auth JWT, Notificaciones con Adjuntos, Lógica de Exportación a Excel, Auditoría Avanzada, Motor de Chat Socket.io)
+✅ **Frontend**: React + TypeScript + Mantine UI (Calendario de Muestreos, Sistema de Temas Dinámicos, Perfil de Usuario, Módulo de Chat General, Exportador de Datos, Layout Fluido Global)
+✅ **Base de Datos**: SQL Server (Procedimientos Almacenados optimizados, Auditoría de Equipos, Alineación de Esquemas, Logs de Auditoría Global, Esquema de Mensajería)

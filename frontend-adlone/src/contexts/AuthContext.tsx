@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import API_CONFIG from '../config/api.config';
 import { useNavStore } from '../store/navStore';
@@ -21,17 +21,24 @@ interface AuthContextType {
     login: (username: string, pass: string, rememberMe?: boolean) => Promise<void>;
     logout: () => void;
     isAuthenticated: boolean;
+    isAuthenticating: boolean; // New: to distinguish between loading from storage and idle
     loading: boolean;
-    hasPermission: (permission: string) => boolean;
-    updateUser: (newData: Partial<User>) => void; // New
+    hasPermission: (permission: string | string[]) => boolean;
+    updateUser: (newData: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [user, setUser] = useState<User | null>(null);
-    const [token, setToken] = useState<string | null>(null);
+    const [authState, setAuthState] = useState<{
+        user: User | null;
+        token: string | null;
+    }>({
+        user: null,
+        token: null
+    });
     const [loading, setLoading] = useState(true);
+    const [isAuthenticating, setIsAuthenticating] = useState(false);
 
     // Initialize state from Storage (Local or Session)
     useEffect(() => {
@@ -39,14 +46,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const storedUser = localStorage.getItem('user') || sessionStorage.getItem('user');
 
         if (storedToken && storedUser) {
-            setToken(storedToken);
-            setUser(JSON.parse(storedUser));
-            // Optional: Validate token validity here if API supports it
+            const parsedUser = JSON.parse(storedUser);
+            setAuthState({
+                token: storedToken,
+                user: parsedUser
+            });
+            
+            // Sincronizar cabecera de axios inmediatamente al restaurar
+            axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
         }
         setLoading(false);
     }, []);
 
+    // Efecto para sincronizar el token con axios globalmente
+    useEffect(() => {
+        if (authState.token) {
+            axios.defaults.headers.common['Authorization'] = `Bearer ${authState.token}`;
+        } else {
+            delete axios.defaults.headers.common['Authorization'];
+        }
+    }, [authState.token]);
+
     const login = async (username: string, pass: string, rememberMe: boolean = false) => {
+        setIsAuthenticating(true);
         try {
             const response = await axios.post(`${API_CONFIG.getBaseURL()}/api/auth/login`, {
                 username,
@@ -57,22 +79,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (response.data && response.data.success) {
                 const { token, user } = response.data.data;
 
-                // DEBUG: Log token to verify it's a string
-                console.log('🔍 Login Debug - Token type:', typeof token);
-                console.log('🔍 Login Debug - Token value:', token);
-                console.log('🔍 Login Debug - Remember Me:', rememberMe);
+                // Atómicamente actualizar token y usuario
+                setAuthState({ token, user });
 
-                setToken(token);
-                // Ensure permissions are present
-                setUser(user);
+                // Establecer cabecera de axios inmediatamente post-login
+                axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
                 if (rememberMe) {
-                    sessionStorage.removeItem('token'); // Clear session to avoid conflict
+                    sessionStorage.removeItem('token');
                     sessionStorage.removeItem('user');
                     localStorage.setItem('token', token);
                     localStorage.setItem('user', JSON.stringify(user));
                 } else {
-                    localStorage.removeItem('token'); // Clear persistent to avoid conflict
+                    localStorage.removeItem('token');
                     localStorage.removeItem('user');
                     sessionStorage.setItem('token', token);
                     sessionStorage.setItem('user', JSON.stringify(user));
@@ -83,12 +102,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch (error: any) {
             console.error("Login Context Error:", error);
             throw error;
+        } finally {
+            setIsAuthenticating(false);
         }
     };
 
     const logout = useCallback(() => {
-        setToken(null);
-        setUser(null);
+        setAuthState({ token: null, user: null });
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         sessionStorage.removeItem('token');
@@ -122,37 +142,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
     }, [logout]);
 
-    // RBAC Helper
-    const hasPermission = (permissionCode: string): boolean => {
-        if (!user) return false;
-        const perms = user.permissions || [];
-        // Super Admin access: if they have AI_MA_ADMIN_ACCESO, they can do anything
-        if (perms.includes('AI_MA_ADMIN_ACCESO')) return true;
-        // Specific permission
-        return perms.includes(permissionCode);
-    };
-
-    const updateUser = (newData: Partial<User>) => {
-        if (!user) return;
-        const updatedUser = { ...user, ...newData };
-        setUser(updatedUser);
+    // RBAC Helper memoizado y más robusto
+    const hasPermission = useCallback((permissionCode: string | string[]): boolean => {
+        const currentUser = authState.user;
+        if (!currentUser) return false;
         
-        // Update storage
-        const storage = localStorage.getItem('user') ? localStorage : sessionStorage;
-        storage.setItem('user', JSON.stringify(updatedUser));
-    };
+        const perms = currentUser.permissions || [];
+        
+        // Super Admin access
+        if (perms.includes('AI_MA_ADMIN_ACCESO')) return true;
+        
+        if (Array.isArray(permissionCode)) {
+            return permissionCode.some(p => perms.includes(p));
+        }
+        
+        return perms.includes(permissionCode);
+    }, [authState.user]);
+
+    const updateUser = useCallback((newData: Partial<User>) => {
+        setAuthState(prev => {
+            if (!prev.user) return prev;
+            const updatedUser = { ...prev.user, ...newData };
+            
+            // Update storage
+            const storage = localStorage.getItem('user') ? localStorage : sessionStorage;
+            storage.setItem('user', JSON.stringify(updatedUser));
+            
+            return { ...prev, user: updatedUser };
+        });
+    }, []);
+
+    // Memoizar el valor del contexto para evitar re-renders innecesarios
+    const contextValue = useMemo(() => ({
+        user: authState.user,
+        token: authState.token,
+        login,
+        logout,
+        isAuthenticated: !!authState.token && !!authState.user,
+        isAuthenticating,
+        loading,
+        hasPermission,
+        updateUser
+    }), [authState.user, authState.token, isAuthenticating, loading, hasPermission, logout, updateUser]);
 
     return (
-        <AuthContext.Provider value={{
-            user,
-            token,
-            login,
-            logout,
-            isAuthenticated: !!token,
-            loading,
-            hasPermission,
-            updateUser
-        }}>
+        <AuthContext.Provider value={contextValue}>
             {children}
         </AuthContext.Provider>
     );

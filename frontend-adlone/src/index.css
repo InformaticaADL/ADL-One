@@ -85,3 +85,44 @@ html, body {
 html::-webkit-scrollbar, body::-webkit-scrollbar {
   display: none; /* Chrome, Safari, Opera */
 }
+
+/* Stamp Effect for "FINALIZADO" */
+.stamp-overlay-finalizado {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-12deg);
+  border: 5px solid #e03131; /* Mantine red.9 */
+  color: #e03131;
+  font-family: 'Inter', sans-serif;
+  font-weight: 900;
+  font-size: clamp(1.5rem, 5vw, 3rem);
+  text-transform: uppercase;
+  padding: 0.5rem 1.5rem;
+  border-radius: 4px;
+  user-select: none;
+  pointer-events: none;
+  z-index: 100;
+  letter-spacing: 0.1em;
+  opacity: 0.75;
+  
+  /* Textured look */
+  background-color: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 0 0 2px white, 0 0 0 6px #e03131, 2px 2px 5px rgba(0,0,0,0.2);
+  text-shadow: 1px 1px 0 rgba(255,255,255,0.5);
+  
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+/* Smaller version for cards */
+.event-card-stamp {
+  font-size: 1.2rem !important;
+  border-width: 3px !important;
+  padding: 0.2rem 0.6rem !important;
+  box-shadow: 0 0 0 1px white, 0 0 0 4px #e03131, 2px 2px 4px rgba(0,0,0,0.1) !important;
+  transform: translate(-50%, -50%) rotate(-15deg) !important;
+}
+

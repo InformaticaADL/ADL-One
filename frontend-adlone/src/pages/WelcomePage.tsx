@@ -16,6 +16,7 @@ import {
     ScrollArea
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
+import { useToast } from '../contexts/ToastContext';
 import { 
     IconCalendarEvent, 
     IconClock,
@@ -32,6 +33,8 @@ export const WelcomePage: React.FC = () => {
     const [openedSala, { open: openSala, close: closeSala }] = useDisclosure(false);
     const [selectedEvent, setSelectedEvent] = useState<any>(null);
     const [selectedSala, setSelectedSala] = useState<any>(null);
+    const { showToast } = useToast();
+    const isBannerFinished = true;
 
     // Mock data for demonstration
     const upcomingEvents = [
@@ -43,8 +46,10 @@ export const WelcomePage: React.FC = () => {
             color: 'blue',
             description: 'Coordinación semanal de actividades, revisión de protocolos y gestión de insumos críticos para la operación de la unidad.',
             location: 'Sala de Conferencias B',
-            organizer: 'Dirección Técnica'
+            organizer: 'Dirección Técnica',
+            isFinished: true
         },
+
         { 
             id: 2, 
             title: 'Mantenimiento de Servidores', 
@@ -52,9 +57,11 @@ export const WelcomePage: React.FC = () => {
             date: 'Mañana', 
             color: 'orange',
             description: 'Actualización programada de sistemas críticos y respaldos de base de datos. Se esperan intermitencias en servicios internos.',
-            location: 'Data Center / Remoto',
-            organizer: 'TI ADL'
+            location: 'Centro de Datos / Remoto',
+            organizer: 'Informática ADL',
+            isFinished: true
         },
+
         { 
             id: 3, 
             title: 'Auditoría Interna ISO 9001', 
@@ -63,8 +70,10 @@ export const WelcomePage: React.FC = () => {
             color: 'red',
             description: 'Revisión anual de procesos del sistema de gestión de calidad. Todos los departamentos deben tener su documentación al día.',
             location: 'Instalaciones Centrales',
-            organizer: 'Calidad'
+            organizer: 'Calidad',
+            isFinished: true
         },
+
     ];
 
     const salasReuniones = [
@@ -82,18 +91,18 @@ export const WelcomePage: React.FC = () => {
         { ext: '11', name: 'SECRETARIA' },
         { ext: '12', name: 'GERENCIA GENERAL' },
         { ext: '13', name: 'GERENCIA ADMINISTRATIVA' },
-        { ext: '14', name: 'ADQUISICIONS' },
+        { ext: '14', name: 'ADQUISICIONES' },
         { ext: '18/22', name: 'OFIC. LABORATORIO' },
         { ext: '19', name: 'GEM' },
         { ext: '20', name: 'NECROPSIA' },
         { ext: '21', name: 'BACTERIOLOGIA' },
         { ext: '16', name: 'UNIDAD DE APOYO' },
-        { ext: '17', name: 'I+D' },
+        { ext: '17', name: 'INVESTIGACIÓN + D' },
         { ext: '22', name: 'MICRO' },
         { ext: '24', name: 'VIROLOGIA' },
         { ext: '24', name: 'CULTIVO CELULAR' },
         { ext: '25', name: 'BIOLOGIA MOLECULAR' },
-        { ext: '23', name: 'PVE' },
+        { ext: '23', name: 'VIGILANCIA EPI.' },
         { ext: '18', name: 'PROTEOMICA' },
     ];
 
@@ -103,8 +112,20 @@ export const WelcomePage: React.FC = () => {
     ];
 
     const handleEventClick = (event: any) => {
+        if (event.isFinished) {
+            showToast({ type: 'info', message: 'EVENTO FINALIZADO' });
+            return;
+        }
         setSelectedEvent(event);
         openEvent();
+    };
+
+    const handleReportClick = () => {
+        if (isBannerFinished) {
+            showToast({ type: 'info', message: 'INFORMACIÓN COMPLETADA' });
+            return;
+        }
+        openReport();
     };
 
     const handleSalaClick = (sala: any) => {
@@ -118,6 +139,7 @@ export const WelcomePage: React.FC = () => {
                 {/* INFORMACION IMPORTANTE (Article Card Style - Login Inspired) */}
                 <Paper withBorder radius="md" p={0} shadow="sm" style={{ overflow: 'hidden' }}>
                     <Flex direction={{ base: 'column', lg: 'row' }} align="stretch" style={{ minHeight: rem(220) }}>
+
                         <Box 
                             w={{ base: '100%', lg: '40%' }} 
                             h={{ base: rem(160), lg: 'auto' }}
@@ -143,13 +165,15 @@ export const WelcomePage: React.FC = () => {
                                         ADL
                                     </Text>
                                     <Text fw={400} size={rem(32)} c="orange.5" style={{ lineHeight: 1, letterSpacing: '-0.02em', textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
-                                        Diagnostic
+                                        Diagnóstico
                                     </Text>
                                 </Group>
                             </Stack>
                         </Box>
 
-                        <Box p={{ base: 'md', lg: 'xl' }} style={{ flex: 1, backgroundColor: 'white' }}>
+                        <Box p={{ base: 'md', lg: 'xl' }} style={{ flex: 1, backgroundColor: 'white', position: 'relative' }}>
+                            <div className="stamp-overlay-finalizado">FINALIZADO</div>
+
                             <Group justify="space-between" mb="sm">
                                 <Badge color="orange" variant="filled" size="sm" radius="sm">INFORMACIÓN IMPORTANTE</Badge>
                                 <Text size="xs" c="dimmed" fw={700}>20 MARZO, 2026</Text>
@@ -158,14 +182,16 @@ export const WelcomePage: React.FC = () => {
                                 Comunicado Oficial: Cierre de Reportes GEM
                             </Text>
                             <Text size="sm" c="dimmed" lineClamp={3} mb="xl" style={{ lineHeight: 1.6 }}>
-                                Recuerden que hoy finaliza el plazo para la carga de informes mensuales de la unidad GEM. 
+                                Recuerden que hoy finaliza el plazo para la carga de informes mensuales de la unidad Ensayo Molecular. 
                                 Es fundamental asegurar que todos los correlativos estén al día para el cierre operativo.
                                 Ante cualquier duda, contactar a la jefatura de área correspondiente.
                             </Text>
-                            <Group gap={4} style={{ cursor: 'pointer' }} onClick={openReport}>
+                            <Group gap={4} style={{ cursor: 'pointer' }} onClick={handleReportClick}>
                                 <Text size="sm" fw={700} c="blue.6">Leer reporte completo</Text>
+
                                 <IconChevronRight size={18} />
                             </Group>
+
                         </Box>
                     </Flex>
                 </Paper>
@@ -190,8 +216,11 @@ export const WelcomePage: React.FC = () => {
                                 style={{ 
                                     cursor: 'pointer',
                                     transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                                    borderLeft: `5px solid var(--mantine-color-${event.color}-6)`
+                                    borderLeft: `5px solid var(--mantine-color-${event.color}-6)`,
+                                    position: 'relative',
+                                    overflow: 'hidden'
                                 }}
+
                                 onMouseEnter={(e) => {
                                     e.currentTarget.style.transform = 'translateY(-4px)';
                                     e.currentTarget.style.boxShadow = 'var(--mantine-shadow-md)';
@@ -202,7 +231,9 @@ export const WelcomePage: React.FC = () => {
                                 }}
                                 onClick={() => handleEventClick(event)}
                             >
+                                <div className="stamp-overlay-finalizado event-card-stamp">FINALIZADO</div>
                                 <Stack gap="md">
+
                                     <Group justify="space-between">
                                         <Badge color={event.color} variant="filled" size="sm" radius="sm">
                                             {event.date}
@@ -364,13 +395,13 @@ export const WelcomePage: React.FC = () => {
                 <Stack gap="xl">
                     <Box>
                         <Text fw={900} size="24px" c="blue.9" style={{ letterSpacing: '-0.03em', lineHeight: 1.1 }}>
-                            Cierre de Operaciones Mensuales: Unidad GEM
+                            Cierre de Operaciones Mensuales: Unidad Ensayo Molecular
                         </Text>
-                        <Text size="xs" c="dimmed" mt="xs" fw={700}>Publicado el 20 de Marzo, 2026 • ADL Diagnostic</Text>
+                        <Text size="xs" c="dimmed" mt="xs" fw={700}>Publicado el 20 de Marzo, 2026 • ADL Diagnóstico</Text>
                     </Box>
 
                     <Text size="sm" c="gray.8" style={{ lineHeight: 1.7 }}>
-                        Se informa a todo el personal técnico y administrativo que el proceso de cierre para la unidad GEM correspondiente al presente mes se llevará a cabo el día de hoy.
+                        Se informa a todo el personal técnico y administrativo que el proceso de cierre para la unidad Ensayo Molecular correspondiente al presente mes se llevará a cabo el día de hoy.
                         <br /><br />
                         Este cierre es crítico para la facturación y el cumplimiento de los tiempos de entrega comprometidos con nuestros clientes.
                     </Text>
@@ -384,7 +415,7 @@ export const WelcomePage: React.FC = () => {
                             </Group>
                             <Group gap="sm" wrap="nowrap">
                                 <Box w={6} h={6} style={{ borderRadius: '50%', backgroundColor: 'var(--mantine-color-blue-6)' }} />
-                                <Text size="sm" fw={600}>Revisión de correlativos y estados en el sistema ATL.</Text>
+                                <Text size="sm" fw={600}>Revisión de correlativos y estados en el sistema Área Técnica Local.</Text>
                             </Group>
                             <Group gap="sm" wrap="nowrap">
                                 <Box w={6} h={6} style={{ borderRadius: '50%', backgroundColor: 'var(--mantine-color-blue-6)' }} />

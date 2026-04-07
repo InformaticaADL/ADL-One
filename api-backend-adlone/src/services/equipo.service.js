@@ -1413,6 +1413,45 @@ export const equipoService = {
             logger.error('Error in executeEquipmentReassignment service:', error);
             throw error;
         }
+    },
+
+    getEquipmentComparisonForResampling: async (idOriginal, idNueva, idMuestreador) => {
+        try {
+            const pool = await getConnection();
+            const request = pool.request();
+            request.input('idOriginal', sql.Numeric(10, 0), Number(idOriginal));
+            request.input('idNueva', sql.Numeric(10, 0), Number(idNueva));
+            request.input('idMuestreador', sql.Numeric(10, 0), Number(idMuestreador));
+
+            // LEFT: Equipment snapshot from the original ficha (APP_MA_EQUIPOS_MUESTREOS)
+            // RIGHT: Current live data from mae_equipo (master table - real current state)
+            const query = `
+                SELECT DISTINCT
+                    e.id_equipo,
+                    e.nombre,
+                    e.codigo,
+                    e.tienefc,
+                    orig.version as version_original,
+                    orig.error0 as error0_original,
+                    orig.error15 as error15_original,
+                    orig.error30 as error30_original,
+                    e.version as version_nueva,
+                    e.error0 as error0_nueva,
+                    e.error15 as error15_nueva,
+                    e.error30 as error30_nueva
+                FROM APP_MA_EQUIPOS_MUESTREOS orig
+                INNER JOIN mae_equipo e ON orig.id_equipo = e.id_equipo
+                WHERE orig.id_fichaingresoservicio = @idOriginal
+                AND orig.id_muestreador = @idMuestreador
+                AND ISNULL(orig.estado, 'ACTIVO') = 'ACTIVO'
+            `;
+
+            const result = await request.query(query);
+            return result.recordset;
+        } catch (error) {
+            logger.error('Error in getEquipmentComparisonForResampling service:', error);
+            throw error;
+        }
     }
 };
 

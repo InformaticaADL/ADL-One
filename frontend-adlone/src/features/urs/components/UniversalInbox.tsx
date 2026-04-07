@@ -100,6 +100,7 @@ const UniversalInbox: React.FC = () => {
             setSelectedRequest(data);
         } catch (error) {
             console.error("Error loading request detail:", error);
+            setSelectedRequest(null);
         } finally {
             if (!silent) setLoadingDetail(false);
         }
@@ -310,7 +311,7 @@ const UniversalInbox: React.FC = () => {
                                     onChange={(val) => setFilter({...filter, area: val || ''})}
                                     data={[
                                         { value: '', label: 'Todas' },
-                                        { value: 'INF', label: 'TI' },
+                                        { value: 'INF', label: 'Informática' },
                                         { value: 'GC', label: 'Calidad' }
                                     ]}
                                     size="xs"

@@ -142,5 +142,12 @@ export const adminService = {
             console.error('Error in getMuestreadoresPdf:', error);
             throw error;
         }
+    },
+
+    getEquipmentComparison: async (idOriginal: number | string, idNueva: number | string, idMuestreador: number | string) => {
+        const response = await apiClient.get('/api/admin/equipos/comparison-resampling', {
+            params: { idOriginal, idNueva, idMuestreador }
+        });
+        return response.data;
     }
 };

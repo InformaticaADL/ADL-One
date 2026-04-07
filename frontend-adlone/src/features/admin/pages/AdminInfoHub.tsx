@@ -28,7 +28,7 @@ import { PageHeader } from '../../../components/layout/PageHeader';
 
 // List of areas with specific permissions
 const AREAS: { id: string, label: string, icon: string, permission: string | string[], description?: string }[] = [
-    { id: 'gem', label: 'GEM', icon: '🧬', permission: 'GEM_ACCESO', description: 'Gestión de Ensayos Moleculares' },
+    { id: 'gem', label: 'Ensayo Molecular', icon: '🧬', permission: 'GEM_ACCESO', description: 'Gestión de Ensayos Moleculares' },
     { id: 'necropsia', label: 'Necropsia', icon: '🐟', permission: 'NEC_ACCESO', description: 'Área de Anatomía Patológica' },
     { id: 'microscopia', label: 'Microscopía', icon: '🔬', permission: 'MIC_ACCESO', description: 'Análisis Microscópico Digital' },
     { id: 'biologia_molecular', label: 'Biología Molecular', icon: '🧪', permission: 'BM_ACCESO', description: 'Laboratorio de Genética' },
@@ -37,9 +37,9 @@ const AREAS: { id: string, label: string, icon: string, permission: string | str
     { id: 'screening', label: 'Screening', icon: '🔎', permission: 'SCR_ACCESO', description: 'Tamizaje y Pruebas Rápidas' },
     { id: 'derivaciones', label: 'Derivaciones', icon: '📬', permission: 'DER_ACCESO', description: 'Gestión de Muestras Externas' },
     { id: 'medio_ambiente', label: 'Medio Ambiente', icon: '🌿', permission: 'MA_ACCESO', description: 'Control Ambiental y Sanitario' },
-    { id: 'atl', label: 'ATL', icon: '⚖️', permission: 'ATL_ACCESO', description: 'Área Técnica Local' },
-    { id: 'id', label: 'I+D', icon: '💡', permission: 'ID_ACCESO', description: 'Innovación y Desarrollo' },
-    { id: 'pve', label: 'PVE', icon: '🩺', permission: 'PVE_ACCESO', description: 'Vigilancia Epidemiológica' },
+    { id: 'atl', label: 'Área Técnica Local', icon: '⚖️', permission: 'ATL_ACCESO', description: 'Área Técnica Local' },
+    { id: 'id', label: 'Investigación + D', icon: '💡', permission: 'ID_ACCESO', description: 'Innovación y Desarrollo' },
+    { id: 'pve', label: 'Vigilancia Epi.', icon: '🩺', permission: 'PVE_ACCESO', description: 'Vigilancia Epidemiológica' },
     { id: 'informatica', label: 'Informática', icon: '💻', permission: 'INF_ACCESO', description: 'Infraestructura y Sistemas' },
     { id: 'comercial', label: 'Comercial', icon: '📈', permission: 'COM_ACCESO', description: 'Gestión de Clientes y Ventas' },
     { id: 'gestion_calidad', label: 'Gestión de Calidad', icon: '⭐', permission: 'GC_ACCESO', description: 'Normativas y Auditorías' },
@@ -48,16 +48,16 @@ const AREAS: { id: string, label: string, icon: string, permission: string | str
 
 const TABLES_TO_EXPORT = [
     // --- MAESTROS (GRAL) ---
-    { id: 'mae_empresaservicios', label: 'mae_empresaservicios', type: 'TABLE', area: 'Maestros (Gral)' },
-    { id: 'mae_empresa', label: 'mae_empresa', type: 'TABLE', area: 'Maestros (Gral)' },
-    { id: 'mae_cargo', label: 'mae_cargo', type: 'TABLE', area: 'Maestros (Gral)' },
-    { id: 'mae_umedida', label: 'mae_umedida', type: 'TABLE', area: 'Maestros (Gral)' },
-    { id: 'consulta_contacto_una_empresa', label: 'consulta_contacto_una_empresa (SP)', type: 'SP', area: 'Maestros (Gral)' },
-    { id: 'App_Ma_FichaIngresoServicio_ENC', label: 'App_Ma_FichaIngresoServicio_ENC', type: 'TABLE', area: 'Fichas e Ingresos' },
-    { id: 'consulta_centro', label: 'consulta_centro (SP)', type: 'SP', area: 'Fichas e Ingresos' },
-    { id: 'consulta_objetivomuestreo_ma_oservicios', label: 'consulta_objetivomuestreo_ma_oservicios (SP)', type: 'SP', area: 'Fichas e Ingresos' },
-    { id: 'consulta_tipomuestreo_medio_ambiente', label: 'consulta_tipomuestreo_medio_ambiente (SP)', type: 'SP', area: 'Fichas e Ingresos' },
-    { id: 'mae_muestreador', label: 'mae_muestreador', type: 'TABLE', area: 'Solicitudes y Muestreo' },
+    { id: 'mae_empresaservicios', label: 'Empresas de Servicios', type: 'TABLE', area: 'Maestros (Gral)' },
+    { id: 'mae_empresa', label: 'Maestro de Empresas', type: 'TABLE', area: 'Maestros (Gral)' },
+    { id: 'mae_cargo', label: 'Cargos y Funciones', type: 'TABLE', area: 'Maestros (Gral)' },
+    { id: 'mae_umedida', label: 'Unidades de Medida', type: 'TABLE', area: 'Maestros (Gral)' },
+    { id: 'consulta_contacto_una_empresa', label: 'Contactos por Empresa', type: 'SP', area: 'Maestros (Gral)' },
+    { id: 'App_Ma_FichaIngresoServicio_ENC', label: 'Registro de Fichas (MA)', type: 'TABLE', area: 'Fichas e Ingresos' },
+    { id: 'consulta_centro', label: 'Centros de Cultivo/Operación', type: 'SP', area: 'Fichas e Ingresos' },
+    { id: 'consulta_objetivomuestreo_ma_oservicios', label: 'Objetivos de Muestreo', type: 'SP', area: 'Fichas e Ingresos' },
+    { id: 'consulta_tipomuestreo_medio_ambiente', label: 'Tipos de Muestreo (MA)', type: 'SP', area: 'Fichas e Ingresos' },
+    { id: 'mae_muestreador', label: 'Maestro de Muestreadores', type: 'TABLE', area: 'Solicitudes y Muestreo' },
     { id: 'mae_equipo', label: 'Inventario de Equipos (Vigencia)', type: 'TABLE', area: 'Calidad y Equipos' },
     { id: 'mae_equipo_historial', label: 'Historial de Cambios (Equipos)', type: 'TABLE', area: 'Calidad y Equipos' },
     { id: 'mae_solicitud_equipo', label: 'Solicitudes de Gestión (Auditoría)', type: 'TABLE', area: 'Calidad y Equipos' },

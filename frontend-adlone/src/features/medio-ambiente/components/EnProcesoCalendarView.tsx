@@ -34,7 +34,8 @@ import {
     IconChevronRight,
     IconFilter,
     IconSearch,
-    IconDeviceFloppy
+    IconDeviceFloppy,
+    IconAlertCircle
 } from '@tabler/icons-react';
 
 interface Props {
@@ -70,6 +71,10 @@ interface FichaEvento {
     id_validaciontecnica?: number;
     muestreador_retiro?: string;
     motivo_cancelacion?: string;
+    es_remuestreo?: string | null;
+    id_ficha_original?: number | null;
+    cliente?: string;
+    email_cliente?: string;
 }
 
 interface CalendarEvent extends FichaEvento {
@@ -806,6 +811,17 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
             >
                 {selectedEvent && (
                     <Stack gap="md">
+                        {selectedEvent.es_remuestreo === 'S' && (
+                            <Paper withBorder p="xs" radius="md" bg="blue.0" mb="sm" style={{ borderColor: 'var(--mantine-color-blue-4)' }}>
+                                <Group gap="xs">
+                                    <IconAlertCircle size={18} color="var(--mantine-color-blue-6)" />
+                                    <Text size="sm" fw={700} c="blue.9">
+                                        REMUESTREO DE LA FICHA N° {selectedEvent.id_ficha_original}
+                                    </Text>
+                                </Group>
+                            </Paper>
+                        )}
+
                         <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
                             <StaticField label="Monitoreo" value={selectedEvent.tipo_ficha} />
                             <StaticField label="Sub Área" value={selectedEvent.subarea} />
@@ -818,8 +834,8 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                         </SimpleGrid>
 
                         <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-                            <StaticField label="Contacto Empresa" value={selectedEvent.contacto} />
-                            <StaticField label="E-mail Contacto" value={selectedEvent.correo_contacto} />
+                            <StaticField label="Contacto Empresa" value={selectedEvent.contacto || ''} />
+                            <StaticField label="E-mail Contacto" value={selectedEvent.correo_contacto || ''} />
                         </SimpleGrid>
 
                         <StaticField label="Glosa / Tabla" value={selectedEvent.glosa} />

@@ -140,6 +140,10 @@ class FichaIngresoService {
             requestEnc.input('ubicacion', sql.VarChar(200), valStr(ant.ubicacion, 200));
             requestEnc.input('id_cargo', sql.Numeric(10, 0), valNum(ant.cargoResponsable));
 
+            // Remuestreo tracking
+            requestEnc.input('es_remuestreo', sql.VarChar(1), data.isRemuestreo ? 'S' : 'N');
+            requestEnc.input('id_ficha_original', sql.Numeric(10, 0), data.isRemuestreo ? valNum(data.originalFichaId) : null);
+
             const queryEnc = `
                 INSERT INTO App_Ma_FichaIngresoServicio_ENC (
                     id_fichaingresoservicio, tipo_fichaingresoservicio, fichaingresoservicio,
@@ -157,7 +161,8 @@ class FichaIngresoService {
                     hora_jefaturatecnica, coordenadas_ruta, id_validaciontecnica,
                     observaciones_jefaturatecnica, observaciones_coordinador,
                     id_usuario, fecha_fichacomercial, hora_fichacomercial,
-                    responsablemuestreo, id_cargo, observaciones_comercial, ubicacion
+                    responsablemuestreo, id_cargo, observaciones_comercial, ubicacion,
+                    es_remuestreo, id_ficha_original
                 ) VALUES (
                     @id, @tipo_ficha, @ficha_txt,
                     @id_lugaranalisis, @id_empresaservicio, @id_empresa, @id_centro, @id_tipoagua,
@@ -174,7 +179,8 @@ class FichaIngresoService {
                     @hora_jefatura, @coord_ruta, @id_val_tecnica,
                     @obs_jefatura, @obs_coordinador,
                     @id_usuario, @fecha, @hora,
-                    @responsable, @id_cargo, @obs_comercial, @ubicacion
+                    @responsable, @id_cargo, @obs_comercial, @ubicacion,
+                    @es_remuestreo, @id_ficha_original
                 )
             `;
             await requestEnc.query(queryEnc);
@@ -353,14 +359,16 @@ class FichaIngresoService {
                 } catch (e) { logger.warn('Could not fetch client name for notif', e); }
             }
 
-            unsService.trigger('FICHA_CREADA', {
+            const fichaEventCode = data.isRemuestreo ? 'FICHA_REMUESTREO_CREADA' : 'FICHA_CREADA';
+            unsService.trigger(fichaEventCode, {
                 correlativo: String(newId),
                 id_usuario_accion: userId || (data.user ? (data.user.id_usuario || data.user.id) : 0),
                 usuario_accion: notifUser,
                 cliente: nombreCliente,
                 fecha: notifFecha,
                 hora: notifHora,
-                observacion: obs || 'Sin observaciones'
+                observacion: obs || 'Sin observaciones',
+                ficha_original: data.isRemuestreo ? String(data.originalFichaId) : null
             });
 
             // AUDITORIA INMUTABLE
@@ -908,9 +916,11 @@ class FichaIngresoService {
                     m2.nombre_muestreador as muestreador_retiro,
                     f.tipo_fichaingresoservicio as tipo_ficha,
                     es.nombre_empresaservicios as empresa_servicio,
-                    es.email_empresaservicios as correo_empresa,
-                    co.nombre_contacto as contacto,
-                    co.email_contacto as correo_contacto,
+                    es.email_empresaservicios as correo_empresa_servicio,
+                    emp.nombre_empresa as cliente,
+                    emp.email_empresa as email_cliente,
+                    CASE WHEN f.id_contacto > 0 AND (co.email_contacto NOT LIKE '%adldiagnostic.cl' OR co.email_contacto IS NULL) THEN co.nombre_contacto ELSE NULL END as contacto,
+                    CASE WHEN f.id_contacto > 0 AND (co.email_contacto NOT LIKE '%adldiagnostic.cl' OR co.email_contacto IS NULL) THEN co.email_contacto ELSE NULL END as correo_contacto,
                     om.nombre_objetivomuestreo_ma as objetivo,
                     sa.nombre_subarea as subarea,
                     DAY(a.fecha_muestreo) as dia,
@@ -921,12 +931,15 @@ class FichaIngresoService {
                     f.nombre_tabla_largo as glosa,
                     a.estado_caso,
                     a.motivo_cancelacion,
-                    f.id_validaciontecnica
+                    f.id_validaciontecnica,
+                    f.es_remuestreo,
+                    f.id_ficha_original
                 FROM App_Ma_FichaIngresoServicio_ENC f
                 INNER JOIN App_Ma_Agenda_MUESTREOS a ON f.id_fichaingresoservicio = a.id_fichaingresoservicio
                 LEFT JOIN mae_muestreador m ON a.id_muestreador = m.id_muestreador
                 LEFT JOIN mae_muestreador m2 ON a.id_muestreador2 = m2.id_muestreador
                 LEFT JOIN mae_empresaservicios es ON f.id_empresaservicio = es.id_empresaservicio
+                LEFT JOIN mae_empresa emp ON f.id_empresa = emp.id_empresa
                 LEFT JOIN mae_contacto co ON f.id_contacto = co.id_contacto
                 LEFT JOIN mae_objetivomuestreo_ma om ON f.id_objetivomuestreo_ma = om.id_objetivomuestreo_ma
                 LEFT JOIN mae_subarea sa ON f.id_subarea = sa.id_subarea
@@ -1009,6 +1022,8 @@ class FichaIngresoService {
                     .input('id', sql.Numeric(10, 0), id)
                     .query(`
                     SELECT f.*,
+                        f.es_remuestreo,
+                        f.id_ficha_original,
                         e.nombre_empresaservicios,
                         em.nombre_empresa,
                         c.nombre_centro,
@@ -1029,6 +1044,17 @@ class FichaIngresoService {
                 ficha = fallbackEnc.recordset[0];
             } else {
                 ficha = resultEnc.recordset[0];
+                
+                // DATA ENRICHMENT: Si el SP no incluye campos de remuestreo, los buscamos manualmente
+                if (ficha.es_remuestreo === undefined || ficha.es_remuestreo === null) {
+                    const extraRes = await pool.request()
+                        .input('id', sql.Numeric(10, 0), id)
+                        .query('SELECT es_remuestreo, id_ficha_original FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio = @id');
+                    if (extraRes.recordset.length > 0) {
+                        ficha.es_remuestreo = extraRes.recordset[0].es_remuestreo;
+                        ficha.id_ficha_original = extraRes.recordset[0].id_ficha_original;
+                    }
+                }
             }
             // PATCH: Fetch real status from 'mae_validaciontecnica' (Correct source for Ficha Status).
             // Mapping it to 'nombre_estadomuestreo' to force Frontend display priority.
@@ -1754,8 +1780,6 @@ class FichaIngresoService {
     async getAllFichas() {
         const pool = await getConnection();
         try {
-            // Use MAM_FichaComercial_ConsultaComercial instead of ConsultaCoordinador
-            // This SP shows ALL fichas (even without agenda) and has better state mapping
             const result = await pool.request().execute('MAM_FichaComercial_ConsultaComercial');
             return result.recordset;
         } catch (error) {
@@ -1770,132 +1794,123 @@ class FichaIngresoService {
         request.input('xid_fichaingresoservicio', sql.Numeric(10, 0), id);
         request.input('xid_estadomuestreo', sql.Numeric(10, 0), estado);
 
+        let baseRows = [];
+
         try {
-            // Use SP (now fixed)
-            const result = await request.execute('MAM_FichaComercial_ConsultaCoordinadorDetalle');
+            // 1. Try to get base data from Stored Procedure
+            try {
+                const result = await request.execute('MAM_FichaComercial_ConsultaCoordinadorDetalle');
+                if (result.recordset && result.recordset.length > 0) {
+                    baseRows = result.recordset;
+                }
+            } catch (spErr) {
+                logger.warn(`SP MAM_FichaComercial_ConsultaCoordinadorDetalle failed for ficha ${id}, using fallback.`, spErr);
+            }
 
-            logger.info(`SP executed for ficha ${id}, recordset length: ${result.recordset ? result.recordset.length : 'null/undefined'} `);
-
-
-            // If SP returns empty, use fallback query without estado filter
-            if (!result.recordset || result.recordset.length === 0) {
-                logger.info(`SP returned empty for ficha ${id}, trying fallback query`);
+            // 2. If SP failed or returned empty, use Fallback Query
+            if (baseRows.length === 0) {
                 const fallbackRequest = pool.request();
                 fallbackRequest.input('xid_fichaingresoservicio', sql.Numeric(10, 0), id);
-
                 const resFallback = await fallbackRequest.query(`
-                    SELECT a.*,
-                m.nombre_muestreador,
-                m2.nombre_muestreador as nombre_muestreador2,
-                em.nombre_estadomuestreo,
-                f.nombre_frecuencia,
-                f.dias,
-                a.fecha_muestreo,
-                a.ma_muestreo_fechat as fecha_retiro,
-                a.id_muestreador2,
-                fis.fichaingresoservicio,
-                fis.tipo_fichaingresoservicio,
-                fis.ma_duracion_muestreo,
-                emp.nombre_empresa as empresa_servicio,
-                cen.nombre_centro as centro,
-                obj.nombre_objetivomuestreo_ma,
-                sub.nombre_subarea,
-                coord.nombre_coordinador
+                    SELECT a.*, 
+                           m.nombre_muestreador,
+                           em.nombre_estadomuestreo,
+                           f.nombre_frecuencia
                     FROM App_Ma_Agenda_MUESTREOS a
                     LEFT JOIN mae_muestreador m ON a.id_muestreador = m.id_muestreador
-                    LEFT JOIN mae_muestreador m2 ON a.id_muestreador2 = m2.id_muestreador
                     LEFT JOIN mae_estadomuestreo em ON a.id_estadomuestreo = em.id_estadomuestreo
                     LEFT JOIN mae_frecuencia f ON a.id_frecuencia = f.id_frecuencia
-                    LEFT JOIN App_Ma_FichaIngresoServicio_ENC fis ON a.id_fichaingresoservicio = fis.id_fichaingresoservicio
-                    LEFT JOIN mae_empresa emp ON fis.id_empresa = emp.id_empresa
-                    LEFT JOIN mae_centro cen ON fis.id_centro = cen.id_centro
-                    LEFT JOIN mae_objetivomuestreo_ma obj ON fis.id_objetivomuestreo_ma = obj.id_objetivomuestreo_ma
-                    LEFT JOIN mae_subarea sub ON fis.id_subarea = sub.id_subarea
-                    LEFT JOIN mae_coordinador coord ON a.id_coordinador = coord.id_coordinador
                     WHERE a.id_fichaingresoservicio = @xid_fichaingresoservicio
                     AND (a.estado_caso IS NULL OR a.estado_caso != 'CANCELADO')
                     ORDER BY a.id_agendamam
                 `);
-                return resFallback.recordset;
+                baseRows = resFallback.recordset;
             }
 
-            // Enrichment logic (added id_muestreador2, etc.)
+            if (!baseRows || baseRows.length === 0) return [];
 
-            // If SP returns data, enrich it with fecha_muestreo and id_muestreador2
+            // 3. ALWAYS ENRICH the base data with business fields and resampling metadata
             const enrichRequest = pool.request();
             enrichRequest.input('xid_fichaingresoservicio', sql.Numeric(10, 0), id);
 
             const enrichResult = await enrichRequest.query(`
                 SELECT
                     a.id_agendamam,
-                    a.frecuencia,
-                    a.total_servicios,
-                    a.frecuencia_factor,
                     a.fecha_muestreo,
+                    a.ma_muestreo_fechat,
                     a.fecha_retiro,
                     a.id_muestreador2,
                     a.estado_caso,
                     a.id_estadomuestreo,
+                    m.nombre_muestreador,
                     m2.nombre_muestreador as nombre_muestreador2,
-                    e.ma_duracion_muestreo
+                    e.id_fichaingresoservicio as num_ficha,
+                    e.ma_duracion_muestreo,
+                    e.es_remuestreo,
+                    e.id_ficha_original,
+                    emp.nombre_empresa as empresa_servicio,
+                    cen.nombre_centro as centro,
+                    obj.nombre_objetivomuestreo_ma as nombre_objetivomuestreo,
+                    sub.nombre_subarea,
+                    ISNULL(coord.nombre_coordinador, u_coord.nombre_usuario) as nombre_coordinador,
+                    (SELECT TOP 1 m_orig.nombre_muestreador 
+                     FROM App_Ma_Agenda_MUESTREOS a_orig 
+                     JOIN mae_muestreador m_orig ON a_orig.id_muestreador = m_orig.id_muestreador 
+                     WHERE a_orig.id_fichaingresoservicio = e.id_ficha_original
+                     ORDER BY a_orig.id_agendamam ASC) as nombre_muestreador_original,
+                    (SELECT TOP 1 a_orig.id_muestreador 
+                     FROM App_Ma_Agenda_MUESTREOS a_orig 
+                     WHERE a_orig.id_fichaingresoservicio = e.id_ficha_original
+                     ORDER BY a_orig.id_agendamam ASC) as id_muestreador_original
                 FROM App_Ma_Agenda_MUESTREOS a
-                INNER JOIN App_Ma_FichaIngresoServicio_ENC e ON a.id_fichaingresoservicio = e.id_fichaingresoservicio
+                LEFT JOIN App_Ma_FichaIngresoServicio_ENC e ON a.id_fichaingresoservicio = e.id_fichaingresoservicio
+                LEFT JOIN mae_muestreador m ON a.id_muestreador = m.id_muestreador
                 LEFT JOIN mae_muestreador m2 ON a.id_muestreador2 = m2.id_muestreador
+                LEFT JOIN mae_empresa emp ON e.id_empresa = emp.id_empresa
+                LEFT JOIN mae_centro cen ON e.id_centro = cen.id_centro
+                LEFT JOIN mae_objetivomuestreo_ma obj ON e.id_objetivomuestreo_ma = obj.id_objetivomuestreo_ma
+                LEFT JOIN mae_subarea sub ON e.id_subarea = sub.id_subarea
+                LEFT JOIN mae_coordinador coord ON a.id_coordinador = coord.id_coordinador
+                LEFT JOIN mae_usuario u_coord ON e.id_usuario = u_coord.id_usuario
                 WHERE a.id_fichaingresoservicio = @xid_fichaingresoservicio
             `);
 
-            // Merge the data
             const enrichMap = {};
             enrichResult.recordset.forEach(row => {
-                enrichMap[row.id_agendamam] = {
-                    frecuencia: row.frecuencia,
-                    total_servicios: row.total_servicios,
-                    frecuencia_factor: row.frecuencia_factor,
-                    fecha_muestreo: row.fecha_muestreo,
-                    fecha_retiro: row.fecha_retiro,
-                    id_muestreador2: row.id_muestreador2,
-                    nombre_muestreador2: row.nombre_muestreador2,
-                    ma_duracion_muestreo: row.ma_duracion_muestreo,
-                    estado_caso: row.estado_caso,
-                    id_estadomuestreo: row.id_estadomuestreo
+                enrichMap[row.id_agendamam] = row;
+            });
+
+            // 4. Merge baseRows with enrichment data
+            return baseRows.map(row => {
+                const em = enrichMap[row.id_agendamam] || {};
+                return {
+                    ...row,
+                    frecuencia: em.frecuencia || row.frecuencia || 1,
+                    total_servicios: em.total_servicios || row.total_servicios || 1,
+                    frecuencia_factor: em.frecuencia_factor || row.frecuencia_factor || 1,
+                    num_ficha: em.num_ficha || row.num_ficha,
+                    empresa_servicio: em.empresa_servicio || row.empresa_servicio,
+                    centro: em.centro || row.centro,
+                    nombre_objetivomuestreo: em.nombre_objetivomuestreo || row.nombre_objetivomuestreo,
+                    nombre_coordinador: em.nombre_coordinador || row.nombre_coordinador,
+                    nombre_subarea: em.nombre_subarea || row.nombre_subarea,
+                    fecha_muestreo: em.fecha_muestreo || row.fecha_muestreo || null,
+                    fecha_retiro: em.fecha_retiro || row.fecha_retiro || row.ma_muestreo_fechat || null,
+                    id_muestreador2: em.id_muestreador2 || row.id_muestreador2 || null,
+                    nombre_muestreador2: em.nombre_muestreador2 || row.nombre_muestreador2 || null,
+                    ma_duracion_muestreo: em.ma_duracion_muestreo !== undefined ? em.ma_duracion_muestreo : row.ma_duracion_muestreo,
+                    estado_caso: em.estado_caso || row.estado_caso || null,
+                    id_estadomuestreo: em.id_estadomuestreo || row.id_estadomuestreo || null,
+                    es_remuestreo: em.es_remuestreo !== undefined ? em.es_remuestreo : row.es_remuestreo,
+                    id_ficha_original: em.id_ficha_original !== undefined ? em.id_ficha_original : row.id_ficha_original,
+                    nombre_muestreador_original: em.nombre_muestreador_original || row.nombre_muestreador_original,
+                    id_muestreador_original: em.id_muestreador_original || row.id_muestreador_original
                 };
             });
 
-            // Add missing fields to SP results
-            const enrichedData = result.recordset.map(row => ({
-                ...row,
-                frecuencia: enrichMap[row.id_agendamam]?.frecuencia || row.frecuencia || 1,
-                total_servicios: enrichMap[row.id_agendamam]?.total_servicios || row.total_servicios || 1,
-                frecuencia_factor: enrichMap[row.id_agendamam]?.frecuencia_factor || row.frecuencia_factor || 1,
-                fecha_muestreo: enrichMap[row.id_agendamam]?.fecha_muestreo || null,
-                fecha_retiro: enrichMap[row.id_agendamam]?.fecha_retiro || null,
-                id_muestreador2: enrichMap[row.id_agendamam]?.id_muestreador2 || null,
-                nombre_muestreador2: enrichMap[row.id_agendamam]?.nombre_muestreador2 || null,
-                ma_duracion_muestreo: enrichMap[row.id_agendamam]?.ma_duracion_muestreo || null,
-                estado_caso: enrichMap[row.id_agendamam]?.estado_caso || row.estado_caso || null,
-                id_estadomuestreo: enrichMap[row.id_agendamam]?.id_estadomuestreo || row.id_estadomuestreo || null
-            }));
-
-            return enrichedData;
         } catch (err) {
-            // Fallback if SP missing (though verified earlier)
-            logger.error('SP MAM_FichaComercial_ConsultaCoordinadorDetalle failed', err);
-            // Fallback query
-            const fallbackRequest = pool.request();
-            fallbackRequest.input('xid_fichaingresoservicio', sql.Numeric(10, 0), id);
-
-            const resFallback = await fallbackRequest.query(`
-                SELECT a.*, m.nombre_muestreador,
-                em.nombre_estadomuestreo,
-                f.nombre_frecuencia
-                FROM App_Ma_Agenda_MUESTREOS a
-                LEFT JOIN mae_muestreador m ON a.id_muestreador = m.id_muestreador
-                LEFT JOIN mae_estadomuestreo em ON a.id_estadomuestreo = em.id_estadomuestreo
-                LEFT JOIN mae_frecuencia f ON a.id_frecuencia = f.id_frecuencia
-                WHERE a.id_fichaingresoservicio = @xid_fichaingresoservicio
-                ORDER BY a.id_agendamam
-                `);
-            return resFallback.recordset;
+            logger.error(`getForAssignmentDetail totally failed for ficha ${id}:`, err);
+            throw err;
         }
     }
     async batchUpdateAgenda(data) {
@@ -1912,6 +1927,7 @@ class FichaIngresoService {
             await transaction.begin();
             let successCount = 0;
             const historicalData = new Map(); // Store old values per agendamam ID
+            const processedCorrelativos = new Set(); // Evitar duplicar lógica de equipos por análisis
 
             for (const assignment of assignments) {
                 const {
@@ -1930,6 +1946,8 @@ class FichaIngresoService {
                 histRequest.input('id_agenda', sql.Numeric(10, 0), id);
                 const histResult = await histRequest.query(`
                     SELECT a.fecha_muestreo, a.ma_muestreo_fechat as fecha_retiro, 
+                           a.id_muestreador as id_muestreador_instalacion,
+                           a.id_muestreador2 as id_muestreador_retiro,
                            m1.nombre_muestreador as muestreador_instalacion,
                            m2.nombre_muestreador as muestreador_retiro
                     FROM App_Ma_Agenda_MUESTREOS a
@@ -2092,97 +2110,150 @@ class FichaIngresoService {
                     }
                 }
 
-                // 3. MANEJO DE EQUIPOS EN App_Ma_Equipos_MUESTREOS
-                // Verificamos si ya existen registros para este muestreo.
-                const checkEquiposRequest = new sql.Request(transaction);
-                checkEquiposRequest.input('idFicha', sql.Numeric(10, 0), idFichaIngresoServicio);
-                checkEquiposRequest.input('correlativo', sql.VarChar(50), frecuenciaCorrelativo);
+                // 3. MANEJO DE EQUIPOS EN App_Ma_Equipos_MUESTREOS (Lógica "Stayers Guard" V5.1)
+                const cleanCorr = (frecuenciaCorrelativo || '').trim();
+                const newInst = Number(idMuestreadorInstalacion || 0);
+                const newRet = Number(idMuestreadorRetiro || 0);
+                const newSamplers = new Set([newInst, newRet].filter(s => s > 0));
 
-                const currentEquiposResult = await checkEquiposRequest.query(`
-                    SELECT COUNT(*) as count
-                    FROM App_Ma_Equipos_MUESTREOS 
-                    WHERE id_fichaingresoservicio = @idFicha 
-                      AND frecuencia_correlativo = @correlativo
-                `);
+                if (processedCorrelativos.has(cleanCorr)) {
+                    logger.debug(`[EQUIPOS] Salto correlativo ya procesado: ${cleanCorr}`);
+                } else {
+                    processedCorrelativos.add(cleanCorr);
+                    logger.info(`[EQUIPOS] Procesando ${cleanCorr}. Muestreadores Agenda: [${Array.from(newSamplers).join(', ')}]`);
 
-                const hasEquipos = currentEquiposResult.recordset[0].count > 0;
+                    // A. SANEAR DUPLICADOS (Defensa contra registros antiguos o corruptos)
+                    const cleanReq = new sql.Request(transaction);
+                    cleanReq.input('fid', sql.Numeric(10, 0), idFichaIngresoServicio);
+                    cleanReq.input('corr', sql.VarChar(50), cleanCorr);
+                    await cleanReq.query(`
+                        WITH CTE AS (
+                            SELECT id_equipo, id_muestreador,
+                                ROW_NUMBER() OVER (PARTITION BY id_fichaingresoservicio, frecuencia_correlativo, id_equipo, id_muestreador ORDER BY version DESC) as rn
+                            FROM App_Ma_Equipos_MUESTREOS
+                            WHERE id_fichaingresoservicio = @fid AND RTRIM(frecuencia_correlativo) = @corr 
+                              AND ISNULL(estado, 'ACTIVO') = 'ACTIVO'
+                        )
+                        UPDATE e SET estado = 'DESACTIVADO'
+                        FROM App_Ma_Equipos_MUESTREOS e
+                        INNER JOIN CTE ON e.id_equipo = CTE.id_equipo AND e.id_muestreador = CTE.id_muestreador
+                        WHERE e.id_fichaingresoservicio = @fid AND RTRIM(e.frecuencia_correlativo) = @corr 
+                          AND CTE.rn > 1 AND e.estado = 'ACTIVO'
+                    `);
 
-                // REGLA:
-                // 1. Si NO tiene equipos -> Insertamos equipos de AMBOS muestreadores (instalación + retiro).
-                // 2. Si TIENE equipos y actualizarVersiones = true -> Borramos e insertamos con datos frescos del maestro.
-                // 3. Si TIENE equipos y actualizarVersiones = false/undefined -> Preservamos los existentes (versión capturada).
+                    // B. Consultar estado actual tras limpieza
+                    const currentActiveRes = await transaction.request()
+                        .input('fid', sql.Numeric(10, 0), idFichaIngresoServicio)
+                        .input('corr', sql.VarChar(50), cleanCorr)
+                        .query(`SELECT DISTINCT id_muestreador FROM App_Ma_Equipos_MUESTREOS 
+                                WHERE id_fichaingresoservicio = @fid AND RTRIM(frecuencia_correlativo) = @corr AND ISNULL(estado, 'ACTIVO') = 'ACTIVO'`);
+                    const samplersInTable = new Set(currentActiveRes.recordset.map(r => Number(r.id_muestreador)));
+                    logger.info(`[EQUIPOS] Muestreadores en Tabla para ${cleanCorr}: [${Array.from(samplersInTable).join(', ')}]`);
 
-                const shouldInsertEquipos = !hasEquipos || actualizarVersiones;
+                    const { equipmentSelections, equipmentComparisonData } = assignment;
+                    if (equipmentSelections && equipmentComparisonData && Object.keys(equipmentSelections).length > 0) {
+                        // REMUESTREO MANUAL: El usuario configura versiones específicas para el INSTALADOR
+                        logger.info(`[EQUIPOS] Configuración manual para ${cleanCorr}. Refrescando solo al instalador ${newInst}`);
+                        
+                        const deactManual = new sql.Request(transaction);
+                        deactManual.input('fid', sql.Numeric(10,0), idFichaIngresoServicio);
+                        deactManual.input('corr', sql.VarChar(50), cleanCorr);
+                        deactManual.input('sid', sql.Numeric(10,0), newInst);
+                        
+                        // Solo desactivamos los equipos del que estamos re-configurando manualmente (generalmente el instalador)
+                        await deactManual.query("UPDATE App_Ma_Equipos_MUESTREOS SET estado='DESACTIVADO' WHERE id_fichaingresoservicio=@fid AND RTRIM(frecuencia_correlativo)=@corr AND id_muestreador=@sid AND estado='ACTIVO'");
 
-                if (shouldInsertEquipos) {
-                    if (hasEquipos) {
-                        // Borrar equipos anteriores
-                        const deleteEquiposReq = new sql.Request(transaction);
-                        deleteEquiposReq.input('idFicha', sql.Numeric(10, 0), idFichaIngresoServicio);
-                        deleteEquiposReq.input('correlativo', sql.VarChar(50), frecuenciaCorrelativo);
-                        await deleteEquiposReq.query(`
-                            DELETE FROM App_Ma_Equipos_MUESTREOS 
-                            WHERE id_fichaingresoservicio = @idFicha 
-                              AND frecuencia_correlativo = @correlativo
-                        `);
-                    }
+                        for (const item of equipmentComparisonData) {
+                            const choice = equipmentSelections[item.id_equipo];
+                            if (!choice) continue;
+                            const ver = choice === 'original' ? item.version_original : item.version_nueva;
+                            
+                            const insReqManual = new sql.Request(transaction);
+                            insReqManual.input('fid', sql.Numeric(10, 0), idFichaIngresoServicio);
+                            insReqManual.input('corr', sql.VarChar(50), cleanCorr);
+                            insReqManual.input('eid', sql.Numeric(10, 0), item.id_equipo);
+                            insReqManual.input('sid', sql.Numeric(10, 0), newInst); 
+                            insReqManual.input('ver', sql.VarChar(50), ver);
+                            insReqManual.input('tfc', sql.VarChar(1), item.tienefc || null);
+                            insReqManual.input('e0', sql.Numeric(10, 1), choice === 'original' ? item.error0_original : item.error0_nueva);
+                            insReqManual.input('e15', sql.Numeric(10, 1), choice === 'original' ? item.error15_original : item.error15_nueva);
+                            insReqManual.input('e30', sql.Numeric(10, 1), choice === 'original' ? item.error30_original : item.error30_nueva);
 
-                    // Recopilar IDs de muestreadores únicos (evitar duplicados si son el mismo)
-                    const muestreadorIds = new Set();
-                    if (idMuestreadorInstalacion) muestreadorIds.add(idMuestreadorInstalacion);
-                    if (idMuestreadorRetiro && idMuestreadorRetiro !== idMuestreadorInstalacion) {
-                        muestreadorIds.add(idMuestreadorRetiro);
-                    }
-
-                    // Insertar equipos de cada muestreador
-                    const insertedEquipoIds = new Set(); // Para evitar duplicados si comparten equipos
-
-                    for (const muestreadorId of muestreadorIds) {
-                        const equiposRequest = new sql.Request(transaction);
-                        equiposRequest.input('idMuestreador', sql.Numeric(10, 0), muestreadorId);
-
-                        const equiposResult = await equiposRequest.query(`
-                            SELECT *
-                            FROM mae_equipo 
-                            WHERE id_muestreador = @idMuestreador 
-                            ORDER BY nombre
-                        `);
-
-                        for (const equipo of equiposResult.recordset) {
-                            // Evitar duplicados si ambos muestreadores comparten un equipo
-                            if (insertedEquipoIds.has(equipo.id_equipo)) continue;
-                            insertedEquipoIds.add(equipo.id_equipo);
-
-                            const equipoRequest = new sql.Request(transaction);
-
-                            equipoRequest.input('idFicha', sql.Numeric(10, 0), idFichaIngresoServicio);
-                            equipoRequest.input('correlativo', sql.VarChar(50), frecuenciaCorrelativo);
-                            equipoRequest.input('idEquipo', sql.Numeric(10, 0), equipo.id_equipo);
-                            equipoRequest.input('tieneFC', sql.VarChar(1), equipo.tienefc || null);
-                            equipoRequest.input('error0', sql.Numeric(10, 1), equipo.error0);
-                            equipoRequest.input('error15', sql.Numeric(10, 1), equipo.error15);
-                            equipoRequest.input('error30', sql.Numeric(10, 1), equipo.error30);
-                            equipoRequest.input('idMuestreador', sql.Numeric(10, 0), muestreadorId);
-                            equipoRequest.input('seleccionado', sql.VarChar(1), 'N');
-                            equipoRequest.input('usadoInstalacion', sql.VarChar(1), null);
-                            equipoRequest.input('usadoRetiro', sql.VarChar(1), null);
-                            equipoRequest.input('version', sql.VarChar(50), equipo.version || null);
-
-                            await equipoRequest.query(`
-                                INSERT INTO App_Ma_Equipos_MUESTREOS(
-                                    id_fichaingresoservicio, frecuencia_correlativo, id_equipo,
-                                    tienefc, error0, error15, error30, id_muestreador,
-                                    seleccionado, usado_instalacion, usado_retiro, version
-                                ) VALUES(
-                                    @idFicha, @correlativo, @idEquipo,
-                                    @tieneFC, @error0, @error15, @error30, @idMuestreador,
-                                    @seleccionado, @usadoInstalacion, @usadoRetiro, @version
-                                )
+                            await insReqManual.query(`
+                                INSERT INTO App_Ma_Equipos_MUESTREOS(id_fichaingresoservicio, frecuencia_correlativo, id_equipo, tienefc, error0, error15, error30, id_muestreador, seleccionado, usado_instalacion, usado_retiro, version, estado) 
+                                VALUES(@fid, @corr, @eid, @tfc, @e0, @e15, @e30, @sid, 'N', null, null, @ver, 'ACTIVO')
                             `);
+                        }
+                    } else {
+                        // ASIGNACIÓN NORMAL (Selects de la Web)
+                        if (actualizarVersiones) {
+                            await transaction.request()
+                                .input('fid', sql.Numeric(10, 0), idFichaIngresoServicio)
+                                .input('corr', sql.VarChar(50), cleanCorr)
+                                .query("UPDATE App_Ma_Equipos_MUESTREOS SET estado='DESACTIVADO' WHERE id_fichaingresoservicio=@fid AND RTRIM(frecuencia_correlativo)=@corr AND estado='ACTIVO'");
+                        }
+
+                        // 1. DESACTIVAR solo a los que se van (No están en newSamplers)
+                        for (const sId of samplersInTable) {
+                            if (!newSamplers.has(sId) || actualizarVersiones) {
+                                logger.info(`[EQUIPOS] Desactivando equipos de ${sId} en ${cleanCorr} (Ya no está en la agenda o fuerza refresh)`);
+                                await transaction.request()
+                                    .input('fid', sql.Numeric(10, 0), idFichaIngresoServicio)
+                                    .input('corr', sql.VarChar(50), cleanCorr)
+                                    .input('sid', sql.Numeric(10, 0), sId)
+                                    .query("UPDATE App_Ma_Equipos_MUESTREOS SET estado='DESACTIVADO' WHERE id_fichaingresoservicio=@fid AND RTRIM(frecuencia_correlativo)=@corr AND id_muestreador=@sid AND estado='ACTIVO'");
+                            } else {
+                                logger.info(`[EQUIPOS] Manteniendo equipos de ${sId} en ${cleanCorr} (Sigue presente en la agenda)`);
+                            }
+                        }
+
+                        // 2. INSERTAR solo a los que entran (No estaban en samplersInTable)
+                        for (const sId of newSamplers) {
+                            if (!samplersInTable.has(sId) || actualizarVersiones) {
+                                const mEqRes = await transaction.request()
+                                    .input('sid', sql.Numeric(10, 0), sId)
+                                    .query("SELECT * FROM mae_equipo WHERE id_muestreador = @sid");
+                                
+                                logger.info(`[EQUIPOS] Insertando ${mEqRes.recordset.length} equipos para el nuevo muestreador ${sId} en ${cleanCorr}`);
+
+                                for (const eq of mEqRes.recordset) {
+                                    const insReq = new sql.Request(transaction);
+                                    insReq.input('fid', sql.Numeric(10, 0), idFichaIngresoServicio);
+                                    insReq.input('corr', sql.VarChar(50), cleanCorr);
+                                    insReq.input('eid', sql.Numeric(10, 0), eq.id_equipo);
+                                    insReq.input('sid', sql.Numeric(10, 0), sId);
+                                    insReq.input('tfc', sql.VarChar(1), eq.tienefc || null);
+                                    insReq.input('e0', sql.Numeric(10, 1), eq.error0);
+                                    insReq.input('e15', sql.Numeric(10, 1), eq.error15);
+                                    insReq.input('e30', sql.Numeric(10, 1), eq.error30);
+                                    insReq.input('ver', sql.VarChar(50), eq.version || 'v1');
+
+                                    await insReq.query(`
+                                        IF NOT EXISTS (
+                                            SELECT 1 FROM App_Ma_Equipos_MUESTREOS 
+                                            WHERE id_fichaingresoservicio = @fid 
+                                              AND RTRIM(frecuencia_correlativo) = @corr 
+                                              AND id_equipo = @eid 
+                                              AND id_muestreador = @sid 
+                                              AND ISNULL(estado, 'ACTIVO') = 'ACTIVO'
+                                        )
+                                        BEGIN
+                                            INSERT INTO App_Ma_Equipos_MUESTREOS(
+                                                id_fichaingresoservicio, frecuencia_correlativo, id_equipo,
+                                                tienefc, error0, error15, error30, id_muestreador,
+                                                seleccionado, usado_instalacion, usado_retiro, version, estado
+                                            ) VALUES(
+                                                @fid, @corr, @eid,
+                                                @tfc, @e0, @e15, @e30, @sid,
+                                                'N', null, null, @ver, 'ACTIVO'
+                                            )
+                                        END
+                                    `);
+                                }
+                            }
                         }
                     }
                 }
-                // Si hasEquipos y !actualizarVersiones, no hacemos nada → preservamos datos existentes.
 
                 successCount++;
             }
@@ -2576,6 +2647,7 @@ class FichaIngresoService {
                 LEFT JOIN mae_equipo e ON ae.id_equipo = e.id_equipo
                 WHERE ae.id_fichaingresoservicio = @idFicha
                   AND ae.frecuencia_correlativo = @correlativo
+                  AND ISNULL(ae.estado, 'ACTIVO') = 'ACTIVO'
             `);
             return result.recordset;
         } catch (error) {
@@ -3236,7 +3308,10 @@ class FichaIngresoService {
                         eq.nombre, eq.codigo, e.usado_instalacion, e.usado_retiro
                     FROM App_Ma_Equipos_MUESTREOS e
                     INNER JOIN mae_equipo eq ON e.id_equipo = eq.id_equipo
-                    WHERE e.id_fichaingresoservicio = @id AND e.frecuencia_correlativo = @frecuencia AND e.seleccionado = 'S'
+                    WHERE e.id_fichaingresoservicio = @id 
+                      AND e.frecuencia_correlativo = @frecuencia 
+                      AND e.seleccionado = 'S'
+                      AND ISNULL(e.estado, 'ACTIVO') = 'ACTIVO'
                 `);
 
             // Filesystem Media Logic

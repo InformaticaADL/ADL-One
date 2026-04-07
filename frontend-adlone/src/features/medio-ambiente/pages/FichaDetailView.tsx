@@ -25,7 +25,6 @@ import {
 import {
     IconArrowLeft,
     IconDatabase,
-    IconSettings,
     IconTool,
     IconPhoto,
     IconSignature,
@@ -38,9 +37,11 @@ import {
     IconExternalLink,
     IconSend,
     IconChevronDown,
-    IconChevronUp
+    IconChevronUp,
+    IconRefresh
 } from '@tabler/icons-react';
 import { useNavStore } from '../../../store/navStore';
+import { useAuth } from '../../../contexts/AuthContext';
 import apiClient from '../../../config/axios.config';
 
 export const FichaDetailView = () => {
@@ -49,6 +50,7 @@ export const FichaDetailView = () => {
         selectedCorrelativo,
         setActiveSubmodule
     } = useNavStore();
+    const { hasPermission } = useAuth();
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -230,14 +232,16 @@ export const FichaDetailView = () => {
                     <Grid.Col span={{ base: 12, md: 2 }}>
                         <Stack gap="xs" align="flex-end">
                             <Group gap="xs">
-                                <Button
-                                    leftSection={<IconSettings size={16} />}
-                                    variant="outline"
-                                    color="gray"
-                                    onClick={() => console.log('Remuestreo')}
-                                >
-                                    Remuestreo
-                                </Button>
+                                {hasPermission('MA_COMERCIAL_REMUESTREAR') && (
+                                    <Button 
+                                        variant="light" 
+                                        color="grape" 
+                                        leftSection={<IconRefresh size={18} />}
+                                        onClick={() => setActiveSubmodule('ma-remuestreo')}
+                                    >
+                                        Remuestreo
+                                    </Button>
+                                )}
                                 <Button
                                     leftSection={<IconDownload size={16} />}
                                     variant="filled"

@@ -16,7 +16,8 @@ import {
     Box, 
     FileButton, 
     Badge,
-    Transition
+    Transition,
+    LoadingOverlay
 } from '@mantine/core';
 import { 
     IconSearch, 
@@ -53,7 +54,7 @@ const NewRequestPage: React.FC<NewRequestPageProps> = ({ onBack }) => {
     const { setPendingRequestId, setUrsInboxMode, setActiveSubmodule } = useNavStore();
     
     // Navigation
-    const goToInbox = () => setActiveSubmodule('urs_bandeja');
+    const goToInbox = () => setActiveSubmodule('');
     
     // State
     const [types, setTypes] = useState<any[]>([]);
@@ -66,6 +67,7 @@ const NewRequestPage: React.FC<NewRequestPageProps> = ({ onBack }) => {
     const [loading, setLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
+    const [createdRequestId, setCreatedRequestId] = useState<number | null>(null);
 
     useEffect(() => {
         ursService.getRequestTypes()
@@ -105,18 +107,18 @@ const NewRequestPage: React.FC<NewRequestPageProps> = ({ onBack }) => {
             
             const result = await ursService.createRequest(payload);
             
+            setCreatedRequestId(result.id_solicitud);
             setUrsInboxMode('SENT');
             setPendingRequestId(result.id_solicitud);
+            setIsSubmitting(false);
             setShowSuccess(true);
             
             setTimeout(() => {
                 goToInbox();
-            }, 2300);
+            }, 2800);
         } catch (error) {
             console.error(error);
-            // We could use notifications here too, but staying simple for now
             alert('Error al crear la solicitud');
-        } finally {
             setIsSubmitting(false);
         }
     };
@@ -132,39 +134,96 @@ const NewRequestPage: React.FC<NewRequestPageProps> = ({ onBack }) => {
         );
     }
 
-    if (showSuccess) {
-        return (
-            <Center h="80vh" style={{ overflow: 'hidden' }}>
-                <Transition transition="fade" mounted={showSuccess} duration={500}>
-                    {(styles) => (
-                        <Paper shadow="xl" p="xl" withBorder radius="md" style={{ ...styles, width: '100%' }}>
-                            <Stack align="center" gap="lg" py="xl">
-                                <div style={{ 
-                                    backgroundColor: 'var(--mantine-color-green-1)', 
-                                    borderRadius: '50%', 
-                                    padding: '20px',
-                                    display: 'flex'
-                                }}>
-                                    <IconCheck size={60} color="var(--mantine-color-green-7)" />
-                                </div>
-                                <div style={{ textAlign: 'center' }}>
-                                    <Title order={2} c="green.8">¡Solicitud Enviada!</Title>
-                                    <Text size="md" mt="xs" c="dimmed">
-                                        Tu solicitud ha sido registrada correctamente.<br />
-                                        Redirigiendo a la bandeja de salida...
-                                    </Text>
-                                </div>
-                                <Loader size="md" color="green" type="dots" />
-                            </Stack>
-                        </Paper>
-                    )}
-                </Transition>
-            </Center>
-        );
-    }
-
     return (
-        <Box p="xl" style={{ width: '100%' }}>
+        <Box p="xl" pos="relative" style={{ width: '100%' }}>
+            <LoadingOverlay 
+                visible={isSubmitting} 
+                zIndex={1000} 
+                overlayProps={{ radius: 'md', blur: 3 }} 
+                loaderProps={{ type: 'dots', size: 'xl', color: 'blue' }} 
+            />
+
+            {/* Success Overlay */}
+            {showSuccess && (
+                <Box
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        zIndex: 2000,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backdropFilter: 'blur(8px)',
+                        backgroundColor: 'rgba(255, 255, 255, 0.6)',
+                        animation: 'fadeIn 0.4s ease-out'
+                    }}
+                >
+                    <Paper
+                        shadow="xl"
+                        p="xl"
+                        radius="lg"
+                        withBorder
+                        style={{
+                            width: 420,
+                            maxWidth: '90vw',
+                            borderColor: 'var(--mantine-color-green-3)',
+                            background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(240,255,240,0.95) 100%)',
+                            animation: 'scaleIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                        }}
+                    >
+                        <Stack align="center" gap="lg" py="lg">
+                            <div style={{
+                                width: 80,
+                                height: 80,
+                                borderRadius: '50%',
+                                background: 'linear-gradient(135deg, var(--mantine-color-green-5) 0%, var(--mantine-color-teal-5) 100%)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                boxShadow: '0 8px 32px rgba(34, 197, 94, 0.3)',
+                                animation: 'bounceIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s both'
+                            }}>
+                                <IconCheck size={44} color="white" stroke={3} />
+                            </div>
+                            <Stack align="center" gap={4}>
+                                <Title order={2} style={{ letterSpacing: '-0.5px' }}>¡Solicitud Enviada!</Title>
+                                {createdRequestId && (
+                                    <Badge
+                                        size="lg"
+                                        variant="light"
+                                        color="blue"
+                                        radius="md"
+                                        style={{ fontWeight: 700, fontSize: '0.85rem' }}
+                                    >
+                                        Solicitud #{createdRequestId}
+                                    </Badge>
+                                )}
+                            </Stack>
+                            <Text size="sm" c="dimmed" ta="center" maw={300}>
+                                Tu solicitud ha sido registrada correctamente. Redirigiendo a tu solicitud...
+                            </Text>
+                            <Box w="60%" style={{ overflow: 'hidden', borderRadius: 999, backgroundColor: 'var(--mantine-color-gray-2)' }}>
+                                <div style={{
+                                    height: 4,
+                                    borderRadius: 999,
+                                    background: 'linear-gradient(90deg, var(--mantine-color-green-5), var(--mantine-color-teal-5))',
+                                    animation: 'progressBar 2.5s ease-in-out forwards'
+                                }} />
+                            </Box>
+                        </Stack>
+                    </Paper>
+                    <style>{`
+                        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+                        @keyframes scaleIn { from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: scale(1); } }
+                        @keyframes bounceIn { from { opacity: 0; transform: scale(0); } to { opacity: 1; transform: scale(1); } }
+                        @keyframes progressBar { from { width: 0%; } to { width: 100%; } }
+                    `}</style>
+                </Box>
+            )}
+
             <Paper shadow="sm" p="lg" withBorder radius="md" style={{ backgroundColor: 'var(--mantine-color-gray-0)' }}>
                 <Stack gap="xl">
                     {/* Header */}

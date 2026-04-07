@@ -47,7 +47,8 @@ import {
     IconTable,
     IconAdjustmentsHorizontal,
     IconDownload,
-    IconEdit
+    IconEdit,
+    IconHistory
 } from '@tabler/icons-react';
 
 interface Props {
@@ -325,7 +326,7 @@ const CommercialForm = ({ onBackToMenu }: { onBackToMenu: () => void }) => {
     );
 };
 
-const CommercialMenu = ({ onCreate, onConsult, onBack }: { onCreate: () => void, onConsult: () => void, onBack: () => void }) => {
+const CommercialMenu = ({ onCreate, onConsult, onHistory, onBack }: { onCreate: () => void, onConsult: () => void, onHistory: () => void, onBack: () => void }) => {
     return (
         <Box p="md" style={{ width: '100%' }}>
             <Stack gap="lg">
@@ -358,6 +359,16 @@ const CommercialMenu = ({ onCreate, onConsult, onBack }: { onCreate: () => void,
                                 color="#7950f2"
                                 onClick={onConsult}
                             />
+
+                            <ProtectedContent permission="MA_COMERCIAL_HISTORIAL_ACCESO">
+                                <SelectionCard
+                                    title="Muestreos Completados"
+                                    description="Histórico de servicios ejecutados y reportes generados. Permite realizar remuestreos."
+                                    icon={<IconHistory size={32} />}
+                                    color="#15aabf"
+                                    onClick={onHistory}
+                                />
+                            </ProtectedContent>
                         </SimpleGrid>
                     </Stack>
                 </Paper>
@@ -660,22 +671,187 @@ const ConsultarFichasView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () 
     );
 };
 
-const ComercialPageContent: React.FC<Props> = ({ onBack }) => {
-    const [viewMode, setViewMode] = useState<'menu' | 'create' | 'consult' | 'detail'>('menu');
-    const [selectedFichaId, setSelectedFichaId] = useState<number | null>(null);
-    const { pendingRequestId, setPendingRequestId } = useNavStore();
+const MuestreosCompletadosView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () => void, onViewDetail: (id: number, correlativo: string) => void }) => {
+    const { hasPermission } = useAuth();
+    const [searchId, setSearchId] = useState('');
+    const [searchCaso, setSearchCaso] = useState('');
+    const [searchCliente, setSearchCliente] = useState('');
+    const [searchEstado, setSearchEstado] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [loading, setLoading] = useState(true);
+    const [muestreos, setMuestreos] = useState<any[]>([]);
+
+    const itemsPerPage = 10;
 
     useEffect(() => {
-        if (pendingRequestId && (viewMode === 'menu' || viewMode === 'consult')) {
+        const loadMuestreos = async () => {
+            setLoading(true);
+            try {
+                const response = await fichaService.getMuestreosEjecutados();
+                
+                let data: any[] = [];
+                if (Array.isArray(response)) data = response;
+                else if (response && response.data && Array.isArray(response.data)) data = response.data;
+                else if (response && response.recordset && Array.isArray(response.recordset)) data = response.recordset;
+
+                setMuestreos(data || []);
+            } catch (error) {
+                console.error("Error loading muestreos ejecutados:", error);
+                setMuestreos([]);
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadMuestreos();
+    }, []);
+
+    const filteredMuestreos = muestreos.filter(m => {
+        const check = (val: string, search: string) => (!search || (val || '').toString().toLowerCase().includes(search.toLowerCase()));
+        return check(m.correlativo_ficha, searchId) && 
+               check(m.caso_adlab, searchCaso) && 
+               check(m.cliente, searchCliente) && 
+               check(m.estado_muestreo, searchEstado);
+    });
+
+    const totalPages = Math.ceil(filteredMuestreos.length / itemsPerPage);
+    const displayedMuestreos = filteredMuestreos.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+    return (
+        <Box p="md" style={{ width: '100%' }}>
+            <Stack gap="lg">
+                <PageHeader 
+                    title="Muestreos Completados"
+                    subtitle="Histórico de servicios ejecutados"
+                    onBack={onBackToMenu}
+                />
+
+                <Paper withBorder p="xl" radius="lg" shadow="sm">
+                    <Stack gap="md">
+                        <SimpleGrid cols={{ base: 1, sm: 4 }} spacing="sm">
+                            <TextInput
+                                label="Ficha"
+                                placeholder="Buscar por N° Ficha..."
+                                value={searchId}
+                                onChange={(e) => setSearchId(e.target.value)}
+                                size="xs"
+                            />
+                            <TextInput
+                                label="Caso"
+                                placeholder="Buscar por Caso ADL..."
+                                value={searchCaso}
+                                onChange={(e) => setSearchCaso(e.target.value)}
+                                size="xs"
+                            />
+                            <TextInput
+                                label="Cliente"
+                                placeholder="Buscar por Cliente..."
+                                value={searchCliente}
+                                onChange={(e) => setSearchCliente(e.target.value)}
+                                size="xs"
+                            />
+                            <TextInput
+                                label="Estado"
+                                placeholder="Estado muestreo..."
+                                value={searchEstado}
+                                onChange={(e) => setSearchEstado(e.target.value)}
+                                size="xs"
+                            />
+                        </SimpleGrid>
+
+                        <ScrollArea h={500} mt="md">
+                            <Table verticalSpacing="sm" highlightOnHover striped withTableBorder>
+                                <Table.Thead bg="gray.1">
+                                    <Table.Tr>
+                                        <Table.Th>Ficha</Table.Th>
+                                        <Table.Th>Caso ADL</Table.Th>
+                                        <Table.Th>Correlativo</Table.Th>
+                                        <Table.Th>Fecha</Table.Th>
+                                        <Table.Th>Cliente</Table.Th>
+                                        <Table.Th>Centro</Table.Th>
+                                        <Table.Th>Muestreador</Table.Th>
+                                        <Table.Th>Estado</Table.Th>
+                                        <Table.Th w={60}>Ver</Table.Th>
+                                    </Table.Tr>
+                                </Table.Thead>
+                                <Table.Tbody>
+                                    {loading ? (
+                                        <Table.Tr><Table.Td colSpan={9} align="center">Cargando...</Table.Td></Table.Tr>
+                                    ) : displayedMuestreos.length === 0 ? (
+                                        <Table.Tr><Table.Td colSpan={9} align="center">Sin registros</Table.Td></Table.Tr>
+                                    ) : (
+                                        displayedMuestreos.map((m, idx) => (
+                                            <Table.Tr key={idx}>
+                                                <Table.Td fw={700}>{m.correlativo_ficha}</Table.Td>
+                                                <Table.Td fw={600} c="blue">{m.caso_adlab}</Table.Td>
+                                                <Table.Td fz="xs">{m.frecuencia_correlativo}</Table.Td>
+                                                <Table.Td fz="xs">
+                                                    {m.fecha_muestreo ? new Date(m.fecha_muestreo).toLocaleDateString('es-CL') : 'S/F'}
+                                                </Table.Td>
+                                                <Table.Td fz="xs">{m.cliente}</Table.Td>
+                                                <Table.Td fz="xs">{m.centro}</Table.Td>
+                                                <Table.Td fz="xs">{m.muestreador || 'S/M'}</Table.Td>
+                                                <Table.Td>
+                                                    <Badge color="green" variant="light" size="sm">{m.estado_muestreo}</Badge>
+                                                </Table.Td>
+                                                <Table.Td>
+                                                    {hasPermission('MA_COMERCIAL_HISTORIAL_DETALLE') && (
+                                                        <ActionIcon 
+                                                            color="blue" 
+                                                            variant="light"
+                                                            onClick={() => onViewDetail(m.id_fichaingresoservicio, m.frecuencia_correlativo)}
+                                                        >
+                                                            <IconArrowRight size={18} />
+                                                        </ActionIcon>
+                                                    )}
+                                                </Table.Td>
+                                            </Table.Tr>
+                                        ))
+                                    )}
+                                </Table.Tbody>
+                            </Table>
+                        </ScrollArea>
+
+                        <Group justify="space-between" mt="md">
+                            <Text size="xs" c="dimmed">Mostrando {displayedMuestreos.length} de {filteredMuestreos.length} registros</Text>
+                            <Pagination total={totalPages} value={currentPage} onChange={setCurrentPage} size="sm" radius="md" />
+                        </Group>
+                    </Stack>
+                </Paper>
+            </Stack>
+        </Box>
+    );
+};
+
+const ComercialPageContent: React.FC<Props> = ({ onBack }) => {
+    const { 
+        maComercialMode: viewMode, 
+        setMaComercialMode: setViewMode,
+        setSelectedFicha,
+        setActiveSubmodule,
+        pendingRequestId,
+        setPendingRequestId
+    } = useNavStore();
+    
+    const [selectedFichaId, setSelectedFichaId] = useState<number | null>(null);
+
+    useEffect(() => {
+        if (pendingRequestId && (viewMode === 'menu' || viewMode === 'consult' || viewMode === 'history')) {
             setSelectedFichaId(pendingRequestId);
+            setSelectedFicha(pendingRequestId, null);
             setViewMode('detail');
             setPendingRequestId(null);
         }
-    }, [pendingRequestId, viewMode, setPendingRequestId]);
+    }, [pendingRequestId, viewMode, setPendingRequestId, setSelectedFicha]);
 
     const handleViewDetail = (id: number) => {
         setSelectedFichaId(id);
+        setSelectedFicha(id, null);
         setViewMode('detail');
+    };
+
+    const handleViewExecutionDetail = (id: number, correlativo: string) => {
+        setSelectedFicha(id, correlativo);
+        setActiveSubmodule('ma-ficha-detalle'); // This is the correct ID used in DashboardPage.tsx
     };
 
     if (viewMode === 'menu') {
@@ -683,6 +859,7 @@ const ComercialPageContent: React.FC<Props> = ({ onBack }) => {
             <CommercialMenu
                 onCreate={() => setViewMode('create')}
                 onConsult={() => setViewMode('consult')}
+                onHistory={() => setViewMode('history')}
                 onBack={onBack}
             />
         );
@@ -690,6 +867,15 @@ const ComercialPageContent: React.FC<Props> = ({ onBack }) => {
 
     if (viewMode === 'create') {
         return <CommercialForm onBackToMenu={() => setViewMode('menu')} />;
+    }
+
+    if (viewMode === 'history') {
+        return (
+            <MuestreosCompletadosView
+                onBackToMenu={() => setViewMode('menu')}
+                onViewDetail={handleViewExecutionDetail}
+            />
+        );
     }
 
     if (viewMode === 'consult') {

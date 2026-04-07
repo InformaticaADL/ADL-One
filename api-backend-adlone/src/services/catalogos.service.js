@@ -52,7 +52,7 @@ export const catalogosService = {
 
       if (idEmpresaServicio) {
         // Find contacts for all companies under this service company
-        const query = "SELECT * FROM maestro_contacto WHERE id_empresa IN (SELECT id_empresa FROM mae_empresa WHERE id_empresaservicio = " + Number(idEmpresaServicio) + ")";
+        const query = "SELECT * FROM mae_contacto WHERE id_empresa IN (SELECT id_empresa FROM mae_empresa WHERE id_empresaservicio = " + Number(idEmpresaServicio) + ")";
         const result = await request.query(query);
         logger.info(`Contactos for empresa_servicio ${idEmpresaServicio}: ${result.recordset.length} records`);
         return result.recordset;

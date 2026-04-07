@@ -57,7 +57,7 @@ import { HelpCenter } from '../common/HelpCenter';
 const FIXED_TOP_MODULES = [
     { label: 'Solicitudes', icon: IconClipboardList, id: 'solicitudes' },
     { label: 'Notificaciones', icon: IconBell, id: 'notificaciones' },
-    { label: 'Chat', icon: IconMessageCircle, id: 'chat' },
+    { label: 'Chat / Mensajes', icon: IconMessageCircle, id: 'chat' },
 ];
 
 const FIXED_BOTTOM_MODULES: any[] = [];
@@ -206,7 +206,7 @@ export function LinksGroup({
 const MODULES = [
     {
         id: 'gem',
-        label: 'GEM',
+        label: 'Ensayo Molecular',
         icon: IconDiamond,
         group: 'unidades',
         permission: 'GEM_ACCESO',
@@ -235,9 +235,9 @@ const MODULES = [
             { label: 'Gestión de Muestreadores', id: 'admin-muestreadores', permission: 'MA_MUESTREADORES' },
         ]
     },
-    { id: 'atl', label: 'ATL', icon: IconTruckDelivery, group: 'unidades', permission: 'ATL_ACCESO' },
-    { id: 'id', label: 'I+D', icon: IconBulb, group: 'unidades', permission: 'ID_ACCESO' },
-    { id: 'pve', label: 'PVE', icon: IconStethoscope, group: 'unidades', permission: 'PVE_ACCESO' },
+    { id: 'atl', label: 'Área Técnica Local', icon: IconTruckDelivery, group: 'unidades', permission: 'ATL_ACCESO' },
+    { id: 'id', label: 'Investigación + D', icon: IconBulb, group: 'unidades', permission: 'ID_ACCESO' },
+    { id: 'pve', label: 'Vigilancia Epi.', icon: IconStethoscope, group: 'unidades', permission: 'PVE_ACCESO' },
     { id: 'informatica', label: 'Informática', icon: IconCpu, group: 'unidades', permission: 'INF_ACCESO' },
     { id: 'comercial', label: 'Comercial', icon: IconChartBar, group: 'unidades', permission: 'COM_ACCESO' },
     {
@@ -255,7 +255,7 @@ const MODULES = [
 
     {
         id: 'admin_informacion',
-        label: 'Adm. Información',
+        label: 'Administración',
         icon: IconSettings,
         group: 'gestion',
         permission: 'AI_ACCESO'

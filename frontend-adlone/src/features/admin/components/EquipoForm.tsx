@@ -799,81 +799,84 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                 )}
                             </Stack>
                         </Stepper.Step>
-                        <Stepper.Step label="Revisión Masiva" description="Confirmar seriales">
-                            <Stack gap="md" mt="md">
-                                <Alert color="blue" icon={<IconInfoCircle size={18} />}>
-                                    Se generarán {bulkQuantity} equipos basados en la plantilla. Puedes ajustar los códigos y sedes individualmente antes de confirmar.
-                                </Alert>
-                                <Paper withBorder radius="md" style={{ overflow: 'hidden' }}>
-                                    <ScrollArea h={400}>
-                                        <Table highlightOnHover verticalSpacing="xs">
-                                            <Table.Thead bg="gray.1">
-                                                <Table.Tr>
-                                                    <Table.Th w={40}>#</Table.Th>
-                                                    <Table.Th style={{ minWidth: '150px' }}>Código</Table.Th>
-                                                    <Table.Th style={{ minWidth: '140px' }}>Ubicación</Table.Th>
-                                                    <Table.Th style={{ minWidth: '130px' }}>Vigencia</Table.Th>
-                                                    <Table.Th w={60}>Obs.</Table.Th>
-                                                </Table.Tr>
-                                            </Table.Thead>
-                                            <Table.Tbody>
-                                                {bulkItems.map((item, idx) => (
-                                                    <Table.Tr key={idx}>
-                                                        <Table.Td>{idx + 1}</Table.Td>
-                                                        <Table.Td>
-                                                            <TextInput 
-                                                                size="xs" 
-                                                                value={item.codigo} 
-                                                                onChange={(e) => {
-                                                                    const n = [...bulkItems];
-                                                                    n[idx].codigo = e.target.value;
-                                                                    setBulkItems(n);
-                                                                }}
-                                                            />
-                                                        </Table.Td>
-                                                        <Table.Td>
-                                                            <Select 
-                                                                size="xs" 
-                                                                data={sedeOptions} 
-                                                                value={item.ubicacion}
-                                                                onChange={(v) => {
-                                                                    const n = [...bulkItems];
-                                                                    n[idx].ubicacion = v;
-                                                                    const fc = n[idx].correlativo < 10 ? `0${n[idx].correlativo}` : `${n[idx].correlativo}`;
-                                                                    n[idx].codigo = `${n[idx].sigla}.${fc}/MA.${v}`;
-                                                                    setBulkItems(n);
-                                                                }}
-                                                            />
-                                                        </Table.Td>
-                                                        <Table.Td>
-                                                            <TextInput 
-                                                                type="date" 
-                                                                size="xs" 
-                                                                value={item.vigencia}
-                                                                onChange={(e) => {
-                                                                    const n = [...bulkItems];
-                                                                    n[idx].vigencia = e.target.value;
-                                                                    setBulkItems(n);
-                                                                }}
-                                                            />
-                                                        </Table.Td>
-                                                        <Table.Td>
-                                                            <ActionIcon 
-                                                                variant="subtle" 
-                                                                color={item.observacion ? 'blue' : 'gray'}
-                                                                onClick={() => { setEditingObsIdx(idx); setEditingObsText(item.observacion || ''); }}
-                                                            >
-                                                                <IconEdit size={16} />
-                                                            </ActionIcon>
-                                                        </Table.Td>
+                        {!initialData?.id_equipo && (
+                            <Stepper.Step label="Revisión Masiva" description="Confirmar seriales">
+                                <Stack gap="md" mt="md">
+                                    <Alert color="blue" icon={<IconInfoCircle size={18} />}>
+                                        Se generarán {bulkQuantity} equipos basados en la plantilla. Puedes ajustar los códigos y sedes individualmente antes de confirmar.
+                                    </Alert>
+                                    <Paper withBorder radius="md" style={{ overflow: 'hidden' }}>
+                                        <ScrollArea h={400}>
+                                            <Table highlightOnHover verticalSpacing="xs">
+                                                <Table.Thead bg="gray.1">
+                                                    <Table.Tr>
+                                                        <Table.Th w={40}>#</Table.Th>
+                                                        <Table.Th style={{ minWidth: '150px' }}>Código</Table.Th>
+                                                        <Table.Th style={{ minWidth: '140px' }}>Ubicación</Table.Th>
+                                                        <Table.Th style={{ minWidth: '130px' }}>Vigencia</Table.Th>
+                                                        <Table.Th w={60}>Obs.</Table.Th>
                                                     </Table.Tr>
-                                                ))}
-                                            </Table.Tbody>
-                                        </Table>
-                                    </ScrollArea>
-                                </Paper>
-                            </Stack>
-                        </Stepper.Step>
+                                                </Table.Thead>
+                                                <Table.Tbody>
+                                                    {bulkItems.map((item, idx) => (
+                                                        <Table.Tr key={idx}>
+                                                            <Table.Td>{idx + 1}</Table.Td>
+                                                            <Table.Td>
+                                                                <TextInput 
+                                                                    size="xs" 
+                                                                    value={item.codigo} 
+                                                                    onChange={(e) => {
+                                                                        const n = [...bulkItems];
+                                                                        n[idx].codigo = e.target.value;
+                                                                        setBulkItems(n);
+                                                                    }}
+                                                                />
+                                                            </Table.Td>
+                                                            <Table.Td>
+                                                                <Select 
+                                                                    size="xs" 
+                                                                    data={sedeOptions} 
+                                                                    value={item.ubicacion}
+                                                                    onChange={(v) => {
+                                                                        const n = [...bulkItems];
+                                                                        n[idx].ubicacion = v;
+                                                                        const fc = n[idx].correlativo < 10 ? `0${n[idx].correlativo}` : `${n[idx].correlativo}`;
+                                                                        n[idx].codigo = `${n[idx].sigla}.${fc}/MA.${v}`;
+                                                                        setBulkItems(n);
+                                                                    }}
+                                                                />
+                                                            </Table.Td>
+                                                            <Table.Td>
+                                                                <TextInput 
+                                                                    type="date" 
+                                                                    size="xs" 
+                                                                    value={item.vigencia}
+                                                                    onChange={(e) => {
+                                                                        const n = [...bulkItems];
+                                                                        n[idx].vigencia = e.target.value;
+                                                                        setBulkItems(n);
+                                                                    }}
+                                                                />
+                                                            </Table.Td>
+                                                            <Table.Td>
+                                                                <ActionIcon 
+                                                                    variant="subtle" 
+                                                                    color={item.observacion ? 'blue' : 'gray'}
+                                                                    onClick={() => { setEditingObsIdx(idx); setEditingObsText(item.observacion || ''); }}
+                                                                >
+                                                                    <IconEdit size={16} />
+                                                                </ActionIcon>
+                                                            </Table.Td>
+                                                        </Table.Tr>
+                                                    ))}
+                                                </Table.Tbody>
+                                            </Table>
+                                        </ScrollArea>
+                                    </Paper>
+                                </Stack>
+                            </Stepper.Step>
+                        )}
+
                     </Stepper>
                     <Divider mt="xl" />
                     <Group justify="space-between">

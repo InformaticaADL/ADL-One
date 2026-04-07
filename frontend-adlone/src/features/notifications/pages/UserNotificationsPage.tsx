@@ -20,6 +20,7 @@ import {
 } from '@tabler/icons-react';
 import { useNotificationStore, type Notification } from '../../../store/notificationStore';
 import { useNavStore } from '../../../store/navStore';
+import { handleNotificationNavigation } from '../utils/notificationNavigation';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
 
@@ -27,7 +28,10 @@ dayjs.locale('es');
 
 export const UserNotificationsPage = () => {
     const { notifications, fetchNotifications, markAsRead } = useNotificationStore();
-    const { setActiveModule, setActiveSubmodule, setPendingRequestId, setSelectedRequestId } = useNavStore();
+    const { 
+        setActiveModule, setActiveSubmodule, 
+        setPendingRequestId, setPendingChatId, setSelectedRequestId 
+    } = useNavStore();
 
     useEffect(() => {
         fetchNotifications();
@@ -38,50 +42,13 @@ export const UserNotificationsPage = () => {
             await markAsRead(notif.id_notificacion);
         }
 
-        if (notif.id_referencia) {
-            const titulo = notif.titulo.toLowerCase();
-            const area = (notif.area || '').toLowerCase();
-            
-            // Solicitudes: always go to URS inbox with request selected
-            // Solicitudes / URS / Avisos Móviles
-            const isRequest = 
-                titulo.includes('solicitud') || 
-                titulo.includes('estado') || 
-                titulo.includes('derivación') || 
-                titulo.includes('derivacion') || 
-                titulo.includes('baja') ||
-                titulo.includes('traspaso') ||
-                titulo.includes('asignación') ||
-                titulo.includes('equipo') ||
-                titulo.includes('reporte') ||
-                titulo.includes('consulta') ||
-                titulo.includes('extravío') ||
-                titulo.includes('extravio') ||
-                titulo.includes('problema') ||
-                titulo.includes('anulación') ||
-                titulo.includes('anulacion') ||
-                titulo.includes('servicio') ||
-                area === 'urs' || 
-                area === 'solicitudes';
-
-            if (isRequest) {
-                setSelectedRequestId(notif.id_referencia);
-                setActiveModule('solicitudes');
-                setActiveSubmodule('');
-            }
-            // Fichas: go to role-specific page
-            else if (titulo.includes('ficha') || area === 'fichas') {
-                setPendingRequestId(notif.id_referencia);
-                setActiveModule('medio_ambiente');
-                setActiveSubmodule('');
-            }
-            // Fallback: still route to solicitudes as it is the most likely destination for ID references
-            else {
-                setSelectedRequestId(notif.id_referencia);
-                setActiveModule('solicitudes');
-                setActiveSubmodule('');
-            }
-        }
+        handleNotificationNavigation(notif, {
+            setActiveModule,
+            setActiveSubmodule,
+            setPendingRequestId,
+            setPendingChatId,
+            setSelectedRequestId
+        });
     };
 
     const getIcon = (tipo: string) => {
@@ -91,6 +58,16 @@ export const UserNotificationsPage = () => {
             case 'ERROR': return <IconCircleX size={20} color="var(--mantine-color-red-6)" />;
             default: return <IconInfoCircle size={20} color="var(--mantine-color-blue-6)" />;
         }
+    };
+
+    const formatTitle = (title: string) => {
+        if (!title) return '';
+        // Reemplazar guiones bajos por espacios y limpiar el prefijo "Aviso: " si es un código interno
+        let cleanTitle = title;
+        if (title.includes('_')) {
+            cleanTitle = title.replace(/^Aviso:\s*/, '').replace(/_/g, ' ');
+        }
+        return cleanTitle;
     };
 
     // Grouping logic
@@ -175,8 +152,9 @@ export const UserNotificationsPage = () => {
                                             <div style={{ flex: 1 }}>
                                                 <Group justify="space-between" mb={4}>
                                                     <Text size="sm" fw={700} c={notif.leido ? 'dark.4' : 'dark.7'}>
-                                                        {notif.titulo}
+                                                        {formatTitle(notif.titulo)}
                                                     </Text>
+
                                                     <Text size="xs" c="dimmed">
                                                         {dayjs(notif.fecha).format('HH:mm')}
                                                     </Text>

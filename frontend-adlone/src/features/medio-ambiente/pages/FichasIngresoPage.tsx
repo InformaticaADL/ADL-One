@@ -12,20 +12,26 @@ import { SelectionCard } from '../components/SelectionCard';
 import { ComercialPage } from './ComercialPage';
 import { TecnicaPage } from './TecnicaPage';
 import { CoordinacionPage } from './CoordinacionPage';
+import { useAuth } from '../../../contexts/AuthContext';
 import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 import { useNavStore } from '../../../store/navStore';
 
 export const FichasIngresoPage = () => {
+    const { user, hasPermission } = useAuth();
     const { maArea, setMaArea, pendingRequestId } = useNavStore();
 
     useEffect(() => {
-        if (pendingRequestId && !maArea) {
-            // Intentamos adivinar el área. Por ahora comercial si no hay más info,
-            // o técnica si el usuario tiene permisos y la ficha lo sugiere.
-            // Para simplificar, abrimos comercial como default de entrada.
-            setMaArea('tecnica'); // Priorizamos técnica para aprobaciones
+        // Solo intentar autoseleccionar si hay un request pendiente Y el usuario está cargado
+        if (pendingRequestId && !maArea && user) {
+            if (hasPermission('MA_TECNICA_ACCESO')) {
+                setMaArea('tecnica');
+            } else if (hasPermission('MA_COMERCIAL_ACCESO')) {
+                setMaArea('comercial');
+            } else if (hasPermission('MA_COORDINACION_ACCESO')) {
+                setMaArea('coordinacion');
+            }
         }
-    }, [pendingRequestId, maArea, setMaArea]);
+    }, [pendingRequestId, maArea, setMaArea, user, hasPermission]);
 
     if (maArea === 'comercial') {
         return (
