@@ -1,4 +1,4 @@
-﻿# ADL One - Sistema de Gestión Empresarial
+# ADL One - Sistema de Gestión Empresarial
 
 Sistema empresarial profesional desarrollado con arquitectura moderna y escalable.
 
@@ -781,28 +781,31 @@ Refinamiento integral del módulo de Gestión de Equipos y la experiencia de usu
     - Frontend: `EquiposPage.tsx`, `EquipoForm.tsx`, `NewRequestPage.tsx`.
 
 
+### 47. Fidelidad y Estandarización de Notificaciones URS (Abril 2026) 🔔📧
+Optimización integral del sistema de notificaciones del Unified Request System (URS), garantizando la resolución precisa de identidades, identificadores de negocio y remapeo automático de tipos para procesos de fondo.
+
+- **Resolución de Identidad y Atribución**:
+    - Eliminación de la atribución genérica "Sistema". Ahora se resuelve el nombre real del técnico solicitante o se utiliza el fallback estandarizado "Técnico en Terreno (App)".
+    - Sincronización de la lógica de identidad entre el API (`UrsService.js`) y el procesador de fondo (`scheduler.js`).
+- **Remapeo Automático (Arquitectura 3.1)**:
+    - Implementación de un motor de especialización en el servidor que detecta si una solicitud de Tipo 13 (General) contiene IDs de equipo o fichas para reclasificarla automáticamente a Tipo 14 (Equipo) o Tipo 15 (Servicio/Ficha).
+- **Correlativos de Negocio**:
+    - Las notificaciones (web y email) ahora priorizan y muestran identificadores de negocio (ej. `123-1-Pendiente-1835`) en lugar de IDs internos de base de datos, mejorando la trazabilidad para el usuario final.
+- **Estandarización de Plantillas Corporativas**:
+    - Actualización masiva de 7 plantillas URS en la base de datos para usar el nuevo diseño corporativo premium.
+    - Ubicación consistente de metadatos (Solicitante, Fecha, Hora) en la parte superior del cuerpo del correo.
+- **Refinamiento para Anulación de Servicio (Tipo 12)**:
+    - Soporte para detección de tipos acentuados ("Anulación") mediante normalización de strings (NFD).
+    - Etiquetas dinámicas basadas en contexto: cambio automático de "Equipo:" a "Servicio:" para anulaciones y consultas de fichas.
+- **Archivos Modificados**:
+    - Backend: `urs.service.js`, `uns.service.js`, `notification.service.js`, `scheduler.js`, `update_urs_templates.mjs`.
+
+---
+
 ## 📄 Estado Final del Proyecto
 ✅ **Backend**: Node.js + Express (API RESTful, Auth JWT, Notificaciones con Adjuntos, Lógica de Exportación a Excel, Auditoría Avanzada, Motor de Chat Socket.io)
 ✅ **Frontend**: React + TypeScript + Mantine UI (Calendario de Muestreos, Sistema de Temas Dinámicos, Perfil de Usuario, Módulo de Chat General, Exportador de Datos, Layout Fluido Global)
 ✅ **Base de Datos**: SQL Server (Procedimientos Almacenados optimizados, Auditoría de Equipos, Alineación de Esquemas, Logs de Auditoría Global, Esquema de Mensajería)
-on corrección de capitalización.
-  - Nuevas rutas y lógica de permisos granulares (`MA_COMERCIAL_HISTORIAL_ACCESO`, `MA_COMERCIAL_HISTORIAL_DETALLE`).
 
-- **Frontend**:
-  - Integrado `ProtectedContent` y el hook `hasPermission` para control de acceso.
-  - Refactor de `Sidebar.tsx` con micro‑animaciones y tipografía *Inter*.
-  - Mejoras de hidratación de datos en los formularios de remuestreo.
-  - Actualizaciones de UI en múltiples componentes (AssignmentDetailView, CommercialDetailView, CoordinationDetailView, etc.) con +1 287 inserciones y -577 eliminaciones.
-  - Refactor responsive de la gestión de usuarios: tarjetas móviles, diseño premium.
-
-- **Configuración**:
-  - Interceptor Axios en `axios.config.ts` para autorización y manejo de errores.
-  - Nuevos servicios y componentes de archivo (`FileIcon.tsx`).
-
-Estos cambios siguen el estilo y la estética premium del proyecto.
-
-
-## 📄 Estado Final del Proyecto
-✅ **Backend**: Node.js + Express (API RESTful, Auth JWT, Notificaciones con Adjuntos, Lógica de Exportación a Excel, Auditoría Avanzada, Motor de Chat Socket.io)
-✅ **Frontend**: React + TypeScript + Mantine UI (Calendario de Muestreos, Sistema de Temas Dinámicos, Perfil de Usuario, Módulo de Chat General, Exportador de Datos, Layout Fluido Global)
-✅ **Base de Datos**: SQL Server (Procedimientos Almacenados optimizados, Auditoría de Equipos, Alineación de Esquemas, Logs de Auditoría Global, Esquema de Mensajería)
+---
+*Este proyecto sigue el estilo y la estética premium ADL ONE.*

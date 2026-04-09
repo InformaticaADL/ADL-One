@@ -1,25 +1,22 @@
 import { getConnection } from './src/config/database.js';
+import sql from 'mssql';
 
 async function run() {
     try {
         const pool = await getConnection();
-        // Check mae_notificacion_regla
-        const resRegla = await pool.request().query("SELECT TOP 1 * FROM mae_notificacion_regla");
-        console.log('--- MAE_NOTIFICACION_REGLA ---');
-        console.log(JSON.stringify(resRegla.recordset, null, 2));
         
-        // Check mae_evento (if exists)
-        try {
-            const resEvento = await pool.request().query("SELECT TOP 1 * FROM mae_evento_notificacion");
-            console.log('--- MAE_EVENTO_NOTIFICACION ---');
-            console.log(JSON.stringify(resEvento.recordset, null, 2));
-        } catch(e) {}
+        console.log('--- Notificacion Eventos (TEMPLATES) ---');
+        const eventRes = await pool.request().query("SELECT codigo_evento, asunto_template, cuerpo_template_html FROM mae_evento_notificacion WHERE codigo_evento IN ('AVISO_PERDIDO_NUEVO', 'AVISO_PROBLEMA_NUEVO', 'AVISO_CANCELACION_NUEVA')");
+        console.log(JSON.stringify(eventRes.recordset, null, 2));
 
-        process.exit(0);
+        console.log('\n--- Recent Web Notifications ---');
+        const notifRes = await pool.request().query("SELECT TOP 5 * FROM mae_notificacion ORDER BY fecha_creacion DESC");
+        console.log(JSON.stringify(notifRes.recordset, null, 2));
+
     } catch (e) {
-        console.error(e);
-        process.exit(1);
+        console.log('ERROR:', e.message);
+    } finally {
+        process.exit();
     }
 }
-
 run();

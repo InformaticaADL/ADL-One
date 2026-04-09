@@ -151,167 +151,133 @@ class UnsService {
             // Global CC for Email
             const globalCC = dispatchRes.recordset[0]?.global_cc || null;
 
+            const defaultWebTemplates = {
+                'SOLICITUD_NUEVA': {
+                    titulo: 'Nueva Solicitud: {{nombre_tipo}}',
+                    asunto_template: 'Nueva Solicitud: {{nombre_tipo}}',
+                    mensaje: 'Recibida #{{id_solicitud}} de {{solicitante}}. Prioridad: {{prioridad}}',
+                    cuerpo_mensaje: 'Recibida #{{id_solicitud}} de {{solicitante}}. Prioridad: {{prioridad}}'
+                },
+                'SOLICITUD_ESTADO_CAMBIO': {
+                    titulo: 'Estado Actualizado: #{{correlativo}}',
+                    asunto_template: 'Solicitud #{{correlativo}} {{estado}}',
+                    mensaje: 'Tu solicitud ha cambiado a estado: {{estado_legible}}. {{usuario_accion}}: {{observaciones}}',
+                    cuerpo_mensaje: 'La solicitud #{{correlativo}} de {{nombre_tipo}} ha sido {{estado}} por {{usuario_accion}}'
+                },
+                'SOLICITUD_COMENTARIO_NUEVO': {
+                    titulo: 'Nuevo Mensaje en #{{correlativo}}',
+                    asunto_template: 'Nuevo Mensaje en #{{correlativo}}',
+                    mensaje: 'Has recibido un nuevo comentario de {{usuario_accion}} en tu solicitud.',
+                    cuerpo_mensaje: 'Has recibido un nuevo comentario de {{usuario_accion}} en tu solicitud.'
+                },
+                'SOLICITUD_DERIVACION': {
+                    titulo: 'Solicitud #{{correlativo}} Derivada',
+                    asunto_template: 'Solicitud #{{correlativo}} Derivada',
+                    mensaje: 'La solicitud #{{correlativo}} te ha sido derivada por {{usuario_accion}}',
+                    cuerpo_mensaje: 'La solicitud #{{correlativo}} te ha sido derivada por {{usuario_accion}}'
+                },
+                'SOL_TRASPASO_MUESTREADOR_NUEVA': {
+                    titulo: 'Nueva Solicitud: Traspaso de Equipo',
+                    asunto_template: 'Nueva Solicitud: Traspaso de Equipo',
+                    mensaje: '{{usuario_accion}} ha solicitado el traspaso del equipo {{equipo_nombre}} a {{nombre_muestreador_destino}}',
+                    cuerpo_mensaje: '{{usuario_accion}} ha solicitado el traspaso del equipo {{equipo_nombre}} a {{nombre_muestreador_destino}}'
+                },
+                'SOL_TRASPASO_SEDE_NUEVA': {
+                    titulo: 'Nueva Solicitud: Traspaso de Ubicación',
+                    asunto_template: 'Nueva Solicitud: Traspaso de Ubicación',
+                    mensaje: '{{usuario_accion}} ha solicitado el traspaso del equipo {{equipo_nombre}} a {{nombre_centro_destino}}',
+                    cuerpo_mensaje: '{{usuario_accion}} ha solicitado el traspaso del equipo {{equipo_nombre}} a {{nombre_centro_destino}}'
+                },
+                'SOL_TRASPASO_AMBOS_NUEVA': {
+                    titulo: 'Nueva Solicitud: Traspaso de Equipo',
+                    asunto_template: 'Nueva Solicitud: Traspaso de Equipo',
+                    mensaje: '{{usuario_accion}} ha solicitado el traspaso del equipo {{equipo_nombre}}',
+                    cuerpo_mensaje: '{{usuario_accion}} ha solicitado el traspaso del equipo {{equipo_nombre}}'
+                },
+                'SOL_DESHABILITAR_MUESTREADOR_NUEVA': {
+                    titulo: 'Nueva Solicitud: Deshabilitar Muestreador',
+                    asunto_template: 'Nueva Solicitud: Deshabilitar Muestreador',
+                    mensaje: '{{usuario_accion}} solicita deshabilitar a {{muestreador_origen_nombre}}',
+                    cuerpo_mensaje: '{{usuario_accion}} solicita deshabilitar a {{muestreador_origen_nombre}}'
+                },
+                'SOL_EQUIPO_BAJA_NUEVA': {
+                    titulo: 'Nueva Solicitud: Baja de Equipo',
+                    asunto_template: 'Nueva Solicitud: Baja de Equipo',
+                    mensaje: '{{usuario_accion}} ha solicitado la baja del equipo {{equipo_nombre}}',
+                    cuerpo_mensaje: '{{usuario_accion}} ha solicitado la baja del equipo {{equipo_nombre}}'
+                },
+                'SOL_EQUIPO_ALTA_NUEVA': {
+                    titulo: 'Nueva Solicitud: Activación de Equipo',
+                    asunto_template: 'Nueva Solicitud: Activación de Equipo',
+                    mensaje: '{{usuario_accion}} solicita activar un nuevo equipo',
+                    cuerpo_mensaje: '{{usuario_accion}} solicita activar un nuevo equipo'
+                },
+                'SOL_EQUIPO_NUEVO_EQUIPO_NUEVA': {
+                    titulo: 'Nueva Solicitud: Equipo Nuevo',
+                    asunto_template: 'Nueva Solicitud: Equipo Nuevo',
+                    mensaje: '{{usuario_accion}} ha solicitado la adquisición de un nuevo equipo',
+                    cuerpo_mensaje: '{{usuario_accion}} ha solicitado la adquisición de un nuevo equipo'
+                },
+                'SOL_EQUIPO_REPORTE_PROBLEMA_NUEVA': {
+                    titulo: 'Nueva Solicitud: Reporte de Problema',
+                    asunto_template: 'Nueva Solicitud: Reporte de Problema',
+                    mensaje: '{{usuario_accion}} ha reportado un problema con el equipo {{equipo_nombre}}',
+                    cuerpo_mensaje: '{{usuario_accion}} ha reportado un problema con el equipo {{equipo_nombre}}'
+                },
+                'FICHA_CREADA': {
+                    titulo: 'Nueva Ficha Comercial #{{correlativo}}',
+                    asunto_template: 'Nueva Ficha Comercial #{{correlativo}}',
+                    mensaje: '{{usuario_accion}} ha creado una nueva ficha para {{cliente}}',
+                    cuerpo_mensaje: '{{usuario_accion}} ha creado una nueva ficha para {{cliente}}'
+                },
+                'AVISO_PERDIDO_NUEVO': {
+                    titulo: 'Reporte de Extravío/Robo',
+                    mensaje: '{{usuario_accion}} reportó el extravío del equipo {{equipo_nombre}}. Fecha suceso: {{fecha_suceso}}'
+                },
+                'AVISO_PROBLEMA_NUEVO': {
+                    titulo: 'Aviso de Problema Técnico',
+                    mensaje: '{{usuario_accion}} reportó un problema con el equipo {{equipo_nombre}}'
+                },
+                'AVISO_CONSULTA_NUEVA': {
+                    titulo: 'Nueva Consulta General',
+                    mensaje: '{{usuario_accion}} ha enviado una consulta al sistema.'
+                },
+                'AVISO_CONSULTA_EQUIPO_NUEVA': {
+                    titulo: 'Consulta de Equipo',
+                    mensaje: '{{usuario_accion}} realizó una consulta sobre el equipo {{equipo_nombre}}'
+                },
+                'AVISO_CONSULTA_FICHA_NUEVA': {
+                    titulo: 'Consulta de Ficha',
+                    mensaje: '{{usuario_accion}} realizó una consulta técnica sobre un servicio.'
+                },
+                'AVISO_CANCELACION_NUEVA': {
+                    titulo: 'Cancelación de Muestreo',
+                    mensaje: '{{usuario_accion}} ha reportado la anulación del servicio {{CORRELATIVO}}'
+                }
+            };
+
             // 4. Despacho Web
             for (const recipient of recipients) {
                 if (recipient.web) {
                     const { id_usuario } = recipient;
                     const ctxParaWeb = { 
                         ...context, 
-                        id_solicitud: context.id_solicitud || context.id_referencia || context.correlativo || 'N/A',
-                        usuario_accion: context.usuario_accion || context.nombre_autor || 'Un usuario',
-                        correlativo: context.correlativo || context.id_solicitud || context.id_referencia || 'N/A',
+                        id_solicitud: context.id_solicitud || context.CORRELATIVO || context.correlativo || 'N/A',
+                        usuario_accion: context.usuario_accion || context.USUARIO || context.SOLICITANTE || context.nombre_solicitante || 'Un usuario',
+                        correlativo: context.id_solicitud || context.CORRELATIVO || context.correlativo || 'N/A',
                         estado_legible: context.estado ? this._formatEstado(context.estado) : 'Desconocido',
-                        // Fix 2: Alias equipo_nombre from datos_json fields
-                        equipo_nombre: context.equipo_nombre || context.nombre_equipo_full || context.nombre_equipo || ''
-                    };
-
-                    const defaultWebTemplates = {
-                        'SOLICITUD_NUEVA': {
-                            titulo: 'Nueva Solicitud: {{nombre_tipo}}',
-                            asunto_template: 'Nueva Solicitud: {{nombre_tipo}}',
-                            mensaje: 'Recibida #{{id_solicitud}} de {{solicitante}}. Prioridad: {{prioridad}}',
-                            cuerpo_mensaje: 'Recibida #{{id_solicitud}} de {{solicitante}}. Prioridad: {{prioridad}}'
-                        },
-                        'SOLICITUD_ESTADO_CAMBIO': {
-                            titulo: 'Estado Actualizado: #{{correlativo}}',
-                            asunto_template: 'Solicitud #{{correlativo}} {{estado}}',
-                            mensaje: 'Tu solicitud ha cambiado a estado: {{estado_legible}}. {{usuario_accion}}: {{observaciones}}',
-                            cuerpo_mensaje: 'La solicitud #{{correlativo}} de {{nombre_tipo}} ha sido {{estado}} por {{usuario_accion}}'
-                        },
-                        'SOLICITUD_COMENTARIO_NUEVO': {
-                            titulo: 'Nuevo Mensaje en #{{correlativo}}',
-                            asunto_template: 'Nuevo Mensaje en #{{correlativo}}',
-                            mensaje: 'Has recibido un nuevo comentario de {{usuario_accion}} en tu solicitud.',
-                            cuerpo_mensaje: 'Has recibido un nuevo comentario de {{usuario_accion}} en tu solicitud.'
-                        },
-                        'SOLICITUD_DERIVACION': {
-                            titulo: 'Solicitud #{{correlativo}} Derivada',
-                            asunto_template: 'Solicitud #{{correlativo}} Derivada',
-                            mensaje: 'La solicitud #{{correlativo}} te ha sido derivada por {{usuario_accion}}',
-                            cuerpo_mensaje: 'La solicitud #{{correlativo}} te ha sido derivada por {{usuario_accion}}'
-                        },
-                        // URS Especificos
-                        'SOL_TRASPASO_MUESTREADOR_NUEVA': {
-                            titulo: 'Nueva Solicitud: Traspaso de Equipo',
-                            asunto_template: 'Nueva Solicitud: Traspaso de Equipo',
-                            mensaje: '{{usuario_accion}} ha solicitado el traspaso del equipo {{equipo_nombre}} a {{nombre_muestreador_destino}}',
-                            cuerpo_mensaje: '{{usuario_accion}} ha solicitado el traspaso del equipo {{equipo_nombre}} a {{nombre_muestreador_destino}}'
-                        },
-                        'SOL_TRASPASO_SEDE_NUEVA': {
-                            titulo: 'Nueva Solicitud: Traspaso de Ubicación',
-                            asunto_template: 'Nueva Solicitud: Traspaso de Ubicación',
-                            mensaje: '{{usuario_accion}} ha solicitado el traspaso del equipo {{equipo_nombre}} a {{nombre_centro_destino}}',
-                            cuerpo_mensaje: '{{usuario_accion}} ha solicitado el traspaso del equipo {{equipo_nombre}} a {{nombre_centro_destino}}'
-                        },
-                        'SOL_TRASPASO_AMBOS_NUEVA': {
-                            titulo: 'Nueva Solicitud: Traspaso de Equipo',
-                            asunto_template: 'Nueva Solicitud: Traspaso de Equipo',
-                            mensaje: '{{usuario_accion}} ha solicitado el traspaso del equipo {{equipo_nombre}}',
-                            cuerpo_mensaje: '{{usuario_accion}} ha solicitado el traspaso del equipo {{equipo_nombre}}'
-                        },
-                        'SOL_DESHABILITAR_MUESTREADOR_NUEVA': {
-                            titulo: 'Nueva Solicitud: Deshabilitar Muestreador',
-                            asunto_template: 'Nueva Solicitud: Deshabilitar Muestreador',
-                            mensaje: '{{usuario_accion}} solicita deshabilitar a {{muestreador_origen_nombre}}',
-                            cuerpo_mensaje: '{{usuario_accion}} solicita deshabilitar a {{muestreador_origen_nombre}}'
-                        },
-                        'SOL_EQUIPO_BAJA_NUEVA': {
-                            titulo: 'Nueva Solicitud: Baja de Equipo',
-                            asunto_template: 'Nueva Solicitud: Baja de Equipo',
-                            mensaje: '{{usuario_accion}} ha solicitado la baja del equipo {{equipo_nombre}}',
-                            cuerpo_mensaje: '{{usuario_accion}} ha solicitado la baja del equipo {{equipo_nombre}}'
-                        },
-                        'SOL_EQUIPO_ALTA_NUEVA': {
-                            titulo: 'Nueva Solicitud: Activación de Equipo',
-                            asunto_template: 'Nueva Solicitud: Activación de Equipo',
-                            mensaje: '{{usuario_accion}} solicita activar un nuevo equipo',
-                            cuerpo_mensaje: '{{usuario_accion}} solicita activar un nuevo equipo'
-                        },
-                        'SOL_EQUIPO_NUEVO_EQUIPO_NUEVA': {
-                            titulo: 'Nueva Solicitud: Equipo Nuevo',
-                            asunto_template: 'Nueva Solicitud: Equipo Nuevo',
-                            mensaje: '{{usuario_accion}} ha solicitado la adquisición de un nuevo equipo',
-                            cuerpo_mensaje: '{{usuario_accion}} ha solicitado la adquisición de un nuevo equipo'
-                        },
-                        'FICHA_CREADA': {
-                            titulo: 'Nueva Ficha Comercial #{{correlativo}}',
-                            asunto_template: 'Nueva Ficha Comercial #{{correlativo}}',
-                            mensaje: '{{usuario_accion}} ha creado una nueva ficha para {{cliente}}',
-                            cuerpo_mensaje: '{{usuario_accion}} ha creado una nueva ficha para {{cliente}}'
-                        },
-                        'FICHA_REMUESTREO_CREADA': {
-                            titulo: 'Nueva Ficha de Remuestreo #{{correlativo}}',
-                            asunto_template: 'Nueva Ficha de Remuestreo #{{correlativo}} (Origen: Ficha #{{ficha_original}})',
-                            mensaje: '{{usuario_accion}} ha creado una nueva ficha de remuestreo para {{cliente}}, basada en la ficha original #{{ficha_original}}',
-                            cuerpo_mensaje: '{{usuario_accion}} ha creado una nueva ficha de remuestreo para {{cliente}}, basada en la ficha original #{{ficha_original}}'
-                        },
-                        'FICHA_APROBADA_TECNICA': {
-                            titulo: 'Ficha #{{correlativo}} Aprobada (Técnica)',
-                            asunto_template: 'Ficha Aprobada por Área Técnica - #{{correlativo}}',
-                            mensaje: 'La ficha #{{correlativo}} ha sido aprobada por el Área Técnica ({{usuario_accion}}).',
-                            cuerpo_mensaje: 'La ficha #{{correlativo}} ha sido aprobada por el Área Técnica ({{usuario_accion}}).'
-                        },
-                        'FICHA_RECHAZADA_TECNICA': {
-                            titulo: 'Ficha #{{correlativo}} Rechazada (Técnica)',
-                            asunto_template: 'Ficha Rechazada por Área Técnica - #{{correlativo}}',
-                            mensaje: 'La ficha #{{correlativo}} ha sido rechazada por el Área Técnica ({{usuario_accion}}).',
-                            cuerpo_mensaje: 'La ficha #{{correlativo}} ha sido rechazada por el Área Técnica ({{usuario_accion}}).'
-                        },
-                        'FICHA_APROBADA_COORDINACION': {
-                            titulo: 'Ficha #{{correlativo}} Aprobada (Coordinación)',
-                            asunto_template: 'Ficha Aprobada por Área Coordinación - #{{correlativo}}',
-                            mensaje: 'La ficha #{{correlativo}} ha sido aprobada por Coordinación ({{usuario_accion}}) y está lista para programación.',
-                            cuerpo_mensaje: 'La ficha #{{correlativo}} ha sido aprobada por Coordinación ({{usuario_accion}}) y está lista para programación.'
-                        },
-                        'FICHA_RECHAZADA_COORDINACION': {
-                            titulo: 'Ficha #{{correlativo}} Devuelta (Coordinación)',
-                            asunto_template: 'Ficha Devuelta por Área Coordinación - #{{correlativo}}',
-                            mensaje: 'La ficha #{{correlativo}} ha sido devuelta a revisión técnica por Coordinación ({{usuario_accion}}).',
-                            cuerpo_mensaje: 'La ficha #{{correlativo}} ha sido devuelta a revisión técnica por Coordinación ({{usuario_accion}}).'
-                        },
-                        'FICHA_ASIGNADA': {
-                            titulo: 'Programación Muestreo #{{correlativo}}',
-                            asunto_template: 'Programación Muestreo - Ficha #{{correlativo}}',
-                            mensaje: 'Se han asignado fechas y muestreadores para la ficha #{{correlativo}} por {{usuario_accion}}.',
-                            cuerpo_mensaje: 'Se han asignado fechas y muestreadores para la ficha #{{correlativo}} por {{usuario_accion}}.'
-                        },
-                        'FICHA_MUESTREO_REPROGRAMADO': {
-                            titulo: 'Fecha de Muestreo Reprogramado #{{correlativo}}',
-                            asunto_template: 'Fecha de Muestreo Reprogramado - Ficha #{{correlativo}}',
-                            mensaje: 'Se ha reprogramado la fecha de muestreo para la ficha #{{correlativo}} por {{usuario_accion}}.',
-                            cuerpo_mensaje: 'Se ha reprogramado la fecha de muestreo para la ficha #{{correlativo}} por {{usuario_accion}}.'
-                        },
-
-                        'SOL_EQUIPO_REPORTE_PROBLEMA_NUEVA': {
-                            titulo: 'Nueva Solicitud: Reporte de Problema',
-                            asunto_template: 'Nueva Solicitud: Reporte de Problema',
-                            mensaje: '{{usuario_accion}} ha reportado un problema con el equipo {{equipo_nombre}}',
-                            cuerpo_mensaje: '{{usuario_accion}} ha reportado un problema con el equipo {{equipo_nombre}}'
-                        },
-                        'GCHAT_NUEVO_MENSAJE': {
-                            titulo: '{{titulo_notificacion}}',
-                            asunto_template: '{{titulo_notificacion}}',
-                            mensaje: '{{mensaje_notificacion}}',
-                            cuerpo_mensaje: '{{mensaje_notificacion}}'
-                        },
-                        'GCHAT_GRUPO_CREADO': {
-                            titulo: 'Nuevo Grupo',
-                            asunto_template: 'Nuevo Grupo',
-                            mensaje: 'Has sido agregado al grupo {{nombre_grupo}}',
-                            cuerpo_mensaje: 'Has sido agregado al grupo {{nombre_grupo}}'
-                        },
-                        'GCHAT_GRUPO_EXPULSADO': {
-                            titulo: 'Aviso de Grupo',
-                            asunto_template: 'Aviso de Grupo',
-                            mensaje: 'Has sido removido del grupo {{nombre_grupo}}',
-                            cuerpo_mensaje: 'Has sido removido del grupo {{nombre_grupo}}'
-                        },
-                        'GCHAT_GRUPO_MIEMBRO_NUEVO': {
-                            titulo: 'Miembro Nuevo',
-                            asunto_template: 'Miembro Nuevo',
-                            mensaje: '{{usuario_accion}} se ha unido al grupo {{nombre_grupo}}',
-                            cuerpo_mensaje: '{{usuario_accion}} se ha unido al grupo {{nombre_grupo}}'
-                        }
+                        equipo_nombre: (() => {
+                            try {
+                                const name = context.equipo_nombre || context.nombre_equipo_full || context.equipo || 'N/A';
+                                const code = context.codigo_equipo || context.codigo_equipo_db;
+                                if (name && code && typeof name === 'string' && !name.includes('[')) return `${name} [${code}]`;
+                                return name;
+                            } catch (e) { return 'N/A'; }
+                        })(),
+                        fecha_suceso: context.fecha_suceso || context.fecha_extravio || 'N/A',
+                        fecha_extravio: context.fecha_extravio || context.fecha_suceso || 'N/A',
+                        motivo: context.observaciones || context.motivo || 'N/A',
+                        equipo: context.equipo_nombre || context.equipo || 'N/A'
                     };
 
                     // Try to find rule with web template
@@ -324,7 +290,7 @@ class UnsService {
                     const template = (ruleWithTemplate && !isGenericLocalRule) ? {
                         titulo: ruleWithTemplate.plantilla_web_titulo || `Aviso: ${codigoEvento}`,
                         mensaje: ruleWithTemplate.plantilla_web
-                    } : (defaultWebTemplates[codigoEvento] || { titulo: `Aviso: ${codigoEvento}`, mensaje: 'Nuevo evento en el sistema' });
+                    } : (defaultWebTemplates[codigoEvento] || { titulo: `Aviso: ${codigoEvento}`, mensaje: 'Nuevo aviso en el sistema' });
                     
                     let titulo = this._compileTemplate(template.titulo, ctxParaWeb);
                     let mensaje = this._compileTemplate(template.mensaje, ctxParaWeb);
@@ -374,9 +340,10 @@ class UnsService {
 
                     const enrichedContext = {
                         ...context,
-                        CORRELATIVO: context.correlativo || context.id_solicitud || context.id_referencia || 'N/A',
-                        USUARIO: context.usuario_accion || context.nombre_solicitante || context.nombre_autor || 'Sistema',
-                        SOLICITANTE: context.nombre_solicitante || context.solicitante || context.usuario_accion || context.nombre_autor || 'Usuario',
+                        ID_SOLICITUD: context.ID_SOLICITUD || context.id_solicitud || context.id_referencia || 'N/A',
+                        CORRELATIVO: context.CORRELATIVO || context.correlativo || context.id_solicitud || context.id_referencia || 'N/A',
+                        USUARIO: context.USUARIO || context.usuario_accion || context.nombre_solicitante || context.nombre_autor || 'Técnico en Terreno (App)',
+                        SOLICITANTE: context.SOLICITANTE || context.nombre_solicitante || context.solicitante || context.usuario_accion || context.nombre_autor || 'Usuario',
                         FECHA: now.toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' }),
                         HORA: now.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }),
                         TIPO_SOLICITUD: context.nombre_tipo || 'Notificación General',
@@ -608,8 +575,20 @@ class UnsService {
     _compileTemplate(template, context) {
         if (!template) return '';
         let output = template;
-        for (const [key, value] of Object.entries(context)) {
-            const val = value || '';
+        
+        // Ensure we have a working context
+        const ctx = { ...context };
+        if (ctx.datos_json && typeof ctx.datos_json === 'object') {
+            Object.assign(ctx, ctx.datos_json);
+        }
+
+        for (const [key, value] of Object.entries(ctx)) {
+            // Skip complex objects
+            if (value !== null && typeof value === 'object') continue;
+            
+            const val = (value === null || value === undefined) ? '' : String(value);
+            
+            // Handle both {{key}} and {key}
             output = output.split(`{{${key}}}`).join(val);
             output = output.split(`{{${key.toUpperCase()}}}`).join(val);
             output = output.split(`{${key}}`).join(val);
@@ -676,7 +655,9 @@ class UnsService {
 
             // EMIT SOCKET FOR REALTIME TOAST (Improved with rooms and ID)
             if (global.io) {
-                global.io.to(`user_${idUsuario}`).emit('nuevaNotificacion', {
+                const room = `user_${idUsuario}`;
+                logger.info(`[UNS] Emitting to ${room}: ${titulo}`);
+                global.io.to(room).emit('nuevaNotificacion', {
                     id_notificacion: newId,
                     id_usuario: idUsuario,
                     titulo: titulo,
@@ -686,6 +667,8 @@ class UnsService {
                     area: area,
                     fecha_creacion: new Date()
                 });
+            } else {
+                logger.warn('[UNS] Socket.io not initialized, toast skipped.');
             }
         } catch (error) {
             logger.error('Error in UnsService.sendWebNotification:', error);

@@ -3,6 +3,7 @@ import sql from 'mssql';
 import logger from '../utils/logger.js';
 import fs from 'fs';
 import path from 'path';
+import { equipoService } from './equipo.service.js';
 
 class UrsService {
     /**
@@ -264,6 +265,101 @@ class UrsService {
         try {
             await transaction.begin();
 
+            // --- ROBUST RESOLUTION LAYER (ID 466 Resiliency & Equipment Auto-fetch) ---
+            
+            // 1. Resolve Sampler Identity (Fixed for ID 466 Generic User)
+            if (Number(idSolicitante) === 466) {
+                const samplerId = datos.id_muestreador || datos.muestreador_id || datos.idMuestreador;
+                if (samplerId) {
+                    try {
+                        const samplerRes = await pool.request()
+                            .input('sid', sql.Int, Number(samplerId))
+                            .query("SELECT nombre_muestreador, correo_electronico FROM mae_muestreador WHERE id_muestreador = @sid");
+                        if (samplerRes.recordset.length > 0) {
+                            const sampler = samplerRes.recordset[0];
+                            datos.nombre_tecnico = sampler.nombre_muestreador;
+                            datos.correo_tecnico = sampler.correo_electronico;
+                            logger.info(`URS: Identified sampler ${sampler.nombre_muestreador} for generic request 466`);
+                        }
+                    } catch (idErr) {
+                        logger.error('URS: Error resolving emergency sampler identity:', idErr);
+                    }
+                }
+            }
+
+            // 2. Resolve Equipment (Ensure brackets [CODE] are always present)
+            const eqIdResolved = datos?.id_equipo || datos?.equipo_id || datos?.idEquipo || datos?.equipo;
+            if (eqIdResolved) {
+                const hasValidFullName = datos.nombre_equipo_full && datos.nombre_equipo_full.includes('[') && datos.nombre_equipo_full !== 'N/A';
+                
+                if (!hasValidFullName || !datos.codigo_equipo) {
+                    try {
+                        const eqRes = await pool.request()
+                            .input('eqId', sql.Int, Number(eqIdResolved))
+                            .query("SELECT nombre, codigo, LTRIM(RTRIM(nombre)) + ' [' + LTRIM(RTRIM(codigo)) + ']' as full_name FROM mae_equipo WHERE id_equipo = @eqId");
+                        if (eqRes.recordset.length > 0) {
+                            const eqData = eqRes.recordset[0];
+                            datos.nombre_equipo_full = eqData.full_name;
+                            datos.nombre_equipo = eqData.nombre;
+                            datos.codigo_equipo = eqData.codigo;
+                            logger.info(`URS: Resolved equipment ${eqData.full_name} for request`);
+                        }
+                    } catch (eqErr) {
+                        logger.error('URS: Error auto-fetching equipment code:', eqErr);
+                    }
+                }
+            }
+
+            // Standardize Date Formatting (DD-MM-YYYY) for DB and Notifications
+            const dateFields = ['fecha_suceso', 'fecha_extravio', 'fecha_ocurrencia', 'fecha_solicitud', 'fecha_anulacion', 'fecha_baja'];
+            dateFields.forEach(field => {
+                let val = datos[field];
+                if (val && !String(val).match(/^\d{2}-\d{2}-\d{4}$/)) {
+                    try {
+                        let d = null;
+                        if (typeof val === 'string' && val.includes('-')) {
+                            // Split ISO date manually to avoid timezone shifts
+                            const parts = val.split('T')[0].split('-');
+                            if (parts.length === 3) {
+                                if (parts[0].length === 4) d = { day: parts[2], month: parts[1], year: parts[0] };
+                                else if (parts[2].length === 4) d = { day: parts[0], month: parts[1], year: parts[2] };
+                            }
+                        }
+                        
+                        if (!d) {
+                            const dateObj = new Date(val);
+                            if (!isNaN(dateObj.getTime())) {
+                                d = {
+                                    day: String(dateObj.getUTCDate()).padStart(2, '0'),
+                                    month: String(dateObj.getUTCMonth() + 1).padStart(2, '0'),
+                                    year: dateObj.getUTCFullYear()
+                                };
+                            }
+                        }
+
+                        if (d) {
+                            datos[field] = `${String(d.day).padStart(2, '0')}-${String(d.month).padStart(2, '0')}-${d.year}`;
+                        }
+                    } catch (err) {
+                        logger.error(`URS: Error formatting date for field ${field}:`, err);
+                    }
+                }
+            });
+
+            // Ensure we have a date for the suceso/report even if app didn't send it specifically
+            if (!datos.fecha_suceso && !datos.fecha_extravio && !datos.fecha_ocurrencia) {
+                const now = new Date();
+                datos.fecha_suceso = `${String(now.getDate()).padStart(2, '0')}-${String(now.getMonth() + 1).padStart(2, '0')}-${now.getFullYear()}`;
+            }
+
+            // Aliasing for template placeholders
+            if (datos.fecha_extravio && !datos.fecha_suceso) datos.fecha_suceso = datos.fecha_extravio;
+            if (datos.fecha_suceso && !datos.fecha_extravio) datos.fecha_extravio = datos.fecha_suceso;
+            if (datos.fecha_ocurrencia && !datos.fecha_suceso) datos.fecha_suceso = datos.fecha_ocurrencia;
+            if (datos.nombre_equipo_full && !datos.equipo_nombre) datos.equipo_nombre = datos.nombre_equipo_full;
+            if (datos.nombre_equipo_full && !datos.nombre_equipo) datos.nombre_equipo = datos.nombre_equipo_full;
+            // -----------------------------------------------------------------
+
             if (!areaActual) {
                 const tipoRes = await new sql.Request(transaction)
                     .input('idTipo', sql.Numeric(10, 0), idTipo)
@@ -273,24 +369,6 @@ class UrsService {
                 }
             }
 
-            // Mobile Integration: Auto-resolve Equipment Name from mae_equipo
-            const eqId = datos?.id_equipo || datos?.equipo_id || datos?.idEquipo || datos?.equipo;
-            if (eqId && (!datos.nombre_equipo_full || datos.nombre_equipo_full === 'Cargando...')) {
-                try {
-                    logger.info(`URS: Resolving equipment ID: ${eqId}`);
-                    const eqRes = await pool.request()
-                        .input('eqId', sql.Int, Number(eqId))
-                        .query("SELECT LTRIM(RTRIM(nombre)) + ' [' + LTRIM(RTRIM(codigo)) + ']' as full_name FROM mae_equipo WHERE id_equipo = @eqId");
-                    if (eqRes.recordset.length > 0) {
-                        datos.nombre_equipo_full = eqRes.recordset[0].full_name;
-                        logger.info(`URS: Equipment resolved: ${datos.nombre_equipo_full}`);
-                    } else {
-                        logger.warn(`URS: Equipment not found for ID: ${eqId}`);
-                    }
-                } catch (resErr) {
-                    logger.error('URS: Error resolving equipment:', resErr);
-                }
-            }
 
             const result = await new sql.Request(transaction)
                 .input('idTipo', sql.Numeric(10, 0), idTipo)
@@ -302,7 +380,7 @@ class UrsService {
                 .query(`
                     INSERT INTO mae_solicitud (id_tipo, id_solicitante, estado, area_actual, datos_json, fecha_creacion, observaciones, prioridad)
                     OUTPUT INSERTED.id_solicitud
-                    VALUES (@idTipo, @idSol, 'PENDIENTE', @areaD, @datos, SYSUTCDATETIME(), @obs, @prioridad)
+                    VALUES (@idTipo, @idSol, 'PENDIENTE', @areaD, @datos, GETUTCDATE(), @obs, @prioridad)
                 `);
 
             const idSolicitud = result.recordset[0].id_solicitud;
@@ -314,15 +392,65 @@ class UrsService {
 
             await transaction.commit();
 
+            // Mobile Sub-type Specialization (V18 Robustness)
+            let currentIdTipo = Number(idTipo);
+            if (currentIdTipo === 13) {
+                const relTipo = (datos.relacion_tipo || '').toUpperCase();
+                const hasEq = !!(datos.id_equipo || datos.idEquipo || datos.equipo);
+                const hasFi = !!(datos.id_ficha || datos.num_ficha || datos.id_muestreo);
+
+                let newId = 13;
+                if (relTipo === 'EQUIPO' || (relTipo === '' && hasEq)) {
+                    newId = 14;
+                } else if (relTipo === 'SERVICIO' || relTipo === 'FICHA' || (relTipo === '' && hasFi)) {
+                    newId = 15;
+                }
+
+                if (newId && newId !== 13) {
+                    currentIdTipo = newId;
+                    logger.info(`URS: Specializing request #${idSolicitud} from 13 to ${currentIdTipo} (Rel: ${relTipo || 'DETECCIÓN POR ID'})`);
+                    // Persist specialized type to DB immediately
+                    await pool.request()
+                        .input('id', sql.Numeric(10, 0), idSolicitud)
+                        .input('newId', sql.Int, currentIdTipo)
+                        .query('UPDATE mae_solicitud SET id_tipo = @newId WHERE id_solicitud = @id');
+                }
+            }
+
+            // Enhanced identity and equipment resolution (V9 Robustness)
+            const idActualMuesRaw = Number(idSolicitante) === 466 || Number(idSolicitante) === 229
+                ? (datos.id_muestreador || datos.id_tecnico || datos.idTecnico || idSolicitante)
+                : idSolicitante;
+            const idActualMues = isNaN(Number(idActualMuesRaw)) ? 0 : Number(idActualMuesRaw);
+
+            const idEquipoRefRaw = solicitud.id_equipo || datos.id_equipo || datos.idEquipo || datos.equipo;
+            const idEquipoRefNum = isNaN(Number(idEquipoRefRaw)) ? 0 : Number(idEquipoRefRaw);
+            const equipoNombreFallback = isNaN(Number(idEquipoRefRaw)) ? String(idEquipoRefRaw) : '';
+
             // After successful commit, get data for UNS and return
             const solicitudRes = await pool.request()
                 .input('id', sql.Numeric(10, 0), idSolicitud)
+                .input('idActualMues', sql.Int, idActualMues)
+                .input('idEquipoRef', sql.Int, idEquipoRefNum)
+                .input('idTipoFinal', sql.Int, currentIdTipo)
+                .input('eqNombreFallback', sql.VarChar, equipoNombreFallback)
                 .query(`
-                    SELECT s.*, t.nombre as nombre_tipo, u.usuario as nombre_solicitante, 
+                    SELECT s.*, t.nombre as nombre_tipo, 
+                           COALESCE(m_actual.nombre_muestreador, m.nombre_muestreador, u.nombre_usuario, u.usuario, 'Desconocido') as nombre_solicitante,
+                           COALESCE(
+                               e.nombre + ' [' + e.codigo + ']', 
+                               (SELECT TOP 1 nombre + ' [' + codigo + ']' FROM mae_equipo WHERE nombre = @eqNombreFallback),
+                               @eqNombreFallback, 
+                               CAST(@idEquipoRef as VARCHAR)
+                           ) as nombre_equipo_full,
+                           COALESCE(e.codigo, (SELECT TOP 1 codigo FROM mae_equipo WHERE nombre = @eqNombreFallback)) as codigo_equipo_db,
                            CONVERT(VARCHAR(33), s.fecha_creacion, 126) + 'Z' as fecha_solicitud
                     FROM mae_solicitud s
-                    JOIN mae_solicitud_tipo t ON s.id_tipo = t.id_tipo
-                    JOIN mae_usuario u ON s.id_solicitante = u.id_usuario
+                    JOIN mae_solicitud_tipo t ON t.id_tipo = @idTipoFinal
+                    LEFT JOIN mae_muestreador m ON s.id_solicitante = m.id_muestreador
+                    LEFT JOIN mae_usuario u ON s.id_solicitante = u.id_usuario
+                    LEFT JOIN mae_muestreador m_actual ON @idActualMues = m_actual.id_muestreador
+                    LEFT JOIN mae_equipo e ON (s.id_equipo = e.id_equipo OR (@idEquipoRef > 0 AND @idEquipoRef = e.id_equipo))
                     WHERE s.id_solicitud = @id
                 `);
 
@@ -331,10 +459,11 @@ class UrsService {
             
             // Trigger UNS (Phase 13/32 moved to end of flow)
             try {
-                logger.info(`URS: Disparando UNS para solicitud #${idSolicitud} (Tipo: ${idTipo})`);
+                logger.info(`URS: Disparando UNS para solicitud #${idSolicitud} (Tipo Orig: ${idTipo}, Final: ${currentIdTipo})`);
                 const uns = await import('./uns.service.js');
                 // Detalle extendido para placeholders específicos por tipo
                 let eventOverride = 'SOLICITUD_NUEVA';
+                const idTipoFinal = Number(currentIdTipo);
                 const nombreTipoUpper = (solicitud.nombre_tipo || '').toUpperCase();
 
                 if (nombreTipoUpper.includes('TRASPASO')) {
@@ -359,14 +488,32 @@ class UrsService {
                     eventOverride = 'SOL_EQUIPO_ALTA_NUEVA';
                 } else if (nombreTipoUpper.includes('NUEVO EQUIPO')) {
                     eventOverride = 'SOL_EQUIPO_NUEVO_EQUIPO_NUEVA';
-                } else if (Number(idTipo) === 10 || nombreTipoUpper.includes('REPORTE')) {
-                    eventOverride = Number(idTipo) === 10 ? 'AVISO_PROBLEMA_NUEVO' : 'SOL_EQUIPO_REPORTE_PROBLEMA_NUEVA';
-                } else if (Number(idTipo) === 11) {
+                } else if (idTipoFinal === 10 || nombreTipoUpper.includes('REPORTE')) {
+                    eventOverride = idTipoFinal === 10 ? 'AVISO_PROBLEMA_NUEVO' : 'SOL_EQUIPO_REPORTE_PROBLEMA_NUEVA';
+                } else if (idTipoFinal === 11) {
                     eventOverride = 'AVISO_PERDIDO_NUEVO';
-                } else if (Number(idTipo) === 12) {
+                } else if (idTipoFinal === 12) {
                     eventOverride = 'AVISO_CANCELACION_NUEVA';
+                } else if (idTipoFinal === 13) {
+                    eventOverride = 'AVISO_CONSULTA_NUEVA';
+                } else if (idTipoFinal === 14) {
+                    eventOverride = 'AVISO_CONSULTA_EQUIPO_NUEVA';
+                } else if (idTipoFinal === 15) {
+                    eventOverride = 'AVISO_CONSULTA_FICHA_NUEVA';
                 }
+                
+                // Aliases for unified notification format
+                const TITULO_CORREO = `Nueva Solicitud de ${solicitud.nombre_tipo}`;
+                let USUARIO_NOMBRE = solicitud.nombre_solicitante || 'Técnico en Terreno (App)'; 
+                if (USUARIO_NOMBRE === 'Desconocido' || !USUARIO_NOMBRE) USUARIO_NOMBRE = 'Técnico en Terreno (App)';
+                
+                // Prioritize business correlative for some types (V19.1)
+                const CORRELATIVO = datos.correlativo || datos.num_ficha || datos.id_muestreo || String(idSolicitud);
 
+                // Consolidated Observation logic
+                const finalObs = datos.motivo || datos.descripcion_problema || datos.observaciones || observaciones || 'Sin observaciones';
+
+                logger.info(`URS: Triggering UNS event: ${eventOverride} for #${idSolicitud}`);
                 await uns.default.trigger(eventOverride, {
                     ...datos, // Expandir todos los campos del formulario para placeholders directos
                     datos_json: datos, // Requerido por la lógica de NotificationService especializada
@@ -375,16 +522,33 @@ class UrsService {
                     id_solicitante: idSolicitante,
                     id_usuario_accion: idSolicitante,
                     id_usuario_propietario: idSolicitante,
-                    usuario_accion: datos.nombre_tecnico ? datos.nombre_tecnico : solicitud.nombre_solicitante,
-                    nombre_solicitante: datos.nombre_tecnico ? datos.nombre_tecnico : solicitud.nombre_solicitante,
-                    equipo_nombre: datos.nombre_equipo_full || datos.equipo_nombre || 'N/A',
-                    nombre_tipo: solicitud.nombre_tipo,
+                    TITULO_CORREO: TITULO_CORREO,
+                    TIPO_SOLICITUD: solicitud.nombre_tipo,
+                    CORRELATIVO: CORRELATIVO,
+                    usuario_accion: USUARIO_NOMBRE,
+                    USUARIO: USUARIO_NOMBRE,
+                    SOLICITANTE: USUARIO_NOMBRE,
+                    nombre_solicitante: USUARIO_NOMBRE,
+                    FECHA: new Date().toLocaleDateString('es-CL'),
+                    HORA: new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: true }),
+                    FECHA_SOLICITUD: new Date().toLocaleString('es-CL'),
+                    equipo_nombre: solicitud.nombre_equipo_full || datos.nombre_equipo_full || datos.equipo_nombre || 'N/A',
+                    codigo_equipo: datos.codigo_equipo || 'N/A',
+                    fecha_suceso: datos.fecha_suceso || datos.fecha_extravio || 'N/A',
                     prioridad: prioridad,
                     area_destino: areaActual,
-                    correlativo: idSolicitud,
-                    observaciones: datos.descripcion_problema || datos.observaciones || datos.motivo || observaciones || 'Sin observaciones',
+                    nombre_tipo: solicitud.nombre_tipo,
+                    FECHA_SOLICITUD: new Date().toLocaleString('es-CL', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }).replace(',', ' a las'),
+                    OBSERVACION: finalObs,
+                    observaciones: finalObs,
                     etiqueta_observacion: nombreTipoUpper.includes('BAJA') ? 'Observaciones Técnicas' : (nombreTipoUpper.includes('REPORTE') ? 'Descripción detallada del Problema' : (datos.motivo ? 'Motivo de la Solicitud' : 'Observaciones'))
                 });
+
+                // Mark as notified in DB (Resilience)
+                await pool.request()
+                    .input('id', sql.Numeric(10, 0), idSolicitud)
+                    .query('UPDATE mae_solicitud SET notificado_uns = 1 WHERE id_solicitud = @id');
+                
             } catch (e) {
                 logger.error('Error triggering UNS for new request:', e);
             }
@@ -409,10 +573,12 @@ class UrsService {
                 .query(`
                     SELECT s.*, t.nombre as nombre_tipo, t.area_destino as area_tipo, 
                            t.formulario_config as config_formulario, t.workflow_config,
-                           u.usuario as nombre_solicitante, s.fecha_creacion as fecha_solicitud
+                           COALESCE(m.nombre_muestreador, u.nombre_usuario, u.usuario, 'Desconocido') as nombre_solicitante, 
+                           s.fecha_creacion as fecha_solicitud
                     FROM mae_solicitud s
                     JOIN mae_solicitud_tipo t ON s.id_tipo = t.id_tipo
-                    JOIN mae_usuario u ON s.id_solicitante = u.id_usuario
+                    LEFT JOIN mae_muestreador m ON s.id_solicitante = m.id_muestreador
+                    LEFT JOIN mae_usuario u ON s.id_solicitante = u.id_usuario
                     WHERE s.id_solicitud = @id
                 `);
 
@@ -422,10 +588,7 @@ class UrsService {
             solicitud.datos_json = JSON.parse(solicitud.datos_json || '{}');
             solicitud.workflow_config = JSON.parse(solicitud.workflow_config || 'null');
 
-            // Interception for Mobile App Requests (Generic User overwrite)
-            if (solicitud.datos_json.nombre_tecnico) {
-                solicitud.nombre_solicitante = solicitud.datos_json.nombre_tecnico;
-            }
+            // (Mobile name interception removed, now resolved via DB join)
 
             // Cargar Comentarios/Conversación (Phase 13: Include Role/Area)
             const comentarios = await pool.request()
@@ -539,7 +702,8 @@ class UrsService {
                         AND n.leido = 0) as unread_count
                 FROM mae_solicitud s
                 JOIN mae_solicitud_tipo t ON s.id_tipo = t.id_tipo
-                JOIN mae_usuario u ON s.id_solicitante = u.id_usuario
+                LEFT JOIN mae_usuario u ON s.id_solicitante = u.id_usuario
+                LEFT JOIN mae_muestreador m ON s.id_solicitante = m.id_muestreador
             `;
  
             if (userId) {
@@ -595,8 +759,7 @@ class UrsService {
                 
                 return {
                     ...s,
-                    // Interception for Mobile App Requests (Generic User overwrite)
-                    nombre_solicitante: parsedDatos.nombre_tecnico ? parsedDatos.nombre_tecnico : s.nombre_solicitante,
+                    nombre_solicitante: s.nombre_solicitante,
                     datos_json: parsedDatos
                 };
             });
@@ -619,7 +782,7 @@ class UrsService {
                 .query(`
                     UPDATE mae_solicitud 
                     SET estado = @estadoName,
-                        fecha_actualizacion = SYSUTCDATETIME()
+                        fecha_actualizacion = GETUTCDATE()
                     OUTPUT INSERTED.*
                     WHERE id_solicitud = @id
                 `);
@@ -635,10 +798,13 @@ class UrsService {
                     .input('id', sql.Numeric(10, 0), id)
                     .input('idUsr', sql.Numeric(10, 0), idUsuario)
                     .query(`
-                        SELECT s.*, t.nombre as nombre_tipo, u_sol.usuario as nombre_solicitante, u_act.usuario as nombre_autor
+                        SELECT s.*, t.nombre as nombre_tipo, 
+                               COALESCE(u_sol.usuario, m_sol.nombre_muestreador, 'Desconocido') as nombre_solicitante, 
+                               u_act.usuario as nombre_autor
                         FROM mae_solicitud s
                         JOIN mae_solicitud_tipo t ON s.id_tipo = t.id_tipo
-                        JOIN mae_usuario u_sol ON u_sol.id_usuario = s.id_solicitante
+                        LEFT JOIN mae_usuario u_sol ON u_sol.id_usuario = s.id_solicitante
+                        LEFT JOIN mae_muestreador m_sol ON m_sol.id_muestreador = s.id_solicitante
                         JOIN mae_usuario u_act ON u_act.id_usuario = @idUsr
                         WHERE s.id_solicitud = @id
                     `);
@@ -733,7 +899,7 @@ class UrsService {
                     INSERT INTO mae_solicitud_comentario (id_solicitud, id_usuario, mensaje, es_privado, fecha, es_sistema)
                     OUTPUT INSERTED.id_comentario, INSERTED.id_solicitud, INSERTED.id_usuario, INSERTED.mensaje, INSERTED.es_privado, INSERTED.es_sistema,
                            CONVERT(VARCHAR(33), INSERTED.fecha, 126) + 'Z' as fecha
-                    VALUES (@idSol, @idUsr, @msg, @privado, SYSUTCDATETIME(), @sistema)
+                    VALUES (@idSol, @idUsr, @msg, @privado, GETUTCDATE(), @sistema)
                 `);
             const comentario = result.recordset[0];
 
@@ -810,7 +976,7 @@ class UrsService {
                     .input('motivo', sql.NVarChar(sql.MAX), motivo)
                     .query(`
                         INSERT INTO mae_solicitud_derivacion (id_solicitud, usuario_origen, area_origen, usuario_destino, id_rol_destino, area_destino, motivo, fecha)
-                        VALUES (@idSol, @usrOr, @areaOr, @usrDs, @rolDs, @areaDs, @motivo, SYSUTCDATETIME())
+                        VALUES (@idSol, @usrOr, @areaOr, @usrDs, @rolDs, @areaDs, @motivo, GETUTCDATE())
                     `);
 
                 // 2. Actualizar solicitud
@@ -819,7 +985,7 @@ class UrsService {
                     .input('area', sql.VarChar(50), areaDestino)
                     .query(`
                         UPDATE mae_solicitud 
-                        SET area_actual = @area, fecha_actualizacion = SYSUTCDATETIME()
+                        SET area_actual = @area, fecha_actualizacion = GETUTCDATE()
                         OUTPUT INSERTED.*
                         WHERE id_solicitud = @id
                     `);
@@ -912,7 +1078,7 @@ class UrsService {
                     .input('type', sql.NVarChar(100), file.mimetype || 'application/octet-stream')
                     .query(`
                         INSERT INTO mae_solicitud_adjunto (id_solicitud, id_comentario, nombre_archivo, ruta_archivo, tipo_archivo, fecha)
-                        VALUES (@idSol, @idCom, @name, @path, @type, SYSUTCDATETIME())
+                        VALUES (@idSol, @idCom, @name, @path, @type, GETUTCDATE())
                     `);
             }
         } catch (error) {

@@ -287,7 +287,7 @@ class NotificationService {
                         return `
                             <div style="margin-bottom: 20px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
                                 <div style="background: white; color: #0062a8; padding: 10px 15px; font-weight: bold; font-family: Arial, sans-serif; font-size: 14px; border-bottom: 2px solid #0062a8;">
-                                    ${equipo.nombre} <span style="font-weight: normal; color: #555;">(${equipo.codigo})</span>
+                                    ${equipo.nombre} <span style="font-weight: normal; color: #555;">[${equipo.codigo}]</span>
                                     <div style="font-size: 11px; margin-top: 2px; color: #666; font-weight: normal;">Tipo: ${equipo.tipo}</div>
                                 </div>
                                 <table width="100%" border="0" cellspacing="0" cellpadding="0" style="width:100%; border-collapse: collapse;">
@@ -323,7 +323,7 @@ class NotificationService {
                             <div style="margin-bottom: 15px; padding: 12px; background: white; border-left: 4px solid #0062a8; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
                                 <strong style="color: #0062a8; font-size: 14px; font-family: Arial, sans-serif;">${equipo.nombre || 'Equipo'}</strong><br>
                                 <div style="margin-top: 8px; color: #333; font-size: 13px; line-height: 1.6; font-family: Arial, sans-serif;">
-                                    ${equipo.codigo ? `<div style="margin-bottom: 2px;">🏷️ <strong>Código:</strong> ${equipo.codigo}</div>` : ''}
+                                    ${equipo.codigo ? `<div style="margin-bottom: 2px;">🏷️ <strong>Código:</strong> [${equipo.codigo}]</div>` : ''}
                                     ${equipo.tipo ? `<div style="margin-bottom: 2px;">🔧 <strong>Tipo:</strong> ${equipo.tipo}</div>` : ''}
                                     ${equipo.marca ? `<div style="margin-bottom: 2px;">🏢 <strong>Marca:</strong> ${equipo.marca} ${equipo.modelo ? `(${equipo.modelo})` : ''}</div>` : ''}
                                     ${equipo.serie ? `<div style="margin-bottom: 2px;">🔢 <strong>Serie:</strong> ${equipo.serie}</div>` : ''}
@@ -386,9 +386,11 @@ class NotificationService {
                     const keysToSkip = [
                         'muestreador_origen_id', 'muestreador_origen_nombre', 'tipo_traspaso', 'base_destino', 
                         'muestreador_destino_id', 'muestreador_destino_nombre', 'reasignacion_manual', 'id_equipo', 
-                        'id_equipo_original', 'fecha_traspaso', 'form_type', '_form_type', 'formType', 'FormType', 
+                        'id_equipo_original', 'fecha_traspaso', 'form_type', '_form_type', 'formType', 'formtype',
                         'id_muestreador_destino', 'info_actual', 'traspaso_de', 'id_solicitante', 'id_centro_destino',
-                        'nombre_equipo', 'nombre_equipo_full', 'encargado_actual', 'ubicacion_actual'
+                        'nombre_equipo', 'nombre_equipo_full', 'encargado_actual', 'ubicacion_actual',
+                        'id_tecnico', 'idTecnico', 'origen_solicitud', 'codigo_equipo', 'id_muestreador',
+                        'id_muestreo', 'id_ficha', 'relacion_tipo', 'num_ficha', 'id_tipo_aviso'
                     ];
                     
                     const details = Object.entries(dj)
@@ -405,21 +407,51 @@ class NotificationService {
                             // Fix text formatting (DAÑO, DD-MM-YYYY)
                             let displayVal = val;
                             if (typeof val === 'string' && val.trim().toUpperCase() === 'DANIO') displayVal = 'DAÑO';
-                            if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}(T.*)?$/.test(val)) {
-                                const parts = val.split('T')[0].split('-');
-                                if (parts.length === 3) displayVal = `${parts[2]}-${parts[1]}-${parts[0]}`;
-                            }
+                            
+                            // Date formatting logic (shared)
+                            const formatDate = (dateStr) => {
+                                if (typeof dateStr !== 'string') return dateStr;
+                                if (/^\d{4}-\d{2}-\d{2}(\D.*)?$/.test(dateStr)) {
+                                    const parts = dateStr.split(/\D/);
+                                    if (parts.length >= 3 && parts[0].length === 4) {
+                                        return `${parts[2]}-${parts[1]}-${parts[0]}`;
+                                    }
+                                }
+                                return dateStr;
+                            };
+
+                            displayVal = formatDate(displayVal);
                             
                             return `<div style="margin-bottom: 6px;"><strong>${label}:</strong> <span style="color: #475569;">${displayVal}</span></div>`;
                         }).join('');
 
-                    const eqName = dj.nombre_equipo || dj.nombre_equipo_full;
-                    if (details.trim() || eqName) {
+                    // Field Prioritization for Header (V16 Robustness)
+                    // Robust type detection with accent normalization (V19.2)
+                    const cleanTipo = (context.TIPO_SOLICITUD || '').toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                    const isFicha = cleanTipo.includes('FICHA') || 
+                                    cleanTipo.includes('CANCELACION') || 
+                                    cleanTipo.includes('ANULACION') || 
+                                    [12, 15].includes(Number(context.id_tipo)) ||
+                                    (dj.relacion_tipo || '').toUpperCase() === 'SERVICIO' ||
+                                    (dj.relacion_tipo || '').toUpperCase() === 'FICHA' ||
+                                    (context.relacion_tipo || '').toUpperCase() === 'SERVICIO';
+                    
+                    const eqName = isFicha 
+                        ? (dj.id_ficha || dj.num_ficha || context.equipo_nombre || context.nombre_equipo_full || dj.id_muestreo || dj.correlativo || 'N/A')
+                        : (context.equipo_nombre || context.nombre_equipo_full || dj.nombre_equipo_full || dj.equipo_nombre || dj.nombre_equipo || 'N/A');
+                    
+                    const eqCode = context.codigo_equipo || context.codigo_equipo_db || dj.codigo_equipo || dj.codigo_equipo_db || '';
+                    
+                    const labelHeader = isFicha ? 'Servicio:' : 'Equipo:';
+                    
+                    if (details.trim() || eqName !== 'N/A') {
+                        const eqNameStr = String(eqName);
+                        const displayTitle = eqNameStr.includes('[') ? eqNameStr : `${eqNameStr}${eqCode ? ` [${eqCode}]` : ''}`;
                         equiposHtml = `
                             <div style="padding: 15px; margin-top: 15px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;">
                                 <h4 style="margin: 0 0 12px 0; color: #0062a8; font-size: 15px; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px;">Detalle de la Solicitud:</h4>
                                 <div style="font-size: 14px; color: #1e293b;">
-                                    ${eqName ? `<div style="margin-bottom: 10px; font-size: 15px;"><strong>Equipo:</strong> <span style="color: #0062a8; font-weight: bold;">${eqName} ${dj.codigo_equipo ? `(${dj.codigo_equipo})` : ''}</span></div>` : ''}
+                                    ${eqName !== 'N/A' ? `<div style="margin-bottom: 10px; font-size: 15px;"><strong>${labelHeader}</strong> <span style="color: #0062a8; font-weight: bold;">${displayTitle}</span></div>` : ''}
                                     ${details}
                                 </div>
                             </div>
@@ -430,13 +462,16 @@ class NotificationService {
 
             // AVOID DUPLICATION: If the template already contains specific URS placeholders or markers,
             // we should NOT inject the automatic block unless {EQUIPOS_DETALLE} is explicitly present.
-            // Using a more robust regex for 'Plan de Desvinculación' and 'Plan de Desactivación'
-            const hasSpecificPlaceholders = /\{muestreador_(origen|destino)_nombre\}|\{tipo_traspaso\}|Plan de Desactivaci.n|Plan de Desactivacion|Plan de Desvinculaci.n|Plan de Desvinculacion/i.test(output);
-            const shouldInject = !hasSpecificPlaceholders || output.includes('{EQUIPOS_DETALLE}');
+            // AVOID DUPLICATION: Check for specific placeholders. 
+            // V17: Loosened regex and added DETALLE_SOLICITUD synonym support.
+            const hasSpecificPlaceholders = /\{muestreador_(origen|destino)_nombre\}|\{tipo_traspaso\}/i.test(output);
+            const shouldInject = !hasSpecificPlaceholders || output.includes('{EQUIPOS_DETALLE}') || output.includes('{DETALLE_SOLICITUD}');
 
             if (equiposHtml && shouldInject) {
                 if (output.includes('{EQUIPOS_DETALLE}')) {
                     output = output.split('{EQUIPOS_DETALLE}').join(equiposHtml);
+                } else if (output.includes('{DETALLE_SOLICITUD}')) {
+                    output = output.split('{DETALLE_SOLICITUD}').join(equiposHtml);
                 } else {
                     const injectionHtml = `
                         <div style="margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
@@ -498,16 +533,31 @@ class NotificationService {
         // 3. Replace all other placeholders
         for (const [key, value] of Object.entries(context)) {
             if (key === 'servicios' || key === 'equipos' || key === 'datos_json') continue;
-            const val = value !== null && value !== undefined ? String(value) : '';
             
-            // Double replace for case-insensitive simulation
+            let val = value !== null && value !== undefined ? String(value) : '';
+            
+            // Auto-format dates in all replacements (YYYY-MM-DD -> DD-MM-YYYY)
+            if (/^\d{4}-\d{2}-\d{2}(\D.*)?$/.test(val)) {
+                const parts = val.split(/\D/);
+                if (parts.length >= 3 && parts[0].length === 4) {
+                    val = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                }
+            }
+            
+            // Replacement (Restore flexibility while allowing case-insensitive matches - V15)
             output = output.split(`{${key}}`).join(val);
             output = output.split(`{${key.toUpperCase()}}`).join(val);
         }
 
-        // 4. Final Clean-up: Remove any remaining placeholders {...} to avoid showing code to user
+        // 4. Global fallback for any remaining ISO dates in the final HTML
         if (isHtml) {
-            output = output.replace(/\{[A-Z0-9_\- ]+\}/gi, '');
+            output = output.replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g, '$3-$2-$1');
+        }
+
+        // 5. Final Clean-up: Remove any remaining placeholders {...} to avoid showing code to user
+        if (isHtml) {
+            // Keep {LOGO_BASE64} if it hasn't been replaced yet (though it should be)
+            output = output.replace(/\{(?!LOGO_BASE64)[A-Z0-9_\-| ]+\}/gi, '');
         }
 
         return { html: output, attachments };

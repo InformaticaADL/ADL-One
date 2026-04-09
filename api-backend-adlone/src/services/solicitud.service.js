@@ -313,12 +313,13 @@ class SolicitudService {
                         h.fecha,
                         h.accion,
                         h.observacion,
-                        u.nombre_usuario,
-                        u.usuario as nombre_real,
+                        COALESCE(u.nombre_usuario, m.nombre_muestreador, 'S/I') as nombre_usuario,
+                        COALESCE(u.usuario, m.nombre_muestreador, 'S/I') as nombre_real,
                         h.estado_anterior,
                         h.estado_nuevo
                     FROM mae_solicitud_historial h
                     LEFT JOIN mae_usuario u ON h.id_usuario = u.id_usuario
+                    LEFT JOIN mae_muestreador m ON h.id_usuario = m.id_muestreador
                     WHERE h.id_solicitud = @id
                     ORDER BY h.fecha DESC
                 `);

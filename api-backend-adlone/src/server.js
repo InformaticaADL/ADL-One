@@ -157,7 +157,6 @@ const startServer = async () => {
             logger.info(`📡 Server running on:`);
             logger.info(`   - Local:    http://localhost:${PORT}`);
             logger.info(`   - Network:  http://192.168.10.68:${PORT}`);
-            logger.info(`   - Network:  http://192.168.10.68:${PORT}`);
             logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
             logger.info(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
             logger.info(`📊 Database: ${process.env.DB_DATABASE || 'Not configured'}`);

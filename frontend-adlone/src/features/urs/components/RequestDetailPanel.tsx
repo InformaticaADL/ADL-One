@@ -247,8 +247,8 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                         {request.titulo || request.nombre_tipo}
                     </Title>
 
-                    {/* Mobile App Badge — inside header card, after title */}
-                    {Number(request.id_solicitante) === 466 && (
+                    {/* Mobile App Badge — now based on origin if available, or simply removed to favor real identity */}
+                    {request.origen_solicitud === 'MUESTREADOR' && (
                         <Alert
                             variant="light"
                             color="blue"
@@ -256,7 +256,7 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                             p="xs"
                             styles={{ label: { fontSize: '12px', fontWeight: 700 } }}
                         >
-                            📱 Enviado desde la app móvil de muestreadores ADL Sampling
+                            📱 Enviado desde ADL Sampling (Terreno)
                         </Alert>
                     )}
 
@@ -308,7 +308,7 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                             </ThemeIcon>
                             <Box style={{ minWidth: 0, flex: 1 }}>
                                 <Text size="xs" c="dimmed" fw={700} tt="uppercase">Solicitante</Text>
-                                <Text size="sm" fw={700} truncate>{request.nombre_solicitante?.split(' ')[0]}</Text>
+                                <Text size="sm" fw={700} truncate>{request.nombre_solicitante}</Text>
                             </Box>
                         </Group>
                     </SimpleGrid>
@@ -410,7 +410,7 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                                     </Paper>
                                 </SimpleGrid>
                             </Stack>
-                        ) : (request.id_tipo === 2 || request.id_tipo === 6 || request.id_tipo === 10 || request.datos_json?._form_type === 'BAJA_EQUIPO') ? (
+                        ) : (request.id_tipo === 2 || request.id_tipo === 6 || request.datos_json?._form_type === 'BAJA_EQUIPO') ? (
                             <Stack gap="md">
                                 <Alert color="red" icon={<IconAlertTriangle size={20} />} title="Equipo Desvinculado" radius="md">
                                     <Text fw={700} size="lg">{request.datos_json?.nombre_equipo_full}</Text>
@@ -430,22 +430,27 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                                     </Box>
                                 </SimpleGrid>
                             </Stack>
-                        ) : ([11, 12, 13, 14, 15].includes(Number(request.id_tipo))) ? (
+                        ) : ([10, 11, 12, 13, 14, 15].includes(Number(request.id_tipo))) ? (
                             <Stack gap="md">
                                 <Paper p="md" bg={Number(request.id_tipo) === 12 ? "red.0" : "blue.0"} radius="md" withBorder style={{ borderLeft: `4px solid var(--mantine-color-${Number(request.id_tipo) === 12 ? 'red' : 'blue'}-6)` }}>
                                     <Text size="xs" c={Number(request.id_tipo) === 12 ? "red.8" : "blue.8"} fw={800} mb={4} tt="uppercase">
                                         {Number(request.id_tipo) === 11 ? 'Equipo Referenciado (Extravío)' :
+                                            Number(request.id_tipo) === 10 ? 'Equipo Referenciado (Problema Técnico)' :
                                             Number(request.id_tipo) === 14 ? 'Equipo Referenciado (Consulta)' :
                                                 Number(request.id_tipo) === 15 ? 'Ficha/Servicio Referenciado (Consulta)' :
                                                     Number(request.id_tipo) === 12 ? 'Servicio a Anular' :
                                                         'Consulta General'}
                                     </Text>
                                     <Text size="lg" fw={800} c={Number(request.id_tipo) === 12 ? "red.9" : "blue.9"}>
-                                        {[12, 15].includes(Number(request.id_tipo)) ? (
-                                            request.datos_json?.correlativo || request.datos_json?.id_muestreo || request.datos_json?.caso_adlab || request.datos_json?.nombre_ficha_full || 'Referencia de servicio'
-                                        ) : (
-                                            request.datos_json?.nombre_equipo_full || (request.datos_json?.id_equipo ? `Equipo ID: ${request.datos_json.id_equipo}` : (Number(request.id_tipo) === 13 ? 'N/A' : 'Datos no disponibles'))
-                                        )}
+                                        {(() => {
+                                            const dj = request.datos_json || {};
+                                            const name = dj.nombre_equipo_full || dj.equipo_nombre || dj.nombre_equipo || dj.id_muestreo || dj.correlativo || dj.num_ficha;
+                                            const code = dj.codigo_equipo || dj.equipo_codigo;
+                                            if (!name && !code) return 'N/A';
+                                            if (typeof name === 'string' && name.includes('[')) return name;
+                                            if (name && code) return `${name} [${code}]`;
+                                            return name || code;
+                                        })()}
                                     </Text>
                                 </Paper>
 

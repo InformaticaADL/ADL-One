@@ -1,9 +1,15 @@
 import { getConnection } from './src/config/database.js';
+import dotenv from 'dotenv';
+dotenv.config();
 
-async function checkTable() {
-    const pool = await getConnection();
-    const res = await pool.request().query("SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'mae_solicitud_tipo'");
-    console.table(res.recordset);
-    process.exit(0);
+async function check() {
+    try {
+        const pool = await getConnection();
+        const res = await pool.request().query('SELECT TOP 1 * FROM mae_evento_notificacion');
+        console.log('Columns:', Object.keys(res.recordset[0]));
+        await pool.close();
+    } catch (e) {
+        console.error(e);
+    }
 }
-checkTable();
+check();
