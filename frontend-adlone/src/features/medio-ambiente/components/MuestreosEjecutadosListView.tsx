@@ -30,6 +30,7 @@ import {
 } from '@tabler/icons-react';
 
 import { useNavStore } from '../../../store/navStore';
+import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 
 interface Props {
     onBackToMenu: () => void;
@@ -245,21 +246,23 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
                                                 <Text size="xs">{m.muestreador_retiro || '-'}</Text>
                                             </Table.Td>
                                             <Table.Td ta="center">
-                                                <Tooltip label="Ver Detalle Ejecución">
-                                                    <ActionIcon 
-                                                        variant="light" 
-                                                        color="blue" 
-                                                        onClick={() => {
-                                                            setSelectedFicha(
-                                                                m.id_fichaingresoservicio || m.correlativo_ficha,
-                                                                m.frecuencia_correlativo
-                                                            );
-                                                            setActiveSubmodule('ma-ficha-detalle');
-                                                        }}
-                                                    >
-                                                        <IconExternalLink size={16} />
-                                                    </ActionIcon>
-                                                </Tooltip>
+                                                <ProtectedContent permission={['MA_COMERCIAL_HISTORIAL_DETALLE', 'FI_VER']}>
+                                                    <Tooltip label="Ver Detalle Ejecución">
+                                                        <ActionIcon 
+                                                            variant="light" 
+                                                            color="blue" 
+                                                            onClick={() => {
+                                                                setSelectedFicha(
+                                                                    m.id_fichaingresoservicio || m.correlativo_ficha,
+                                                                    m.frecuencia_correlativo
+                                                                );
+                                                                setActiveSubmodule('ma-ficha-detalle');
+                                                            }}
+                                                        >
+                                                            <IconExternalLink size={16} />
+                                                        </ActionIcon>
+                                                    </Tooltip>
+                                                </ProtectedContent>
                                             </Table.Td>
                                         </Table.Tr>
                                     ))}

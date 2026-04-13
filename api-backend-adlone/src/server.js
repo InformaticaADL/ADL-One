@@ -1,8 +1,6 @@
-import dotenv from 'dotenv';
-// Initialize dotenv at the very beginning
-dotenv.config();
-
+import './config/env.js';
 import express from 'express';
+
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';

@@ -244,8 +244,9 @@ class GeneralChatController {
 
     async searchContacts(req, res) {
         try {
+            const userId = req.user.id;
             const { q, onlyUsers } = req.query;
-            const contacts = await generalChatService.searchContacts(q || '', onlyUsers === 'true');
+            const contacts = await generalChatService.searchContacts(userId, q || '', onlyUsers === 'true');
             return successResponse(res, contacts);
         } catch (error) {
             logger.error('Error in searchContacts:', error);

@@ -6,6 +6,7 @@ import { ToastContainer } from '../../../components/Toast/Toast';
 import { fichaService } from '../services/ficha.service';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { useNavStore } from '../../../store/navStore';
+import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 
 import { 
     Button, 
@@ -281,7 +282,7 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
                                                             {ficha.nombre_objetivomuestreo_ma}
                                                         </Table.Td>
                                                         <Table.Td align="center">
-                                                            {(ficha.estado_ficha || '').toUpperCase().includes('EN PROCESO') && (
+                                                            <ProtectedContent permission="FI_EXP_AFE">
                                                                 <ActionIcon 
                                                                     color="red" 
                                                                     variant="subtle"
@@ -300,16 +301,18 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
                                                                 >
                                                                     <IconDownload size={18} />
                                                                 </ActionIcon>
-                                                            )}
+                                                            </ProtectedContent>
                                                         </Table.Td>
                                                         <Table.Td align="center">
-                                                            <ActionIcon 
-                                                                color="blue" 
-                                                                variant="light"
-                                                                onClick={() => onViewDetail(ficha.id_fichaingresoservicio || ficha.fichaingresoservicio)}
-                                                            >
-                                                                <IconEdit size={18} />
-                                                            </ActionIcon>
+                                                            <ProtectedContent permission="FI_VER">
+                                                                <ActionIcon 
+                                                                    color="blue" 
+                                                                    variant="light"
+                                                                    onClick={() => onViewDetail(ficha.id_fichaingresoservicio || ficha.fichaingresoservicio)}
+                                                                >
+                                                                    <IconEdit size={18} />
+                                                                </ActionIcon>
+                                                            </ProtectedContent>
                                                         </Table.Td>
                                                     </Table.Tr>
                                                 )

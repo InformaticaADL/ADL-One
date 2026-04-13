@@ -34,10 +34,8 @@ class RbacService {
         try {
             const pool = await getConnection();
 
-            // Get all permissions
-            const permissionsResult = await pool.request().query('SELECT * FROM mae_permiso');
-
-            // Get grouped by module/submodule if needed, or just return flat list
+            // Get all enabled permissions ordered by priority
+            const permissionsResult = await pool.request().query('SELECT * FROM mae_permiso WHERE habilitado = 1 ORDER BY orden ASC');
             return permissionsResult.recordset;
         } catch (error) {
             logger.error('Error getting permissions:', error);
@@ -55,7 +53,8 @@ class RbacService {
                     SELECT p.* 
                     FROM mae_permiso p
                     INNER JOIN rel_rol_permiso rp ON p.id_permiso = rp.id_permiso
-                    WHERE rp.id_rol = @roleId
+                    WHERE rp.id_rol = @roleId AND p.habilitado = 1
+                    ORDER BY p.orden ASC
                 `);
             return result.recordset;
         } catch (error) {

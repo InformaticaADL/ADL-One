@@ -342,7 +342,7 @@ const CommercialMenu = ({ onCreate, onConsult, onHistory, onBack }: { onCreate: 
                         </Text>
 
                         <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xl" mt="xl">
-                            <ProtectedContent permission="MA_COMERCIAL_EDITAR">
+                            <ProtectedContent permission="FI_NEW_CREAR">
                                 <SelectionCard
                                     title="Nueva Ficha"
                                     description="Crear una nueva solicitud de análisis desde cero, ingresando antecedentes y parámetros."
@@ -352,13 +352,15 @@ const CommercialMenu = ({ onCreate, onConsult, onHistory, onBack }: { onCreate: 
                                 />
                             </ProtectedContent>
 
-                            <SelectionCard
-                                title="Consultar Fichas"
-                                description="Buscar, visualizar y gestionar el histórico de fichas comerciales existentes."
-                                icon={<IconTable size={32} />}
-                                color="#7950f2"
-                                onClick={onConsult}
-                            />
+                            <ProtectedContent permission="FI_CONSULTAR">
+                                <SelectionCard
+                                    title="Consultar Fichas"
+                                    description="Buscar, visualizar y gestionar el histórico de fichas comerciales existentes."
+                                    icon={<IconTable size={32} />}
+                                    color="#7950f2"
+                                    onClick={onConsult}
+                                />
+                            </ProtectedContent>
 
                             <ProtectedContent permission="MA_COMERCIAL_HISTORIAL_ACCESO">
                                 <SelectionCard
@@ -612,33 +614,37 @@ const ConsultarFichasView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () 
                                                         </Table.Td>
                                                         <Table.Td align="center">
                                                             {(ficha.estado_ficha || '').toUpperCase().includes('EN PROCESO') && (
-                                                                <ActionIcon 
-                                                                    color="red" 
-                                                                    variant="subtle"
-                                                                    onClick={async (e) => {
-                                                                        e.stopPropagation();
-                                                                        const pdfBlob = await fichaService.downloadPdf(ficha.id_fichaingresoservicio || ficha.fichaingresoservicio);
-                                                                        const url = window.URL.createObjectURL(pdfBlob);
-                                                                        const link = document.createElement('a');
-                                                                        link.href = url;
-                                                                        link.setAttribute('download', `Ficha_${ficha.id_fichaingresoservicio}.pdf`);
-                                                                        document.body.appendChild(link);
-                                                                        link.click();
-                                                                        document.body.removeChild(link);
-                                                                    }}
-                                                                >
-                                                                    <IconDownload size={18} />
-                                                                </ActionIcon>
+                                                                <ProtectedContent permission="FI_EXPORTAR_CFI">
+                                                                    <ActionIcon 
+                                                                        color="red" 
+                                                                        variant="subtle"
+                                                                        onClick={async (e) => {
+                                                                            e.stopPropagation();
+                                                                            const pdfBlob = await fichaService.downloadPdf(ficha.id_fichaingresoservicio || ficha.fichaingresoservicio);
+                                                                            const url = window.URL.createObjectURL(pdfBlob);
+                                                                            const link = document.createElement('a');
+                                                                            link.href = url;
+                                                                            link.setAttribute('download', `Ficha_${ficha.id_fichaingresoservicio}.pdf`);
+                                                                            document.body.appendChild(link);
+                                                                            link.click();
+                                                                            document.body.removeChild(link);
+                                                                        }}
+                                                                    >
+                                                                        <IconDownload size={18} />
+                                                                    </ActionIcon>
+                                                                </ProtectedContent>
                                                             )}
                                                         </Table.Td>
                                                         <Table.Td align="center">
-                                                            <ActionIcon 
-                                                                color="blue" 
-                                                                variant="light"
-                                                                onClick={() => onViewDetail(ficha.id_fichaingresoservicio || ficha.fichaingresoservicio)}
-                                                            >
-                                                                <IconArrowRight size={18} />
-                                                            </ActionIcon>
+                                                            <ProtectedContent permission="FI_VER">
+                                                                <ActionIcon 
+                                                                    color="blue" 
+                                                                    variant="light"
+                                                                    onClick={() => onViewDetail(ficha.id_fichaingresoservicio || ficha.fichaingresoservicio)}
+                                                                >
+                                                                    <IconArrowRight size={18} />
+                                                                </ActionIcon>
+                                                            </ProtectedContent>
                                                         </Table.Td>
                                                     </Table.Tr>
                                                 )
@@ -794,7 +800,7 @@ const MuestreosCompletadosView = ({ onBackToMenu, onViewDetail }: { onBackToMenu
                                                     <Badge color="green" variant="light" size="sm">{m.estado_muestreo}</Badge>
                                                 </Table.Td>
                                                 <Table.Td>
-                                                    {hasPermission('MA_COMERCIAL_HISTORIAL_DETALLE') && (
+                                                    <ProtectedContent permission={['MA_COMERCIAL_HISTORIAL_DETALLE', 'FI_VER']}>
                                                         <ActionIcon 
                                                             color="blue" 
                                                             variant="light"
@@ -802,7 +808,7 @@ const MuestreosCompletadosView = ({ onBackToMenu, onViewDetail }: { onBackToMenu
                                                         >
                                                             <IconArrowRight size={18} />
                                                         </ActionIcon>
-                                                    )}
+                                                    </ProtectedContent>
                                                 </Table.Td>
                                             </Table.Tr>
                                         ))
@@ -823,6 +829,7 @@ const MuestreosCompletadosView = ({ onBackToMenu, onViewDetail }: { onBackToMenu
 };
 
 const ComercialPageContent: React.FC<Props> = ({ onBack }) => {
+    const { hasPermission, user } = useAuth();
     const { 
         maComercialMode: viewMode, 
         setMaComercialMode: setViewMode,
@@ -834,6 +841,29 @@ const ComercialPageContent: React.FC<Props> = ({ onBack }) => {
     
     const [selectedFichaId, setSelectedFichaId] = useState<number | null>(null);
 
+    // 1. Navegación Automática por Permisos
+    useEffect(() => {
+        if (!user || viewMode !== 'menu') return;
+
+        const canCreate = hasPermission('FI_NEW_CREAR');
+        const canConsult = hasPermission('FI_CONSULTAR');
+        const canHistory = hasPermission('MA_COMERCIAL_HISTORIAL_ACCESO');
+
+        // Si SOLO tiene permiso para crear, ir directo
+        if (canCreate && !canConsult && !canHistory) {
+            setViewMode('create');
+        }
+        // Si SOLO tiene permiso para consultar (o si no puede crear pero sí consultar), ir directo
+        else if (canConsult && !canCreate && !canHistory) {
+            setViewMode('consult');
+        }
+        // Si SOLO tiene permiso para el historial
+        else if (canHistory && !canCreate && !canConsult) {
+            setViewMode('history');
+        }
+    }, [viewMode, setViewMode, user, hasPermission]);
+
+    // 2. Navegación por Request pendiente (Notificaciones)
     useEffect(() => {
         if (pendingRequestId && (viewMode === 'menu' || viewMode === 'consult' || viewMode === 'history')) {
             setSelectedFichaId(pendingRequestId);

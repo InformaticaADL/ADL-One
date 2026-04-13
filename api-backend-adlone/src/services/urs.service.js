@@ -588,7 +588,10 @@ class UrsService {
             solicitud.datos_json = JSON.parse(solicitud.datos_json || '{}');
             solicitud.workflow_config = JSON.parse(solicitud.workflow_config || 'null');
 
-            // (Mobile name interception removed, now resolved via DB join)
+            // Extraer origen_solicitud del JSON si no viene de la DB (Mobile Indicator Fix)
+            if (!solicitud.origen_solicitud && solicitud.datos_json?.origen_solicitud) {
+                solicitud.origen_solicitud = solicitud.datos_json.origen_solicitud;
+            }
 
             // Cargar Comentarios/Conversación (Phase 13: Include Role/Area)
             const comentarios = await pool.request()
@@ -760,7 +763,8 @@ class UrsService {
                 return {
                     ...s,
                     nombre_solicitante: s.nombre_solicitante,
-                    datos_json: parsedDatos
+                    datos_json: parsedDatos,
+                    origen_solicitud: s.origen_solicitud || parsedDatos.origen_solicitud
                 };
             });
         } catch (error) {

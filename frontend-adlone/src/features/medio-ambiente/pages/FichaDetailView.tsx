@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { fichaService } from '../services/ficha.service';
 import {
     Grid,
     Paper,
@@ -41,6 +42,7 @@ import {
     IconRefresh
 } from '@tabler/icons-react';
 import { useNavStore } from '../../../store/navStore';
+import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 import { useAuth } from '../../../contexts/AuthContext';
 import apiClient from '../../../config/axios.config';
 
@@ -230,27 +232,43 @@ export const FichaDetailView = () => {
                     </Grid.Col>
 
                     <Grid.Col span={{ base: 12, md: 2 }}>
-                        <Stack gap="xs" align="flex-end">
-                            <Group gap="xs">
-                                {hasPermission('MA_COMERCIAL_REMUESTREAR') && (
-                                    <Button 
-                                        variant="light" 
-                                        color="grape" 
-                                        leftSection={<IconRefresh size={18} />}
-                                        onClick={() => setActiveSubmodule('ma-remuestreo')}
-                                    >
-                                        Remuestreo
-                                    </Button>
-                                )}
+                        <Stack gap="xs" align="flex-end" justify="center" h="100%">
+                            <ProtectedContent permission="MA_COMERCIAL_REMUESTREAR">
+                                <Button 
+                                    variant="light" 
+                                    color="grape" 
+                                    fullWidth
+                                    leftSection={<IconRefresh size={18} />}
+                                    onClick={() => setActiveSubmodule('ma-remuestreo')}
+                                >
+                                    Remuestreo
+                                </Button>
+                            </ProtectedContent>
+                            <ProtectedContent permission="FI_EXP_MC">
                                 <Button
+                                    fullWidth
                                     leftSection={<IconDownload size={16} />}
                                     variant="filled"
                                     color="blue"
-                                    onClick={() => window.open(`${apiClient.defaults.baseURL}/api/fichas/${selectedFichaId}/pdf`, '_blank')}
+                                    onClick={async () => {
+                                        try {
+                                            const pdfBlob = await fichaService.downloadPdf(Number(selectedFichaId));
+                                            const url = window.URL.createObjectURL(pdfBlob);
+                                            const link = document.createElement('a');
+                                            link.href = url;
+                                            link.setAttribute('download', `Ficha_${selectedCorrelativo || selectedFichaId}.pdf`);
+                                            document.body.appendChild(link);
+                                            link.click();
+                                            document.body.removeChild(link);
+                                            window.URL.revokeObjectURL(url);
+                                        } catch (err) {
+                                            console.error('Error downloading PDF:', err);
+                                        }
+                                    }}
                                 >
                                     Exportar PDF
                                 </Button>
-                            </Group>
+                            </ProtectedContent>
                         </Stack>
                     </Grid.Col>
                 </Grid>

@@ -684,10 +684,11 @@ class GeneralChatService {
 
     // ─── CONTACTOS ─────────────────────────────────────────────
 
-    async searchContacts(query, onlyUsers = false) {
+    async searchContacts(userId, query, onlyUsers = false) {
         try {
             const pool = await getConnection();
             const result = await pool.request()
+                .input('userId', sql.Numeric(10, 0), userId)
                 .input('query', sql.NVarChar(100), `%${query}%`)
                 .query(`
                     -- Usuarios
@@ -700,11 +701,16 @@ class GeneralChatService {
                     ${onlyUsers ? '' : `
                     UNION ALL
 
-                    -- Grupos
+                    -- Grupos (Solo grupos donde el usuario es miembro)
                     SELECT c.id_conversacion as id_entidad, c.nombre_grupo as nombre, c.foto_grupo as foto, 
                            c.descripcion as email, NULL as cargo, 'GROUP' as tipo_entidad
                     FROM mae_chat_conversacion c
-                    WHERE c.tipo = 'GRUPO' AND c.activo = 1 AND c.nombre_grupo LIKE @query
+                    INNER JOIN rel_chat_participante p ON c.id_conversacion = p.id_conversacion
+                    WHERE c.tipo = 'GRUPO' 
+                      AND c.activo = 1 
+                      AND c.nombre_grupo LIKE @query
+                      AND p.id_usuario = @userId
+                      AND p.activo = 1
                     `}
 
                     ORDER BY nombre ASC

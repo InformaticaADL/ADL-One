@@ -39,6 +39,7 @@ import SamplerDeactivationModal from '../components/SamplerDeactivationModal';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { useToast } from '../../../contexts/ToastContext';
 import { useNavStore } from '../../../store/navStore';
+import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 
 interface Props {
     onBack: () => void;
@@ -226,27 +227,31 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                 onBack={onBack}
                 rightSection={
                     <Group gap="xs" wrap={isMobile ? "wrap" : "nowrap"}>
-                        <Button 
-                            variant="light" 
-                            color="red" 
-                            leftSection={<IconFileDescription size={18} />}
-                            onClick={handleExportPdf}
-                            loading={isExporting}
-                            radius="md"
-                            size={isMobile ? "xs" : "sm"}
-                            style={{ flex: isMobile ? 1 : 'auto' }}
-                        >
-                            Exportar PDF
-                        </Button>
-                        <Button 
-                            leftSection={<IconPlus size={18} />} 
-                            onClick={handleCreate}
-                            radius="md"
-                            size={isMobile ? "xs" : "sm"}
-                            style={{ flex: isMobile ? 1 : 'auto' }}
-                        >
-                            Nuevo {isMobile ? '' : 'Muestreador'}
-                        </Button>
+                        <ProtectedContent permission="MU_EXP">
+                            <Button 
+                                variant="light" 
+                                color="red" 
+                                leftSection={<IconFileDescription size={18} />}
+                                onClick={handleExportPdf}
+                                loading={isExporting}
+                                radius="md"
+                                size={isMobile ? "xs" : "sm"}
+                                style={{ flex: isMobile ? 1 : 'auto' }}
+                            >
+                                Exportar PDF
+                            </Button>
+                        </ProtectedContent>
+                        <ProtectedContent permission="AI_MA_CREAR_NEW_MUESTREADOR">
+                            <Button 
+                                leftSection={<IconPlus size={18} />} 
+                                onClick={handleCreate}
+                                radius="md"
+                                size={isMobile ? "xs" : "sm"}
+                                style={{ flex: isMobile ? 1 : 'auto' }}
+                            >
+                                Nuevo {isMobile ? '' : 'Muestreador'}
+                            </Button>
+                        </ProtectedContent>
                     </Group>
                 }
             />
@@ -343,35 +348,41 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                                                 </Table.Td>
                                                 <Table.Td>
                                                     <Group gap="xs" justify="center">
-                                                        <Tooltip label="Ver Solicitudes">
-                                                            <ActionIcon 
-                                                                variant="light" 
-                                                                color={hasPending ? "orange" : "gray"} 
-                                                                onClick={() => handleOpenRequests(m)}
-                                                            >
-                                                                <IconBell size={16} />
-                                                            </ActionIcon>
-                                                        </Tooltip>
+                                                        <ProtectedContent permission="MU_SOLICITUDES">
+                                                            <Tooltip label="Ver Solicitudes">
+                                                                <ActionIcon 
+                                                                    variant="light" 
+                                                                    color={hasPending ? "orange" : "gray"} 
+                                                                    onClick={() => handleOpenRequests(m)}
+                                                                >
+                                                                    <IconBell size={16} />
+                                                                </ActionIcon>
+                                                            </Tooltip>
+                                                        </ProtectedContent>
 
-                                                        <Tooltip label="Editar Información">
-                                                            <ActionIcon variant="light" color="blue" onClick={() => handleEdit(m)}>
-                                                                <IconEdit size={16} />
-                                                            </ActionIcon>
-                                                        </Tooltip>
+                                                        <ProtectedContent permission="AI_MA_EDITAR_MUESTREADOR">
+                                                            <Tooltip label="Editar Información">
+                                                                <ActionIcon variant="light" color="blue" onClick={() => handleEdit(m)}>
+                                                                    <IconEdit size={16} />
+                                                                </ActionIcon>
+                                                            </Tooltip>
+                                                        </ProtectedContent>
                                                         
-                                                        {m.habilitado === 'S' ? (
-                                                            <Tooltip label="Deshabilitar Muestreador">
-                                                                <ActionIcon variant="light" color="red" onClick={() => handleDisableClick(m)}>
-                                                                    <IconPower size={16} />
-                                                                </ActionIcon>
-                                                            </Tooltip>
-                                                        ) : (
-                                                            <Tooltip label="Habilitar Muestreador">
-                                                                <ActionIcon variant="light" color="green" onClick={() => handleEnableClick(m)}>
-                                                                    <IconCheck size={16} />
-                                                                </ActionIcon>
-                                                            </Tooltip>
-                                                        )}
+                                                        <ProtectedContent permission="AI_MA_DESHABILITAR_MUESTREADOR">
+                                                            {m.habilitado === 'S' ? (
+                                                                <Tooltip label="Deshabilitar Muestreador">
+                                                                    <ActionIcon variant="light" color="red" onClick={() => handleDisableClick(m)}>
+                                                                        <IconPower size={16} />
+                                                                    </ActionIcon>
+                                                                </Tooltip>
+                                                            ) : (
+                                                                <Tooltip label="Habilitar Muestreador">
+                                                                    <ActionIcon variant="light" color="green" onClick={() => handleEnableClick(m)}>
+                                                                        <IconCheck size={16} />
+                                                                    </ActionIcon>
+                                                                </Tooltip>
+                                                            )}
+                                                        </ProtectedContent>
                                                     </Group>
                                                 </Table.Td>
                                             </Table.Tr>

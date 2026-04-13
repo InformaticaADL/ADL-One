@@ -46,6 +46,7 @@ import { useToast } from '../../../contexts/ToastContext';
 import { useNavStore } from '../../../store/navStore';
 import { useAuth } from '../../../contexts/AuthContext';
 import { EquipmentRequestsModal } from './EquipmentRequestsModal';
+import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 
 // Using a local HybridSelect replacement with Mantine components.
 // If strict=true, it uses Select (must be in list).
@@ -471,7 +472,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                             <Button variant="subtle" leftSection={<IconArrowLeft size={18} />} onClick={onCancel} color="gray" size={isMobile ? 'xs' : 'sm'}>
                                 {isMobile ? 'Volver' : 'Volver'}
                             </Button>
-                            {initialData?.id_equipo && (
+                            <ProtectedContent permission="EQ_HISTORY">
                                 <Button 
                                     variant="light" 
                                     leftSection={<IconHistory size={18} />} 
@@ -480,16 +481,18 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                 >
                                     {isMobile ? 'Historial' : (showHistory ? 'Ocultar Historial' : 'Ver Historial')}
                                 </Button>
-                            )}
-                            <Button 
-                                leftSection={<IconDeviceFloppy size={18} />}
-                                onClick={handleSave}
-                                loading={loading}
-                                color="adl-blue"
-                                size={isMobile ? 'xs' : 'sm'}
-                            >
-                                {initialData?.id_equipo ? 'Guardar' : 'Crear'}
-                            </Button>
+                            </ProtectedContent>
+                            <ProtectedContent permission="EQ_UPDATE">
+                                <Button 
+                                    leftSection={<IconDeviceFloppy size={18} />}
+                                    onClick={handleSave}
+                                    loading={loading}
+                                    color="adl-blue"
+                                    size={isMobile ? 'xs' : 'sm'}
+                                >
+                                    {initialData?.id_equipo ? 'Guardar' : 'Crear'}
+                                </Button>
+                            </ProtectedContent>
                         </Group>
                     </Group>
 

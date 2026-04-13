@@ -31,6 +31,7 @@ import {
 import { adminService } from '../../../services/admin.service';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { useToast } from '../../../contexts/ToastContext';
+import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 
 interface Muestreador {
     id_muestreador?: number;
@@ -233,33 +234,37 @@ export const MuestreadorForm: React.FC<Props> = ({
                                                 alt="Vista previa firma" 
                                             />
                                         </Paper>
-                                        <Button 
-                                            variant="light" 
-                                            color="red" 
-                                            size="xs" 
-                                            leftSection={<IconTrash size={14} />}
-                                            onClick={() => setFormData({ ...formData, firma_muestreador: '' })}
-                                        >
-                                            Eliminar Firma
-                                        </Button>
+                                        <ProtectedContent permission="MU_FIRMA">
+                                            <Button 
+                                                variant="light" 
+                                                color="red" 
+                                                size="xs" 
+                                                leftSection={<IconTrash size={14} />}
+                                                onClick={() => setFormData({ ...formData, firma_muestreador: '' })}
+                                            >
+                                                Eliminar Firma
+                                            </Button>
+                                        </ProtectedContent>
                                     </Stack>
                                 ) : (
                                     <Stack align="center" gap="xs">
                                         <IconSignature size={48} stroke={1} color="var(--mantine-color-gray-5)" />
                                         <Text size="sm" c="dimmed">No hay firma registrada</Text>
-                                        <FileButton onChange={handleFileChange} accept="image/png,image/jpeg">
-                                            {(props) => (
-                                                <Button 
-                                                    {...props} 
-                                                    variant="outline" 
-                                                    leftSection={<IconUpload size={16} />}
-                                                    radius="md"
-                                                    mt="sm"
-                                                >
-                                                    Subir Imagen de Firma
-                                                </Button>
-                                            )}
-                                        </FileButton>
+                                        <ProtectedContent permission="MU_FIRMA">
+                                            <FileButton onChange={handleFileChange} accept="image/png,image/jpeg">
+                                                {(props) => (
+                                                    <Button 
+                                                        {...props} 
+                                                        variant="outline" 
+                                                        leftSection={<IconUpload size={16} />}
+                                                        radius="md"
+                                                        mt="sm"
+                                                    >
+                                                        Subir Imagen de Firma
+                                                    </Button>
+                                                )}
+                                            </FileButton>
+                                        </ProtectedContent>
                                     </Stack>
                                 )}
                             </Box>

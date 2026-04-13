@@ -16,6 +16,7 @@ import { FichaExportModal } from '../components/FichaExportModal';
 import { SelectionCard } from '../components/SelectionCard';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { useNavStore } from '../../../store/navStore';
+import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 
 import { 
     Button, 
@@ -53,7 +54,6 @@ interface Props {
 // --- Coordination List Component ---
 const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () => void, onViewDetail: (id: number) => void }) => {
     useAuth();
-    const isMobile = useMediaQuery('(max-width: 500px)');
     // State
     const [searchId, setSearchId] = useState('');
     const [dateFrom, setDateFrom] = useState('');
@@ -189,15 +189,17 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
                     title="Consultar Fichas (Coordinación)"
                     onBack={onBackToMenu}
                     rightSection={
-                        <Button 
-                            variant="filled" 
-                            size="sm" 
-                            color="green" 
-                            leftSection={<IconDownload size={16} />}
-                            onClick={() => setShowExportModal(true)}
-                        >
-                            Exportar PDF
-                        </Button>
+                        <ProtectedContent permission="FI_EXP_MC">
+                            <Button 
+                                variant="filled" 
+                                size="sm" 
+                                color="green" 
+                                leftSection={<IconDownload size={16} />}
+                                onClick={() => setShowExportModal(true)}
+                            >
+                                Exportar PDF
+                            </Button>
+                        </ProtectedContent>
                     }
                 />
 
@@ -292,34 +294,38 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
                                                 </Table.Td>
                                                 <Table.Td ta="center">
                                                     {(ficha.estado_ficha || '').toUpperCase().includes('EN PROCESO') && (
-                                                        <ActionIcon 
-                                                            color="red" 
-                                                            variant="light"
-                                                            onClick={async (e) => {
-                                                                e.stopPropagation();
-                                                                const idFicha = ficha.id_fichaingresoservicio || ficha.fichaingresoservicio;
-                                                                const pdfBlob = await fichaService.downloadPdf(Number(idFicha));
-                                                                const url = window.URL.createObjectURL(pdfBlob);
-                                                                const link = document.createElement('a');
-                                                                link.href = url;
-                                                                link.setAttribute('download', `Ficha_${idFicha}.pdf`);
-                                                                document.body.appendChild(link);
-                                                                link.click();
-                                                                document.body.removeChild(link);
-                                                            }}
-                                                        >
-                                                            <IconDownload size={18} />
-                                                        </ActionIcon>
+                                                        <ProtectedContent permission="FI_EXPORTAR_CFI">
+                                                            <ActionIcon 
+                                                                color="red" 
+                                                                variant="light"
+                                                                onClick={async (e) => {
+                                                                    e.stopPropagation();
+                                                                    const idFicha = ficha.id_fichaingresoservicio || ficha.fichaingresoservicio;
+                                                                    const pdfBlob = await fichaService.downloadPdf(Number(idFicha));
+                                                                    const url = window.URL.createObjectURL(pdfBlob);
+                                                                    const link = document.createElement('a');
+                                                                    link.href = url;
+                                                                    link.setAttribute('download', `Ficha_${idFicha}.pdf`);
+                                                                    document.body.appendChild(link);
+                                                                    link.click();
+                                                                    document.body.removeChild(link);
+                                                                }}
+                                                            >
+                                                                <IconDownload size={18} />
+                                                            </ActionIcon>
+                                                        </ProtectedContent>
                                                     )}
                                                 </Table.Td>
                                                 <Table.Td ta="center">
-                                                    <ActionIcon 
-                                                        color="grape" 
-                                                        variant="filled"
-                                                        onClick={() => onViewDetail(ficha.id_fichaingresoservicio || ficha.fichaingresoservicio)}
-                                                    >
-                                                        <IconEdit size={18} />
-                                                    </ActionIcon>
+                                                    <ProtectedContent permission="FI_VER">
+                                                        <ActionIcon 
+                                                            color="grape" 
+                                                            variant="filled"
+                                                            onClick={() => onViewDetail(ficha.id_fichaingresoservicio || ficha.fichaingresoservicio)}
+                                                        >
+                                                            <IconEdit size={18} />
+                                                        </ActionIcon>
+                                                    </ProtectedContent>
                                                 </Table.Td>
                                             </Table.Tr>
                                         )
@@ -351,11 +357,31 @@ const CoordinacionListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: ()
 
 // --- Main Orchestrator ---
 const CoordinacionPageContent: React.FC<Props> = ({ onBack }) => {
-    const { hasPermission } = useAuth();
+    const { hasPermission, user } = useAuth();
     const isMobile = useMediaQuery('(max-width: 500px)');
     const { maCoordMode: mode, setMaCoordMode: setMode } = useNavStore();
     const [selectedFichaId, setSelectedFichaId] = useState<number | null>(null);
     const [detailReturnMode, setDetailReturnMode] = useState<string>('list_consultar');
+
+    // Navegación Automática Inteligente
+    useEffect(() => {
+        if (!user || mode !== 'menu') return;
+
+        const canConsult = hasPermission('FI_CONSULTAR');
+        const canAssign = hasPermission('FI_ASIG_GRUPO');
+        const canCalendar = hasPermission('MA_CALENDARIO_ACCESO');
+        const canHistory = hasPermission('MA_COMERCIAL_HISTORIAL_ACCESO');
+
+        // Contar a cuántas secciones tiene acceso
+        const accessCount = [canConsult, canAssign, canCalendar, canHistory].filter(Boolean).length;
+
+        if (accessCount === 1) {
+            if (canConsult) setMode('list_consultar');
+            else if (canAssign) setMode('list_assign');
+            else if (canCalendar) setMode('calendar_en_proceso');
+            else if (canHistory) setMode('list_ejecutados');
+        }
+    }, [mode, setMode, user, hasPermission]);
 
     const goToDetailConsultar = (id: number, source: string = 'list_consultar') => {
         setDetailReturnMode(source);
@@ -452,23 +478,27 @@ const CoordinacionPageContent: React.FC<Props> = ({ onBack }) => {
                         </Text>
 
                         <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="xl" mt="xl">
-                            <SelectionCard
-                                title="Consultar Fichas"
-                                description="Visualizar y gestionar fichas de ingreso, antecedentes y observaciones."
-                                icon={<IconTable size={32} />}
-                                color="#7c3aed"
-                                onClick={() => setMode('list_consultar')}
-                            />
+                            <ProtectedContent permission={['FI_CONSULTAR', 'FI_APROBAR', 'FI_REVISION', 'FI_VER', 'FI_EXPORTAR_CFI']}>
+                                <SelectionCard
+                                    title="Consultar Fichas"
+                                    description="Visualizar y gestionar fichas de ingreso, antecedentes y observaciones."
+                                    icon={<IconTable size={32} />}
+                                    color="#7c3aed"
+                                    onClick={() => setMode('list_consultar')}
+                                />
+                            </ProtectedContent>
 
-                            <SelectionCard
-                                title="Asignación Fechas"
-                                description="Programar fechas de muestreo y asignar muestreadores responsables."
-                                icon={<IconCalendar size={32} />}
-                                color="#2563eb"
-                                onClick={() => setMode('list_assign')}
-                            />
+                            <ProtectedContent permission="FI_ASIG_GRUPO">
+                                <SelectionCard
+                                    title="Asignación Fechas"
+                                    description="Programar fechas de muestreo y asignar muestreadores responsables."
+                                    icon={<IconCalendar size={32} />}
+                                    color="#2563eb"
+                                    onClick={() => setMode('list_assign')}
+                                />
+                            </ProtectedContent>
 
-                            {hasPermission('MA_CALENDARIO_ACCESO') && (
+                            <ProtectedContent permission="MA_CALENDARIO_ACCESO">
                                 <SelectionCard
                                     title="Calendario Programación"
                                     description="Visualizar la programación mensual de muestreos en terreno de forma gráfica."
@@ -476,23 +506,27 @@ const CoordinacionPageContent: React.FC<Props> = ({ onBack }) => {
                                     color="#0d9488"
                                     onClick={() => setMode('calendar_en_proceso')}
                                 />
-                            )}
+                            </ProtectedContent>
 
-                            <SelectionCard
-                                title="Muestreos Ejecutados"
-                                description="Muestreos ejecutados al 100%. Acceso a datos e informes emitidos."
-                                icon={<IconChecklist size={32} />}
-                                color="#059669"
-                                onClick={() => setMode('list_ejecutados')}
-                            />
+                            <ProtectedContent permission={['FI_EXP_MC', 'MA_COMERCIAL_HISTORIAL_ACCESO']}>
+                                <SelectionCard
+                                    title="Muestreos Ejecutados"
+                                    description="Muestreos ejecutados al 100%. Acceso a datos e informes emitidos."
+                                    icon={<IconChecklist size={32} />}
+                                    color="#059669"
+                                    onClick={() => setMode('list_ejecutados')}
+                                />
+                            </ProtectedContent>
 
-                            <SelectionCard
-                                title="Dashboard Interactivo"
-                                description="Métricas de gestión, tendencias de ingresos y distribución operativa."
-                                icon={<IconChartBar size={32} />}
-                                color="#db2777"
-                                onClick={() => setMode('dashboard')}
-                            />
+                            <ProtectedContent permission="MA_COORDINACION_ACCESO">
+                                <SelectionCard
+                                    title="Dashboard Interactivo"
+                                    description="Métricas de gestión, tendencias de ingresos y distribución operativa."
+                                    icon={<IconChartBar size={32} />}
+                                    color="#db2777"
+                                    onClick={() => setMode('dashboard')}
+                                />
+                            </ProtectedContent>
                         </SimpleGrid>
                     </Stack>
                 </Paper>

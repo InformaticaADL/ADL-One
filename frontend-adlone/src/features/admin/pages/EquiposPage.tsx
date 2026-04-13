@@ -46,6 +46,7 @@ import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useNavStore } from '../../../store/navStore';
 import { PageHeader } from '../../../components/layout/PageHeader';
+import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 import '../admin.css';
 
 const getStatusColor = (status: string) => {
@@ -839,23 +840,31 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                     onBack={onBack}
                     rightSection={
                         <Group gap="xs" wrap={isMobile ? "wrap" : "nowrap"}>
-                            <Button 
-                                variant="outline" 
-                                color="gray"
-                                size="xs"
-                                leftSection={<IconDownload size={16} />} 
-                                onClick={() => setShowExportModal(true)}
-                            >
-                                Exportar
-                            </Button>
-                            <Button 
-                                size="xs"
-                                leftSection={<IconPlus size={16} />} 
-                                onClick={() => { setSelectedEquipo(null); setViewMode('form'); }}
-                                color="adl-blue"
-                            >
-                                Nuevo Equipo
-                            </Button>
+                            <ProtectedContent permission="EQ_EXP">
+                                <Button 
+                                    variant="light" 
+                                    color="red" 
+                                    leftSection={<IconDownload size={18} />}
+                                    onClick={() => setShowExportModal(true)}
+                                    radius="md"
+                                    size={isMobile ? "xs" : "sm"}
+                                    style={{ flex: isMobile ? 1 : 'auto' }}
+                                >
+                                    Exportar EQ
+                                </Button>
+                            </ProtectedContent>
+                            
+                            <ProtectedContent permission="AI_MA_CREAR_EQUIPO">
+                                <Button 
+                                    leftSection={<IconPlus size={18} />} 
+                                    onClick={() => { setSelectedEquipo(null); setViewMode('form'); }}
+                                    radius="md"
+                                    size={isMobile ? "xs" : "sm"}
+                                    style={{ flex: isMobile ? 1 : 'auto' }}
+                                >
+                                    Nuevo {isMobile ? '' : 'Equipo'}
+                                </Button>
+                            </ProtectedContent>
                         </Group>
                     }
                 />
@@ -1022,25 +1031,29 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                                 <Table.Td>{equipo.nombre_asignado || '---'}</Table.Td>
                                                 <Table.Td>
                                                     <Group gap="xs" justify="flex-end">
-                                                        <Tooltip label="Editar">
-                                                            <ActionIcon 
-                                                                variant="subtle" 
-                                                                onClick={() => handleEdit(equipo)} 
-                                                                disabled={!canEditEquipo}
-                                                            >
-                                                                <IconEdit size={18} />
-                                                            </ActionIcon>
-                                                        </Tooltip>
-                                                        <Tooltip label={isInactive ? 'Activar' : 'Desactivar'}>
-                                                            <ActionIcon 
-                                                                variant="light" 
-                                                                color={isInactive ? 'green' : 'red'}
-                                                                onClick={() => handleToggleStatus(equipo)}
-                                                                disabled={!canEditEquipo}
-                                                            >
-                                                                <IconPower size={18} />
-                                                            </ActionIcon>
-                                                        </Tooltip>
+                                                        <ProtectedContent permission="AI_MA_EDITAR_EQUIPO">
+                                                            <Tooltip label="Editar">
+                                                                <ActionIcon 
+                                                                    variant="subtle" 
+                                                                    onClick={() => handleEdit(equipo)} 
+                                                                    disabled={!canEditEquipo}
+                                                                >
+                                                                    <IconEdit size={18} />
+                                                                </ActionIcon>
+                                                            </Tooltip>
+                                                        </ProtectedContent>
+                                                        <ProtectedContent permission={isInactive ? "EQ_ACTIVAR" : "EQ_DESACTIVAR"}>
+                                                            <Tooltip label={isInactive ? 'Activar' : 'Desactivar'}>
+                                                                <ActionIcon 
+                                                                    variant="light" 
+                                                                    color={isInactive ? 'green' : 'red'}
+                                                                    onClick={() => handleToggleStatus(equipo)}
+                                                                    disabled={!canEditEquipo}
+                                                                >
+                                                                    <IconPower size={18} />
+                                                                </ActionIcon>
+                                                            </Tooltip>
+                                                        </ProtectedContent>
                                                     </Group>
                                                 </Table.Td>
                                             </Table.Tr>

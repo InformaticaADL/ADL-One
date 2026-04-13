@@ -319,15 +319,17 @@ export const EnProcesoListView: React.FC<Props> = ({ onBackToMenu, onViewDetail 
                                                 <Text size="xs">{ficha.subarea || '-'}</Text>
                                             </Table.Td>
                                             <Table.Td ta="center">
-                                                <Tooltip label="Gestionar Ficha">
-                                                    <ActionIcon 
-                                                        color="emerald" 
-                                                        variant="filled" 
-                                                        onClick={() => onViewDetail(ficha.id)}
-                                                    >
-                                                        <IconEdit size={18} />
-                                                    </ActionIcon>
-                                                </Tooltip>
+                                                <ProtectedContent permission="FI_VER">
+                                                    <Tooltip label="Gestionar Ficha">
+                                                        <ActionIcon 
+                                                            color="emerald" 
+                                                            variant="filled" 
+                                                            onClick={() => onViewDetail(ficha.id)}
+                                                        >
+                                                            <IconEdit size={18} />
+                                                        </ActionIcon>
+                                                    </Tooltip>
+                                                </ProtectedContent>
                                             </Table.Td>
                                         </Table.Tr>
                                     ))}

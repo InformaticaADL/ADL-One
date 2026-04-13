@@ -165,7 +165,7 @@ export const WelcomePage: React.FC = () => {
                                         ADL
                                     </Text>
                                     <Text fw={400} size={rem(32)} c="orange.5" style={{ lineHeight: 1, letterSpacing: '-0.02em', textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
-                                        Diagnóstico
+                                        Diagnostic
                                     </Text>
                                 </Group>
                             </Stack>
@@ -401,7 +401,7 @@ export const WelcomePage: React.FC = () => {
                         <Text fw={900} size="24px" c="blue.9" style={{ letterSpacing: '-0.03em', lineHeight: 1.1 }}>
                             Cierre de Operaciones Mensuales: Unidad Ensayo Molecular
                         </Text>
-                        <Text size="xs" c="dimmed" mt="xs" fw={700}>Publicado el 20 de Marzo, 2026 • ADL Diagnóstico</Text>
+                        <Text size="xs" c="dimmed" mt="xs" fw={700}>Publicado el 20 de Marzo, 2026 • ADL Diagnostic</Text>
                     </Box>
 
                     <Text size="sm" c="gray.8" style={{ lineHeight: 1.7 }}>

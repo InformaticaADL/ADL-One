@@ -800,6 +800,23 @@ Optimización integral del sistema de notificaciones del Unified Request System 
 - **Archivos Modificados**:
     - Backend: `urs.service.js`, `uns.service.js`, `notification.service.js`, `scheduler.js`, `update_urs_templates.mjs`.
 
+### 48. Optimización de Flujos, Identidad y Experiencia Visual (Abril 2026) 🚀🎨
+Mejoras centradas en la resolución de datos móviles, automatización de la navegación y refinamiento estético de la interfaz.
+
+- **Resolución de Identidad Móvil (URS)**:
+    - Optimización del backend (`urs.service.js`) para cruzar el `id_tecnico` de las solicitudes JSON con la tabla maestros de usuarios.
+    - El sistema ahora identifica nombres reales (ej. "Angelo") para solicitudes móviles, eliminando el genérico "App".
+- **Navegación Inteligente y Auto-Ingreso**:
+    - **Auto-Jump por Rol**: Los usuarios con acceso único en "Fichas de Ingreso" son redirigidos automáticamente a su área de trabajo correspondiente (Comercial, Técnica o Coordinación).
+    - **Navegación de Salida**: Se reconfiguró el botón "Volver" para que el usuario salga completamente del módulo hacia su origen, evitando la pantalla intermedia de selección.
+- **Mejoras de UI/UX Premium**:
+    - **Confirmaciones Dinámicas**: `ConfirmModal` ahora utiliza colores verdes e iconos de éxito para aprobaciones técnicas, diferenciándolas visualmente de las alertas de riesgo.
+    - **Refinamiento de Sidebar**: Corrección de desbordes en líneas divisorias y optimización de espacio para nombres/correos largos mediante envoltura automática de texto y reducción de paddings.
+
+- **Archivos Modificados**:
+    - Backend: `urs.service.js`.
+    - Frontend: `FichasIngresoPage.tsx`, `TechnicalDetailView.tsx`, `ConfirmModal.tsx`, `Sidebar.tsx`, `Sidebar.module.css`.
+
 ---
 
 ## 📄 Estado Final del Proyecto

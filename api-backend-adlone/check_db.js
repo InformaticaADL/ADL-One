@@ -1,4 +1,6 @@
+import './src/config/env.js';
 import { getConnection } from './src/config/database.js';
+
 import sql from 'mssql';
 
 async function checkSolicitudes() {

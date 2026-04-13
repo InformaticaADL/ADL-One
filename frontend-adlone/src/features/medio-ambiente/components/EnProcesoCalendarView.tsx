@@ -23,6 +23,7 @@ import {
 } from '@mantine/core';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
+import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 import { useMediaQuery } from '@mantine/hooks';
 import { catalogosService } from '../services/catalogos.service';
 import { fichaService } from '../services/ficha.service';
@@ -559,6 +560,10 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                                                 <UnstyledButton
                                                                     key={`${ev.id}-${ev.tipo_evento}`}
                                                                     onClick={() => {
+                                                                        if (!hasPermission('FI_CAL_DETALLE')) {
+                                                                            showToast({ type: 'warning', message: 'No tiene permisos para ver el detalle de este muestreo.' });
+                                                                            return;
+                                                                        }
                                                                         setSelectedEvent(ev);
                                                                     }}
                                                                 >
@@ -715,6 +720,10 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                                                 <UnstyledButton
                                                                     key={`${ev.id}-${ev.tipo_evento}`}
                                                                     onClick={() => {
+                                                                        if (!hasPermission('FI_CAL_DETALLE')) {
+                                                                            showToast({ type: 'warning', message: 'No tiene permisos para ver el detalle de este muestreo.' });
+                                                                            return;
+                                                                        }
                                                                         setSelectedEvent(ev);
                                                                     }}
                                                                 >
@@ -840,89 +849,106 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                         
                         <Grid align="flex-end">
                             <Grid.Col span={6}>
-                                <TextInput 
-                                    label="Fecha de Muestreo (Agenda)" 
-                                    type="date"
-                                    value={editedDate}
-                                    onChange={(e) => { setEditedDate(e.target.value); setIsEditingDate(true); }}
-                                    size="sm"
-                                />
+                                {hasPermission('MA_CALENDARIO_REAGENDAR') ? (
+                                    <TextInput 
+                                        label="Fecha de Muestreo (Agenda)" 
+                                        type="date"
+                                        value={editedDate}
+                                        onChange={(e) => { setEditedDate(e.target.value); setIsEditingDate(true); }}
+                                        size="sm"
+                                    />
+                                ) : (
+                                    <StaticField label="Fecha de Muestreo (Agenda)" value={editedDate} />
+                                )}
                             </Grid.Col>
                             <Grid.Col span={6}>
-                                <Select 
-                                    label="Re-Asignar Muestreador" 
-                                    placeholder="Seleccione..."
-                                    data={Array.from(new Map(globalMuestreadores.map(m => [m.id_muestreador.toString(), m.nombre_muestreador])).entries()).map(([value, label]) => ({ value, label }))}
-                                    value={editedSamplerId.toString()}
-                                    onChange={(val) => { setEditedSamplerId(Number(val) || ''); setIsEditingSampler(true); }}
-                                    size="sm"
-                                    searchable
-                                />
+                                {hasPermission('MA_CALENDARIO_REASIGNAR') ? (
+                                    <Select 
+                                        label="Re-Asignar Muestreador" 
+                                        placeholder="Seleccione..."
+                                        data={Array.from(new Map(globalMuestreadores.map(m => [m.id_muestreador.toString(), m.nombre_muestreador])).entries()).map(([value, label]) => ({ value, label }))}
+                                        value={editedSamplerId.toString()}
+                                        onChange={(val) => { setEditedSamplerId(Number(val) || ''); setIsEditingSampler(true); }}
+                                        size="sm"
+                                        searchable
+                                    />
+                                ) : (
+                                    <StaticField 
+                                        label="Muestreador Asignado" 
+                                        value={globalMuestreadores.find(m => m.id_muestreador === Number(editedSamplerId))?.nombre_muestreador || 'Sin Asignar'} 
+                                    />
+                                )}
                             </Grid.Col>
                         </Grid>
                         <Group justify="space-between" mt="xl">
-                            <Button 
-                                variant="light" 
-                                color="gray" 
-                                leftSection={<IconSearch size={16} />}
-                                onClick={() => {
-                                    if (selectedEvent) {
-                                        setDetailFichaId(selectedEvent.id);
-                                        setSelectedEvent(null);
-                                    }
-                                }}
-                            >
-                                Ver Detalle Completo
-                            </Button>
-                            
-                            <Group gap="sm">
-                                <Button variant="outline" color="red" onClick={() => setShowCancelConfirm(true)}>
-                                    Cancelar Muestreo
-                                </Button>
+                            <ProtectedContent permission="FI_CAL_DETALLE">
                                 <Button 
-                                    leftSection={<IconDeviceFloppy size={18} />} 
-                                    disabled={(!isEditingDate && !isEditingSampler) || isSavingEvent}
-                                    loading={isSavingEvent}
-                                    onClick={async () => {
-                                        if (!selectedEvent) return;
-                                        
-                                        let finalFecha = selectedEvent.fecha;
-                                        let finalFechaRetiro = selectedEvent.fecha_retiro;
-
-                                        if (selectedEvent.tipo_evento === 'INICIO' && isEditingDate) {
-                                            finalFecha = editedDate;
-                                            if (selectedEvent.fecha && selectedEvent.fecha_retiro) {
-                                                const start = new Date(selectedEvent.fecha);
-                                                const end = new Date(selectedEvent.fecha_retiro);
-                                                const gapMs = end.getTime() - start.getTime();
-                                                if (gapMs > 0) {
-                                                    const newStart = new Date(editedDate + 'T00:00:00Z');
-                                                    const newEnd = new Date(newStart.getTime() + gapMs);
-                                                    finalFechaRetiro = newEnd.toISOString().split('T')[0];
-                                                }
-                                            }
-                                        } else if (selectedEvent.tipo_evento === 'RETIRO' && isEditingDate) {
-                                            finalFechaRetiro = editedDate;
+                                    variant="light" 
+                                    color="gray" 
+                                    leftSection={<IconSearch size={16} />}
+                                    onClick={() => {
+                                        if (selectedEvent) {
+                                            setDetailFichaId(selectedEvent.id);
+                                            setSelectedEvent(null);
                                         }
-
-                                        const payload = {
-                                            assignments: [{
-                                                id: selectedEvent.id_agenda,
-                                                fecha: finalFecha,
-                                                fechaRetiro: finalFechaRetiro,
-                                                idMuestreadorInstalacion: selectedEvent.tipo_evento === 'INICIO' ? Number(editedSamplerId) || 0 : Number(selectedEvent.id_muestreador) || 0,
-                                                idMuestreadorRetiro: selectedEvent.tipo_evento === 'RETIRO' ? Number(editedSamplerId) || 0 : Number(selectedEvent.id_muestreador2 || selectedEvent.id_muestreador) || 0,
-                                                idFichaIngresoServicio: selectedEvent.id,
-                                                frecuenciaCorrelativo: selectedEvent.correlativo
-                                            }],
-                                            user: { id: user?.id || 0, usuario: user?.name || 'Sistema' }
-                                        };
-                                        setPendingPayload(payload);
-                                        setShowVersionPrompt(true);
                                     }}
                                 >
-                                    Guardar Cambios
+                                    Ver Detalle Completo
                                 </Button>
+                            </ProtectedContent>
+                            
+                            <Group gap="sm">
+                                <ProtectedContent permission="MA_CALENDARIO_CANCELAR">
+                                    <Button variant="outline" color="red" onClick={() => setShowCancelConfirm(true)}>
+                                        Cancelar Muestreo
+                                    </Button>
+                                </ProtectedContent>
+                                <ProtectedContent permission={['MA_CALENDARIO_REAGENDAR', 'MA_CALENDARIO_REASIGNAR']}>
+                                    <Button 
+                                        leftSection={<IconDeviceFloppy size={18} />} 
+                                        disabled={(!isEditingDate && !isEditingSampler) || isSavingEvent}
+                                        loading={isSavingEvent}
+                                        onClick={async () => {
+                                            if (!selectedEvent) return;
+                                            
+                                            let finalFecha = selectedEvent.fecha;
+                                            let finalFechaRetiro = selectedEvent.fecha_retiro;
+
+                                            if (selectedEvent.tipo_evento === 'INICIO' && isEditingDate) {
+                                                finalFecha = editedDate;
+                                                if (selectedEvent.fecha && selectedEvent.fecha_retiro) {
+                                                    const start = new Date(selectedEvent.fecha);
+                                                    const end = new Date(selectedEvent.fecha_retiro);
+                                                    const gapMs = end.getTime() - start.getTime();
+                                                    if (gapMs > 0) {
+                                                        const newStart = new Date(editedDate + 'T00:00:00Z');
+                                                        const newEnd = new Date(newStart.getTime() + gapMs);
+                                                        finalFechaRetiro = newEnd.toISOString().split('T')[0];
+                                                    }
+                                                }
+                                            } else if (selectedEvent.tipo_evento === 'RETIRO' && isEditingDate) {
+                                                finalFechaRetiro = editedDate;
+                                            }
+
+                                            const payload = {
+                                                assignments: [{
+                                                    id: selectedEvent.id_agenda,
+                                                    fecha: finalFecha,
+                                                    fechaRetiro: finalFechaRetiro,
+                                                    idMuestreadorInstalacion: selectedEvent.tipo_evento === 'INICIO' ? Number(editedSamplerId) || 0 : Number(selectedEvent.id_muestreador) || 0,
+                                                    idMuestreadorRetiro: selectedEvent.tipo_evento === 'RETIRO' ? Number(editedSamplerId) || 0 : Number(selectedEvent.id_muestreador2 || selectedEvent.id_muestreador) || 0,
+                                                    idFichaIngresoServicio: selectedEvent.id,
+                                                    frecuenciaCorrelativo: selectedEvent.correlativo
+                                                }],
+                                                user: { id: user?.id || 0, usuario: user?.name || 'Sistema' }
+                                            };
+                                            setPendingPayload(payload);
+                                            setShowVersionPrompt(true);
+                                        }}
+                                    >
+                                        Guardar Cambios
+                                    </Button>
+                                </ProtectedContent>
                             </Group>
                         </Group>
                     </Stack>

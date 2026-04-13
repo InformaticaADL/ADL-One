@@ -157,10 +157,15 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
             let mod = p.modulo || 'Otros';
             let sub = p.submodulo || 'General';
 
-            if (['MA_A_REPORTES', 'MA_A_REPORTES_DETALLE', 'MA_A_REPORTES_REVISION'].includes(p.codigo)) {
-                mod = 'Medio Ambiente';
-                sub = 'Reportes';
-            }
+            // Normalización básica para asegurar que los nombres coincidan con las pestañas
+            const modUpper = mod.toUpperCase().trim();
+            
+            if (modUpper.includes('ADMIN')) mod = 'Admin. Información';
+            else if (modUpper.includes('CALIDAD')) mod = 'Gestión de Calidad';
+            else if (modUpper.includes('MEDIO AMBIENTE')) mod = 'Medio Ambiente';
+            else if (modUpper.includes('LABORATORY')) mod = 'Laboratory';
+            else if (modUpper.includes('MICROSCOP')) mod = 'Microscopía';
+            else if (modUpper.includes('OTROS')) mod = 'Otros';
 
             if (!groups[mod]) groups[mod] = {};
             if (!groups[mod][sub]) groups[mod][sub] = [];
@@ -174,10 +179,10 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
         'Informática': <IconSettings size={16} />,
         'General': <IconWorld size={16} />,
         'Medio Ambiente': <IconLeaf size={16} />,
-        'Administración': <IconBuildingHospital size={16} />,
+        'Admin. Info': <IconBuildingHospital size={16} />,
+        'Gestión de Calidad': <IconChartBar size={16} />,
         'Laboratory': <IconFlask size={16} />,
         'Microscopía': <IconMicroscope size={16} />,
-        'Calidad': <IconChartBar size={16} />,
         'Otros': <IconInfoCircle size={16} />
     };
 
@@ -388,67 +393,152 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
                                 </Group>
 
                                 <Stack gap="md">
-                                    {Object.entries(submodules).map(([subName, perms]) => {
-                                        const subId = `${moduleName}:${subName}`;
-                                        const isExpanded = expandedSubmodules[subId] !== false;
-
-                                        return (
-                                            <Paper key={subName} withBorder p="md" radius="md">
-                                                <Group 
-                                                    justify="space-between" 
-                                                    style={{ cursor: 'pointer' }}
-                                                    onClick={() => toggleSubmodule(moduleName, subName)}
-                                                >
-                                                    <Group gap="xs">
-                                                        {isExpanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
-                                                        <Text fw={700} size="sm" style={{ textTransform: 'uppercase' }}>{subName}</Text>
-                                                        <Badge size="xs" variant="outline">{perms.length} permisos</Badge>
-                                                    </Group>
-                                                    <Checkbox 
-                                                        size="xs"
-                                                        label="Marcar Submódulo"
-                                                        checked={perms.every(p => selectedPermissions.includes(p.id_permiso))}
-                                                        onClick={(e) => e.stopPropagation()}
-                                                        onChange={() => toggleSelectAllCategory(perms)}
-                                                    />
+                                    {moduleName === 'Medio Ambiente' ? (
+                                        <Paper withBorder p="md" radius="md">
+                                            <Group 
+                                                justify="space-between" 
+                                                style={{ cursor: 'pointer' }}
+                                                onClick={() => {
+                                                    // Expandir/Contraer todos los submodulos internos de Medio Ambiente
+                                                    const allSubKeys = Object.keys(submodules).map(s => `${moduleName}:${s}`);
+                                                    const someClosed = allSubKeys.some(k => expandedSubmodules[k] === false);
+                                                    const newState: Record<string, boolean> = {};
+                                                    allSubKeys.forEach(k => newState[k] = someClosed);
+                                                    setExpandedSubmodules(prev => ({ ...prev, ...newState }));
+                                                }}
+                                            >
+                                                <Group gap="xs">
+                                                    <IconChevronDown size={14} />
+                                                    <Text fw={700} size="sm" style={{ textTransform: 'uppercase' }}>MEDIOAMBIENTE</Text>
+                                                    <Badge size="xs" variant="outline">
+                                                        {Object.values(submodules).reduce((acc, curr) => acc + curr.length, 0)} permisos
+                                                    </Badge>
                                                 </Group>
+                                                <Checkbox 
+                                                    size="xs"
+                                                    label="Marcar Todo Gestión"
+                                                    checked={Object.values(submodules).flat().every(p => selectedPermissions.includes(p.id_permiso))}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    onChange={() => toggleSelectAllCategory(Object.values(submodules).flat())}
+                                                />
+                                            </Group>
 
-                                                <Collapse in={isExpanded}>
-                                                    <Grid mt="md" gutter="md">
-                                                        {perms.map(p => (
-                                                            <Grid.Col key={p.id_permiso} span={{ base: 12, md: 6, lg: 4 }}>
-                                                                <Paper 
-                                                                    withBorder 
-                                                                    p="xs" 
-                                                                    radius="sm"
-                                                                    bg={selectedPermissions.includes(p.id_permiso) ? 'blue.0' : 'white'}
-                                                                    style={{ 
-                                                                        cursor: 'pointer',
-                                                                        transition: 'all 0.2s',
-                                                                        borderColor: selectedPermissions.includes(p.id_permiso) ? 'var(--mantine-color-blue-3)' : undefined
-                                                                    }}
-                                                                    onClick={() => togglePermission(p.id_permiso)}
-                                                                >
-                                                                    <Group gap="xs" wrap="nowrap" align="flex-start">
-                                                                        <Checkbox 
-                                                                            checked={selectedPermissions.includes(p.id_permiso)}
-                                                                            onChange={() => {}} // Done by Paper
-                                                                            size="xs"
-                                                                            mt={3}
-                                                                        />
-                                                                        <Box style={{ flex: 1 }}>
-                                                                            <Text size="sm" fw={500} lineClamp={1}>{p.nombre}</Text>
-                                                                            <Text size="xs" c="dimmed" ff="monospace">{p.codigo}</Text>
-                                                                        </Box>
+                                            <Box mt="md">
+                                                {Object.entries(submodules).map(([subName, perms], idx) => {
+                                                    const subId = `${moduleName}:${subName}`;
+                                                    const isExpanded = expandedSubmodules[subId] !== false;
+
+                                                    return (
+                                                        <Box key={subName} mt={idx > 0 ? "xl" : 0}>
+                                                            <Divider 
+                                                                mb="sm" 
+                                                                label={
+                                                                    <Group gap="xs">
+                                                                        <Text fw={700} size="xs" c="blue.7">{subName}</Text>
+                                                                        <Badge size="xs" variant="light">{perms.length}</Badge>
                                                                     </Group>
-                                                                </Paper>
-                                                            </Grid.Col>
-                                                        ))}
-                                                    </Grid>
-                                                </Collapse>
-                                            </Paper>
-                                        );
-                                    })}
+                                                                } 
+                                                                labelPosition="left" 
+                                                            />
+                                                            <Grid gutter="md">
+                                                                {perms.map(p => (
+                                                                    <Grid.Col key={p.id_permiso} span={{ base: 12, md: 6, lg: 4 }}>
+                                                                        <Paper 
+                                                                            withBorder 
+                                                                            p="xs" 
+                                                                            radius="sm"
+                                                                            bg={selectedPermissions.includes(p.id_permiso) ? 'blue.0' : 'white'}
+                                                                            style={{ 
+                                                                                cursor: 'pointer',
+                                                                                transition: 'all 0.2s',
+                                                                                borderColor: selectedPermissions.includes(p.id_permiso) ? 'var(--mantine-color-blue-3)' : undefined
+                                                                            }}
+                                                                            onClick={() => togglePermission(p.id_permiso)}
+                                                                        >
+                                                                            <Group gap="xs" wrap="nowrap" align="flex-start">
+                                                                                <Checkbox 
+                                                                                    checked={selectedPermissions.includes(p.id_permiso)}
+                                                                                    onChange={() => {}}
+                                                                                    size="xs"
+                                                                                    mt={3}
+                                                                                />
+                                                                                <Box style={{ flex: 1 }}>
+                                                                                    <Text size="sm" fw={500} lineClamp={1}>{p.nombre}</Text>
+                                                                                    <Text size="xs" c="dimmed" ff="monospace">{p.codigo}</Text>
+                                                                                </Box>
+                                                                            </Group>
+                                                                        </Paper>
+                                                                    </Grid.Col>
+                                                                ))}
+                                                            </Grid>
+                                                        </Box>
+                                                    );
+                                                })}
+                                            </Box>
+                                        </Paper>
+                                    ) : (
+                                        Object.entries(submodules).map(([subName, perms]) => {
+                                            const subId = `${moduleName}:${subName}`;
+                                            const isExpanded = expandedSubmodules[subId] !== false;
+
+                                            return (
+                                                <Paper key={subName} withBorder p="md" radius="md">
+                                                    <Group 
+                                                        justify="space-between" 
+                                                        style={{ cursor: 'pointer' }}
+                                                        onClick={() => toggleSubmodule(moduleName, subName)}
+                                                    >
+                                                        <Group gap="xs">
+                                                            {isExpanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+                                                            <Text fw={700} size="sm" style={{ textTransform: 'uppercase' }}>{subName}</Text>
+                                                            <Badge size="xs" variant="outline">{perms.length} permisos</Badge>
+                                                        </Group>
+                                                        <Checkbox 
+                                                            size="xs"
+                                                            label="Marcar Submódulo"
+                                                            checked={perms.every(p => selectedPermissions.includes(p.id_permiso))}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            onChange={() => toggleSelectAllCategory(perms)}
+                                                        />
+                                                    </Group>
+
+                                                    <Collapse in={isExpanded}>
+                                                        <Grid mt="md" gutter="md">
+                                                            {perms.map(p => (
+                                                                <Grid.Col key={p.id_permiso} span={{ base: 12, md: 6, lg: 4 }}>
+                                                                    <Paper 
+                                                                        withBorder 
+                                                                        p="xs" 
+                                                                        radius="sm"
+                                                                        bg={selectedPermissions.includes(p.id_permiso) ? 'blue.0' : 'white'}
+                                                                        style={{ 
+                                                                            cursor: 'pointer',
+                                                                            transition: 'all 0.2s',
+                                                                            borderColor: selectedPermissions.includes(p.id_permiso) ? 'var(--mantine-color-blue-3)' : undefined
+                                                                        }}
+                                                                        onClick={() => togglePermission(p.id_permiso)}
+                                                                    >
+                                                                        <Group gap="xs" wrap="nowrap" align="flex-start">
+                                                                            <Checkbox 
+                                                                                checked={selectedPermissions.includes(p.id_permiso)}
+                                                                                onChange={() => {}} // Done by Paper
+                                                                                size="xs"
+                                                                                mt={3}
+                                                                            />
+                                                                            <Box style={{ flex: 1 }}>
+                                                                                <Text size="sm" fw={500} lineClamp={1}>{p.nombre}</Text>
+                                                                                <Text size="xs" c="dimmed" ff="monospace">{p.codigo}</Text>
+                                                                            </Box>
+                                                                        </Group>
+                                                                    </Paper>
+                                                                </Grid.Col>
+                                                            ))}
+                                                        </Grid>
+                                                    </Collapse>
+                                                </Paper>
+                                            );
+                                        })
+                                    )}
                                 </Stack>
                             </Stack>
                         </ScrollArea>

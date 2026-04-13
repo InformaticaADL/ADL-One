@@ -1,7 +1,5 @@
 import sql from 'mssql';
-import dotenv from 'dotenv';
 
-dotenv.config();
 
 const config = {
   server: process.env.DB_SERVER || 'localhost',
@@ -23,6 +21,13 @@ const config = {
     createTimeoutMillis: 30000,   // 30 seconds timeout to create connection
   },
 };
+
+console.log('--- DIAGNÓSTICO DE CONEXIÓN DB ---');
+console.log('Servidor:', config.server);
+console.log('Base de Datos:', config.database);
+console.log('Usuario:', config.user);
+console.log('---------------------------------');
+
 
 let pool = null;
 

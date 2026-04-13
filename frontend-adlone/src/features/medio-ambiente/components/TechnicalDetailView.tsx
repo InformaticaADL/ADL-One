@@ -7,6 +7,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { useCachedCatalogos } from '../hooks/useCachedCatalogos';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { ConfirmModal } from '../../../components/common/ConfirmModal';
+import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 
 import { 
     Button, 
@@ -177,7 +178,7 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
     );
 
     const det = data?.detalles || [];
-    const canProcess = hasPermission('MA_TECNICA_APROBAR') && [0, 3, 4].includes(data?.id_validaciontecnica || -1);
+    const canProcess = (hasPermission('FI_APROBAR') || hasPermission('FI_REVISION')) && [0, 3, 4].includes(data?.id_validaciontecnica || -1);
 
     return (
         <Box p="md" style={{ width: '100% !important', maxWidth: '100% !important' }}>
@@ -360,17 +361,21 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                         radius="md"
                                                     />
                                                     <Group justify="flex-end" mt="md">
-                                                        <Button color="green" leftSection={<IconCheck size={18} />} onClick={handleAcceptClick} loading={actionLoading}>
-                                                            Aprobar Ficha
-                                                        </Button>
-                                                        <Button variant="light" color="red" leftSection={<IconRotate size={18} />} onClick={handleRejectClick} loading={actionLoading}>
-                                                            Solicitar Revisión
-                                                        </Button>
+                                                        <ProtectedContent permission="FI_APROBAR">
+                                                            <Button color="green" leftSection={<IconCheck size={18} />} onClick={handleAcceptClick} loading={actionLoading}>
+                                                                Aprobar Ficha
+                                                            </Button>
+                                                        </ProtectedContent>
+                                                        <ProtectedContent permission="FI_REVISION">
+                                                            <Button variant="light" color="red" leftSection={<IconRotate size={18} />} onClick={handleRejectClick} loading={actionLoading}>
+                                                                Solicitar Revisión
+                                                            </Button>
+                                                        </ProtectedContent>
                                                     </Group>
                                                 </Stack>
                                             </Paper>
                                         ) : (
-                                            !hasPermission('MA_TECNICA_APROBAR') && (
+                                            (!hasPermission('FI_APROBAR') && !hasPermission('FI_REVISION')) && (
                                                 <WorkflowAlert type="warning" title="Sin Permisos" message="No tiene los permisos necesarios para realizar acciones técnicas en esta ficha." />
                                             )
                                         )}
@@ -390,9 +395,11 @@ export const TechnicalDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                 isOpen={showConfirmModal}
                 title={confirmAction?.title || ''}
                 message={confirmAction?.message || ''}
+                confirmColor={confirmAction?.type === 'approve' ? '#10b981' : '#ef4444'}
                 onConfirm={onConfirmAction}
                 onCancel={() => setShowConfirmModal(false)}
             />
+
         </Box>
     );
 };

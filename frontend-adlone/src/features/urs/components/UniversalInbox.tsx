@@ -253,7 +253,7 @@ const UniversalInbox: React.FC = () => {
                         }}
                     >
                         {/* Header/Filters Section (Fixed) */}
-                        <Stack p="md" gap="md" style={{ borderBottom: '1px solid var(--mantine-color-gray-2)' }}>
+                        <Stack px="md" py="md" gap="md" style={{ borderBottom: '1px solid var(--mantine-color-gray-2)' }}>
                             <Group justify="space-between">
                                 <Title order={4}>Solicitudes</Title>
                                 <ActionIcon 
@@ -321,7 +321,7 @@ const UniversalInbox: React.FC = () => {
                         </Stack>
 
                         {/* Scrollable list Section */}
-                        <ScrollArea flex={1} p="xs">
+                        <ScrollArea flex={1} px="xs" py="xs">
                             {loading ? (
                                 <Center py="xl">
                                     <Loader size="sm" color="adl-blue" />

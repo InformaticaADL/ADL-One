@@ -7,6 +7,8 @@ interface ConfirmModalProps {
     confirmText?: string;
     cancelText?: string;
     confirmColor?: string;
+    iconBgColor?: string;
+    iconStrokeColor?: string;
     onConfirm: () => void;
     onCancel: () => void;
 }
@@ -18,10 +20,15 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
     confirmText = 'Confirmar',
     cancelText = 'Cancelar',
     confirmColor = '#ef4444',
+    iconBgColor,
+    iconStrokeColor,
     onConfirm,
     onCancel
 }) => {
     if (!isOpen) return null;
+
+    const finalIconBg = iconBgColor || (confirmColor === '#ef4444' ? '#fee2e2' : `${confirmColor}20`);
+    const finalIconStroke = iconStrokeColor || (confirmColor === '#ef4444' ? '#dc2626' : confirmColor);
 
     return (
         <div
@@ -59,7 +66,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                             width: '48px',
                             height: '48px',
                             borderRadius: '50%',
-                            backgroundColor: '#fee2e2',
+                            backgroundColor: finalIconBg,
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -72,16 +79,23 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                             height="24"
                             viewBox="0 0 24 24"
                             fill="none"
-                            stroke="#dc2626"
+                            stroke={finalIconStroke}
                             strokeWidth="2"
                             strokeLinecap="round"
                             strokeLinejoin="round"
                         >
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <line x1="12" y1="8" x2="12" y2="12"></line>
-                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                            {confirmColor === '#ef4444' ? (
+                                <>
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                                </>
+                            ) : (
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            )}
                         </svg>
                     </div>
+
                     <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#111827', margin: 0 }}>
                         {title}
                     </h3>

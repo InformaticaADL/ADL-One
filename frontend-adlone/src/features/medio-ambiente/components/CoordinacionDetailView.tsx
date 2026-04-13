@@ -7,6 +7,7 @@ import { useCachedCatalogos } from '../hooks/useCachedCatalogos';
 import { WorkflowAlert } from '../../../components/ui/WorkflowAlert';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { ConfirmModal } from '../../../components/common/ConfirmModal';
+import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 import { useMediaQuery } from '@mantine/hooks';
 
 import { 
@@ -181,7 +182,7 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
     );
 
     const det = data?.detalles || [];
-    const canProcess = hasPermission('MA_COORDINACION_APROBAR') && data?.id_validaciontecnica === 1;
+    const canProcess = (hasPermission('FI_APROBAR') || hasPermission('FI_REVISION')) && data?.id_validaciontecnica === 1;
 
     return (
         <Box p="md" style={{ width: '100% !important', maxWidth: '100% !important' }}>
@@ -364,17 +365,21 @@ export const CoordinacionDetailView: React.FC<Props> = ({ fichaId, onBack }) => 
                                                         radius="md"
                                                     />
                                                     <Group justify="flex-end" mt="md">
-                                                        <Button color="green" leftSection={<IconCheck size={18} />} onClick={handleAcceptClick} loading={actionLoading}>
-                                                            Aprobar para Programación
-                                                        </Button>
-                                                        <Button variant="light" color="red" leftSection={<IconRotate size={18} />} onClick={handleRejectClick} loading={actionLoading}>
-                                                            Devolver a Técnica
-                                                        </Button>
+                                                        <ProtectedContent permission="FI_APROBAR">
+                                                            <Button color="green" leftSection={<IconCheck size={18} />} onClick={handleAcceptClick} loading={actionLoading}>
+                                                                Aprobar para Programación
+                                                            </Button>
+                                                        </ProtectedContent>
+                                                        <ProtectedContent permission="FI_REVISION">
+                                                            <Button variant="light" color="red" leftSection={<IconRotate size={18} />} onClick={handleRejectClick} loading={actionLoading}>
+                                                                Devolver a Técnica
+                                                            </Button>
+                                                        </ProtectedContent>
                                                     </Group>
                                                 </Stack>
                                             </Paper>
                                         ) : (
-                                            !hasPermission('MA_COORDINACION_APROBAR') && (
+                                            !(hasPermission('FI_APROBAR') || hasPermission('FI_REVISION')) && (
                                                 <WorkflowAlert type="warning" title="Sin Permisos" message="No tiene los permisos necesarios para realizar acciones de coordinación en esta ficha." />
                                             )
                                         )}

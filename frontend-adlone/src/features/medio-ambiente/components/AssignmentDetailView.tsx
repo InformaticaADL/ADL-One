@@ -6,6 +6,7 @@ import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { adminService } from '../../../services/admin.service';
 import { PageHeader } from '../../../components/layout/PageHeader';
+import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 import { 
     Stack, 
     Paper, 
@@ -401,15 +402,17 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                     subtitle={resamplingData ? "Gestione la asignación para este remuestreo" : "Defina fechas y muestreadores responsables para cada servicio"}
                     onBack={onBack}
                     rightSection={
-                        <Button 
-                            color="grape" 
-                            size="md" 
-                            leftSection={<IconDeviceFloppy size={20} />} 
-                            onClick={handleSaveAssignment} 
-                            loading={saving}
-                        >
-                            Guardar Planificación
-                        </Button>
+                        <ProtectedContent permission="FI_GEST_ASIG">
+                            <Button 
+                                color="grape" 
+                                size="md" 
+                                leftSection={<IconDeviceFloppy size={20} />} 
+                                onClick={handleSaveAssignment} 
+                                loading={saving}
+                            >
+                                Guardar Planificación
+                            </Button>
+                        </ProtectedContent>
                     }
                 />
 
@@ -487,91 +490,95 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
 
                         {/* Bulk Assignment Controls */}
                         <Group align="flex-end" justify="center" gap="xl">
-                            <Group align="flex-end">
-                                <TextInput 
-                                    size="xs"
-                                    label="Fecha Referencia (Muestreo)" 
-                                    type="date" 
-                                    value={selectedDate} 
-                                    onChange={(e) => {
-                                        const val = e.target.value;
-                                        setSelectedDate(val);
-                                    }} 
-                                    leftSection={<IconCalendarEvent size={14} />}
-                                />
-                                <Button 
-                                    size="xs"
-                                    variant="light" 
-                                    color="blue" 
-                                    leftSection={<IconBolt size={14} />} 
-                                    onClick={handleCalculateDates}
-                                    disabled={!selectedDate}
-                                >
-                                    Auto-Calcular
-                                </Button>
-                            </Group>
+                            <ProtectedContent permission="FI_GEST_ASIG">
+                                <Group align="flex-end">
+                                    <TextInput 
+                                        size="xs"
+                                        label="Fecha Referencia (Muestreo)" 
+                                        type="date" 
+                                        value={selectedDate} 
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setSelectedDate(val);
+                                        }} 
+                                        leftSection={<IconCalendarEvent size={14} />}
+                                    />
+                                    <Button 
+                                        size="xs"
+                                        variant="light" 
+                                        color="blue" 
+                                        leftSection={<IconBolt size={14} />} 
+                                        onClick={handleCalculateDates}
+                                        disabled={!selectedDate}
+                                    >
+                                        Auto-Calcular
+                                    </Button>
+                                </Group>
+                            </ProtectedContent>
 
                             <Divider orientation="vertical" />
 
-                            <Group align="flex-end">
-                                <Select 
-                                    size="xs"
-                                    label="M. Instalación (Todos)" 
-                                    placeholder="Seleccionar..." 
-                                    data={muestreadorOptions}
-                                    onChange={(val) => {
-                                        if (val) {
-                                            const id = Number(val);
-                                            const applyBulk = () => {
-                                                const newInst: Record<number, number> = {}; 
-                                                const newRet: Record<number, number> = {};
-                                                rows.forEach(r => {
-                                                    newInst[r.id_agendamam as number] = id;
-                                                    newRet[r.id_agendamam as number] = muestreadorRetiro[r.id_agendamam] || id;
-                                                });
-                                                setMuestreadorInstalacion(newInst);
-                                                setMuestreadorRetiro(newRet);
-                                            };
-                                            if (resamplingData && resamplingData.idMuestreadorOriginal && id !== resamplingData.idMuestreadorOriginal) {
-                                                modals.openConfirmModal({
-                                                    title: 'Confirmar Asignación',
-                                                    children: <Text size="sm">¿Asignar a muestreador distinto al original?</Text>,
-                                                    labels: { confirm: 'Sí', cancel: 'No' },
-                                                    onConfirm: applyBulk
-                                                });
-                                            } else { applyBulk(); }
-                                        }
-                                    }}
-                                    searchable
-                                    leftSection={<IconUserPlus size={14} />}
-                                />
-                                <Select 
-                                    size="xs"
-                                    label="M. Retiro (Todos)" 
-                                    placeholder="Seleccionar..." 
-                                    data={muestreadorOptions}
-                                    onChange={(val) => {
-                                        if (val) {
-                                            const id = Number(val);
-                                            const applyBulkRetiro = () => {
-                                                const newRet: Record<number, number> = {};
-                                                rows.forEach(r => { newRet[r.id_agendamam as number] = id; });
-                                                setMuestreadorRetiro(newRet);
-                                            };
-                                            if (resamplingData && resamplingData.idMuestreadorOriginal && id !== resamplingData.idMuestreadorOriginal) {
-                                                modals.openConfirmModal({
-                                                    title: 'Confirmar Asignación',
-                                                    children: <Text size="sm">¿Asignar a retiro distinto al original?</Text>,
-                                                    labels: { confirm: 'Sí', cancel: 'No' },
-                                                    onConfirm: applyBulkRetiro
-                                                });
-                                            } else { applyBulkRetiro(); }
-                                        }
-                                    }}
-                                    searchable
-                                    leftSection={<IconUserPlus size={14} />}
-                                />
-                            </Group>
+                            <ProtectedContent permission="FI_GEST_ASIG">
+                                <Group align="flex-end">
+                                    <Select 
+                                        size="xs"
+                                        label="M. Instalación (Todos)" 
+                                        placeholder="Seleccionar..." 
+                                        data={muestreadorOptions}
+                                        onChange={(val) => {
+                                            if (val) {
+                                                const id = Number(val);
+                                                const applyBulk = () => {
+                                                    const newInst: Record<number, number> = {}; 
+                                                    const newRet: Record<number, number> = {};
+                                                    rows.forEach(r => {
+                                                        newInst[r.id_agendamam as number] = id;
+                                                        newRet[r.id_agendamam as number] = muestreadorRetiro[r.id_agendamam] || id;
+                                                    });
+                                                    setMuestreadorInstalacion(newInst);
+                                                    setMuestreadorRetiro(newRet);
+                                                };
+                                                if (resamplingData && resamplingData.idMuestreadorOriginal && id !== resamplingData.idMuestreadorOriginal) {
+                                                    modals.openConfirmModal({
+                                                        title: 'Confirmar Asignación',
+                                                        children: <Text size="sm">¿Asignar a muestreador distinto al original?</Text>,
+                                                        labels: { confirm: 'Sí', cancel: 'No' },
+                                                        onConfirm: applyBulk
+                                                    });
+                                                } else { applyBulk(); }
+                                            }
+                                        }}
+                                        searchable
+                                        leftSection={<IconUserPlus size={14} />}
+                                    />
+                                    <Select 
+                                        size="xs"
+                                        label="M. Retiro (Todos)" 
+                                        placeholder="Seleccionar..." 
+                                        data={muestreadorOptions}
+                                        onChange={(val) => {
+                                            if (val) {
+                                                const id = Number(val);
+                                                const applyBulkRetiro = () => {
+                                                    const newRet: Record<number, number> = {};
+                                                    rows.forEach(r => { newRet[r.id_agendamam as number] = id; });
+                                                    setMuestreadorRetiro(newRet);
+                                                };
+                                                if (resamplingData && resamplingData.idMuestreadorOriginal && id !== resamplingData.idMuestreadorOriginal) {
+                                                    modals.openConfirmModal({
+                                                        title: 'Confirmar Asignación',
+                                                        children: <Text size="sm">¿Asignar a retiro distinto al original?</Text>,
+                                                        labels: { confirm: 'Sí', cancel: 'No' },
+                                                        onConfirm: applyBulkRetiro
+                                                    });
+                                                } else { applyBulkRetiro(); }
+                                            }
+                                        }}
+                                        searchable
+                                        leftSection={<IconUserPlus size={14} />}
+                                    />
+                                </Group>
+                            </ProtectedContent>
                         </Group>
 
                         <Divider />

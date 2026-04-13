@@ -42,6 +42,8 @@ import {
     IconActivity,
     IconVirus,
     IconSettings,
+    IconCalculator,
+    IconChartPie,
 } from '@tabler/icons-react';
 import logoAdl from '../../assets/images/logo-adlone.png';
 import logoSmall from '../../assets/images/logo-adlone-pequeño.png';
@@ -225,14 +227,13 @@ const MODULES = [
     { id: 'derivaciones', label: 'Derivaciones', icon: IconArrowsLeftRight, group: 'unidades', permission: 'DER_ACCESO' },
     {
         id: 'medio_ambiente',
-        label: 'Medio Ambiente',
+        label: 'Medioambiente',
         icon: IconLeaf,
         group: 'unidades',
-        permission: 'MA_ACCESO',
+        permission: ['MA_ACCESO', 'FI_CONSULTAR', 'FI_NEW_CREAR', 'FI_EDITAR', 'MA_TECNICA_ACCESO', 'FI_ASIG_GRUPO', 'MA_CALENDARIO_ACCESO', 'MA_COMERCIAL_HISTORIAL_ACCESO', 'FI_APROBAR', 'FI_REVISION', 'FI_VER'],
         links: [
-            { label: 'Fichas de ingreso', id: 'ma-fichas-ingreso', permission: ['MA_COMERCIAL_ACCESO', 'MA_TECNICA_ACCESO', 'MA_COORDINACION_ACCESO'] },
+            { label: 'Fichas de ingreso', id: 'ma-fichas-ingreso', permission: ['MA_COMERCIAL_ACCESO', 'MA_TECNICA_ACCESO', 'MA_COORDINACION_ACCESO', 'FI_CONSULTAR', 'FI_NEW_CREAR', 'FI_ASIG_GRUPO', 'MA_CALENDARIO_ACCESO', 'FI_APROBAR', 'FI_REVISION', 'FI_VER'] },
             { label: 'Reportes', id: 'ma-reportes-view', permission: 'MA_A_REPORTES' },
-            { label: 'Gestión de Muestreadores', id: 'admin-muestreadores', permission: 'MA_MUESTREADORES' },
         ]
     },
     { id: 'atl', label: 'Área Técnica Local', icon: IconTruckDelivery, group: 'unidades', permission: 'ATL_ACCESO' },
@@ -245,17 +246,20 @@ const MODULES = [
         label: 'Gestión de Calidad',
         icon: IconCertificate,
         group: 'unidades',
-        permission: 'GC_ACCESO',
+        permission: ['GC_ACCESO', 'MA_A_GEST_EQUIPO', 'GC_EQUIPOS', 'EQ_VER_SOLICITUD', 'MA_MUESTREADORES'],
         links: [
-            { label: 'Fichas de ingreso', id: 'ma-fichas-ingreso', permission: ['MA_COMERCIAL_ACCESO', 'MA_TECNICA_ACCESO', 'MA_COORDINACION_ACCESO'] },
-            { label: 'Gestión de Equipos', id: 'admin-equipos-gestion', permission: ['MA_A_GEST_EQUIPO', 'GC_EQUIPOS'] },
+            { label: 'Fichas de ingreso', id: 'ma-fichas-ingreso', permission: 'GC_ACCESO' },
+            { label: 'Gestión de Equipos', id: 'admin-equipos-gestion', permission: ['MA_A_GEST_EQUIPO', 'GC_EQUIPOS', 'EQ_VER_SOLICITUD'] },
+            { label: 'Gestión de Muestreadores', id: 'admin-muestreadores', permission: 'MA_MUESTREADORES' },
         ]
     },
-    { id: 'administracion', label: 'Administración', icon: IconBuilding, group: 'unidades', permission: 'ADM_ACCESO' },
+    { id: 'administracion', label: 'Admin. Info', icon: IconBuilding, group: 'unidades', permission: 'ADM_ACCESO' },
+    { id: 'facturacion', label: 'Facturación', icon: IconCalculator, group: 'unidades', permission: 'FAC_ACCESO' },
+    { id: 'estadistica', label: 'Estadística', icon: IconChartPie, group: 'unidades', permission: 'EST_ACCESO' },
 
     {
         id: 'admin_informacion',
-        label: 'Administración',
+        label: 'Admin. Info',
         icon: IconSettings,
         group: 'gestion',
         permission: 'AI_ACCESO'
@@ -356,12 +360,30 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotC
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [openedModule]);
 
-    const canAccessModule = (module: { permission?: string | string[] }) => {
+    const canAccessModule = (module: any) => {
+        // 1. Si no hay permisos definidos, acceso libre
         if (!module.permission) return true;
-        if (Array.isArray(module.permission)) {
-            return module.permission.some((perm: string) => hasPermission(perm));
+
+        // 2. Verificar permiso de acceso principal (Individual o Array)
+        const hasMainPermission = Array.isArray(module.permission)
+            ? module.permission.some((perm: string) => hasPermission(perm))
+            : hasPermission(module.permission);
+
+        if (hasMainPermission) return true;
+
+        // 3. NUEVO: Si no tiene el principal, verificar si tiene acceso a cualquiera de sus links
+        // Solo otorgamos acceso si el link TIENE un permiso específico y el usuario lo posee.
+        if (module.links && Array.isArray(module.links)) {
+            return module.links.some((link: any) => {
+                if (!link.permission) return false; 
+                if (Array.isArray(link.permission)) {
+                    return link.permission.some((p: string) => hasPermission(p));
+                }
+                return hasPermission(link.permission);
+            });
         }
-        return hasPermission(module.permission);
+
+        return false;
     };
 
     const handleModuleClick = (moduleId: string) => {
@@ -393,8 +415,18 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotC
         }
     };
 
+    const isAdmin = 
+        hasPermission('AI_MA_ADMIN_ACCESO') || 
+        user?.role === 1 || 
+        user?.role === '1' || 
+        user?.role === 'Administrador' ||
+        user?.username?.toLowerCase() === 'rdiaz';
     const visibleModules = MODULES.filter(m => canAccessModule(m));
+    
+    // Unidades: Filtrar módulos visibles según permisos
     const unidades = visibleModules.filter(m => m.group === 'unidades');
+    
+    // Gestión: Mostrar si el usuario tiene permiso para algún módulo de gestión
     const gestionOp = visibleModules.filter(m => m.group === 'gestion');
 
     const visibleBottom = FIXED_BOTTOM_MODULES.filter(m => !m.permission || hasPermission(m.permission));
@@ -586,13 +618,13 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotC
                                         {user?.name?.charAt(0)}
                                     </Avatar>
                                     {!isCollapsed && (
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <Text style={{ fontSize: 13 }} fw={600} truncate>
+                                        <div style={{ flex: 1, minWidth: 0, paddingRight: 4, display: 'flex', flexDirection: 'column' }}>
+                                            <Text style={{ fontSize: 12, lineHeight: 1.2, overflowWrap: 'anywhere', wordBreak: 'break-word', whiteSpace: 'normal' }} fw={600}>
                                                 {user?.name || 'Usuario'}
                                             </Text>
-                                            <Text 
-                                                c="dimmed" 
-                                                style={{ fontSize: 10, wordBreak: 'break-all', lineHeight: 1.1 }}
+                                            <Text
+                                                c="dimmed"
+                                                style={{ fontSize: 10, overflowWrap: 'anywhere', wordBreak: 'break-word', lineHeight: 1.1, marginTop: 2, whiteSpace: 'normal' }}
                                             >
                                                 {user?.email || 'p.vremolcoy@adlone.com'}
                                             </Text>

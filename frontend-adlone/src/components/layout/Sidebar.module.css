@@ -18,8 +18,8 @@
 .header {
   padding: 10px;
   padding-top: 0;
-  margin-left: -16px;
-  margin-right: -16px;
+  margin-left: -10px;
+  margin-right: -10px;
   color: var(--mantine-color-black);
   border-bottom: 1px solid var(--mantine-color-gray-3);
   min-height: 70px;
@@ -39,8 +39,8 @@
 }
 
 .footer {
-  margin-left: -16px;
-  margin-right: -16px;
+  margin-left: -10px;
+  margin-right: -10px;
   border-top: 1px solid var(--mantine-color-gray-3);
   padding-bottom: 16px;
 }
@@ -146,12 +146,12 @@
 }
 
 .user {
-  padding: 16px 16px 0 16px;
+  padding: 10px 10px 0 10px;
 }
 
 .userButton {
   width: 100%;
-  padding: 12px;
+  padding: 8px;
   border-radius: 8px;
   color: var(--mantine-color-black);
   transition: background-color 150ms ease;

@@ -236,29 +236,22 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
             {/* Header Section */}
             <Paper p={{ base: 'md', sm: 'lg' }} radius="lg" withBorder shadow="sm">
                 <Stack gap="md">
-                    <Group justify="space-between">
+                    <Group justify="space-between" align="center">
                         <Badge variant="light" color="gray" size={isMobile ? 'sm' : 'lg'} radius="sm">
                             ID #{request.id_solicitud}
                         </Badge>
                         <StatusBadge status={request.estado} size={isMobile ? 'xs' : 'md'} />
                     </Group>
                     
+                    {(request.origen_solicitud === 'MUESTREADOR' || request.datos_json?.origen_solicitud === 'MUESTREADOR' || request.datos_json?.app_version || Number(request.id_solicitante) === 466 || Number(request.id_solicitante) === 229) && (
+                        <Text size="xs" fw={700} c="blue.7" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            📱 Solicitud enviada vía aplicación móvil ADL Sampling
+                        </Text>
+                    )}
+
                     <Title order={isMobile ? 3 : 2} style={{ letterSpacing: '-0.5px' }}>
                         {request.titulo || request.nombre_tipo}
                     </Title>
-
-                    {/* Mobile App Badge — now based on origin if available, or simply removed to favor real identity */}
-                    {request.origen_solicitud === 'MUESTREADOR' && (
-                        <Alert
-                            variant="light"
-                            color="blue"
-                            radius="md"
-                            p="xs"
-                            styles={{ label: { fontSize: '12px', fontWeight: 700 } }}
-                        >
-                            📱 Enviado desde ADL Sampling (Terreno)
-                        </Alert>
-                    )}
 
                     <SimpleGrid 
                         cols={{ base: 1, xs: 2, sm: 4 }} 

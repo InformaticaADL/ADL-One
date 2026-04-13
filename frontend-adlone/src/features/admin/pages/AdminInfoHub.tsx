@@ -36,7 +36,7 @@ const AREAS: { id: string, label: string, icon: string, permission: string | str
     { id: 'bacteriologia', label: 'Bacteriología', icon: '🦠', permission: 'BAC_ACCESO', description: 'Identificación de Microorganismos' },
     { id: 'screening', label: 'Screening', icon: '🔎', permission: 'SCR_ACCESO', description: 'Tamizaje y Pruebas Rápidas' },
     { id: 'derivaciones', label: 'Derivaciones', icon: '📬', permission: 'DER_ACCESO', description: 'Gestión de Muestras Externas' },
-    { id: 'medio_ambiente', label: 'Medio Ambiente', icon: '🌿', permission: 'MA_ACCESO', description: 'Control Ambiental y Sanitario' },
+    { id: 'medio_ambiente', label: 'Medioambiente', icon: '🌿', permission: 'MA_ACCESO', description: 'Control Ambiental y Sanitario' },
     { id: 'atl', label: 'Área Técnica Local', icon: '⚖️', permission: 'ATL_ACCESO', description: 'Área Técnica Local' },
     { id: 'id', label: 'Investigación + D', icon: '💡', permission: 'ID_ACCESO', description: 'Innovación y Desarrollo' },
     { id: 'pve', label: 'Vigilancia Epi.', icon: '🩺', permission: 'PVE_ACCESO', description: 'Vigilancia Epidemiológica' },
@@ -113,10 +113,10 @@ export const AdminInfoHub: React.FC<Props> = ({ onNavigate }) => {
     return (
         <Box p="md" style={{ width: '100%' }}>
             <PageHeader
-                title={currentView === 'export' ? 'Centro de Exportación' : 'Panel de Administración'}
+                title={currentView === 'export' ? 'Centro de Exportación' : 'Admin. Info'}
                 subtitle={currentView === 'export' 
                     ? 'Genera reportes en formato Excel de las bases maestras del sistema.' 
-                    : 'Selecciona un área para gestionar su información o utiliza las herramientas globales.'}
+                    : 'Selecciona un módulo para gestionar su información o utiliza las herramientas globales.'}
                 onBack={currentView === 'export' ? () => setCurrentView('grid') : undefined}
                 rightSection={currentView === 'grid' ? (
                     <Group>

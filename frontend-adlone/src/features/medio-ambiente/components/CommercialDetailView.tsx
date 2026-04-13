@@ -188,7 +188,7 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
         </Stack>
     );
 
-    const canEdit = hasPermission('MA_COMERCIAL_EDITAR') && !isEditing && [1, 2, 3, 4].includes(Number(data?.id_validaciontecnica));
+    const canEdit = hasPermission('FI_EDITAR') && !isEditing && [1, 2, 3, 4].includes(Number(data?.id_validaciontecnica));
 
     return (
         <Box p="md" style={{ width: '100% !important', maxWidth: '100% !important' }}>

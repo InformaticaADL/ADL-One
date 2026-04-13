@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { fichaService } from '../services/ficha.service';
 import { PageHeader } from '../../../components/layout/PageHeader';
+import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 import { 
     Stack, 
     Paper, 
@@ -380,37 +381,41 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                                                 <Text size="xs" truncate title={row.nombre_objetivomuestreo_ma}>{row.nombre_objetivomuestreo_ma || '-'}</Text>
                                             </Table.Td>
                                             <Table.Td ta="center">
-                                                <Tooltip label="Descargar PDF">
-                                                    <ActionIcon 
-                                                        color="red" 
-                                                        variant="light" 
-                                                        onClick={() => {
-                                                            const idFicha = row.id_fichaingresoservicio || row.fichaingresoservicio;
-                                                            fichaService.downloadPdf(Number(idFicha)).then(blob => {
-                                                                const url = window.URL.createObjectURL(blob);
-                                                                const link = document.createElement('a');
-                                                                link.href = url;
-                                                                link.setAttribute('download', `Ficha_${idFicha}.pdf`);
-                                                                document.body.appendChild(link);
-                                                                link.click();
-                                                                link.parentNode?.removeChild(link);
-                                                            });
-                                                        }}
-                                                    >
-                                                        <IconFileDownload size={18} />
-                                                    </ActionIcon>
-                                                </Tooltip>
+                                                <ProtectedContent permission="FI_EXP_AFE">
+                                                    <Tooltip label="Descargar PDF">
+                                                        <ActionIcon 
+                                                            color="red" 
+                                                            variant="light" 
+                                                            onClick={() => {
+                                                                const idFicha = row.id_fichaingresoservicio || row.fichaingresoservicio;
+                                                                fichaService.downloadPdf(Number(idFicha)).then(blob => {
+                                                                    const url = window.URL.createObjectURL(blob);
+                                                                    const link = document.createElement('a');
+                                                                    link.href = url;
+                                                                    link.setAttribute('download', `Ficha_${idFicha}.pdf`);
+                                                                    document.body.appendChild(link);
+                                                                    link.click();
+                                                                    link.parentNode?.removeChild(link);
+                                                                });
+                                                            }}
+                                                        >
+                                                            <IconFileDownload size={18} />
+                                                        </ActionIcon>
+                                                    </Tooltip>
+                                                </ProtectedContent>
                                             </Table.Td>
                                             <Table.Td ta="center">
-                                                <Tooltip label="Gestionar Asignación">
-                                                    <ActionIcon 
-                                                        color="grape" 
-                                                        variant="filled" 
-                                                        onClick={() => onViewAssignment(row.id_fichaingresoservicio || row.fichaingresoservicio)}
-                                                    >
-                                                        <IconCalendarStats size={18} />
-                                                    </ActionIcon>
-                                                </Tooltip>
+                                                <ProtectedContent permission="FI_GEST_ASIG">
+                                                    <Tooltip label="Gestionar Asignación">
+                                                        <ActionIcon 
+                                                            color="grape" 
+                                                            variant="filled" 
+                                                            onClick={() => onViewAssignment(row.id_fichaingresoservicio || row.fichaingresoservicio)}
+                                                        >
+                                                            <IconCalendarStats size={18} />
+                                                        </ActionIcon>
+                                                    </Tooltip>
+                                                </ProtectedContent>
                                             </Table.Td>
                                         </Table.Tr>
                                     ))}
