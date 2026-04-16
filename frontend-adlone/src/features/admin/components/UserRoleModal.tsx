@@ -18,7 +18,7 @@ import {
     IconShieldCheck,
     IconCheck
 } from '@tabler/icons-react';
-import { useMediaQuery } from '@mantine/hooks';
+import { useMediaQuery, useDebouncedValue } from '@mantine/hooks';
 import { rbacService } from '../services/rbac.service';
 import type { Role, User } from '../services/rbac.service';
 import { useToast } from '../../../contexts/ToastContext';
@@ -30,12 +30,62 @@ interface Props {
     onSuccess: () => void;
 }
 
+const RoleListItem = React.memo(({ 
+    role, 
+    isSelected, 
+    onToggle 
+}: { 
+    role: Role, 
+    isSelected: boolean, 
+    onToggle: (id: number) => void 
+}) => {
+    return (
+        <Paper 
+            withBorder 
+            p="md" 
+            radius="md"
+            bg={isSelected ? 'blue.0' : 'white'}
+            style={{ 
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                borderColor: isSelected ? 'var(--mantine-color-blue-3)' : undefined
+            }}
+            onClick={() => onToggle(role.id_rol)}
+        >
+            <Group gap="md" wrap="nowrap">
+                <Checkbox 
+                    checked={isSelected}
+                    onChange={() => {}} // Handled by Paper
+                    size="md"
+                    tabIndex={-1}
+                />
+                <Box style={{ flex: 1 }}>
+                    <Group justify="space-between" align="flex-start" wrap="nowrap">
+                        <Box>
+                            <Text fw={600} size="sm">{role.nombre_rol}</Text>
+                            <Text size="xs" c="dimmed" lineClamp={2}>{role.descripcion || 'Sin descripción'}</Text>
+                        </Box>
+                        <Badge 
+                            size="xs" 
+                            variant="light" 
+                            color={role.estado ? 'green' : 'red'}
+                        >
+                            {role.estado ? 'Activo' : 'Inactivo'}
+                        </Badge>
+                    </Group>
+                </Box>
+            </Group>
+        </Paper>
+    );
+});
+
 export const UserRoleModal: React.FC<Props> = ({ user, isOpen, onClose, onSuccess }) => {
     const isMobile = useMediaQuery('(max-width: 768px)');
     const { showToast } = useToast();
     const [roles, setRoles] = useState<Role[]>([]);
     const [selectedRoleIds, setSelectedRoleIds] = useState<number[]>([]);
     const [roleSearchTerm, setRoleSearchTerm] = useState('');
+    const [debouncedSearch] = useDebouncedValue(roleSearchTerm, 200);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -68,11 +118,11 @@ export const UserRoleModal: React.FC<Props> = ({ user, isOpen, onClose, onSucces
         }
     };
 
-    const toggleRole = (roleId: number) => {
+    const toggleRole = React.useCallback((roleId: number) => {
         setSelectedRoleIds(prev =>
             prev.includes(roleId) ? prev.filter(id => id !== roleId) : [...prev, roleId]
         );
-    };
+    }, []);
 
     const handleSave = async () => {
         if (!user) return;
@@ -91,10 +141,14 @@ export const UserRoleModal: React.FC<Props> = ({ user, isOpen, onClose, onSucces
         }
     };
 
-    const filteredRoles = roles.filter(role =>
-        role.nombre_rol.toLowerCase().includes(roleSearchTerm.toLowerCase()) ||
-        (role.descripcion && role.descripcion.toLowerCase().includes(roleSearchTerm.toLowerCase()))
-    );
+    const filteredRoles = React.useMemo(() => {
+        if (!debouncedSearch.trim()) return roles;
+        const term = debouncedSearch.toLowerCase();
+        return roles.filter(role =>
+            role.nombre_rol.toLowerCase().includes(term) ||
+            (role.descripcion && role.descripcion.toLowerCase().includes(term))
+        );
+    }, [roles, debouncedSearch]);
 
     return (
         <Modal
@@ -137,42 +191,12 @@ export const UserRoleModal: React.FC<Props> = ({ user, isOpen, onClose, onSucces
                         ) : (
                             <Stack gap="xs">
                                 {filteredRoles.map(role => (
-                                    <Paper 
+                                    <RoleListItem 
                                         key={role.id_rol} 
-                                        withBorder 
-                                        p="md" 
-                                        radius="md"
-                                        bg={selectedRoleIds.includes(role.id_rol) ? 'blue.0' : 'white'}
-                                        style={{ 
-                                            cursor: 'pointer',
-                                            transition: 'all 0.2s',
-                                            borderColor: selectedRoleIds.includes(role.id_rol) ? 'var(--mantine-color-blue-3)' : undefined
-                                        }}
-                                        onClick={() => toggleRole(role.id_rol)}
-                                    >
-                                        <Group gap="md" wrap="nowrap">
-                                            <Checkbox 
-                                                checked={selectedRoleIds.includes(role.id_rol)}
-                                                onChange={() => {}} // Handled by Paper
-                                                size="md"
-                                            />
-                                            <Box style={{ flex: 1 }}>
-                                                <Group justify="space-between" align="flex-start" wrap="nowrap">
-                                                    <Box>
-                                                        <Text fw={600} size="sm">{role.nombre_rol}</Text>
-                                                        <Text size="xs" c="dimmed" lineClamp={2}>{role.descripcion || 'Sin descripción'}</Text>
-                                                    </Box>
-                                                    <Badge 
-                                                        size="xs" 
-                                                        variant="light" 
-                                                        color={role.estado ? 'green' : 'red'}
-                                                    >
-                                                        {role.estado ? 'Activo' : 'Inactivo'}
-                                                    </Badge>
-                                                </Group>
-                                            </Box>
-                                        </Group>
-                                    </Paper>
+                                        role={role} 
+                                        isSelected={selectedRoleIds.includes(role.id_rol)} 
+                                        onToggle={toggleRole} 
+                                    />
                                 ))}
                             </Stack>
                         )}

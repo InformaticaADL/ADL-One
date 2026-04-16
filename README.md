@@ -819,10 +819,35 @@ Mejoras centradas en la resolución de datos móviles, automatización de la nav
 
 ---
 
+### 49. Consolidación de Módulo Medio Ambiente y Menús Dinámicos (Abril 2026) 🚀📋
+Estandarización de flujos de trabajo mediante la unificación de vistas y transición hacia una arquitectura de navegación basada en configuración (backend).
+
+- **Explorador de Fichas Universal**:
+    - Se consolidaron las páginas de Comercial, Técnica y Coordinación en un único componente: `FichasExploradorView.tsx`.
+    - Implementación de un buscador avanzado con filtros multi-criterio y tabla responsiva optimizada.
+    - Acceso centralizado a detalles y exportación de PDFs desde una sola interfaz.
+- **Sistema de Menús Dinámicos (Backend-Driven)**:
+    - Implementación de un motor de menús en el API (`menu.service.js`) que entrega la estructura de navegación según permisos de usuario.
+    - Nuevo flujo de siembra de menús (`seed_menu.js`) para facilitar la configuración de la barra lateral.
+- **Refactorización de Sidebar**:
+    - El Sidebar consume ahora el API de menús, permitiendo cambios de navegación sin desplegar el frontend.
+    - Soporte mejorado para iconos dinámicos y sub-módulos anidados.
+- **Documentación Técnica Pro**:
+    - Generación de documentación técnica detallada en formatos `.md` y `.docx` alojados en el repositorio.
+- **Optimización de FichaDetailView**:
+    - Refactor de la vista de detalle para soportar la visualización universal de fichas sin importar su origen.
+
+- **Archivos Modificados**:
+    - Backend: `menu.service.js`, `menu.routes.js`, `menu.controller.js`, `seed_menu.js`, `server.js`.
+    - Frontend: `Sidebar.tsx`, `FichasIngresoPage.tsx`, `FichaDetailView.tsx`, `FichasExploradorView.tsx` (Nuevo), `FichaUniversalView.tsx` (Nuevo).
+    - Docs: `Documentacion_Tecnica_ADL_One.md` (Nuevo).
+
+---
+
 ## 📄 Estado Final del Proyecto
-✅ **Backend**: Node.js + Express (API RESTful, Auth JWT, Notificaciones con Adjuntos, Lógica de Exportación a Excel, Auditoría Avanzada, Motor de Chat Socket.io)
-✅ **Frontend**: React + TypeScript + Mantine UI (Calendario de Muestreos, Sistema de Temas Dinámicos, Perfil de Usuario, Módulo de Chat General, Exportador de Datos, Layout Fluido Global)
-✅ **Base de Datos**: SQL Server (Procedimientos Almacenados optimizados, Auditoría de Equipos, Alineación de Esquemas, Logs de Auditoría Global, Esquema de Mensajería)
+✅ **Backend**: Node.js + Express (API RESTful, Auth JWT, Notificaciones, Lógica de Exportación, Auditoría Avanzada, Motor de Chat, Sistema de Menús Dinámicos)
+✅ **Frontend**: React + TypeScript + Mantine UI (Calendario, Temas Dinámicos, Explorador de Fichas Universal, Módulo de Chat, Exportador de Datos, Layout Fluido Global)
+✅ **Base de Datos**: SQL Server (Procedimientos Almacenados, Log de Auditoría Global, Esquema de Mensajería y Menús)
 
 ---
 *Este proyecto sigue el estilo y la estética premium ADL ONE.*

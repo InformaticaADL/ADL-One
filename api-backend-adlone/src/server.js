@@ -32,6 +32,7 @@ import unsRoutes from './routes/notificacion.routes.js';
 import userRoutes from './routes/user.routes.js';
 import chatRoutes from './routes/chat.routes.js';
 import generalChatRoutes from './routes/general-chat.routes.js';
+import menuRoutes from './routes/menu.routes.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -102,6 +103,7 @@ app.use('/api/uns', unsRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/gchat', generalChatRoutes);
+app.use('/api/menu', menuRoutes);
 
 // Serve uploads directory as static
 const uploadPath = process.env.UPLOAD_PATH || path.join(__dirname, '../uploads');

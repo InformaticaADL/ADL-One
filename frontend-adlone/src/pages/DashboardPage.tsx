@@ -12,6 +12,7 @@ import AdminUrsPage from '../features/admin/pages/AdminUrsPage';
 import { AdminInfoHub } from '../features/admin/pages/AdminInfoHub';
 import { InformaticaHub } from '../features/admin/pages/InformaticaHub';
 import { UsersManagementPage } from '../features/admin/pages/UsersManagementPage';
+import { AdminMenuWebPage } from '../features/admin/pages/AdminMenuWebPage';
 import { UserRolesPage } from '../features/admin/pages/UserRolesPage';
 import { AdminMaHub } from '../features/admin/pages/AdminMaHub';
 import { AdminGcHub } from '../features/admin/pages/AdminGcHub';
@@ -76,12 +77,13 @@ const DashboardPage = () => {
             if (!hasAdminAccess()) return <div className="dashboard-content" style={{ textAlign: 'center', padding: '3rem' }}><h1>🚫 Denegado</h1></div>;
 
             if (activeSubmodule === 'informatica') return <InformaticaHub onNavigate={(v) => setActiveSubmodule(v)} onBack={() => setActiveSubmodule('')} />;
-            if (['admin-roles', 'admin-users', 'admin-user-roles', 'admin-notifications', 'admin-urs'].includes(activeSubmodule)) {
+            if (['admin-roles', 'admin-users', 'admin-user-roles', 'admin-notifications', 'admin-urs', 'admin-menu-web'].includes(activeSubmodule)) {
                 if (activeSubmodule === 'admin-roles') return <RolesPage onBack={() => setActiveSubmodule('informatica')} />;
                 if (activeSubmodule === 'admin-users') return <UsersManagementPage onBack={() => setActiveSubmodule('informatica')} />;
                 if (activeSubmodule === 'admin-user-roles') return <UserRolesPage onBack={() => setActiveSubmodule('informatica')} />;
                 if (activeSubmodule === 'admin-notifications') return <NotificationsPage onBack={() => setActiveSubmodule('informatica')} />;
                 if (activeSubmodule === 'admin-urs') return <AdminUrsPage onBack={() => setActiveSubmodule('informatica')} />;
+                if (activeSubmodule === 'admin-menu-web') return <AdminMenuWebPage onBack={() => setActiveSubmodule('informatica')} />;
             }
 
             if (activeSubmodule === 'medio_ambiente') return <AdminMaHub onNavigate={(v) => setActiveSubmodule(v)} onBack={() => setActiveSubmodule('')} />;

@@ -1,11 +1,11 @@
-import { useEffect, useState, useRef, useImperativeHandle, forwardRef, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useImperativeHandle, forwardRef, useMemo } from 'react';
 import { useCachedCatalogos } from '../hooks/useCachedCatalogos';
 import type { LugarAnalisis, EmpresaServicio, Cliente, Contacto, Centro } from '../services/catalogos.service';
 import { useToast } from '../../../contexts/ToastContext';
 import { 
     Stack, 
     SimpleGrid, 
-    TextInput, 
+    TextInput as MantineTextInput, 
     Select, 
     Text, 
     Paper, 
@@ -36,6 +36,47 @@ const dedupOptions = (options: { value: string; label: string }[]) => {
         return true;
     });
 };
+
+// Extremely Fast TextInput Wrapper to isolate typing updates
+const TextInput = React.memo(({ value: parentValue, onChange, ...props }: any) => {
+    const [localValue, setLocalValue] = useState(parentValue || '');
+
+    // Sincronizar desde arriba sólo si difiere
+    useEffect(() => {
+        if (parentValue !== undefined && parentValue !== localValue) {
+           setLocalValue(parentValue || '');
+        }
+    }, [parentValue]);
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setLocalValue(e.target.value);
+    };
+
+    // Propagar hacia arriba solo después de 400ms de inactividad de teclado
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (localValue !== parentValue && onChange) {
+                 onChange({ target: { value: localValue } } as any);
+            }
+        }, 400);
+        return () => clearTimeout(timer);
+    }, [localValue, parentValue, onChange]);
+
+    return <MantineTextInput value={localValue} onChange={handleChange} {...props} />;
+});
+
+// Module-level memoized component (avoids recreation on every parent render)
+const StaticField = React.memo(({ label, value, icon: Icon }: { label: string, value: string, icon: any }) => (
+    <Stack gap={2}>
+        <Group gap={4}>
+            <Icon size={12} color="var(--mantine-color-dimmed)" />
+            <Text size="xs" fw={700} c="dimmed" tt="uppercase">{label}</Text>
+        </Group>
+        <Paper withBorder px="xs" py={6} radius="md" bg="gray.1">
+            <Text size="sm" fw={500} truncate title={value}>{value || '-'}</Text>
+        </Paper>
+    </Stack>
+));
 
 // Define interface for exposed methods
 export interface AntecedentesFormHandle {
@@ -133,9 +174,9 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
     const isHydrating = useRef(!!initialData);
     const hasHydrated = useRef(false);
 
-    // Validation Effect
+    // Validation Effect (debounced to avoid per-keystroke parent re-renders)
     useEffect(() => {
-        const checkValidity = () => {
+        const timer = setTimeout(() => {
             const requiredFields = [
                 // Bloque 1
                 tipoMonitoreo, selectedLugar, selectedCliente, selectedEmpresa, selectedFuente, selectedContacto,
@@ -170,9 +211,9 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
             if (onValidationChange) {
                 onValidationChange(isValid);
             }
-        };
+        }, 150);
 
-        checkValidity();
+        return () => clearTimeout(timer);
     }, [
         tipoMonitoreo, selectedLugar, selectedCliente, selectedEmpresa, selectedFuente, selectedContacto,
         selectedObjetivo, responsableMuestreo, cargoResponsable,
@@ -626,17 +667,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
         else if (frecuencia && factor && !isNaN(Number(frecuencia)) && !isNaN(Number(factor))) setTotalServicios(String(Number(frecuencia) * Number(factor)));
     }, [frecuencia, factor]);
 
-    const StaticField = ({ label, value, icon: Icon }: { label: string, value: string, icon: any }) => (
-        <Stack gap={2}>
-            <Group gap={4}>
-                <Icon size={12} color="var(--mantine-color-dimmed)" />
-                <Text size="xs" fw={700} c="dimmed" tt="uppercase">{label}</Text>
-            </Group>
-            <Paper withBorder px="xs" py={6} radius="md" bg="gray.1">
-                <Text size="sm" fw={500} truncate title={value}>{value || '-'}</Text>
-            </Paper>
-        </Stack>
-    );
+    // StaticField moved to module level for performance
 
     return (
         <Stack gap={isMobile ? "md" : "xl"} p={isMobile ? 0 : "xs"} style={{ width: '100% !important' }}>

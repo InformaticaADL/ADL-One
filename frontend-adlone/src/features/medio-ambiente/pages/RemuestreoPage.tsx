@@ -33,7 +33,7 @@ import {
 import { CatalogosProvider } from '../context/CatalogosContext';
 
 const RemuestreoPageContent: React.FC = () => {
-    const { selectedFichaId, setActiveSubmodule, setMaArea, setMaCoordMode } = useNavStore();
+    const { selectedFichaId, setActiveSubmodule, setFichasMode } = useNavStore();
     const { showToast } = useToast();
     const auth = useAuth();
     const catalogos = useCachedCatalogos();
@@ -125,8 +125,7 @@ const RemuestreoPageContent: React.FC = () => {
             if (response && (response.success || response.id)) {
                 showToast({ type: 'success', message: 'Remuestreo creado exitosamente' });
                 // Return to Muestreos Ejecutados List
-                setMaArea('coordinacion');
-                setMaCoordMode('list_ejecutados');
+                setFichasMode('list_ejecutados');
                 setActiveSubmodule('ma-fichas-ingreso'); 
             } else {
                 showToast({ type: 'error', message: response.message || 'Error al crear remuestreo' });

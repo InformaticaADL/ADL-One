@@ -13,10 +13,8 @@ interface NavState {
     selectedCorrelativo: string | null;
     ursInboxMode: 'RECEIVED' | 'SENT'; // Phase 27
     hiddenNotifications: string[]; // Persistent dismissed notifications
-    maArea: 'comercial' | 'tecnica' | 'coordinacion' | null;
-    maComercialMode: 'menu' | 'create' | 'consult' | 'detail' | 'history';
-    maCoordMode: string;
-    maTecnicaMode: string;
+    maArea: 'comercial' | 'tecnica' | 'coordinacion' | null; // Deprecated, will be removed fully in Phase 2
+    fichasMode: 'menu' | 'create_ficha' | 'list_fichas' | 'detail_ficha' | 'list_assign' | 'detail_assign' | 'calendar' | 'list_ejecutados' | 'dashboard';
     setActiveModule: (moduleId: string) => void;
     setActiveSubmodule: (submoduleId: string) => void;
     setDrawerOpen: (isOpen: boolean) => void;
@@ -33,9 +31,7 @@ interface NavState {
     setAdminSearchTerm: (term: string) => void;
     hideNotification: (id: string | number) => void;
     setMaArea: (area: 'comercial' | 'tecnica' | 'coordinacion' | null) => void;
-    setMaComercialMode: (mode: 'menu' | 'create' | 'consult' | 'detail' | 'history') => void;
-    setMaCoordMode: (mode: string) => void;
-    setMaTecnicaMode: (mode: string) => void;
+    setFichasMode: (mode: 'menu' | 'create_ficha' | 'list_fichas' | 'detail_ficha' | 'list_assign' | 'detail_assign' | 'calendar' | 'list_ejecutados' | 'dashboard') => void;
 }
 
 const STORAGE_KEY = 'adl_hidden_notifications';
@@ -56,9 +52,7 @@ export const useNavStore = create<NavState>()(
             ursInboxMode: 'RECEIVED',
             hiddenNotifications: JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'),
             maArea: null,
-            maComercialMode: 'menu',
-            maCoordMode: 'menu',
-            maTecnicaMode: 'list',
+            fichasMode: 'menu',
             setActiveModule: (moduleId) => set({ activeModule: moduleId }),
             setActiveSubmodule: (submoduleId) => set((state) => ({
                 previousSubmodule: state.activeSubmodule !== submoduleId ? state.activeSubmodule : state.previousSubmodule,
@@ -94,16 +88,12 @@ export const useNavStore = create<NavState>()(
                 ursInboxMode: 'RECEIVED',
                 adminSearchTerm: '',
                 maArea: null,
-                maComercialMode: 'menu',
-                maCoordMode: 'menu',
-                maTecnicaMode: 'list',
+                fichasMode: 'menu',
             }), // Reset to defaults
             adminSearchTerm: '',
             setAdminSearchTerm: (term: string) => set({ adminSearchTerm: term }),
             setMaArea: (area) => set({ maArea: area }),
-            setMaComercialMode: (mode) => set({ maComercialMode: mode }),
-            setMaCoordMode: (mode) => set({ maCoordMode: mode }),
-            setMaTecnicaMode: (mode) => set({ maTecnicaMode: mode }),
+            setFichasMode: (mode) => set({ fichasMode: mode }),
         }),
         {
             name: 'adl-nav-storage', // nombre en localStorage

@@ -102,5 +102,9 @@ export const fichaService = {
     downloadExcel: async (id: number) => {
         const response = await apiClient.get(`/api/fichas/${id}/excel`, { responseType: 'blob' });
         return response.data;
+    },
+    enviarDocumentoManual: async (data: { idFicha: number; correlativo: string; documento: any; to: string; cc: string }) => {
+        const response = await apiClient.post('/api/fichas/enviar-documento-manual', data);
+        return response.data;
     }
 };

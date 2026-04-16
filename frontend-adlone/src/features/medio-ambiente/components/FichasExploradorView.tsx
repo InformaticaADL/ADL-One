@@ -1,12 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { TechnicalDetailView } from '../components/TechnicalDetailView';
-import { CatalogosProvider } from '../context/CatalogosContext';
-import { ToastProvider } from '../../../contexts/ToastContext';
-import { ToastContainer } from '../../../components/Toast/Toast';
+import { useMediaQuery } from '@mantine/hooks';
 import { fichaService } from '../services/ficha.service';
 import { PageHeader } from '../../../components/layout/PageHeader';
-import { useNavStore } from '../../../store/navStore';
 import { ProtectedContent } from '../../../components/auth/ProtectedContent';
+import { FichaExportModal } from './FichaExportModal';
 
 import { 
     Button, 
@@ -22,23 +19,23 @@ import {
     Table,
     Badge,
     Pagination,
-    ScrollArea
+    ScrollArea,
+    Tooltip
 } from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
 import { 
     IconAdjustmentsHorizontal,
     IconDownload,
     IconTrash,
+    IconEye,
     IconEdit
 } from '@tabler/icons-react';
 
 interface Props {
-    onBack: () => void;
+    onBackToMenu: () => void;
+    onViewDetail: (id: number) => void;
 }
 
-// --- Technical List Component ---
-const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () => void, onViewDetail: (id: number) => void }) => {
-    // State
+export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDetail }) => {
     const [searchId, setSearchId] = useState('');
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
@@ -53,11 +50,11 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
     const [currentPage, setCurrentPage] = useState(1);
     const [loading, setLoading] = useState(true);
     const [fichas, setFichas] = useState<any[]>([]);
+    const [showExportModal, setShowExportModal] = useState(false);
+    
     const isMobile = useMediaQuery('(max-width: 768px)');
-
     const itemsPerPage = 10;
 
-    // Load Data
     useEffect(() => {
         const loadFichas = async () => {
             setLoading(true);
@@ -67,6 +64,13 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
                 if (Array.isArray(response)) data = response;
                 else if (response && response.data && Array.isArray(response.data)) data = response.data;
                 else if (response && Array.isArray(response.recordset)) data = response.recordset;
+
+                // Ordenar por ID de mayor a menor
+                data.sort((a, b) => {
+                    const idA = a.id_fichaingresoservicio || a.fichaingresoservicio || 0;
+                    const idB = b.id_fichaingresoservicio || b.fichaingresoservicio || 0;
+                    return idB - idA;
+                });
 
                 setFichas(data || []);
             } catch (error) {
@@ -78,12 +82,10 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
         loadFichas();
     }, []);
 
-    // Reset page on filter change
     useEffect(() => {
         setCurrentPage(1);
     }, [searchId, dateFrom, dateTo, searchEstado, searchTipo, searchEmpresaFacturar, searchEmpresaServicio, searchCentro, searchObjetivo, searchSubArea, searchUsuario]);
 
-    // Unique values for Selects
     const getUniqueValues = (key: string) => {
         const values = new Set<string>();
         fichas.forEach(f => {
@@ -101,6 +103,15 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
     const uniqueSubAreas = React.useMemo(() => getUniqueValues('nombre_subarea'), [fichas]);
     const uniqueUsuarios = React.useMemo(() => getUniqueValues('nombre_usuario'), [fichas]);
 
+    // For FichaExportModal format
+    const getPlainValues = (key: string) => {
+        const values = new Set<string>();
+        fichas.forEach(f => {
+            if (f[key]) values.add(String(f[key]).trim());
+        });
+        return Array.from(values).sort();
+    };
+
     const handleClearFilters = () => {
         setSearchId('');
         setDateFrom('');
@@ -115,12 +126,11 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
         setSearchUsuario('');
     };
 
-    // Filter Logic
     const filteredFichas = fichas.filter(f => {
         const displayId = f.fichaingresoservicio || f.id_fichaingresoservicio || '';
         const matchId = searchId ? String(displayId).includes(searchId) : true;
         const check = (val: string, search: string) => (!search || (val || '').toString().toLowerCase().includes(search.toLowerCase()));
-
+        
         const matchEstado = check(f.estado_ficha, searchEstado);
         const matchTipo = check(f.tipo_fichaingresoservicio, searchTipo);
         const matchEmpresaFacturar = check(f.empresa_facturar, searchEmpresaFacturar);
@@ -171,11 +181,24 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
         <Box p="md" style={{ width: '100%' }}>
             <Stack gap="lg">
                 <PageHeader 
-                    title="Gestión Técnica"
+                    title="Explorador de Fichas de Ingreso"
                     onBack={onBackToMenu}
+                    rightSection={
+                        <ProtectedContent permission="FI_EXP_MC">
+                            <Button 
+                                variant="filled" 
+                                size="sm" 
+                                color="green" 
+                                leftSection={<IconDownload size={16} />}
+                                onClick={() => setShowExportModal(true)}
+                            >
+                                Exportar PDF
+                            </Button>
+                        </ProtectedContent>
+                    }
                 />
 
-                <Paper withBorder p="xl" radius="lg" shadow="sm">
+                <Paper withBorder p="xl" radius="lg" shadow="sm" style={{ width: '100% !important' }}>
                     <Stack gap="xl">
                         <Paper withBorder p="md" radius="md" bg="gray.0">
                             <Stack gap="sm">
@@ -198,7 +221,7 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
                                 <SimpleGrid cols={{ base: 1, sm: 2, md: 4, lg: 6 }} spacing="sm">
                                     <TextInput
                                         label="N° Ficha"
-                                        placeholder="Buscar..."
+                                        placeholder="Buscar por ID..."
                                         value={searchId}
                                         onChange={(e) => setSearchId(e.target.value)}
                                         size="xs"
@@ -216,15 +239,26 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
                                     <TextInput label="Fecha Desde" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} size="xs" />
                                     <TextInput label="Fecha Hasta" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} size="xs" />
                                     <Select label="Tipo" placeholder="Seleccionar..." data={uniqueTipos} value={searchTipo} onChange={(v) => setSearchTipo(v || '')} size="xs" searchable clearable />
-                                    <Select label="E. Facturar" placeholder="Seleccionar..." data={uniqueEmpFacturar} value={searchEmpresaFacturar} onChange={(v) => setSearchEmpresaFacturar(v || '')} size="xs" searchable clearable />
+                                    <Select label="Empresa" placeholder="Seleccionar..." data={uniqueEmpFacturar} value={searchEmpresaFacturar} onChange={(v) => setSearchEmpresaFacturar(v || '')} size="xs" searchable clearable />
                                     <Select label="E. Servicio" placeholder="Seleccionar..." data={uniqueEmpServicio} value={searchEmpresaServicio} onChange={(v) => setSearchEmpresaServicio(v || '')} size="xs" searchable clearable />
-                                    <Select label="Fuente" placeholder="Seleccionar..." data={uniqueCentros} value={searchCentro} onChange={(v) => setSearchCentro(v || '')} size="xs" searchable clearable />
+                                    <Select label="Fuente Emisora" placeholder="Seleccionar..." data={uniqueCentros} value={searchCentro} onChange={(v) => setSearchCentro(v || '')} size="xs" searchable clearable />
                                     <Select label="Objetivo" placeholder="Seleccionar..." data={uniqueObjetivos} value={searchObjetivo} onChange={(v) => setSearchObjetivo(v || '')} size="xs" searchable clearable />
                                     <Select label="Sub Área" placeholder="Seleccionar..." data={uniqueSubAreas} value={searchSubArea} onChange={(v) => setSearchSubArea(v || '')} size="xs" searchable clearable />
                                     <Select label="Usuario" placeholder="Seleccionar..." data={uniqueUsuarios} value={searchUsuario} onChange={(v) => setSearchUsuario(v || '')} size="xs" searchable clearable />
                                 </SimpleGrid>
                             </Stack>
                         </Paper>
+
+                        <FichaExportModal 
+                            isOpen={showExportModal}
+                            onClose={() => setShowExportModal(false)}
+                            initialFilters={{
+                                ficha: searchId, estado: searchEstado, fechaDesde: dateFrom, fechaHasta: dateTo, tipo: searchTipo, empresaFacturar: searchEmpresaFacturar, empresaServicio: searchEmpresaServicio, centro: searchCentro, objetivo: searchObjetivo, subArea: searchSubArea, usuario: searchUsuario
+                            }}
+                            catalogos={{
+                                estados: getPlainValues('estado_ficha'), tipos: getPlainValues('tipo_fichaingresoservicio'), empresasFacturar: getPlainValues('empresa_facturar'), empresasServicio: getPlainValues('empresa_servicio'), centros: getPlainValues('centro'), objetivos: getPlainValues('nombre_objetivomuestreo_ma'), subAreas: getPlainValues('nombre_subarea'), fichas: getPlainValues('id_fichaingresoservicio'), usuarios: getPlainValues('nombre_usuario')
+                            }}
+                        />
 
                         <Box pos="relative">
                             <ScrollArea h={550} offsetScrollbars>
@@ -234,10 +268,8 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
                                             <Table.Th w={80}>ID</Table.Th>
                                             <Table.Th w={180}>Estado</Table.Th>
                                             <Table.Th w={100}>Fecha</Table.Th>
-                                            <Table.Th w={100}>Tipo</Table.Th>
                                             <Table.Th w={150}>Facturar a</Table.Th>
                                             <Table.Th>E. Servicio</Table.Th>
-                                            <Table.Th>Fuente</Table.Th>
                                             <Table.Th>Objetivo</Table.Th>
                                             <Table.Th w={60}>PDF</Table.Th>
                                             <Table.Th w={60}>Ver</Table.Th>
@@ -246,13 +278,13 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
                                     <Table.Tbody>
                                         {loading ? (
                                             <Table.Tr>
-                                                <Table.Td colSpan={10} align="center" py="xl">
+                                                <Table.Td colSpan={8} align="center" py="xl">
                                                     <Text c="dimmed">Cargando datos...</Text>
                                                 </Table.Td>
                                             </Table.Tr>
                                         ) : displayedFichas.length === 0 ? (
                                             <Table.Tr>
-                                                <Table.Td colSpan={10} align="center" py="xl">
+                                                <Table.Td colSpan={8} align="center" py="xl">
                                                     <Text c="dimmed">No se encontraron registros</Text>
                                                 </Table.Td>
                                             </Table.Tr>
@@ -261,56 +293,62 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
                                                 const status = getStatusProps(ficha.estado_ficha);
                                                 return (
                                                     <Table.Tr key={idx}>
-                                                        <Table.Td fw={700}>{ficha.fichaingresoservicio || '-'}</Table.Td>
+                                                        <Table.Td fw={700} c="blue.8">{ficha.fichaingresoservicio || '-'}</Table.Td>
                                                         <Table.Td>
                                                             <Badge color={status.color} variant="light" size="sm" fullWidth>
                                                                 {status.label}
                                                             </Badge>
                                                         </Table.Td>
                                                         <Table.Td fz="xs">{ficha.fecha}</Table.Td>
-                                                        <Table.Td fz="xs">{ficha.tipo_fichaingresoservicio}</Table.Td>
                                                         <Table.Td fz="xs" style={{ minWidth: 150 }} title={ficha.empresa_facturar}>
                                                             {ficha.empresa_facturar}
                                                         </Table.Td>
                                                         <Table.Td fz="xs" style={{ minWidth: 150 }} title={ficha.empresa_servicio}>
                                                             {ficha.empresa_servicio}
                                                         </Table.Td>
-                                                        <Table.Td fz="xs" style={{ minWidth: 150 }} title={ficha.centro}>
-                                                            {ficha.centro}
-                                                        </Table.Td>
                                                         <Table.Td fz="xs" style={{ minWidth: 150 }} title={ficha.nombre_objetivomuestreo_ma}>
                                                             {ficha.nombre_objetivomuestreo_ma}
                                                         </Table.Td>
                                                         <Table.Td align="center">
-                                                            <ProtectedContent permission="FI_EXP_AFE">
-                                                                <ActionIcon 
-                                                                    color="red" 
-                                                                    variant="subtle"
-                                                                    onClick={async (e) => {
-                                                                        e.stopPropagation();
-                                                                        const idFicha = ficha.id_fichaingresoservicio || ficha.fichaingresoservicio;
-                                                                        const pdfBlob = await fichaService.downloadPdf(Number(idFicha));
-                                                                        const url = window.URL.createObjectURL(pdfBlob);
-                                                                        const link = document.createElement('a');
-                                                                        link.href = url;
-                                                                        link.setAttribute('download', `Ficha_${idFicha}.pdf`);
-                                                                        document.body.appendChild(link);
-                                                                        link.click();
-                                                                        document.body.removeChild(link);
-                                                                    }}
+                                                            <ProtectedContent permission={['FI_EXPORTAR_CFI', 'FI_EXP_AFE']}>
+                                                                <Tooltip 
+                                                                    label={(ficha.estado_ficha || '').toUpperCase().includes('RECHAZADA') ? 'Atención: Esta ficha ha sido rechazada' : 'Descargar PDF'}
+                                                                    color={(ficha.estado_ficha || '').toUpperCase().includes('RECHAZADA') ? 'red' : 'blue'}
                                                                 >
-                                                                    <IconDownload size={18} />
-                                                                </ActionIcon>
+                                                                    <ActionIcon 
+                                                                        color={(ficha.estado_ficha || '').toUpperCase().includes('RECHAZADA') ? 'red' : 'gray'} 
+                                                                        variant="subtle"
+                                                                        onClick={async (e) => {
+                                                                            e.stopPropagation();
+                                                                            const idFicha = ficha.id_fichaingresoservicio || ficha.fichaingresoservicio;
+                                                                            try {
+                                                                                const pdfBlob = await fichaService.downloadPdf(Number(idFicha));
+                                                                                const url = window.URL.createObjectURL(pdfBlob);
+                                                                                const link = document.createElement('a');
+                                                                                const fileName = ficha.frecuencia_correlativo || `Ficha_${idFicha}`;
+                                                                                link.href = url;
+                                                                                link.setAttribute('download', `${fileName}.pdf`);
+                                                                                document.body.appendChild(link);
+                                                                                link.click();
+                                                                                document.body.removeChild(link);
+                                                                            } catch(err) {
+                                                                                console.error(err);
+                                                                            }
+                                                                        }}
+                                                                    >
+                                                                        <IconDownload size={18} />
+                                                                    </ActionIcon>
+                                                                </Tooltip>
                                                             </ProtectedContent>
                                                         </Table.Td>
                                                         <Table.Td align="center">
-                                                            <ProtectedContent permission="FI_VER">
+                                                            <ProtectedContent permission={['FI_CONSULTAR', 'FI_VER', 'FI_APROBAR_TEC', 'FI_RECHAZAR_TEC', 'FI_APROBAR_COO', 'FI_RECHAZAR_COO', 'FI_EDITAR']}>
                                                                 <ActionIcon 
                                                                     color="blue" 
                                                                     variant="light"
                                                                     onClick={() => onViewDetail(ficha.id_fichaingresoservicio || ficha.fichaingresoservicio)}
                                                                 >
-                                                                    <IconEdit size={18} />
+                                                                    <IconEye size={18} />
                                                                 </ActionIcon>
                                                             </ProtectedContent>
                                                         </Table.Td>
@@ -342,55 +380,5 @@ const TechnicalListView = ({ onBackToMenu, onViewDetail }: { onBackToMenu: () =>
                 </Paper>
             </Stack>
         </Box>
-    );
-};
-
-const TecnicaPageContent: React.FC<Props> = ({ onBack }) => {
-    const { maTecnicaMode: viewMode, setMaTecnicaMode: setViewMode } = useNavStore();
-    const [selectedFichaId, setSelectedFichaId] = useState<number | null>(null);
-    const { pendingRequestId, setPendingRequestId } = useNavStore();
-
-    useEffect(() => {
-        if (pendingRequestId && (viewMode === 'list' || !viewMode)) {
-            setSelectedFichaId(pendingRequestId);
-            setViewMode('detail');
-            setPendingRequestId(null);
-        }
-    }, [pendingRequestId, viewMode, setPendingRequestId, setViewMode]);
-
-    const handleViewDetail = (id: number) => {
-        setSelectedFichaId(id);
-        setViewMode('detail');
-    };
-
-    if (viewMode === 'list' || !viewMode) {
-        return (
-            <TechnicalListView
-                onBackToMenu={onBack}
-                onViewDetail={handleViewDetail}
-            />
-        );
-    }
-
-    if (viewMode === 'detail' && selectedFichaId) {
-        return (
-            <TechnicalDetailView
-                fichaId={selectedFichaId}
-                onBack={() => setViewMode('list')}
-            />
-        );
-    }
-
-    return null;
-};
-
-export const TecnicaPage: React.FC<Props> = (props) => {
-    return (
-        <ToastProvider>
-            <CatalogosProvider>
-                <TecnicaPageContent {...props} />
-            </CatalogosProvider>
-            <ToastContainer />
-        </ToastProvider>
     );
 };

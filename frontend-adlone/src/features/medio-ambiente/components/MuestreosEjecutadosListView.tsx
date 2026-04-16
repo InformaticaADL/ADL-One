@@ -111,9 +111,9 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
 
     const sortedMuestreos = useMemo(() => {
         return [...filteredMuestreos].sort((a, b) => {
-            const dateA = a.fecha_muestreo ? new Date(a.fecha_muestreo).getTime() : 0;
-            const dateB = b.fecha_muestreo ? new Date(b.fecha_muestreo).getTime() : 0;
-            return dateB - dateA;
+            const idA = a.caso_adlab ? Number(a.caso_adlab) : 0;
+            const idB = b.caso_adlab ? Number(b.caso_adlab) : 0;
+            return idB - idA;
         });
     }, [filteredMuestreos]);
 
@@ -197,17 +197,17 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
                                 </Stack>
                             </Center>
                         ) : (
-                            <Table striped highlightOnHover withTableBorder={false} verticalSpacing="xs" miw={1400}>
+                            <Table striped highlightOnHover withTableBorder={false} verticalSpacing="xs" miw={1000}>
                                 <Table.Thead bg="gray.1">
                                     <Table.Tr>
-                                        <Table.Th w={80} style={{ whiteSpace: 'nowrap' }}>ID Caso</Table.Th>
-                                        <Table.Th w={150} style={{ whiteSpace: 'nowrap' }}>Correlativo</Table.Th>
-                                        <Table.Th w={110} style={{ whiteSpace: 'nowrap' }}>Fecha M.</Table.Th>
-                                        <Table.Th miw={200}>Cliente</Table.Th>
-                                        <Table.Th miw={200}>Fuente Emisora</Table.Th>
-                                        <Table.Th miw={180}>Área / Objetivo</Table.Th>
-                                        <Table.Th miw={150}>M. Inst.</Table.Th>
-                                        <Table.Th miw={150}>M. Ret.</Table.Th>
+                                        <Table.Th w={60} style={{ whiteSpace: 'nowrap' }}>ID</Table.Th>
+                                        <Table.Th w={120} style={{ whiteSpace: 'nowrap' }}>Correlativo</Table.Th>
+                                        <Table.Th w={100} style={{ whiteSpace: 'nowrap' }}>Fecha</Table.Th>
+                                        <Table.Th miw={180}>Cliente</Table.Th>
+                                        <Table.Th miw={180}>F. Emisora</Table.Th>
+                                        <Table.Th miw={160}>Área / Obj.</Table.Th>
+                                        <Table.Th miw={120}>M. Inst.</Table.Th>
+                                        <Table.Th miw={120}>M. Ret.</Table.Th>
                                         <Table.Th ta="center" w={80}>Acciones</Table.Th>
                                     </Table.Tr>
                                 </Table.Thead>
@@ -246,7 +246,7 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
                                                 <Text size="xs">{m.muestreador_retiro || '-'}</Text>
                                             </Table.Td>
                                             <Table.Td ta="center">
-                                                <ProtectedContent permission={['MA_COMERCIAL_HISTORIAL_DETALLE', 'FI_VER']}>
+                                                <ProtectedContent permission={['MA_COMERCIAL_HISTORIAL_DETALLE', 'FI_VER', 'FI_APROBAR_TEC', 'FI_APROBAR_COO']}>
                                                     <Tooltip label="Ver Detalle Ejecución">
                                                         <ActionIcon 
                                                             variant="light" 

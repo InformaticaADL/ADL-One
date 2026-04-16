@@ -14,6 +14,7 @@ import {
     IconUsers, 
     IconBell, 
     IconMail,
+    IconLayoutSidebar
 } from '@tabler/icons-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
@@ -66,6 +67,14 @@ export const InformaticaHub: React.FC<Props> = ({ onNavigate, onBack }) => {
             color: 'cyan',
             description: 'Configurar tipos de solicitud y flujos URS.', 
             permission: 'INF_SOLICITUDES' 
+        },
+        { 
+            id: 'admin-menu-web', 
+            label: 'Configuración Menú Web', 
+            icon: <IconLayoutSidebar style={{ width: rem(32), height: rem(32) }} />, 
+            color: 'grape',
+            description: 'Administrar botones, íconos y permisos de accesos (CMS).', 
+            permission: 'INF_ACCESO' 
         },
     ];
 

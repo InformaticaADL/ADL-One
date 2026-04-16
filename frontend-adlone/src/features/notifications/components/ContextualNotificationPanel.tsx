@@ -8,10 +8,12 @@ interface ContextualNotificationPanelProps {
 }
 
 const ContextualNotificationPanel: React.FC<ContextualNotificationPanelProps> = ({ area }) => {
-    const { notifications, markAsRead } = useNotificationStore();
+    const notifications = useNotificationStore((s) => s.notifications);
+    const markAsRead = useNotificationStore((s) => s.markAsRead);
 
-    const areaNotifications = notifications.filter(
-        (n: Notification) => n.area === area && !n.leido
+    const areaNotifications = React.useMemo(() => 
+        notifications.filter((n: Notification) => n.area === area && !n.leido),
+        [notifications, area]
     );
 
     if (areaNotifications.length === 0) return null;

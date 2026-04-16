@@ -10,6 +10,8 @@ import { useToast } from '../../../contexts/ToastContext';
 import { useCachedCatalogos } from '../hooks/useCachedCatalogos';
 import { useAuth } from '../../../contexts/AuthContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
+import { ProtectedContent } from '../../../components/auth/ProtectedContent';
+import { mapToAntecedentes } from '../utils/fichaMapping';
 
 import { 
     Button, 
@@ -25,7 +27,9 @@ import {
     ScrollArea, 
     LoadingOverlay,
     Box,
-    Divider
+    Divider,
+    Textarea,
+    Tooltip
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { 
@@ -34,15 +38,17 @@ import {
     IconEdit,
     IconClipboardList, 
     IconFlask, 
-    IconHistory
+    IconHistory,
+    IconCheck, 
+    IconRotate,
+    IconMessageDots,
+    IconFileDownload
 } from '@tabler/icons-react';
 
 interface Props {
     fichaId: number;
     onBack: () => void;
 }
-
-import { mapToAntecedentes } from '../utils/fichaMapping';
 
 const getStatusProps = (status: string) => {
     const s = (status || '').toUpperCase();
@@ -55,24 +61,38 @@ const getStatusProps = (status: string) => {
     return { color: 'gray', label: s || 'SIN ESTADO' };
 };
 
-export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
+export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
     const { showToast } = useToast();
     const catalogos = useCachedCatalogos();
     const auth = useAuth();
-    const { hasPermission } = auth;
+    const { hasPermission, user } = auth;
     const isMobile = useMediaQuery('(max-width: 500px)');
     const isVerySmall = useMediaQuery('(max-width: 450px)');
 
     const [loading, setLoading] = useState(true);
+    const [actionLoading, setActionLoading] = useState(false);
     const [activeTab, setActiveTab] = useState<string>('antecedentes');
     const [data, setData] = useState<any>(null);
     const [laboratorios, setLaboratorios] = useState<any[]>([]);
+    
+    // Edit States
     const [isEditing, setIsEditing] = useState(false);
     const [analysisList, setAnalysisList] = useState<any[]>([]);
     const antecedentesRef = useRef<AntecedentesFormHandle>(null);
-    const [newObservation, setNewObservation] = useState('');
     const mappedInitialDataRef = useRef<any>(null);
     const [showCancelModal, setShowCancelModal] = useState(false);
+
+    // Observations for actions
+    const [newObservation, setNewObservation] = useState(''); // Comercial
+    const [tecnicaObs, setTecnicaObs] = useState(''); // Técnica
+    const [coordinacionObs, setCoordinacionObs] = useState(''); // Coordinación
+
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [confirmAction, setConfirmAction] = useState<{
+        type: 'approve_tech' | 'reject_tech' | 'approve_coord' | 'reject_coord';
+        title: string;
+        message: string;
+    } | null>(null);
 
     const timelineCreationData = useMemo(() => {
         if (!data) return undefined;
@@ -123,6 +143,7 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
         return lab ? lab.nombre_laboratorioensayo : null;
     };
 
+    // Comercial Edit Logic
     const handleEditStart = () => {
         if (!data) return;
         const mappedAnalysis = (data.detalles || []).map((row: any, index: number) => ({
@@ -144,7 +165,7 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
     const handleSaveChanges = async () => {
         if (!fichaId || !antecedentesRef.current) return;
         if (!newObservation || !newObservation.trim()) {
-            showToast({ type: 'error', message: 'Debe ingresar una observación para guardar los cambios.' });
+            showToast({ type: 'warning', message: 'Debe ingresar una observación para guardar los cambios.' });
             setActiveTab('observaciones');
             return;
         }
@@ -162,7 +183,7 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                 showToast({ type: 'success', message: 'Ficha actualizada correctamente' });
                 setIsEditing(false);
                 setNewObservation('');
-                onBack();
+                onBack(); // Alternatively reload data
             } else {
                 showToast({ type: 'error', message: response.message || 'Error al actualizar ficha' });
             }
@@ -173,13 +194,91 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
         }
     };
 
+    // Tech & Coord Actions
+    const handleActionClick = (type: 'approve_tech' | 'reject_tech' | 'approve_coord' | 'reject_coord') => {
+        if (type === 'reject_tech' && !tecnicaObs.trim()) {
+            showToast({ type: 'warning', message: 'Debe ingresar una observación para rechazar' });
+            return;
+        }
+        if (type === 'approve_coord' && !coordinacionObs.trim()) {
+            showToast({ type: 'warning', message: 'Debe ingresar una observación para aceptar' });
+            return;
+        }
+        if (type === 'reject_coord' && !coordinacionObs.trim()) {
+            showToast({ type: 'warning', message: 'Debe ingresar una observación para solicitar revisión' });
+            return;
+        }
+
+        const actionConfig = {
+            approve_tech: { title: 'Confirmar Aprobación Técnica', message: '¿Está seguro de ACEPTAR esta ficha técnicamente? Esta acción habilitará la ficha para coordinación.' },
+            reject_tech: { title: 'Solicitar Revisión Técnica', message: '¿Está seguro de solicitar una REVISIÓN para esta ficha? Volverá al área comercial para su corrección.' },
+            approve_coord: { title: 'Confirmar Aprobación Coordinación', message: '¿Está seguro de ACEPTAR esta ficha? Esta acción habilitará la ficha para su programación.' },
+            reject_coord: { title: 'Solicitar Revisión Coordinación', message: '¿Está seguro de solicitar una REVISIÓN? La ficha volverá a Comercial para corrección desde inicio.' }
+        };
+
+        setConfirmAction({
+            type,
+            ...actionConfig[type]
+        });
+        setShowConfirmModal(true);
+    };
+
+    const handleDownloadPdf = async () => {
+        if (!fichaId) return;
+        try {
+            const pdfBlob = await fichaService.downloadPdf(fichaId);
+            const url = window.URL.createObjectURL(pdfBlob);
+            const link = document.createElement('a');
+            const fileName = data?.caso_adlab || data?.frecuencia_correlativo || `Ficha_${fichaId}`;
+            link.href = url;
+            link.setAttribute('download', `${fileName}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode?.removeChild(link);
+        } catch (error) {
+            showToast({ type: 'error', message: 'Error al generar el PDF' });
+        }
+    };
+
+    const processAction = async () => {
+        if (!confirmAction) return;
+        setActionLoading(true);
+        try {
+            switch (confirmAction.type) {
+                case 'approve_tech':
+                    await fichaService.approve(fichaId, { observaciones: tecnicaObs, user: { id: user?.id || 0 } });
+                    showToast({ type: 'success', message: 'Ficha ACEPTADA técnicamente' });
+                    break;
+                case 'reject_tech':
+                    await fichaService.reject(fichaId, { observaciones: tecnicaObs, user: { id: user?.id || 0 } });
+                    showToast({ type: 'info', message: 'Revisión solicitada a Comercial' });
+                    break;
+                case 'approve_coord':
+                    await fichaService.approveCoordinacion(fichaId, { observaciones: coordinacionObs, user: { id: user?.id || 0 } });
+                    showToast({ type: 'success', message: 'Ficha APROBADA para programación' });
+                    break;
+                case 'reject_coord':
+                    await fichaService.reviewCoordinacion(fichaId, { observaciones: coordinacionObs, user: { id: user?.id || 0 } });
+                    showToast({ type: 'info', message: 'Ficha devuelta a Comercial' });
+                    break;
+            }
+            onBack();
+        } catch (error) {
+            console.error(error);
+            showToast({ type: 'error', message: 'Error al procesar la ficha' });
+        } finally {
+            setActionLoading(false);
+            setShowConfirmModal(false);
+        }
+    };
+
     if (loading && !data) return <LoadingOverlay visible />;
 
     const statusObj = getStatusProps(data?.estado_ficha);
 
     const StaticField = ({ label, value }: { label: string, value: any }) => (
         <Stack gap={2}>
-            <Text size="xs" fw={700} c="dimmed" tt="uppercase">{label}</Text>
+            <Text size="xs" fw={700} c="dimmed" tt="uppercase" style={{ whiteSpace: 'nowrap' }} truncate>{label}</Text>
             <Paper withBorder p="xs" radius="md" bg="gray.0">
                 <Text size="sm" fw={500} truncate title={String(value || '-')}>
                     {value || '-'}
@@ -188,14 +287,19 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
         </Stack>
     );
 
+    // Capabilities
     const canEdit = hasPermission('FI_EDITAR') && !isEditing && [1, 2, 3, 4].includes(Number(data?.id_validaciontecnica));
+    const canProcessTech = (hasPermission('FI_APROBAR_TEC') || hasPermission('FI_RECHAZAR_TEC')) && [0, 3, 4].includes(data?.id_validaciontecnica || -1);
+    const canProcessCoord = (hasPermission('FI_APROBAR_COO') || hasPermission('FI_RECHAZAR_COO')) && data?.id_validaciontecnica === 1;
+
+    const det = data?.detalles || [];
 
     return (
         <Box p="md" style={{ width: '100% !important', maxWidth: '100% !important' }}>
             <Stack gap="lg">
                 <PageHeader 
                     title={`Ficha N° ${data?.fichaingresoservicio || '-'}${data?.es_remuestreo === 'S' ? ` (REMUESTREO DE LA FICHA N° ${data?.id_ficha_original})` : ''}`}
-                    subtitle={isEditing ? 'Modo Edición' : 'Detalles de la Ficha'}
+                    subtitle={isEditing ? 'Modo Edición' : 'Visor Universal de Ficha'}
                     onBack={onBack}
                     rightSection={
                         <Group gap="sm">
@@ -214,27 +318,42 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                             ) : (
                                 canEdit && (
                                     <Button color="blue" leftSection={<IconEdit size={18} />} onClick={handleEditStart}>
-                                        Editar
+                                        Editar Comercial
                                     </Button>
                                 )
                             )}
+                            <ProtectedContent permission="FI_EXPORTAR_CFI">
+                                <Tooltip 
+                                    label={data?.id_validaciontecnica === 2 || data?.id_validaciontecnica === 4 ? 'Atención: Esta ficha ha sido rechazada.' : 'Descargar Ficha Técnica'}
+                                    color={data?.id_validaciontecnica === 2 || data?.id_validaciontecnica === 4 ? 'red' : 'blue'}
+                                >
+                                    <Button 
+                                        variant="light" 
+                                        color={data?.id_validaciontecnica === 2 || data?.id_validaciontecnica === 4 ? 'red' : 'green'} 
+                                        leftSection={<IconFileDownload size={18} />} 
+                                        onClick={handleDownloadPdf}
+                                    >
+                                        Exportar PDF
+                                    </Button>
+                                </Tooltip>
+                            </ProtectedContent>
                         </Group>
                     }
                 />
 
                 <Paper withBorder p={0} radius="lg" shadow="sm" style={{ width: '100% !important', maxWidth: '100% !important', overflow: 'hidden' }}>
                     <Stack gap={0}>
-                        {/* Alerts */}
+                        {/* Unified Alerts */}
                         <Box p={isMobile ? 'md' : 'xl'} pb={0}>
                             {[1, 2, 3, 4, 5, 6, 7].includes(Number(data?.id_validaciontecnica)) && (
                                 <Box mb="md">
-                                    {data.id_validaciontecnica === 3 && <WorkflowAlert type="info" title="Pendiente Técnica" message="En revisión por el Área Técnica." />}
-                                    {data.id_validaciontecnica === 1 && <WorkflowAlert type="info" title="Aprobada Técnica" message="Revisión de Coordinación pendiente." />}
-                                    {data.id_validaciontecnica === 2 && <WorkflowAlert type="warning" title="Rechazada Técnica" message="Requiere correcciones comerciales." />}
-                                    {data.id_validaciontecnica === 4 && <WorkflowAlert type="warning" title="Rechazada Coordinación" message="Requiere correcciones comerciales." />}
-                                    {data.id_validaciontecnica === 5 && <WorkflowAlert type="info" title="En Proceso" message="Ficha con programación activa." />}
-                                    {data.id_validaciontecnica === 6 && <WorkflowAlert type="info" title="Aprobada Coordinación" message="Pendiente de programación final." />}
-                                    {data.id_validaciontecnica === 7 && <WorkflowAlert type="error" title="Ficha Cancelada" message="Esta ficha ha sido anulada." />}
+                                    {data.id_validaciontecnica === 3 && <WorkflowAlert type="warning" title="Pendiente Técnica" message="Esta ficha requiere revisión por el Área Técnica." />}
+                                    {data.id_validaciontecnica === 1 && <WorkflowAlert type="info" title="Pendiente Coordinación" message="Aprobada técnicamente. Revisión de Coordinación pendiente." />}
+                                    {data.id_validaciontecnica === 2 && <WorkflowAlert type="error" title="Rechazada Técnica" message="Devuelta a Comercial. Requiere correcciones." />}
+                                    {data.id_validaciontecnica === 4 && <WorkflowAlert type="error" title="Rechazada Coordinación" message="Devuelta a Comercial. Requiere correcciones de inicio." />}
+                                    {data.id_validaciontecnica === 5 && <WorkflowAlert type="info" title="En Proceso / Programación" message="Ficha con programación activa en terreno." />}
+                                    {data.id_validaciontecnica === 6 && <WorkflowAlert type="info" title="Aprobada Coordinación" message="Pendiente de ejecución/programación final." />}
+                                    {data.id_validaciontecnica === 7 && <WorkflowAlert type="error" title="Ficha Cancelada" message="Esta ficha ha sido anulada en el sistema." />}
                                 </Box>
                             )}
                         </Box>
@@ -266,7 +385,7 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                     py={isMobile ? 'xs' : 'md'}
                                     style={{ flex: '1 1 0%', fontSize: isVerySmall ? '0.75rem' : (isMobile ? '0.85rem' : '1rem'), fontWeight: 600, minWidth: 0, whiteSpace: 'nowrap' }}
                                 >
-                                    {isVerySmall ? 'Historial' : 'Validación e Historial'}
+                                    {isVerySmall ? 'Historial/Valid.' : 'Validación e Historial'}
                                 </Tabs.Tab>
                             </Tabs.List>
 
@@ -343,8 +462,8 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                         <Stack gap="xl">
                                             <Paper withBorder p="md" radius="md" bg="blue.0">
                                                 <SimpleGrid cols={{ base: 1, sm: 2 }}>
-                                                    <StaticField label="Normativa" value={data.detalles?.[0]?.nombre_normativa} />
-                                                    <StaticField label="Referencia" value={data.detalles?.[0]?.nombre_normativareferencia || data.detalles?.[0]?.nombre_referencia} />
+                                                    <StaticField label="Normativa" value={det[0]?.nombre_normativa} />
+                                                    <StaticField label="Referencia" value={det[0]?.nombre_normativareferencia || det[0]?.nombre_referencia} />
                                                 </SimpleGrid>
                                             </Paper>
 
@@ -358,19 +477,21 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                             <Table.Th ta="right">Límite Max</Table.Th>
                                                             <Table.Th ta="center">Error</Table.Th>
                                                             <Table.Th>Tipo Entrega</Table.Th>
-                                                            <Table.Th>Laboratorio</Table.Th>
+                                                            <Table.Th>Lab. Principal</Table.Th>
+                                                            <Table.Th>Lab. Secundario</Table.Th>
                                                         </Table.Tr>
                                                     </Table.Thead>
                                                     <Table.Tbody>
-                                                        {(data.detalles || []).map((row: any, i: number) => (
+                                                        {det.map((row: any, i: number) => (
                                                             <Table.Tr key={i}>
                                                                 <Table.Td fw={600}>{row.nombre_tecnica || row.nombre_determinacion || '-'}</Table.Td>
-                                                                <Table.Td>{row.nombre_tipomuestra || '-'}</Table.Td>
+                                                                <Table.Td>{row.tipo_analisis || row.nombre_tipomuestra || '-'}</Table.Td>
                                                                 <Table.Td ta="right">{row.limitemax_d}</Table.Td>
                                                                 <Table.Td ta="right">{row.limitemax_h}</Table.Td>
                                                                 <Table.Td ta="center">{row.llevaerror === 'S' || row.llevaerror === true ? 'Sí' : 'No'}</Table.Td>
                                                                 <Table.Td>{row.nombre_tipoentrega}</Table.Td>
                                                                 <Table.Td>{getLabName(row.id_laboratorioensayo) || 'Interno'}</Table.Td>
+                                                                <Table.Td>{getLabName(row.id_laboratorioensayo_2) || '-'}</Table.Td>
                                                             </Table.Tr>
                                                         ))}
                                                     </Table.Tbody>
@@ -382,11 +503,12 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
 
                                 <Tabs.Panel value="observaciones" p={isMobile ? 'md' : 50} pt="xl" style={{ width: '100% !important' }}>
                                     <Stack gap="xl">
+                                        {/* Bloque: Edición Comercial */}
                                         {isEditing && (
                                             <Paper withBorder p="md" radius="md" bg="green.0">
                                                 <Stack gap="sm">
-                                                    <Title order={5} c="green.9">Nueva Observación Requerida</Title>
-                                                    <Text size="xs" c="green.7">Describa los motivos de los cambios realizados. Esta observación quedará registrada en el historial.</Text>
+                                                    <Title order={5} c="green.9">Nueva Observación Comercial Requerida</Title>
+                                                    <Text size="xs" c="green.7">Describa los motivos de los cambios realizados comercialmente.</Text>
                                                     <ObservacionesForm
                                                         label=""
                                                         value={newObservation}
@@ -394,6 +516,70 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                         readOnly={false}
                                                         placeholder="Describa aquí los cambios..."
                                                     />
+                                                </Stack>
+                                            </Paper>
+                                        )}
+
+                                        {/* Bloque: Acción Técnica */}
+                                        {!isEditing && canProcessTech && (
+                                            <Paper withBorder p="md" radius="md" bg="blue.0">
+                                                <Stack gap="sm">
+                                                    <Group gap="xs">
+                                                        <IconMessageDots size={20} color="var(--mantine-color-blue-7)" />
+                                                        <Title order={5} c="blue.9">Gestión Técnica: Validación</Title>
+                                                    </Group>
+                                                    <Text size="xs" c="blue.7">Ingrese sus observaciones técnicas antes de aprobar o solicitar revisión.</Text>
+                                                    <Textarea
+                                                        placeholder="Ingrese sus observaciones técnicas aquí..."
+                                                        value={tecnicaObs}
+                                                        onChange={(e) => setTecnicaObs(e.currentTarget.value)}
+                                                        minRows={3}
+                                                        radius="md"
+                                                    />
+                                                    <Group justify="flex-end" mt="md">
+                                                        <ProtectedContent permission="FI_APROBAR_TEC">
+                                                            <Button color="blue" leftSection={<IconCheck size={18} />} onClick={() => handleActionClick('approve_tech')} loading={actionLoading}>
+                                                                Aprobar Técnica
+                                                            </Button>
+                                                        </ProtectedContent>
+                                                        <ProtectedContent permission="FI_RECHAZAR_TEC">
+                                                            <Button variant="light" color="red" leftSection={<IconRotate size={18} />} onClick={() => handleActionClick('reject_tech')} loading={actionLoading}>
+                                                                Pedir Corrección Comercial
+                                                            </Button>
+                                                        </ProtectedContent>
+                                                    </Group>
+                                                </Stack>
+                                            </Paper>
+                                        )}
+
+                                        {/* Bloque: Acción Coordinación */}
+                                        {!isEditing && canProcessCoord && (
+                                            <Paper withBorder p="md" radius="md" bg="grape.0">
+                                                <Stack gap="sm">
+                                                    <Group gap="xs">
+                                                        <IconMessageDots size={20} color="var(--mantine-color-grape-7)" />
+                                                        <Title order={5} c="grape.9">Gestión Coordinación: Aprobación Logística</Title>
+                                                    </Group>
+                                                    <Text size="xs" c="grape.7">Ingrese comentarios operativos finales antes de habilitar la Ficha para programación y asignación de terreno.</Text>
+                                                    <Textarea
+                                                        placeholder="Ingrese las observaciones de coordinación aquí..."
+                                                        value={coordinacionObs}
+                                                        onChange={(e) => setCoordinacionObs(e.currentTarget.value)}
+                                                        minRows={3}
+                                                        radius="md"
+                                                    />
+                                                    <Group justify="flex-end" mt="md">
+                                                        <ProtectedContent permission="FI_APROBAR_COO">
+                                                            <Button color="grape" leftSection={<IconCheck size={18} />} onClick={() => handleActionClick('approve_coord')} loading={actionLoading}>
+                                                                Aprobar Coordinación
+                                                            </Button>
+                                                        </ProtectedContent>
+                                                        <ProtectedContent permission="FI_RECHAZAR_COO">
+                                                            <Button variant="light" color="red" leftSection={<IconRotate size={18} />} onClick={() => handleActionClick('reject_coord')} loading={actionLoading}>
+                                                                Devolver a Comercial
+                                                            </Button>
+                                                        </ProtectedContent>
+                                                    </Group>
                                                 </Stack>
                                             </Paper>
                                         )}
@@ -408,6 +594,7 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                     </Stack>
                 </Paper>
             </Stack>
+
             <ConfirmModal
                 isOpen={showCancelModal}
                 title="Descartar cambios"
@@ -417,6 +604,15 @@ export const CommercialDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                     setShowCancelModal(false);
                 }}
                 onCancel={() => setShowCancelModal(false)}
+            />
+
+            <ConfirmModal
+                isOpen={showConfirmModal}
+                title={confirmAction?.title || ''}
+                message={confirmAction?.message || ''}
+                confirmColor={confirmAction?.type.includes('approve') ? '#10b981' : '#ef4444'}
+                onConfirm={processAction}
+                onCancel={() => setShowConfirmModal(false)}
             />
         </Box>
     );

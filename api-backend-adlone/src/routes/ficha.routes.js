@@ -24,6 +24,7 @@ router.get('/:id/sampling-equipos', authenticate, fichaController.getSamplingEqu
 router.get('/:id/execution-detail', authenticate, fichaController.getExecutionDetail);
 router.post('/batch-agenda', authenticate, verifyPermission('FI_GEST_ASIG'), fichaController.batchUpdateAgenda);
 router.post('/cancel-sampling', authenticate, verifyPermission('MA_CALENDARIO_CANCELAR'), fichaController.cancelSampling);
+router.post('/enviar-documento-manual', authenticate, fichaController.enviarDocumentoManual);
 router.post('/:id/agenda', authenticate, verifyPermission('FI_GEST_ASIG'), fichaController.updateAgenda);
 router.post('/:id/update', authenticate, verifyPermission('FI_EDITAR'), fichaController.update);
 

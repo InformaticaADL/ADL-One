@@ -8,6 +8,7 @@ import fs from 'fs';
 import path from 'path';
 import PDFDocument from 'pdfkit-table';
 import ExcelJS from 'exceljs';
+import { getTransporter } from '../config/mailer.js';
 
 class FichaIngresoService {
 
@@ -966,6 +967,10 @@ class FichaIngresoService {
         // Updated to use the correct Stored Procedure provided by user
         try {
             const result = await pool.request().execute('MAM_FichaComercial_ConsultaComercial');
+            // Sort by id descending since the SP might not guarantee order
+            if (result.recordset) {
+                result.recordset.sort((a, b) => (b.id || b.id_fichaingresoservicio) - (a.id || a.id_fichaingresoservicio));
+            }
             return result.recordset;
         } catch (error) {
             // Fallback to manual query only if SP fails (e.g. not present in DB)
@@ -3146,7 +3151,7 @@ class FichaIngresoService {
             LEFT JOIN mae_muestreador m ON a.id_muestreador = m.id_muestreador
             LEFT JOIN mae_muestreador m2 ON a.id_muestreador2 = m2.id_muestreador
             WHERE a.id_estadomuestreo = 3
-            ORDER BY a.fecha_muestreo DESC, f.id_fichaingresoservicio DESC
+            ORDER BY a.caso_adlab DESC, a.fecha_muestreo DESC, f.id_fichaingresoservicio DESC
         `;
 
         try {
@@ -3348,13 +3353,27 @@ class FichaIngresoService {
                                     label: 'Documento FoMa'
                                 });
                             } else if (lowerFile.startsWith('cadenacustodia_')) {
-                                const parts = file.split('_');
-                                const labName = parts.length > 2 ? parts[parts.length - 1].split('.')[0] : 'General';
+                                let labName = 'General';
+                                const strippedFreq = frecuenciaReal.trim();
+                                const prefixRegex = new RegExp(`^cadenacustodia_${strippedFreq}_`, 'i');
+                                
+                                if (prefixRegex.test(file)) {
+                                    labName = file.replace(prefixRegex, '')
+                                                  .replace(/\.pdf$/i, '')
+                                                  .replace(/_/g, ' ');
+                                } else {
+                                    // Fallback
+                                    const parts = file.split('_');
+                                    if (parts.length > 2) {
+                                        labName = parts.slice(2).join(' ').replace(/\.pdf$/i, '');
+                                    }
+                                }
+
                                 fsDocs.push({
                                     nombre: file,
                                     tipo: 'Cadena de Custodia',
                                     ruta: publicUrl,
-                                    label: `${labName}`
+                                    label: labName
                                 });
                             }
                         }
@@ -3413,6 +3432,114 @@ class FichaIngresoService {
             };
         } catch (error) {
             logger.error('Error in getExecutionDetail refactored:', error);
+            throw error;
+        }
+    }
+
+    async enviarDocumentosManual(data) {
+        const { idFicha, correlativo, documento, to, cc, user } = data;
+        const pool = await getConnection();
+
+        try {
+            // Override to and cc based on requirement
+            const finalTo = 'vremolcoy@adldiagnostic.cl';
+
+            // Get Ficha data
+            const fichaResult = await pool.request()
+                .input('id', sql.Int, idFicha)
+                .input('correlativo', sql.VarChar, correlativo)
+                .query(`
+                    SELECT 
+                        a.caso_adlab
+                    FROM App_Ma_FichaIngresoServicio_ENC f
+                    INNER JOIN App_Ma_Agenda_MUESTREOS a ON f.id_fichaingresoservicio = a.id_fichaingresoservicio
+                    WHERE f.id_fichaingresoservicio = @id AND a.frecuencia_correlativo = @correlativo
+                `);
+            
+            let casoAdlab = 'Sin Caso';
+            if (fichaResult.recordset.length > 0) {
+                casoAdlab = fichaResult.recordset[0].caso_adlab || 'Sin Caso';
+            }
+
+            // Get Event Template (73 = FoMa, 74 = Cadena)
+            const idEvento = documento.tipo === 'FoMa' ? 73 : 74;
+            const eventResult = await pool.request()
+                .input('idEvento', sql.Int, idEvento)
+                .query('SELECT asunto_template, cuerpo_template_html FROM mae_evento_notificacion WHERE id_evento = @idEvento');
+
+            if (eventResult.recordset.length === 0) {
+                throw new Error('Plantilla de correo no encontrada.');
+            }
+            
+            const eventInfo = eventResult.recordset[0];
+            
+            // Prepare replacements
+            let asunto = eventInfo.asunto_template;
+            let html = eventInfo.cuerpo_template_html;
+
+            const labName = documento.label || 'Laboratorio';
+
+            asunto = asunto.replace(/{CASO_ADLAB}/g, casoAdlab)
+                           .replace(/{LABORATORIO_ASIGNADO}/g, labName);
+            
+            html = html.replace(/{CASO_ADLAB}/g, casoAdlab)
+                       .replace(/{LABORATORIO_ASIGNADO}/g, labName)
+                       .replace(/{LOGO_URL}/g, 'cid:logo_adl')
+                       .replace(/{ANIO_ACTUAL}/g, new Date().getFullYear().toString());
+
+            // Build attachments
+            const attachments = [];
+            const rootFotosPath = process.env.RUTA_FOTOS || 'C:\\Users\\vremolcoy\\Documents\\FOTOS APP';
+
+            // Logo
+            const logoPath = path.resolve(process.cwd(), '../frontend-adlone/src/assets/images/logo_adl.png');
+            if (fs.existsSync(logoPath)) {
+                attachments.push({
+                    filename: 'logo.png',
+                    path: logoPath,
+                    cid: 'logo_adl'
+                });
+            }
+
+            // PDF Document
+            if (documento.ruta) {
+                const parts = documento.ruta.split('/fotos/');
+                if (parts.length > 1) {
+                    const relativePath = parts[1]; 
+                    const physicalPath = path.join(rootFotosPath, decodeURIComponent(relativePath));
+                    if (fs.existsSync(physicalPath)) {
+                        attachments.push({
+                            filename: documento.nombre,
+                            path: physicalPath
+                        });
+                    } else {
+                        logger.warn(`PDF not found at physical path: ${physicalPath}`);
+                        throw new Error('El archivo físico del documento no fue encontrado.');
+                    }
+                }
+            } else {
+                throw new Error('El documento no contiene una ruta válida.');
+            }
+
+            const transporter = getTransporter();
+            const mailOptions = {
+                from: process.env.SMTP_FROM || '"Notificaciones ADL" <no-reply@adldiagnostic.cl>',
+                to: finalTo,
+                subject: asunto,
+                html: html,
+                attachments: attachments
+            };
+
+            const info = await transporter.sendMail(mailOptions);
+            logger.info(`Documento reenviado manualmente a ${finalTo} - MessageId: ${info.messageId}`);
+            
+            return {
+                success: true,
+                message: 'Documento reenviado correctamente al destinatario de prueba.'
+            };
+
+        } catch (error) {
+            logger.error('Error en enviarDocumentosManual:', error);
             throw error;
         }
     }

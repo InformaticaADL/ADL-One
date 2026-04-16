@@ -253,6 +253,34 @@ class UnsService {
                 'AVISO_CANCELACION_NUEVA': {
                     titulo: 'Cancelación de Muestreo',
                     mensaje: '{{usuario_accion}} ha reportado la anulación del servicio {{CORRELATIVO}}'
+                },
+                'FICHA_APROBADA_TECNICA': {
+                    titulo: 'Aprobación Técnica: #{{correlativo}}',
+                    mensaje: 'La ficha #{{correlativo}} ha sido APROBADA técnicamente por {{usuario_accion}}.'
+                },
+                'FICHA_RECHAZADA_TECNICA': {
+                    titulo: 'Ficha Rechazada: #{{correlativo}}',
+                    mensaje: 'La ficha #{{correlativo}} ha sido RECHAZADA técnicamente por {{usuario_accion}}.'
+                },
+                'FICHA_APROBADA_COORDINACION': {
+                    titulo: 'Aprobación Coordinación: #{{correlativo}}',
+                    mensaje: 'La ficha #{{correlativo}} ha sido APROBADA por coordinación ({{usuario_accion}}).'
+                },
+                'FICHA_RECHAZADA_COORDINACION': {
+                    titulo: 'Rechazo Coordinación: #{{correlativo}}',
+                    mensaje: 'La ficha #{{correlativo}} ha sido RECHAZADA por coordinación ({{usuario_accion}}).'
+                },
+                'FICHA_ASIGNADA': {
+                    titulo: 'Muestreo Asignado: #{{correlativo}}',
+                    mensaje: 'Se ha asignado el muestreo de la ficha #{{correlativo}} al equipo de terreno.'
+                },
+                'FICHA_MUESTREO_CANCELADO': {
+                    titulo: 'Muestreo Cancelado: #{{correlativo}}',
+                    mensaje: 'El muestreo agendado para la ficha #{{correlativo}} ha sido cancelado.'
+                },
+                'FICHA_MUESTREO_REPROGRAMADO': {
+                    titulo: 'Muestreo Reprogramado: #{{correlativo}}',
+                    mensaje: 'El muestreo de la ficha #{{correlativo}} ha sido reprogramado para una nueva fecha.'
                 }
             };
 

@@ -52,6 +52,8 @@ import { useNavStore } from '../../store/navStore';
 import { useNotificationStore } from '../../store/notificationStore';
 import { NotificationPopover } from '../../features/notifications/components/NotificationPopover';
 import API_CONFIG from '../../config/api.config';
+import axios from 'axios';
+import { getIconComponent } from '../../config/iconRegistry';
 import classes from './Sidebar.module.css';
 import { HelpCenter } from '../common/HelpCenter';
 
@@ -204,70 +206,8 @@ export function LinksGroup({
     );
 }
 
-// Módulos reales de ADL One
-const MODULES = [
-    {
-        id: 'gem',
-        label: 'Ensayo Molecular',
-        icon: IconDiamond,
-        group: 'unidades',
-        permission: 'GEM_ACCESO',
-        links: [
-            { label: 'Dashboard General', id: 'gem-dashboard' },
-            { label: 'Reportes Consolidados', id: 'gem-reportes' },
-            { label: 'Configuración', id: 'gem-config' }
-        ]
-    },
-    { id: 'necropsia', label: 'Necropsia', icon: IconActivity, group: 'unidades', permission: 'NEC_ACCESO' },
-    { id: 'microscopia', label: 'Microscopía', icon: IconMicroscope, group: 'unidades', permission: 'MIC_ACCESO' },
-    { id: 'biologia_molecular', label: 'Biología Molecular', icon: IconDna, group: 'unidades', permission: 'BM_ACCESO' },
-    { id: 'cultivo_celular', label: 'Cultivo Celular', icon: IconFlask, group: 'unidades', permission: 'CC_ACCESO' },
-    { id: 'bacteriologia', label: 'Bacteriología', icon: IconVirus, group: 'unidades', permission: 'BAC_ACCESO' },
-    { id: 'screening', label: 'Screening', icon: IconFilter, group: 'unidades', permission: 'SCR_ACCESO' },
-    { id: 'derivaciones', label: 'Derivaciones', icon: IconArrowsLeftRight, group: 'unidades', permission: 'DER_ACCESO' },
-    {
-        id: 'medio_ambiente',
-        label: 'Medioambiente',
-        icon: IconLeaf,
-        group: 'unidades',
-        permission: ['MA_ACCESO', 'FI_CONSULTAR', 'FI_NEW_CREAR', 'FI_EDITAR', 'MA_TECNICA_ACCESO', 'FI_ASIG_GRUPO', 'MA_CALENDARIO_ACCESO', 'MA_COMERCIAL_HISTORIAL_ACCESO', 'FI_APROBAR', 'FI_REVISION', 'FI_VER'],
-        links: [
-            { label: 'Fichas de ingreso', id: 'ma-fichas-ingreso', permission: ['MA_COMERCIAL_ACCESO', 'MA_TECNICA_ACCESO', 'MA_COORDINACION_ACCESO', 'FI_CONSULTAR', 'FI_NEW_CREAR', 'FI_ASIG_GRUPO', 'MA_CALENDARIO_ACCESO', 'FI_APROBAR', 'FI_REVISION', 'FI_VER'] },
-            { label: 'Reportes', id: 'ma-reportes-view', permission: 'MA_A_REPORTES' },
-        ]
-    },
-    { id: 'atl', label: 'Área Técnica Local', icon: IconTruckDelivery, group: 'unidades', permission: 'ATL_ACCESO' },
-    { id: 'id', label: 'Investigación + D', icon: IconBulb, group: 'unidades', permission: 'ID_ACCESO' },
-    { id: 'pve', label: 'Vigilancia Epi.', icon: IconStethoscope, group: 'unidades', permission: 'PVE_ACCESO' },
-    { id: 'informatica', label: 'Informática', icon: IconCpu, group: 'unidades', permission: 'INF_ACCESO' },
-    { id: 'comercial', label: 'Comercial', icon: IconChartBar, group: 'unidades', permission: 'COM_ACCESO' },
-    {
-        id: 'gestion_calidad',
-        label: 'Gestión de Calidad',
-        icon: IconCertificate,
-        group: 'unidades',
-        permission: ['GC_ACCESO', 'MA_A_GEST_EQUIPO', 'GC_EQUIPOS', 'EQ_VER_SOLICITUD', 'MA_MUESTREADORES'],
-        links: [
-            { label: 'Fichas de ingreso', id: 'ma-fichas-ingreso', permission: 'GC_ACCESO' },
-            { label: 'Gestión de Equipos', id: 'admin-equipos-gestion', permission: ['MA_A_GEST_EQUIPO', 'GC_EQUIPOS', 'EQ_VER_SOLICITUD'] },
-            { label: 'Gestión de Muestreadores', id: 'admin-muestreadores', permission: 'MA_MUESTREADORES' },
-        ]
-    },
-    { id: 'administracion', label: 'Admin. Info', icon: IconBuilding, group: 'unidades', permission: 'ADM_ACCESO' },
-    { id: 'facturacion', label: 'Facturación', icon: IconCalculator, group: 'unidades', permission: 'FAC_ACCESO' },
-    { id: 'estadistica', label: 'Estadística', icon: IconChartPie, group: 'unidades', permission: 'EST_ACCESO' },
-
-    {
-        id: 'admin_informacion',
-        label: 'Admin. Info',
-        icon: IconSettings,
-        group: 'gestion',
-        permission: 'AI_ACCESO'
-    },
-];
-
 export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotCollapsed?: boolean, onNavigate?: () => void, hideLogo?: boolean }) {
-    const { user, logout, hasPermission } = useAuth();
+    const { user, logout, hasPermission, token } = useAuth();
     const {
         activeModule,
         activeSubmodule,
@@ -285,6 +225,25 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotC
     const prevUnreadCount = useRef<number>(0);
     const notificationsRef = useRef<HTMLDivElement>(null);
     const [helpOpened, setHelpOpened] = useState(false);
+    const [dynamicModules, setDynamicModules] = useState<any[]>([]);
+
+    // Fetch dynamic menu from backend (solo al montar o cambiar de token)
+    useEffect(() => {
+        const fetchMenu = async () => {
+            if (!token) return;
+            try {
+                const response = await axios.get(`${API_CONFIG.getBaseURL()}/api/menu`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (response.data && response.data.success) {
+                    setDynamicModules(response.data.data);
+                }
+            } catch (error) {
+                console.error("Error fetching dynamic menu:", error);
+            }
+        };
+        fetchMenu();
+    }, [token]);
 
     // Sync opened module with active module changes
     useEffect(() => {
@@ -347,8 +306,8 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotC
             if (openedModule === activeMod) return;
 
             // Si el submódulo activo pertenece al módulo expandido, no cerrar
-            const currentModule = MODULES.find(m => m.id === openedModule);
-            const hasActiveSub = currentModule?.links?.some(link => link.id === activeSub);
+            const currentModule = dynamicModules.find(m => m.id === openedModule);
+            const hasActiveSub = currentModule?.links?.some((link: any) => link.id === activeSub);
             if (hasActiveSub) return;
 
             if ((isOutsideSidebar && isOutsidePopover) || (isInsideSidebar && !isInteractive)) {
@@ -393,7 +352,7 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotC
             return;
         }
 
-        const mod = MODULES.find(m => m.id === moduleId) || FIXED_TOP_MODULES.find(m => m.id === moduleId);
+        const mod = dynamicModules.find(m => m.id === moduleId) || FIXED_TOP_MODULES.find(m => m.id === moduleId);
         const hasSubItems = mod && 'links' in mod && Array.isArray(mod.links) && mod.links.length > 0;
 
         if (hasSubItems) {
@@ -421,7 +380,9 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotC
         user?.role === '1' || 
         user?.role === 'Administrador' ||
         user?.username?.toLowerCase() === 'rdiaz';
-    const visibleModules = MODULES.filter(m => canAccessModule(m));
+    // Los módulos dinámicos ya vienen filtrados del backend según los permisos,
+    // excepto si el usuario es admin o el backend los manda de más. Usamos canAccessModule por doble seguridad.
+    const visibleModules = dynamicModules.filter(m => canAccessModule(m));
     
     // Unidades: Filtrar módulos visibles según permisos
     const unidades = visibleModules.filter(m => m.group === 'unidades');
@@ -492,7 +453,7 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotC
         />
     ));
 
-    const renderSecondaryLinks = (mods: typeof MODULES, title: string) => {
+    const renderSecondaryLinks = (mods: any[], title: string) => {
         if (mods.length === 0) return null;
         return (
             <div className={classes.section}>
@@ -511,7 +472,7 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotC
                     return (
                         <LinksGroup
                             key={mod.id}
-                            icon={mod.icon}
+                            icon={getIconComponent(mod.icon)}
                             label={mod.label}
                             id={mod.id}
                             opened={openedModule === mod.id}
@@ -608,7 +569,7 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotC
                     <Menu position="right-end" withArrow shadow="md">
                         <Menu.Target>
                             <UnstyledButton className={classes.userButton}>
-                                <Group gap="sm" wrap="nowrap">
+                                <Group gap="sm" wrap="nowrap" align="center">
                                     <Avatar
                                         src={user?.foto ? `${API_CONFIG.getBaseURL()}${user.foto}` : null}
                                         radius="xl"
@@ -624,9 +585,9 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotC
                                             </Text>
                                             <Text
                                                 c="dimmed"
-                                                style={{ fontSize: 10, overflowWrap: 'anywhere', wordBreak: 'break-word', lineHeight: 1.1, marginTop: 2, whiteSpace: 'normal' }}
+                                                style={{ fontSize: 10, overflowWrap: 'anywhere', wordBreak: 'break-word', lineHeight: 1.1, whiteSpace: 'normal' }}
                                             >
-                                                {user?.email || 'p.vremolcoy@adlone.com'}
+                                                {user?.cargo || ''}
                                             </Text>
                                         </div>
                                     )}

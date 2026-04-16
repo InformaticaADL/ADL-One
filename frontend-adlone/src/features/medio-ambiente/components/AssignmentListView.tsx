@@ -212,7 +212,7 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
         else if (s.includes('RECHAZADA') || s.includes('CANCELADO') || s.includes('ANULADA')) color = 'red';
 
         return (
-            <Badge color={color} variant="light" size="sm" fullWidth>
+            <Badge color={color} variant="light" size="xs" fullWidth style={{ whiteSpace: 'normal', height: 'auto', textAlign: 'center', padding: '4px' }}>
                 {status || '-'}
             </Badge>
         );
@@ -351,15 +351,14 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                             <Table striped highlightOnHover withTableBorder={false} verticalSpacing="xs">
                                 <Table.Thead bg="gray.1">
                                     <Table.Tr>
-                                        <Table.Th w={100}>N° Ficha</Table.Th>
-                                        <Table.Th w={180}>Estado</Table.Th>
-                                        <Table.Th w={120}>Frecuencia</Table.Th>
-                                        <Table.Th>E. Facturar</Table.Th>
-                                        <Table.Th>E. Servicio</Table.Th>
-                                        <Table.Th>Centro</Table.Th>
-                                        <Table.Th>Obj. Muestreo</Table.Th>
-                                        <Table.Th ta="center" w={80}>PDF</Table.Th>
-                                        <Table.Th ta="center" w={80}>Asignar</Table.Th>
+                                        <Table.Th w={80}>N° Ficha</Table.Th>
+                                        <Table.Th w={140}>Estado</Table.Th>
+                                        <Table.Th w={90}>Frecuencia</Table.Th>
+                                        <Table.Th miw={140}>Cliente</Table.Th>
+                                        <Table.Th miw={140}>E. Servicio</Table.Th>
+                                        <Table.Th miw={140}>F. Emisora</Table.Th>
+                                        <Table.Th miw={140}>Obj. Muestreo</Table.Th>
+                                        <Table.Th ta="center" w={70}>Asignar</Table.Th>
                                     </Table.Tr>
                                 </Table.Thead>
                                 <Table.Tbody>
@@ -380,30 +379,7 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                                             <Table.Td>
                                                 <Text size="xs" truncate title={row.nombre_objetivomuestreo_ma}>{row.nombre_objetivomuestreo_ma || '-'}</Text>
                                             </Table.Td>
-                                            <Table.Td ta="center">
-                                                <ProtectedContent permission="FI_EXP_AFE">
-                                                    <Tooltip label="Descargar PDF">
-                                                        <ActionIcon 
-                                                            color="red" 
-                                                            variant="light" 
-                                                            onClick={() => {
-                                                                const idFicha = row.id_fichaingresoservicio || row.fichaingresoservicio;
-                                                                fichaService.downloadPdf(Number(idFicha)).then(blob => {
-                                                                    const url = window.URL.createObjectURL(blob);
-                                                                    const link = document.createElement('a');
-                                                                    link.href = url;
-                                                                    link.setAttribute('download', `Ficha_${idFicha}.pdf`);
-                                                                    document.body.appendChild(link);
-                                                                    link.click();
-                                                                    link.parentNode?.removeChild(link);
-                                                                });
-                                                            }}
-                                                        >
-                                                            <IconFileDownload size={18} />
-                                                        </ActionIcon>
-                                                    </Tooltip>
-                                                </ProtectedContent>
-                                            </Table.Td>
+
                                             <Table.Td ta="center">
                                                 <ProtectedContent permission="FI_GEST_ASIG">
                                                     <Tooltip label="Gestionar Asignación">

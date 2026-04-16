@@ -286,6 +286,31 @@ class FichaIngresoController {
             return errorResponse(res, 'Error al obtener detalle de ejecución', 500, err.message);
         }
     }
+
+    async enviarDocumentoManual(req, res) {
+        try {
+            const { idFicha, correlativo, documento, to, cc } = req.body;
+            const userData = req.user || req.body.user || { id: 0 };
+            
+            if (!idFicha || !correlativo || !documento) {
+                return errorResponse(res, 'Faltan datos requeridos (idFicha, correlativo, documento)', 400);
+            }
+
+            const result = await fichaService.enviarDocumentosManual({ 
+                idFicha, 
+                correlativo, 
+                documento, 
+                to, 
+                cc, 
+                user: userData 
+            });
+            
+            return successResponse(res, result, 'Documento enviado exitosamente');
+        } catch (err) {
+            logger.error('Error in enviarDocumentoManual controller:', err);
+            return errorResponse(res, 'Error al enviar el documento', 500, err.message);
+        }
+    }
 }
 
 export default new FichaIngresoController();

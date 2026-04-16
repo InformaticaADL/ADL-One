@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { adminService } from '../../../services/admin.service';
-import { CoordinacionDetailView } from '../components/CoordinacionDetailView';
+import { FichaUniversalView } from '../components/FichaUniversalView';
 import { 
     Group, 
     Text, 
@@ -135,7 +135,7 @@ export const CalendarioReplicaPage: React.FC<Props> = ({ onBack }) => {
     if (selectedFichaId) {
         return (
             <Box pos="fixed" inset={0} bg="white" style={{ zIndex: 1000 }} p={0}>
-                <CoordinacionDetailView
+                <FichaUniversalView
                     fichaId={selectedFichaId}
                     onBack={() => setSelectedFichaId(null)}
                 />

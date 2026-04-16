@@ -28,7 +28,7 @@ import { useMediaQuery } from '@mantine/hooks';
 import { catalogosService } from '../services/catalogos.service';
 import { fichaService } from '../services/ficha.service';
 import { PageHeader } from '../../../components/layout/PageHeader';
-import { CommercialDetailView } from './CommercialDetailView';
+import { FichaUniversalView } from '../components/FichaUniversalView';
 import {
     IconCalendar,
     IconChevronLeft,
@@ -380,7 +380,7 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
     }, [selectedDayEvents, weekEvents, viewMode, selectedDay]);
 
     if (detailFichaId) {
-        return <CommercialDetailView fichaId={detailFichaId} onBack={() => setDetailFichaId(null)} />;
+        return <FichaUniversalView fichaId={detailFichaId} onBack={() => setDetailFichaId(null)} />;
     }
 
     return (
