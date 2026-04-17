@@ -106,5 +106,17 @@ export const fichaService = {
     enviarDocumentoManual: async (data: { idFicha: number; correlativo: string; documento: any; to: string; cc: string }) => {
         const response = await apiClient.post('/api/fichas/enviar-documento-manual', data);
         return response.data;
+    },
+    bulkParse: async (formData: FormData) => {
+        const response = await apiClient.post('/api/fichas/bulk-parse', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        });
+        return response.data;
+    },
+    bulkCommit: async (data: { items: any[], userId?: number }) => {
+        const response = await apiClient.post('/api/fichas/bulk-commit', data);
+        return response.data;
     }
 };

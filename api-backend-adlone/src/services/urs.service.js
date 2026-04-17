@@ -423,7 +423,7 @@ class UrsService {
                 : idSolicitante;
             const idActualMues = isNaN(Number(idActualMuesRaw)) ? 0 : Number(idActualMuesRaw);
 
-            const idEquipoRefRaw = solicitud.id_equipo || datos.id_equipo || datos.idEquipo || datos.equipo;
+            const idEquipoRefRaw = datos.id_equipo || datos.idEquipo || datos.equipo;
             const idEquipoRefNum = isNaN(Number(idEquipoRefRaw)) ? 0 : Number(idEquipoRefRaw);
             const equipoNombreFallback = isNaN(Number(idEquipoRefRaw)) ? String(idEquipoRefRaw) : '';
 
@@ -450,7 +450,7 @@ class UrsService {
                     LEFT JOIN mae_muestreador m ON s.id_solicitante = m.id_muestreador
                     LEFT JOIN mae_usuario u ON s.id_solicitante = u.id_usuario
                     LEFT JOIN mae_muestreador m_actual ON @idActualMues = m_actual.id_muestreador
-                    LEFT JOIN mae_equipo e ON (s.id_equipo = e.id_equipo OR (@idEquipoRef > 0 AND @idEquipoRef = e.id_equipo))
+                    LEFT JOIN mae_equipo e ON (@idEquipoRef > 0 AND @idEquipoRef = e.id_equipo)
                     WHERE s.id_solicitud = @id
                 `);
 

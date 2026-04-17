@@ -33,11 +33,11 @@ export const catalogosService = {
   getClientes: async (idEmpresaServicio) => {
     try {
       const pool = await getConnection();
-      // Requirement: Show all clients, including linking fields
-      const result = await pool.request().query("SELECT id_empresa, nombre_empresa, id_empresaservicio, email_empresa FROM mae_empresa");
+      // Requirement: Show only habilitados
+      const result = await pool.request().query("SELECT id_empresa, nombre_empresa, id_empresaservicio, email_empresa FROM mae_empresa WHERE habilitado = 'S'");
       let clientes = result.recordset;
 
-      logger.info(`Returning all clientes (${clientes.length} records)`);
+      logger.info(`Returning all enabled clientes (${clientes.length} records)`);
       return clientes;
     } catch (error) {
       logger.error('Error in getClientes service:', error);
@@ -50,21 +50,31 @@ export const catalogosService = {
       const pool = await getConnection();
       const request = pool.request();
 
+      // If both are provided, we want contacts that belong to the Client
+      // but we also allow finding contacts linked via the Service Provider.
+      // However, the "Client" selection should take precedence for filtering contacts.
+      if (idCliente) {
+          request.input('xid_empresa', sql.Int, idCliente);
+          const result = await request.execute('consulta_contacto_una_empresa');
+          const contactos = (result.recordset || []).filter(c => c.habilitado === 'S');
+          logger.info(`Contactos for cliente ${idCliente}: ${contactos.length} records (filtered by habilitado=S)`);
+          return contactos;
+      }
+
       if (idEmpresaServicio) {
-        // Find contacts for all companies under this service company
-        const query = "SELECT * FROM mae_contacto WHERE id_empresa IN (SELECT id_empresa FROM mae_empresa WHERE id_empresaservicio = " + Number(idEmpresaServicio) + ")";
+        // Fallback: Find contacts for all companies under this service company if no specific client is selected
+        const query = `
+          SELECT * FROM mae_contacto 
+          WHERE id_empresa IN (SELECT id_empresa FROM mae_empresa WHERE id_empresaservicio = ${Number(idEmpresaServicio)} AND habilitado = 'S')
+          AND habilitado = 'S'
+        `;
         const result = await request.query(query);
         logger.info(`Contactos for empresa_servicio ${idEmpresaServicio}: ${result.recordset.length} records`);
         return result.recordset;
       }
 
-      // User specified SP: consulta_contacto_una_empresa @xid_empresa
-      if (idCliente) {
-        request.input('xid_empresa', sql.Int, idCliente);
-      }
-
-      const result = await request.execute('consulta_contacto_una_empresa');
-      logger.info(`Contactos for cliente ${idCliente}: ${result.recordset.length} records`);
+      // If nothing provided, return all habilitados
+      const result = await pool.request().query("SELECT * FROM mae_contacto WHERE habilitado = 'S'");
       return result.recordset;
     } catch (error) {
       logger.error('Error in getContactos service:', error);
@@ -81,10 +91,17 @@ export const catalogosService = {
       const result = await pool.request().execute('consulta_centro');
       let centros = result.recordset;
 
-      if (idEmpresaServicio) {
+      if (idCliente) {
+        const idFilter = Number(idCliente);
+        centros = centros.filter(c =>
+          c.id_empresa === idFilter ||
+          c.IdEmpresa === idFilter
+        );
+        logger.info(`Centros filtered for cliente ${idCliente}: ${centros.length} records`);
+      } else if (idEmpresaServicio) {
         const idServicio = Number(idEmpresaServicio);
-        // We need to find all id_empresa that belong to this id_empresaservicio
-        const clientRes = await pool.request().query("SELECT id_empresa FROM mae_empresa WHERE id_empresaservicio = " + idServicio);
+        // We find all id_empresa that belong to this id_empresaservicio as a fallback
+        const clientRes = await pool.request().query("SELECT id_empresa FROM mae_empresa WHERE id_empresaservicio = " + idServicio + " AND habilitado = 'S'");
         const allowedIds = clientRes.recordset.map(r => r.id_empresa);
         
         centros = centros.filter(c => 
@@ -92,13 +109,6 @@ export const catalogosService = {
           allowedIds.includes(c.IdEmpresa)
         );
         logger.info(`Centros filtered for empresa_servicio ${idEmpresaServicio}: ${centros.length} records`);
-      } else if (idCliente) {
-        const idFilter = Number(idCliente);
-        centros = centros.filter(c =>
-          c.id_empresa === idFilter ||
-          c.IdEmpresa === idFilter
-        );
-        logger.info(`Centros filtered for cliente ${idCliente}: ${centros.length} records`);
       }
 
       return centros;
@@ -131,7 +141,7 @@ export const catalogosService = {
 
       if (idEmpresaServicio) {
         const idS = Number(idEmpresaServicio);
-        const clientRes = await pool.request().query("SELECT id_empresa FROM mae_empresa WHERE id_empresaservicio = " + idS);
+        const clientRes = await pool.request().query("SELECT id_empresa FROM mae_empresa WHERE id_empresaservicio = " + idS + " AND habilitado = 'S'");
         const allowedIds = clientRes.recordset.map(r => r.id_empresa);
         
         // Filter objectives by those client IDs if possible (though objectives usually depend on clienteId more specifically)

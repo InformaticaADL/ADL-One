@@ -10,11 +10,11 @@ router.get('/en-proceso', authenticate, fichaController.getEnProceso);
 router.get('/for-assignment', authenticate, fichaController.getForAssignment);
 router.get('/ejecutados', authenticate, fichaController.getMuestreosEjecutados);
 
-router.post('/create', authenticate, verifyPermission('FI_NEW_CREAR'), fichaController.create);
-router.post('/:id/approve', authenticate, verifyPermission('FI_APROBAR'), fichaController.approve);
-router.post('/:id/reject', authenticate, verifyPermission('FI_REVISION'), fichaController.reject);
-router.post('/:id/approve-coordinacion', authenticate, verifyPermission('FI_APROBAR'), fichaController.approveCoordinacion);
-router.post('/:id/review-coordinacion', authenticate, verifyPermission('FI_REVISION'), fichaController.reviewCoordinacion);
+router.post('/create', authenticate, verifyPermission('FI_CREAR'), fichaController.create);
+router.post('/:id/approve', authenticate, verifyPermission('FI_APROBAR_TEC'), fichaController.approve);
+router.post('/:id/reject', authenticate, verifyPermission('FI_RECHAZAR_TEC'), fichaController.reject);
+router.post('/:id/approve-coordinacion', authenticate, verifyPermission('FI_APROBAR_COO'), fichaController.approveCoordinacion);
+router.post('/:id/review-coordinacion', authenticate, verifyPermission('FI_RECHAZAR_COO'), fichaController.reviewCoordinacion);
 router.get('/:id/assignment-detail', authenticate, fichaController.getAssignmentDetail);
 router.get('/:id/historial', authenticate, fichaController.getHistorial);
 router.get('/:id', authenticate, fichaController.getById);

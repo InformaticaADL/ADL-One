@@ -21,10 +21,12 @@ export const verifyPermission = (requiredPermission) => {
             // Adjust according to requirements. Here we check specific permission.
 
             const userPermissions = user.permissions || [];
+            const required = Array.isArray(requiredPermission) ? requiredPermission : [requiredPermission];
 
-            // Also allow if user has 'ADMIN_ACCESS' or similar super permission if designed so.
-            // For now, strict check:
-            if (userPermissions.includes(requiredPermission)) {
+            // Check if user has AT LEAST ONE of the required permissions
+            const hasPermission = required.some(p => userPermissions.includes(p));
+
+            if (hasPermission) {
                 return next();
             }
 

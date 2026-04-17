@@ -3,6 +3,7 @@ import { AntecedentesForm } from './AntecedentesForm';
 import type { AntecedentesFormHandle } from './AntecedentesForm';
 import { AnalysisForm } from './AnalysisForm';
 import { ObservacionesForm } from './ObservacionesForm';
+import type { ObservacionesFormHandle } from './ObservacionesForm';
 import { fichaService } from '../services/ficha.service';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -86,16 +87,23 @@ export const FichaCreateForm = ({ onBackToMenu }: { onBackToMenu: () => void }) 
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [createdFichaId, setCreatedFichaId] = useState<number | null>(null);
     const [isAntecedentesValid, setIsAntecedentesValid] = useState(false);
+    const [isObservacionesValid, setIsObservacionesValid] = useState(false);
     const [, startTransition] = useTransition();
-    const [observaciones, setObservaciones] = useState('');
     const [activeTab, setActiveTab] = useState<string | null>('antecedentes');
     const antecedentesRef = useRef<AntecedentesFormHandle>(null);
+    const observacionesRef = useRef<ObservacionesFormHandle>(null);
     const topRef = useRef<HTMLDivElement>(null);
     const [savedAnalysis, setSavedAnalysis] = useState<any[]>([]);
 
     const handleValidationChange = useCallback((isValid: boolean) => {
         startTransition(() => {
             setIsAntecedentesValid(isValid);
+        });
+    }, [startTransition]);
+
+    const handleObsValidationChange = useCallback((isValid: boolean) => {
+        startTransition(() => {
+            setIsObservacionesValid(isValid);
         });
     }, [startTransition]);
 
@@ -116,7 +124,7 @@ export const FichaCreateForm = ({ onBackToMenu }: { onBackToMenu: () => void }) 
             const payload = {
                 antecedentes: antData,
                 analisis: savedAnalysis,
-                observaciones: observaciones || 'No Aplica',
+                observaciones: observacionesRef.current?.getData() || 'No Aplica',
                 user: { id: user?.id || 0 }
             };
 
@@ -218,9 +226,9 @@ export const FichaCreateForm = ({ onBackToMenu }: { onBackToMenu: () => void }) 
 
                         <Tabs.Panel value="observaciones" p={isMobile ? 'md' : 50} pt="xl" style={{ width: '100% !important' }}>
                             <ObservacionesForm
+                                ref={observacionesRef}
                                 label="Instrucciones comerciales"
-                                value={observaciones}
-                                onChange={setObservaciones}
+                                onValidationChange={handleObsValidationChange}
                             />
                         </Tabs.Panel>
                     </Tabs>
@@ -283,7 +291,7 @@ export const FichaCreateForm = ({ onBackToMenu }: { onBackToMenu: () => void }) 
                                         size="md"
                                         leftSection={<IconPlus size={20} />}
                                         onClick={handleSave}
-                                        disabled={!isAntecedentesValid || savedAnalysis.length === 0 || observaciones.trim().length === 0}
+                                        disabled={!isAntecedentesValid || savedAnalysis.length === 0 || !isObservacionesValid}
                                     >
                                         Grabar Ficha
                                     </Button>

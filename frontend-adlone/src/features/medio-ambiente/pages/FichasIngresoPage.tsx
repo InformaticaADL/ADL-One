@@ -15,6 +15,8 @@ import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 import { useNavStore } from '../../../store/navStore';
 import { CatalogosProvider } from '../context/CatalogosContext';
 
+import { FichaCreateChoice } from '../components/FichaCreateChoice';
+import { BulkFichaCreator } from '../components/BulkFichaCreator';
 import { FichaCreateForm } from '../components/FichaCreateForm';
 import { FichasExploradorView } from '../components/FichasExploradorView';
 import { FichaUniversalView } from '../components/FichaUniversalView';
@@ -79,12 +81,31 @@ export const FichasIngresoPage = () => {
     // Render content based on router, wrapped in context
     const renderContent = () => {
         switch (fichasMode) {
-            case 'create_ficha':
-            return (
-                <ProtectedContent permission="FI_CREAR" fallback={<Text ta="center" mt="xl" c="red">No tiene permisos para crear fichas</Text>}>
-                    <FichaCreateForm onBackToMenu={() => setFichasMode('menu')} />
-                </ProtectedContent>
-            );
+            case 'create_choice':
+                return (
+                    <ProtectedContent permission="FI_CREAR" fallback={<Text ta="center" mt="xl" c="red">No tiene permisos para crear fichas</Text>}>
+                        <FichaCreateChoice 
+                            onBack={() => setFichasMode('menu')}
+                            onManual={() => setFichasMode('create_manual')}
+                            onBulk={() => setFichasMode('create_bulk')}
+                        />
+                    </ProtectedContent>
+                );
+            case 'create_manual':
+                return (
+                    <ProtectedContent permission="FI_CREAR" fallback={<Text ta="center" mt="xl" c="red">No tiene permisos para crear fichas</Text>}>
+                        <FichaCreateForm onBackToMenu={() => setFichasMode('create_choice')} />
+                    </ProtectedContent>
+                );
+            case 'create_bulk':
+                return (
+                    <ProtectedContent permission="FI_CREAR" fallback={<Text ta="center" mt="xl" c="red">No tiene permisos para crear fichas</Text>}>
+                        <BulkFichaCreator 
+                            onBack={() => setFichasMode('create_choice')} 
+                            onSuccess={() => setFichasMode('list_fichas')} 
+                        />
+                    </ProtectedContent>
+                );
         case 'list_fichas':
             return (
                 <ProtectedContent permission={['FI_CONSULTAR', 'FI_APROBAR_TEC', 'FI_RECHAZAR_TEC', 'FI_APROBAR_COO', 'FI_RECHAZAR_COO', 'FI_EDITAR']} fallback={<Text ta="center" mt="xl" c="red">No tiene permisos consultar fichas</Text>}>
@@ -165,7 +186,7 @@ export const FichasIngresoPage = () => {
                                         description="Crear una nueva solicitud de análisis desde cero, ingresando antecedentes y parámetros."
                                         icon={<IconPlus size={32} />}
                                         color="#228be6"
-                                        onClick={() => setFichasMode('create_ficha')}
+                                        onClick={() => setFichasMode('create_choice')}
                                     />
                                 </ProtectedContent>
 

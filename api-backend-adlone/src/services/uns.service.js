@@ -281,6 +281,22 @@ class UnsService {
                 'FICHA_MUESTREO_REPROGRAMADO': {
                     titulo: 'Muestreo Reprogramado: #{{correlativo}}',
                     mensaje: 'El muestreo de la ficha #{{correlativo}} ha sido reprogramado para una nueva fecha.'
+                },
+                'GCHAT_NUEVO_MENSAJE': {
+                    titulo: '{{titulo_notificacion}}',
+                    mensaje: '{{mensaje_notificacion}}'
+                },
+                'GCHAT_GRUPO_CREADO': {
+                    titulo: 'Nuevo Grupo: {{nombre_grupo}}',
+                    mensaje: 'Has sido añadido al grupo "{{nombre_grupo}}"'
+                },
+                'GCHAT_GRUPO_MIEMBRO_NUEVO': {
+                    titulo: 'Grupo: {{nombre_grupo}}',
+                    mensaje: '{{usuario_accion}} ha sido añadido al grupo'
+                },
+                'GCHAT_GRUPO_EXPULSADO': {
+                    titulo: 'Remoción de Grupo: {{nombre_grupo}}',
+                    mensaje: 'Has sido removido del grupo "{{nombre_grupo}}"'
                 }
             };
 
@@ -318,7 +334,10 @@ class UnsService {
                     const template = (ruleWithTemplate && !isGenericLocalRule) ? {
                         titulo: ruleWithTemplate.plantilla_web_titulo || `Aviso: ${codigoEvento}`,
                         mensaje: ruleWithTemplate.plantilla_web
-                    } : (defaultWebTemplates[codigoEvento] || { titulo: `Aviso: ${codigoEvento}`, mensaje: 'Nuevo aviso en el sistema' });
+                    } : (defaultWebTemplates[codigoEvento] || { 
+                        titulo: (context.titulo_notificacion || context.titulo) || `Aviso: ${codigoEvento.replace(/_/g, ' ')}`, 
+                        mensaje: (context.mensaje_notificacion || context.mensaje) || 'Nuevo aviso en el sistema' 
+                    });
                     
                     let titulo = this._compileTemplate(template.titulo, ctxParaWeb);
                     let mensaje = this._compileTemplate(template.mensaje, ctxParaWeb);

@@ -37,8 +37,8 @@ router.delete('/equipos/catalogo/:id', verifyToken, verifyPermission('EQ_DESACTI
 router.get('/equipos/suggest-code', verifyToken, verifyPermission('MA_A_GEST_EQUIPO'), equipoController.suggestNextCode);
 router.get('/equipos/next-correlativo/:tipo', verifyToken, verifyPermission('MA_A_GEST_EQUIPO'), equipoController.getNextCorrelativo);
 router.get('/equipos/export/excel', verifyToken, verifyPermission('EQ_EXP'), equipoController.exportExcel);
-router.get('/equipos', verifyToken, verifyPermission('MA_A_GEST_EQUIPO'), equipoController.getEquipos);
-router.get('/equipos/:id', verifyToken, verifyPermission('MA_A_GEST_EQUIPO'), equipoController.getEquipoById);
+router.get('/equipos', verifyToken, equipoController.getEquipos);
+router.get('/equipos/:id', verifyToken, equipoController.getEquipoById);
 router.post('/equipos', verifyToken, verifyPermission('AI_MA_CREAR_EQUIPO'), equipoController.createEquipo);
 router.post('/equipos/bulk', verifyToken, verifyPermission('AI_MA_CREAR_EQUIPO'), equipoController.createEquiposBulk);
 router.put('/equipos/:id', verifyToken, verifyPermission('AI_MA_EDITAR_EQUIPO'), equipoController.updateEquipo);

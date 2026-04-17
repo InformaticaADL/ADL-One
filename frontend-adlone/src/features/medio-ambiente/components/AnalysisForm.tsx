@@ -27,8 +27,10 @@ import {
     IconCheck, 
     IconX, 
     IconAdjustmentsHorizontal,
-    IconTable
+    IconTable,
+    IconArrowsDownUp
 } from '@tabler/icons-react';
+import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 
 interface AnalysisFormProps {
     savedAnalysis: any[];
@@ -188,6 +190,33 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
 
     const handleTempDeliveryChange = (analysisId: string, deliveryId: string) => {
         setTempDeliveries(prev => ({ ...prev, [analysisId]: deliveryId }));
+    };
+
+    const handleBulkDeliveryChange = (deliveryId: string) => {
+        const newDeliveries = { ...tempDeliveries };
+        selectedAnalysis.forEach(id => {
+            newDeliveries[id] = deliveryId;
+        });
+        setTempDeliveries(newDeliveries);
+        showToast({ type: 'info', message: 'Tipo de entrega aplicado a todos' });
+    };
+
+    const handleBulkLabChange = (labId: string) => {
+        const newLabs = { ...tempLabs };
+        selectedAnalysis.forEach(id => {
+            newLabs[id] = labId;
+        });
+        setTempLabs(newLabs);
+        showToast({ type: 'info', message: 'Laboratorio derivado aplicado a todos' });
+    };
+
+    const handleBulkLab2Change = (labId: string) => {
+        const newLabs2 = { ...tempLabs2 };
+        selectedAnalysis.forEach(id => {
+            newLabs2[id] = labId;
+        });
+        setTempLabs2(newLabs2);
+        showToast({ type: 'info', message: 'Laboratorio secundario aplicado a todos' });
     };
 
     // ===== FUNCIONES: Grabar Análisis =====
@@ -448,18 +477,53 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                                             </Stack>
                                         ) : (
                                             <Table border={0} verticalSpacing="sm">
-                                                <Table.Thead bg="gray.0" pos="sticky" top={0} style={{ zIndex: 1 }}>
+                                                <Table.Thead bg="gray.0" pos="sticky" top={0} style={{ zIndex: 10 }}>
                                                     <Table.Tr>
                                                         <Table.Th>Análisis</Table.Th>
                                                         {tipoMuestra === 'Laboratorio' && (
                                                             <>
-                                                                <Table.Th w={120}>Entrega</Table.Th>
-                                                                <Table.Th w={160}>Lab. Derivado</Table.Th>
-                                                                <Table.Th w={160}>Lab. Secundario</Table.Th>
+                                                                <Table.Th w={160}>Entrega</Table.Th>
+                                                                <Table.Th w={180}>Lab. Derivado</Table.Th>
+                                                                <Table.Th w={180}>Lab. Secundario</Table.Th>
                                                             </>
                                                         )}
                                                         <Table.Th w={40}></Table.Th>
                                                     </Table.Tr>
+                                                    {tipoMuestra === 'Laboratorio' && selectedAnalysis.size > 1 && (
+                                                        <Table.Tr bg="blue.0">
+                                                            <Table.Td>
+                                                                <Group gap={4} wrap="nowrap">
+                                                                    <IconArrowsDownUp size={14} color="var(--mantine-color-blue-6)" />
+                                                                    <Text size="xs" fw={700} c="blue.7">Aplicar a todos:</Text>
+                                                                </Group>
+                                                            </Table.Td>
+                                                            <Table.Td>
+                                                                <SearchableSelect 
+                                                                    options={tiposEntrega.map(t => ({ id: t.id_tipoentrega, nombre: t.nombre_tipoentrega }))}
+                                                                    value=""
+                                                                    placeholder="Seleccionar todos..."
+                                                                    onChange={handleBulkDeliveryChange}
+                                                                />
+                                                            </Table.Td>
+                                                            <Table.Td>
+                                                                <SearchableSelect 
+                                                                    options={laboratorios.map(l => ({ id: l.id_laboratorioensayo, nombre: l.nombre_laboratorioensayo }))}
+                                                                    value=""
+                                                                    placeholder="Seleccionar todos..."
+                                                                    onChange={handleBulkLabChange}
+                                                                />
+                                                            </Table.Td>
+                                                            <Table.Td>
+                                                                <SearchableSelect 
+                                                                    options={laboratorios.map(l => ({ id: l.id_laboratorioensayo, nombre: l.nombre_laboratorioensayo }))}
+                                                                    value=""
+                                                                    placeholder="Seleccionar todos..."
+                                                                    onChange={handleBulkLab2Change}
+                                                                />
+                                                            </Table.Td>
+                                                            <Table.Td />
+                                                        </Table.Tr>
+                                                    )}
                                                 </Table.Thead>
                                                 <Table.Tbody>
                                                     {Array.from(selectedAnalysis).map(id => {
@@ -470,30 +534,27 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                                                                 {tipoMuestra === 'Laboratorio' && (
                                                                     <>
                                                                         <Table.Td>
-                                                                            <Select 
-                                                                                data={tiposEntrega.map(t => ({ value: String(t.id_tipoentrega), label: t.nombre_tipoentrega }))}
+                                                                            <SearchableSelect 
+                                                                                options={tiposEntrega.map(t => ({ id: t.id_tipoentrega, nombre: t.nombre_tipoentrega }))}
                                                                                 value={tempDeliveries[id] || ''}
-                                                                                onChange={(val) => handleTempDeliveryChange(id, val || '')}
-                                                                                size="xs" radius="xs"
+                                                                                onChange={(val) => handleTempDeliveryChange(id, val)}
+                                                                                containerStyle={{ minWidth: '140px' }}
                                                                             />
                                                                         </Table.Td>
                                                                         <Table.Td>
-                                                                            <Select 
-                                                                                data={laboratorios.map(l => ({ value: String(l.id_laboratorioensayo), label: l.nombre_laboratorioensayo }))}
+                                                                            <SearchableSelect 
+                                                                                options={laboratorios.map(l => ({ id: l.id_laboratorioensayo, nombre: l.nombre_laboratorioensayo }))}
                                                                                 value={tempLabs[id] || ''}
-                                                                                onChange={(val) => handleTempLabChange(id, val || '')}
-                                                                                size="xs" radius="xs"
+                                                                                onChange={(val) => handleTempLabChange(id, val)}
                                                                                 placeholder="..."
                                                                             />
                                                                         </Table.Td>
                                                                         <Table.Td>
-                                                                            <Select 
-                                                                                data={laboratorios.map(l => ({ value: String(l.id_laboratorioensayo), label: l.nombre_laboratorioensayo }))}
+                                                                            <SearchableSelect 
+                                                                                options={laboratorios.map(l => ({ id: l.id_laboratorioensayo, nombre: l.nombre_laboratorioensayo }))}
                                                                                 value={tempLabs2[id] || ''}
-                                                                                onChange={(val) => handleTempLab2Change(id, val || '')}
-                                                                                size="xs" radius="xs"
+                                                                                onChange={(val) => handleTempLab2Change(id, val)}
                                                                                 placeholder="(Opcional)"
-                                                                                clearable
                                                                             />
                                                                         </Table.Td>
                                                                     </>

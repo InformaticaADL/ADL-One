@@ -42,11 +42,11 @@ class FichaIngresoService {
             const val = (v) => v === undefined || v === null || v === '' ? null : v;
             const valStr = (v, len) => {
                 if (v === 'No Aplica' || v === 'No aplica') return 'No Aplica';
-                return val(v) ? String(v).substring(0, len) : null;
+                const vres = val(v); return vres !== null ? String(v).substring(0, len) : null;
             };
             const valNum = (v) => {
                 if (v === 'No Aplica' || v === 'No aplica') return 0;
-                return val(v) ? Number(v) : null;
+                const vres = val(v); return vres !== null ? Number(v) : null;
             };
 
             // Construct Instrumento Ambiental string
@@ -431,11 +431,11 @@ class FichaIngresoService {
             const val = (v) => v === undefined || v === null || v === '' ? null : v;
             const valStr = (v, len) => {
                 if (v === 'No Aplica' || v === 'No aplica') return 'No Aplica';
-                return val(v) ? String(v).substring(0, len) : null;
+                const vres = val(v); return vres !== null ? String(v).substring(0, len) : null;
             };
             const valNum = (v) => {
                 if (v === 'No Aplica' || v === 'No aplica') return 0;
-                return val(v) ? Number(v) : null;
+                const vres = val(v); return vres !== null ? Number(v) : null;
             };
 
             // Construct Instrumento/Coordinates (Same logic as Create)
@@ -982,7 +982,7 @@ class FichaIngresoService {
                 f.fecha_fichacomercial as fecha,
                 e.nombre_empresa as cliente,
                 c.nombre_centro as centro,
-                es.nombre_empresa as empresa_servicio,
+                es.nombre_empresaservicios as empresa_servicio,
                 om.nombre_objetivomuestreo_ma as objetivo,
                 sa.nombre_subarea as subarea,
                 f.responsablemuestreo as responsable,
@@ -995,7 +995,7 @@ class FichaIngresoService {
                 FROM App_Ma_FichaIngresoServicio_ENC f
                 LEFT JOIN mae_empresa e ON f.id_empresa = e.id_empresa
                 LEFT JOIN mae_centro c ON f.id_centro = c.id_centro
-                LEFT JOIN mae_empresa es ON f.id_empresaservicio = es.id_empresa
+                LEFT JOIN mae_empresaservicios es ON f.id_empresaservicio = es.id_empresaservicio
                 LEFT JOIN mae_objetivomuestreo_ma om ON f.id_objetivomuestreo_ma = om.id_objetivomuestreo_ma
                 LEFT JOIN mae_subarea sa ON f.id_subarea = sa.id_subarea
                 LEFT JOIN mae_usuario u ON f.id_usuario = u.id_usuario
