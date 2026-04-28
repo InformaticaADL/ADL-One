@@ -30,4 +30,10 @@ router.get('/instrumentos-ambientales', catalogosController.getInstrumentosAmbie
 router.get('/unidades-medida', catalogosController.getUnidadesMedida);
 router.get('/estados-muestreo', catalogosController.getEstadosMuestreo);
 
+// Maestros CRUD
+router.get('/maestros/:tableName', catalogosController.getMaestroData);
+router.post('/maestros', catalogosController.createMaestro);
+router.put('/maestros', catalogosController.updateMaestro);
+router.delete('/maestros', catalogosController.toggleMaestroStatus);
+
 export default router;

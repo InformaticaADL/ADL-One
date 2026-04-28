@@ -277,4 +277,41 @@ export const catalogosService = {
             return response.data.data;
         });
     },
+
+    getRoles: async (): Promise<any[]> => {
+        return deduplicatedRequest('roles', async () => {
+            const data = await axiosInstance.get('/maestros/mae_rol');
+            return data.data.data;
+        });
+    },
+
+    getEmpresas: async (): Promise<any[]> => {
+        return deduplicatedRequest('empresas', async () => {
+            const data = await axiosInstance.get('/maestros/mae_empresa');
+            return data.data.data;
+        });
+    },
+
+    // CRUD Methods for Maestros
+    getMaestroData: async (tableName: string): Promise<any[]> => {
+        const response = await axiosInstance.get(`/maestros/${tableName}`);
+        return response.data.data;
+    },
+
+    createMaestro: async (tableName: string, data: any): Promise<any> => {
+        const response = await axiosInstance.post('/maestros', { tableName, data });
+        return response.data;
+    },
+
+    updateMaestro: async (tableName: string, idName: string, idValue: any, data: any): Promise<any> => {
+        const response = await axiosInstance.put('/maestros', { tableName, idName, idValue, data });
+        return response.data;
+    },
+
+    toggleMaestroStatus: async (tableName: string, idName: string, idValue: any, statusColumn: string, newStatus: string): Promise<any> => {
+        const response = await axiosInstance.delete('/maestros', { 
+            data: { tableName, idName, idValue, statusColumn, newStatus } 
+        });
+        return response.data;
+    },
 };

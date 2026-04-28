@@ -2,6 +2,8 @@ import { equipoService } from '../services/equipo.service.js';
 import { getConnection } from '../config/database.js';
 import sql from 'mssql';
 import unsService from '../services/uns.service.js';
+import { runAnalysis as runKpiAnalyst } from '../services/kpi-analyst.service.js';
+import kpiAnalystConfig from '../config/kpi-analyst.config.js';
 import logger from './logger.js';
 
 export const initScheduler = () => {
@@ -211,11 +213,24 @@ export const initScheduler = () => {
         }
     };
 
+    // --- 3. KPI Analyst Dashboard Automation ---
+    const runKpiAgent = async (mode = 'interval') => {
+        try {
+            await runKpiAnalyst({ mode });
+        } catch (error) {
+            logger.error(`[KPI Analyst] Error during ${mode} execution:`, error);
+        }
+    };
+
     // --- Startup Execution ---
     setTimeout(() => {
         runDailyCheck();
         pollNewRequests();
-    }, 10000); 
+    }, 10000);
+
+    setTimeout(() => {
+        runKpiAgent('startup');
+    }, kpiAnalystConfig.orchestration.startupDelayMs);
 
     // --- Active Loops ---
     // Every 24 hours
@@ -224,5 +239,10 @@ export const initScheduler = () => {
     // Every 20 seconds (Vigilante poll)
     setInterval(pollNewRequests, 20 * 1000);
 
-    logger.info('Scheduler initialized: Daily check and URS Watcher active.');
+    // KPI analyst interval execution
+    setInterval(() => {
+        runKpiAgent('interval');
+    }, kpiAnalystConfig.orchestration.refreshIntervalMs);
+
+    logger.info('Scheduler initialized: Daily check, URS Watcher and KPI Analyst active.');
 };

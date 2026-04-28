@@ -178,7 +178,7 @@ export const AdminInfoHub: React.FC<Props> = ({ onNavigate }) => {
                                     <Box mb="md" style={{ fontSize: '2.5rem' }}>
                                         {area.icon}
                                     </Box>
-                                    <Text fw={800} ta="center" size="lg" c="dark.4">{area.label}</Text>
+                                    <Text fw={800} ta="center" size="lg" c="gray">{area.label}</Text>
                                     <Text size="xs" ta="center" c="dimmed" mt={4}>{area.description}</Text>
                                     <Box mt="md" c="blue" display="flex" style={{ alignItems: 'center', gap: 4 }}>
                                         <Text size="xs" fw={700}>Acceder</Text>

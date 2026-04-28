@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { 
     Stack, 
     Title, 
@@ -27,6 +27,8 @@ import { MuestreosEjecutadosListView } from '../components/MuestreosEjecutadosLi
 import { CoordinacionDashboardView } from '../components/CoordinacionDashboardView';
 import { RouteMapPlannerView } from '../components/RouteMapPlannerView';
 import { RutasListView } from '../components/RutasListView';
+import { KpiAnalystDashboardView } from '../components/KpiAnalystDashboardView';
+import { EmpresaServicioFormView } from '../components/EmpresaServicioFormView';
 
 import { 
     IconPlus, 
@@ -35,43 +37,29 @@ import {
     IconCalendar, 
     IconHistory, 
     IconChartBar,
-    IconRoute 
+    IconRoute,
+    IconBuilding 
 } from '@tabler/icons-react';
 
 export const FichasIngresoPage = () => {
-    const { user, hasPermission } = useAuth();
+    useAuth();
     const { 
         fichasMode, 
         setFichasMode,
         pendingRequestId,
         setPendingRequestId, 
         selectedFichaId,
-        setSelectedFicha,
-        setActiveSubmodule, 
-        previousSubmodule 
+        setSelectedFicha
     } = useNavStore();
     const [editingRutaId, setEditingRutaId] = useState<number | null>(null);
 
-    const handleGlobalBack = () => {
-        // Navigate back to the previous global submodule
-        setActiveSubmodule(previousSubmodule || '');
-    };
 
-    const normalize = (str: string) => 
-        str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim() : "";
 
-    const hasRole = (roleName: string | string[]) => {
-        const userRoles = (user?.roles || []).map(r => normalize(r));
-        const userCargo = normalize(user?.cargo || '');
-        
-        const names = Array.isArray(roleName) ? roleName : [roleName];
-        return names.some(name => {
-            const normalizedSearch = normalize(name);
-            return userRoles.includes(normalizedSearch) || userCargo === normalizedSearch;
-        });
-    };
 
-    const isAdmin = hasRole('ADMINISTRADOR');
+
+
+
+
 
     // Handle Deep Linking from Notifications
     useEffect(() => {
@@ -166,6 +154,12 @@ export const FichasIngresoPage = () => {
                     <CoordinacionDashboardView onBack={() => setFichasMode('menu')} />
                 </ProtectedContent>
             );
+        case 'kpi_dashboard':
+            return (
+                <ProtectedContent permission="MA_COORDINACION_ACCESO" fallback={<Text ta="center" mt="xl" c="red">No tiene permisos</Text>}>
+                    <KpiAnalystDashboardView onBack={() => setFichasMode('menu')} />
+                </ProtectedContent>
+            );
         case 'route_planner':
             return (
                 <ProtectedContent permission="FI_ASIG_GRUPO" fallback={<Text ta="center" mt="xl" c="red">No tiene permisos</Text>}>
@@ -182,6 +176,14 @@ export const FichasIngresoPage = () => {
                     <RouteMapPlannerView 
                         onBack={() => { setEditingRutaId(null); setFichasMode('route_planner'); }} 
                         editRutaId={editingRutaId}
+                    />
+                </ProtectedContent>
+            );
+        case 'manage_empresas':
+            return (
+                <ProtectedContent permission="FI_CREAR_EMPRESA" fallback={<Text ta="center" mt="xl" c="red">No tiene permisos</Text>}>
+                    <EmpresaServicioFormView 
+                        onBack={() => setFichasMode('menu')} 
                     />
                 </ProtectedContent>
             );
@@ -265,11 +267,22 @@ export const FichasIngresoPage = () => {
 
                                 <ProtectedContent permission="MA_COORDINACION_ACCESO">
                                     <SelectionCard
-                                        title="Dashboard KPIS"
-                                        description="Métricas operativas, rendimiento de laboratorios y reportes analíticos."
+                                        title="Dashboard Inteligente"
+                                        description="Análisis automático de métricas operativas, rendimiento de laboratorios y detección de riesgos."
                                         icon={<IconChartBar size={32} />}
                                         color="#e64980"
-                                        onClick={() => setFichasMode('dashboard')}
+                                        onClick={() => setFichasMode('kpi_dashboard')}
+                                    />
+                                </ProtectedContent>
+
+
+                                <ProtectedContent permission="FI_CREAR_EMPRESA">
+                                    <SelectionCard
+                                        title="Empresas de Servicio"
+                                        description="Gestionar el maestro de empresas prestadoras de servicios de muestreo y terreno."
+                                        icon={<IconBuilding size={32} />}
+                                        color="#0ca678"
+                                        onClick={() => setFichasMode('manage_empresas')}
                                     />
                                 </ProtectedContent>
                             </SimpleGrid>

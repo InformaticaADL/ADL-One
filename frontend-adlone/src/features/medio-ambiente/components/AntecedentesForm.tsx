@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, useImperativeHandle, forwardRef, us
 import { useCachedCatalogos } from '../hooks/useCachedCatalogos';
 import type { LugarAnalisis, EmpresaServicio, Cliente, Contacto, Centro } from '../services/catalogos.service';
 import { useToast } from '../../../contexts/ToastContext';
+import { useAuth } from '../../../contexts/AuthContext';
 import { 
     Stack, 
     SimpleGrid, 
@@ -12,7 +13,8 @@ import {
     Divider, 
     Badge,
     Box,
-    Group
+    Group,
+    ActionIcon
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { 
@@ -23,8 +25,11 @@ import {
     IconFlask, 
     IconCertificate, 
     IconClock, 
-    IconAdjustmentsHorizontal
+    IconAdjustmentsHorizontal,
+    IconPlus
 } from '@tabler/icons-react';
+import { CreateEmpresaServicioModal } from './CreateEmpresaServicioModal';
+import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 
 // Helper to dedup options
 const dedupOptions = (options: { value: string; label: string }[]) => {
@@ -85,6 +90,7 @@ export interface AntecedentesFormHandle {
 
 export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData?: any, onValidationChange?: (isValid: boolean) => void }>((props, ref) => {
     const { initialData, onValidationChange } = props;
+    const { hasPermission } = useAuth();
     const catalogos = useCachedCatalogos();
     const { showToast } = useToast();
     const isMobile = useMediaQuery('(max-width: 768px)');
@@ -171,6 +177,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
     const [tipoMedidaDispositivo, setTipoMedidaDispositivo] = useState<string | null>(null);
 
     const [idTipoAgua, setIdTipoAgua] = useState<number | null>(null);
+    const [createEmpresaOpened, setCreateEmpresaOpened] = useState(false);
     const isHydrating = useRef(!!initialData);
     const hasHydrated = useRef(false);
 
@@ -710,16 +717,30 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             size="sm"
                             radius="md"
                         />
-                        <Select 
-                            label="Empresa de servicio *" 
-                            placeholder="Buscar empresa..."
-                            data={empresasData}
-                            value={selectedEmpresa}
-                            onChange={handleEmpresaChange}
-                            searchable
-                            size="sm"
-                            radius="md"
-                        />
+                        <Box style={{ position: 'relative' }}>
+                            <Select 
+                                label="Empresa de servicio *" 
+                                placeholder="Buscar empresa..."
+                                data={empresasData}
+                                value={selectedEmpresa}
+                                onChange={handleEmpresaChange}
+                                searchable
+                                size="sm"
+                                radius="md"
+                                rightSection={
+                                    hasPermission('FI_CREAR_EMPRESA') && (
+                                        <ActionIcon 
+                                            variant="subtle" 
+                                            color="teal" 
+                                            onClick={() => setCreateEmpresaOpened(true)}
+                                            title="Crear nueva empresa"
+                                        >
+                                            <IconPlus size={16} />
+                                        </ActionIcon>
+                                    )
+                                }
+                            />
+                        </Box>
                     </SimpleGrid>
 
                     <SimpleGrid cols={{ base: 1, sm: 2, md: 5 }} spacing="md">
@@ -1125,6 +1146,14 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                     </SimpleGrid>
                 </Stack>
             </Paper>
+
+            <CreateEmpresaServicioModal 
+                opened={createEmpresaOpened}
+                onClose={() => setCreateEmpresaOpened(false)}
+                onCreated={() => {
+                    loadEmpresas(); // Refrescar catálogo
+                }}
+            />
         </Stack>
     );
 });

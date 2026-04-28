@@ -14,7 +14,8 @@ import {
     IconUsers, 
     IconBell, 
     IconMail,
-    IconLayoutSidebar
+    IconLayoutSidebar,
+    IconDatabase
 } from '@tabler/icons-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
@@ -75,6 +76,14 @@ export const InformaticaHub: React.FC<Props> = ({ onNavigate, onBack }) => {
             color: 'grape',
             description: 'Administrar botones, íconos y permisos de accesos (CMS).', 
             permission: 'INF_ACCESO' 
+        },
+        { 
+            id: 'admin-maestros', 
+            label: 'Maestros', 
+            icon: <IconDatabase style={{ width: rem(32), height: rem(32) }} />, 
+            color: 'red',
+            description: 'Gestionar tablas maestras utilizadas en crear ficha.', 
+            permission: 'INF_ACCESO' // Using INF_ACCESO for now or INF_MAESTROS if defined
         },
     ];
 

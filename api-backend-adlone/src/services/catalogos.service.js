@@ -189,15 +189,13 @@ export const catalogosService = {
       // Fix: Procedure expects @xid_tipomuestra (which corresponds to Componente ID)
       if (idComponente) {
         request.input('xid_tipomuestra', sql.Int, idComponente);
+        const result = await request.execute('consulta_subarea_medioambiente');
+        return result.recordset;
       } else {
-        // Since it's a required param, if not provided it will fail. 
-        // We can either throw or send 0 or null if SP handles it.
-        // Assuming we need it.
-        logger.warn('getSubAreas called without idComponente, SP might fail');
+        // Since it's a required param, return empty instead of letting SP fail
+        logger.warn('getSubAreas called without idComponente, returning empty array');
+        return [];
       }
-
-      const result = await request.execute('consulta_subarea_medioambiente');
-      return result.recordset;
     } catch (error) {
       logger.error('Error in getSubAreas:', error);
       throw error;
@@ -383,4 +381,116 @@ export const catalogosService = {
       throw error;
     }
   },
+
+  getMaestroData: async (tableName) => {
+    try {
+      const pool = await getConnection();
+      // SECURITY: While this matches against internal configs, we should still use a safe list if possible
+      // For now, it's restricted to internal use by the controller.
+      const result = await pool.request().query(`SELECT * FROM ${tableName}`);
+      return result.recordset;
+    } catch (error) {
+      logger.error(`Error in getMaestroData (${tableName}):`, error);
+      throw error;
+    }
+  },
+  
+  // Generic CRUD for Maestros
+  createMaestro: async (tableName, data) => {
+    try {
+      const pool = await getConnection();
+      
+      // Check if table has an identity column
+      const identityCheck = await pool.request().query(`
+        SELECT name FROM sys.columns 
+        WHERE object_id = OBJECT_ID('${tableName}') 
+        AND is_identity = 1
+      `);
+      
+      const hasIdentity = identityCheck.recordset.length > 0;
+      let finalData = { ...data };
+      
+      if (!hasIdentity) {
+        // Find the primary key column name
+        const pkCheck = await pool.request().query(`
+          SELECT COLUMN_NAME
+          FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+          WHERE TABLE_NAME = '${tableName}' 
+          AND OBJECTPROPERTY(OBJECT_ID(CONSTRAINT_SCHEMA + '.' + CONSTRAINT_NAME), 'IsPrimaryKey') = 1
+        `);
+        
+        if (pkCheck.recordset.length > 0) {
+          const pkName = pkCheck.recordset[0].COLUMN_NAME;
+          // Only auto-increment if the user didn't provide it or if it's 0/null
+          if (!finalData[pkName] || finalData[pkName] === 0 || finalData[pkName] === '0') {
+            const maxIdRes = await pool.request().query(`SELECT MAX(${pkName}) as MaxID FROM ${tableName}`);
+            const nextId = (maxIdRes.recordset[0].MaxID || 0) + 1;
+            finalData[pkName] = nextId;
+            logger.info(`Generated next ID ${nextId} for non-identity table ${tableName} column ${pkName}`);
+          }
+        }
+      }
+
+      const columns = Object.keys(finalData).join(', ');
+      const values = Object.keys(finalData).map(key => `@${key}`).join(', ');
+      
+      const request = pool.request();
+      Object.entries(finalData).forEach(([key, value]) => {
+        // Convert empty values to null for cleaner database state
+        let finalValue = value;
+        if (value === '' || value === undefined || (typeof value === 'number' && isNaN(value))) {
+          finalValue = null;
+        }
+        request.input(key, finalValue);
+      });
+      
+      const query = `INSERT INTO ${tableName} (${columns}) VALUES (${values})`;
+      await request.query(query);
+      return { success: true };
+    } catch (error) {
+      logger.error(`Error in createMaestro (${tableName}):`, error);
+      throw error;
+    }
+  },
+
+  updateMaestro: async (tableName, idName, idValue, data) => {
+    try {
+      const pool = await getConnection();
+      const updates = Object.keys(data).map(key => `${key} = @${key}`).join(', ');
+      
+      const request = pool.request();
+      request.input('idValue', idValue);
+      Object.entries(data).forEach(([key, value]) => {
+        // Convert empty values to null
+        let finalValue = value;
+        if (value === '' || value === undefined || (typeof value === 'number' && isNaN(value))) {
+          finalValue = null;
+        }
+        request.input(key, finalValue);
+      });
+      
+      const query = `UPDATE ${tableName} SET ${updates} WHERE ${idName} = @idValue`;
+      await request.query(query);
+      return { success: true };
+    } catch (error) {
+      logger.error(`Error in updateMaestro (${tableName}):`, error);
+      throw error;
+    }
+  },
+
+  toggleMaestroStatus: async (tableName, idName, idValue, statusColumn, newStatus) => {
+    try {
+      const pool = await getConnection();
+      const request = pool.request();
+      request.input('idValue', idValue);
+      request.input('newStatus', newStatus);
+      
+      const query = `UPDATE ${tableName} SET ${statusColumn} = @newStatus WHERE ${idName} = @idValue`;
+      await request.query(query);
+      return { success: true };
+    } catch (error) {
+      logger.error(`Error in toggleMaestroStatus (${tableName}):`, error);
+      throw error;
+    }
+  }
 };

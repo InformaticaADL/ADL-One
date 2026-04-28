@@ -10,27 +10,24 @@ Sistema empresarial profesional desarrollado con arquitectura moderna y escalabl
 api-backend-adlone/
 ├── src/
 │   ├── config/              # Configuración de base de datos y servicios
-│   │   ├── database.js
-│   │   └── email.config.js
-│   ├── controllers/         # Manejadores de peticiones HTTP (request/response)
+│   ├── controllers/         # Manejadores de peticiones HTTP
 │   │   ├── health.controller.js
 │   │   ├── ficha.controller.js
+│   │   ├── bulk-ficha.controller.js
+│   │   ├── rutas-planificadas.controller.js
 │   │   └── auth.controller.js
 │   ├── services/            # LÓGICA DE NEGOCIO (capa de inteligencia)
 │   │   ├── health.service.js
 │   │   ├── ficha.service.js
-│   │   ├── auth.service.js
-│   │   └── email.service.js
-│   ├── models/              # Definición de esquemas de base de datos
-│   ├── repositories/        # Consultas directas a la base de datos
-│   ├── middlewares/         # Autenticación, validación, manejo de errores
-│   │   ├── auth.middleware.js
-│   │   ├── validation.middleware.js
-│   │   ├── errorHandler.middleware.js
-│   │   └── logger.middleware.js
+│   │   ├── bulk-ficha.service.js
+│   │   ├── rutas-planificadas.service.js
+│   │   ├── kpi-analyst.service.js
+│   │   └── auth.service.js
 │   ├── routes/              # Definición de endpoints de la API
 │   │   ├── health.routes.js
 │   │   ├── ficha.routes.js
+│   │   ├── bulk-ficha.routes.js
+│   │   ├── rutas-planificadas.routes.js
 │   │   └── auth.routes.js
 │   ├── utils/               # Funciones de ayuda (helpers)
 │   │   ├── logger.js
@@ -65,7 +62,10 @@ api-backend-adlone/
 - **TypeScript** - Tipado estático
 - **Mantine UI v7** - Biblioteca de componentes y sistema de temas
 - **Zustand** - State management
-- **CSS3** - Estilos modernos con gradientes y animaciones
+- **CSS3 / Vanilla CSS** - Estilos modernos con gradientes, glassmorphism y animaciones
+- **Leaflet / React-Leaflet** - Motor de mapas interactivos para planificación de rutas
+- **Recharts** - Biblioteca de visualización de datos para dashboards
+- **Zustand** - State management ligero y persistente
 
 ---
 
@@ -871,6 +871,35 @@ Mejoras sustanciales en la interfaz del mapa de planificación y en la lógica d
     - Corrección del bug "falso agendado" donde SQL Server devolvía la fecha "dummy" `1900-01-01` para campos no asignados. Se implementó una validación `getFullYear() > 1900` para discriminar correctamente los correlativos disponibles.
 - **Prevención de Errores de Strict Mode**:
     - Refactorización de la gestión de estado (`setSelectedItems`) en el React Frontend para evitar duplicación de notificaciones de advertencia (Toast) provocadas por el ciclo doble del React Strict Mode.
+
+---
+
+### 52. Dashboard Inteligente y Analítica de KPIs (Abril 2026) 📊🚀
+Implementación de una capa de inteligencia de datos para el análisis automático de la operación.
+- **KPI Analyst Dashboard**: Nueva vista `KpiAnalystDashboardView.tsx` que centraliza métricas de rendimiento.
+- **Detección de Riesgos**: Algoritmos que identifican automáticamente alertas operativas y desviaciones en los servicios.
+- **Insights Estratégicos**: Generación de narrativas automáticas basadas en la data para apoyar la toma de decisiones.
+- **Visualización Pro**: Uso extendido de Recharts para representar tendencias temporales, distribución por clientes y cobertura mensual.
+
+### 53. Planificador de Rutas y Logística Geográfica (Abril 2026) 🗺️🚗
+Integración de herramientas de geolocalización avanzada para la optimización de las operaciones en terreno.
+- **Route Map Planner**: Nueva interfaz `RouteMapPlannerView.tsx` basada en **Leaflet** que permite visualizar servicios en un mapa interactivo y agruparlos en rutas lógicas.
+- **Visualización de Rutas**: Componente `RutasListView.tsx` para el seguimiento detallado de las rutas planificadas, vehículos asignados y estados de ejecución.
+- **Backend de Rutas**: Implementación de `rutas-planificadas.service.js` y controladores dedicados para gestionar la persistencia de datos geográficos.
+- **Migraciones SQL**: Scripts para la creación de tablas de rutas (`migration_rutas_planificadas.sql`) y actualización de correlativos de detalle.
+
+### 54. Sistema de Carga Masiva (Bulk Ficha Creator) (Abril 2026) 📑⚡
+Optimización del ingreso de datos a gran escala mediante procesamiento por lotes.
+- **Carga Masiva**: Módulo `BulkFichaCreator.tsx` que permite el ingreso de múltiples servicios en un solo flujo de trabajo.
+- **Grilla de Revisión**: Componente `BulkReviewGrid.tsx` para la validación exhaustiva de datos antes del guardado definitivo en la base de datos.
+- **Servicios de Procesamiento**: Nuevo motor `bulk-ficha.service.js` en el backend capaz de procesar archivos complejos y parsear documentación técnica (integración con `pdf-parse`).
+- **Seguridad**: Rutas protegidas y controladores específicos para garantizar la integridad de las cargas masivas.
+
+### 55. Gestión de Maestros de Empresas de Servicio (Abril 2026) 🏢🛠️
+Consolidación del control de proveedores externos en el módulo administrativo.
+- **Maestro de Empresas**: Interfaz `EmpresaServicioFormView.tsx` para la gestión centralizada de empresas prestadoras de servicios de muestreo.
+- **Control de Habilitación**: Sistema de filtrado y estados para asegurar que solo proveedores activos sean seleccionables en la operación.
+- **Consistencia de Datos**: Alineación del servicio de catálogos para sincronizar datos de contacto y correos electrónicos de los proveedores.
 
 ---
 

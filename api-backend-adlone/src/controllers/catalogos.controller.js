@@ -209,5 +209,55 @@ export const catalogosController = {
         } catch (error) {
             return errorResponse(res, error.message, 500);
         }
+  },
+    
+    getMaestroData: async (req, res) => {
+        try {
+            const { tableName } = req.params;
+            if (!tableName) return errorResponse(res, 'Missing tableName', 400);
+            
+            // Basic safety check: Only tables starting with 'mae_' are allowed
+            if (!tableName.startsWith('mae_')) {
+                return errorResponse(res, 'Access denied for this table', 403);
+            }
+
+            const data = await catalogosService.getMaestroData(tableName);
+            return successResponse(res, data, 'Maestro data retrieved successfully');
+        } catch (error) {
+            return errorResponse(res, error.message, 500);
+        }
+    },
+
+    createMaestro: async (req, res) => {
+        try {
+            const { tableName, data } = req.body;
+            if (!tableName || !data) return errorResponse(res, 'Missing tableName or data', 400);
+            const result = await catalogosService.createMaestro(tableName, data);
+            return successResponse(res, result, 'Maestro created successfully');
+        } catch (error) {
+            return errorResponse(res, error.message, 500);
+        }
+    },
+
+    updateMaestro: async (req, res) => {
+        try {
+            const { tableName, idName, idValue, data } = req.body;
+            if (!tableName || !idName || !idValue || !data) return errorResponse(res, 'Missing required fields', 400);
+            const result = await catalogosService.updateMaestro(tableName, idName, idValue, data);
+            return successResponse(res, result, 'Maestro updated successfully');
+        } catch (error) {
+            return errorResponse(res, error.message, 500);
+        }
+    },
+
+    toggleMaestroStatus: async (req, res) => {
+        try {
+            const { tableName, idName, idValue, statusColumn, newStatus } = req.body;
+            if (!tableName || !idName || !idValue || !statusColumn || !newStatus) return errorResponse(res, 'Missing required fields', 400);
+            const result = await catalogosService.toggleMaestroStatus(tableName, idName, idValue, statusColumn, newStatus);
+            return successResponse(res, result, 'Status toggled successfully');
+        } catch (error) {
+            return errorResponse(res, error.message, 500);
+        }
     },
 };
