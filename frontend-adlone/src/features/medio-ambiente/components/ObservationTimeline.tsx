@@ -184,10 +184,10 @@ export const ObservationTimeline: React.FC<ObservationTimelineProps> = ({ fichaI
                             key={event.id}
                             bullet={
                                 <ThemeIcon 
-                                    size={22} 
+                                    size={24} 
                                     radius="xl" 
                                     color={color} 
-                                    variant="light"
+                                    variant="filled"
                                 >
                                     {getIcon(event.type)}
                                 </ThemeIcon>

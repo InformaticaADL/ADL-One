@@ -9,6 +9,7 @@ router.get('/', authenticate, fichaController.getAll);
 router.get('/en-proceso', authenticate, fichaController.getEnProceso);
 router.get('/for-assignment', authenticate, fichaController.getForAssignment);
 router.get('/ejecutados', authenticate, fichaController.getMuestreosEjecutados);
+router.get('/resolve-url', authenticate, fichaController.resolveGoogleMaps);
 
 router.post('/create', authenticate, verifyPermission('FI_CREAR'), fichaController.create);
 router.post('/:id/approve', authenticate, verifyPermission('FI_APROBAR_TEC'), fichaController.approve);

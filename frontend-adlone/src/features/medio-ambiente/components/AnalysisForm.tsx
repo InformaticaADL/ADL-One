@@ -67,6 +67,23 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
     const [tempLabs2, setTempLabs2] = useState<Record<string, string>>({}); 
     const [tempDeliveries, setTempDeliveries] = useState<Record<string, string>>({}); 
 
+    // ===== ESTADO: UF Total de Ficha =====
+    const [totalRealUF, setTotalRealUF] = useState<number | string>('');
+
+    // Sincronizar estado inicial si se cargan datos
+    useEffect(() => {
+        if (savedAnalysis.length > 0) {
+            const sum = savedAnalysis.reduce((acc, curr) => acc + Number(curr.uf_individual || 0), 0);
+            if (sum > 0) {
+                setTotalRealUF(sum.toFixed(2));
+            } else if (totalRealUF !== '') {
+                setTotalRealUF('');
+            }
+        } else if (totalRealUF !== '') {
+            setTotalRealUF('');
+        }
+    }, [savedAnalysis]);
+
     // ===== FUNCIONES: Carga de Catálogos =====
     useEffect(() => {
         loadNormativas();
@@ -307,8 +324,21 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
     };
 
     const handleDeleteSavedAnalysis = (savedId: string) => {
-        onSavedAnalysisChange(savedAnalysis.filter((a: any) => a.savedId !== savedId));
+        const updatedAnalysis = savedAnalysis.filter((a: any) => a.savedId !== savedId);
+        onSavedAnalysisChange(updatedAnalysis);
         showToast({ type: 'info', message: 'Análisis eliminado' });
+    };
+
+    const handleTotalUfChange = (val: number | string) => {
+        setTotalRealUF(val);
+        if (!val || isNaN(Number(val))) return;
+        
+        const total = Number(val);
+        if (savedAnalysis.length > 0) {
+            const divide = +(total / savedAnalysis.length).toFixed(2);
+            const updated = savedAnalysis.map((a: any) => ({ ...a, uf_individual: divide }));
+            onSavedAnalysisChange(updated);
+        }
     };
 
     return (
@@ -662,6 +692,29 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                                     <Table.Tr><Table.Td colSpan={12} ta="center" py="xl" c="dimmed">No hay análisis grabados</Table.Td></Table.Tr>
                                 )}
                             </Table.Tbody>
+                            {savedAnalysis.length > 0 && (
+                                <Table.Tfoot pos="sticky" bottom={0} style={{ zIndex: 1 }} bg="gray.1">
+                                    <Table.Tr>
+                                        <Table.Td colSpan={8} ta="right" fw={700} c="indigo.9" fz="sm">
+                                            UF TOTAL DE LA FICHA:
+                                        </Table.Td>
+                                        <Table.Td>
+                                            <NumberInput 
+                                                size="sm" radius="md"
+                                                value={totalRealUF} 
+                                                onChange={handleTotalUfChange}
+                                                decimalScale={2}
+                                                hideControls
+                                                ta="right"
+                                                fw={800}
+                                                styles={{ input: { backgroundColor: 'var(--mantine-color-indigo-0)', borderColor: 'var(--mantine-color-indigo-4)' } }}
+                                                placeholder="0.00"
+                                            />
+                                        </Table.Td>
+                                        <Table.Td colSpan={3}></Table.Td>
+                                    </Table.Tr>
+                                </Table.Tfoot>
+                            )}
                         </Table>
                     </ScrollArea>
                 </Stack>

@@ -25,8 +25,7 @@ import {
 import { useMediaQuery } from '@mantine/hooks';
 import { 
     IconSearch, 
-    IconEraser, 
-    IconFileDownload, 
+    IconEraser,
     IconCalendarStats,
     IconFilter
 } from '@tabler/icons-react';
@@ -340,6 +339,8 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
 
                 <Paper withBorder radius="md" p={0} shadow="sm" style={{ overflow: 'hidden' }}>
                     <ScrollArea h="auto">
+                            <Text fw={600} size="sm" c="dimmed">Resultados ({displayedFichas.length})</Text>
+
                         {loading ? (
                             <Center p="xl">
                                 <Stack align="center" gap="xs">
@@ -348,63 +349,55 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                                 </Stack>
                             </Center>
                         ) : (
-                            <Table striped highlightOnHover withTableBorder={false} verticalSpacing="xs">
-                                <Table.Thead bg="gray.1">
-                                    <Table.Tr>
-                                        <Table.Th w={80}>N° Ficha</Table.Th>
-                                        <Table.Th w={140}>Estado</Table.Th>
-                                        <Table.Th w={90}>Frecuencia</Table.Th>
-                                        <Table.Th miw={140}>Cliente</Table.Th>
-                                        <Table.Th miw={140}>E. Servicio</Table.Th>
-                                        <Table.Th miw={140}>F. Emisora</Table.Th>
-                                        <Table.Th miw={140}>Obj. Muestreo</Table.Th>
-                                        <Table.Th ta="center" w={70}>Asignar</Table.Th>
-                                    </Table.Tr>
-                                </Table.Thead>
-                                <Table.Tbody>
-                                    {displayedFichas.map((row) => (
-                                        <Table.Tr key={row.id_fichaingresoservicio || row.fichaingresoservicio}>
-                                            <Table.Td fw={700} c="blue.8">{row.fichaingresoservicio || row.id_fichaingresoservicio}</Table.Td>
-                                            <Table.Td>{getStatusBadge(row.estado_ficha || row.nombre_estadomuestreo)}</Table.Td>
-                                            <Table.Td fz="xs">{row.nombre_frecuencia || row.frecuencia || '-'}</Table.Td>
-                                            <Table.Td>
-                                                <Text size="xs" truncate title={row.empresa_facturar}>{row.empresa_facturar || '-'}</Text>
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <Text size="xs" truncate title={row.empresa_servicio || row.nombre_empresaservicios}>{row.empresa_servicio || row.nombre_empresaservicios || '-'}</Text>
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <Text size="xs" truncate title={row.centro || row.nombre_centro}>{row.centro || row.nombre_centro || '-'}</Text>
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <Text size="xs" truncate title={row.nombre_objetivomuestreo_ma}>{row.nombre_objetivomuestreo_ma || '-'}</Text>
-                                            </Table.Td>
-
-                                            <Table.Td ta="center">
-                                                <ProtectedContent permission="FI_GEST_ASIG">
-                                                    <Tooltip label="Gestionar Asignación">
-                                                        <ActionIcon 
-                                                            color="grape" 
-                                                            variant="filled" 
-                                                            onClick={() => onViewAssignment(row.id_fichaingresoservicio || row.fichaingresoservicio)}
-                                                        >
-                                                            <IconCalendarStats size={18} />
-                                                        </ActionIcon>
-                                                    </Tooltip>
-                                                </ProtectedContent>
-                                            </Table.Td>
-                                        </Table.Tr>
-                                    ))}
-                                    {displayedFichas.length === 0 && (
+                            <Box>
+                                <Table striped highlightOnHover withTableBorder={false} verticalSpacing="xs">
+                                    <Table.Thead bg="gray.1">
                                         <Table.Tr>
-                                            <Table.Td colSpan={9} ta="center" py="xl">
-                                                <Text c="dimmed">No se encontraron fichas para los filtros seleccionados.</Text>
-                                            </Table.Td>
+                                            <Table.Th w={80}>N° Ficha</Table.Th>
+                                            <Table.Th w={140}>Estado</Table.Th>
+                                            <Table.Th miw={140}>Cliente / E. Servicio</Table.Th>
+                                            <Table.Th miw={140}>F. Emisora</Table.Th>
+                                            <Table.Th ta="center" w={70}>Asignar</Table.Th>
                                         </Table.Tr>
-                                    )}
-                                </Table.Tbody>
-                            </Table>
+                                    </Table.Thead>
+                                    <Table.Tbody>
+                                        {displayedFichas.map((row) => (
+                                            <Table.Tr key={row.id_fichaingresoservicio || row.fichaingresoservicio}>
+                                                <Table.Td fw={700} c="blue.8">{row.fichaingresoservicio || row.id_fichaingresoservicio}</Table.Td>
+                                                <Table.Td>{getStatusBadge(row.estado_ficha || row.nombre_estadomuestreo)}</Table.Td>
+                                                <Table.Td>
+                                                    <Stack gap={0}>
+                                                        <Text size="xs" fw={600} truncate title={row.empresa_facturar}>{row.empresa_facturar || '-'}</Text>
+                                                        <Text size="xs" c="dimmed" truncate title={row.empresa_servicio || row.nombre_empresaservicios}>{row.empresa_servicio || row.nombre_empresaservicios || '-'}</Text>
+                                                    </Stack>
+                                                </Table.Td>
+                                                <Table.Td>
+                                                    <Stack gap={0}>
+                                                        <Text size="xs" truncate title={row.centro || row.nombre_centro}>{row.centro || row.nombre_centro || '-'}</Text>
+                                                        <Text size="xs" c="dimmed">{row.nombre_frecuencia || row.frecuencia || '-'}</Text>
+                                                    </Stack>
+                                                </Table.Td>
+
+                                                <Table.Td ta="center">
+                                                    <ProtectedContent permission="FI_GEST_ASIG">
+                                                        <Tooltip label="Gestionar Asignación">
+                                                            <ActionIcon 
+                                                                color="grape" 
+                                                                variant="filled" 
+                                                                onClick={() => onViewAssignment(row.id_fichaingresoservicio || row.fichaingresoservicio)}
+                                                            >
+                                                                <IconCalendarStats size={18} />
+                                                            </ActionIcon>
+                                                        </Tooltip>
+                                                    </ProtectedContent>
+                                                </Table.Td>
+                                            </Table.Tr>
+                                        ))}
+                                    </Table.Tbody>
+                                </Table>
+                            </Box>
                         )}
+
                     </ScrollArea>
                     
                     <Divider />

@@ -9,8 +9,7 @@ import {
     Box,
     Progress,
     Alert,
-    ThemeIcon,
-    Divider
+    ThemeIcon
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import {
@@ -46,6 +45,7 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
     const [parsedItems, setParsedItems] = useState<any[]>([]);
     const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
     const [commitResults, setCommitResults] = useState<any>(null);
+    const [ufTotals, setUfTotals] = useState<Record<number, number>>({});
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -112,11 +112,23 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
         setStep(3);
         
         try {
-            const itemsToCommit = selectedIndices.map(idx => parsedItems[idx]);
+            // Inject uf_individual into each analysis before commit
+            const itemsToCommit = selectedIndices.map(idx => {
+                const item = { ...parsedItems[idx] };
+                const ufTotal = ufTotals[idx] || 0;
+                const matchedCount = (item.analisis || []).filter((a: any) => a._matched).length;
+                const ufIndividual = (ufTotal > 0 && matchedCount > 0) ? Math.round((ufTotal / matchedCount) * 100) / 100 : 0;
+                
+                item.analisis = (item.analisis || []).map((a: any) => ({
+                    ...a,
+                    uf_individual: a._matched ? ufIndividual : 0
+                }));
+                return item;
+            });
             
             const result = await fichaService.bulkCommit({
                 items: itemsToCommit,
-                userId: user?.id || user?.id_usuario
+                userId: user?.id || (user as any)?.id_usuario
             });
             
             if (result.success) {
@@ -251,6 +263,8 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
                         items={parsedItems} 
                         selectedIndices={selectedIndices}
                         onSelectChange={setSelectedIndices}
+                        ufTotals={ufTotals}
+                        onUfTotalChange={(idx, val) => setUfTotals(prev => ({ ...prev, [idx]: val }))}
                     />
                 </Paper>
             </Stack>

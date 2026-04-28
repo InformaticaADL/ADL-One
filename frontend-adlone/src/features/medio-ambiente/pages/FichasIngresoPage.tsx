@@ -25,6 +25,8 @@ import { AssignmentDetailView } from '../components/AssignmentDetailView';
 import { EnProcesoCalendarView } from '../components/EnProcesoCalendarView';
 import { MuestreosEjecutadosListView } from '../components/MuestreosEjecutadosListView';
 import { CoordinacionDashboardView } from '../components/CoordinacionDashboardView';
+import { RouteMapPlannerView } from '../components/RouteMapPlannerView';
+import { RutasListView } from '../components/RutasListView';
 
 import { 
     IconPlus, 
@@ -32,7 +34,8 @@ import {
     IconMapPin, 
     IconCalendar, 
     IconHistory, 
-    IconChartBar 
+    IconChartBar,
+    IconRoute 
 } from '@tabler/icons-react';
 
 export const FichasIngresoPage = () => {
@@ -47,6 +50,7 @@ export const FichasIngresoPage = () => {
         setActiveSubmodule, 
         previousSubmodule 
     } = useNavStore();
+    const [editingRutaId, setEditingRutaId] = useState<number | null>(null);
 
     const handleGlobalBack = () => {
         // Navigate back to the previous global submodule
@@ -159,7 +163,26 @@ export const FichasIngresoPage = () => {
         case 'dashboard':
             return (
                 <ProtectedContent permission="MA_COORDINACION_ACCESO" fallback={<Text ta="center" mt="xl" c="red">No tiene permisos</Text>}>
-                    <CoordinacionDashboardView onBackToMenu={() => setFichasMode('menu')} />
+                    <CoordinacionDashboardView onBack={() => setFichasMode('menu')} />
+                </ProtectedContent>
+            );
+        case 'route_planner':
+            return (
+                <ProtectedContent permission="FI_ASIG_GRUPO" fallback={<Text ta="center" mt="xl" c="red">No tiene permisos</Text>}>
+                    <RutasListView 
+                        onBackToMenu={() => setFichasMode('menu')} 
+                        onNuevaRuta={() => { setEditingRutaId(null); setFichasMode('route_planner_map'); }}
+                        onEditarRuta={(rutaId) => { setEditingRutaId(rutaId); setFichasMode('route_planner_map'); }}
+                    />
+                </ProtectedContent>
+            );
+        case 'route_planner_map':
+            return (
+                <ProtectedContent permission="FI_ASIG_GRUPO" fallback={<Text ta="center" mt="xl" c="red">No tiene permisos</Text>}>
+                    <RouteMapPlannerView 
+                        onBack={() => { setEditingRutaId(null); setFichasMode('route_planner'); }} 
+                        editRutaId={editingRutaId}
+                    />
                 </ProtectedContent>
             );
         case 'menu':
@@ -227,6 +250,16 @@ export const FichasIngresoPage = () => {
                                         icon={<IconHistory size={32} />}
                                         color="#15aabf"
                                         onClick={() => setFichasMode('list_ejecutados')}
+                                    />
+                                </ProtectedContent>
+
+                                <ProtectedContent permission="FI_ASIG_GRUPO">
+                                    <SelectionCard
+                                        title="Planificador de Rutas"
+                                        description="Visualice fichas en el mapa, arme rutas de muestreo y asigne recursos geográficamente."
+                                        icon={<IconRoute size={32} />}
+                                        color="#20c997"
+                                        onClick={() => setFichasMode('route_planner')}
                                     />
                                 </ProtectedContent>
 

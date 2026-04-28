@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { fichaService } from '../services/ficha.service';
 import { useToast } from '../../../contexts/ToastContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
+import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 import { 
     Stack, 
     Paper, 

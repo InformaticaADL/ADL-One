@@ -62,6 +62,10 @@ export const fichaService = {
         const response = await apiClient.get('/api/fichas/for-assignment');
         return response.data;
     },
+    resolveGoogleUrl: async (url: string) => {
+        const response = await apiClient.get(`/api/fichas/resolve-url?url=${encodeURIComponent(url)}`);
+        return response.data.data; // returns { finalUrl: string }
+    },
     getAssignmentDetail: async (id: number) => {
         const response = await apiClient.get(`/api/fichas/${id}/assignment-detail`);
         return response.data.data; // Backend wraps in { success, data, message }

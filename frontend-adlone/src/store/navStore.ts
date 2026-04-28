@@ -14,7 +14,7 @@ interface NavState {
     ursInboxMode: 'RECEIVED' | 'SENT'; // Phase 27
     hiddenNotifications: string[]; // Persistent dismissed notifications
     maArea: 'comercial' | 'tecnica' | 'coordinacion' | null; // Deprecated, will be removed fully in Phase 2
-    fichasMode: 'menu' | 'create_ficha' | 'list_fichas' | 'detail_ficha' | 'list_assign' | 'detail_assign' | 'calendar' | 'list_ejecutados' | 'dashboard';
+    fichasMode: 'menu' | 'create_ficha' | 'create_choice' | 'create_manual' | 'create_bulk' | 'list_fichas' | 'detail_ficha' | 'list_assign' | 'detail_assign' | 'calendar' | 'list_ejecutados' | 'dashboard' | 'route_planner';
     setActiveModule: (moduleId: string) => void;
     setActiveSubmodule: (submoduleId: string) => void;
     setDrawerOpen: (isOpen: boolean) => void;
@@ -31,7 +31,7 @@ interface NavState {
     setAdminSearchTerm: (term: string) => void;
     hideNotification: (id: string | number) => void;
     setMaArea: (area: 'comercial' | 'tecnica' | 'coordinacion' | null) => void;
-    setFichasMode: (mode: 'menu' | 'create_ficha' | 'list_fichas' | 'detail_ficha' | 'list_assign' | 'detail_assign' | 'calendar' | 'list_ejecutados' | 'dashboard') => void;
+    setFichasMode: (mode: 'menu' | 'create_ficha' | 'create_choice' | 'create_manual' | 'create_bulk' | 'list_fichas' | 'detail_ficha' | 'list_assign' | 'detail_assign' | 'calendar' | 'list_ejecutados' | 'dashboard' | 'route_planner') => void;
 }
 
 const STORAGE_KEY = 'adl_hidden_notifications';

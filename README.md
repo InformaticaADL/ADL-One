@@ -858,6 +858,22 @@ Finalización del ciclo de desarrollo personalizado y transición hacia la arqui
 
 ---
 
+### 51. Refinamiento del Planificador de Rutas (Route Planner) y UI (Abril 2026) 🗺️🚗
+Mejoras sustanciales en la interfaz del mapa de planificación y en la lógica de selección de correlativos para optimizar la creación de rutas de muestreo.
+
+- **Selección Precisa de Correlativos (Servicios)**:
+    - Transición de una asignación automática ciega a un sistema de selección manual asistido.
+    - Implementación de un selector desplegable (`Select`) directamente en la lista de rutas, permitiendo elegir exactamente cuál servicio disponible (ej. `Serv. 2 / 5`) se asociará a la ruta.
+- **Optimización de Interfaz de Mapa**:
+    - **Smart Zoom**: El mapa ahora auto-ajusta el encuadre (`FitBounds`) de manera más cercana e inteligente, maximizando a zoom 15 para grupos y a zoom 16 para marcadores individuales.
+    - Rediseño visual de las tarjetas de fichas, incluyendo alertas visuales (borde y fondo rojo tenue) para aquellas que carecen de coordenadas válidas.
+- **Lógica de Fechas en Backend (SQL Server)**:
+    - Corrección del bug "falso agendado" donde SQL Server devolvía la fecha "dummy" `1900-01-01` para campos no asignados. Se implementó una validación `getFullYear() > 1900` para discriminar correctamente los correlativos disponibles.
+- **Prevención de Errores de Strict Mode**:
+    - Refactorización de la gestión de estado (`setSelectedItems`) en el React Frontend para evitar duplicación de notificaciones de advertencia (Toast) provocadas por el ciclo doble del React Strict Mode.
+
+---
+
 ## 📈 Próximos Pasos (Hoja de Ruta 2026)
 1. **Bootstrapping ADL ECOSISTEMA**: Inicio del nuevo repositorio unificado en NestJS.
 2. **Implementación de ADL Sampling**: Desarrollo de la nueva App de shell dinámico para terreno.

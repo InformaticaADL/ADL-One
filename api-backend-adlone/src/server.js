@@ -34,6 +34,7 @@ import chatRoutes from './routes/chat.routes.js';
 import generalChatRoutes from './routes/general-chat.routes.js';
 import menuRoutes from './routes/menu.routes.js';
 import bulkFichaRoutes from './routes/bulk-ficha.routes.js';
+import rutasPlanificadasRoutes from './routes/rutas-planificadas.routes.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -106,6 +107,7 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/gchat', generalChatRoutes);
 app.use('/api/menu', menuRoutes);
 app.use('/api/fichas', bulkFichaRoutes);
+app.use('/api/rutas-planificadas', rutasPlanificadasRoutes);
 
 // Serve uploads directory as static
 const uploadPath = process.env.UPLOAD_PATH || path.join(__dirname, '../uploads');

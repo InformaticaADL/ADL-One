@@ -1775,6 +1775,123 @@ class FichaIngresoService {
         try {
             // Updated to use the correct Stored Procedure from FoxPro (Modified via script)
             const result = await pool.request().execute('MAM_FichaComercial_ConsultaCoordinador');
+            
+            // Augment results with coordinates and google maps links from ENC table
+            if (result.recordset && result.recordset.length > 0) {
+                const encQuery = `
+                    SELECT id_fichaingresoservicio, referencia_googlemaps, ma_coordenadas, id_objetivomuestreo_ma
+                    FROM App_Ma_FichaIngresoServicio_ENC 
+                    WHERE id_fichaingresoservicio IN (${result.recordset.map(r => r.id_fichaingresoservicio || r.fichaingresoservicio).join(',')})
+                `;
+                try {
+                    const encResult = await pool.request().query(encQuery);
+                    const encMap = new Map(encResult.recordset.map(row => [row.id_fichaingresoservicio, row]));
+                    
+                    result.recordset = result.recordset.map(row => {
+                        const id = row.id_fichaingresoservicio || Number(row.fichaingresoservicio);
+                        const encData = encMap.get(id);
+                        return {
+                            ...row,
+                            id_objetivomuestreo_ma: encData?.id_objetivomuestreo_ma || null,
+                            ref_google: encData?.referencia_googlemaps || null,
+                            ma_coordenadas: encData?.ma_coordenadas || null
+                        };
+                    });
+                } catch (encError) {
+                    logger.warn('Failed to fetch augment coordinates for assignment list:', encError);
+                }
+
+                // Augment with agenda (correlativo) summary per ficha
+                try {
+                    const fichaIds = result.recordset.map(r => Number(r.id_fichaingresoservicio || r.fichaingresoservicio));
+                    if (fichaIds.length > 0) {
+                        // Query agenda with fecha_muestreo — the real indicator of "occupied"
+                        const agendaResult = await pool.request().query(`
+                            SELECT 
+                                a.id_fichaingresoservicio,
+                                a.frecuencia_correlativo,
+                                a.fecha_muestreo
+                            FROM App_Ma_Agenda_MUESTREOS a
+                            WHERE a.id_fichaingresoservicio IN (${fichaIds.join(',')})
+                              AND (a.estado_caso IS NULL OR a.estado_caso != 'CANCELADO')
+                            ORDER BY a.id_fichaingresoservicio, a.frecuencia_correlativo
+                        `);
+
+                        // Get correlativos already in pending routes
+                        const rutaDetResult = await pool.request().query(`
+                            SELECT d.id_fichaingresoservicio, d.frecuencia_correlativo
+                            FROM mae_rutas_planificadas_detalle d
+                            JOIN mae_rutas_planificadas r ON d.id_ruta_planificada = r.id_ruta_planificada
+                            WHERE r.estado = 'PENDIENTE'
+                        `);
+                        const enRutaSet = new Set(
+                            rutaDetResult.recordset.map(r => `${Number(r.id_fichaingresoservicio)}|${(r.frecuencia_correlativo || '').trim()}`)
+                        );
+
+                        // Group agenda rows by ficha
+                        const agendaMap = new Map();
+                        agendaResult.recordset.forEach(row => {
+                            const fid = Number(row.id_fichaingresoservicio);
+                            if (!agendaMap.has(fid)) agendaMap.set(fid, []);
+                            agendaMap.get(fid).push(row);
+                        });
+
+                        // Debug log
+                        if (agendaResult.recordset.length > 0) {
+                            const sample = agendaResult.recordset.slice(0, 5);
+                            logger.info(`[RoutePlanner] Sample agenda: ${sample.map(r => `fid=${r.id_fichaingresoservicio} corr=${r.frecuencia_correlativo} fecha=${r.fecha_muestreo}`).join(' | ')}`);
+                            logger.info(`[RoutePlanner] Total agenda rows: ${agendaResult.recordset.length}, unique fichas: ${agendaMap.size}, SP fichas: ${result.recordset.length}`);
+                        }
+
+                        result.recordset = result.recordset.map(row => {
+                            const id = Number(row.id_fichaingresoservicio || row.fichaingresoservicio);
+                            const agendaRows = agendaMap.get(id) || [];
+                            const totalServicios = agendaRows.length;
+
+                            const correlativos = agendaRows.map((ar, idx) => {
+                                const corrParts = (ar.frecuencia_correlativo || '').split('-');
+                                const numSvc = idx + 1; // Always use sequential order 1, 2, 3...
+                                const corrKey = `${id}|${(ar.frecuencia_correlativo || '').trim()}`;
+                                const enRuta = enRutaSet.has(corrKey);
+
+                                // Simple logic: has date = occupied, in route = en_ruta, else = available
+                                let status = 'DISPONIBLE';
+                                const dateObj = ar.fecha_muestreo ? new Date(ar.fecha_muestreo) : null;
+                                const isValidDate = dateObj && dateObj.getFullYear() > 1900;
+
+                                if (isValidDate) {
+                                    status = 'AGENDADO';
+                                } else if (enRuta) {
+                                    status = 'EN_RUTA';
+                                }
+
+                                return {
+                                    frecuencia_correlativo: ar.frecuencia_correlativo,
+                                    numero_servicio: numSvc,
+                                    status,
+                                    en_ruta: enRuta
+                                };
+                            });
+
+                            const disponibles = correlativos.filter(c => c.status === 'DISPONIBLE').length;
+                            const agendados = correlativos.filter(c => c.status === 'AGENDADO').length;
+                            const enRutaCount = correlativos.filter(c => c.status === 'EN_RUTA').length;
+
+                            return {
+                                ...row,
+                                total_servicios: totalServicios,
+                                servicios_disponibles: disponibles,
+                                servicios_agendados: agendados,
+                                servicios_en_ruta: enRutaCount,
+                                correlativos
+                            };
+                        });
+                    }
+                } catch (agendaError) {
+                    logger.warn('Failed to augment agenda summary:', agendaError);
+                }
+            }
+            
             return result.recordset;
         } catch (error) {
             logger.error('SP MAM_FichaComercial_ConsultaCoordinador failed', error);

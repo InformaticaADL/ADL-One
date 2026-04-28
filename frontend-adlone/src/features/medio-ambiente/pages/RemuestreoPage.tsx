@@ -17,7 +17,8 @@ import {
     Box, 
     Button,
     Group,
-    Alert
+    Alert,
+    Textarea
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { 
@@ -210,11 +211,12 @@ const RemuestreoPageContent: React.FC = () => {
 
                         <Tabs.Panel value="observaciones" p={isMobile ? 'md' : 'xl'} pt="xl">
                             <Stack gap="lg">
-                                <ObservacionesForm 
+                                <Textarea 
                                     value={observaciones} 
-                                    onChange={setObservaciones} 
+                                    onChange={(e) => setObservaciones(e.currentTarget.value)} 
                                     label="Observaciones del Remuestreo *" 
                                     placeholder="Especifique las observaciones de este remuestreo..."
+                                    minRows={5}
                                 />
                                 <Group justify="center">
                                     <Button 

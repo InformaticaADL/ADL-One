@@ -1088,11 +1088,31 @@ class BulkFichaService {
                         row_error_min = fullRef.error_min;
                         row_error_max = fullRef.error_max;
                     }
-                } else {
-                    rowErrors.push(`Análisis "${row.nombre}" no encontrado para Normativa/Referencia`);
                 }
-            } else {
-                 rowErrors.push(`Análisis "${row.nombre}" omitido (Tabla de Referencia vacía o SP falló)`);
+            } 
+            
+            // FALLBACK BUSQUEDA GLOBAL
+            if (!refMatch && catalogs.referenciaAnalisis && catalogs.referenciaAnalisis.length > 0) {
+                const globalMatch = findBestMatch(row.nombre, catalogs.referenciaAnalisis, 'nombre', 'id', 40);
+                if (globalMatch) {
+                    refMatch = globalMatch;
+                    id_referenciaanalisis = globalMatch.id;
+                    const fullRef = catalogs.referenciaAnalisis.find(r => r.id === globalMatch.id);
+                    if (fullRef) {
+                        id_tecnica = fullRef.id_tecnica;
+                        id_referenciaanalisis = fullRef.id;
+                        limitemax_d = fullRef.limitemax_d;
+                        limitemax_h = fullRef.limitemax_h;
+                        row_llevaerror = fullRef.llevaerror || 'N';
+                        row_error_min = fullRef.error_min;
+                        row_error_max = fullRef.error_max;
+                    }
+                    rowErrors.push(`Obtenido mediante Fallback desde otra Normativa`);
+                } else {
+                    rowErrors.push(`Análisis "${row.nombre}" no encontrado en la Normativa ni en el Catálogo Global`);
+                }
+            } else if (!refMatch) {
+                rowErrors.push(`Análisis "${row.nombre}" omitido (Tabla de Referencia vacía o SP falló)`);
             }
 
             // Match laboratorio

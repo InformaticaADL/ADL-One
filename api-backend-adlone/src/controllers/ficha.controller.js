@@ -24,6 +24,24 @@ class FichaIngresoController {
         }
     }
 
+    async resolveGoogleMaps(req, res) {
+        try {
+            const { url } = req.query;
+            if (!url) {
+                return successResponse(res, { finalUrl: null }, 'No URL provided');
+            }
+            // Fetch handles redirects automatically
+            const response = await fetch(url, { method: 'HEAD', redirect: 'follow' }).catch(() => null);
+            if (response && response.url) {
+                return successResponse(res, { finalUrl: response.url }, 'URL resolved');
+            }
+            return successResponse(res, { finalUrl: url }, 'URL kept as is');
+        } catch (err) {
+            logger.error('Error resolving Google Maps URL:', err);
+            return successResponse(res, { finalUrl: req.query.url }, 'Failed to resolve URL');
+        }
+    }
+
     async create(req, res) {
         try {
             // Basic validation

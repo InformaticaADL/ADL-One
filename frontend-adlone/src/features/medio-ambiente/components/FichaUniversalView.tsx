@@ -72,6 +72,8 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [activeTab, setActiveTab] = useState<string>('antecedentes');
+    const [visitedTabs, setVisitedTabs] = useState({ antecedentes: true, analisis: false, observaciones: false });
+    const allTabsVisited = visitedTabs.antecedentes && visitedTabs.analisis && visitedTabs.observaciones;
     const [data, setData] = useState<any>(null);
     const [laboratorios, setLaboratorios] = useState<any[]>([]);
     
@@ -358,7 +360,7 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
                             )}
                         </Box>
 
-                        <Tabs value={activeTab} onChange={(v) => setActiveTab(v || 'antecedentes')} variant="outline" radius="md" mt="xl" style={{ width: '100% !important' }}>
+                        <Tabs value={activeTab} onChange={(v) => { setActiveTab(v || 'antecedentes'); setVisitedTabs(prev => ({ ...prev, [v || 'antecedentes']: true })); }} variant="outline" radius="md" mt="xl" style={{ width: '100% !important' }}>
                             <Tabs.List grow>
                                 <Tabs.Tab 
                                     value="antecedentes" 
@@ -509,12 +511,11 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                 <Stack gap="sm">
                                                     <Title order={5} c="green.9">Nueva Observación Comercial Requerida</Title>
                                                     <Text size="xs" c="green.7">Describa los motivos de los cambios realizados comercialmente.</Text>
-                                                    <ObservacionesForm
-                                                        label=""
+                                                    <Textarea
                                                         value={newObservation}
-                                                        onChange={setNewObservation}
-                                                        readOnly={false}
+                                                        onChange={(e) => setNewObservation(e.currentTarget.value)}
                                                         placeholder="Describa aquí los cambios..."
+                                                        minRows={3}
                                                     />
                                                 </Stack>
                                             </Paper>
@@ -538,9 +539,13 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                     />
                                                     <Group justify="flex-end" mt="md">
                                                         <ProtectedContent permission="FI_APROBAR_TEC">
-                                                            <Button color="blue" leftSection={<IconCheck size={18} />} onClick={() => handleActionClick('approve_tech')} loading={actionLoading}>
-                                                                Aprobar Técnica
-                                                            </Button>
+                                                            <Tooltip label="Debe visualizar todas las pestañas (Antecedentes, Análisis, Historial) antes de probar" disabled={allTabsVisited} color="red">
+                                                                <Box display="inline-block">
+                                                                    <Button color="blue" leftSection={<IconCheck size={18} />} onClick={() => handleActionClick('approve_tech')} loading={actionLoading} disabled={!allTabsVisited}>
+                                                                        Aprobar Técnica
+                                                                    </Button>
+                                                                </Box>
+                                                            </Tooltip>
                                                         </ProtectedContent>
                                                         <ProtectedContent permission="FI_RECHAZAR_TEC">
                                                             <Button variant="light" color="red" leftSection={<IconRotate size={18} />} onClick={() => handleActionClick('reject_tech')} loading={actionLoading}>
@@ -570,9 +575,13 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                     />
                                                     <Group justify="flex-end" mt="md">
                                                         <ProtectedContent permission="FI_APROBAR_COO">
-                                                            <Button color="grape" leftSection={<IconCheck size={18} />} onClick={() => handleActionClick('approve_coord')} loading={actionLoading}>
-                                                                Aprobar Coordinación
-                                                            </Button>
+                                                            <Tooltip label="Debe visualizar todas las pestañas (Antecedentes, Análisis, Historial) antes de probar" disabled={allTabsVisited} color="red">
+                                                                <Box display="inline-block">
+                                                                    <Button color="grape" leftSection={<IconCheck size={18} />} onClick={() => handleActionClick('approve_coord')} loading={actionLoading} disabled={!allTabsVisited}>
+                                                                        Aprobar Coordinación
+                                                                    </Button>
+                                                                </Box>
+                                                            </Tooltip>
                                                         </ProtectedContent>
                                                         <ProtectedContent permission="FI_RECHAZAR_COO">
                                                             <Button variant="light" color="red" leftSection={<IconRotate size={18} />} onClick={() => handleActionClick('reject_coord')} loading={actionLoading}>
