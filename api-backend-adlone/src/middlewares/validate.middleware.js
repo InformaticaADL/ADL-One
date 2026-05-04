@@ -114,13 +114,18 @@ export const fichaValidationSchemas = {
     }),
 
     batchUpdateAgenda: Joi.object({
-        body: Joi.array().items(
-            Joi.object({
-                id: Joi.string().required(),
-                idMuestreador: Joi.alternatives().try(Joi.number().positive(), Joi.string()).optional(),
-                fecha: Joi.alternatives().try(Joi.date(), Joi.string()).optional(),
-            }).unknown(true)
-        ).required(),
+        body: Joi.object({
+            assignments: Joi.array().items(
+                Joi.object({
+                    id: Joi.alternatives().try(Joi.number(), Joi.string()).required(),
+                    idMuestreadorInstalacion: Joi.alternatives().try(Joi.number().positive(), Joi.string()).optional(),
+                    idMuestreadorRetiro: Joi.alternatives().try(Joi.number().positive(), Joi.string()).optional(),
+                    fecha: Joi.alternatives().try(Joi.date(), Joi.string()).optional(),
+                }).unknown(true)
+            ).required(),
+            user: Joi.object().optional(),
+            observaciones: Joi.string().max(5000).optional(),
+        }).unknown(true).required(),
         query: Joi.object(),
         params: Joi.object(),
     }),

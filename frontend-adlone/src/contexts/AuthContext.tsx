@@ -147,7 +147,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         delete axios.defaults.headers.common['Authorization'];
 
         // Reset navigation state to prevent unauthorized access on next login
-        useNavStore.getState().resetNavigation();
+        const navStore = useNavStore.getState();
+        navStore.resetNavigation();
+        navStore.setDynamicModules([]);
     }, []);
 
     // Interceptor para manejar errores 401 (No autorizado) globalmente

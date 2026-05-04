@@ -225,7 +225,7 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotC
             }
         };
         fetchMenu();
-    }, [token]);
+    }, [token, dynamicModules.length]);
 
     // Sync opened module with active module changes
     useEffect(() => {

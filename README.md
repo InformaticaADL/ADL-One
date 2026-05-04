@@ -900,6 +900,17 @@ Consolidación del control de proveedores externos en el módulo administrativo.
 - **Maestro de Empresas**: Interfaz `EmpresaServicioFormView.tsx` para la gestión centralizada de empresas prestadoras de servicios de muestreo.
 - **Control de Habilitación**: Sistema de filtrado y estados para asegurar que solo proveedores activos sean seleccionables en la operación.
 - **Consistencia de Datos**: Alineación del servicio de catálogos para sincronizar datos de contacto y correos electrónicos de los proveedores.
+### 56. Estabilización de Carga Masiva y Navegación (Mayo 2026) 🛠️🚀
+Mejoras en la experiencia de carga de datos y corrección de errores críticos de sesión y validación.
+
+- **Soporte Excel en Carga Masiva**:
+    - Actualización de la interfaz `FichaCreateChoice.tsx` para reflejar el soporte nativo de archivos Excel junto a PDF en el módulo de carga masiva.
+- **Estabilización de Sesión en Sidebar**:
+    - Corrección del bug que eliminaba los permisos del sidebar al hacer clic en el logo para volver al inicio. Se refactorizó la limpieza de módulos dinámicos para que solo ocurra durante el cierre de sesión explícito.
+- **Corrección de Validación en Agenda Masiva**:
+    - Resolución del error `400 Bad Request` en el endpoint `/batch-agenda`. Se ajustó el esquema Joi en el backend para manejar correctamente el objeto de asignaciones masivas enviado desde el frontend, permitiendo la programación exitosa de muestreos.
+
+---
 
 ---
 

@@ -41,7 +41,7 @@ export const FichaCreateChoice: React.FC<Props> = ({ onManual, onBulk, onBack })
                                 ¿Cómo desea crear la ficha?
                             </Title>
                             <Text size="md" c="dimmed" mt="xs" maw={500} mx="auto">
-                                Seleccione el método de ingreso. Puede crear una ficha manualmente o cargar múltiples fichas desde archivos PDF.
+                                Seleccione el método de ingreso. Puede crear una ficha manualmente o cargar múltiples fichas desde archivos PDF o Excel.
                             </Text>
                         </Box>
 
@@ -130,9 +130,9 @@ export const FichaCreateChoice: React.FC<Props> = ({ onManual, onBulk, onBack })
                                     </ThemeIcon>
 
                                     <Box>
-                                        <Text fw={700} size="lg">Carga Masiva (PDF)</Text>
+                                        <Text fw={700} size="lg">Carga Masiva (PDF / Excel)</Text>
                                         <Text size="sm" c="dimmed" mt={4}>
-                                            Suba hasta 1000 archivos PDF. El sistema extraerá los datos, los validará y creará las fichas automáticamente.
+                                            Suba hasta 1000 archivos (PDF o Excel). El sistema extraerá los datos, los validará y creará las fichas automáticamente.
                                         </Text>
                                     </Box>
 

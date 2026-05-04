@@ -88,7 +88,6 @@ export const useNavStore = create<NavState>()(
                 adminSearchTerm: '',
                 maArea: null,
                 fichasMode: 'menu',
-                dynamicModules: [],
             }),
             adminSearchTerm: '',
             setAdminSearchTerm: (term: string) => set({ adminSearchTerm: term }),
