@@ -926,6 +926,47 @@ Refinamiento de la experiencia de comunicación interna y corrección en las pla
 
 ---
 
+### 58. Correcciones Críticas de Permisos y Seguridad (4 de Mayo 2026) 🔐🛡️
+Resolución de una cadena de bugs interconectados que impedían el acceso correcto del rol **Calidad** a los módulos de Gestión de Equipos y Muestreadores, junto con correcciones de validación en el módulo de Maestros.
+
+- **Fix Error 400 en GET `/api/admin/muestreadores`**:
+    - **Causa**: El esquema de validación Joi era demasiado restrictivo y rechazaba el parámetro `estado=ACTIVOS` con un 400.
+    - **Solución**: Se actualizó el schema `getMuestreadores` en `validate.middleware.js` para aceptar los valores `ACTIVOS`, `INACTIVOS` y `TODOS`, además de strings vacíos en `nombre`.
+
+- **Fix SQL Directo en Servicio de Muestreadores**:
+    - **Causa**: El Stored Procedure `MAM_Admin_Muestreadores_List` no manejaba correctamente el filtrado por estado textual enviado desde el frontend.
+    - **Solución**: Se reemplazó la llamada al SP por una **consulta SQL directa** en `admin.service.js` que mapea correctamente los valores `ACTIVOS → 'S'`, `INACTIVOS → 'N'` y `TODOS → sin filtro` en la tabla `mae_muestreador`.
+
+- **Fix Permisos Alternativos en Ruta de Muestreadores**:
+    - **Causa**: La ruta `GET /api/admin/muestreadores` solo aceptaba el permiso `MA_MUESTREADORES`, pero `EquiposPage` también necesita esa lista para su filtro de Responsable (rol Calidad accede via `MA_A_GEST_EQUIPO`).
+    - **Solución**: Se actualizó `admin.routes.js` para aceptar `verifyPermission(['MA_MUESTREADORES', 'MA_A_GEST_EQUIPO'])`, usando la capacidad de array ya existente en el middleware.
+
+- **Fix Crítico: Logout Automático por Error 403** _(Bug Principal)_:
+    - **Causa**: El interceptor global de Axios en `AuthContext.tsx` ejecutaba `logout()` ante **cualquier** error 403 (Forbidden). Cuando un usuario como msanchez recibía un 403 de algún endpoint sin permiso al cargar la página, el sistema lo expulsaba automáticamente al login.
+    - **Solución**: Se modificó el interceptor para que solo haga logout en errores **401** (token inválido/expirado). Los errores 403 (sin permiso para una acción específica) ahora se propagan normalmente sin cerrar la sesión.
+    - **Distinción clave**: `401 = sesión inválida (logout)` vs `403 = sin permiso para esa acción (no logout)`.
+
+- **Desacoplamiento de Permisos: Gestión de Calidad vs. Admin. Información**:
+    - **Causa**: Los submódulos `admin-equipos-gestion` y `admin-muestreadores` estaban en la lista `ADMIN_SUBMODULES` del Security Guard de `DashboardPage.tsx`, lo que exigía permisos de "Admin. Información" (`GC_ACCESO`, `AI_ACCESO`, etc.) para acceder a ellos, incluso si el usuario tenía permisos específicos del módulo.
+    - **Solución**: Se eliminaron esos dos submódulos del guard general y se les asignaron verificaciones independientes:
+        - `admin-equipos-gestion` → requiere `MA_A_GEST_EQUIPO` **OR** `GC_ACCESO` **OR** super admin.
+        - `admin-muestreadores` → requiere `MA_MUESTREADORES` **OR** `GC_ACCESO` **OR** super admin.
+    - **Resultado**: Un rol puede acceder a Equipos o Muestreadores configurando **solo** los permisos del módulo Gestión de Calidad, sin necesidad de tocar Admin. Información.
+
+- **Fix Bug idValue = 0 en Módulo de Maestros**:
+    - **Causa**: La validación `!idValue` en `catalogos.controller.js` rechazaba el valor `0` como ID inválido (ya que `!0 === true` en JavaScript), causando un error 400 al intentar activar/editar registros con ID = 0 (ej. "No aplica" en Formas de Canal).
+    - **Solución**: Se cambió la validación por `idValue === undefined || idValue === null` en los métodos `updateMaestro` y `toggleMaestroStatus`, permitiendo que `0` sea un ID de registro válido. El mismo fix se aplicó a `newStatus` para valores futuros tipo `false` o `0`.
+
+- **Archivos Modificados**:
+    - Backend: `api-backend-adlone/src/middlewares/validate.middleware.js` (schema getMuestreadores)
+    - Backend: `api-backend-adlone/src/services/admin.service.js` (SQL directo en lugar de SP)
+    - Backend: `api-backend-adlone/src/routes/admin.routes.js` (permisos alternativos)
+    - Backend: `api-backend-adlone/src/controllers/catalogos.controller.js` (validación idValue = 0)
+    - Frontend: `frontend-adlone/src/contexts/AuthContext.tsx` (interceptor 401-only logout)
+    - Frontend: `frontend-adlone/src/pages/DashboardPage.tsx` (desacoplamiento de Security Guard)
+
+---
+
 ## 📈 Próximos Pasos (Hoja de Ruta 2026)
 1. **Bootstrapping ADL ECOSISTEMA**: Inicio del nuevo repositorio unificado en NestJS.
 2. **Implementación de ADL Sampling**: Desarrollo de la nueva App de shell dinámico para terreno.

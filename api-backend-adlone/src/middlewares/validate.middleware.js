@@ -292,8 +292,8 @@ export const adminValidationSchemas = {
     getMuestreadores: Joi.object({
         body: Joi.object(),
         query: Joi.object({
-            nombre: Joi.string().max(255).optional(),
-            estado: Joi.string().valid('ACTIVO', 'INACTIVO').optional(),
+            nombre: Joi.string().allow('').max(255).optional(),
+            estado: Joi.string().valid('ACTIVO', 'INACTIVO', 'ACTIVOS', 'INACTIVOS', 'TODOS').optional(),
         }),
         params: Joi.object(),
     }),

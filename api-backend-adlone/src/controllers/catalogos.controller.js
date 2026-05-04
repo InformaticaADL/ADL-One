@@ -242,7 +242,7 @@ export const catalogosController = {
     updateMaestro: async (req, res) => {
         try {
             const { tableName, idName, idValue, data } = req.body;
-            if (!tableName || !idName || !idValue || !data) return errorResponse(res, 'Missing required fields', 400);
+            if (!tableName || !idName || idValue === undefined || idValue === null || !data) return errorResponse(res, 'Missing required fields', 400);
             const result = await catalogosService.updateMaestro(tableName, idName, idValue, data);
             return successResponse(res, result, 'Maestro updated successfully');
         } catch (error) {
@@ -253,11 +253,12 @@ export const catalogosController = {
     toggleMaestroStatus: async (req, res) => {
         try {
             const { tableName, idName, idValue, statusColumn, newStatus } = req.body;
-            if (!tableName || !idName || !idValue || !statusColumn || !newStatus) return errorResponse(res, 'Missing required fields', 400);
+            if (!tableName || !idName || idValue === undefined || idValue === null || !statusColumn || newStatus === undefined || newStatus === null) return errorResponse(res, 'Missing required fields', 400);
             const result = await catalogosService.toggleMaestroStatus(tableName, idName, idValue, statusColumn, newStatus);
             return successResponse(res, result, 'Status toggled successfully');
         } catch (error) {
             return errorResponse(res, error.message, 500);
         }
     },
+
 };

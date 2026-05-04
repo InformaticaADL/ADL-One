@@ -10,7 +10,8 @@ import { validateRequest, adminValidationSchemas } from '../middlewares/validate
 const router = express.Router();
 
 // --- MUESTREADORES ---
-router.get('/muestreadores', verifyToken, verifyPermission('MA_MUESTREADORES'), validateRequest(adminValidationSchemas.getMuestreadores), adminController.getMuestreadores);
+router.get('/muestreadores', verifyToken, verifyPermission(['MA_MUESTREADORES', 'MA_A_GEST_EQUIPO']), validateRequest(adminValidationSchemas.getMuestreadores), adminController.getMuestreadores);
+
 router.post('/muestreadores', verifyToken, verifyPermission('AI_MA_CREAR_NEW_MUESTREADOR'), validateRequest(adminValidationSchemas.createMuestreador), adminController.createMuestreador);
 router.put('/muestreadores/:id', verifyToken, verifyPermission('AI_MA_EDITAR_MUESTREADOR'), validateRequest(adminValidationSchemas.updateMuestreador), adminController.updateMuestreador);
 router.delete('/muestreadores/:id', verifyToken, verifyPermission('AI_MA_DESHABILITAR_MUESTREADOR'), validateRequest(adminValidationSchemas.disableMuestreador), adminController.disableMuestreador);

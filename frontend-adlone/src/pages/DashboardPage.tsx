@@ -50,16 +50,32 @@ const DashboardPage = () => {
             ].some(p => hasPermission(p));
     };
 
-    const ADMIN_SUBMODULES = ['admin-roles', 'admin-users', 'admin-user-roles', 'admin-notifications', 'admin-urs', 'admin-menu-web', 'admin-maestros', 'informatica', 'admin-equipos-gestion', 'admin-muestreadores'];
+    const ADMIN_SUBMODULES = ['admin-roles', 'admin-users', 'admin-user-roles', 'admin-notifications', 'admin-urs', 'admin-menu-web', 'admin-maestros', 'informatica'];
+    // Nota: 'admin-equipos-gestion' y 'admin-muestreadores' se verifican con sus propios permisos
+    // y NO dependen de los permisos de Admin. Información
 
     // Security Guard: Reset navigation if user lacks permission for protected areas
     useEffect(() => {
+        // Guard para módulo Admin. Información y sus submódulos internos
         const isAdminModule = activeModule === 'admin_informacion';
         const isAdminSubmodule = ADMIN_SUBMODULES.includes(activeSubmodule);
         if ((isAdminModule || isAdminSubmodule) && !hasAdminAccess()) {
             resetNavigation();
         }
+
+        // Guard independiente para Gestión de Equipos (solo requiere su propio permiso)
+        if (activeSubmodule === 'admin-equipos-gestion' &&
+            !hasPermission(['MA_A_GEST_EQUIPO', 'AI_MA_ADMIN_ACCESO', 'GC_ACCESO'])) {
+            resetNavigation();
+        }
+
+        // Guard independiente para Gestión de Muestreadores (solo requiere su propio permiso)
+        if (activeSubmodule === 'admin-muestreadores' &&
+            !hasPermission(['MA_MUESTREADORES', 'AI_MA_ADMIN_ACCESO', 'GC_ACCESO'])) {
+            resetNavigation();
+        }
     }, [activeModule, activeSubmodule, user, resetNavigation]);
+
 
     // Los ayudantes de dashboard han sido removidos ya que ahora se muestra el WelcomePage por defecto.
 

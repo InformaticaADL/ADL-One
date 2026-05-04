@@ -29,12 +29,45 @@ export const adminService = {
     // --- MUESTREADORES ---
 
     getMuestreadores: async (nombre, estado) => {
-        // SP: MAM_Admin_Muestreadores_List @Nombre, @Estado
-        return await callSP('MAM_Admin_Muestreadores_List', {
-            Nombre: nombre || null,
-            Estado: estado || 'ACTIVOS'
-        });
+        try {
+            const pool = await getConnection();
+            const request = pool.request();
+
+            let query = `
+                SELECT 
+                    id_muestreador,
+                    nombre_muestreador,
+                    correo_electronico,
+                    habilitado,
+                    firma_muestreador
+                FROM mae_muestreador
+                WHERE 1=1
+            `;
+
+            // Filtro por nombre (si viene vacío o null, no filtra)
+            if (nombre) {
+                request.input('Nombre', sql.VarChar(200), `%${nombre}%`);
+                query += ' AND nombre_muestreador LIKE @Nombre';
+            }
+
+            // Mapear ACTIVOS/INACTIVOS/TODOS al campo habilitado ('S'/'N')
+            if (estado === 'ACTIVOS' || estado === 'ACTIVO') {
+                query += ` AND habilitado = 'S'`;
+            } else if (estado === 'INACTIVOS' || estado === 'INACTIVO') {
+                query += ` AND habilitado = 'N'`;
+            }
+            // Si es 'TODOS' o no viene estado, no filtra por habilitado
+
+            query += ' ORDER BY nombre_muestreador ASC';
+
+            const result = await request.query(query);
+            return result.recordset;
+        } catch (error) {
+            logger.error('Error fetching muestreadores:', error);
+            throw error;
+        }
     },
+
 
     createMuestreador: async (data) => {
         // SP: MAM_Admin_Muestreador_Create @Nombre, @Correo, @Clave, @Firma

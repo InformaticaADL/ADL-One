@@ -155,11 +155,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Interceptor para manejar errores 401 (No autorizado) globalmente
     useEffect(() => {
         const handleAuthError = (error: any) => {
-            if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-                // Evitar loop infinito si el error viene del login
+            if (error.response && error.response.status === 401) {
+                // Solo hacer logout en 401 (token inválido/expirado)
+                // El 403 (sin permiso para esa acción) NO debe cerrar sesión
                 const isLoginRequest = error.config?.url?.includes('/auth/login');
                 if (!isLoginRequest) {
-                    console.warn('[Auth] Session expired or unauthorized (401/403). Logging out...', {
+                    console.warn('[Auth] Session expired (401). Logging out...', {
                         status: error.response.status,
                         url: error.config?.url
                     });
@@ -168,6 +169,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
             return Promise.reject(error);
         };
+
 
         // Añadir interceptor a la instancia global de axios
         const globalInterceptor = axios.interceptors.response.use(
