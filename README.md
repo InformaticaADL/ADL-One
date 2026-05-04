@@ -910,6 +910,18 @@ Mejoras en la experiencia de carga de datos y corrección de errores críticos d
 - **Corrección de Validación en Agenda Masiva**:
     - Resolución del error `400 Bad Request` en el endpoint `/batch-agenda`. Se ajustó el esquema Joi en el backend para manejar correctamente el objeto de asignaciones masivas enviado desde el frontend, permitiendo la programación exitosa de muestreos.
 
+### 57. Mejoras en Chat Interno y Notificaciones de Fichas (Mayo 2026) 💬📧
+Refinamiento de la experiencia de comunicación interna y corrección en las plantillas de correo de fichas.
+
+- **Filtro de Usuario Propio en Búsqueda de Chat**:
+    - Corrección en `ChatSidebar.tsx` para excluir al usuario actualmente autenticado de los resultados de búsqueda de contactos.
+    - Mejora de UX que evita que el usuario se encuentre a sí mismo al iniciar una conversación directa, haciendo los resultados más relevantes y limpios.
+
+- **Corrección de Plantillas de Email en Aprobación/Rechazo de Fichas**:
+    - Actualización de `ficha.service.js` y `uns.service.js` para estandarizar el formato visual de los correos de aprobación y rechazo de fichas de ingreso.
+    - Implementación de estructura de tabla HTML consistente que alinea correctamente los pares etiqueta-valor (Correlativo, Fecha, **Hora**, Cliente, etc.), siguiendo el mismo estándar visual del template "Ficha Comercial Creada".
+    - Incorporación del campo **Hora** de aprobación/rechazo en las notificaciones por correo para mayor trazabilidad.
+
 ---
 
 ---

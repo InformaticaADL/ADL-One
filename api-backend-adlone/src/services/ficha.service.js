@@ -1459,7 +1459,8 @@ class FichaIngresoService {
 
             // NOTIFICATION: Aprobada Técnica
             const notifDate = new Date();
-            const notifFecha = notifDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
+            const notifFecha = notifDate.toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' });
+            const notifHora = notifDate.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false });
 
             let notifUser = user ? (user.usuario || user.nombre_usuario || user.name) : null;
 
@@ -1480,6 +1481,9 @@ class FichaIngresoService {
                 id_usuario_propietario: ownerId,
                 usuario_accion: notifUser,
                 fecha: notifFecha,
+                hora: notifHora,
+                FECHA: notifFecha,
+                HORA: notifHora,
                 observacion: observaciones || 'Validación técnica conforme.'
             }).catch(e => logger.warn('UNS trigger failed:', e));
 
@@ -1528,7 +1532,8 @@ class FichaIngresoService {
 
             // NOTIFICATION: Rechazada Técnica
             const notifDate = new Date();
-            const notifFecha = notifDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
+            const notifFecha = notifDate.toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' });
+            const notifHora = notifDate.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false });
 
             let notifUser = user ? (user.usuario || user.nombre_usuario || user.name) : null;
 
@@ -1549,6 +1554,9 @@ class FichaIngresoService {
                 id_usuario_propietario: ownerId,
                 usuario_accion: notifUser,
                 fecha: notifFecha,
+                hora: notifHora,
+                FECHA: notifFecha,
+                HORA: notifHora,
                 observacion: observaciones || 'Sin motivo especificado'
             }).catch(e => logger.warn('UNS trigger failed:', e));
 
@@ -1610,7 +1618,8 @@ class FichaIngresoService {
 
             // NOTIFICACION: Aprobada Coordinación
             const notifDate = new Date();
-            const notifFecha = notifDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
+            const notifFecha = notifDate.toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' });
+            const notifHora = notifDate.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false });
 
             let notifUser = user ? (user.usuario || user.nombre_usuario || user.name) : null;
 
@@ -1631,6 +1640,9 @@ class FichaIngresoService {
                 id_usuario_propietario: ownerId,
                 usuario_accion: notifUser,
                 fecha: notifFecha,
+                hora: notifHora,
+                FECHA: notifFecha,
+                HORA: notifHora,
                 observacion: observaciones || 'Validación coordinación conforme.'
             }).catch(e => logger.warn('UNS trigger failed:', e));
 
@@ -1683,7 +1695,8 @@ class FichaIngresoService {
 
             // NOTIFICACION: Rechazada Coordinación (Enviada a Revisión)
             const notifDate = new Date();
-            const notifFecha = notifDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
+            const notifFecha = notifDate.toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' });
+            const notifHora = notifDate.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false });
 
             let notifUser = user ? (user.usuario || user.nombre_usuario || user.name) : null;
 
@@ -1704,6 +1717,9 @@ class FichaIngresoService {
                 id_usuario_propietario: ownerId,
                 usuario_accion: notifUser,
                 fecha: notifFecha,
+                hora: notifHora,
+                FECHA: notifFecha,
+                HORA: notifHora,
                 observacion: observaciones || 'Ficha devuelta a revisión técnica.'
             }).catch(e => logger.warn('UNS trigger failed:', e));
 

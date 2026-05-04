@@ -10,6 +10,7 @@ import {
 import { generalChatService } from '../../services/general-chat.service';
 import type { ChatConversation, ChatContact } from '../../services/general-chat.service';
 import { useChatStore } from '../../store/chatStore';
+import { useAuth } from '../../contexts/AuthContext';
 import API_CONFIG from '../../config/api.config';
 import { ConfirmModal } from '../../components/common/ConfirmModal';
 
@@ -33,6 +34,7 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
     const [showResults, setShowResults] = useState(false);
     const [activeTab, setActiveTab] = useState<string | null>('chats');
     const { favorites, fetchFavorites, deleteConversation, messages } = useChatStore();
+    const { user } = useAuth();
     const searchRef = useRef<HTMLDivElement>(null);
     const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
     const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
@@ -60,7 +62,10 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
         timerRef.current = setTimeout(async () => {
             try {
                 const results = await generalChatService.searchContacts(value);
-                setSearchResults(results);
+                const filteredResults = results.filter(
+                    (contact) => !(contact.tipo_entidad === 'USER' && String(contact.id_entidad) === String(user?.id))
+                );
+                setSearchResults(filteredResults);
             } catch (err) {
                 console.error(err);
             } finally {

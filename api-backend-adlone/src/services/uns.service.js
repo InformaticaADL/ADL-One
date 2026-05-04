@@ -367,10 +367,50 @@ class UnsService {
                     let tituloCorreo = 'Notificación de Solicitud';
                     let etiquetaObs = 'Comentarios de la Acción';
                     let labelSolicitante = 'Acción por';
+                    let etiquetaHora = 'Hora';
                     let colorPrincipal = '#0062a8'; 
                     let colorFondo = '#ffffff'; 
 
-                    if (codigoEvento.includes('NUEVA') || codigoEvento.includes('CREADA')) {
+                    // ── Eventos de Fichas ──────────────────────────────────
+                    if (codigoEvento.startsWith('FICHA_')) {
+                        const correlativo = context.correlativo || context.CORRELATIVO || '';
+                        if (codigoEvento === 'FICHA_APROBADA_TECNICA') {
+                            colorPrincipal = '#0d9488';
+                            tituloCorreo = `Ficha Aprobada Técnica: #${correlativo}`;
+                            etiquetaObs = 'Observaciones';
+                            labelSolicitante = 'Aprobado por';
+                            etiquetaHora = 'Hora Aprobación';
+                        } else if (codigoEvento === 'FICHA_RECHAZADA_TECNICA') {
+                            colorPrincipal = '#dc3545';
+                            tituloCorreo = `Ficha Rechazada: #${correlativo}`;
+                            etiquetaObs = 'Motivo del Rechazo';
+                            labelSolicitante = 'Rechazado por';
+                            etiquetaHora = 'Hora Rechazo';
+                        } else if (codigoEvento === 'FICHA_APROBADA_COORDINACION') {
+                            colorPrincipal = '#0d9488';
+                            tituloCorreo = `Ficha Aprobada Coordinación: #${correlativo}`;
+                            etiquetaObs = 'Observaciones';
+                            labelSolicitante = 'Aprobado por';
+                            etiquetaHora = 'Hora Aprobación';
+                        } else if (codigoEvento === 'FICHA_RECHAZADA_COORDINACION') {
+                            colorPrincipal = '#dc3545';
+                            tituloCorreo = `Ficha Devuelta a Revisión: #${correlativo}`;
+                            etiquetaObs = 'Motivo';
+                            labelSolicitante = 'Revisado por';
+                            etiquetaHora = 'Hora Rechazo';
+                        } else if (codigoEvento === 'FICHA_CREADA' || codigoEvento === 'FICHA_REMUESTREO_CREADA') {
+                            tituloCorreo = `Nueva Ficha Comercial: #${correlativo}`;
+                            etiquetaObs = 'Detalle';
+                            labelSolicitante = 'Creado por';
+                            etiquetaHora = 'Hora Creación';
+                        } else if (codigoEvento === 'FICHA_ASIGNADA') {
+                            colorPrincipal = '#6366f1';
+                            tituloCorreo = `Muestreo Asignado: #${correlativo}`;
+                            labelSolicitante = 'Asignado por';
+                            etiquetaHora = 'Hora Asignación';
+                        }
+                    // ── Eventos de Solicitudes ─────────────────────────────
+                    } else if (codigoEvento.includes('NUEVA') || codigoEvento.includes('CREADA')) {
                         tituloCorreo = `Nueva Solicitud: ${context.nombre_tipo || 'Servicio'}`;
                         etiquetaObs = 'Detalle de la Solicitud';
                         labelSolicitante = 'Creado por';
@@ -393,7 +433,8 @@ class UnsService {
                         USUARIO: context.USUARIO || context.usuario_accion || context.nombre_solicitante || context.nombre_autor || 'Técnico en Terreno (App)',
                         SOLICITANTE: context.SOLICITANTE || context.nombre_solicitante || context.solicitante || context.usuario_accion || context.nombre_autor || 'Usuario',
                         FECHA: now.toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' }),
-                        HORA: now.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }),
+                        HORA: now.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false }),
+                        ETIQUETA_HORA: etiquetaHora,
                         TIPO_SOLICITUD: context.nombre_tipo || 'Notificación General',
                         OBSERVACION: context.observaciones || context.mensaje || 'Sin observaciones adicionales.',
                         TITULO_CORREO: tituloCorreo,
