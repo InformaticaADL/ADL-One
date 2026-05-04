@@ -1,5 +1,6 @@
 import Joi from 'joi';
 import logger from '../utils/logger.js';
+import { errorResponse } from '../utils/response.js';
 
 // Validation middleware factory
 export const validateRequest = (schema) => {
@@ -18,17 +19,12 @@ export const validateRequest = (schema) => {
 
         if (error) {
             const details = error.details.map(detail => {
-                // Remove the leading 'body.', 'query.', or 'params.' from the path
                 const field = detail.path.join('.');
                 return `${field}: ${detail.message}`;
             });
 
-            logger.warn(`Validation error: ${details.join(', ')}`);
-            return res.status(400).json({
-                success: false,
-                message: 'Validation error',
-                errors: details,
-            });
+            logger.warn(`Validation error on ${req.method} ${req.path}: ${details.join(', ')}`);
+            return errorResponse(res, 'Error de validación', 400, details);
         }
 
         // Replace request data with validated data
@@ -140,8 +136,8 @@ export const fichaValidationSchemas = {
     getEnProceso: Joi.object({
         body: Joi.object(),
         query: Joi.object({
-            month: Joi.string().regex(/^\d{1,2}$/).optional(),
-            year: Joi.string().regex(/^\d{4}$/).optional(),
+            month: Joi.number().integer().min(1).max(12).optional(),
+            year: Joi.number().integer().min(2000).max(2100).optional(),
         }),
         params: Joi.object(),
     }),
@@ -152,27 +148,25 @@ export const ursValidationSchemas = {
     createRequest: Joi.object({
         body: Joi.object({
             id_tipo: Joi.string().required(),
-            datos: Joi.alternatives().try(
-                Joi.object(),
-                Joi.string().required()
-            ).required(),
-            datos_json: Joi.alternatives().try(
-                Joi.object(),
-                Joi.string()
-            ).optional(),
+            // Controller acepta 'datos' o 'datos_json' (ambos nombres válidos)
+            datos: Joi.alternatives().try(Joi.object(), Joi.string()).optional(),
+            datos_json: Joi.alternatives().try(Joi.object(), Joi.string()).optional(),
             prioridad: Joi.string().valid('BAJA', 'MEDIA', 'ALTA').optional(),
             area_actual: Joi.string().optional(),
             observaciones: Joi.string().max(5000).optional(),
-        }).unknown(true).required(),
+        }).or('datos', 'datos_json').unknown(true).required(),
         query: Joi.object(),
         params: Joi.object(),
     }),
 
     updateStatus: Joi.object({
         body: Joi.object({
-            status: Joi.string().valid('PENDIENTE', 'ACEPTADA', 'RECHAZADA', 'REALIZADA').required(),
+            // Controller acepta tanto 'status' como 'estado' (legacy)
+            status: Joi.string().valid('PENDIENTE', 'ACEPTADA', 'RECHAZADA', 'REALIZADA').optional(),
+            estado: Joi.string().valid('PENDIENTE', 'ACEPTADA', 'RECHAZADA', 'REALIZADA').optional(),
             comment: Joi.string().max(5000).optional(),
-        }).unknown(true).required(),
+            observaciones: Joi.string().max(5000).optional(),
+        }).or('status', 'estado').unknown(true).required(),
         query: Joi.object(),
         params: Joi.object({
             id: Joi.string().required(),
@@ -181,7 +175,8 @@ export const ursValidationSchemas = {
 
     addComment: Joi.object({
         body: Joi.object({
-            comentario: Joi.string().max(5000).required(),
+            mensaje: Joi.string().max(5000).required(),
+            es_privado: Joi.boolean().optional(),
         }).unknown(true).required(),
         query: Joi.object(),
         params: Joi.object({
@@ -231,8 +226,18 @@ export const ursValidationSchemas = {
 
     derive: Joi.object({
         body: Joi.object({
-            derivar_a: Joi.string().required(),
-            observaciones: Joi.string().max(5000).optional(),
+            // Controller acepta nombres alternativos para área destino
+            area: Joi.string().optional(),
+            area_destino: Joi.string().optional(),
+            // Controller acepta nombres alternativos para usuario destino
+            userId: Joi.alternatives().try(Joi.number(), Joi.string()).optional(),
+            id_usuario_destino: Joi.alternatives().try(Joi.number(), Joi.string()).optional(),
+            // Controller acepta nombres alternativos para rol
+            roleId: Joi.alternatives().try(Joi.number(), Joi.string()).optional(),
+            id_rol_destino: Joi.alternatives().try(Joi.number(), Joi.string()).optional(),
+            // Motivo/comentario
+            comment: Joi.string().max(5000).optional(),
+            motivo: Joi.string().max(5000).optional(),
         }).unknown(true).required(),
         query: Joi.object(),
         params: Joi.object({
@@ -331,8 +336,8 @@ export const adminValidationSchemas = {
     getCalendario: Joi.object({
         body: Joi.object(),
         query: Joi.object({
-            mes: Joi.string().regex(/^\d{1,2}$/).optional(),
-            ano: Joi.string().regex(/^\d{4}$/).optional(),
+            mes: Joi.number().integer().min(1).max(12).optional(),
+            ano: Joi.number().integer().min(2000).max(2100).optional(),
         }),
         params: Joi.object(),
     }),
