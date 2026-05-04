@@ -2,6 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import ursController from '../controllers/urs.controller.js';
 import { authenticate } from '../middlewares/auth.middleware.js';
+import { validateRequest, ursValidationSchemas } from '../middlewares/validate.middleware.js';
 
 const upload = multer();
 
@@ -11,16 +12,16 @@ const router = express.Router();
 router.use(authenticate);
 
 router.get('/types', ursController.getTypes);
-router.post('/types', ursController.createUpdateType);
-router.put('/types/:id', ursController.createUpdateType);
-router.patch('/types/:id/status', ursController.toggleTypeStatus);
+router.post('/types', validateRequest(ursValidationSchemas.createUpdateType), ursController.createUpdateType);
+router.put('/types/:id', validateRequest(ursValidationSchemas.createUpdateType), ursController.createUpdateType);
+router.patch('/types/:id/status', validateRequest(ursValidationSchemas.toggleTypeStatus), ursController.toggleTypeStatus);
 
-router.get('/', ursController.getRequests);
-router.post('/', upload.any(), ursController.createRequest);
-router.get('/:id', ursController.getRequestById);
-router.put('/:id/status', ursController.updateStatus);
-router.post('/:id/comments', upload.any(), ursController.addComment);
-router.post('/:id/derive', ursController.derive);
+router.get('/', validateRequest(ursValidationSchemas.getRequests), ursController.getRequests);
+router.post('/', upload.any(), validateRequest(ursValidationSchemas.createRequest), ursController.createRequest);
+router.get('/:id', validateRequest(ursValidationSchemas.getRequestById), ursController.getRequestById);
+router.put('/:id/status', validateRequest(ursValidationSchemas.updateStatus), ursController.updateStatus);
+router.post('/:id/comments', upload.any(), validateRequest(ursValidationSchemas.addComment), ursController.addComment);
+router.post('/:id/derive', validateRequest(ursValidationSchemas.derive), ursController.derive);
 router.get('/download/:idAdjunto', ursController.downloadAttachment);
 
 // --- Granular Permissions & Notifications (Phase 22) ---

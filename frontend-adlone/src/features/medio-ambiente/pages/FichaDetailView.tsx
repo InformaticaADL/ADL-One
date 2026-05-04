@@ -518,6 +518,7 @@ export const FichaDetailView = () => {
                                                             <Table.Tr>
                                                                 <Table.Th>Parámetro</Table.Th>
                                                                 <Table.Th ta="center">Valor</Table.Th>
+                                                                {hasPermission('FI_EXP_VER_UF') && <Table.Th ta="center">UF</Table.Th>}
                                                             </Table.Tr>
                                                         </Table.Thead>
                                                         <Table.Tbody>
@@ -527,6 +528,11 @@ export const FichaDetailView = () => {
                                                                     <Table.Td ta="center">
                                                                         <Badge variant="light" color="teal">{item.valor}</Badge>
                                                                     </Table.Td>
+                                                                    {hasPermission('FI_EXP_VER_UF') && (
+                                                                        <Table.Td ta="center">
+                                                                            <Text size="sm" fw={700} c="blue.7">{item.uf_individual > 0 ? Number(item.uf_individual).toFixed(2) : '—'}</Text>
+                                                                        </Table.Td>
+                                                                    )}
                                                                 </Table.Tr>
                                                             ))}
                                                             {analisis?.filter((item: any) => item.tipo_analisis !== 'Laboratorio').length === 0 && (
@@ -553,6 +559,7 @@ export const FichaDetailView = () => {
                                                             <Table.Tr>
                                                                 <Table.Th>Parámetro</Table.Th>
                                                                 <Table.Th>Laboratorio Asignado</Table.Th>
+                                                                {hasPermission('FI_EXP_VER_UF') && <Table.Th ta="center">UF</Table.Th>}
                                                             </Table.Tr>
                                                         </Table.Thead>
                                                         <Table.Tbody>
@@ -565,6 +572,11 @@ export const FichaDetailView = () => {
                                                                                 {item.nombre_laboratorioensayo || '—'}
                                                                             </Text>
                                                                         </Table.Td>
+                                                                        {hasPermission('FI_EXP_VER_UF') && (
+                                                                            <Table.Td ta="center">
+                                                                                <Text size="sm" fw={700} c="blue.7">{item.uf_individual > 0 ? Number(item.uf_individual).toFixed(2) : '—'}</Text>
+                                                                            </Table.Td>
+                                                                        )}
                                                                     </Table.Tr>
                                                                 );
                                                             })}

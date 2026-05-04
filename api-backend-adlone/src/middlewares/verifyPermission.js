@@ -1,12 +1,8 @@
 import { errorResponse } from '../utils/response.js';
+import logger from '../utils/logger.js';
 
-/**
- * Middleware to check if the user has a specific permission.
- * Assumes that 'req.user' is already populated by the authentication middleware
- * and that it contains a 'permissions' array (from the token or fetched independently).
- * 
- * @param {string} requiredPermission - The code of the permission to check (e.g., 'MA_COMERCIAL_VIEW')
- */
+const SUPER_ADMIN_PERMISSION = 'AI_MA_ADMIN_ACCESO';
+
 export const verifyPermission = (requiredPermission) => {
     return (req, res, next) => {
         try {
@@ -16,27 +12,22 @@ export const verifyPermission = (requiredPermission) => {
                 return errorResponse(res, 'Usuario no autenticado', 401);
             }
 
-            // If user is Admin (role check as fallback/superuser)
-            // Ideally we rely on permissions, but Admin usually has all.
-            // Adjust according to requirements. Here we check specific permission.
-
             const userPermissions = user.permissions || [];
-            const required = Array.isArray(requiredPermission) ? requiredPermission : [requiredPermission];
 
-            // Check if user has AT LEAST ONE of the required permissions
+            if (userPermissions.includes(SUPER_ADMIN_PERMISSION)) {
+                return next();
+            }
+
+            const required = Array.isArray(requiredPermission) ? requiredPermission : [requiredPermission];
             const hasPermission = required.some(p => userPermissions.includes(p));
 
             if (hasPermission) {
                 return next();
             }
 
-            // Fallback: Check if user role is 'Administrador' (Hardcoded legacy support if needed)
-            // But better to rely on DB permissions. 
-            // The DB seed assigned all permissions to Administrator, so strict check should work.
-
             return errorResponse(res, 'No tiene permisos para realizar esta acción', 403);
         } catch (error) {
-            console.error('Error in verifyPermission:', error);
+            logger.error('Error in verifyPermission:', error);
             return errorResponse(res, 'Error al verificar permisos', 500);
         }
     };

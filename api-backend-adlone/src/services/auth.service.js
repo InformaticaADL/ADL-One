@@ -10,8 +10,7 @@ dotenv.config();
 
 class AuthService {
     async login(username, password, rememberMe) {
-        const secret = process.env.JWT_SECRET || 'adl-secret-key-2024';
-        logger.info(`AuthService Debug: Signing with Secret First: ${secret[0]}, Last: ${secret[secret.length - 1]}, Len: ${secret.length}`);
+        const secret = process.env.JWT_SECRET;
         try {
             logger.info('AuthService: Getting DB connection...');
             const startConn = Date.now();

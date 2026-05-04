@@ -17,7 +17,7 @@ export const getTransporter = () => {
                 pass: process.env.SMTP_PASS,
             },
             tls: {
-                rejectUnauthorized: false // Helpful for self-signed development certs
+                rejectUnauthorized: process.env.NODE_ENV !== 'development',
             }
         });
     }

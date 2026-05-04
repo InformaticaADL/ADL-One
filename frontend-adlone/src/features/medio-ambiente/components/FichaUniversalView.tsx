@@ -481,6 +481,7 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                             <Table.Th>Tipo Entrega</Table.Th>
                                                             <Table.Th>Lab. Principal</Table.Th>
                                                             <Table.Th>Lab. Secundario</Table.Th>
+                                                            {hasPermission('FI_EXP_VER_UF') && <Table.Th ta="center">UF</Table.Th>}
                                                         </Table.Tr>
                                                     </Table.Thead>
                                                     <Table.Tbody>
@@ -494,6 +495,11 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                                 <Table.Td>{row.nombre_tipoentrega}</Table.Td>
                                                                 <Table.Td>{getLabName(row.id_laboratorioensayo) || 'Interno'}</Table.Td>
                                                                 <Table.Td>{getLabName(row.id_laboratorioensayo_2) || '-'}</Table.Td>
+                                                                {hasPermission('FI_EXP_VER_UF') && (
+                                                                    <Table.Td ta="center">
+                                                                        <Text size="sm" fw={700} c="blue.7">{row.uf_individual > 0 ? Number(row.uf_individual).toFixed(2) : '—'}</Text>
+                                                                    </Table.Td>
+                                                                )}
                                                             </Table.Tr>
                                                         ))}
                                                     </Table.Tbody>

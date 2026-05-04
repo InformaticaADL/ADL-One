@@ -2,6 +2,7 @@ import { getConnection } from '../config/database.js';
 import sql from 'mssql';
 import logger from '../utils/logger.js';
 import unsService from './uns.service.js';
+import { getIo } from '../utils/socketManager.js';
 import path from 'path';
 import fs from 'fs';
 // Dummy comment to trigger nodemon restart and refresh DB connection pool
@@ -224,9 +225,7 @@ class GeneralChatService {
                             id_referencia: convId,
                             area: 'Chat'
                         });
-                        if (global.io) {
-                            global.io.to(`user_${memberId}`).emit('chatConversacionNueva', { id_conversacion: convId });
-                        }
+                        try { getIo().to(`user_${memberId}`).emit('chatConversacionNueva', { id_conversacion: convId }); } catch (_) {}
                     } catch (e) { logger.error('Notification error on group create:', e); }
                 }
 
@@ -321,9 +320,7 @@ class GeneralChatService {
                     area: 'Chat'
                 });
                 
-                if (global.io) {
-                    global.io.to(`user_${targetUserId}`).emit('chatConversacionNueva', { id_conversacion: conversationId });
-                }
+                try { getIo().to(`user_${targetUserId}`).emit('chatConversacionNueva', { id_conversacion: conversationId }); } catch (_) {}
             } catch (e) { logger.error('Notification error:', e); }
 
             return { success: true };
@@ -368,9 +365,7 @@ class GeneralChatService {
                     id_referencia: conversationId,
                     area: 'Chat'
                 });
-                if (global.io) {
-                    global.io.to(`user_${targetUserId}`).emit('chatMiembroRemovido', { id_conversacion: conversationId });
-                }
+                try { getIo().to(`user_${targetUserId}`).emit('chatMiembroRemovido', { id_conversacion: conversationId }); } catch (_) {}
             } catch (e) { logger.error('Notification error:', e); }
 
             return { success: true };
@@ -559,9 +554,7 @@ class GeneralChatService {
             const conversation = convInfo.recordset[0];
 
             for (const p of participants.recordset) {
-                if (global.io) {
-                    global.io.to(`user_${p.id_usuario}`).emit('nuevoChatMensaje', messageForEmit);
-                }
+                try { getIo().to(`user_${p.id_usuario}`).emit('nuevoChatMensaje', messageForEmit); } catch (_) {}
             }
 
             // Web Notification (vía UNS Trigger para que aparezca en el Hub y barra lateral)

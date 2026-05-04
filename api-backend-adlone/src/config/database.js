@@ -1,5 +1,5 @@
 import sql from 'mssql';
-
+import logger from '../utils/logger.js';
 
 const config = {
   server: process.env.DB_SERVER || 'localhost',
@@ -22,38 +22,38 @@ const config = {
   },
 };
 
-console.log('--- DIAGNÓSTICO DE CONEXIÓN DB ---');
-console.log('Servidor:', config.server);
-console.log('Base de Datos:', config.database);
-console.log('Usuario:', config.user);
-console.log('---------------------------------');
+logger.info(`DB Config → server: ${config.server}, db: ${config.database}, user: ${config.user}`);
 
 
-let pool = null;
+let poolPromise = null;
 
-export const getConnection = async () => {
-  try {
-    if (pool) {
-      return pool;
-    }
-    pool = await sql.connect(config);
-    console.log('✅ Connected to SQL Server successfully');
-    return pool;
-  } catch (error) {
-    console.error('❌ Database connection error:', error);
-    throw error;
+export const getConnection = () => {
+  if (!poolPromise) {
+    poolPromise = sql.connect(config)
+      .then((pool) => {
+        logger.info('✅ Connected to SQL Server successfully');
+        return pool;
+      })
+      .catch((error) => {
+        // Reset so the next call retries instead of returning a rejected promise forever
+        poolPromise = null;
+        logger.error('❌ Database connection error:', error);
+        throw error;
+      });
   }
+  return poolPromise;
 };
 
 export const closeConnection = async () => {
   try {
-    if (pool) {
+    if (poolPromise) {
+      const pool = await poolPromise;
       await pool.close();
-      pool = null;
-      console.log('✅ Database connection closed');
+      poolPromise = null;
+      logger.info('✅ Database connection closed');
     }
   } catch (error) {
-    console.error('❌ Error closing database connection:', error);
+    logger.error('❌ Error closing database connection:', error);
     throw error;
   }
 };

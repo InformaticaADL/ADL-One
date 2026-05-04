@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
+import apiClient from '../config/axios.config';
 import API_CONFIG from '../config/api.config';
 import { useNavStore } from '../store/navStore';
 
@@ -33,28 +34,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [authState, setAuthState] = useState<{
         user: User | null;
         token: string | null;
-    }>({
-        user: null,
-        token: null
+    }>(() => {
+        // Read from storage immediately during state initialization to avoid flickers
+        const storedToken = typeof window !== 'undefined' ? (localStorage.getItem('token') || sessionStorage.getItem('token')) : null;
+        const storedUser = typeof window !== 'undefined' ? (localStorage.getItem('user') || sessionStorage.getItem('user')) : null;
+
+        if (storedToken && storedUser) {
+            try {
+                const user = JSON.parse(storedUser);
+                // Pre-set axios defaults if possible (though interceptors are better)
+                if (typeof axios !== 'undefined') {
+                    axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+                }
+                return { token: storedToken, user };
+            } catch (e) {
+                console.error('[Auth] Error parsing stored user in lazy init:', e);
+                return { token: null, user: null };
+            }
+        }
+        return { token: null, user: null };
     });
-    const [loading, setLoading] = useState(true);
+
+    const [loading, setLoading] = useState(() => {
+        // If we found a session in lazy init, we might still want to show loader for a split second 
+        // to ensure all stores (Zustand, etc) are synced, but usually false is fine if data is ready.
+        const hasSession = !!(localStorage.getItem('token') || sessionStorage.getItem('token'));
+        return !hasSession; // Only load if we have no session to restore
+    });
     const [isAuthenticating, setIsAuthenticating] = useState(false);
 
-    // Initialize state from Storage (Local or Session)
+    // Initialize state from Storage (Local or Session) - Final Sync
     useEffect(() => {
         const storedToken = localStorage.getItem('token') || sessionStorage.getItem('token');
         const storedUser = localStorage.getItem('user') || sessionStorage.getItem('user');
 
-        if (storedToken && storedUser) {
-            const parsedUser = JSON.parse(storedUser);
-            setAuthState({
-                token: storedToken,
-                user: parsedUser
-            });
-            
-            // Sincronizar cabecera de axios inmediatamente al restaurar
-            axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+        // If lazy init didn't catch it or for extra safety
+        if (storedToken && storedUser && !authState.token) {
+            try {
+                const parsedUser = JSON.parse(storedUser);
+                setAuthState({
+                    token: storedToken,
+                    user: parsedUser
+                });
+                axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+            } catch (error) {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                sessionStorage.removeItem('token');
+                sessionStorage.removeItem('user');
+            }
         }
+        
+        // Ensure loading is always off after mount
         setLoading(false);
     }, []);
 
@@ -121,24 +152,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Interceptor para manejar errores 401 (No autorizado) globalmente
     useEffect(() => {
-        const interceptor = axios.interceptors.response.use(
-            (response) => response,
-            (error) => {
-                // Verificar si es un error 401 o 403
-                if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-                    // Evitar loop infinito si el error viene del login
-                    if (!error.config.url.includes('/auth/login')) {
-                        console.warn('Sesión expirada o no autorizada. Cerrando sesión...');
-                        logout();
-                    }
+        const handleAuthError = (error: any) => {
+            if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+                // Evitar loop infinito si el error viene del login
+                const isLoginRequest = error.config?.url?.includes('/auth/login');
+                if (!isLoginRequest) {
+                    console.warn('[Auth] Session expired or unauthorized (401/403). Logging out...', {
+                        status: error.response.status,
+                        url: error.config?.url
+                    });
+                    logout();
                 }
-                return Promise.reject(error);
             }
+            return Promise.reject(error);
+        };
+
+        // Añadir interceptor a la instancia global de axios
+        const globalInterceptor = axios.interceptors.response.use(
+            (response) => response,
+            handleAuthError
         );
 
-        // Limpiar interceptor al desmontar
+        // [IMPORTANTE] También añadirlo a apiClient ya que los servicios lo usan exclusivamente
+        const apiClientInterceptor = apiClient.interceptors.response.use(
+            (response) => response,
+            handleAuthError
+        );
+
         return () => {
-            axios.interceptors.response.eject(interceptor);
+            axios.interceptors.response.eject(globalInterceptor);
+            apiClient.interceptors.response.eject(apiClientInterceptor);
         };
     }, [logout]);
 

@@ -4,16 +4,17 @@ import { equipoController } from '../controllers/equipo.controller.js';
 import solicitudController from '../controllers/solicitud.controller.js';
 import { authenticate as verifyToken } from '../middlewares/auth.middleware.js';
 import { verifyPermission } from '../middlewares/verifyPermission.js';
+import { validateRequest, adminValidationSchemas } from '../middlewares/validate.middleware.js';
 // Note: Middleware path usually plural 'middlewares' or 'middleware'. Checking file list earlier showed 'middlewares' dir.
 
 const router = express.Router();
 
 // --- MUESTREADORES ---
-router.get('/muestreadores', verifyToken, verifyPermission('MA_MUESTREADORES'), adminController.getMuestreadores);
-router.post('/muestreadores', verifyToken, verifyPermission('AI_MA_CREAR_NEW_MUESTREADOR'), adminController.createMuestreador);
-router.put('/muestreadores/:id', verifyToken, verifyPermission('AI_MA_EDITAR_MUESTREADOR'), adminController.updateMuestreador);
-router.delete('/muestreadores/:id', verifyToken, verifyPermission('AI_MA_DESHABILITAR_MUESTREADOR'), adminController.disableMuestreador);
-router.post('/muestreadores/:id/disable-with-reassignment', verifyToken, verifyPermission('AI_MA_DESHABILITAR_MUESTREADOR'), adminController.disableMuestreadorWithReassignment);
+router.get('/muestreadores', verifyToken, verifyPermission('MA_MUESTREADORES'), validateRequest(adminValidationSchemas.getMuestreadores), adminController.getMuestreadores);
+router.post('/muestreadores', verifyToken, verifyPermission('AI_MA_CREAR_NEW_MUESTREADOR'), validateRequest(adminValidationSchemas.createMuestreador), adminController.createMuestreador);
+router.put('/muestreadores/:id', verifyToken, verifyPermission('AI_MA_EDITAR_MUESTREADOR'), validateRequest(adminValidationSchemas.updateMuestreador), adminController.updateMuestreador);
+router.delete('/muestreadores/:id', verifyToken, verifyPermission('AI_MA_DESHABILITAR_MUESTREADOR'), validateRequest(adminValidationSchemas.disableMuestreador), adminController.disableMuestreador);
+router.post('/muestreadores/:id/disable-with-reassignment', verifyToken, verifyPermission('AI_MA_DESHABILITAR_MUESTREADOR'), validateRequest(adminValidationSchemas.disableMuestreadorWithReassignment), adminController.disableMuestreadorWithReassignment);
 router.put('/muestreadores/:id/enable', verifyToken, verifyPermission('AI_MA_DESHABILITAR_MUESTREADOR'), adminController.enableMuestreador);
 router.get('/muestreadores/check-duplicate', verifyToken, adminController.checkDuplicateMuestreador);
 router.get('/muestreadores/export-pdf', verifyToken, verifyPermission('MU_EXP'), adminController.downloadMuestreadoresPdf);
@@ -22,10 +23,10 @@ router.get('/muestreadores/export-pdf', verifyToken, verifyPermission('MU_EXP'),
 router.get('/dashboard/stats', verifyToken, adminController.getDashboardStats);
 
 // --- CALENDARIO REPLICA ---
-router.get('/calendario', verifyToken, adminController.getCalendario);
+router.get('/calendario', verifyToken, validateRequest(adminValidationSchemas.getCalendario), adminController.getCalendario);
 
 // --- EXPORT DATA ---
-router.get('/export-table', verifyToken, adminController.getExportData);
+router.get('/export-table', verifyToken, validateRequest(adminValidationSchemas.getExportData), adminController.getExportData);
 router.get('/export-pdf', verifyToken, adminController.downloadBulkPdf);
 
 // --- EQUIPOS ---

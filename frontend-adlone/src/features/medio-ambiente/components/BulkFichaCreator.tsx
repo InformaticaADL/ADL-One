@@ -17,7 +17,8 @@ import {
     IconCheck,
     IconAlertCircle,
     IconDatabaseExport,
-    IconPdf
+    IconPdf,
+    IconFileSpreadsheet
 } from '@tabler/icons-react';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { fichaService } from '../services/ficha.service';
@@ -51,9 +52,13 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
-            const selectedFiles = Array.from(e.target.files).filter(f => f.type === 'application/pdf');
+            const selectedFiles = Array.from(e.target.files).filter(f => 
+                f.type === 'application/pdf' || 
+                f.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+                f.name.endsWith('.xlsx')
+            );
             if (selectedFiles.length === 0) {
-                setError('Por favor, seleccione únicamente archivos PDF.');
+                setError('Por favor, seleccione archivos válidos (PDF o Excel .xlsx).');
                 return;
             }
             if (selectedFiles.length > 1000) {
@@ -75,7 +80,7 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
         
         try {
             const formData = new FormData();
-            files.forEach(f => formData.append('pdfs', f));
+            files.forEach(f => formData.append('files', f));
             
             // Progress is mostly a placeholder since the upload/parse is a single request, 
             // but we could set up Axios upload progress if needed.
@@ -84,13 +89,20 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
             const result = await fichaService.bulkParse(formData);
             
             if (result.success && result.data?.items) {
-                setParsedItems(result.data.items);
-                // Auto-select all READY items
-                const initialSelection = result.data.items
-                    .map((item: any, idx: number) => (item.status === 'READY' || item.status === 'WARNING') ? idx : -1)
-                    .filter((idx: number) => idx !== -1);
+                const data = result.data;
+                setParsedItems(data.items);
+            
+                // Initialize UF totals from Excel if available
+                const initialUfs: Record<number, number> = {};
+                data.items.forEach((item: any, idx: number) => {
+                    if (item.uf_distribuir) {
+                        initialUfs[idx] = item.uf_distribuir;
+                    }
+                });
+                setUfTotals(initialUfs);
                 
-                setSelectedIndices(initialSelection);
+                // Auto-select all READY items
+                setSelectedIndices(data.items.map((it: any, i: number) => (it.status === 'READY' || it.status === 'WARNING' ? i : -1)).filter((i: number) => i !== -1));
                 setProgress(100);
             } else {
                 throw new Error(result.message || 'Error al procesar los archivos');
@@ -116,13 +128,20 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
             const itemsToCommit = selectedIndices.map(idx => {
                 const item = { ...parsedItems[idx] };
                 const ufTotal = ufTotals[idx] || 0;
-                const matchedCount = (item.analisis || []).filter((a: any) => a._matched).length;
-                const ufIndividual = (ufTotal > 0 && matchedCount > 0) ? Math.round((ufTotal / matchedCount) * 100) / 100 : 0;
                 
-                item.analisis = (item.analisis || []).map((a: any) => ({
-                    ...a,
-                    uf_individual: a._matched ? ufIndividual : 0
-                }));
+                // Check if we have individual UFs already (from Excel)
+                const hasIndividualUfs = (item.analisis || []).some((a: any) => parseFloat(a.uf_individual) > 0);
+                
+                if (!hasIndividualUfs) {
+                    const matchedCount = (item.analisis || []).filter((a: any) => a._matched).length;
+                    const ufIndividual = (ufTotal > 0 && matchedCount > 0) ? Math.round((ufTotal / matchedCount) * 100) / 100 : 0;
+                    
+                    item.analisis = (item.analisis || []).map((a: any) => ({
+                        ...a,
+                        uf_individual: a._matched ? ufIndividual : 0
+                    }));
+                }
+                
                 return item;
             });
             
@@ -152,7 +171,7 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
             <input 
                 type="file" 
                 multiple 
-                accept="application/pdf" 
+                accept="application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xlsx" 
                 ref={fileInputRef} 
                 style={{ display: 'none' }} 
                 onChange={handleFileSelect}
@@ -185,12 +204,12 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
                 </ThemeIcon>
                 <Text fw={700} size="lg">Haga clic o arrastre archivos aquí</Text>
                 <Text size="sm" c="dimmed" mt="xs">
-                    Solo se aceptan archivos PDF. Puede subir hasta 1000 archivos a la vez.
+                    Soporta archivos PDF y Planillas Excel (.xlsx).
                 </Text>
                 
                 {files.length > 0 && (
-                    <Alert color="blue" variant="light" mt="lg" icon={<IconPdf size={16} />}>
-                        {files.length} archivos seleccionados
+                    <Alert color="blue" variant="light" mt="lg" icon={files[0].name.endsWith('.xlsx') ? <IconFileSpreadsheet size={16} /> : <IconPdf size={16} />}>
+                        {files.length} {files.length === 1 ? 'archivo seleccionado' : 'archivos seleccionados'}
                     </Alert>
                 )}
             </Box>
@@ -313,7 +332,7 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
 
     return (
         <Stack gap="lg" style={{ width: '100%' }}>
-            {step === 1 && <PageHeader title="Carga Masiva de Fichas (PDF)" onBack={onBack} />}
+            {step === 1 && <PageHeader title="Carga Masiva de Fichas (PDF / Excel)" onBack={onBack} />}
             
             <Paper withBorder p={isMobile ? 'md' : 'xl'} radius="lg" shadow="sm">
                 {error && (

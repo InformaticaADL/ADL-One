@@ -2,6 +2,7 @@ import { getConnection } from '../config/database.js';
 import sql from 'mssql';
 import logger from '../utils/logger.js';
 import notificationService from './notification.service.js';
+import { getIo } from '../utils/socketManager.js';
 
 class UnsService {
     /**
@@ -437,8 +438,12 @@ class UnsService {
                                 
                                 logger.info(`UNS: Buscando plantilla específica para [${tipoNombre}] -> Candidatos: ${uniqueCandidates.join(', ')}`);
                                 
-                                const checkRes = await pool.request()
-                                    .query(`SELECT codigo_evento FROM mae_evento_notificacion WHERE codigo_evento IN (${uniqueCandidates.map(c => `'${c}'`).join(',')})`);
+                                const checkReq = pool.request();
+                                const checkPlaceholders = uniqueCandidates.map((c, i) => {
+                                    checkReq.input(`ec${i}`, sql.VarChar(50), c);
+                                    return `@ec${i}`;
+                                }).join(',');
+                                const checkRes = await checkReq.query(`SELECT codigo_evento FROM mae_evento_notificacion WHERE codigo_evento IN (${checkPlaceholders})`);
                                 
                                 if (checkRes.recordset.length > 0) {
                                     emailEventCode = checkRes.recordset[0].codigo_evento;
@@ -455,6 +460,7 @@ class UnsService {
             }
         } catch (error) {
             logger.error(`Error in UnsService.trigger (${codigoEvento}):`, error);
+            throw error;
         }
     }
 
@@ -473,33 +479,52 @@ class UnsService {
             return true;
         };
 
-        // A. Procesar Reglas 3.0 (mae_notificacion_regla)
+        // A. Procesar Reglas 3.0 (mae_notificacion_regla) — batch lookups
+        const directUserRules = reglas.filter(r => r.id_usuario_destino);
+        const roleRules = reglas.filter(r => r.id_rol_destino);
+
+        // Batch: all direct-user IDs in a single query
+        const directUserMap = new Map(); // uid -> email
+        if (directUserRules.length > 0) {
+            const req = pool.request();
+            const ph = directUserRules.map((r, i) => {
+                req.input(`du${i}`, sql.Int, Number(r.id_usuario_destino));
+                return `@du${i}`;
+            }).join(',');
+            const uRes = await req.query(`SELECT id_usuario, correo_electronico FROM mae_usuario WHERE id_usuario IN (${ph})`);
+            uRes.recordset.forEach(r => directUserMap.set(Number(r.id_usuario), r.correo_electronico));
+        }
+
+        // Batch: all role IDs in a single query
+        const roleUserMap = new Map(); // uid -> { email, roleId }
+        if (roleRules.length > 0) {
+            const req = pool.request();
+            const ph = roleRules.map((r, i) => {
+                req.input(`ro${i}`, sql.Int, Number(r.id_rol_destino));
+                return `@ro${i}`;
+            }).join(',');
+            const rRes = await req.query(`SELECT rur.id_rol, u.id_usuario, u.correo_electronico FROM rel_usuario_rol rur JOIN mae_usuario u ON rur.id_usuario = u.id_usuario WHERE rur.id_rol IN (${ph}) AND u.habilitado = 'S'`);
+            rRes.recordset.forEach(r => roleUserMap.set(Number(r.id_usuario), { email: r.correo_electronico, roleId: Number(r.id_rol) }));
+        }
+
         for (const regla of reglas) {
             const userIdsInRule = new Map(); // id -> email
 
-            // 1. Por Usuario Específico
             if (regla.id_usuario_destino) {
                 const uid = Number(regla.id_usuario_destino);
-                // Necesitamos el email para el filtro
-                let email = null;
-                const uRes = await pool.request()
-                    .input('uid', sql.Numeric(10, 0), uid)
-                    .query("SELECT correo_electronico FROM mae_usuario WHERE id_usuario = @uid");
-                if (uRes.recordset.length > 0) email = uRes.recordset[0].correo_electronico;
-                userIdsInRule.set(uid, email);
+                userIdsInRule.set(uid, directUserMap.get(uid) || null);
             }
 
-            // 2. Por Rol
             if (regla.id_rol_destino) {
-                const res = await pool.request()
-                    .input('idRol', sql.Numeric(10, 0), regla.id_rol_destino)
-                    .query("SELECT u.id_usuario, u.correo_electronico FROM rel_usuario_rol rur JOIN mae_usuario u ON rur.id_usuario = u.id_usuario WHERE id_rol = @idRol AND u.habilitado = 'S'");
-                res.recordset.forEach(r => userIdsInRule.set(Number(r.id_usuario), r.correo_electronico));
+                const rid = Number(regla.id_rol_destino);
+                roleUserMap.forEach((v, uid) => {
+                    if (v.roleId === rid) userIdsInRule.set(uid, v.email);
+                });
             }
 
             // Merge con mapa global
             userIdsInRule.forEach((email, uid) => {
-                if (!isNotActor(uid, email)) return; // Omitir actor
+                if (!isNotActor(uid, email)) return;
                 const existing = recipientsMap.get(uid) || { id_usuario: uid, web: false, email: false };
                 recipientsMap.set(uid, {
                     id_usuario: uid,
@@ -662,14 +687,17 @@ class UnsService {
     async _resolveEmails(pool, userIds) {
         if (!userIds || userIds.length === 0) return [];
         try {
-            const result = await pool.request()
-                .input('ids', sql.NVarChar(sql.MAX), userIds.join(','))
-                .query(`
-                    SELECT correo_electronico 
-                    FROM mae_usuario 
-                    WHERE id_usuario IN (SELECT value FROM STRING_SPLIT(@ids, ','))
-                    AND habilitado = 'S' 
-                    AND correo_electronico IS NOT NULL 
+            const req = pool.request();
+            const placeholders = userIds.map((uid, i) => {
+                req.input(`uid${i}`, sql.Int, uid);
+                return `@uid${i}`;
+            }).join(',');
+            const result = await req.query(`
+                    SELECT correo_electronico
+                    FROM mae_usuario
+                    WHERE id_usuario IN (${placeholders})
+                    AND habilitado = 'S'
+                    AND correo_electronico IS NOT NULL
                     AND correo_electronico <> ''
                 `);
             return result.recordset.map(r => r.correo_electronico);
@@ -701,10 +729,11 @@ class UnsService {
             const newId = result.recordset[0].id;
 
             // EMIT SOCKET FOR REALTIME TOAST (Improved with rooms and ID)
-            if (global.io) {
+            try {
+                const io = getIo();
                 const room = `user_${idUsuario}`;
                 logger.info(`[UNS] Emitting to ${room}: ${titulo}`);
-                global.io.to(room).emit('nuevaNotificacion', {
+                io.to(room).emit('nuevaNotificacion', {
                     id_notificacion: newId,
                     id_usuario: idUsuario,
                     titulo: titulo,
@@ -714,7 +743,7 @@ class UnsService {
                     area: area,
                     fecha_creacion: new Date()
                 });
-            } else {
+            } catch (_) {
                 logger.warn('[UNS] Socket.io not initialized, toast skipped.');
             }
         } catch (error) {

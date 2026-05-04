@@ -76,32 +76,37 @@ export const useNotificationStore = create<NotificationState>((set) => ({
     },
 
     initSocket: (userId: number) => {
-        if (socket) return;
-        
+        // Disconnect any existing socket before creating a new one (e.g. re-login with different user)
+        if (socket) {
+            socket.disconnect();
+            socket = null;
+        }
+
         const baseUrl = API_CONFIG.getBaseURL();
-        socket = io(baseUrl);
+        socket = io(baseUrl, {
+            reconnection: true,
+            reconnectionAttempts: 10,
+            reconnectionDelay: 2000,
+            reconnectionDelayMax: 10000,
+        });
 
         socket.on('connect', () => {
-            console.log('Socket connected:', socket?.id);
             socket?.emit('join', userId);
         });
 
+        socket.on('connect_error', (err) => {
+            console.warn('[Socket] Connection error:', err.message);
+        });
+
         socket.on('nuevaNotificacion', (notif) => {
-            console.log('Real-time notification received:', notif);
-            // Mapear para compatibilidad con el store
             const mappedNotif = {
                 ...notif,
                 fecha: notif.fecha_creacion || new Date().toISOString(),
                 leido: false
             };
-            
             set((state) => ({
                 notifications: [mappedNotif, ...state.notifications]
             }));
-        });
-
-        socket.on('disconnect', () => {
-            console.log('Socket disconnected');
         });
     },
 

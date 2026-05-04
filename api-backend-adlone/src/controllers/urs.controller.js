@@ -8,7 +8,7 @@ class UrsController {
         try {
             const { all } = req.query;
             const userId = all === 'true' ? null : req.user.id;
-            const isAdmin = req.user.permissions?.includes('ADMIN_ACCESS');
+            const isAdmin = req.user.permissions?.includes('AI_MA_ADMIN_ACCESO');
             const types = await ursService.getTypes(all !== 'true', userId, isAdmin);
             res.json(types);
         } catch (error) {
@@ -79,7 +79,7 @@ class UrsController {
                 filtros.id_solicitante = req.user.id;
             }
 
-            const isAdmin = req.user.permissions?.includes('ADMIN_ACCESS');
+            const isAdmin = req.user.permissions?.includes('AI_MA_ADMIN_ACCESO');
             const solicitudes = await ursService.getRequests(filtros, req.user.id, isAdmin);
             res.json(solicitudes);
         } catch (error) {
@@ -141,7 +141,7 @@ class UrsController {
             const solicitud = await ursService.derive(id, idUsuarioOrigen, areaDestino, usuarioDestino, motivo, finalRolId);
             res.json(solicitud);
         } catch (error) {
-            console.error('Error al derivar solicitud:', error);
+            logger.error('Error al derivar solicitud:', error);
             res.status(500).json({ error: 'Error al derivar solicitud' });
         }
     }
@@ -219,7 +219,7 @@ class UrsController {
             const baseDir = process.env.UPLOAD_PATH || path.resolve('uploads');
             // adjunto.ruta_archivo already contains the subfolder/name from DB
             // We need to resolve it relative to the baseDir
-            const filePath = path.resolve(baseDir, '..', adjunto.ruta_archivo);
+            const filePath = path.resolve(baseDir, adjunto.ruta_archivo);
 
             if (!fs.existsSync(filePath)) {
                 logger.error(`File physically missing: ${filePath}`);

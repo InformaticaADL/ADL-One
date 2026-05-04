@@ -52,23 +52,27 @@ interface Request {
 
 const UniversalInbox: React.FC = () => {
     const { 
-        setActiveSubmodule, 
-        pendingRequestId, 
-        setPendingRequestId, 
-        selectedRequestId, 
+        setActiveSubmodule,
+        pendingRequestId,
+        setPendingRequestId,
+        selectedRequestId,
         setSelectedRequestId,
-        ursInboxMode, 
-        setUrsInboxMode 
+        ursInboxMode,
+        setUrsInboxMode,
+        ursFilters,
+        setUrsFilters,
     } = useNavStore();
-    
+
     const { user } = useAuth();
     const isMobile = useMediaQuery('(max-width: 768px)');
     const { markAsReadByRef, notifications } = useNotificationStore();
-    
+
     const [requests, setRequests] = useState<Request[]>([]);
     const [loading, setLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [filter, setFilter] = useState({ status: '', area: '', type: '' });
+    const searchTerm = ursFilters.searchTerm;
+    const setSearchTerm = (v: string) => setUrsFilters({ searchTerm: v });
+    const filter = { status: ursFilters.status, area: ursFilters.area, type: ursFilters.type };
+    const setFilter = (f: { status: string; area: string; type: string }) => setUrsFilters(f);
     const [selectedRequest, setSelectedRequest] = useState<any>(null);
     const [loadingDetail, setLoadingDetail] = useState(false);
 

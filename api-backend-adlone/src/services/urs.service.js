@@ -436,7 +436,7 @@ class UrsService {
                 .input('eqNombreFallback', sql.VarChar, equipoNombreFallback)
                 .query(`
                     SELECT s.*, t.nombre as nombre_tipo, 
-                           COALESCE(m_actual.nombre_muestreador, m.nombre_muestreador, u.nombre_usuario, u.usuario, 'Desconocido') as nombre_solicitante,
+                           COALESCE(m_actual.nombre_muestreador, m.nombre_muestreador, u.usuario, u.nombre_usuario, 'Desconocido') as nombre_solicitante,
                            COALESCE(
                                e.nombre + ' [' + e.codigo + ']', 
                                (SELECT TOP 1 nombre + ' [' + codigo + ']' FROM mae_equipo WHERE nombre = @eqNombreFallback),
@@ -573,7 +573,7 @@ class UrsService {
                 .query(`
                     SELECT s.*, t.nombre as nombre_tipo, t.area_destino as area_tipo, 
                            t.formulario_config as config_formulario, t.workflow_config,
-                           COALESCE(m.nombre_muestreador, u.nombre_usuario, u.usuario, 'Desconocido') as nombre_solicitante, 
+                           COALESCE(m.nombre_muestreador, u.usuario, u.nombre_usuario, 'Desconocido') as nombre_solicitante, 
                            s.fecha_creacion as fecha_solicitud
                     FROM mae_solicitud s
                     JOIN mae_solicitud_tipo t ON s.id_tipo = t.id_tipo

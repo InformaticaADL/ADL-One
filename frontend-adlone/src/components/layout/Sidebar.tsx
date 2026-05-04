@@ -25,25 +25,6 @@ import {
     IconLogout,
     IconLayoutSidebarLeftCollapse,
     IconLayoutSidebarRightCollapse,
-    IconMicroscope,
-    IconDna,
-    IconFlask,
-    IconFilter,
-    IconArrowsLeftRight,
-    IconLeaf,
-    IconTruckDelivery,
-    IconBulb,
-    IconStethoscope,
-    IconCpu,
-    IconChartBar,
-    IconCertificate,
-    IconBuilding,
-    IconDiamond,
-    IconActivity,
-    IconVirus,
-    IconSettings,
-    IconCalculator,
-    IconChartPie,
 } from '@tabler/icons-react';
 import logoAdl from '../../assets/images/logo-adlone.png';
 import logoSmall from '../../assets/images/logo-adlone-pequeño.png';
@@ -215,7 +196,9 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotC
         toggleSidebar,
         setActiveModule,
         setActiveSubmodule,
-        resetNavigation
+        resetNavigation,
+        dynamicModules,
+        setDynamicModules,
     } = useNavStore();
 
     const isCollapsed = forceNotCollapsed ? false : sidebarCollapsed;
@@ -225,12 +208,11 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotC
     const prevUnreadCount = useRef<number>(0);
     const notificationsRef = useRef<HTMLDivElement>(null);
     const [helpOpened, setHelpOpened] = useState(false);
-    const [dynamicModules, setDynamicModules] = useState<any[]>([]);
 
-    // Fetch dynamic menu from backend (solo al montar o cambiar de token)
+    // Fetch dynamic menu only once per session (cached in Zustand store)
     useEffect(() => {
+        if (!token || dynamicModules.length > 0) return;
         const fetchMenu = async () => {
-            if (!token) return;
             try {
                 const response = await axios.get(`${API_CONFIG.getBaseURL()}/api/menu`, {
                     headers: { Authorization: `Bearer ${token}` }
@@ -238,8 +220,8 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotC
                 if (response.data && response.data.success) {
                     setDynamicModules(response.data.data);
                 }
-            } catch (error) {
-                console.error("Error fetching dynamic menu:", error);
+            } catch (_) {
+                // Silently fail — sidebar will show static modules only
             }
         };
         fetchMenu();
@@ -307,7 +289,8 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotC
 
             // Si el submódulo activo pertenece al módulo expandido, no cerrar
             const currentModule = dynamicModules.find(m => m.id === openedModule);
-            const hasActiveSub = currentModule?.links?.some((link: any) => link.id === activeSub);
+            const links = Array.isArray(currentModule?.links) ? currentModule.links as Array<{ id: string }> : [];
+            const hasActiveSub = links.some(link => link.id === activeSub);
             if (hasActiveSub) return;
 
             if ((isOutsideSidebar && isOutsidePopover) || (isInsideSidebar && !isInteractive)) {
@@ -374,12 +357,6 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotC
         }
     };
 
-    const isAdmin = 
-        hasPermission('AI_MA_ADMIN_ACCESO') || 
-        user?.role === 1 || 
-        user?.role === '1' || 
-        user?.role === 'Administrador' ||
-        user?.username?.toLowerCase() === 'rdiaz';
     // Los módulos dinámicos ya vienen filtrados del backend según los permisos,
     // excepto si el usuario es admin o el backend los manda de más. Usamos canAccessModule por doble seguridad.
     const visibleModules = dynamicModules.filter(m => canAccessModule(m));

@@ -1,4 +1,5 @@
 import adminService from '../services/admin.service.js';
+import logger from '../utils/logger.js';
 
 export const adminController = {
     // --- MUESTREADORES ---
@@ -9,7 +10,7 @@ export const adminController = {
             const result = await adminService.getMuestreadores(nombre, estado);
             res.json({ success: true, data: result });
         } catch (error) {
-            console.error('Controller getMuestreadores error:', error);
+            logger.error('Controller getMuestreadores error:', error);
             res.status(500).json({ success: false, message: 'Error al obtener muestreadores' });
         }
     },
@@ -25,7 +26,7 @@ export const adminController = {
             const result = await adminService.createMuestreador(req.body);
             res.json({ success: true, data: result, message: 'Muestreador creado correctamente' });
         } catch (error) {
-            console.error('Controller createMuestreador error:', error);
+            logger.error('Controller createMuestreador error:', error);
             res.status(500).json({ success: false, message: 'Error al crear muestreador' });
         }
     },
@@ -36,7 +37,7 @@ export const adminController = {
             const result = await adminService.updateMuestreador(id, req.body);
             res.json({ success: true, data: result, message: 'Muestreador actualizado correctamente' });
         } catch (error) {
-            console.error('Controller updateMuestreador error:', error);
+            logger.error('Controller updateMuestreador error:', error);
             res.status(500).json({ success: false, message: 'Error al actualizar muestreador' });
         }
     },
@@ -47,7 +48,7 @@ export const adminController = {
             const result = await adminService.disableMuestreador(id);
             res.json({ success: true, data: result, message: 'Muestreador deshabilitado correctamente' });
         } catch (error) {
-            console.error('Controller disableMuestreador error:', error);
+            logger.error('Controller disableMuestreador error:', error);
             res.status(500).json({ success: false, message: 'Error al deshabilitar muestreador' });
         }
     },
@@ -64,7 +65,7 @@ export const adminController = {
             const result = await adminService.disableMuestreadorWithReassignment(id, reassignmentOptions);
             res.json({ success: true, data: result, message: 'Muestreador deshabilitado y equipos reasignados correctamente' });
         } catch (error) {
-            console.error('Controller disableMuestreadorWithReassignment error:', error);
+            logger.error('Controller disableMuestreadorWithReassignment error:', error);
             res.status(500).json({ success: false, message: 'Error al deshabilitar muestreador con reasignación' });
         }
     },
@@ -75,7 +76,7 @@ export const adminController = {
             const result = await adminService.enableMuestreador(id);
             res.json({ success: true, data: result, message: 'Muestreador habilitado correctamente' });
         } catch (error) {
-            console.error('Controller enableMuestreador error:', error);
+            logger.error('Controller enableMuestreador error:', error);
             res.status(500).json({ success: false, message: 'Error al habilitar muestreador' });
         }
     },
@@ -89,7 +90,7 @@ export const adminController = {
             const result = await adminService.checkDuplicateMuestreador(nombre, correo);
             res.json({ success: true, data: result });
         } catch (error) {
-            console.error('Controller checkDuplicateMuestreador error:', error);
+            logger.error('Controller checkDuplicateMuestreador error:', error);
             res.status(500).json({ success: false, message: 'Error al verificar duplicados' });
         }
     },
@@ -100,7 +101,7 @@ export const adminController = {
             const result = await adminService.getDashboardStats();
             res.json({ success: true, data: result });
         } catch (error) {
-            console.error('Controller getDashboardStats error:', error);
+            logger.error('Controller getDashboardStats error:', error);
             res.status(500).json({ success: false, message: 'Error al obtener métricas del dashboard' });
         }
     },
@@ -112,7 +113,7 @@ export const adminController = {
             const result = await adminService.getCalendario(mes, ano);
             res.json({ success: true, data: result });
         } catch (error) {
-            console.error('Controller getCalendario error:', error);
+            logger.error('Controller getCalendario error:', error);
             res.status(500).json({ success: false, message: 'Error al obtener datos del calendario' });
         }
     },
@@ -128,13 +129,13 @@ export const adminController = {
             try {
                 parsedParams = JSON.parse(params);
             } catch (e) {
-                console.error('Error parsing export params:', e);
+                logger.error('Error parsing export params:', e);
             }
 
             const result = await adminService.getTableData(name, type, parsedParams);
             res.json({ success: true, data: result });
         } catch (error) {
-            console.error(`Controller getExportData error for ${req.query.name}:`, error);
+            logger.error(`Controller getExportData error for ${req.query.name}:`, error);
             res.status(500).json({ success: false, message: error.message || 'Error al obtener datos para exportación' });
         }
     },
@@ -146,7 +147,7 @@ export const adminController = {
             try {
                 parsedParams = JSON.parse(params);
             } catch (e) {
-                console.error('Error parsing bulk pdf params:', e);
+                logger.error('Error parsing bulk pdf params:', e);
             }
 
             const pdfBuffer = await adminService.getExportPdf(parsedParams);
@@ -155,7 +156,7 @@ export const adminController = {
             res.setHeader('Content-Disposition', `attachment; filename="Reporte_Fichas_${new Date().toISOString().split('T')[0]}.pdf"`);
             res.send(pdfBuffer);
         } catch (error) {
-            console.error('Controller downloadBulkPdf error:', error);
+            logger.error('Controller downloadBulkPdf error:', error);
             res.status(500).json({ success: false, message: error.message || 'Error al generar el PDF masivo' });
         }
     },
@@ -169,7 +170,7 @@ export const adminController = {
             res.setHeader('Content-Disposition', `attachment; filename="Muestreadores_${new Date().toISOString().split('T')[0]}.pdf"`);
             res.send(pdfBuffer);
         } catch (error) {
-            console.error('Controller downloadMuestreadoresPdf error:', error);
+            logger.error('Controller downloadMuestreadoresPdf error:', error);
             res.status(500).json({ success: false, message: 'Error al generar PDF de muestreadores' });
         }
     }

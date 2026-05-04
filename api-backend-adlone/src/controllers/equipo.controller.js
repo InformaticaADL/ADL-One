@@ -1,4 +1,5 @@
 import equipoService from '../services/equipo.service.js';
+import logger from '../utils/logger.js';
 
 export const equipoController = {
     getEquipos: async (req, res) => {
@@ -6,7 +7,7 @@ export const equipoController = {
             const result = await equipoService.getEquipos(req.query);
             res.json({ success: true, ...result });
         } catch (error) {
-            console.error('Controller getEquipos error:', error);
+            logger.error('Controller getEquipos error:', error);
             res.status(500).json({ success: false, message: 'Error al obtener equipos' });
         }
     },
@@ -18,7 +19,7 @@ export const equipoController = {
             res.setHeader('Content-Disposition', `attachment; filename=Reporte_Equipos_${new Date().toISOString().split('T')[0]}.xlsx`);
             res.send(buffer);
         } catch (error) {
-            console.error('Controller exportExcel error:', error);
+            logger.error('Controller exportExcel error:', error);
             res.status(500).json({ success: false, message: 'Error al exportar a Excel' });
         }
     },
@@ -29,7 +30,7 @@ export const equipoController = {
             const result = await equipoService.getNextCorrelativo(tipo);
             res.json({ success: true, data: result });
         } catch (error) {
-            console.error('Controller getNextCorrelativo error:', error);
+            logger.error('Controller getNextCorrelativo error:', error);
             res.status(500).json({ success: false, message: 'Error al obtener el siguiente correlativo' });
         }
     },
@@ -43,7 +44,7 @@ export const equipoController = {
             const result = await equipoService.suggestNextCode(tipo, ubicacion, nombre);
             res.json({ success: true, data: result });
         } catch (error) {
-            console.error('Controller suggestNextCode error:', error);
+            logger.error('Controller suggestNextCode error:', error);
             res.status(500).json({ success: false, message: 'Error al sugerir el código del equipo' });
         }
     },
@@ -57,7 +58,7 @@ export const equipoController = {
             }
             res.json({ success: true, data: result });
         } catch (error) {
-            console.error('Controller getEquipoById error:', error);
+            logger.error('Controller getEquipoById error:', error);
             res.status(500).json({ success: false, message: 'Error al obtener el equipo' });
         }
     },
@@ -68,7 +69,7 @@ export const equipoController = {
             const result = await equipoService.createEquipo(req.body, userId);
             res.json({ success: true, data: result, message: 'Equipo creado correctamente' });
         } catch (error) {
-            console.error('Controller createEquipo error:', error);
+            logger.error('Controller createEquipo error:', error);
             res.status(500).json({ success: false, message: 'Error al crear equipo' });
         }
     },
@@ -80,7 +81,7 @@ export const equipoController = {
             const result = await equipoService.updateEquipo(id, req.body, userId);
             res.json({ success: true, data: result, message: 'Equipo actualizado correctamente' });
         } catch (error) {
-            console.error('Controller updateEquipo error:', error);
+            logger.error('Controller updateEquipo error:', error);
             res.status(500).json({ success: false, message: 'Error al actualizar equipo' });
         }
     },
@@ -91,7 +92,7 @@ export const equipoController = {
             const result = await equipoService.getEquipoHistorial(id);
             res.json({ success: true, data: result });
         } catch (error) {
-            console.error('Controller getEquipoHistorial error:', error);
+            logger.error('Controller getEquipoHistorial error:', error);
             res.status(500).json({ success: false, message: 'Error al obtener historial del equipo' });
         }
     },
@@ -103,7 +104,7 @@ export const equipoController = {
             const result = await equipoService.deleteEquipo(id, userId);
             res.json({ success: true, data: result, message: 'Equipo dado de baja correctamente' });
         } catch (error) {
-            console.error('Controller deleteEquipo error:', error);
+            logger.error('Controller deleteEquipo error:', error);
             res.status(500).json({ success: false, message: 'Error al dar de baja el equipo' });
         }
     },
@@ -115,7 +116,7 @@ export const equipoController = {
             const result = await equipoService.inactivateExpiredEquipos();
             res.json({ success: true, ...result });
         } catch (error) {
-            console.error('Controller checkExpiration error:', error);
+            logger.error('Controller checkExpiration error:', error);
             res.status(500).json({ success: false, message: 'Error checking expired equipment' });
         }
     },
@@ -127,7 +128,7 @@ export const equipoController = {
             const result = await equipoService.restoreEquipoVersion(id, idHistorial, userId);
             res.json({ success: true, data: result, message: 'Versión restaurada correctamente' });
         } catch (error) {
-            console.error('Controller restoreVersion error:', error);
+            logger.error('Controller restoreVersion error:', error);
             res.status(500).json({ success: false, message: 'Error al restaurar versión del equipo' });
         }
     },
@@ -138,7 +139,7 @@ export const equipoController = {
             const result = await equipoService.createEquiposBulk(req.body, userId);
             res.json({ success: true, data: result, message: `${result.length} equipos creados correctamente` });
         } catch (error) {
-            console.error('Controller createEquiposBulk error:', error);
+            logger.error('Controller createEquiposBulk error:', error);
             res.status(500).json({ success: false, message: error.message || 'Error al crear equipos' });
         }
     },
@@ -148,7 +149,7 @@ export const equipoController = {
             const result = await equipoService.getEquipoCatalogo();
             res.json({ success: true, data: result });
         } catch (error) {
-            console.error('Controller getEquipoCatalogo error:', error);
+            logger.error('Controller getEquipoCatalogo error:', error);
             res.status(500).json({ success: false, message: 'Error al obtener el catálogo de equipos' });
         }
     },
@@ -158,7 +159,7 @@ export const equipoController = {
             const result = await equipoService.createEquipoCatalogo(req.body);
             res.json({ success: true, data: result });
         } catch (error) {
-            console.error('Controller createEquipoCatalogo error:', error);
+            logger.error('Controller createEquipoCatalogo error:', error);
             res.status(500).json({ success: false, message: 'Error al crear el equipo en el catálogo' });
         }
     },
@@ -168,7 +169,7 @@ export const equipoController = {
             const result = await equipoService.updateEquipoCatalogo(req.params.id, req.body);
             res.json({ success: true, data: result });
         } catch (error) {
-            console.error('Controller updateEquipoCatalogo error:', error);
+            logger.error('Controller updateEquipoCatalogo error:', error);
             res.status(500).json({ success: false, message: 'Error al actualizar el equipo en el catálogo' });
         }
     },
@@ -178,7 +179,7 @@ export const equipoController = {
             const result = await equipoService.deleteEquipoCatalogo(req.params.id);
             res.json({ success: true, data: result });
         } catch (error) {
-            console.error('Controller deleteEquipoCatalogo error:', error);
+            logger.error('Controller deleteEquipoCatalogo error:', error);
             res.status(500).json({ success: false, message: 'Error al eliminar el equipo del catálogo' });
         }
     },
@@ -192,7 +193,7 @@ export const equipoController = {
             const result = await equipoService.getEquipmentComparisonForResampling(idOriginal, idNueva, idMuestreador);
             res.json({ success: true, data: result });
         } catch (error) {
-            console.error('Controller getEquipmentComparison error:', error);
+            logger.error('Controller getEquipmentComparison error:', error);
             res.status(500).json({ success: false, message: 'Error al obtener la comparación de equipos' });
         }
     }

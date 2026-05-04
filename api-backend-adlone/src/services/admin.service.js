@@ -20,7 +20,7 @@ const callSP = async (spName, params = {}) => {
         const result = await request.execute(spName);
         return result.recordset || result.recordsets[0] || []; // Return first recordset default
     } catch (error) {
-        console.error(`Error executing SP ${spName}:`, error);
+        logger.error(`Error executing SP ${spName}:`, error);
         throw error;
     }
 };
@@ -288,7 +288,7 @@ export const adminService = {
                 }
             };
         } catch (error) {
-            console.error('Error fetching dashboard stats:', error);
+            logger.error('Error fetching dashboard stats:', error);
             throw error;
         }
     },
@@ -336,7 +336,7 @@ export const adminService = {
             const result = await request.query(query);
             return result.recordset;
         } catch (error) {
-            console.error('Error fetching calendario data:', error);
+            logger.error('Error fetching calendario data:', error);
             throw error;
         }
     },
@@ -575,7 +575,7 @@ export const adminService = {
                         const result = await pool.request().query(`SELECT * FROM ${tableName}`);
                         return result.recordset;
                     } catch (tableError) {
-                        console.error(`Error bypass SP ${name} to table ${tableName}:`, tableError);
+                        logger.error(`Error bypass SP ${name} to table ${tableName}:`, tableError);
                         // No lanzamos error aquí, dejaremos que intente el SP por si acaso
                     }
                 }
@@ -593,7 +593,7 @@ export const adminService = {
                 throw new Error('Tipo de exportación no soportado');
             }
         } catch (error) {
-            console.error(`Error fetching export data for ${name} (${type}):`, error);
+            logger.error(`Error fetching export data for ${name} (${type}):`, error);
             const finalMessage = error.message.includes('Acceso no autorizado') ? error.message : `Error en recurso ${name}: ${error.message}`;
             throw new Error(finalMessage);
         }
@@ -674,7 +674,7 @@ export const adminService = {
 
             return await fichaService.generateBulkFichaPdfBuffer(ids);
         } catch (error) {
-            console.error('Error in getExportPdf:', error);
+            logger.error('Error in getExportPdf:', error);
             throw error;
         }
     },

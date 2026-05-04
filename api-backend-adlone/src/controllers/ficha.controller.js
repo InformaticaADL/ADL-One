@@ -3,7 +3,7 @@ import logger from '../utils/logger.js';
 import { successResponse, errorResponse } from '../utils/response.js';
 
 class FichaIngresoController {
-    async getAll(req, res) {
+    async getAll(_req, res) {
         try {
             const result = await fichaService.getAllFichas();
             return successResponse(res, result, 'Fichas obtenidas exitosamente');
@@ -98,7 +98,7 @@ class FichaIngresoController {
         try {
             const { id } = req.params;
             const { observaciones } = req.body;
-            const userData = req.user || req.body.user || { id: 0 };
+            const userData = req.user || { id: 0 };
 
             const result = await fichaService.approveFicha(id, { observaciones }, userData);
             return successResponse(res, result, 'Ficha aceptada exitosamente');
@@ -112,7 +112,7 @@ class FichaIngresoController {
         try {
             const { id } = req.params;
             const { observaciones } = req.body;
-            const userData = req.user || req.body.user || { id: 0 };
+            const userData = req.user || { id: 0 };
 
             const result = await fichaService.rejectFicha(id, { observaciones }, userData);
             return successResponse(res, result, 'Ficha rechazada exitosamente');
@@ -126,7 +126,7 @@ class FichaIngresoController {
         try {
             const { id } = req.params;
             const { observaciones } = req.body;
-            const userData = req.user || req.body.user || { id: 0 };
+            const userData = req.user || { id: 0 };
 
             const result = await fichaService.approveCoordinacion(id, { observaciones }, userData);
             return successResponse(res, result, 'Ficha aceptada por coordinación exitosamente');
@@ -140,7 +140,7 @@ class FichaIngresoController {
         try {
             const { id } = req.params;
             const { observaciones } = req.body;
-            const userData = req.user || req.body.user || { id: 0 };
+            const userData = req.user || { id: 0 };
 
             const result = await fichaService.reviewCoordinacion(id, { observaciones }, userData);
             return successResponse(res, result, 'Ficha enviada a revisión exitosamente');
@@ -153,8 +153,8 @@ class FichaIngresoController {
     async updateAgenda(req, res) {
         try {
             const { id } = req.params;
-            const { idMuestreador, fecha, observaciones, user } = req.body;
-            const userData = user || { id: 0 };
+            const { idMuestreador, fecha, observaciones } = req.body;
+            const userData = req.user || { id: 0 };
 
             const result = await fichaService.updateAgenda(id, { idMuestreador, fecha, observaciones }, userData);
             return successResponse(res, result, 'Agenda actualizada correctamente');
@@ -164,7 +164,7 @@ class FichaIngresoController {
         }
     }
 
-    async getForAssignment(req, res) {
+    async getForAssignment(_req, res) {
         try {
             const result = await fichaService.getForAssignment();
             return successResponse(res, result, 'Fichas para asignación obtenidas exitosamente');
@@ -192,7 +192,7 @@ class FichaIngresoController {
 
     async batchUpdateAgenda(req, res) {
         try {
-            const userData = req.body.user || { id: 0 };
+            const userData = req.user || { id: 0 };
             const result = await fichaService.batchUpdateAgenda(req.body, userData);
             return successResponse(res, result, 'Asignaciones actualizadas exitosamente');
         } catch (err) {
@@ -204,7 +204,7 @@ class FichaIngresoController {
     async cancelSampling(req, res) {
         try {
             const { idAgenda, idFicha, motivo_cancelacion, idEstadoMuestreo } = req.body;
-            const userData = req.body.user || { id: 0 };
+            const userData = req.user || { id: 0 };
             const result = await fichaService.cancelAgendaSampling(idAgenda, idFicha, userData, motivo_cancelacion, idEstadoMuestreo);
             return successResponse(res, result, 'Muestreo cancelado exitosamente');
         } catch (err) {
@@ -216,7 +216,7 @@ class FichaIngresoController {
         try {
             const { id } = req.params;
             const updateData = req.body;
-            const userData = req.body.user || { id: 0 }; // Ensure user is passed
+            const userData = req.user || { id: 0 };
 
             // Call service update method
             const result = await fichaService.updateFicha(id, updateData, userData);
@@ -279,7 +279,7 @@ class FichaIngresoController {
             return errorResponse(res, 'Error al generar el Excel de la ficha', 500, err.message);
         }
     }
-    async getMuestreosEjecutados(req, res) {
+    async getMuestreosEjecutados(_req, res) {
         try {
             const result = await fichaService.getMuestreosEjecutados();
             return successResponse(res, result, 'Muestreos ejecutados obtenidos exitosamente');

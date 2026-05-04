@@ -1,30 +1,32 @@
 import express from 'express';
 import * as analysisController from '../controllers/analysis.controller.js';
+import { authenticate } from '../middlewares/auth.middleware.js';
+import { validateRequest, analysisValidationSchemas } from '../middlewares/validate.middleware.js';
 
 const router = express.Router();
 
 /**
  * @route   GET /api/analysis/normativas
  * @desc    Get all normativas
- * @access  Public (TODO: Add auth middleware)
+ * @access  Private
  */
-router.get('/normativas', analysisController.getNormativas);
+router.get('/normativas', authenticate, analysisController.getNormativas);
 
 /**
  * @route   GET /api/analysis/referencias
  * @desc    Get referencias by normativa
  * @query   normativaId
- * @access  Public (TODO: Add auth middleware)
+ * @access  Private
  */
-router.get('/referencias', analysisController.getReferenciasByNormativa);
+router.get('/referencias', authenticate, validateRequest(analysisValidationSchemas.getReferenciasByNormativa), analysisController.getReferenciasByNormativa);
 
 /**
  * @route   GET /api/analysis/analisis
  * @desc    Get analysis by normativa and referencia
  * @query   normativaId, referenciaId
- * @access  Public (TODO: Add auth middleware)
+ * @access  Private
  */
-router.get('/analisis', analysisController.getAnalysisByNormativaReferencia);
+router.get('/analisis', authenticate, validateRequest(analysisValidationSchemas.getAnalysisByNormativaReferencia), analysisController.getAnalysisByNormativaReferencia);
 
 /**
  * @route   GET /api/analysis/laboratorios

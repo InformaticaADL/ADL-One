@@ -728,6 +728,15 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                 zIndex={1100}
             >
                 <Stack gap="md">
+                    {(pendingAction === 'RECHAZADA' || pendingAction === 'REALIZADA') && (
+                        <Alert color={pendingAction === 'RECHAZADA' ? 'red' : 'orange'} variant="light" radius="md">
+                            <Text size="sm" fw={500}>
+                                {pendingAction === 'RECHAZADA'
+                                    ? 'Esta acción es irreversible. La solicitud quedará rechazada definitivamente.'
+                                    : 'Esta acción marcará la solicitud como completada. No podrá revertirse.'}
+                            </Text>
+                        </Alert>
+                    )}
                     <Textarea
                         label="Observaciones"
                         placeholder="Escriba sus observaciones para esta acción..."

@@ -50,13 +50,16 @@ const DashboardPage = () => {
             ].some(p => hasPermission(p));
     };
 
-    // Security Guard: Reset navigation if user doesn't have admin role for admin module
+    const ADMIN_SUBMODULES = ['admin-roles', 'admin-users', 'admin-user-roles', 'admin-notifications', 'admin-urs', 'admin-menu-web', 'admin-maestros', 'informatica', 'admin-equipos-gestion', 'admin-muestreadores'];
+
+    // Security Guard: Reset navigation if user lacks permission for protected areas
     useEffect(() => {
-        if (activeModule === 'admin_informacion' && !hasAdminAccess()) {
-            console.warn('Unauthorized access attempt to admin module. Resetting navigation.');
+        const isAdminModule = activeModule === 'admin_informacion';
+        const isAdminSubmodule = ADMIN_SUBMODULES.includes(activeSubmodule);
+        if ((isAdminModule || isAdminSubmodule) && !hasAdminAccess()) {
             resetNavigation();
         }
-    }, [activeModule, user, resetNavigation]);
+    }, [activeModule, activeSubmodule, user, resetNavigation]);
 
     // Los ayudantes de dashboard han sido removidos ya que ahora se muestra el WelcomePage por defecto.
 

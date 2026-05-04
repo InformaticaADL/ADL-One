@@ -6,6 +6,11 @@ import logger from '../utils/logger.js';
 import fs from 'fs';
 import path from 'path';
 
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 class NotificationService {
     constructor() {
         this.logoBuffer = null;
@@ -14,20 +19,12 @@ class NotificationService {
 
     _loadLogo() {
         try {
-            // Robust absolute path to logo using resolve
-            const logoPath = path.resolve(process.cwd(), '../frontend-adlone/src/assets/images/logo-adlone.png');
+            const logoPath = path.resolve(__dirname, '../assets/logo-adlone.png');
             if (fs.existsSync(logoPath)) {
                 this.logoBuffer = fs.readFileSync(logoPath);
-                logger.info(`Logo ADL ONE loaded successfully from: ${logoPath}`);
+                logger.info('Logo ADL ONE loaded successfully');
             } else {
-                // Try parent if cwd is not backend root
-                const altPath = path.resolve(process.cwd(), '..', '..', 'frontend-adlone', 'src', 'assets', 'images', 'logo-adlone.png');
-                if (fs.existsSync(altPath)) {
-                    this.logoBuffer = fs.readFileSync(altPath);
-                    logger.info(`Logo ADL ONE loaded successfully from alt path.`);
-                } else {
-                    logger.warn(`Logo NOT found at: ${logoPath}`);
-                }
+                logger.warn(`Logo not found at: ${logoPath}`);
             }
         } catch (error) {
             logger.error('Error loading logo:', error);
@@ -224,8 +221,6 @@ class NotificationService {
         // 1. Force replace LOGO_BASE64 and LOGO_URL in template with CID
         if (isHtml && this.logoBuffer) {
             const cid = 'logo_adlone';
-            const logoPath = path.resolve(process.cwd(), '../frontend-adlone/src/assets/images/logo-adlone.png');
-            
             output = output.split('{LOGO_BASE64}').join(`cid:${cid}`);
             output = output.split('{LOGO_URL}').join(`cid:${cid}`);
             
@@ -238,7 +233,7 @@ class NotificationService {
 
         // 2. Handle SERVICIOS_DETALLE (dynamic array processing)
         if (isHtml && context.servicios && Array.isArray(context.servicios)) {
-            const serviciosHtml = context.servicios.map((servicio, index) => {
+            const serviciosHtml = context.servicios.map((servicio) => {
                 const hasFechaChange = !!servicio.old_fecha;
                 const hasInstalacionChange = !!servicio.old_muestreador_instalacion;
                 const hasRetiroChange = !!servicio.old_muestreador_retiro;
@@ -282,7 +277,7 @@ class NotificationService {
             
             // Legacy handling for arrays
             if (Array.isArray(context.equipos)) {
-                equiposHtml = context.equipos.map((equipo, index) => {
+                equiposHtml = context.equipos.map((equipo) => {
                     if (equipo.isTransfer) {
                         return `
                             <div style="margin-bottom: 20px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
@@ -515,7 +510,7 @@ class NotificationService {
         }
 
         // 2.2 Handle Dynamic Observation Block {BLOQUE_OBSERVACION|Label}
-        output = output.replace(/\{BLOQUE_OBSERVACION\|(.*?)\}/g, (match, label) => {
+        output = output.replace(/\{BLOQUE_OBSERVACION\|(.*?)\}/g, (_match, label) => {
             // Handle nested placeholder in label (e.g. {ETIQUETA_OBSERVACION})
             let finalLabel = label;
             if (label.includes('ETIQUETA_OBSERVACION')) {

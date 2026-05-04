@@ -3,6 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
+import logger from '../utils/logger.js';
 
 dotenv.config();
 
@@ -41,7 +42,7 @@ router.post('/', upload.single('archivo'), (req, res) => {
             fileName: req.file.originalname
         });
     } catch (error) {
-        console.error('Error uploading file:', error);
+        logger.error('Error uploading file:', error);
         res.status(500).json({ success: false, message: 'Internal server error during upload' });
     }
 });

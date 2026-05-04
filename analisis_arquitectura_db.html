@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Análisis Arquitectura DB - ADL ONE</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --secondary: #64748b;
+            --bg-body: #f8fafc;
+            --bg-card: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --accent: #3b82f6;
+            --border: #e2e8f0;
+            --success: #10b981;
+            --warning: #f59e0b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            line-height: 1.6;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 60px;
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #1e293b 0%, #3b82f6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 15px;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+        }
+
+        .card {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+            margin-bottom: 30px;
+            border: 1px solid var(--border);
+            transition: transform 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 10px;
+        }
+
+        h2::before {
+            content: '';
+            display: inline-block;
+            width: 8px;
+            height: 32px;
+            background: var(--primary);
+            margin-right: 15px;
+            border-radius: 4px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-top: 40px;
+        }
+
+        .family-card {
+            padding: 25px;
+            border-radius: 15px;
+            background: #f1f5f9;
+            border-left: 5px solid var(--primary);
+        }
+
+        code {
+            font-family: 'JetBrains Mono', monospace;
+            background: #e2e8f0;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            color: #d946ef;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 15px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background-color: #f8fafc;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 0.05em;
+        }
+
+        tr:hover {
+            background-color: #f1f5f9;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .badge-seguridad { background: #dcfce7; color: #166534; }
+        .badge-urs { background: #dbeafe; color: #1e40af; }
+        .badge-operaciones { background: #fef9c3; color: #854d0e; }
+        .badge-equipos { background: #f3e8ff; color: #6b21a8; }
+
+        .logic-box {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 25px;
+            border-radius: 15px;
+            margin-top: 20px;
+            border-left: 5px solid var(--success);
+        }
+
+        .logic-box h4 {
+            color: var(--success);
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .mermaid {
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            border: 1px dashed var(--secondary);
+            margin-top: 20px;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 60px;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Arquitectura de Datos ADL ONE</h1>
+            <p class="subtitle">Análisis Técnico de Base de Datos y Lógica de Negocio</p>
+        </header>
+
+        <section class="card">
+            <h2>Estructura de Familias</h2>
+            <div class="grid">
+                <div class="family-card">
+                    <strong>mae_ (Maestros)</strong>
+                    <p>Catálogos y configuraciones core. Poco movimiento pero alta criticidad.</p>
+                </div>
+                <div class="family-card">
+                    <strong>rel_ (Relaciones)</strong>
+                    <p>Mapeos N:M y configuraciones cruzadas de permisos y roles.</p>
+                </div>
+                <div class="family-card">
+                    <strong>App_ (Transaccional)</strong>
+                    <p>Flujos de terreno y sincronización con APP MAM móvil.</p>
+                </div>
+                <div class="family-card">
+                    <strong>sc_ (Laboratorio)</strong>
+                    <p>Procesos de screening y diagnóstico de Aquagen.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="card">
+            <span class="badge badge-seguridad">AUTENTICACIÓN</span>
+            <h2>Seguridad y RBAC</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Tabla</th>
+                        <th>Propósito</th>
+                        <th>Relación / Dependencia</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>mae_usuario</code></td>
+                        <td>Credenciales y estado de acceso.</td>
+                        <td>PK: <code>id_usuario</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>mae_rol</code></td>
+                        <td>Perfiles funcionales (Admin, Mues, etc).</td>
+                        <td>PK: <code>id_rol</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>mae_permiso</code></td>
+                        <td>Acciones granulares (ej: FI_CREAR).</td>
+                        <td>PK: <code>id_permiso</code></td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="logic-box">
+                <h4>Lógica de Negocio</h4>
+                <p>Al loguearse, el backend recupera los roles de <code>rel_usuario_rol</code> y cruza con <code>rel_rol_permiso</code>. Esto genera un token JWT con los permisos "empaquetados" que la UI usa para ocultar/mostrar elementos.</p>
+            </div>
+        </section>
+
+        <section class="card">
+            <span class="badge badge-urs">GESTIÓN</span>
+            <h2>Módulo URS (Solicitudes)</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Tabla</th>
+                        <th>Uso Principal</th>
+                        <th>Campo Clave</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>mae_solicitud</code></td>
+                        <td>Ticket central de trámite.</td>
+                        <td><code>datos_json</code> (Esquema variable)</td>
+                    </tr>
+                    <tr>
+                        <td><code>mae_solicitud_tipo</code></td>
+                        <td>Configuración de flujos y UI.</td>
+                        <td><code>formulario_config</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>mae_solicitud_comentario</code></td>
+                        <td>Hilo de chat y eventos.</td>
+                        <td><code>id_solicitud</code> (FK)</td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="logic-box" style="border-left-color: var(--primary);">
+                <h4>Lógica de Flexibilidad</h4>
+                <p>El sistema URS es agnóstico del tipo de solicitud. Los campos de un "Traspaso de Equipo" viven dentro del JSON de la solicitud, permitiendo crear nuevos tipos de trámites desde la base de datos sin tocar el código fuente.</p>
+            </div>
+        </section>
+
+        <section class="card">
+            <span class="badge badge-operaciones">CORE OPERATIVO</span>
+            <h2>Fichas de Ingreso (Medio Ambiente)</h2>
+            <p>Este módulo conecta el sistema web con la operación móvil en terreno.</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Tabla Principal</th>
+                        <th>Extensión</th>
+                        <th>Cierre</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>App_Ma_FichaIngresoServicio_ENC</code></td>
+                        <td><code>App_Ma_FichaIngresoServicio_DET</code></td>
+                        <td><code>App_Ma_Resultados</code></td>
+                    </tr>
+                    <tr>
+                        <td>(Cabecera de Orden)</td>
+                        <td>(Puntos de Muestreo)</td>
+                        <td>(Parámetros y Valores)</td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="logic-box" style="border-left-color: var(--warning);">
+                <h4>Flujo de Sincronización</h4>
+                <p>Las fichas se crean y agendan en <code>App_Ma_Agenda_MUESTREOS</code>. La APP MAM descarga estas agendas, recolecta datos en los detalles, y al sincronizar, inserta los valores finales en <code>App_Ma_Resultados</code> marcando la ficha como 'ENVIADA'.</p>
+            </div>
+        </section>
+
+        <section class="card">
+            <span class="badge badge-equipos">ACTIVOS</span>
+            <h2>Equipos e Inventario</h2>
+            <div class="grid">
+                <div>
+                    <strong>mae_equipo</strong>
+                    <p>Contiene el número de serie, marca, modelo y estado actual de los instrumentos técnicos.</p>
+                </div>
+                <div>
+                    <strong>mae_muestreador</strong>
+                    <p>Entidad que representa al personal técnico. Crucial para la asignación de responsables de equipo.</p>
+                </div>
+            </div>
+        </section>
+
+        <footer>
+            <p>&copy; 2026 ADL Diagnostic Chile - Documentación Generada por Antigravity AI</p>
+        </footer>
+    </div>
+</body>
+</html>

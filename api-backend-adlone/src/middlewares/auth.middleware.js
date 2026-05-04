@@ -26,13 +26,6 @@ export const authenticate = (req, res, next) => {
         // Verify token
         try {
             const secret = process.env.JWT_SECRET;
-            if (!secret) {
-                logger.error('Auth Middleware: CRITICAL - JWT_SECRET is not defined in process.env');
-            } else {
-                // Log safe snippet of secret for debugging (first and last char)
-                logger.info(`Auth Debug: Secret First: ${secret[0]}, Last: ${secret[secret.length - 1]}, Len: ${secret.length}`);
-            }
-
             const decoded = jwt.verify(token, secret);
             // Attach user info to request
             req.user = decoded;

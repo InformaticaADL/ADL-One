@@ -26,14 +26,17 @@ export const initScheduler = () => {
 
     // --- 2. URS Notification Watcher (Vigilante) ---
     // Polls database for new requests that hasn't been notified yet (Mobile Resilience)
+    let _pollRunning = false;
     const pollNewRequests = async () => {
+        if (_pollRunning) return;
+        _pollRunning = true;
         try {
             const pool = await getConnection();
             
             // Find requests with notification flag = 0
             const pending = await pool.request()
                 .query(`
-                    SELECT TOP 10 s.*, t.nombre as nombre_tipo, u.nombre_usuario as solicitante
+                    SELECT TOP 10 s.*, t.nombre as nombre_tipo, u.usuario as solicitante
                     FROM mae_solicitud s
                     JOIN mae_solicitud_tipo t ON s.id_tipo = t.id_tipo
                     LEFT JOIN mae_usuario u ON s.id_solicitante = u.id_usuario
@@ -205,11 +208,13 @@ export const initScheduler = () => {
             }
         } catch (pollError) {
             // Silently log or ignore if DB is down
-            if (pollError.message.includes('ConnectionError') || pollError.message.includes('deadlock')) {
-                 logger.debug('[Vigilante] DB unreachable or busy, skipping poll');
+            if (pollError.message?.includes('ConnectionError') || pollError.message?.includes('deadlock')) {
+                logger.debug('[Vigilante] DB unreachable or busy, skipping poll');
             } else {
-                 logger.error('[Vigilante] Error during polling:', pollError);
+                logger.error('[Vigilante] Error during polling:', pollError);
             }
+        } finally {
+            _pollRunning = false;
         }
     };
 

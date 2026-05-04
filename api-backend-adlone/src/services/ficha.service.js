@@ -24,7 +24,7 @@ class FichaIngresoService {
             // 1. Generar ID Ficha (Manual MAX+1 logic from FoxPro)
             logger.debug('Generando nuevo ID de Ficha...');
             const requestCheck = new sql.Request(transaction);
-            const idResult = await requestCheck.query('SELECT ISNULL(MAX(id_fichaingresoservicio), 0) + 1 as NewId FROM App_Ma_FichaIngresoServicio_ENC');
+            const idResult = await requestCheck.query('SELECT ISNULL(MAX(id_fichaingresoservicio), 0) + 1 as NewId FROM App_Ma_FichaIngresoServicio_ENC WITH (UPDLOCK, HOLDLOCK)');
             const newId = idResult.recordset[0].NewId;
             const fechaHoy = new Date(); // Use server time
             logger.info(`Nuevo ID generado: ${newId}`);
@@ -193,60 +193,50 @@ class FichaIngresoService {
             logger.info(`Insertando ${analisisList.length} items de detalle...`);
 
             if (analisisList.length > 0) {
-                // --- CREATE FICHA ANALYSIS LOOP (INSERT ONLY) ---
-                for (const row of analisisList) {
-                    const requestDet = new sql.Request(transaction);
-                    requestDet.input('id_ficha', sql.Numeric(10, 0), newId);
-                    requestDet.input('id_tecnica', sql.Numeric(10, 0), valNum(row.id_tecnica));
-                    requestDet.input('id_normativa', sql.Numeric(10, 0), valNum(row.id_normativa));
-                    requestDet.input('id_normativareferencia', sql.Numeric(10, 0), valNum(row.id_normativareferencia));
-                    requestDet.input('id_referenciaanalisis', sql.Numeric(10, 0), valNum(row.id_referenciaanalisis));
-                    requestDet.input('limitemax_d', sql.Numeric(18, 5), valNum(row.limitemax_d));
-                    requestDet.input('limitemax_h', sql.Numeric(18, 5), valNum(row.limitemax_h));
-                    requestDet.input('llevaerror', sql.VarChar(1), row.llevaerror === true || row.llevaerror === 'S' || row.llevaerror === 'Y' ? 'S' : 'N');
-                    requestDet.input('error_min', sql.Numeric(18, 5), valNum(row.error_min));
-                    requestDet.input('error_max', sql.Numeric(18, 5), valNum(row.error_max));
-                    requestDet.input('tipo_analisis', sql.VarChar(20), valStr(row.tipo_analisis, 20));
-                    requestDet.input('uf', sql.Numeric(18, 5), valNum(row.uf_individual));
-                    requestDet.input('item', sql.Numeric(10, 0), itemCounter);
+                // --- BATCH INSERT FOR ANALYSES ---
+                const batchReq = new sql.Request(transaction);
+                const valueRows = [];
+                const defaultDate = new Date('1900-01-01');
 
-                    let idLab = valNum(row.id_laboratorioensayo);
-                    if (row.tipo_analisis && row.tipo_analisis.trim() === 'Terreno') { idLab = 0; }
-                    requestDet.input('id_laboratorio', sql.Numeric(10, 0), idLab);
+                for (const [i, row] of analisisList.entries()) {
+                    const isTerreno = row.tipo_analisis && String(row.tipo_analisis).trim() === 'Terreno';
+                    const idLab = isTerreno ? 0 : valNum(row.id_laboratorioensayo);
+                    const idLab2 = isTerreno ? 0 : valNum(row.id_laboratorioensayo_2);
+                    const p = (name) => `@d${i}_${name}`;
 
-                    let idLab2 = valNum(row.id_laboratorioensayo_2);
-                    if (row.tipo_analisis && row.tipo_analisis.trim() === 'Terreno') { idLab2 = 0; }
-                    requestDet.input('id_laboratorio_2', sql.Numeric(10, 0), idLab2);
+                    batchReq.input(`d${i}_fid`, sql.Numeric(10, 0), newId);
+                    batchReq.input(`d${i}_tec`, sql.Numeric(10, 0), valNum(row.id_tecnica));
+                    batchReq.input(`d${i}_nor`, sql.Numeric(10, 0), valNum(row.id_normativa));
+                    batchReq.input(`d${i}_norref`, sql.Numeric(10, 0), valNum(row.id_normativareferencia));
+                    batchReq.input(`d${i}_ref`, sql.Numeric(10, 0), valNum(row.id_referenciaanalisis));
+                    batchReq.input(`d${i}_lmaxd`, sql.Numeric(18, 5), valNum(row.limitemax_d));
+                    batchReq.input(`d${i}_lmaxh`, sql.Numeric(18, 5), valNum(row.limitemax_h));
+                    batchReq.input(`d${i}_err`, sql.VarChar(1), (row.llevaerror === true || row.llevaerror === 'S' || row.llevaerror === 'Y') ? 'S' : 'N');
+                    batchReq.input(`d${i}_ermin`, sql.Numeric(18, 5), valNum(row.error_min));
+                    batchReq.input(`d${i}_ermax`, sql.Numeric(18, 5), valNum(row.error_max));
+                    batchReq.input(`d${i}_tipo`, sql.VarChar(20), valStr(row.tipo_analisis, 20));
+                    batchReq.input(`d${i}_uf`, sql.Numeric(18, 5), valNum(row.uf_individual));
+                    batchReq.input(`d${i}_item`, sql.Numeric(10, 0), itemCounter + i);
+                    batchReq.input(`d${i}_lab`, sql.Numeric(10, 0), idLab);
+                    batchReq.input(`d${i}_lab2`, sql.Numeric(10, 0), idLab2);
+                    batchReq.input(`d${i}_tent`, sql.Numeric(10, 0), valNum(row.id_tipoentrega || ant.id_tipoentrega));
+                    batchReq.input(`d${i}_tran`, sql.Numeric(10, 0), valNum(row.id_transporte || ant.id_transporte));
+                    batchReq.input(`d${i}_rdate`, sql.Date, defaultDate);
 
-                    requestDet.input('id_tipoentrega', sql.Numeric(10, 0), valNum(row.id_tipoentrega || ant.id_tipoentrega));
-                    requestDet.input('id_transporte', sql.Numeric(10, 0), valNum(row.id_transporte || ant.id_transporte));
-
-                    requestDet.input('transporte_orden', sql.VarChar(20), '');
-                    requestDet.input('res_fecha', sql.Date, new Date('1900-01-01'));
-                    requestDet.input('res_hora', sql.VarChar(10), '');
-                    requestDet.input('llevatrad', sql.VarChar(1), 'N');
-                    requestDet.input('trad_0', sql.VarChar(250), '');
-                    requestDet.input('trad_1', sql.VarChar(250), '');
-
-                    await requestDet.query(`
-                        INSERT INTO App_Ma_FichaIngresoServicio_DET(
-                            id_fichaingresoservicio, id_tecnica, id_normativa, id_normativareferencia, id_referenciaanalisis,
-                            limitemax_d, limitemax_h, llevaerror, error_min, error_max,
-                            tipo_analisis, uf_individual, item, id_laboratorioensayo, id_laboratorioensayo_2, id_tipoentrega,
-                            id_transporte, transporte_orden, resultado_fecha, resultado_hora,
-                            llevatraduccion, traduccion_0, traduccion_1,
-                            estado, cumplimiento, cumplimiento_app, activo
-                        ) VALUES(
-                            @id_ficha, @id_tecnica, @id_normativa, @id_normativareferencia, @id_referenciaanalisis,
-                            @limitemax_d, @limitemax_h, @llevaerror, @error_min, @error_max,
-                            @tipo_analisis, @uf, @item, @id_laboratorio, @id_laboratorio_2, @id_tipoentrega,
-                            @id_transporte, @transporte_orden, @res_fecha, @res_hora,
-                            @llevatrad, @trad_0, @trad_1,
-                            '', '', '', 1
-                        )
-                    `);
-                    itemCounter++;
+                    valueRows.push(`(${p('fid')},${p('tec')},${p('nor')},${p('norref')},${p('ref')},${p('lmaxd')},${p('lmaxh')},${p('err')},${p('ermin')},${p('ermax')},${p('tipo')},${p('uf')},${p('item')},${p('lab')},${p('lab2')},${p('tent')},${p('tran')},'',${p('rdate')},'','N','','','','','',1)`);
                 }
+
+                await batchReq.query(`
+                    INSERT INTO App_Ma_FichaIngresoServicio_DET(
+                        id_fichaingresoservicio,id_tecnica,id_normativa,id_normativareferencia,id_referenciaanalisis,
+                        limitemax_d,limitemax_h,llevaerror,error_min,error_max,
+                        tipo_analisis,uf_individual,item,id_laboratorioensayo,id_laboratorioensayo_2,id_tipoentrega,
+                        id_transporte,transporte_orden,resultado_fecha,resultado_hora,
+                        llevatraduccion,traduccion_0,traduccion_1,
+                        estado,cumplimiento,cumplimiento_app,activo
+                    ) VALUES ${valueRows.join(',')}
+                `);
+                itemCounter += analisisList.length;
             }
 
             // 4. Crear Agenda (MUESTREOS)
@@ -336,14 +326,13 @@ class FichaIngresoService {
             const notifFecha = notifDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
             const notifHora = notifDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
             // Intentar obtener nombre de usuario, fallback a ID o 'Usuario Sistema'
-            // Intentar obtener nombre de usuario, fallback a ID o 'Usuario Sistema'
-            let notifUser = data.user ? (data.user.nombre_usuario || data.user.usuario || data.user.name) : null;
+            let notifUser = data.user ? (data.user.usuario || data.user.nombre_usuario || data.user.name) : null;
 
             if (!notifUser && userId) {
                 try {
-                    const uRes = await pool.request().query(`SELECT nombre_usuario FROM mae_usuario WHERE id_usuario = ${userId}`);
+                    const uRes = await pool.request().input('uid', sql.Int, userId).query('SELECT usuario FROM mae_usuario WHERE id_usuario = @uid');
                     if (uRes.recordset.length > 0) {
-                        notifUser = uRes.recordset[0].nombre_usuario;
+                        notifUser = uRes.recordset[0].usuario;
                     }
                 } catch (e) { logger.warn('Could not fetch user name for notif', e); }
             }
@@ -353,7 +342,7 @@ class FichaIngresoService {
             let nombreCliente = ant.contactoNombre || 'un Cliente';
             if (ant.selectedCliente) {
                 try {
-                    const cRes = await pool.request().query(`SELECT TOP 1 nombre_empresa FROM mae_empresa WHERE id_empresa = ${valNum(ant.selectedCliente)}`);
+                    const cRes = await pool.request().input('cid', sql.Int, valNum(ant.selectedCliente)).query('SELECT TOP 1 nombre_empresa FROM mae_empresa WHERE id_empresa = @cid');
                     if (cRes.recordset.length > 0) {
                         nombreCliente = cRes.recordset[0].nombre_empresa;
                     }
@@ -370,7 +359,7 @@ class FichaIngresoService {
                 hora: notifHora,
                 observacion: obs || 'Sin observaciones',
                 ficha_original: data.isRemuestreo ? String(data.originalFichaId) : null
-            });
+            }).catch(e => logger.warn('UNS trigger failed:', e));
 
             // AUDITORIA INMUTABLE
             auditService.log({
@@ -406,15 +395,15 @@ class FichaIngresoService {
             logger.info(`Transaction started for updateFicha ID: ${id}`);
             // FIX: Ensure User Name is available for logs
             logger.info('DEBUG updateFicha - user object:', user);
-            let userName = String(user.nombre_usuario || user.usuario || user.name || 'Sistema');
+            let userName = String(user.usuario || user.nombre_usuario || user.name || 'Sistema');
             if (!userName || userName === 'undefined' || userName === 'Sistema') {
                 if (user.id && user.id !== 0) {
                     try {
                         const uReq = new sql.Request(transaction);
                         uReq.input('uid', sql.Numeric(10, 0), user.id);
-                        const uRes = await uReq.query('SELECT nombre_usuario FROM mae_usuario WHERE id_usuario = @uid');
+                        const uRes = await uReq.query('SELECT usuario FROM mae_usuario WHERE id_usuario = @uid');
                         if (uRes.recordset.length > 0) {
-                            userName = String(uRes.recordset[0].nombre_usuario);
+                            userName = String(uRes.recordset[0].usuario);
                         }
                     } catch (e) { logger.warn('Failed to fetch user name', e); }
                 }
@@ -1103,6 +1092,26 @@ class FichaIngresoService {
             try {
                 resultDet = await requestDet.execute('MAM_FichaComercial_ConsultaComercial_DET_unaficha');
                 ficha.detalles = resultDet.recordset || [];
+
+                // DATA ENRICHMENT: Fetch uf_individual for each detail row if not present
+                if (ficha.detalles.length > 0) {
+                    const detIds = ficha.detalles.map(d => d.id_referenciaanalisis).filter(id => id);
+                    if (detIds.length > 0) {
+                        const enrichmentRes = await pool.request()
+                            .input('fid', sql.Numeric(10, 0), id)
+                            .query(`SELECT id_referenciaanalisis, uf_individual FROM App_Ma_FichaIngresoServicio_DET WHERE id_fichaingresoservicio = @fid`);
+                        
+                        const ufMap = enrichmentRes.recordset.reduce((acc, row) => {
+                            acc[row.id_referenciaanalisis] = row.uf_individual;
+                            return acc;
+                        }, {});
+
+                        ficha.detalles = ficha.detalles.map(d => ({
+                            ...d,
+                            uf_individual: d.uf_individual || ufMap[d.id_referenciaanalisis] || 0
+                        }));
+                    }
+                }
             } catch (errDet) {
                 logger.warn('SP MAM_FichaComercial_ConsultaComercial_DET_unaficha failed, trying fallback', errDet);
                 ficha.detalles = [];
@@ -1363,9 +1372,9 @@ class FichaIngresoService {
         try {
             const userRequest = new sql.Request(transaction);
             userRequest.input('userId', sql.Numeric(10, 0), userId);
-            const userResult = await userRequest.query('SELECT nombre_usuario, usuario FROM mae_usuario WHERE id_usuario = @userId');
+            const userResult = await userRequest.query('SELECT usuario FROM mae_usuario WHERE id_usuario = @userId');
             if (userResult.recordset.length > 0) {
-                return userResult.recordset[0].nombre_usuario || userResult.recordset[0].usuario || 'Usuario';
+                return userResult.recordset[0].usuario || 'Usuario';
             }
         } catch (error) {
             logger.warn('Error fetching user name:', error);
@@ -1452,13 +1461,14 @@ class FichaIngresoService {
             const notifDate = new Date();
             const notifFecha = notifDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
 
-            let notifUser = user ? (user.nombre_usuario || user.usuario || user.name) : null;
+            let notifUser = user ? (user.usuario || user.nombre_usuario || user.name) : null;
 
             // Fetch owner for notif
             let ownerId = 0;
             try {
                 const ownerReq = new sql.Request(transaction);
-                const ownerRes = await ownerReq.query(`SELECT id_usuario FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio = ${id}`);
+                ownerReq.input('ownerFichaId', sql.Int, id);
+                const ownerRes = await ownerReq.query('SELECT id_usuario FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio = @ownerFichaId');
                 if (ownerRes.recordset.length > 0) ownerId = ownerRes.recordset[0].id_usuario;
             } catch (e) { logger.warn('Could not fetch owner for notif', e); }
 
@@ -1471,7 +1481,7 @@ class FichaIngresoService {
                 usuario_accion: notifUser,
                 fecha: notifFecha,
                 observacion: observaciones || 'Validación técnica conforme.'
-            });
+            }).catch(e => logger.warn('UNS trigger failed:', e));
 
             // AUDITORIA INMUTABLE
             auditService.log({
@@ -1520,13 +1530,14 @@ class FichaIngresoService {
             const notifDate = new Date();
             const notifFecha = notifDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
 
-            let notifUser = user ? (user.nombre_usuario || user.usuario || user.name) : null;
+            let notifUser = user ? (user.usuario || user.nombre_usuario || user.name) : null;
 
             // Fetch owner for notif
             let ownerId = 0;
             try {
                 const ownerReq = new sql.Request(transaction);
-                const ownerRes = await ownerReq.query(`SELECT id_usuario FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio = ${id}`);
+                ownerReq.input('ownerFichaId', sql.Int, id);
+                const ownerRes = await ownerReq.query('SELECT id_usuario FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio = @ownerFichaId');
                 if (ownerRes.recordset.length > 0) ownerId = ownerRes.recordset[0].id_usuario;
             } catch (e) { logger.warn('Could not fetch owner for notif', e); }
 
@@ -1539,7 +1550,7 @@ class FichaIngresoService {
                 usuario_accion: notifUser,
                 fecha: notifFecha,
                 observacion: observaciones || 'Sin motivo especificado'
-            });
+            }).catch(e => logger.warn('UNS trigger failed:', e));
 
             // AUDITORIA INMUTABLE
             auditService.log({
@@ -1572,7 +1583,8 @@ class FichaIngresoService {
             // VALIDATION: Strict Check
             // Need to run this check BEFORE transaction or inside. Inside is safer for data integrity
             const requestCheck = new sql.Request(transaction);
-            const check = await requestCheck.query(`SELECT id_validaciontecnica FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio = ${id} `);
+            requestCheck.input('checkFichaId', sql.Int, id);
+            const check = await requestCheck.query('SELECT id_validaciontecnica FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio = @checkFichaId');
 
             if (!check.recordset[0] || check.recordset[0].id_validaciontecnica !== 1) {
                 throw new Error("No se puede gestionar Coordinación: Ficha no aprobada por Técnica.");
@@ -1600,13 +1612,14 @@ class FichaIngresoService {
             const notifDate = new Date();
             const notifFecha = notifDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
 
-            let notifUser = user ? (user.nombre_usuario || user.usuario || user.name) : null;
+            let notifUser = user ? (user.usuario || user.nombre_usuario || user.name) : null;
 
             // Fetch owner for notif
             let ownerId = 0;
             try {
                 const ownerReq = new sql.Request(transaction);
-                const ownerRes = await ownerReq.query(`SELECT id_usuario FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio = ${id}`);
+                ownerReq.input('ownerFichaId', sql.Int, id);
+                const ownerRes = await ownerReq.query('SELECT id_usuario FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio = @ownerFichaId');
                 if (ownerRes.recordset.length > 0) ownerId = ownerRes.recordset[0].id_usuario;
             } catch (e) { logger.warn('Could not fetch owner for notif', e); }
 
@@ -1619,7 +1632,7 @@ class FichaIngresoService {
                 usuario_accion: notifUser,
                 fecha: notifFecha,
                 observacion: observaciones || 'Validación coordinación conforme.'
-            });
+            }).catch(e => logger.warn('UNS trigger failed:', e));
 
             // AUDITORIA INMUTABLE
             auditService.log({
@@ -1672,13 +1685,14 @@ class FichaIngresoService {
             const notifDate = new Date();
             const notifFecha = notifDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
 
-            let notifUser = user ? (user.nombre_usuario || user.usuario || user.name) : null;
+            let notifUser = user ? (user.usuario || user.nombre_usuario || user.name) : null;
 
             // Fetch owner for notif
             let ownerId = 0;
             try {
                 const ownerReq = new sql.Request(transaction);
-                const ownerRes = await ownerReq.query(`SELECT id_usuario FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio = ${id}`);
+                ownerReq.input('ownerFichaId', sql.Int, id);
+                const ownerRes = await ownerReq.query('SELECT id_usuario FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio = @ownerFichaId');
                 if (ownerRes.recordset.length > 0) ownerId = ownerRes.recordset[0].id_usuario;
             } catch (e) { logger.warn('Could not fetch owner for notif', e); }
 
@@ -1691,7 +1705,7 @@ class FichaIngresoService {
                 usuario_accion: notifUser,
                 fecha: notifFecha,
                 observacion: observaciones || 'Ficha devuelta a revisión técnica.'
-            });
+            }).catch(e => logger.warn('UNS trigger failed:', e));
 
             // AUDITORIA INMUTABLE
             auditService.log({
@@ -2558,7 +2572,7 @@ class FichaIngresoService {
                     unsService.trigger(eventCode, {
                         correlativo: meta.correlativo_txt || String(fid),
                         id_usuario_accion: user ? (user.id || user.id_usuario || 0) : 0,
-                        id_usuario_propietario: meta.id_usuario_propietario, // Pass owner from meta query
+                        id_usuario_propietario: meta.id_usuario_propietario,
                         tipo_frecuencia: tipoFrecuencia,
                         total_servicios: totalServicios,
                         servicios: serviciosFinal,
@@ -2579,7 +2593,7 @@ class FichaIngresoService {
                         correo_cliente: meta.correo_empresa_cliente || 'No especificado',
                         punto_muestreo: meta.punto_muestreo || 'No especificado',
                         coordenadas: meta.coordenadas || 'No especificado'
-                    });
+                    }).catch(e => logger.warn('UNS trigger failed:', e));
                 }
             }
 
@@ -2734,10 +2748,10 @@ class FichaIngresoService {
                         fecha_muestreo: fechaMuestreoStr,
                         muestreador: info.nombre_muestreador || 'No asignado',
                         motivo: observations || 'No especificado',
-                        usuario_cancela: user.nombre_usuario || user.usuario || 'Usuario',
-                        usuario_accion: user.nombre_usuario || user.usuario || 'Usuario',
+                        usuario_cancela: user.usuario || user.nombre_usuario || 'Usuario',
+                        usuario_accion: user.usuario || user.nombre_usuario || 'Usuario',
                         fecha: notifFechaStr
-                    });
+                    }).catch(e => logger.warn('UNS trigger failed:', e));
                 }
             } catch (e) {
                 logger.warn('Error enviando notificación de cancelación:', e);

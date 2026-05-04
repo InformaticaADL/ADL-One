@@ -267,14 +267,14 @@ class GeneralChatController {
 
     async addFavorite(req, res) {
         try {
-            console.log('TRACE: addFavorite reached', { params: req.params, query: req.query });
+            logger.debug('TRACE: addFavorite reached', { params: req.params, query: req.query });
             const userId = req.user.id;
             const { contactId } = req.params;
             const { tipo } = req.query;
             const result = await generalChatService.addFavoriteContact(userId, Number(contactId), tipo || 'USER');
             return successResponse(res, result, 'Agregado a favoritos');
         } catch (error) {
-            console.error('TRACE: addFavorite Error:', error);
+            logger.error('TRACE: addFavorite Error:', error);
             logger.error('Error in addFavorite:', error);
             return errorResponse(res, 'Error al agregar favorito', 500);
         }

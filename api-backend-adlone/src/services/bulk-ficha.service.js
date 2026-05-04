@@ -163,7 +163,15 @@ class BulkFichaService {
         ]);
 
         // Also load centros (fuentes emisoras) - we load ALL since we need to match by name
-        const centrosRes = await pool.request().execute('consulta_centro').catch(() => ({ recordset: [] }));
+        const centrosRes = await pool.request().query(`
+            SELECT c.id_centro, c.nombre_centro, c.id_empresa, c.ubicacion,
+                   com.nombre_comuna, reg.nombre_region, ta.nombre_tipoagua as tipo_agua,
+                   c.id_tipoagua, c.codigo_centro
+            FROM mae_centro c
+            LEFT JOIN mae_comuna com ON c.id_comuna = com.id_comuna
+            LEFT JOIN mae_region reg ON c.id_region = reg.id_region
+            LEFT JOIN mae_tipoagua ta ON c.id_tipoagua = ta.id_tipoagua
+        `).catch(() => ({ recordset: [] }));
 
         // Load ALL referencia analysis for matching analysis names
         // We query the base table directly for name matching
@@ -207,17 +215,21 @@ class BulkFichaService {
                 nombre: (r.nombre_empresa || '').trim(),
                 id_empresaservicio: r.id_empresaservicio
             })),
-            centros: centrosRes.recordset.map(r => ({
-                id: r.id_centro || r.id,
-                nombre: (r.nombre_centro || r.nombre || '').trim(),
-                direccion: r.direccion || r.ubicacion,
-                comuna: r.nombre_comuna || r.comuna,
-                region: r.nombre_region || r.region,
-                tipo_agua: r.tipo_agua || r.TipoAgua || r.tipoagua || r.nombre_tipoagua,
-                id_tipoagua: r.id_tipoagua || r.IdTipoAgua || r.ID_TIPOAGUA,
-                id_empresa: r.id_empresa || r.IdEmpresa,
-                codigo: r.codigo_centro || r.codigo || r.codigo_ma
-            })),
+            centros: centrosRes.recordset.map(r => {
+                const dir = (r.direccion || '').trim();
+                const ubi = (r.ubicacion || '').trim();
+                return {
+                    id: r.id_centro || r.id,
+                    nombre: (r.nombre_centro || r.nombre || '').trim(),
+                    direccion: dir || ubi,
+                    comuna: (r.nombre_comuna || r.comuna || '').trim(),
+                    region: (r.nombre_region || r.region || '').trim(),
+                    tipo_agua: (r.tipo_agua || r.TipoAgua || r.tipoagua || r.nombre_tipoagua || '').trim(),
+                    id_tipoagua: r.id_tipoagua || r.IdTipoAgua || r.ID_TIPOAGUA,
+                    id_empresa: r.id_empresa || r.IdEmpresa,
+                    codigo: r.codigo_centro || r.codigo || r.codigo_ma
+                };
+            }),
             objetivos: objetivosRes.recordset.map(r => ({
                 id: r.id_objetivomuestreo_ma || r.id,
                 nombre: (r.nombre_objetivomuestreo_ma || r.nombre || '').trim()

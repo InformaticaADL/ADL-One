@@ -32,9 +32,11 @@ interface NavState {
     hideNotification: (id: string | number) => void;
     setMaArea: (area: 'comercial' | 'tecnica' | 'coordinacion' | null) => void;
     setFichasMode: (mode: 'menu' | 'create_ficha' | 'create_choice' | 'create_manual' | 'create_bulk' | 'list_fichas' | 'detail_ficha' | 'list_assign' | 'detail_assign' | 'calendar' | 'list_ejecutados' | 'dashboard' | 'kpi_dashboard' | 'route_planner' | 'route_planner_map' | 'manage_empresas') => void;
+    dynamicModules: Record<string, unknown>[];
+    setDynamicModules: (modules: Record<string, unknown>[]) => void;
+    ursFilters: { searchTerm: string; status: string; area: string; type: string };
+    setUrsFilters: (filters: Partial<{ searchTerm: string; status: string; area: string; type: string }>) => void;
 }
-
-const STORAGE_KEY = 'adl_hidden_notifications';
 
 export const useNavStore = create<NavState>()(
     persist(
@@ -50,7 +52,7 @@ export const useNavStore = create<NavState>()(
             selectedFichaId: null,
             selectedCorrelativo: null,
             ursInboxMode: 'RECEIVED',
-            hiddenNotifications: JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'),
+            hiddenNotifications: [],
             maArea: null,
             fichasMode: 'menu',
             setActiveModule: (moduleId) => set({ activeModule: moduleId }),
@@ -69,17 +71,14 @@ export const useNavStore = create<NavState>()(
             setUrsInboxMode: (mode) => set({ ursInboxMode: mode }),
             hideNotification: (id: string | number) => set((state) => {
                 const idStr = String(id);
-                const next = state.hiddenNotifications.includes(idStr)
-                    ? state.hiddenNotifications
-                    : [...state.hiddenNotifications, idStr];
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-                return { hiddenNotifications: next };
+                if (state.hiddenNotifications.includes(idStr)) return state;
+                return { hiddenNotifications: [...state.hiddenNotifications, idStr] };
             }),
-            resetNavigation: () => set({ 
-                activeModule: '', 
-                activeSubmodule: '', 
-                previousSubmodule: '', 
-                drawerOpen: false, 
+            resetNavigation: () => set({
+                activeModule: '',
+                activeSubmodule: '',
+                previousSubmodule: '',
+                drawerOpen: false,
                 sidebarCollapsed: false,
                 pendingRequestId: null,
                 selectedRequestId: null,
@@ -89,17 +88,23 @@ export const useNavStore = create<NavState>()(
                 adminSearchTerm: '',
                 maArea: null,
                 fichasMode: 'menu',
-            }), // Reset to defaults
+                dynamicModules: [],
+            }),
             adminSearchTerm: '',
             setAdminSearchTerm: (term: string) => set({ adminSearchTerm: term }),
             setMaArea: (area) => set({ maArea: area }),
             setFichasMode: (mode) => set({ fichasMode: mode }),
+            dynamicModules: [],
+            setDynamicModules: (modules) => set({ dynamicModules: modules }),
+            ursFilters: { searchTerm: '', status: '', area: '', type: '' },
+            setUrsFilters: (filters) => set((state) => ({ ursFilters: { ...state.ursFilters, ...filters } })),
         }),
         {
             name: 'adl-nav-storage', // nombre en localStorage
             partialize: (state) => ({
-                sidebarCollapsed: state.sidebarCollapsed
-            }), // Solo guardamos sidebarCollapsed para que el inicio siempre sea limpio
+                sidebarCollapsed: state.sidebarCollapsed,
+                hiddenNotifications: state.hiddenNotifications,
+            }),
         }
     )
 );

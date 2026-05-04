@@ -475,7 +475,7 @@ export const equipoService = {
             }
             return null;
         } catch (error) {
-            console.error('Error in findMatchingVersion:', error);
+            logger.error('Error in findMatchingVersion:', error);
             return null; // Don't crash the whole save if matching fails
         }
     },
@@ -651,7 +651,7 @@ export const equipoService = {
                 const vigStr = toYMD(incomingDate);
                 const currentVigStr = toYMD(currentVigDate);
 
-                console.log('DEBUG updateEquipo Date Validation:', {
+                logger.debug('DEBUG updateEquipo Date Validation:', {
                     vigenciaInput: data.vigencia,
                     incomingDate: incomingDate?.toISOString(),
                     currentVigDate: currentVigDate?.toISOString(),

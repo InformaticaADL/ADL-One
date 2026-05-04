@@ -24,29 +24,33 @@ import {
     Container
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import { 
-    IconCheck, 
-    IconChevronLeft, 
-    IconPlus, 
-    IconFileText, 
+import {
+    IconCheck,
+    IconChevronLeft,
+    IconPlus,
+    IconFileText,
     IconArrowRight,
     IconTable,
-    IconEdit
+    IconEdit,
+    IconEye
 } from '@tabler/icons-react';
+import { useNavStore } from '../../../store/navStore';
 
 const SuccessModal = ({
     isOpen,
     onClose,
+    onViewFicha,
     fichaId
 }: {
     isOpen: boolean;
     onClose: () => void;
+    onViewFicha: () => void;
     fichaId: number | null
 }) => {
     return (
-        <Modal 
-            opened={isOpen} 
-            onClose={onClose} 
+        <Modal
+            opened={isOpen}
+            onClose={onClose}
             title="¡Ficha Creada Exitosamente!"
             centered
             size="md"
@@ -57,23 +61,35 @@ const SuccessModal = ({
                 <ThemeIcon size={80} radius="xl" color="green" variant="light">
                     <IconCheck size={40} />
                 </ThemeIcon>
-                
+
                 <Title order={3} ta="center">Registro Confirmado</Title>
-                
+
                 <Text ta="center" c="dimmed">
                     Se ha generado la Ficha N° <Text span fw={700} c="blue">{fichaId}</Text> correctamente en el sistema.
                 </Text>
 
-                <Button 
-                    fullWidth 
-                    size="md" 
-                    color="green" 
-                    radius="md" 
-                    onClick={onClose}
-                    mt="lg"
-                >
-                    Aceptar y Volver
-                </Button>
+                <Group w="100%" mt="lg">
+                    <Button
+                        flex={1}
+                        size="md"
+                        variant="light"
+                        color="blue"
+                        radius="md"
+                        leftSection={<IconEye size={18} />}
+                        onClick={onViewFicha}
+                    >
+                        Ver Ficha
+                    </Button>
+                    <Button
+                        flex={1}
+                        size="md"
+                        color="green"
+                        radius="md"
+                        onClick={onClose}
+                    >
+                        Volver al Menú
+                    </Button>
+                </Group>
             </Stack>
         </Modal>
     );
@@ -84,6 +100,7 @@ export const FichaCreateForm = ({ onBackToMenu }: { onBackToMenu: () => void }) 
     const isVerySmall = useMediaQuery('(max-width: 450px)');
     const { user } = useAuth();
     const { showToast } = useToast();
+    const { setSelectedFicha, setFichasMode } = useNavStore();
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [createdFichaId, setCreatedFichaId] = useState<number | null>(null);
     const [isAntecedentesValid, setIsAntecedentesValid] = useState(false);
@@ -154,11 +171,20 @@ export const FichaCreateForm = ({ onBackToMenu }: { onBackToMenu: () => void }) 
         onBackToMenu();
     };
 
+    const handleViewFicha = () => {
+        if (createdFichaId) {
+            setSelectedFicha(createdFichaId, null);
+            setFichasMode('detail_ficha');
+        }
+        setShowSuccessModal(false);
+    };
+
     return (
         <Container fluid w="100%" mx="auto" px={0} py="md" style={{ maxWidth: '100% !important' }}>
             <SuccessModal
                 isOpen={showSuccessModal}
                 onClose={handleCloseSuccess}
+                onViewFicha={handleViewFicha}
                 fichaId={createdFichaId}
             />
 

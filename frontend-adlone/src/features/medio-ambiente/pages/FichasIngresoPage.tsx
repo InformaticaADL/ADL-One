@@ -1,13 +1,15 @@
-import { useEffect, useState } from 'react';
-import { 
-    Stack, 
-    Title, 
-    Text, 
-    SimpleGrid, 
+import { lazy, Suspense, useEffect, useState } from 'react';
+import {
+    Stack,
+    Title,
+    Text,
+    SimpleGrid,
     Box,
     Divider,
     Paper,
-    Container
+    Container,
+    Loader,
+    Center,
 } from '@mantine/core';
 import { SelectionCard } from '../components/SelectionCard';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -15,20 +17,27 @@ import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 import { useNavStore } from '../../../store/navStore';
 import { CatalogosProvider } from '../context/CatalogosContext';
 
+// Carga estática: componentes livianos usados frecuentemente
 import { FichaCreateChoice } from '../components/FichaCreateChoice';
-import { BulkFichaCreator } from '../components/BulkFichaCreator';
 import { FichaCreateForm } from '../components/FichaCreateForm';
 import { FichasExploradorView } from '../components/FichasExploradorView';
 import { FichaUniversalView } from '../components/FichaUniversalView';
 import { AssignmentListView } from '../components/AssignmentListView';
 import { AssignmentDetailView } from '../components/AssignmentDetailView';
-import { EnProcesoCalendarView } from '../components/EnProcesoCalendarView';
-import { MuestreosEjecutadosListView } from '../components/MuestreosEjecutadosListView';
-import { CoordinacionDashboardView } from '../components/CoordinacionDashboardView';
-import { RouteMapPlannerView } from '../components/RouteMapPlannerView';
-import { RutasListView } from '../components/RutasListView';
-import { KpiAnalystDashboardView } from '../components/KpiAnalystDashboardView';
-import { EmpresaServicioFormView } from '../components/EmpresaServicioFormView';
+
+// Carga diferida: componentes pesados (Leaflet, ExcelJS, Chart, etc.)
+const BulkFichaCreator = lazy(() => import('../components/BulkFichaCreator').then(m => ({ default: m.BulkFichaCreator })));
+const EnProcesoCalendarView = lazy(() => import('../components/EnProcesoCalendarView').then(m => ({ default: m.EnProcesoCalendarView })));
+const MuestreosEjecutadosListView = lazy(() => import('../components/MuestreosEjecutadosListView').then(m => ({ default: m.MuestreosEjecutadosListView })));
+const CoordinacionDashboardView = lazy(() => import('../components/CoordinacionDashboardView').then(m => ({ default: m.CoordinacionDashboardView })));
+const RouteMapPlannerView = lazy(() => import('../components/RouteMapPlannerView').then(m => ({ default: m.RouteMapPlannerView })));
+const RutasListView = lazy(() => import('../components/RutasListView').then(m => ({ default: m.RutasListView })));
+const KpiAnalystDashboardView = lazy(() => import('../components/KpiAnalystDashboardView').then(m => ({ default: m.KpiAnalystDashboardView })));
+const EmpresaServicioFormView = lazy(() => import('../components/EmpresaServicioFormView').then(m => ({ default: m.EmpresaServicioFormView })));
+
+const LazyFallback = () => (
+    <Center h={300}><Loader size="md" /></Center>
+);
 
 import { 
     IconPlus, 
@@ -92,10 +101,12 @@ export const FichasIngresoPage = () => {
             case 'create_bulk':
                 return (
                     <ProtectedContent permission="FI_CREAR" fallback={<Text ta="center" mt="xl" c="red">No tiene permisos para crear fichas</Text>}>
-                        <BulkFichaCreator 
-                            onBack={() => setFichasMode('create_choice')} 
-                            onSuccess={() => setFichasMode('list_fichas')} 
-                        />
+                        <Suspense fallback={<LazyFallback />}>
+                            <BulkFichaCreator
+                                onBack={() => setFichasMode('create_choice')}
+                                onSuccess={() => setFichasMode('list_fichas')}
+                            />
+                        </Suspense>
                     </ProtectedContent>
                 );
         case 'list_fichas':
@@ -139,52 +150,64 @@ export const FichasIngresoPage = () => {
         case 'calendar':
             return (
                 <ProtectedContent permission="MA_CALENDARIO_ACCESO" fallback={<Text ta="center" mt="xl" c="red">No tiene permisos</Text>}>
-                    <EnProcesoCalendarView onBackToMenu={() => setFichasMode('menu')} />
+                    <Suspense fallback={<LazyFallback />}>
+                        <EnProcesoCalendarView onBackToMenu={() => setFichasMode('menu')} />
+                    </Suspense>
                 </ProtectedContent>
             );
         case 'list_ejecutados':
             return (
                 <ProtectedContent permission={['MA_COMERCIAL_HISTORIAL_ACCESO', 'FI_EXP_MC']} fallback={<Text ta="center" mt="xl" c="red">No tiene permisos</Text>}>
-                    <MuestreosEjecutadosListView onBackToMenu={() => setFichasMode('menu')} />
+                    <Suspense fallback={<LazyFallback />}>
+                        <MuestreosEjecutadosListView onBackToMenu={() => setFichasMode('menu')} />
+                    </Suspense>
                 </ProtectedContent>
             );
         case 'dashboard':
             return (
                 <ProtectedContent permission="MA_COORDINACION_ACCESO" fallback={<Text ta="center" mt="xl" c="red">No tiene permisos</Text>}>
-                    <CoordinacionDashboardView onBack={() => setFichasMode('menu')} />
+                    <Suspense fallback={<LazyFallback />}>
+                        <CoordinacionDashboardView onBack={() => setFichasMode('menu')} />
+                    </Suspense>
                 </ProtectedContent>
             );
         case 'kpi_dashboard':
             return (
                 <ProtectedContent permission="MA_COORDINACION_ACCESO" fallback={<Text ta="center" mt="xl" c="red">No tiene permisos</Text>}>
-                    <KpiAnalystDashboardView onBack={() => setFichasMode('menu')} />
+                    <Suspense fallback={<LazyFallback />}>
+                        <KpiAnalystDashboardView onBack={() => setFichasMode('menu')} />
+                    </Suspense>
                 </ProtectedContent>
             );
         case 'route_planner':
             return (
                 <ProtectedContent permission="FI_ASIG_GRUPO" fallback={<Text ta="center" mt="xl" c="red">No tiene permisos</Text>}>
-                    <RutasListView 
-                        onBackToMenu={() => setFichasMode('menu')} 
-                        onNuevaRuta={() => { setEditingRutaId(null); setFichasMode('route_planner_map'); }}
-                        onEditarRuta={(rutaId) => { setEditingRutaId(rutaId); setFichasMode('route_planner_map'); }}
-                    />
+                    <Suspense fallback={<LazyFallback />}>
+                        <RutasListView
+                            onBackToMenu={() => setFichasMode('menu')}
+                            onNuevaRuta={() => { setEditingRutaId(null); setFichasMode('route_planner_map'); }}
+                            onEditarRuta={(rutaId) => { setEditingRutaId(rutaId); setFichasMode('route_planner_map'); }}
+                        />
+                    </Suspense>
                 </ProtectedContent>
             );
         case 'route_planner_map':
             return (
                 <ProtectedContent permission="FI_ASIG_GRUPO" fallback={<Text ta="center" mt="xl" c="red">No tiene permisos</Text>}>
-                    <RouteMapPlannerView 
-                        onBack={() => { setEditingRutaId(null); setFichasMode('route_planner'); }} 
-                        editRutaId={editingRutaId}
-                    />
+                    <Suspense fallback={<LazyFallback />}>
+                        <RouteMapPlannerView
+                            onBack={() => { setEditingRutaId(null); setFichasMode('route_planner'); }}
+                            editRutaId={editingRutaId}
+                        />
+                    </Suspense>
                 </ProtectedContent>
             );
         case 'manage_empresas':
             return (
                 <ProtectedContent permission="FI_CREAR_EMPRESA" fallback={<Text ta="center" mt="xl" c="red">No tiene permisos</Text>}>
-                    <EmpresaServicioFormView 
-                        onBack={() => setFichasMode('menu')} 
-                    />
+                    <Suspense fallback={<LazyFallback />}>
+                        <EmpresaServicioFormView onBack={() => setFichasMode('menu')} />
+                    </Suspense>
                 </ProtectedContent>
             );
         case 'menu':

@@ -1,4 +1,5 @@
 import bulkFichaService from '../services/bulk-ficha.service.js';
+import bulkExcelService from '../services/bulk-excel.service.js';
 import logger from '../utils/logger.js';
 import { successResponse, errorResponse } from '../utils/response.js';
 import multer from 'multer';
@@ -12,10 +13,15 @@ const upload = multer({
         files: 1000 // Max 1000 files per batch
     },
     fileFilter: (req, file, cb) => {
-        if (file.mimetype === 'application/pdf') {
+        const allowedMimes = [
+            'application/pdf',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/vnd.ms-excel'
+        ];
+        if (allowedMimes.includes(file.mimetype) || file.originalname.endsWith('.xlsx')) {
             cb(null, true);
         } else {
-            cb(new Error(`Archivo rechazado: ${file.originalname} no es un PDF válido`), false);
+            cb(new Error(`Archivo rechazado: ${file.originalname} no es un formato válido (solo PDF o Excel)`), false);
         }
     }
 });
@@ -24,26 +30,39 @@ class BulkFichaController {
 
     // Multer middleware for multipart upload
     getUploadMiddleware() {
-        return upload.array('pdfs', 1000);
+        return upload.array('files', 1000);
     }
 
     /**
      * POST /api/fichas/bulk-parse
-     * Upload and parse PDF files. Returns parsed results for review.
+     * Upload and parse PDF or Excel files. Returns parsed results for review.
      */
     async parseBatch(req, res) {
         try {
             const files = req.files;
 
             if (!files || files.length === 0) {
-                return errorResponse(res, 'No se recibieron archivos PDF', 400);
+                return errorResponse(res, 'No se recibieron archivos', 400);
             }
 
-            logger.info(`[BulkFicha] Received ${files.length} PDFs for parsing`);
+            logger.info(`[BulkFicha] Received ${files.length} files for parsing`);
 
-            const result = await bulkFichaService.processBatch(files);
+            let result;
+            // Detect if it's an Excel upload (usually a single file for Excel bulk)
+            const firstFile = files[0];
+            const isExcel = firstFile.mimetype.includes('spreadsheetml') || 
+                            firstFile.mimetype.includes('excel') || 
+                            firstFile.originalname.endsWith('.xlsx');
 
-            return successResponse(res, result, `Procesados ${result.total} archivos: ${result.ready} listos, ${result.warnings} con advertencias, ${result.errors} con errores`);
+            if (isExcel) {
+                logger.info(`[BulkFicha] Processing Excel: ${firstFile.originalname}`);
+                result = await bulkExcelService.processExcelFile(firstFile.buffer);
+            } else {
+                logger.info(`[BulkFicha] Processing PDF batch (${files.length} files)`);
+                result = await bulkFichaService.processBatch(files);
+            }
+
+            return successResponse(res, result, `Procesados ${result.total} items: ${result.ready} listos, ${result.warnings} con advertencias, ${result.errors} con errores`);
 
         } catch (err) {
             logger.error('[BulkFicha] Error in parseBatch:', err);
@@ -55,9 +74,10 @@ class BulkFichaController {
                 return errorResponse(res, 'Un archivo excede el tamaño máximo de 20MB', 400);
             }
 
-            return errorResponse(res, 'Error al procesar los archivos PDF', 500, err.message);
+            return errorResponse(res, 'Error al procesar los archivos', 500, err.message);
         }
     }
+
 
     /**
      * POST /api/fichas/bulk-commit

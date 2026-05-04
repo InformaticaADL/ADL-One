@@ -315,7 +315,7 @@ export const BulkReviewGrid: React.FC<Props> = ({ items, selectedIndices, onSele
                                             </SimpleGrid>
 
                                             <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }}>
-                                                <StaticField label="Instrumento" value={ants.selectedInstrumento ? `${ants.selectedInstrumento}${ants.nroInstrumento ? ` N° ${ants.nroInstrumento}` : ''}${ants.anioInstrumento ? ` / ${ants.anioInstrumento}` : ''}` : '-'} />
+                                                <StaticField label="Instrumento" value={ants.instrumentoFull || ants.selectedInstrumento || '-'} />
                                                 <StaticField label="Ref. Google Maps" value={ants.refGoogle ? '✓ Enlace detectado' : 'Sin enlace'} />
                                                 <StaticField label="Zona UTM" value={ants.zona} />
                                                 <StaticField label="Coordenadas" value={ants.utmNorte && ants.utmEste ? `N ${ants.utmNorte} / E ${ants.utmEste}` : '-'} />
@@ -339,11 +339,17 @@ export const BulkReviewGrid: React.FC<Props> = ({ items, selectedIndices, onSele
                                             </SimpleGrid>
 
                                             <SimpleGrid cols={{ base: 1, sm: 4 }}>
-                                                <StaticField label="Cargo" value={ants.cargoResponsable} />
+                                                <StaticField label="Cargo" value={ants._cargoNombre || ants.cargoResponsable} />
                                                 <StaticField label="Tipo Muestreo" value={ants._tipoMuestreoNombre} />
                                                 <StaticField label="Medición Caudal" value={ants.medicionCaudal} />
                                                 <StaticField label="Normativa" value={ants._normativaNombre} />
                                             </SimpleGrid>
+
+                                            {ants.observaciones && (
+                                                <Alert variant="light" color="blue" mt="md" title="Observaciones" icon={<IconInfoCircle size={16} />}>
+                                                    <Text size="sm">{ants.observaciones}</Text>
+                                                </Alert>
+                                            )}
                                         </>
                                     );
                                 })()}
