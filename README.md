@@ -965,6 +965,18 @@ Resolución de una cadena de bugs interconectados que impedían el acceso correc
     - Frontend: `frontend-adlone/src/contexts/AuthContext.tsx` (interceptor 401-only logout)
     - Frontend: `frontend-adlone/src/pages/DashboardPage.tsx` (desacoplamiento de Security Guard)
 
+### 59. Efectos Visuales y Estados Inactivos en el Dashboard (Mayo 2026) 🎨🔒
+Implementación de efectos visuales "glassmorphism" para denotar estados inactivos o privados en los componentes del Dashboard principal (`WelcomePage.tsx`).
+
+- **Overlay de Privacidad (Estado Inactivo)**:
+    - Se aplicó un filtro visual a las tarjetas de "Comunicado Oficial", "Próximos Eventos" y "Estado Sala de Reuniones" utilizando `backdrop-filter: grayscale(100%) blur(2px)` junto con un fondo translúcido (`rgba(220, 220, 220, 0.3)`).
+    - Esto logra un efecto de "tarjeta desactivada" o "privada" donde se puede apreciar levemente el contenido original pero en escala de grises y desenfocado.
+- **Bloqueo de Interacciones**:
+    - Se inhabilitaron completamente los eventos de puntero (`pointer-events: none`) en los contenedores principales de estas secciones.
+    - Esto previene cualquier interacción no deseada (clics, apertura de modales) y anula los efectos de hover (como la elevación de las tarjetas o cambios de cursor), reforzando la sensación de que el módulo está bloqueado o en desarrollo.
+- **Preservación de Multimedia**:
+    - En la tarjeta del "Comunicado Oficial", la capa de opacidad se aplicó estratégicamente solo sobre la sección de texto (`Box`), manteniendo la imagen principal de la izquierda (`fondoLogin`) completamente a color y sin alteraciones.
+
 ---
 
 ## 📈 Próximos Pasos (Hoja de Ruta 2026)

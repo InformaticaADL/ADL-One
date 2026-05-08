@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { 
-    Paper, 
-    Text, 
-    Stack, 
-    Group, 
-    ThemeIcon, 
+import {
+    Paper,
+    Text,
+    Stack,
+    Group,
+    ThemeIcon,
     rem,
     Badge,
     SimpleGrid,
@@ -17,8 +17,8 @@ import {
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { useToast } from '../contexts/ToastContext';
-import { 
-    IconCalendarEvent, 
+import {
+    IconCalendarEvent,
     IconClock,
     IconPhone,
     IconChevronRight,
@@ -38,11 +38,11 @@ export const WelcomePage: React.FC = () => {
 
     // Mock data for demonstration
     const upcomingEvents = [
-        { 
-            id: 1, 
-            title: 'Reunión Semanal de Laboratorio', 
-            time: '14:00 - 15:30', 
-            date: 'Hoy', 
+        {
+            id: 1,
+            title: 'Reunión Semanal de Laboratorio',
+            time: '14:00 - 15:30',
+            date: 'Hoy',
             color: 'blue',
             description: 'Coordinación semanal de actividades, revisión de protocolos y gestión de insumos críticos para la operación de la unidad.',
             location: 'Sala de Conferencias B',
@@ -50,11 +50,11 @@ export const WelcomePage: React.FC = () => {
             isFinished: false
         },
 
-        { 
-            id: 2, 
-            title: 'Mantenimiento de Servidores', 
-            time: '22:00 - 02:00', 
-            date: 'Mañana', 
+        {
+            id: 2,
+            title: 'Mantenimiento de Servidores',
+            time: '22:00 - 02:00',
+            date: 'Mañana',
             color: 'orange',
             description: 'Actualización programada de sistemas críticos y respaldos de base de datos. Se esperan intermitencias en servicios internos.',
             location: 'Centro de Datos / Remoto',
@@ -62,11 +62,11 @@ export const WelcomePage: React.FC = () => {
             isFinished: false
         },
 
-        { 
-            id: 3, 
-            title: 'Auditoría Interna ISO 9001', 
-            time: '09:00 - 18:00', 
-            date: '25 Mar', 
+        {
+            id: 3,
+            title: 'Auditoría Interna ISO 9001',
+            time: '09:00 - 18:00',
+            date: '25 Mar',
             color: 'red',
             description: 'Revisión anual de procesos del sistema de gestión de calidad. Todos los departamentos deben tener su documentación al día.',
             location: 'Instalaciones Centrales',
@@ -77,10 +77,10 @@ export const WelcomePage: React.FC = () => {
     ];
 
     const salasReuniones = [
-        { 
-            name: 'SALA DE REUNIONES', 
-            status: 'LIBRE', 
-            time: 'Disponible', 
+        {
+            name: 'SALA DE REUNIONES',
+            status: 'LIBRE',
+            time: 'Disponible',
             color: 'green',
             nextBooking: '15:30 - Reunión Comercial',
             details: 'La sala se encuentra actualmente desocupada y disponible para su uso hasta las 15:30 hrs.'
@@ -107,8 +107,10 @@ export const WelcomePage: React.FC = () => {
     ];
 
     const contactosUtiles = [
-        { name: 'SEDE AYSEN', phone: '+56 9 97797306' },
-        { name: 'SEDE VILLARICA', phone: '+56 9 62256271' },
+        { name: 'SEDE PUERTO MONTT', phone: '+56 65 2250292' },
+        { name: 'SEDE AYSEN', phone: '+56 67 2336130' },
+        { name: 'SEDE VILLARICA', phone: '+56 9 42222123' },
+        { name: 'SOPORTE TI', phone: '+56 9 57218268' },
     ];
 
     const handleEventClick = (event: any) => {
@@ -137,14 +139,14 @@ export const WelcomePage: React.FC = () => {
         <Box p="md" style={{ width: '100% !important', maxWidth: '100% !important' }}>
             <Stack gap="lg">
                 {/* INFORMACION IMPORTANTE (Article Card Style - Login Inspired) */}
-                <Paper withBorder radius="md" p={0} shadow="sm" style={{ overflow: 'hidden' }}>
+                <Paper withBorder radius="md" p={0} shadow="sm" style={{ overflow: 'hidden', position: 'relative' }}>
                     <Flex direction={{ base: 'column', lg: 'row' }} align="stretch" style={{ minHeight: rem(220) }}>
 
-                        <Box 
-                            w={{ base: '100%', lg: '40%' }} 
+                        <Box
+                            w={{ base: '100%', lg: '40%' }}
                             h={{ base: rem(160), lg: 'auto' }}
-                            style={{ 
-                                position: 'relative', 
+                            style={{
+                                position: 'relative',
                                 backgroundImage: `url(${fondoLogin})`,
                                 backgroundSize: 'cover',
                                 backgroundPosition: 'center',
@@ -155,7 +157,7 @@ export const WelcomePage: React.FC = () => {
                             }}
                         >
                             <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0, 0, 0, 0.05)', zIndex: 1 }} />
-                            
+
                             <Stack gap={rem(5)} align="center" style={{ zIndex: 2, width: '100%', padding: rem(20) }}>
                                 <Text fw={300} size={rem(16)} ta="center" c="white" style={{ letterSpacing: rem(8), textTransform: 'lowercase', textShadow: '0 2px 4px rgba(0,0,0,0.5)', fontStyle: 'italic' }}>
                                     información
@@ -171,7 +173,8 @@ export const WelcomePage: React.FC = () => {
                             </Stack>
                         </Box>
 
-                        <Box p={{ base: 'md', lg: 'xl' }} style={{ flex: 1, backgroundColor: 'white', position: 'relative' }}>
+                        <Box p={{ base: 'md', lg: 'xl' }} style={{ flex: 1, backgroundColor: 'white', position: 'relative', pointerEvents: 'none' }}>
+                            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(220, 220, 220, 0.3)', backdropFilter: 'grayscale(100%) blur(2px)', zIndex: 10 }} />
                             {isBannerFinished && (
                                 <div className="stamp-overlay-finalizado">FINALIZADO</div>
                             )}
@@ -184,7 +187,7 @@ export const WelcomePage: React.FC = () => {
                                 Comunicado Oficial: Cierre de Reportes GEM
                             </Text>
                             <Text size="sm" c="dimmed" lineClamp={3} mb="xl" style={{ lineHeight: 1.6 }}>
-                                Recuerden que hoy finaliza el plazo para la carga de informes mensuales de la unidad Ensayo Molecular. 
+                                Recuerden que hoy finaliza el plazo para la carga de informes mensuales de la unidad Ensayo Molecular.
                                 Es fundamental asegurar que todos los correlativos estén al día para el cierre operativo.
                                 Ante cualquier duda, contactar a la jefatura de área correspondiente.
                             </Text>
@@ -206,21 +209,21 @@ export const WelcomePage: React.FC = () => {
                         </ThemeIcon>
                         <Text fw={700} tt="uppercase" style={{ letterSpacing: rem(1) }}>Próximos Eventos</Text>
                     </Group>
-                    
+
                     <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
                         {upcomingEvents.map(event => (
-                            <Paper 
-                                key={event.id} 
-                                p="md" 
-                                withBorder 
-                                radius="md" 
+                            <Paper
+                                key={event.id}
+                                p="md"
+                                withBorder
+                                radius="md"
                                 shadow="xs"
-                                style={{ 
-                                    cursor: 'pointer',
+                                style={{
                                     transition: 'transform 0.2s ease, box-shadow 0.2s ease',
                                     borderLeft: `5px solid var(--mantine-color-${event.color}-6)`,
                                     position: 'relative',
-                                    overflow: 'hidden'
+                                    overflow: 'hidden',
+                                    pointerEvents: 'none'
                                 }}
 
                                 onMouseEnter={(e) => {
@@ -233,6 +236,7 @@ export const WelcomePage: React.FC = () => {
                                 }}
                                 onClick={() => handleEventClick(event)}
                             >
+                                <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(220, 220, 220, 0.3)', backdropFilter: 'grayscale(100%) blur(2px)', zIndex: 10 }} />
                                 {event.isFinished && (
                                     <div className="stamp-overlay-finalizado event-card-stamp">FINALIZADO</div>
                                 )}
@@ -263,39 +267,40 @@ export const WelcomePage: React.FC = () => {
                 <Grid gutter="md">
                     <Grid.Col span={{ base: 12, sm: 6, lg: 4 }} order={{ base: 2, lg: 1 }}>
                         <Paper p="md" radius="md" withBorder shadow="xs" style={{ backgroundColor: 'var(--mantine-color-gray-0)', height: '100%' }}>
-                        <Text fw={700} size={rem(12)} mb="md" c="blue.8" style={{ display: 'flex', alignItems: 'center', gap: rem(8), letterSpacing: rem(0.6) }}>
-                            <IconPhone size={14} /> ANEXOS INTERNOS
-                        </Text>
-                        <ScrollArea h={rem(230)} offsetScrollbars>
-                            <Stack gap="xs">
-                                {anexosInternos.map((item, idx) => (
-                                    <Paper key={idx} p="xs" radius="sm" withBorder shadow="xs" style={{ backgroundColor: 'white' }}>
-                                        <Group justify="space-between" wrap="nowrap">
-                                            <Text size={rem(11)} fw={600}>{item.name}</Text>
-                                            <Text size={rem(11)} c="blue.7" fw={800}>{item.ext}</Text>
-                                        </Group>
-                                    </Paper>
-                                ))}
-                            </Stack>
-                        </ScrollArea>
+                            <Text fw={700} size={rem(12)} mb="md" c="blue.8" style={{ display: 'flex', alignItems: 'center', gap: rem(8), letterSpacing: rem(0.6) }}>
+                                <IconPhone size={14} /> ANEXOS INTERNOS
+                            </Text>
+                            <ScrollArea h={rem(230)} offsetScrollbars>
+                                <Stack gap="xs">
+                                    {anexosInternos.map((item, idx) => (
+                                        <Paper key={idx} p="xs" radius="sm" withBorder shadow="xs" style={{ backgroundColor: 'white' }}>
+                                            <Group justify="space-between" wrap="nowrap">
+                                                <Text size={rem(11)} fw={600}>{item.name}</Text>
+                                                <Text size={rem(11)} c="blue.7" fw={800}>{item.ext}</Text>
+                                            </Group>
+                                        </Paper>
+                                    ))}
+                                </Stack>
+                            </ScrollArea>
                         </Paper>
                     </Grid.Col>
 
                     <Grid.Col span={{ base: 12, sm: 6, lg: 4 }} order={{ base: 1, lg: 2 }}>
-                        <Paper p="md" radius="md" withBorder shadow="xs" style={{ backgroundColor: 'white', height: '100%' }}>
+                        <Paper p="md" radius="md" withBorder shadow="xs" style={{ backgroundColor: 'white', height: '100%', position: 'relative', overflow: 'hidden', pointerEvents: 'none' }}>
+                            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(220, 220, 220, 0.3)', backdropFilter: 'grayscale(100%) blur(2px)', zIndex: 10 }} />
                             <Text fw={700} size={rem(12)} mb="md" c="blue.8" style={{ display: 'flex', alignItems: 'center', gap: rem(8), letterSpacing: rem(0.5) }}>
                                 <IconDoorEnter size={16} /> ESTADO SALA DE REUNIONES
                             </Text>
                             <Stack gap="xs">
                                 {salasReuniones.map((sala, idx) => (
-                                    <Paper 
-                                        key={idx} 
-                                        p="sm" 
-                                        radius="sm" 
-                                        withBorder 
-                                        shadow="xs" 
+                                    <Paper
+                                        key={idx}
+                                        p="sm"
+                                        radius="sm"
+                                        withBorder
+                                        shadow="xs"
                                         onClick={() => handleSalaClick(sala)}
-                                        style={{ 
+                                        style={{
                                             borderLeft: `4px solid var(--mantine-color-${sala.color}-6)`,
                                             cursor: 'pointer'
                                         }}
@@ -357,7 +362,7 @@ export const WelcomePage: React.FC = () => {
                                 {selectedEvent.title}
                             </Text>
                         </Box>
-                        
+
                         <Group gap="xl">
                             <Stack gap={4}>
                                 <Text size="xs" c="dimmed" fw={700}>HORARIO</Text>
@@ -375,7 +380,7 @@ export const WelcomePage: React.FC = () => {
                         </Stack>
 
                         <Group justify="space-between" align="flex-end">
-                             <Stack gap={4}>
+                            <Stack gap={4}>
                                 <Text size="xs" c="dimmed" fw={700}>ORGANIZA</Text>
                                 <Text size="sm" fw={800} c="blue.6">{selectedEvent.organizer}</Text>
                             </Stack>
@@ -453,12 +458,12 @@ export const WelcomePage: React.FC = () => {
                 {selectedSala && (
                     <Stack gap="xl">
                         <Box>
-                             <Group justify="space-between" align="center" mb="xs">
+                            <Group justify="space-between" align="center" mb="xs">
                                 <Text fw={900} size="xl" c="blue.9" style={{ letterSpacing: '-0.02em' }}>{selectedSala.name}</Text>
                                 <Badge color={selectedSala.color} variant="light" radius="sm">{selectedSala.status}</Badge>
-                             </Group>
+                            </Group>
                         </Box>
-                        
+
                         <Stack gap={8}>
                             <Text size="xs" c="dimmed" fw={700}>DISPONIBILIDAD</Text>
                             <Text size="sm" c="gray.8" style={{ lineHeight: 1.6 }}>{selectedSala.details}</Text>
