@@ -33,8 +33,16 @@ class MenuService {
             for (const mod of modulesResult.recordset) {
                 // Check module permission
                 let hasModuleAccess = isSuperAdmin;
+                let requiredPerms = [];
+
                 if (!hasModuleAccess && mod.permissions_str) {
-                    const requiredPerms = mod.permissions_str.split(',').map(p => p.trim());
+                    requiredPerms = mod.permissions_str.split(',').map(p => p.trim());
+                    
+                    // HOTFIX: MA_COMERCIAL_HISTORIAL_ACCESO belongs to GEM, not Medio Ambiente
+                    if (mod.id_modulo === 'medio_ambiente') {
+                        requiredPerms = requiredPerms.filter(p => p !== 'MA_COMERCIAL_HISTORIAL_ACCESO');
+                    }
+                    
                     hasModuleAccess = requiredPerms.some(p => userPermissions.includes(p));
                 }
 
@@ -60,13 +68,19 @@ class MenuService {
                         }
                     }
 
+                    // If the module has links defined in the DB, but the user doesn't have access to ANY of them,
+                    // we shouldn't show the module at all.
+                    if (moduleLinks.length > 0 && processedLinks.length === 0) {
+                        continue;
+                    }
+
                     // Only push module if it has no children logic, or if children exist it gets pushed
                     modules.push({
                         id: mod.id_modulo,
                         label: mod.label,
                         icon: mod.icon_name,
                         group: mod.grupo,
-                        permission: mod.permissions_str ? mod.permissions_str.split(',').map(p => p.trim()) : undefined,
+                        permission: requiredPerms.length > 0 ? requiredPerms : undefined,
                         links: processedLinks.length > 0 ? processedLinks : undefined
                     });
                 }

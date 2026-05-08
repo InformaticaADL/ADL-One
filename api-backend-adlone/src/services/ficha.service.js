@@ -2906,9 +2906,13 @@ class FichaIngresoService {
 
         const addSectionTitle = (title, align = 'left') => {
             doc.moveDown(0.5);
-            const titleOpts = { align: align, width: 510 };
-            doc.font('Helvetica-Bold').fontSize(11).fillColor('#1f2937').text(title, titleOpts);
-            doc.moveTo(40, doc.y).lineTo(550, doc.y).strokeColor('#e5e7eb').stroke();
+            // Dibujar la línea de separación primero
+            doc.moveTo(40, doc.y).lineTo(555, doc.y).strokeColor('#e5e7eb').stroke();
+            doc.moveDown(0.5);
+            
+            // Dibujar el subtítulo debajo de la línea
+            const titleOpts = { align: align, width: 515 };
+            doc.font('Helvetica-Bold').fontSize(11).fillColor('#1f4e78').text(title, 40, doc.y, titleOpts);
             doc.moveDown(0.5);
             doc.fillColor('black');
         };
@@ -2919,7 +2923,8 @@ class FichaIngresoService {
             doc.image(logoPath, 40, 30, { width: 120 });
         }
 
-        doc.font('Helvetica-Bold').fontSize(14).fillColor('#1f4e78').text('FICHA DE INGRESO DE SERVICIO - MEDIO AMBIENTE', 40, 80, { align: 'center', width: 515 });
+        doc.moveDown(2); // Provide enough space after the logo
+        doc.font('Helvetica-Bold').fontSize(14).fillColor('#1f4e78').text('FICHA DE INGRESO DE SERVICIO - MEDIO AMBIENTE', 40, doc.y, { align: 'center', width: 515 });
         doc.fillColor('black');
         doc.moveDown(1.5);
 
@@ -2973,7 +2978,7 @@ class FichaIngresoService {
 
             // --- OBSERVACIONES (HISTORIAL) ---
             if (historial && historial.length > 0) {
-                addSectionTitle('Historial de Observaciones', 'left');
+                addSectionTitle('Historial de Observaciones');
                 const sortedHistorial = [...historial].reverse();
 
                 const tableObs = {
@@ -3026,7 +3031,7 @@ class FichaIngresoService {
             // --- ANALISIS ---
             if (hasAnalisis) {
                 doc.moveDown(1);
-                addSectionTitle('Análisis Físico / Químico / Hidrobiológico', 'left');
+                addSectionTitle('Análisis Físico / Químico / Hidrobiológico');
                 const tableAnalisis = {
                     headers: [
                         { label: "Análisis", property: "ana", width: 85 },

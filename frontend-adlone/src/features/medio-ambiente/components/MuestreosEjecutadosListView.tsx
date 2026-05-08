@@ -37,7 +37,7 @@ interface Props {
 }
 
 export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) => {
-    const { setSelectedFicha, setActiveSubmodule } = useNavStore();
+    const { setSelectedFicha, setActiveSubmodule, activeModule } = useNavStore();
     const { showToast } = useToast();
     const [muestreos, setMuestreos] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -200,7 +200,7 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
                             <Table striped highlightOnHover withTableBorder={false} verticalSpacing="xs" miw={1000}>
                                 <Table.Thead bg="gray.1">
                                     <Table.Tr>
-                                        <Table.Th w={60} style={{ whiteSpace: 'nowrap' }}>ID</Table.Th>
+                                        {(activeModule !== 'gem' && activeModule !== 'unidades-gem') && <Table.Th w={60} style={{ whiteSpace: 'nowrap' }}>ID</Table.Th>}
                                         <Table.Th w={120} style={{ whiteSpace: 'nowrap' }}>Correlativo</Table.Th>
                                         <Table.Th w={100} style={{ whiteSpace: 'nowrap' }}>Fecha</Table.Th>
                                         <Table.Th miw={180}>Cliente</Table.Th>
@@ -214,9 +214,11 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
                                 <Table.Tbody>
                                     {displayedMuestreos.map((m, idx) => (
                                         <Table.Tr key={`${m.id_agendamam || m.correlativo_ficha || m.id_fichaingresoservicio}-${idx}`}>
-                                            <Table.Td style={{ whiteSpace: 'nowrap' }}>
-                                                <Text size="xs" fw={700} c="blue.7">{m.caso_adlab || '-'}</Text>
-                                            </Table.Td>
+                                            {(activeModule !== 'gem' && activeModule !== 'unidades-gem') && (
+                                                <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                                                    <Text size="xs" fw={700} c="blue.7">{m.caso_adlab || '-'}</Text>
+                                                </Table.Td>
+                                            )}
                                             <Table.Td style={{ whiteSpace: 'nowrap' }}>
                                                 <Text size="xs" fw={600} truncate title={m.frecuencia_correlativo}>
                                                     {m.frecuencia_correlativo || '-'}

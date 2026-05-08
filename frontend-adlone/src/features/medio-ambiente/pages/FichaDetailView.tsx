@@ -54,7 +54,8 @@ export const FichaDetailView = () => {
     const {
         selectedFichaId,
         selectedCorrelativo,
-        setActiveSubmodule
+        setActiveSubmodule,
+        activeModule
     } = useNavStore();
     const { hasPermission } = useAuth();
 
@@ -124,7 +125,11 @@ export const FichaDetailView = () => {
     }, [selectedFichaId, selectedCorrelativo]);
 
     const handleBack = () => {
-        setActiveSubmodule('ma-fichas-ingreso');
+        if (activeModule === 'gem' || activeModule === 'unidades-gem') {
+            setActiveSubmodule('gem-muestreos-completados');
+        } else {
+            setActiveSubmodule('ma-fichas-ingreso');
+        }
     };
 
     const handleDownload = async (url: string, fileName: string) => {
@@ -194,92 +199,20 @@ export const FichaDetailView = () => {
         <Box p="md" style={{ width: '100%', maxWidth: '100%', scrollbarGutter: 'stable', overflowX: 'hidden' }}>
 
             {/* Header */}
-            <Paper p="lg" radius="md" mb="md" withBorder shadow="sm" style={{ background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', overflow: 'hidden' }}>
-                <Grid align="center" gutter="lg" style={{ width: '100%', margin: 0 }}>
-                    <Grid.Col span={{ base: 12, md: 3 }}>
-                        <Group align="flex-start" wrap="nowrap">
-                            <ActionIcon variant="light" color="blue" onClick={handleBack} size="lg" mt={5}>
-                                <IconArrowLeft size={20} />
-                            </ActionIcon>
-                            <div>
-                                <Title order={2} c="blue.9" style={{ lineHeight: 1.2 }}>{ficha?.caso_adlab || 'Caso S/N'}</Title>
-                                <Text size="xs" c="dimmed" fw={700} mt={4}>{ficha?.frecuencia_correlativo || 'Correlativo S/N'}</Text>
-                                <Badge color="green" variant="filled" size="sm" mt={6}>EJECUTADO</Badge>
-                            </div>
-                        </Group>
-                    </Grid.Col>
-
-                    <Grid.Col span={{ base: 12, md: 7 }}>
-                        <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="lg">
-                            {/* Group 1: Empresa Context */}
-                            <Stack gap={4}>
-                                <Text size="xs" fw={700} c="blue.7" style={{ whiteSpace: 'nowrap' }}>EMPRESA / CONTACTO / UBICACIÓN</Text>
-                                <Text size="sm" fw={700} c="blue.9">{ficha?.nombre_empresa || '—'}</Text>
-                                <Text size="xs" fw={500} c="dimmed">{ficha?.nombre_contacto || '—'}</Text>
-                                <Group gap={4} mt={4}>
-                                    <IconMapPin size={12} color="gray" />
-                                    <Text size="xs" fw={500} c="dimmed" truncate>{ficha?.latitud ? `${ficha.latitud}, ${ficha.longitud}` : (ficha?.ma_coordenadas || '—')}</Text>
-                                    {ficha?.referencia_googlemaps && (
-                                        <ActionIcon
-                                            variant="subtle"
-                                            color="blue"
-                                            size="sm"
-                                            component="a"
-                                            href={ficha.referencia_googlemaps}
-                                            target="_blank"
-                                        >
-                                            <IconMapPin size={14} />
-                                        </ActionIcon>
-                                    )}
-                                </Group>
-                            </Stack>
-
-                            {/* Group 2: Technical Context */}
-                            <Stack gap={4}>
-                                <Text size="xs" fw={700} c="blue.7" style={{ whiteSpace: 'nowrap' }}>CENTRO / OBJETIVO</Text>
-                                <Text size="sm" fw={700}>{ficha?.nombre_centro || '—'}</Text>
-                                <Text size="xs" fw={500} c="dimmed" style={{ whiteSpace: 'normal' }}>{ficha?.nombre_objetivomuestreo_ma || '—'}</Text>
-                            </Stack>
-
-                            {/* Group 3: Operational */}
-                            <Stack gap={4}>
-                                <Text size="xs" fw={700} c="blue.7" style={{ whiteSpace: 'nowrap' }}>DETALLE ACTIVIDAD</Text>
-                                <SimpleGrid cols={2} spacing="xs">
-                                    <Box>
-                                        <Text size="10px" fw={700} c="dimmed">INICIO</Text>
-                                        <Text size="xs" fw={600}>{parseFechaStr(ficha?.ma_muestreo_fechai)}</Text>
-                                        <Text size="xs" c="dimmed" truncate title={procesos?.instalacion?.nombreMuestreador}>{procesos?.instalacion?.nombreMuestreador || '—'}</Text>
-                                    </Box>
-                                    <Box>
-                                        <Text size="10px" fw={700} c="dimmed">TÉRMINO</Text>
-                                        <Text size="xs" fw={600}>{parseFechaStr(ficha?.ma_muestreo_fechat)}</Text>
-                                        <Text size="xs" c="dimmed" truncate title={procesos?.retiro?.nombreMuestreador}>{procesos?.retiro?.nombreMuestreador || '—'}</Text>
-                                    </Box>
-                                </SimpleGrid>
-                            </Stack>
-                        </SimpleGrid>
-                    </Grid.Col>
-
-                    <Grid.Col span={{ base: 12, md: 2 }}>
-                        <Stack gap="xs" align="flex-end" justify="center" h="100%">
-                            <ProtectedContent permission="MA_COMERCIAL_REMUESTREAR">
-                                <Button
-                                    variant="light"
-                                    color="grape"
-                                    fullWidth
-                                    leftSection={<IconRefresh size={18} />}
-                                    onClick={() => setActiveSubmodule('ma-remuestreo')}
-                                >
-                                    Remuestreo
-                                </Button>
-                            </ProtectedContent>
+            {activeModule === 'gem' || activeModule === 'unidades-gem' ? (
+                <Paper p="lg" radius="md" mb="md" withBorder shadow="sm" style={{ background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', overflow: 'hidden' }}>
+                    <Group justify="space-between" align="center" style={{ width: '100%' }}>
+                        <ActionIcon variant="light" color="blue" onClick={handleBack} size="lg">
+                            <IconArrowLeft size={20} />
+                        </ActionIcon>
+                        
+                        <Group gap="xs">
                             <ProtectedContent permission="FI_EXP_MC">
                                 <Tooltip
                                     label={(ficha?.estado_ficha || '').toUpperCase().includes('RECHAZADA') ? 'Atención: Esta ficha ha sido rechazada' : 'Descargar PDF'}
                                     color={(ficha?.estado_ficha || '').toUpperCase().includes('RECHAZADA') ? 'red' : 'blue'}
                                 >
                                     <Button
-                                        fullWidth
                                         leftSection={<IconDownload size={16} />}
                                         variant="filled"
                                         color={(ficha?.estado_ficha || '').toUpperCase().includes('RECHAZADA') ? 'red' : 'blue'}
@@ -304,10 +237,125 @@ export const FichaDetailView = () => {
                                     </Button>
                                 </Tooltip>
                             </ProtectedContent>
-                        </Stack>
-                    </Grid.Col>
-                </Grid>
-            </Paper>
+                        </Group>
+                    </Group>
+                </Paper>
+            ) : (
+                <Paper p="lg" radius="md" mb="md" withBorder shadow="sm" style={{ background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', overflow: 'hidden' }}>
+                    <Grid align="center" gutter="lg" style={{ width: '100%', margin: 0 }}>
+                        <Grid.Col span={{ base: 12, md: 3 }}>
+                            <Group align="flex-start" wrap="nowrap">
+                                <ActionIcon variant="light" color="blue" onClick={handleBack} size="lg" mt={5}>
+                                    <IconArrowLeft size={20} />
+                                </ActionIcon>
+                                <div>
+                                    <Title order={2} c="blue.9" style={{ lineHeight: 1.2 }}>{ficha?.caso_adlab || 'Caso S/N'}</Title>
+                                    <Text size="xs" c="dimmed" fw={700} mt={4}>{ficha?.frecuencia_correlativo || 'Correlativo S/N'}</Text>
+                                    <Badge color="green" variant="filled" size="sm" mt={6}>EJECUTADO</Badge>
+                                </div>
+                            </Group>
+                        </Grid.Col>
+
+                        <Grid.Col span={{ base: 12, md: 7 }}>
+                            <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="lg">
+                                {/* Group 1: Empresa Context */}
+                                <Stack gap={4}>
+                                    <Text size="xs" fw={700} c="blue.7" style={{ whiteSpace: 'nowrap' }}>EMPRESA / CONTACTO / UBICACIÓN</Text>
+                                    <Text size="sm" fw={700} c="blue.9">{ficha?.nombre_empresa || '—'}</Text>
+                                    <Text size="xs" fw={500} c="dimmed">{ficha?.nombre_contacto || '—'}</Text>
+                                    <Group gap={4} mt={4}>
+                                        <IconMapPin size={12} color="gray" />
+                                        <Text size="xs" fw={500} c="dimmed" truncate>{ficha?.latitud ? `${ficha.latitud}, ${ficha.longitud}` : (ficha?.ma_coordenadas || '—')}</Text>
+                                        {ficha?.referencia_googlemaps && (
+                                            <ActionIcon
+                                                variant="subtle"
+                                                color="blue"
+                                                size="sm"
+                                                component="a"
+                                                href={ficha.referencia_googlemaps}
+                                                target="_blank"
+                                            >
+                                                <IconMapPin size={14} />
+                                            </ActionIcon>
+                                        )}
+                                    </Group>
+                                </Stack>
+
+                                {/* Group 2: Technical Context */}
+                                <Stack gap={4}>
+                                    <Text size="xs" fw={700} c="blue.7" style={{ whiteSpace: 'nowrap' }}>CENTRO / OBJETIVO</Text>
+                                    <Text size="sm" fw={700}>{ficha?.nombre_centro || '—'}</Text>
+                                    <Text size="xs" fw={500} c="dimmed" style={{ whiteSpace: 'normal' }}>{ficha?.nombre_objetivomuestreo_ma || '—'}</Text>
+                                </Stack>
+
+                                {/* Group 3: Operational */}
+                                <Stack gap={4}>
+                                    <Text size="xs" fw={700} c="blue.7" style={{ whiteSpace: 'nowrap' }}>DETALLE ACTIVIDAD</Text>
+                                    <SimpleGrid cols={2} spacing="xs">
+                                        <Box>
+                                            <Text size="10px" fw={700} c="dimmed">INICIO</Text>
+                                            <Text size="xs" fw={600}>{parseFechaStr(ficha?.ma_muestreo_fechai)}</Text>
+                                            <Text size="xs" c="dimmed" truncate title={procesos?.instalacion?.nombreMuestreador}>{procesos?.instalacion?.nombreMuestreador || '—'}</Text>
+                                        </Box>
+                                        <Box>
+                                            <Text size="10px" fw={700} c="dimmed">TÉRMINO</Text>
+                                            <Text size="xs" fw={600}>{parseFechaStr(ficha?.ma_muestreo_fechat)}</Text>
+                                            <Text size="xs" c="dimmed" truncate title={procesos?.retiro?.nombreMuestreador}>{procesos?.retiro?.nombreMuestreador || '—'}</Text>
+                                        </Box>
+                                    </SimpleGrid>
+                                </Stack>
+                            </SimpleGrid>
+                        </Grid.Col>
+
+                        <Grid.Col span={{ base: 12, md: 2 }}>
+                            <Stack gap="xs" align="flex-end" justify="center" h="100%">
+                                <ProtectedContent permission="MA_COMERCIAL_REMUESTREAR">
+                                    <Button
+                                        variant="light"
+                                        color="grape"
+                                        fullWidth
+                                        leftSection={<IconRefresh size={18} />}
+                                        onClick={() => setActiveSubmodule('ma-remuestreo')}
+                                    >
+                                        Remuestreo
+                                    </Button>
+                                </ProtectedContent>
+                                <ProtectedContent permission="FI_EXP_MC">
+                                    <Tooltip
+                                        label={(ficha?.estado_ficha || '').toUpperCase().includes('RECHAZADA') ? 'Atención: Esta ficha ha sido rechazada' : 'Descargar PDF'}
+                                        color={(ficha?.estado_ficha || '').toUpperCase().includes('RECHAZADA') ? 'red' : 'blue'}
+                                    >
+                                        <Button
+                                            fullWidth
+                                            leftSection={<IconDownload size={16} />}
+                                            variant="filled"
+                                            color={(ficha?.estado_ficha || '').toUpperCase().includes('RECHAZADA') ? 'red' : 'blue'}
+                                            onClick={async () => {
+                                                try {
+                                                    const pdfBlob = await fichaService.downloadPdf(Number(selectedFichaId));
+                                                    const url = window.URL.createObjectURL(pdfBlob);
+                                                    const link = document.createElement('a');
+                                                    const fileName = ficha?.caso_adlab || selectedCorrelativo || `Ficha_${selectedFichaId}`;
+                                                    link.href = url;
+                                                    link.setAttribute('download', `${fileName}.pdf`);
+                                                    document.body.appendChild(link);
+                                                    link.click();
+                                                    document.body.removeChild(link);
+                                                    window.URL.revokeObjectURL(url);
+                                                } catch (err) {
+                                                    console.error('Error downloading PDF:', err);
+                                                }
+                                            }}
+                                        >
+                                            Exportar PDF
+                                        </Button>
+                                    </Tooltip>
+                                </ProtectedContent>
+                            </Stack>
+                        </Grid.Col>
+                    </Grid>
+                </Paper>
+            )}
 
             <Tabs defaultValue="datos_ingresados" color="blue" variant="pills" radius="md" style={{ width: '100%' }}>
                 <Tabs.List mb="md">

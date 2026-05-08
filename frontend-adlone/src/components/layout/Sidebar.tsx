@@ -218,7 +218,35 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotC
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 if (response.data && response.data.success) {
-                    setDynamicModules(response.data.data);
+                    const fetchedModules = response.data.data;
+                    const gemModule = fetchedModules.find((m: any) => m.id && m.id.toLowerCase() === 'gem');
+                    
+                    const newLink = {
+                        id: 'gem-muestreos-completados',
+                        label: 'Muestreos Completados',
+                        // Se enlaza el link directamente al permiso que el usuario administra en "Gestión de Roles"
+                        permission: ['MA_COMERCIAL_HISTORIAL_ACCESO']
+                    };
+
+                    if (gemModule) {
+                        if (!gemModule.links) gemModule.links = [];
+                        if (!gemModule.links.some((l: any) => l.id === newLink.id)) {
+                            gemModule.links.push(newLink);
+                        }
+                    } else if (hasPermission(['MA_COMERCIAL_HISTORIAL_ACCESO'])) {
+                        // Si el backend no envió el módulo GEM (ej: el usuario no tiene permiso base de GEM)
+                        // pero sí tiene el permiso específico para el historial, inyectamos la unidad completa
+                        fetchedModules.push({
+                            id: 'gem',
+                            label: 'Unidad GEM',
+                            icon: 'IconFlask',
+                            group: 'unidades',
+                            permission: ['MA_COMERCIAL_HISTORIAL_ACCESO'],
+                            links: [newLink]
+                        });
+                    }
+
+                    setDynamicModules(fetchedModules);
                 }
             } catch (_) {
                 // Silently fail — sidebar will show static modules only
@@ -303,29 +331,31 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotC
     }, [openedModule]);
 
     const canAccessModule = (module: any) => {
-        // 1. Si no hay permisos definidos, acceso libre
-        if (!module.permission) return true;
+        let hasBasePermission = false;
+        
+        if (!module.permission || module.permission.length === 0) {
+            hasBasePermission = true;
+        } else {
+            hasBasePermission = Array.isArray(module.permission)
+                ? module.permission.some((perm: string) => hasPermission(perm))
+                : hasPermission(module.permission);
+        }
 
-        // 2. Verificar permiso de acceso principal (Individual o Array)
-        const hasMainPermission = Array.isArray(module.permission)
-            ? module.permission.some((perm: string) => hasPermission(perm))
-            : hasPermission(module.permission);
-
-        if (hasMainPermission) return true;
-
-        // 3. NUEVO: Si no tiene el principal, verificar si tiene acceso a cualquiera de sus links
-        // Solo otorgamos acceso si el link TIENE un permiso específico y el usuario lo posee.
-        if (module.links && Array.isArray(module.links)) {
-            return module.links.some((link: any) => {
-                if (!link.permission) return false; 
+        // Si tiene submódulos (links), OBLIGATORIAMENTE debe tener acceso a al menos uno para ver el módulo padre
+        if (module.links && Array.isArray(module.links) && module.links.length > 0) {
+            const canAccessAnyLink = module.links.some((link: any) => {
+                if (!link.permission || link.permission.length === 0) return true;
                 if (Array.isArray(link.permission)) {
                     return link.permission.some((p: string) => hasPermission(p));
                 }
                 return hasPermission(link.permission);
             });
+            
+            // Para ver el módulo, debe cumplir el permiso base (si lo hay) Y tener acceso a un link
+            return hasBasePermission && canAccessAnyLink;
         }
 
-        return false;
+        return hasBasePermission;
     };
 
     const handleModuleClick = (moduleId: string) => {

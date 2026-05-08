@@ -227,6 +227,22 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             displayColumn: 'nombre_tipomuestreo'
         },
         { 
+            id: 'tipos-muestra', 
+            label: 'Tipos de Muestra', 
+            icon: <IconDroplet size={24} />, 
+            color: 'blue',
+            description: 'Clasificación de la muestra según su origen (Potable, RIL, etc).',
+            tableName: 'mae_tipomuestra',
+            idName: 'id_tipomuestra',
+            area: 'medio-ambiente',
+            displayColumn: 'nombre_tipomuestra',
+            dependsOn: 'tipos-muestreo',
+            summaryColumns: ['nombre_tipomuestra', 'id_tipomuestreo'],
+            lookups: {
+                id_tipomuestreo: { tableName: 'mae_tipomuestreo', idColumn: 'id_tipomuestreo', displayColumn: 'nombre_tipomuestreo' }
+            }
+        },
+        { 
             id: 'actividades', 
             label: 'Actividades de Muestreo', 
             icon: <IconRun size={24} />, 

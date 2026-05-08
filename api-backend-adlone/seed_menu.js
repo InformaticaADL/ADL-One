@@ -26,7 +26,7 @@ const modulesData = [
     { id: 'derivaciones', label: 'Derivaciones', icon: 'IconArrowsLeftRight', group: 'unidades', permission: 'DER_ACCESO', order: 80 },
     {
         id: 'medio_ambiente', label: 'Medio Ambiente', icon: 'IconLeaf', group: 'unidades', 
-        permission: 'MA_ACCESO,FI_CONSULTAR,FI_NEW_CREAR,FI_EDITAR,MA_TECNICA_ACCESO,FI_ASIG_GRUPO,MA_CALENDARIO_ACCESO,MA_COMERCIAL_HISTORIAL_ACCESO,FI_APROBAR,FI_REVISION,FI_VER', order: 90,
+        permission: 'MA_ACCESO,FI_CONSULTAR,FI_NEW_CREAR,FI_EDITAR,MA_TECNICA_ACCESO,FI_ASIG_GRUPO,MA_CALENDARIO_ACCESO,FI_APROBAR,FI_REVISION,FI_VER', order: 90,
         links: [
             { label: 'Fichas de ingreso', id: 'ma-fichas-ingreso', perm: 'MA_COMERCIAL_ACCESO,MA_TECNICA_ACCESO,MA_COORDINACION_ACCESO,FI_CONSULTAR,FI_NEW_CREAR,FI_ASIG_GRUPO,MA_CALENDARIO_ACCESO,FI_APROBAR,FI_REVISION,FI_VER' },
             { label: 'Reportes', id: 'ma-reportes-view', perm: 'MA_A_REPORTES' }
