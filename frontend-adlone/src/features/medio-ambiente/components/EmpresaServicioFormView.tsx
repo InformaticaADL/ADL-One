@@ -818,7 +818,7 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
                         <Box pos="relative">
                             <LoadingOverlay visible={loading} overlayProps={{ blur: 2 }} />
                             <ScrollArea offsetScrollbars>
-                                <Table verticalSpacing="md" highlightOnHover>
+                                <Table verticalSpacing="md" highlightOnHover style={{ minWidth: 800 }}>
                                     <Table.Thead bg="gray.0">
                                         <Table.Tr>
                                             <Table.Th>Nombre</Table.Th>
@@ -833,28 +833,28 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
                                             filteredData.map((item) => (
                                                 <Table.Tr key={item.id_empresaservicio}>
                                                     <Table.Td>
-                                                        <Group gap="sm">
+                                                        <Group gap="sm" wrap="nowrap">
                                                             <ThemeIcon variant="light" color="teal" size="sm">
                                                                 <IconBuilding size={14} />
                                                             </ThemeIcon>
-                                                            <Text size="sm" fw={600}>{item.nombre_empresaservicios}</Text>
+                                                            <Text size="sm" fw={600} style={{ whiteSpace: 'nowrap' }}>{item.nombre_empresaservicios}</Text>
                                                         </Group>
                                                     </Table.Td>
                                                     <Table.Td>
-                                                        <Text size="sm">{item.contacto_empresaservicios || '-'}</Text>
+                                                        <Text size="sm" style={{ whiteSpace: 'nowrap' }}>{item.contacto_empresaservicios || '-'}</Text>
                                                     </Table.Td>
                                                     <Table.Td>
-                                                        <Text size="sm" c="dimmed">{item.email_empresaservicios || item.email_contacto || '-'}</Text>
+                                                        <Text size="sm" c="dimmed" style={{ whiteSpace: 'nowrap' }}>{item.email_empresaservicios || item.email_contacto || '-'}</Text>
                                                     </Table.Td>
                                                     <Table.Td>
-                                                        <Group justify="center">
+                                                        <Group justify="center" wrap="nowrap">
                                                             <Badge color={item.habilitado === 'S' ? 'green' : 'red'} variant="light">
                                                                 {item.habilitado === 'S' ? 'Activo' : 'Inactivo'}
                                                             </Badge>
                                                         </Group>
                                                     </Table.Td>
                                                     <Table.Td>
-                                                        <Group justify="flex-end" gap="xs">
+                                                        <Group justify="flex-end" gap="xs" wrap="nowrap">
                                                             <Tooltip label="Editar">
                                                                 <ActionIcon variant="light" color="blue" onClick={() => handleEdit(item)}>
                                                                     <IconEdit size={16} />

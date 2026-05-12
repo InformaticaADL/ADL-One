@@ -32,7 +32,14 @@ export const FichaCreateChoice: React.FC<Props> = ({ onManual, onBulk, onBack })
     return (
         <Container fluid w="100%" px={0} py="md">
             <Stack gap="xl">
-                <PageHeader title="Nueva Ficha de Ingreso" onBack={onBack} />
+                <PageHeader 
+                    title="Nueva Ficha de Ingreso" 
+                    onBack={onBack}
+                    breadcrumbItems={[
+                        { label: 'Fichas de Ingreso', onClick: onBack },
+                        { label: 'Crear Ficha' }
+                    ]}
+                />
 
                 <Paper withBorder p={isMobile ? 'xl' : 60} radius="lg" shadow="sm">
                     <Stack gap="xl" align="center">

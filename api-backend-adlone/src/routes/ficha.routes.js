@@ -28,6 +28,7 @@ router.get('/:id/excel', authenticate, fichaController.downloadExcel);
 router.get('/:id/sampling-equipos', authenticate, fichaController.getSamplingEquipos);
 router.get('/:id', authenticate, validateRequest(fichaValidationSchemas.getById), fichaController.getById);
 router.post('/:id/agenda', authenticate, verifyPermission('FI_GEST_ASIG'), validateRequest(fichaValidationSchemas.updateAgenda), fichaController.updateAgenda);
+router.patch('/agenda/:idAgendamam/realizado-gem', authenticate, fichaController.updateRealizadoGem);
 router.post('/:id/update', authenticate, verifyPermission('FI_EDITAR'), fichaController.update);
 
 export default router;

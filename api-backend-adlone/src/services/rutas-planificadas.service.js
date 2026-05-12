@@ -32,7 +32,7 @@ class RutasPlanificadasService {
         if (cabeceraResult.recordset.length === 0) return null;
         const ruta = cabeceraResult.recordset[0];
 
-        // 2. Obtener el detalle (Fichas)
+        // 2. Obtener el detalle (Fichas) incluyendo ref_google para el mapa
         const detalleResult = await pool.request()
             .input('id', sql.Int, id)
             .query(`
@@ -40,7 +40,11 @@ class RutasPlanificadasService {
                        e.id_fichaingresoservicio as num_ficha,
                        cen.nombre_centro as centro,
                        emp.nombre_empresa as empresa_servicio,
-                       obj.nombre_objetivomuestreo_ma as objetivo
+                       obj.nombre_objetivomuestreo_ma as objetivo,
+                       e.referencia_googlemaps as ref_google,
+                       e.ma_coordenadas,
+                       cen.latitud,
+                       cen.longitud
                 FROM mae_rutas_planificadas_detalle d
                 JOIN App_Ma_FichaIngresoServicio_ENC e ON d.id_fichaingresoservicio = e.id_fichaingresoservicio
                 LEFT JOIN mae_centro cen ON e.id_centro = cen.id_centro

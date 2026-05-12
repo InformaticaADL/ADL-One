@@ -90,7 +90,7 @@ const DashboardPage = () => {
         if (activeSubmodule === 'ma-ficha-detalle') return <FichaDetailView />;
         if (activeSubmodule === 'ma-remuestreo') return <RemuestreoPage />;
         if (activeSubmodule === 'gem-muestreos-completados') return (
-            <ProtectedContent permission={['MA_COMERCIAL_HISTORIAL_ACCESO']}>
+            <ProtectedContent permission={['GEM_ACCESO', 'GEM_REALIZADO']}>
                 <MuestreosEjecutadosListView onBackToMenu={() => setActiveSubmodule('')} />
             </ProtectedContent>
         );

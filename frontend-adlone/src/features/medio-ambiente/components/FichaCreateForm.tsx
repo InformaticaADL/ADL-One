@@ -193,6 +193,10 @@ export const FichaCreateForm = ({ onBackToMenu }: { onBackToMenu: () => void }) 
                 <PageHeader 
                     title="Nueva Ficha de Ingreso"
                     onBack={onBackToMenu}
+                    breadcrumbItems={[
+                        { label: 'Fichas de Ingreso', onClick: onBackToMenu },
+                        { label: 'Creación Manual' }
+                    ]}
                 />
 
                 <Paper withBorder p={0} radius="lg" shadow="sm" style={{ width: '100% !important', maxWidth: '100% !important', overflow: 'hidden' }}>

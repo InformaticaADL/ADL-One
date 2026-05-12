@@ -33,25 +33,38 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
     ));
 
     return (
-        <Box mb="md" mt="sm">
-            {items && items.length > 0 && (
-                <Breadcrumbs mb={10}>{items}</Breadcrumbs>
-            )}
-            
-            <Group justify="space-between" align="center" wrap="wrap" gap="md">
-                <Group gap="md" style={{ flex: isMobile ? '1 1 100%' : 'auto' }}>
-                    {onBack && (
-                        <ActionIcon 
-                            variant="subtle" 
-                            color="gray" 
-                            size="lg" 
-                            onClick={onBack}
-                            radius="md"
-                        >
-                            <IconArrowLeft style={{ width: rem(20), height: rem(20) }} stroke={2} />
-                        </ActionIcon>
-                    )}
-                    <Stack gap={2} style={{ flex: 1 }}>
+            <Box mb="md" mt="sm">
+                {items && items.length > 0 && (
+                    <Breadcrumbs mb={10}>{items}</Breadcrumbs>
+                )}
+                
+                <Group wrap="nowrap" align="center" style={{ width: '100%', position: 'relative' }}>
+                    
+                    {/* Left Section: Back Button */}
+                    <Box style={{ flex: 1, display: 'flex', justifyContent: 'flex-start', minWidth: 0 }}>
+                        {onBack && (
+                            <ActionIcon 
+                                variant="subtle" 
+                                color="gray" 
+                                size="lg" 
+                                onClick={onBack}
+                                radius="md"
+                            >
+                                <IconArrowLeft style={{ width: rem(20), height: rem(20) }} stroke={2} />
+                            </ActionIcon>
+                        )}
+                    </Box>
+
+                    {/* Center Section: Title & Subtitle */}
+                    <Stack 
+                        gap={2} 
+                        style={{ 
+                            flex: '0 1 auto', 
+                            textAlign: 'center',
+                            alignItems: 'center',
+                            maxWidth: isMobile ? '80%' : '60%'
+                        }}
+                    >
                         <Title 
                             order={2} 
                             style={{ 
@@ -67,14 +80,20 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
                             </Text>
                         )}
                     </Stack>
+
+                    {/* Right Section: Actions (Desktop) */}
+                    <Box style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', minWidth: 0 }}>
+                        {!isMobile && rightSection}
+                    </Box>
+
                 </Group>
                 
-                {rightSection && (
-                    <Box style={{ width: isMobile ? '100%' : 'auto' }}>
+                {/* Actions (Mobile) */}
+                {isMobile && rightSection && (
+                    <Box mt="md" style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
                         {rightSection}
                     </Box>
                 )}
-            </Group>
-        </Box>
+            </Box>
     );
 };

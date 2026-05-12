@@ -166,6 +166,10 @@ export const EnProcesoListView: React.FC<Props> = ({ onBackToMenu, onViewDetail 
                     title="Fichas en Proceso" 
                     subtitle="Seguimiento de servicios programados y en ejecución"
                     onBack={onBackToMenu}
+                    breadcrumbItems={[
+                        { label: 'Fichas de Ingreso', onClick: onBackToMenu },
+                        { label: 'En Proceso' }
+                    ]}
                     rightSection={
                         <Group gap="xs" wrap={isMobile ? "wrap" : "nowrap"}>
                             <Text size="xs" fw={500} c="dimmed">{filteredFichas.length} registros</Text>

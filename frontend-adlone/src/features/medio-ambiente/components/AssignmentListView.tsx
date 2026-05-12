@@ -224,6 +224,10 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                     title="Planificación y Asignación" 
                     subtitle="Gestión de recursos y programación de muestreos"
                     onBack={onBackToMenu}
+                    breadcrumbItems={[
+                        { label: 'Fichas de Ingreso', onClick: onBackToMenu },
+                        { label: 'Asignación' }
+                    ]}
                     rightSection={
                         <Group gap="xs" wrap={isMobile ? "wrap" : "nowrap"}>
                             <Text size="xs" fw={500} c="dimmed">{filteredFichas.length} registros encontrados</Text>

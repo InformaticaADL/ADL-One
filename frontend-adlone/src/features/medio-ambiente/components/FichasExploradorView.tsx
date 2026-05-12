@@ -27,7 +27,7 @@ import {
     IconDownload,
     IconTrash,
     IconEye,
-    IconEdit
+    IconDatabaseExport
 } from '@tabler/icons-react';
 
 interface Props {
@@ -183,6 +183,10 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                 <PageHeader 
                     title="Explorador de Fichas de Ingreso"
                     onBack={onBackToMenu}
+                    breadcrumbItems={[
+                        { label: 'Fichas de Ingreso', onClick: onBackToMenu },
+                        { label: 'Explorador' }
+                    ]}
                     rightSection={
                         <ProtectedContent permission="FI_EXP_MC">
                             <Button 

@@ -15,6 +15,8 @@ import {
     ThemeIcon,
     Tooltip as MantineTooltip,
     Title,
+    Loader,
+    Center,
 } from '@mantine/core';
 import {
     Area,
@@ -32,7 +34,6 @@ import {
 } from 'recharts';
 import {
     IconAlertTriangle,
-    IconArrowLeft,
     IconChartBar,
     IconRefresh,
     IconSparkles,
@@ -42,6 +43,7 @@ import {
     kpiDashboardService,
     type KpiDashboardPayload,
 } from '../services/kpi-dashboard.service';
+import { PageHeader } from '../../../components/layout/PageHeader';
 
 interface Props {
     onBack: () => void;
@@ -280,48 +282,55 @@ export const KpiAnalystDashboardView = ({ onBack }: Props) => {
 
     if (loading || !payload || !activeDashboard) {
         return (
-            <Paper p="xl" radius="xl" withBorder>
-                <Text>Cargando dashboard de KPIs...</Text>
+            <Paper p="xl" radius="xl" withBorder style={{ minHeight: 400 }}>
+                <Center h={400}>
+                    <Stack align="center" gap="md">
+                        <Loader size="xl" color="blue" type="bars" />
+                        <Title order={3} c="blue.9" fw={800}>Procesando Data Intelligence...</Title>
+                        <Text c="dimmed">Construyendo tu Dashboard en tiempo real</Text>
+                    </Stack>
+                </Center>
             </Paper>
         );
     }
 
     return (
-        <Box>
+        <Box style={{ animation: 'fadeIn 0.5s ease' }}>
+            <PageHeader 
+                title="Dashboard Inteligente"
+                subtitle="Análisis automático de métricas operativas, rendimiento de laboratorios y detección de riesgos en la gestión de servicios ambientales."
+                onBack={onBack}
+                breadcrumbItems={[
+                    { label: 'Fichas de Ingreso', onClick: onBack },
+                    { label: 'Dashboard Inteligente' }
+                ]}
+                rightSection={
+                    <Group align="center" justify="flex-end" wrap="wrap">
+                        <Text size="xs" c="dimmed" display={{ base: 'none', md: 'block' }}>
+                            Actualizado {new Date(payload.generatedAt).toLocaleString('es-CL')}
+                        </Text>
+                        <Button 
+                            leftSection={<IconRefresh size={16} />} 
+                            loading={refreshing} 
+                            onClick={() => loadDashboard(true)}
+                            radius="md"
+                        >
+                            Recalcular
+                        </Button>
+                    </Group>
+                }
+            />
+
             <Paper
                 radius="xl"
                 p="xl"
                 withBorder
+                mt="md"
                 style={{
                     background: 'linear-gradient(135deg, #ecfeff 0%, #eff6ff 45%, #fefce8 100%)',
                     overflow: 'hidden',
                 }}
             >
-                <Group justify="space-between" align="flex-start">
-                    <Stack gap="xs">
-                        <Group gap="sm">
-                            <ActionIcon variant="white" radius="xl" size="lg" onClick={onBack}>
-                                <IconArrowLeft size={18} />
-                            </ActionIcon>
-                            <ThemeIcon size={48} radius="xl" color="blue" variant="filled">
-                                <IconChartBar size={24} />
-                            </ThemeIcon>
-                        </Group>
-                        <Title order={1} c="blue.9">Dashboard Inteligente</Title>
-                        <Text maw={760} c="dimmed">
-                            Análisis automático de métricas operativas, rendimiento de laboratorios y detección de riesgos en la gestión de servicios ambientales.
-                        </Text>
-                    </Stack>
-
-                    <Stack align="flex-end" gap="sm">
-                        <Button leftSection={<IconRefresh size={16} />} loading={refreshing} onClick={() => loadDashboard(true)}>
-                            Recalcular
-                        </Button>
-                        <Text size="sm" c="dimmed">
-                            Actualizado {new Date(payload.generatedAt).toLocaleString('es-CL')}
-                        </Text>
-                    </Stack>
-                </Group>
 
                 <SimpleGrid cols={{ base: 1, md: 4 }} spacing="lg" mt="xl">
                     <Paper p="md" radius="lg" withBorder bg="white">

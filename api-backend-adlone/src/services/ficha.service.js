@@ -3291,7 +3291,9 @@ class FichaIngresoService {
                 o.nombre_objetivomuestreo_ma as objetivo,
                 m.nombre_muestreador as muestreador,
                 m2.nombre_muestreador as muestreador_retiro,
-                f.estado_ficha
+                f.estado_ficha,
+                a.realizado_por_gem,
+                a.fecha_realizado_gem
             FROM App_Ma_Agenda_MUESTREOS a
             JOIN App_Ma_FichaIngresoServicio_ENC f ON a.id_fichaingresoservicio = f.id_fichaingresoservicio
             LEFT JOIN mae_estadomuestreo e ON a.id_estadomuestreo = e.id_estadomuestreo
@@ -3311,6 +3313,40 @@ class FichaIngresoService {
             return result.recordset || [];
         } catch (error) {
             logger.error('Error fetching muestreos ejecutados:', error);
+            throw error;
+        }
+    }
+
+    async updateRealizadoGem(idAgendamam, userData, isRealizado) {
+        const pool = await getConnection();
+        const request = pool.request();
+        
+        request.input('idAgendamam', sql.Numeric, idAgendamam);
+        
+        let query;
+        if (isRealizado) {
+            const userName = userData.name || userData.username || userData.nombre_real || userData.nombre_usuario || 'Usuario Desconocido';
+            request.input('userName', sql.VarChar, userName);
+            query = `
+                UPDATE App_Ma_Agenda_MUESTREOS
+                SET realizado_por_gem = @userName,
+                    fecha_realizado_gem = GETDATE()
+                WHERE id_agendamam = @idAgendamam
+            `;
+        } else {
+            query = `
+                UPDATE App_Ma_Agenda_MUESTREOS
+                SET realizado_por_gem = NULL,
+                    fecha_realizado_gem = NULL
+                WHERE id_agendamam = @idAgendamam
+            `;
+        }
+
+        try {
+            await request.query(query);
+            return { success: true };
+        } catch (error) {
+            logger.error('Error updating realizado_por_gem:', error);
             throw error;
         }
     }
@@ -3345,7 +3381,9 @@ class FichaIngresoService {
                             a.id_supervisor, a.id_supervisor_retiro,
                             f.ma_coordenadas, -- Add UTM coordinates as fallback
                             CONVERT(VARCHAR(10), a.fechaderivado, 103) AS fechaderivado, a.horaderivado,
-                            l.nombre_laboratorioensayo AS laboratorio_derivacion_nombre
+                            l.nombre_laboratorioensayo AS laboratorio_derivacion_nombre,
+                            a.realizado_por_gem,
+                            a.fecha_realizado_gem
                         FROM App_Ma_FichaIngresoServicio_ENC f
                         INNER JOIN mae_empresa e ON f.id_empresa = e.id_empresa
                         INNER JOIN App_Ma_Agenda_MUESTREOS a ON f.id_fichaingresoservicio = a.id_fichaingresoservicio

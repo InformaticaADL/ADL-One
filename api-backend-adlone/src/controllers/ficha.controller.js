@@ -289,6 +289,31 @@ class FichaIngresoController {
         }
     }
 
+    async updateRealizadoGem(req, res) {
+        try {
+            const { idAgendamam } = req.params;
+            const { isRealizado } = req.body;
+            const userData = req.user || { id: 0 };
+            
+            if (!idAgendamam) {
+                return errorResponse(res, 'ID de agenda requerido', 400);
+            }
+
+            // Restrict to users with the GEM_REALIZADO permission
+            const userPermissions = userData.permissions || [];
+            const hasGemPermission = userPermissions.includes('GEM_REALIZADO');
+            if (!hasGemPermission) {
+                return errorResponse(res, 'No tienes permiso para realizar esta acción', 403);
+            }
+
+            const result = await fichaService.updateRealizadoGem(idAgendamam, userData, isRealizado);
+            return successResponse(res, result, 'Estado de realizado actualizado exitosamente');
+        } catch (err) {
+            logger.error('Error in updateRealizadoGem controller:', err);
+            return errorResponse(res, 'Error al actualizar estado realizado', 500, err.message);
+        }
+    }
+
     async getExecutionDetail(req, res) {
         try {
             const { id } = req.params;

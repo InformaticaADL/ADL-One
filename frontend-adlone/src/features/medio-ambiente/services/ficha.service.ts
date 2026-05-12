@@ -34,6 +34,10 @@ export const fichaService = {
         const response = await apiClient.get('/api/fichas/ejecutados');
         return response.data;
     },
+    updateRealizadoGem: async (idAgendamam: number, isRealizado: boolean) => {
+        const response = await apiClient.patch(`/api/fichas/agenda/${idAgendamam}/realizado-gem`, { isRealizado });
+        return response.data;
+    },
 
     create: async (data: Record<string, unknown>) => {
         const response = await apiClient.post('/api/fichas/create', data);

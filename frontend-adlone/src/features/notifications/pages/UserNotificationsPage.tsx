@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { 
     Title, 
     Text, 
@@ -7,7 +7,10 @@ import {
     Group, 
     Badge, 
     Divider,
-    Box
+    Box,
+    SegmentedControl,
+    Select,
+    TextInput
 } from '@mantine/core';
 import { 
     IconBell, 
@@ -16,7 +19,8 @@ import {
     IconInfoCircle,
     IconAlertTriangle,
     IconCircleCheck,
-    IconCircleX
+    IconCircleX,
+    IconSearch
 } from '@tabler/icons-react';
 import { useNotificationStore, type Notification } from '../../../store/notificationStore';
 import { useNavStore } from '../../../store/navStore';
@@ -32,6 +36,11 @@ export const UserNotificationsPage = () => {
         setActiveModule, setActiveSubmodule, 
         setPendingRequestId, setPendingChatId, setSelectedRequestId 
     } = useNavStore();
+
+    const [statusFilter, setStatusFilter] = useState('ALL');
+    const [areaFilter, setAreaFilter] = useState<string | null>(null);
+    const [typeFilter, setTypeFilter] = useState<string | null>(null);
+    const [searchFilter, setSearchFilter] = useState('');
 
     useEffect(() => {
         fetchNotifications();
@@ -70,6 +79,31 @@ export const UserNotificationsPage = () => {
         return cleanTitle;
     };
 
+    // Extract unique areas
+    const areas = useMemo(() => {
+        const uniqueAreas = new Set(notifications.map(n => n.area).filter(Boolean));
+        return Array.from(uniqueAreas) as string[];
+    }, [notifications]);
+
+    // Apply filters
+    const filteredNotifications = useMemo(() => {
+        return notifications.filter(n => {
+            if (statusFilter === 'UNREAD' && n.leido) return false;
+            if (areaFilter && n.area !== areaFilter) return false;
+            if (typeFilter && n.tipo !== typeFilter) return false;
+            
+            if (searchFilter) {
+                const searchLower = searchFilter.toLowerCase();
+                const titleLower = formatTitle(n.titulo).toLowerCase();
+                const messageLower = (n.mensaje || '').toLowerCase();
+                if (!titleLower.includes(searchLower) && !messageLower.includes(searchLower)) {
+                    return false;
+                }
+            }
+            return true;
+        });
+    }, [notifications, statusFilter, areaFilter, typeFilter, searchFilter]);
+
     // Grouping logic
     const groupNotifications = () => {
         const groups: Record<string, Notification[]> = {
@@ -81,7 +115,7 @@ export const UserNotificationsPage = () => {
 
         const now = dayjs();
 
-        notifications.forEach(n => {
+        filteredNotifications.forEach(n => {
             const date = dayjs(n.fecha);
             if (date.isSame(now, 'day')) {
                 groups['Hoy'].push(n);
@@ -102,20 +136,64 @@ export const UserNotificationsPage = () => {
     return (
         <Box p="xl" style={{ width: '100%' }}>
             <Box mb="xl">
-                <Group justify="space-between" align="flex-end">
+                <Group justify="space-between" align="flex-end" mb="md" wrap="wrap">
                     <div>
                         <Title order={1} fw={800} style={{ letterSpacing: '-0.02em' }}>Notificaciones</Title>
                         <Text c="dimmed" size="sm">Historial completo de alertas y mensajes del sistema.</Text>
                     </div>
+                    <Group gap="sm" align="center" wrap="wrap">
+                        <TextInput
+                            placeholder="Buscar notificaciones..."
+                            leftSection={<IconSearch size={16} />}
+                            value={searchFilter}
+                            onChange={(e) => setSearchFilter(e.currentTarget.value)}
+                            style={{ minWidth: 200, flex: 1 }}
+                        />
+                        <Select
+                            placeholder="Tipo"
+                            data={[
+                                { label: 'Éxito', value: 'SUCCESS' },
+                                { label: 'Advertencia', value: 'WARNING' },
+                                { label: 'Error', value: 'ERROR' },
+                                { label: 'Información', value: 'INFO' }
+                            ]}
+                            value={typeFilter}
+                            onChange={setTypeFilter}
+                            clearable
+                            style={{ minWidth: 160 }}
+                        />
+                        {areas.length > 0 && (
+                            <Select
+                                placeholder="Área"
+                                data={areas}
+                                value={areaFilter}
+                                onChange={setAreaFilter}
+                                clearable
+                                style={{ minWidth: 160 }}
+                            />
+                        )}
+                        <SegmentedControl
+                            value={statusFilter}
+                            onChange={setStatusFilter}
+                            data={[
+                                { label: 'Todas', value: 'ALL' },
+                                { label: 'No leídas', value: 'UNREAD' },
+                            ]}
+                        />
+                    </Group>
                 </Group>
             </Box>
 
-            {notifications.length === 0 ? (
+            {filteredNotifications.length === 0 ? (
                 <Paper p="xl" radius="md" withBorder style={{ textAlign: 'center', backgroundColor: 'transparent', borderStyle: 'dashed' }}>
                     <Stack align="center" gap="xs">
                         <IconBell size={48} color="var(--mantine-color-gray-4)" stroke={1} />
-                        <Title order={3} c="dimmed">No tienes notificaciones</Title>
-                        <Text c="dimmed" size="sm">Te avisaremos cuando haya algo nuevo para ti.</Text>
+                        <Title order={3} c="dimmed">
+                            {notifications.length === 0 ? "No tienes notificaciones" : "No hay resultados"}
+                        </Title>
+                        <Text c="dimmed" size="sm">
+                            {notifications.length === 0 ? "Te avisaremos cuando haya algo nuevo para ti." : "Intenta cambiar los filtros seleccionados."}
+                        </Text>
                     </Stack>
                 </Paper>
             ) : (

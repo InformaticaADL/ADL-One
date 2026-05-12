@@ -92,12 +92,14 @@ class AuthService {
                 // We now rely solely on DB roles/permissions as per requirements.
 
                 // Generate Token
+                const rolesArray = user.roles_list ? user.roles_list.split(',').filter(r => r.trim()) : [];
                 const token = jwt.sign(
                     {
                         id: user.id_usuario,
                         username: user.nombre_usuario,
                         name: user.usuario,
                         role: user.mam_cargo,
+                        roles: rolesArray,
                         permissions: permissions // Add permissions to token (Optional, good for client-side checks)
                     },
                     secret,

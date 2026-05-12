@@ -146,6 +146,10 @@ export const CoordinationListView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                     title="Bandeja de Coordinación" 
                     subtitle="Consulta y seguimiento general de fichas de servicio"
                     onBack={onBackToMenu}
+                    breadcrumbItems={[
+                        { label: 'Fichas de Ingreso', onClick: onBackToMenu },
+                        { label: 'Coordinación' }
+                    ]}
                     rightSection={
                         <Group gap="xs" wrap={isMobile ? "wrap" : "nowrap"}>
                             <Text size="xs" fw={500} c="dimmed">{filteredFichas.length} fichas encontradas</Text>

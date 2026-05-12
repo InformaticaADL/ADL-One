@@ -43,6 +43,8 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
     const [loading, setLoading] = useState(true);
     const isMobile = useMediaQuery('(max-width: 768px)');
 
+    const [realizadoStates, setRealizadoStates] = useState<Record<string, {realizado: boolean, userName: string, fecha: string}>>({});
+
     // Filters
     const [searchCorrelativo, setSearchCorrelativo] = useState('');
     const [searchCliente, setSearchCliente] = useState<string | null>(null);
@@ -66,6 +68,20 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
             else if (response && Array.isArray(response.recordset)) data = response.recordset;
 
             setMuestreos(data || []);
+
+            // Initialize realizadoStates from DB data
+            const initialStates: Record<string, {realizado: boolean, userName: string, fecha: string}> = {};
+            (data || []).forEach((m: any) => {
+                const key = m.id_agendamam?.toString();
+                if (key && m.realizado_por_gem) {
+                    initialStates[key] = {
+                        realizado: true,
+                        userName: m.realizado_por_gem,
+                        fecha: m.fecha_realizado_gem ? new Date(m.fecha_realizado_gem).toLocaleString('es-CL') : ''
+                    };
+                }
+            });
+            setRealizadoStates(initialStates);
         } catch (error) {
             console.error("Error loading muestreos ejecutados:", error);
             showToast({ type: 'error', message: "Error al cargar los muestreos ejecutados" });
@@ -128,6 +144,10 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
                     title="Muestreos Completados" 
                     subtitle="Histórico de servicios ejecutados y reportes generados"
                     onBack={onBackToMenu}
+                    breadcrumbItems={[
+                        { label: 'Fichas de Ingreso', onClick: onBackToMenu },
+                        { label: 'Muestreos Completados' }
+                    ]}
                     rightSection={
                         <Group gap="xs" wrap={isMobile ? "wrap" : "nowrap"}>
                             <Text size="xs" fw={500} c="dimmed">{filteredMuestreos.length} servicios registrados</Text>
@@ -208,12 +228,23 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
                                         <Table.Th miw={160}>Área / Obj.</Table.Th>
                                         <Table.Th miw={120}>M. Inst.</Table.Th>
                                         <Table.Th miw={120}>M. Ret.</Table.Th>
+                                        <Table.Th miw={140}>Realizado por GEM</Table.Th>
                                         <Table.Th ta="center" w={80}>Acciones</Table.Th>
                                     </Table.Tr>
                                 </Table.Thead>
                                 <Table.Tbody>
-                                    {displayedMuestreos.map((m, idx) => (
-                                        <Table.Tr key={`${m.id_agendamam || m.correlativo_ficha || m.id_fichaingresoservicio}-${idx}`}>
+                                    {displayedMuestreos.map((m, idx) => {
+                                        const key = m.id_agendamam?.toString();
+                                        const isRealizado = realizadoStates[key]?.realizado || false;
+                                        return (
+                                        <Table.Tr 
+                                            key={`${m.id_agendamam || m.correlativo_ficha || m.id_fichaingresoservicio}-${idx}`}
+                                            style={{
+                                                backgroundColor: isRealizado ? 'rgba(34, 197, 94, 0.10)' : undefined,
+                                                outline: isRealizado ? '1.5px solid rgba(34, 197, 94, 0.4)' : undefined,
+                                                transition: 'background-color 0.3s ease, outline 0.3s ease'
+                                            }}
+                                        >
                                             {(activeModule !== 'gem' && activeModule !== 'unidades-gem') && (
                                                 <Table.Td style={{ whiteSpace: 'nowrap' }}>
                                                     <Text size="xs" fw={700} c="blue.7">{m.caso_adlab || '-'}</Text>
@@ -247,6 +278,19 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
                                             <Table.Td style={{ whiteSpace: 'nowrap' }}>
                                                 <Text size="xs">{m.muestreador_retiro || '-'}</Text>
                                             </Table.Td>
+                                            <Table.Td>
+                                                {realizadoStates[m.id_agendamam?.toString()]?.realizado ? (
+                                                    <Stack gap={0}>
+                                                        <Text size="10px" fw={700} c="teal.7">✓ Realizado</Text>
+                                                        <Text size="10px" c="dimmed" style={{ whiteSpace: 'normal', lineHeight: 1.3 }}>
+                                                            <strong>Por:</strong> {realizadoStates[m.id_agendamam?.toString()]?.userName}<br/>
+                                                            <strong>Fecha:</strong> {realizadoStates[m.id_agendamam?.toString()]?.fecha}
+                                                        </Text>
+                                                    </Stack>
+                                                ) : (
+                                                    <Text size="10px" c="dimmed">Pendiente</Text>
+                                                )}
+                                            </Table.Td>
                                             <Table.Td ta="center">
                                                 <ProtectedContent permission={['MA_COMERCIAL_HISTORIAL_DETALLE', 'FI_VER', 'FI_APROBAR_TEC', 'FI_APROBAR_COO']}>
                                                     <Tooltip label="Ver Detalle Ejecución">
@@ -267,10 +311,11 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
                                                 </ProtectedContent>
                                             </Table.Td>
                                         </Table.Tr>
-                                    ))}
+                                        );
+                                    })}
                                     {displayedMuestreos.length === 0 && (
                                         <Table.Tr>
-                                            <Table.Td colSpan={9} ta="center" py="xl">
+                                            <Table.Td colSpan={10} ta="center" py="xl">
                                                 <Text c="dimmed">No se encontraron muestreos ejecutados.</Text>
                                             </Table.Td>
                                         </Table.Tr>

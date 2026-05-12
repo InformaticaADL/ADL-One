@@ -630,7 +630,14 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
     if (loading) {
         return (
             <Box p="md">
-                <PageHeader title="Planificador de Rutas" onBack={onBack} />
+                <PageHeader 
+                    title="Planificador de Rutas" 
+                    onBack={onBack} 
+                    breadcrumbItems={[
+                        { label: 'Fichas de Ingreso', onClick: onBack },
+                        { label: 'Planificador' }
+                    ]}
+                />
                 <Center mt="xl"><Loader size="lg" /></Center>
             </Box>
         );
@@ -696,6 +703,10 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                     title={editRutaId ? `Editando Ruta #${editRutaId}` : 'Planificador de Rutas'}
                     subtitle={editRutaId ? 'Modifique las fichas y guarde los cambios' : 'Seleccione fichas para armar una ruta de muestreo y asignar recursos'}
                     onBack={onBack}
+                    breadcrumbItems={[
+                        { label: 'Fichas de Ingreso', onClick: onBack },
+                        { label: editRutaId ? 'Editar Ruta' : 'Planificador' }
+                    ]}
                     rightSection={
                         <Group gap="xs">
                             <Badge size="lg" variant="light" color="blue" leftSection={<IconMapPin size={14} />}>

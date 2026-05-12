@@ -23,7 +23,8 @@ import {
     ThemeIcon,
     Collapse,
     TextInput,
-    Tooltip
+    Tooltip,
+    Switch
 } from '@mantine/core';
 import {
     IconArrowLeft,
@@ -57,7 +58,8 @@ export const FichaDetailView = () => {
         setActiveSubmodule,
         activeModule
     } = useNavStore();
-    const { hasPermission } = useAuth();
+    const { hasPermission, user } = useAuth();
+    const isGemMamPm = hasPermission('GEM_REALIZADO');
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -72,6 +74,11 @@ export const FichaDetailView = () => {
     const [resendLoading, setResendLoading] = useState(false);
     const [resendError, setResendError] = useState('');
     const [resendSuccess, setResendSuccess] = useState(false);
+
+    const { user: _user } = useAuth();
+    const [realizadoGem, setRealizadoGem] = useState<{realizado: boolean, userName: string, fecha: string} | null>(null);
+    const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+    const [realizadoLoading, setRealizadoLoading] = useState(false);
 
     const toggleDoc = (docId: string) => {
         setExpandedDocs(prev =>
@@ -111,7 +118,19 @@ export const FichaDetailView = () => {
                 const response = await apiClient.get(`/api/fichas/${selectedFichaId}/execution-detail`, {
                     params: { correlativo: selectedCorrelativo }
                 });
-                setData(response.data.data || response.data);
+                const responseData = response.data.data || response.data;
+                setData(responseData);
+                // Load realizado GEM state from agenda data
+                const agendaData = responseData?.ficha;
+                if (agendaData?.realizado_por_gem) {
+                    setRealizadoGem({
+                        realizado: true,
+                        userName: agendaData.realizado_por_gem,
+                        fecha: agendaData.fecha_realizado_gem
+                            ? new Date(agendaData.fecha_realizado_gem).toLocaleString('es-CL')
+                            : ''
+                    });
+                }
                 setError(null);
             } catch (err: any) {
                 console.error('Error fetching detail:', err);
@@ -129,6 +148,24 @@ export const FichaDetailView = () => {
             setActiveSubmodule('gem-muestreos-completados');
         } else {
             setActiveSubmodule('ma-fichas-ingreso');
+        }
+    };
+
+    const handleConfirmRealizado = async () => {
+        if (!ficha?.id_agendamam) return;
+        setRealizadoLoading(true);
+        try {
+            await fichaService.updateRealizadoGem(Number(ficha.id_agendamam), true);
+            setRealizadoGem({
+                realizado: true,
+                userName: user?.name || user?.username || 'Usuario',
+                fecha: new Date().toLocaleString('es-CL')
+            });
+            setConfirmModalOpen(false);
+        } catch (err) {
+            console.error('Error al marcar como realizado:', err);
+        } finally {
+            setRealizadoLoading(false);
         }
     };
 
@@ -199,20 +236,97 @@ export const FichaDetailView = () => {
         <Box p="md" style={{ width: '100%', maxWidth: '100%', scrollbarGutter: 'stable', overflowX: 'hidden' }}>
 
             {/* Header */}
-            {activeModule === 'gem' || activeModule === 'unidades-gem' ? (
-                <Paper p="lg" radius="md" mb="md" withBorder shadow="sm" style={{ background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', overflow: 'hidden' }}>
-                    <Group justify="space-between" align="center" style={{ width: '100%' }}>
-                        <ActionIcon variant="light" color="blue" onClick={handleBack} size="lg">
-                            <IconArrowLeft size={20} />
-                        </ActionIcon>
-                        
-                        <Group gap="xs">
+            {/* Header */}
+            <Paper p="lg" radius="md" mb="md" withBorder shadow="sm" style={{ background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', overflow: 'hidden' }}>
+                <Grid align="center" gutter="lg" style={{ width: '100%', margin: 0 }}>
+                    <Grid.Col span={{ base: 12, md: 3 }}>
+                        <Group align="flex-start" wrap="nowrap">
+                            <ActionIcon variant="light" color="blue" onClick={handleBack} size="lg" mt={5}>
+                                <IconArrowLeft size={20} />
+                            </ActionIcon>
+                            <div>
+                                {!(activeModule === 'gem' || activeModule === 'unidades-gem') && (
+                                    <Title order={2} c="blue.9" style={{ lineHeight: 1.2 }}>{ficha?.caso_adlab || 'Caso S/N'}</Title>
+                                )}
+                                <Text size="xs" c="dimmed" fw={700} mt={4}>{ficha?.frecuencia_correlativo || 'Correlativo S/N'}</Text>
+                                <Badge color="green" variant="filled" size="sm" mt={6}>EJECUTADO</Badge>
+                            </div>
+                        </Group>
+                    </Grid.Col>
+
+                    <Grid.Col span={{ base: 12, md: 7 }}>
+                        <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="lg">
+                            {/* Group 1: Empresa Context */}
+                            <Stack gap={4}>
+                                <Text size="xs" fw={700} c="blue.7" style={{ whiteSpace: 'nowrap' }}>EMPRESA / CONTACTO / UBICACIÓN</Text>
+                                <Text size="sm" fw={700} c="blue.9">{ficha?.nombre_empresa || '—'}</Text>
+                                <Text size="xs" fw={500} c="dimmed">{ficha?.nombre_contacto || '—'}</Text>
+                                <Group gap={4} mt={4}>
+                                    <IconMapPin size={12} color="gray" />
+                                    <Text size="xs" fw={500} c="dimmed" truncate>{ficha?.latitud ? `${ficha.latitud}, ${ficha.longitud}` : (ficha?.ma_coordenadas || '—')}</Text>
+                                    {ficha?.referencia_googlemaps && (
+                                        <ActionIcon
+                                            variant="subtle"
+                                            color="blue"
+                                            size="sm"
+                                            component="a"
+                                            href={ficha.referencia_googlemaps}
+                                            target="_blank"
+                                        >
+                                            <IconMapPin size={14} />
+                                        </ActionIcon>
+                                    )}
+                                </Group>
+                            </Stack>
+
+                            {/* Group 2: Technical Context */}
+                            <Stack gap={4}>
+                                <Text size="xs" fw={700} c="blue.7" style={{ whiteSpace: 'nowrap' }}>CENTRO / OBJETIVO</Text>
+                                <Text size="sm" fw={700}>{ficha?.nombre_centro || '—'}</Text>
+                                <Text size="xs" fw={500} c="dimmed" style={{ whiteSpace: 'normal' }}>{ficha?.nombre_objetivomuestreo_ma || '—'}</Text>
+                            </Stack>
+
+                            {/* Group 3: Operational */}
+                            <Stack gap={4}>
+                                <Text size="xs" fw={700} c="blue.7" style={{ whiteSpace: 'nowrap' }}>DETALLE ACTIVIDAD</Text>
+                                <SimpleGrid cols={2} spacing="xs">
+                                    <Box>
+                                        <Text size="10px" fw={700} c="dimmed">INICIO</Text>
+                                        <Text size="xs" fw={600}>{parseFechaStr(ficha?.ma_muestreo_fechai)}</Text>
+                                        <Text size="xs" c="dimmed" truncate title={procesos?.instalacion?.nombreMuestreador}>{procesos?.instalacion?.nombreMuestreador || '—'}</Text>
+                                    </Box>
+                                    <Box>
+                                        <Text size="10px" fw={700} c="dimmed">TÉRMINO</Text>
+                                        <Text size="xs" fw={600}>{parseFechaStr(ficha?.ma_muestreo_fechat)}</Text>
+                                        <Text size="xs" c="dimmed" truncate title={procesos?.retiro?.nombreMuestreador}>{procesos?.retiro?.nombreMuestreador || '—'}</Text>
+                                    </Box>
+                                </SimpleGrid>
+                            </Stack>
+                        </SimpleGrid>
+                    </Grid.Col>
+
+                    <Grid.Col span={{ base: 12, md: 2 }}>
+                        <Stack gap="xs" align="flex-end" justify="center" h="100%">
+                            {!(activeModule === 'gem' || activeModule === 'unidades-gem') && (
+                                <ProtectedContent permission="MA_COMERCIAL_REMUESTREAR">
+                                    <Button
+                                        variant="light"
+                                        color="grape"
+                                        fullWidth
+                                        leftSection={<IconRefresh size={18} />}
+                                        onClick={() => setActiveSubmodule('ma-remuestreo')}
+                                    >
+                                        Remuestreo
+                                    </Button>
+                                </ProtectedContent>
+                            )}
                             <ProtectedContent permission="FI_EXP_MC">
                                 <Tooltip
                                     label={(ficha?.estado_ficha || '').toUpperCase().includes('RECHAZADA') ? 'Atención: Esta ficha ha sido rechazada' : 'Descargar PDF'}
                                     color={(ficha?.estado_ficha || '').toUpperCase().includes('RECHAZADA') ? 'red' : 'blue'}
                                 >
                                     <Button
+                                        fullWidth
                                         leftSection={<IconDownload size={16} />}
                                         variant="filled"
                                         color={(ficha?.estado_ficha || '').toUpperCase().includes('RECHAZADA') ? 'red' : 'blue'}
@@ -237,125 +351,66 @@ export const FichaDetailView = () => {
                                     </Button>
                                 </Tooltip>
                             </ProtectedContent>
-                        </Group>
-                    </Group>
-                </Paper>
-            ) : (
-                <Paper p="lg" radius="md" mb="md" withBorder shadow="sm" style={{ background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', overflow: 'hidden' }}>
-                    <Grid align="center" gutter="lg" style={{ width: '100%', margin: 0 }}>
-                        <Grid.Col span={{ base: 12, md: 3 }}>
-                            <Group align="flex-start" wrap="nowrap">
-                                <ActionIcon variant="light" color="blue" onClick={handleBack} size="lg" mt={5}>
-                                    <IconArrowLeft size={20} />
-                                </ActionIcon>
-                                <div>
-                                    <Title order={2} c="blue.9" style={{ lineHeight: 1.2 }}>{ficha?.caso_adlab || 'Caso S/N'}</Title>
-                                    <Text size="xs" c="dimmed" fw={700} mt={4}>{ficha?.frecuencia_correlativo || 'Correlativo S/N'}</Text>
-                                    <Badge color="green" variant="filled" size="sm" mt={6}>EJECUTADO</Badge>
-                                </div>
-                            </Group>
-                        </Grid.Col>
 
-                        <Grid.Col span={{ base: 12, md: 7 }}>
-                            <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="lg">
-                                {/* Group 1: Empresa Context */}
-                                <Stack gap={4}>
-                                    <Text size="xs" fw={700} c="blue.7" style={{ whiteSpace: 'nowrap' }}>EMPRESA / CONTACTO / UBICACIÓN</Text>
-                                    <Text size="sm" fw={700} c="blue.9">{ficha?.nombre_empresa || '—'}</Text>
-                                    <Text size="xs" fw={500} c="dimmed">{ficha?.nombre_contacto || '—'}</Text>
-                                    <Group gap={4} mt={4}>
-                                        <IconMapPin size={12} color="gray" />
-                                        <Text size="xs" fw={500} c="dimmed" truncate>{ficha?.latitud ? `${ficha.latitud}, ${ficha.longitud}` : (ficha?.ma_coordenadas || '—')}</Text>
-                                        {ficha?.referencia_googlemaps && (
-                                            <ActionIcon
-                                                variant="subtle"
-                                                color="blue"
-                                                size="sm"
-                                                component="a"
-                                                href={ficha.referencia_googlemaps}
-                                                target="_blank"
-                                            >
-                                                <IconMapPin size={14} />
-                                            </ActionIcon>
+                            {/* Realizado por GEM - solo visible para rol GEM MAM PM */}
+                            {(activeModule === 'gem' || activeModule === 'unidades-gem') && isGemMamPm && (
+                                <Paper withBorder radius="md" p="xs" style={{ width: '100%', borderColor: realizadoGem?.realizado ? 'var(--mantine-color-teal-4)' : undefined, background: realizadoGem?.realizado ? 'rgba(34,197,94,0.07)' : undefined }}>
+                                    <Stack gap={4} align="center">
+                                        <Text size="xs" fw={700} c={realizadoGem?.realizado ? 'teal.7' : 'dimmed'} ta="center">
+                                            Realizado por GEM
+                                        </Text>
+                                        <Switch
+                                            size="md"
+                                            color="teal"
+                                            checked={realizadoGem?.realizado || false}
+                                            disabled={realizadoGem?.realizado || realizadoLoading}
+                                            onChange={() => { if (!realizadoGem?.realizado) setConfirmModalOpen(true); }}
+                                        />
+                                        {realizadoGem?.realizado && (
+                                            <Stack gap={0} align="center">
+                                                <Text size="10px" fw={600} c="teal.7">✓ Confirmado</Text>
+                                                <Text size="10px" c="dimmed"><strong>Por:</strong> {realizadoGem.userName}</Text>
+                                                <Text size="10px" c="dimmed"><strong>Fecha:</strong> {realizadoGem.fecha}</Text>
+                                            </Stack>
                                         )}
-                                    </Group>
-                                </Stack>
+                                    </Stack>
+                                </Paper>
+                            )}
+                        </Stack>
+                    </Grid.Col>
+                </Grid>
+            </Paper>
 
-                                {/* Group 2: Technical Context */}
-                                <Stack gap={4}>
-                                    <Text size="xs" fw={700} c="blue.7" style={{ whiteSpace: 'nowrap' }}>CENTRO / OBJETIVO</Text>
-                                    <Text size="sm" fw={700}>{ficha?.nombre_centro || '—'}</Text>
-                                    <Text size="xs" fw={500} c="dimmed" style={{ whiteSpace: 'normal' }}>{ficha?.nombre_objetivomuestreo_ma || '—'}</Text>
-                                </Stack>
-
-                                {/* Group 3: Operational */}
-                                <Stack gap={4}>
-                                    <Text size="xs" fw={700} c="blue.7" style={{ whiteSpace: 'nowrap' }}>DETALLE ACTIVIDAD</Text>
-                                    <SimpleGrid cols={2} spacing="xs">
-                                        <Box>
-                                            <Text size="10px" fw={700} c="dimmed">INICIO</Text>
-                                            <Text size="xs" fw={600}>{parseFechaStr(ficha?.ma_muestreo_fechai)}</Text>
-                                            <Text size="xs" c="dimmed" truncate title={procesos?.instalacion?.nombreMuestreador}>{procesos?.instalacion?.nombreMuestreador || '—'}</Text>
-                                        </Box>
-                                        <Box>
-                                            <Text size="10px" fw={700} c="dimmed">TÉRMINO</Text>
-                                            <Text size="xs" fw={600}>{parseFechaStr(ficha?.ma_muestreo_fechat)}</Text>
-                                            <Text size="xs" c="dimmed" truncate title={procesos?.retiro?.nombreMuestreador}>{procesos?.retiro?.nombreMuestreador || '—'}</Text>
-                                        </Box>
-                                    </SimpleGrid>
-                                </Stack>
-                            </SimpleGrid>
-                        </Grid.Col>
-
-                        <Grid.Col span={{ base: 12, md: 2 }}>
-                            <Stack gap="xs" align="flex-end" justify="center" h="100%">
-                                <ProtectedContent permission="MA_COMERCIAL_REMUESTREAR">
-                                    <Button
-                                        variant="light"
-                                        color="grape"
-                                        fullWidth
-                                        leftSection={<IconRefresh size={18} />}
-                                        onClick={() => setActiveSubmodule('ma-remuestreo')}
-                                    >
-                                        Remuestreo
-                                    </Button>
-                                </ProtectedContent>
-                                <ProtectedContent permission="FI_EXP_MC">
-                                    <Tooltip
-                                        label={(ficha?.estado_ficha || '').toUpperCase().includes('RECHAZADA') ? 'Atención: Esta ficha ha sido rechazada' : 'Descargar PDF'}
-                                        color={(ficha?.estado_ficha || '').toUpperCase().includes('RECHAZADA') ? 'red' : 'blue'}
-                                    >
-                                        <Button
-                                            fullWidth
-                                            leftSection={<IconDownload size={16} />}
-                                            variant="filled"
-                                            color={(ficha?.estado_ficha || '').toUpperCase().includes('RECHAZADA') ? 'red' : 'blue'}
-                                            onClick={async () => {
-                                                try {
-                                                    const pdfBlob = await fichaService.downloadPdf(Number(selectedFichaId));
-                                                    const url = window.URL.createObjectURL(pdfBlob);
-                                                    const link = document.createElement('a');
-                                                    const fileName = ficha?.caso_adlab || selectedCorrelativo || `Ficha_${selectedFichaId}`;
-                                                    link.href = url;
-                                                    link.setAttribute('download', `${fileName}.pdf`);
-                                                    document.body.appendChild(link);
-                                                    link.click();
-                                                    document.body.removeChild(link);
-                                                    window.URL.revokeObjectURL(url);
-                                                } catch (err) {
-                                                    console.error('Error downloading PDF:', err);
-                                                }
-                                            }}
-                                        >
-                                            Exportar PDF
-                                        </Button>
-                                    </Tooltip>
-                                </ProtectedContent>
-                            </Stack>
-                        </Grid.Col>
-                    </Grid>
-                </Paper>
-            )}
+            {/* Modal de confirmación Realizado por GEM */}
+            <Modal
+                opened={confirmModalOpen}
+                onClose={() => setConfirmModalOpen(false)}
+                title={<Text fw={700} size="md">⚠️ Confirmar acción irreversible</Text>}
+                centered
+                size="sm"
+            >
+                <Stack gap="md">
+                    <Text size="sm" c="dimmed">
+                        Al marcar este muestreo como <strong>Realizado por GEM</strong>, esta acción quedará registrada con tu nombre y la fecha/hora actual.
+                    </Text>
+                    <Text size="sm" fw={600} c="orange.7">
+                        Esta acción <u>no podrá deshacerse</u>. ¿Estás seguro de continuar?
+                    </Text>
+                    <Group justify="flex-end" gap="sm">
+                        <Button variant="default" onClick={() => setConfirmModalOpen(false)}>
+                            Cancelar
+                        </Button>
+                        <Button
+                            color="teal"
+                            loading={realizadoLoading}
+                            leftSection={<IconCheck size={16} />}
+                            onClick={handleConfirmRealizado}
+                        >
+                            Confirmar
+                        </Button>
+                    </Group>
+                </Stack>
+            </Modal>
 
             <Tabs defaultValue="datos_ingresados" color="blue" variant="pills" radius="md" style={{ width: '100%' }}>
                 <Tabs.List mb="md">

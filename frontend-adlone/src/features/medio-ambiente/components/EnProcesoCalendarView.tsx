@@ -390,6 +390,10 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                     title="Calendario de Servicios" 
                     subtitle={!isCompact ? `${capitalizedMonth} ${currentMonth.getFullYear()}` : undefined}
                     onBack={onBackToMenu}
+                    breadcrumbItems={[
+                        { label: 'Fichas de Ingreso', onClick: onBackToMenu },
+                        { label: 'Calendario Terreno' }
+                    ]}
                     rightSection={
                         <Group gap="xs" wrap={isCompact ? "wrap" : "nowrap"}>
                             <Button.Group style={{ width: isCompact ? '100%' : 'auto' }}>

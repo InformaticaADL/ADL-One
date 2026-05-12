@@ -754,7 +754,25 @@ Implementación del flujo completo de creación de fichas de remuestreo y permis
 - **Archivos Modificados**:
     - Backend: `solicitud.service.js`, `ficha.service.js`, `equipo.controller.js`, `equipo.service.js`, `uns.service.js`, `catalogos.service.js`, `admin.routes.js`
     - Frontend: `ProtectedContent.tsx`, `Sidebar.tsx`, `AuthContext.tsx`, `AssignmentDetailView.tsx`, `CommercialDetailView.tsx`, `ComercialPage.tsx`, `FichaDetailView.tsx`, `FichasIngresoPage.tsx`, `EnProcesoCalendarView.tsx`, `navStore.ts`, `admin.service.ts`
+    
+---
 
+### 51. Optimización UI Responsiva y Estandarización de Navegación (Mayo 2026) 📱💻
+Consolidación de una experiencia de usuario (UX) coherente, profesional y altamente responsiva en toda la plataforma, estandarizando los elementos de navegación y el layout de los módulos de "Medio Ambiente".
+
+- **Rediseño de `PageHeader` (Sistema Global)**:
+    - Implementación de arquitectura de layout basada en Flexbox (`1-auto-1`) garantizando el centrado absoluto del título y subtítulo en todas las resoluciones.
+    - Soporte integrado para `breadcrumbItems` (navegación de migas de pan), facilitando el contexto y la orientación ("Fichas de Ingreso / Módulo Actual").
+    - Comportamiento responsivo fluido: botones de acción apilados dinámicamente debajo del título en móviles, manteniendo alineación a la derecha en escritorio.
+- **Estandarización UI en Módulos de Fichas**:
+    - Se inyectó la nueva estructura jerárquica de breadcrumbs en todas las vistas del submódulo Medio Ambiente: Explorador, Rutas, Dashboard Inteligente, Muestreos Completados, Creación, Asignación, Calendario y Vistas de Detalle.
+    - El Dashboard Inteligente (`KpiAnalystDashboardView.tsx`) fue refactorizado para adoptar la cabecera estándar `PageHeader`, reemplazando componentes personalizados para mantener simetría visual.
+- **Limpieza de Código y Estabilidad**:
+    - Resolución de advertencias de imports sin uso e iconos huérfanos a través de múltiples vistas, garantizando un entorno de compilación limpio.
+- **Archivos Modificados**:
+    - Frontend: `PageHeader.tsx`, `FichaUniversalView.tsx`, `EnProcesoListView.tsx`, `CoordinationListView.tsx`, `AssignmentListView.tsx`, `EnProcesoCalendarView.tsx`, `FichasExploradorView.tsx`, `KpiAnalystDashboardView.tsx`, `RutasListView.tsx`, `FichaCreateChoice.tsx`, `FichaCreateForm.tsx`, `RouteMapPlannerView.tsx`, `MuestreosEjecutadosListView.tsx`.
+
+---
 
 ### 46. Mejoras en Gestión de Equipos y UX de Solicitudes (Abril 2026) ⚙️✨
 Refinamiento integral del módulo de Gestión de Equipos y la experiencia de usuario al crear solicitudes, corrigiendo lógica de alertas, visibilidad condicional de formularios y rediseño de la pantalla de éxito.
@@ -989,6 +1007,34 @@ Mejoras en el Planificador de Rutas para evitar la asignación múltiple de serv
     - Se actualizó el listado desplegable de los correlativos disponibles en el UI, filtrando explícitamente aquellos que ya están en ruta e indicando visualmente (con un *check* o flecha) el estado actual para ayudar en la lectura operativa.
 - **Optimización del Cálculo "En Ruta" (Backend)**:
     - Se modificó la consulta SQL de `ficha.service.js` para evaluar el estado global de la ruta planificada mediante exclusión lógica (`NOT IN ('COMPLETADA', 'CANCELADA', 'ANULADA')`), en lugar de buscar únicamente la palabra clave `'PENDIENTE'`, abarcando correctamente cualquier estado de ejecución activa (como 'EN PROGRESO').
+
+---
+
+### 61. Refinamiento de Permisos, Georeferenciación y Experiencia Visual (Mayo 2026) ✨🚀
+Un extenso abanico de mejoras focalizadas en la estabilidad del control de accesos, precisión geográfica para operaciones logísticas y estilización de componentes visuales clave.
+
+- **Sistema de Georeferenciación Robusto (Rutas y Planificación)**:
+    - **Resolución de Error 500**: Se corrigió el backend (`rutas-planificadas.service.js`) implementando un `LEFT JOIN` a la tabla maestra `mae_centro` para obtener coordenadas reales (`latitud`, `longitud`), solucionando fallos en rutas que carecían de coordenadas pre-ingresadas.
+    - **Algoritmo de Extracción Tri-Fase**: En el frontend (`RutasListView.tsx`), se integró una estrategia resiliente para extraer y mapear las coordenadas: 
+        1. Parsing nativo de URLs de Google Maps.
+        2. Procesamiento de enlaces acortados (`goo.gl`).
+        3. Fallback inteligente a las columnas legadas (`latitud`, `longitud`, `ma_coordenadas`).
+    - **Estilización y Conflictos CSS**: Resolución de advertencias de React al evitar conflictos entre atajos de CSS (`padding`) y propiedades explícitas (`paddingBottom`) durante los rerenders.
+
+- **Migración a RBAC Estricto (Rol: Realizado por GEM)**:
+    - **Seguridad Backend y Frontend**: Se reemplazó la vulnerable validación por nombre de rol explícito (`"GEM MAM PM"`) por una arquitectura basada en permisos atómicos (`GEM_REALIZADO`).
+    - **Integración Transparente**: Uso de `hasPermission('GEM_REALIZADO')` en `FichaDetailView.tsx` para condicionar la visibilidad del botón de completado, y protección a nivel de API (`ficha.controller.js`) que audita los permisos directamente desde el token JWT.
+
+- **Efectos Visuales e Interactividad (UI/UX)**:
+    - **Loader Inteligente para KPIs**: Se reemplazó el texto estático de carga en `KpiAnalystDashboardView.tsx` por una pantalla de transición con componentes nativos de Mantine (`Loader` tipo *bars*, `Center`), dotando al dashboard de una experiencia "Data Intelligence" profesional.
+    - **Bloqueo Visual de Características (WelcomePage)**: Aplicación de superposiciones grises (`grayscale`, `blur`) y la propiedad `pointer-events: none` para deshabilitar interacciones en secciones en desarrollo o bloqueadas ("Próximos Eventos", "Estado Sala de Reuniones").
+    - **Menús y Transiciones**: Reemplazo de transiciones bloqueantes de `Framer Motion` por animaciones CSS optimizadas, resolviendo problemas de renderizado ("pantalla en blanco") y alineación errática de sub-menús desplegables.
+
+- **Mejoras Generales y Soporte Administrativo**:
+    - **Corrección de TypeScript**: Solución del error de tipado en `ModernHeader.tsx` migrando a la sintaxis segura `window.location.hostname` para la configuración de cookies de idioma.
+    - **Estandarización de Correos**: Alineamiento visual del campo "Hora" y tablas de atributos en las notificaciones de Fichas (Aprobadas/Rechazadas) para prevenir distorsiones de layout.
+    - **Catálogo de Maestros**: Expansión del módulo Hub con configuraciones `MaestroConfig` para nuevas entidades corporativas ("Orígenes", "Tipos de Instalación", "Medio").
+    - **Entorno Local**: Diagnóstico y estabilización del entorno de ejecución de Python para módulos paralelos (`pic_to_df.py`).
 
 ---
 

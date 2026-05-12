@@ -195,7 +195,7 @@ const ChatModule: React.FC = () => {
 
     if (loading && conversations.length === 0) {
         return (
-            <Center style={{ height: 'calc(100vh - 84px)' }}>
+            <Center style={{ height: '100%' }}>
                 <Loader size="lg" color="blue" />
             </Center>
         );
@@ -204,10 +204,10 @@ const ChatModule: React.FC = () => {
     return (
         <>
             <Paper
-                radius="md"
+                radius={0}
                 style={{
                     display: 'flex',
-                    height: 'calc(100vh - 84px)',
+                    height: '100%',
                     overflow: 'hidden',
                 }}
             >

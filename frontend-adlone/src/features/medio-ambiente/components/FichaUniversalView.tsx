@@ -303,6 +303,10 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
                     title={`Ficha N° ${data?.fichaingresoservicio || '-'}${data?.es_remuestreo === 'S' ? ` (REMUESTREO DE LA FICHA N° ${data?.id_ficha_original})` : ''}`}
                     subtitle={isEditing ? 'Modo Edición' : 'Visor Universal de Ficha'}
                     onBack={onBack}
+                    breadcrumbItems={[
+                        { label: 'Fichas de Ingreso', onClick: onBack },
+                        { label: isEditing ? 'Editar Ficha' : 'Ver Ficha' }
+                    ]}
                     rightSection={
                         <Group gap="sm">
                             <Badge size="xl" radius="md" variant="light" color={statusObj.color}>

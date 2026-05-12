@@ -221,11 +221,13 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotC
                     const fetchedModules = response.data.data;
                     const gemModule = fetchedModules.find((m: any) => m.id && m.id.toLowerCase() === 'gem');
                     
+                    // Permisos que dan acceso a la Unidad GEM (GEM_REALIZADO está asignado al rol GEM MAM PM)
+                    const GEM_PERMISOS = ['GEM_ACCESO', 'GEM_REALIZADO'];
+
                     const newLink = {
                         id: 'gem-muestreos-completados',
                         label: 'Muestreos Completados',
-                        // Se enlaza el link directamente al permiso que el usuario administra en "Gestión de Roles"
-                        permission: ['MA_COMERCIAL_HISTORIAL_ACCESO']
+                        permission: GEM_PERMISOS
                     };
 
                     if (gemModule) {
@@ -233,15 +235,14 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotC
                         if (!gemModule.links.some((l: any) => l.id === newLink.id)) {
                             gemModule.links.push(newLink);
                         }
-                    } else if (hasPermission(['MA_COMERCIAL_HISTORIAL_ACCESO'])) {
-                        // Si el backend no envió el módulo GEM (ej: el usuario no tiene permiso base de GEM)
-                        // pero sí tiene el permiso específico para el historial, inyectamos la unidad completa
+                    } else if (hasPermission(GEM_PERMISOS)) {
+                        // Inyectamos el módulo GEM si el usuario tiene GEM_ACCESO o permisos de muestreos completados
                         fetchedModules.push({
                             id: 'gem',
                             label: 'Unidad GEM',
                             icon: 'IconFlask',
                             group: 'unidades',
-                            permission: ['MA_COMERCIAL_HISTORIAL_ACCESO'],
+                            permission: GEM_PERMISOS,
                             links: [newLink]
                         });
                     }
