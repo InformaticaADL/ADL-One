@@ -345,6 +345,12 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
             showToast({ type: 'warning', message: 'Ingresa un nombre para la ruta' });
             return;
         }
+        // Validar que todos los ítems tengan correlativo válido
+        const itemsInvalidos = selectedItems.filter(i => !i.frecuencia_correlativo);
+        if (itemsInvalidos.length > 0) {
+            showToast({ type: 'error', message: `${itemsInvalidos.length} ficha(s) no tienen un correlativo válido seleccionado` });
+            return;
+        }
         setIsLoading(true);
         try {
             const payload = {
@@ -742,9 +748,8 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                                     const isSelected = selectedIds.includes(f.id);
                                     const hasCoords = f.lat !== null;
                                     const orderNum = isSelected ? selectedItems.findIndex(s => s.fichaId === f.id) + 1 : null;
-                                    // Per-correlativo blocking: only fully blocked when ALL available correlativos are taken
                                     const allTaken = f.correlativos.length > 0 && f.correlativos.every(c => 
-                                        c.status === 'EJECUTADO' || c.en_ruta
+                                        c.status === 'EJECUTADO' || c.status === 'AGENDADO' || c.en_ruta
                                     );
                                     const isFullyBlocked = allTaken && !isSelected;
                                     const isMissingCoords = !hasCoords;
@@ -846,10 +851,13 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                                                             value={item.frecuencia_correlativo}
                                                             onChange={(val) => val && updateSelectedCorrelativo(item.fichaId, val)}
                                                             data={f.correlativos
-                                                                .filter(c => c.status === 'DISPONIBLE' || c.frecuencia_correlativo === item.frecuencia_correlativo)
+                                                                .filter(c => (c.status === 'DISPONIBLE' && !c.en_ruta) || c.frecuencia_correlativo === item.frecuencia_correlativo)
                                                                 .map(c => ({
                                                                     value: c.frecuencia_correlativo,
-                                                                    label: `Serv. ${c.numero_servicio} / ${f.total_servicios}`
+                                                                    label: `Serv. ${c.numero_servicio} / ${f.total_servicios}${
+                                                                        c.status === 'AGENDADO' ? ' ✓ Agendado' : 
+                                                                        c.en_ruta ? ' ↗ En ruta' : ''
+                                                                    }`
                                                                 }))
                                                             }
                                                             styles={{ input: { fontSize: '10px', minHeight: '22px', height: '22px', paddingLeft: '8px', paddingRight: '20px' } }}

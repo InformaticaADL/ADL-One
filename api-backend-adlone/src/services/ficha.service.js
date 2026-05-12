@@ -1852,7 +1852,7 @@ class FichaIngresoService {
                             SELECT d.id_fichaingresoservicio, d.frecuencia_correlativo
                             FROM mae_rutas_planificadas_detalle d
                             JOIN mae_rutas_planificadas r ON d.id_ruta_planificada = r.id_ruta_planificada
-                            WHERE r.estado = 'PENDIENTE'
+                            WHERE r.estado NOT IN ('COMPLETADA', 'CANCELADA', 'ANULADA')
                         `);
                         const enRutaSet = new Set(
                             rutaDetResult.recordset.map(r => `${Number(r.id_fichaingresoservicio)}|${(r.frecuencia_correlativo || '').trim()}`)

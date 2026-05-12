@@ -979,6 +979,19 @@ Implementación de efectos visuales "glassmorphism" para denotar estados inactiv
 
 ---
 
+### 60. Refinamiento en Asignación de Rutas y Prevención de Duplicidad (Mayo 2026) 🗺️🚫
+Mejoras en el Planificador de Rutas para evitar la asignación múltiple de servicios y asegurar la consistencia del estado.
+
+- **Validación Estricta de Correlativos**:
+    - Se implementó una verificación antes de guardar la ruta, asegurando que todos los ítems seleccionados posean un correlativo válido, mostrando notificaciones de error (`toast`) detalladas si es que faltan selecciones.
+- **Bloqueo Inteligente de Servicios Agendados/En Ruta**:
+    - Las fichas con correlativos en estado `AGENDADO` o que ya se encuentran en ruta (`en_ruta`) ahora se bloquean y ocultan correctamente en la interfaz gráfica de selección, previniendo duplicidad de asignación.
+    - Se actualizó el listado desplegable de los correlativos disponibles en el UI, filtrando explícitamente aquellos que ya están en ruta e indicando visualmente (con un *check* o flecha) el estado actual para ayudar en la lectura operativa.
+- **Optimización del Cálculo "En Ruta" (Backend)**:
+    - Se modificó la consulta SQL de `ficha.service.js` para evaluar el estado global de la ruta planificada mediante exclusión lógica (`NOT IN ('COMPLETADA', 'CANCELADA', 'ANULADA')`), en lugar de buscar únicamente la palabra clave `'PENDIENTE'`, abarcando correctamente cualquier estado de ejecución activa (como 'EN PROGRESO').
+
+---
+
 ## 📈 Próximos Pasos (Hoja de Ruta 2026)
 1. **Bootstrapping ADL ECOSISTEMA**: Inicio del nuevo repositorio unificado en NestJS.
 2. **Implementación de ADL Sampling**: Desarrollo de la nueva App de shell dinámico para terreno.
