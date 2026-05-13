@@ -13,6 +13,9 @@ router.get('/:id', checkAuth, rutasPlanificadasController.getRutaDetalle);
 // Crear nueva ruta (Solo guardar, sin asignar)
 router.post('/', checkAuth, rutasPlanificadasController.createRuta);
 
+// Actualizar ruta (reemplaza fichas atómicamente, preserva el ID)
+router.put('/:id', checkAuth, rutasPlanificadasController.updateRuta);
+
 // Eliminar ruta
 router.delete('/:id', checkAuth, rutasPlanificadasController.deleteRuta);
 

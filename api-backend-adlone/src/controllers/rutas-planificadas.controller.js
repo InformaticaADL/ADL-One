@@ -44,6 +44,24 @@ class RutasPlanificadasController {
         }
     }
 
+    async updateRuta(req, res) {
+        try {
+            const { id } = req.params;
+            const data = req.body;
+            const user = req.user;
+
+            if (!data.nombre_ruta || !data.fichas || data.fichas.length === 0) {
+                return errorResponse(res, 'Faltan datos obligatorios (nombre_ruta, fichas)', 400);
+            }
+
+            const result = await rutasPlanificadasService.update(id, data, user);
+            return successResponse(res, result, 'Ruta actualizada correctamente');
+        } catch (error) {
+            logger.error('Error actualizando ruta:', error);
+            return errorResponse(res, 'Error al actualizar la ruta', 500, error.message);
+        }
+    }
+
     async deleteRuta(req, res) {
         try {
             const { id } = req.params;

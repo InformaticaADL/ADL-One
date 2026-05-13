@@ -372,11 +372,10 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
             };
 
             if (editRutaId) {
-                // Delete old route, create new one (simple update strategy)
-                await rutasPlanificadasService.delete(editRutaId);
+                await rutasPlanificadasService.update(editRutaId, payload);
+            } else {
+                await rutasPlanificadasService.create(payload);
             }
-
-            await rutasPlanificadasService.create(payload);
             showToast({ type: 'success', message: 'Ruta Base guardada exitosamente' });
             setIsSavingBase(false);
             setNombreRuta('');

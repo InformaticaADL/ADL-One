@@ -13,6 +13,10 @@ export const rutasPlanificadasService = {
         const response = await apiClient.post('/api/rutas-planificadas', data);
         return response.data.data;
     },
+    update: async (id: number, data: { nombre_ruta: string, fichas: { id_fichaingresoservicio: number, orden: number, frecuencia_correlativo?: string }[] }) => {
+        const response = await apiClient.put(`/api/rutas-planificadas/${id}`, data);
+        return response.data.data;
+    },
     delete: async (id: number) => {
         const response = await apiClient.delete(`/api/rutas-planificadas/${id}`);
         return response.data.data;

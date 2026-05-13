@@ -1,6 +1,5 @@
 import { getConnection } from '../config/database.js';
 import sql from 'mssql';
-import logger from '../utils/logger.js';
 import fichaService from './ficha.service.js';
 
 class RutasPlanificadasService {
@@ -115,19 +114,65 @@ class RutasPlanificadasService {
             .query('DELETE FROM mae_rutas_planificadas WHERE id_ruta_planificada = @id');
     }
 
+    async update(id, data, user) {
+        const { nombre_ruta, fichas } = data;
+        const pool = await getConnection();
+        const transaction = new sql.Transaction(pool);
+
+        try {
+            await transaction.begin();
+
+            // Update header
+            const reqHeader = new sql.Request(transaction);
+            await reqHeader
+                .input('id', sql.Int, id)
+                .input('nombre', sql.VarChar(250), nombre_ruta)
+                .query(`UPDATE mae_rutas_planificadas SET nombre_ruta = @nombre WHERE id_ruta_planificada = @id`);
+
+            // Replace detail atomically
+            const reqDel = new sql.Request(transaction);
+            await reqDel
+                .input('id', sql.Int, id)
+                .query(`DELETE FROM mae_rutas_planificadas_detalle WHERE id_ruta_planificada = @id`);
+
+            if (fichas.length > 0) {
+                const reqDetalle = new sql.Request(transaction);
+                reqDetalle.input('id_ruta', sql.Int, id);
+                const valueRows = fichas.map((f, i) => {
+                    reqDetalle.input(`id_ficha_${i}`, sql.Numeric(10, 0), f.id_fichaingresoservicio || f.id);
+                    reqDetalle.input(`orden_${i}`, sql.Int, f.orden || (i + 1));
+                    reqDetalle.input(`correlativo_${i}`, sql.VarChar(100), f.frecuencia_correlativo || null);
+                    return `(@id_ruta, @id_ficha_${i}, @orden_${i}, @correlativo_${i})`;
+                });
+                await reqDetalle.query(`
+                    INSERT INTO mae_rutas_planificadas_detalle (id_ruta_planificada, id_fichaingresoservicio, orden, frecuencia_correlativo)
+                    VALUES ${valueRows.join(', ')}
+                `);
+            }
+
+            await transaction.commit();
+            return { id_ruta_planificada: Number(id), nombre_ruta };
+        } catch (error) {
+            await transaction.rollback();
+            throw error;
+        }
+    }
+
     async asignar(id, assignmentParams, user) {
-        // Obtenemos los detalles de la ruta
         const ruta = await this.getById(id);
         if (!ruta) throw new Error('Ruta no encontrada');
-        
-        // Extraer los ids de las fichas para pasarlos a getAssignmentDetail
-        const selectedIds = ruta.fichas.map(f => f.id_fichaingresoservicio);
-        
+
         const { assignDate, assignMuestreadorInst, assignMuestreadorRet } = assignmentParams;
-        
-        // Logica idéntica al frontend: Buscar los pendientes y enviarlos a batchUpdateAgenda
-        const assignmentPromises = selectedIds.map(fichaId => fichaService.getForAssignmentDetail(fichaId, 1));
-        const allDetails = await Promise.all(assignmentPromises);
+
+        // Build a map of fichaId → stored frecuencia_correlativo from the saved route
+        const correlativoMap = new Map(
+            ruta.fichas.map(f => [f.id_fichaingresoservicio, f.frecuencia_correlativo])
+        );
+
+        const selectedIds = ruta.fichas.map(f => f.id_fichaingresoservicio);
+        const allDetails = await Promise.all(
+            selectedIds.map(fichaId => fichaService.getForAssignmentDetail(fichaId, 1))
+        );
 
         const assignments = [];
         for (let i = 0; i < selectedIds.length; i++) {
@@ -136,7 +181,14 @@ class RutasPlanificadasService {
 
             if (!Array.isArray(rows) || rows.length === 0) continue;
 
-            const pendingRow = rows.find(r => {
+            const storedCorrelativo = correlativoMap.get(fichaId);
+
+            // Prefer the row matching the stored correlativo; fall back to first pending
+            const matchedRow = storedCorrelativo
+                ? rows.find(r => r.frecuencia_correlativo === storedCorrelativo)
+                : null;
+
+            const pendingRow = matchedRow || rows.find(r => {
                 const estado = (r.nombre_estadomuestreo || '').toUpperCase();
                 return !estado.includes('EJECUTADO') && !estado.includes('CANCELADO') && !estado.includes('ANULADO');
             }) || rows[0];
@@ -156,14 +208,12 @@ class RutasPlanificadasService {
             throw new Error('No hay registros pendientes para asignar en las fichas de esta ruta');
         }
 
-        // Ejecutar asignación masiva reutilizando fichaService
         const response = await fichaService.batchUpdateAgenda({
             assignments,
             user: user ? { id: user.id } : { id: 0 },
             observaciones: `Asignación por Ruta Guardada #${id}: ${ruta.nombre_ruta}`
         });
 
-        // Cambiar estado de la ruta a ASIGNADA
         const pool = await getConnection();
         await pool.request()
             .input('id', sql.Int, id)
