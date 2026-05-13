@@ -776,9 +776,18 @@ const buildDashboards = (context) => {
     ];
 };
 
-const buildSnapshot = (rows, options = {}) => {
+// Yields control back to the event loop so pending I/O (HTTP requests, etc.) can be processed
+// between CPU-heavy computation phases. Prevents login and other requests from being blocked.
+const yieldToEventLoop = () => new Promise((resolve) => setImmediate(resolve));
+
+const buildSnapshot = async (rows, options = {}) => {
+    // Phase 1: trend and basic aggregates
     const monthlyTrend = buildMonthlyTrend(rows);
     const trendComparison = getPreviousComparison(monthlyTrend);
+
+    await yieldToEventLoop();
+
+    // Phase 2: row classification (multiple filter passes over rows)
     const completedRows = rows.filter((row) => normalize(row.estado_operacion).includes('ejecut'));
     const cancelledRows = rows.filter((row) => {
         const status = normalize(row.estado_operacion);
@@ -805,6 +814,9 @@ const buildSnapshot = (rows, options = {}) => {
     const backlogRate = round((backlogRows.length / Math.max(rows.length, 1)) * 100, 1);
     const etfaRatio = round((externalRows.length / Math.max(rows.length, 1)) * 100, 1);
 
+    await yieldToEventLoop();
+
+    // Phase 3: top-N aggregations
     const topClients = topEntries(countBy(rows, (row) => row.cliente || 'Sin cliente'));
     const topObjectives = topEntries(countBy(rows, (row) => row.objetivo || 'Sin objetivo'));
     const topSubareas = topEntries(countBy(rows, (row) => row.subarea || 'Sin subarea'));
@@ -816,6 +828,10 @@ const buildSnapshot = (rows, options = {}) => {
     const topSampleTypes = topEntries(countBy(rows, (row) => row.tipo_muestra || 'Sin tipo'));
     const topAnalysisPlaces = topEntries(countBy(rows, (row) => row.lugar_analisis || 'Sin lugar'));
     const samplerLoad = topEntries(countBy(rows, (row) => row.muestreador || 'Sin muestreador'), 8);
+
+    await yieldToEventLoop();
+
+    // Phase 4: alerts, monthly mixes, matrices (heaviest O(n*months) work)
     const alerts = buildAlerts({
         overdueCount: overdueRows.length,
         cancellationRate,
@@ -829,8 +845,17 @@ const buildSnapshot = (rows, options = {}) => {
         { name: 'Interno', value: rows.filter((row) => row.es_etfa !== 'S').length },
         { name: 'ETFA', value: rows.filter((row) => row.es_etfa === 'S').length },
     ];
+
+    // Pre-index rows by month label to avoid O(n*months) repeated scans
+    const rowsByMonthLabel = new Map();
+    for (const row of rows) {
+        const label = getMonthLabel(getMonthKey(row.fecha_servicio));
+        if (!rowsByMonthLabel.has(label)) rowsByMonthLabel.set(label, []);
+        rowsByMonthLabel.get(label).push(row);
+    }
+
     const monthlyOperationalMix = monthlyTrend.map((monthRow) => {
-        const monthRows = rows.filter((row) => getMonthLabel(getMonthKey(row.fecha_servicio)) === monthRow.label);
+        const monthRows = rowsByMonthLabel.get(monthRow.label) || [];
         return {
             label: monthRow.label,
             servicios: monthRows.length,
@@ -838,13 +863,16 @@ const buildSnapshot = (rows, options = {}) => {
         };
     });
     const monthlyImpactTrend = monthlyTrend.map((monthRow) => {
-        const monthRows = rows.filter((row) => getMonthLabel(getMonthKey(row.fecha_servicio)) === monthRow.label);
+        const monthRows = rowsByMonthLabel.get(monthRow.label) || [];
         return {
             label: monthRow.label,
             consumo: round(monthRows.reduce((acc, row) => acc + Number(row.consumo_indice || 0), 0), 1),
             emisiones: round(monthRows.reduce((acc, row) => acc + Number(row.emisiones_indice || 0), 0), 1),
         };
     });
+
+    await yieldToEventLoop();
+
     const objectiveSubareaMatrix = topPairs(rows, 'subarea', 'objetivo', 'Sin subarea', 'Sin objetivo', 10);
     const clientSubareaMatrix = topPairs(rows, 'cliente', 'subarea', 'Sin cliente', 'Sin subarea', 10);
     const stateByAnalysisType = topAnalysisTypes.map((type) => {
@@ -862,6 +890,8 @@ const buildSnapshot = (rows, options = {}) => {
             }).length,
         };
     });
+
+    await yieldToEventLoop();
 
     const insights = buildInsights({
         rows,
@@ -968,7 +998,7 @@ export const runAnalysis = async ({ mode = 'manual', windowDays, event } = {}) =
             rows = buildFallbackDataset(effectiveWindow);
         }
 
-        const snapshot = buildSnapshot(rows, {
+        const snapshot = await buildSnapshot(rows, {
             mode,
             source: usedFallback ? 'fallback' : 'database',
             usedFallback,
