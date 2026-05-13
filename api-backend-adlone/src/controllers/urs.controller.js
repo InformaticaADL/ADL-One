@@ -2,6 +2,21 @@ import ursService from '../services/urs.service.js';
 import logger from '../utils/logger.js';
 import fs from 'fs';
 import path from 'path';
+import { getConnection } from '../config/database.js';
+import sql from 'mssql';
+
+// Returns true if the user is the creator of the request or has admin access
+async function canActOnRequest(idSolicitud, reqUser) {
+    if (reqUser.permissions?.includes('AI_MA_ADMIN_ACCESO')) return true;
+    try {
+        const pool = await getConnection();
+        const res = await pool.request()
+            .input('id', sql.Numeric(10, 0), idSolicitud)
+            .input('userId', sql.Numeric(10, 0), reqUser.id)
+            .query(`SELECT 1 as ok FROM mae_solicitud WHERE id_solicitud = @id AND id_solicitante = @userId`);
+        return res.recordset.length > 0;
+    } catch { return false; }
+}
 
 class UrsController {
     async getTypes(req, res) {
@@ -101,7 +116,9 @@ class UrsController {
     async updateStatus(req, res) {
         try {
             const { id } = req.params;
-            // Support both frontend naming (status/comment) and legacy (estado/observaciones)
+            if (!await canActOnRequest(id, req.user)) {
+                return res.status(403).json({ error: 'No autorizado para modificar esta solicitud' });
+            }
             const estado = req.body.status || req.body.estado;
             const observaciones = req.body.comment || req.body.observaciones || '';
             const idUsuario = req.user.id;
@@ -129,13 +146,13 @@ class UrsController {
     async derive(req, res) {
         try {
             const { id } = req.params;
-            
-            // Allow both frontend ('area', 'userId', 'comment') and backend/legacy names
+            if (!await canActOnRequest(id, req.user)) {
+                return res.status(403).json({ error: 'No autorizado para derivar esta solicitud' });
+            }
             const areaDestino = req.body.area || req.body.area_destino || 'DERIVACION';
             const usuarioDestino = req.body.userId || req.body.id_usuario_destino;
             const finalRolId = req.body.roleId || req.body.id_rol_destino;
             const motivo = req.body.comment || req.body.motivo || '';
-            
             const idUsuarioOrigen = req.user.id;
 
             const solicitud = await ursService.derive(id, idUsuarioOrigen, areaDestino, usuarioDestino, motivo, finalRolId);

@@ -36,20 +36,20 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
     }, [activeSubmodule, isCompact, close]);
 
     // Global Notifications listener (Toast logic)
-    const { user } = useAuth();
+    const { user, token } = useAuth();
     const { fetchNotifications, initSocket, disconnectSocket } = useNotificationStore();
 
     // Socket Initialization
     useEffect(() => {
-        if (user?.id) {
-            initSocket(user.id);
+        if (user?.id && token) {
+            initSocket(user.id, token);
             fetchNotifications(); // Initial fetch
         }
 
         return () => {
             disconnectSocket();
         };
-    }, [user?.id, initSocket, disconnectSocket, fetchNotifications]);
+    }, [user?.id, token, initSocket, disconnectSocket, fetchNotifications]);
 
 
 

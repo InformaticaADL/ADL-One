@@ -1,5 +1,6 @@
 import './config/env.js';
 import express from 'express';
+import jwt from 'jsonwebtoken';
 
 import cors from 'cors';
 import helmet from 'helmet';
@@ -72,6 +73,18 @@ const io = new Server(httpServer, {
 import { setIo } from './utils/socketManager.js';
 setIo(io);
 
+// Require valid JWT for all Socket.IO connections
+io.use((socket, next) => {
+    const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization?.replace('Bearer ', '');
+    if (!token) return next(new Error('Authentication required'));
+    try {
+        socket.user = jwt.verify(token, process.env.JWT_SECRET);
+        next();
+    } catch {
+        next(new Error('Invalid token'));
+    }
+});
+
 io.on('connection', (socket) => {
     logger.info(`New client connected: ${socket.id}`);
 
@@ -130,6 +143,7 @@ app.use('/api/health', healthRoutes);
 app.use('/api/catalogos', catalogosRoutes);
 app.use('/api/analysis', analysisRoutes);
 app.use('/api/analysis', kpiAnalystRoutes);
+app.use('/api/fichas', bulkFichaRoutes); // Must be BEFORE fichaRoutes (/:id would swallow /bulk-*)
 app.use('/api/fichas', fichaRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/rbac', rbacRoutes);
@@ -142,7 +156,6 @@ app.use('/api/users', userRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/gchat', generalChatRoutes);
 app.use('/api/menu', menuRoutes);
-app.use('/api/fichas', bulkFichaRoutes);
 app.use('/api/rutas-planificadas', rutasPlanificadasRoutes);
 
 // Serve uploads directory as static

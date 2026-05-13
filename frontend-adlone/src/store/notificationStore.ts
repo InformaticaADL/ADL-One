@@ -22,7 +22,7 @@ interface NotificationState {
     markAsRead: (id: number) => Promise<void>;
     markAsReadByRef: (idReferencia: number) => Promise<void>;
     addLocalNotification: (notification: any) => void;
-    initSocket: (userId: number) => void;
+    initSocket: (userId: number, token: string) => void;
     disconnectSocket: () => void;
 }
 
@@ -75,8 +75,7 @@ export const useNotificationStore = create<NotificationState>((set) => ({
         }));
     },
 
-    initSocket: (userId: number) => {
-        // Disconnect any existing socket before creating a new one (e.g. re-login with different user)
+    initSocket: (userId: number, token: string) => {
         if (socket) {
             socket.disconnect();
             socket = null;
@@ -88,6 +87,7 @@ export const useNotificationStore = create<NotificationState>((set) => ({
             reconnectionAttempts: 10,
             reconnectionDelay: 2000,
             reconnectionDelayMax: 10000,
+            auth: { token },
         });
 
         socket.on('connect', () => {

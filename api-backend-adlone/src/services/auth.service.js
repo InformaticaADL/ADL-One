@@ -1,6 +1,7 @@
 import { getConnection } from '../config/database.js';
 import sql from 'mssql';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 import logger from '../utils/logger.js';
 import auditService from './audit.service.js';
 import dotenv from 'dotenv';
@@ -25,17 +26,17 @@ class AuthService {
             const startUserQuery = Date.now();
             const result = await pool.request()
                 .input('username', sql.VarChar, username)
-                .input('password', sql.VarChar, password)
                 .query(`
-                    SELECT 
-                        u.id_usuario, 
-                        u.nombre_usuario, 
-                        u.usuario, 
-                        u.mam_cargo, 
-                        u.correo_electronico, 
-                        u.habilitado, 
+                    SELECT
+                        u.id_usuario,
+                        u.nombre_usuario,
+                        u.usuario,
+                        u.mam_cargo,
+                        u.correo_electronico,
+                        u.habilitado,
                         u.seccion,
                         u.foto,
+                        u.clave_usuario,
                         c.nombre_cargo,
                         (
                             SELECT r.nombre_rol + ','
@@ -46,12 +47,44 @@ class AuthService {
                         ) as roles_list
                     FROM mae_usuario u
                     LEFT JOIN mae_cargo c ON u.id_cargo = c.id_cargo
-                    WHERE u.nombre_usuario = @username AND u.clave_usuario = @password
+                    WHERE u.nombre_usuario = @username
                 `);
             logger.info(`AuthService: User Lookup Query executed in ${Date.now() - startUserQuery}ms`);
 
             if (result.recordset.length > 0) {
                 const user = result.recordset[0];
+
+                // Verify password — supports bcrypt hashes and legacy plain-text (auto-migrates on login)
+                const storedPassword = user.clave_usuario;
+                let passwordValid = false;
+                if (storedPassword && storedPassword.startsWith('$2')) {
+                    passwordValid = await bcrypt.compare(password, storedPassword);
+                } else {
+                    passwordValid = storedPassword === password;
+                    if (passwordValid) {
+                        // Migrate plain-text password to bcrypt on successful login
+                        const hash = await bcrypt.hash(password, 12);
+                        await pool.request()
+                            .input('hash', sql.VarChar(255), hash)
+                            .input('userId', sql.Numeric(10, 0), user.id_usuario)
+                            .query(`UPDATE mae_usuario SET clave_usuario = @hash WHERE id_usuario = @userId`);
+                    }
+                }
+
+                if (!passwordValid) {
+                    auditService.log({
+                        usuario_id: 0,
+                        area_key: 'it',
+                        modulo_nombre: 'Seguridad',
+                        evento_tipo: 'LOGIN_FAILURE',
+                        entidad_nombre: 'mae_usuario',
+                        entidad_id: '0',
+                        descripcion_humana: `Intento de login fallido: credenciales inválidas para '${username}'`,
+                        metadatos_extra: { username },
+                        severidad: 2
+                    });
+                    return null;
+                }
 
                 // Check habilitado (assuming 'S'/'N' or true/false)
                 if (user.habilitado === 'N' || user.habilitado === false) {
@@ -159,32 +192,37 @@ class AuthService {
     async changePassword(userId, currentPassword, newPassword) {
         try {
             const pool = await getConnection();
-            
-            // Verify current password
+
+            // Fetch stored password to compare (supports bcrypt and legacy plain-text)
             const userResult = await pool.request()
                 .input('userId', sql.Numeric(10, 0), userId)
-                .input('currentPassword', sql.VarChar, currentPassword)
-                .query(`
-                    SELECT id_usuario 
-                    FROM mae_usuario 
-                    WHERE id_usuario = @userId AND clave_usuario = @currentPassword
-                `);
+                .query(`SELECT clave_usuario FROM mae_usuario WHERE id_usuario = @userId`);
 
             if (userResult.recordset.length === 0) {
+                throw new Error('Usuario no encontrado');
+            }
+
+            const storedPassword = userResult.recordset[0].clave_usuario;
+            let passwordValid = false;
+            if (storedPassword && storedPassword.startsWith('$2')) {
+                passwordValid = await bcrypt.compare(currentPassword, storedPassword);
+            } else {
+                passwordValid = storedPassword === currentPassword;
+            }
+
+            if (!passwordValid) {
                 throw new Error('La contraseña actual es incorrecta');
             }
 
-            if (newPassword === currentPassword) {
-                throw new Error('La nueva contraseña no puede ser igual a la actual');
-            }
+            const newHash = await bcrypt.hash(newPassword, 12);
 
             // Update password
             await pool.request()
                 .input('userId', sql.Numeric(10, 0), userId)
-                .input('newPassword', sql.VarChar, newPassword)
+                .input('newPassword', sql.VarChar(255), newHash)
                 .query(`
-                    UPDATE mae_usuario 
-                    SET clave_usuario = @newPassword 
+                    UPDATE mae_usuario
+                    SET clave_usuario = @newPassword
                     WHERE id_usuario = @userId
                 `);
 

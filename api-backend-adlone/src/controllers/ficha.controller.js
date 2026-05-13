@@ -25,12 +25,19 @@ class FichaIngresoController {
     }
 
     async resolveGoogleMaps(req, res) {
+        const ALLOWED_HOSTS = new Set(['maps.google.com', 'www.google.com', 'goo.gl', 'maps.app.goo.gl']);
         try {
             const { url } = req.query;
             if (!url) {
                 return successResponse(res, { finalUrl: null }, 'No URL provided');
             }
-            // Fetch handles redirects automatically
+            let parsed;
+            try { parsed = new URL(url); } catch {
+                return errorResponse(res, 'URL inválida', 400);
+            }
+            if (!ALLOWED_HOSTS.has(parsed.hostname)) {
+                return errorResponse(res, 'Dominio no permitido', 400);
+            }
             const response = await fetch(url, { method: 'HEAD', redirect: 'follow' }).catch(() => null);
             if (response && response.url) {
                 return successResponse(res, { finalUrl: response.url }, 'URL resolved');

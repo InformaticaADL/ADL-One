@@ -390,9 +390,7 @@ class UrsService {
                 await this.processAttachments(idSolicitud, null, files, transaction);
             }
 
-            await transaction.commit();
-
-            // Mobile Sub-type Specialization (V18 Robustness)
+            // Mobile Sub-type Specialization — must happen inside the transaction
             let currentIdTipo = Number(idTipo);
             if (currentIdTipo === 13) {
                 const relTipo = (datos.relacion_tipo || '').toUpperCase();
@@ -406,16 +404,17 @@ class UrsService {
                     newId = 15;
                 }
 
-                if (newId && newId !== 13) {
+                if (newId !== 13) {
                     currentIdTipo = newId;
                     logger.info(`URS: Specializing request #${idSolicitud} from 13 to ${currentIdTipo} (Rel: ${relTipo || 'DETECCIÓN POR ID'})`);
-                    // Persist specialized type to DB immediately
-                    await pool.request()
+                    await new sql.Request(transaction)
                         .input('id', sql.Numeric(10, 0), idSolicitud)
                         .input('newId', sql.Int, currentIdTipo)
                         .query('UPDATE mae_solicitud SET id_tipo = @newId WHERE id_solicitud = @id');
                 }
             }
+
+            await transaction.commit();
 
             // Enhanced identity and equipment resolution (V9 Robustness)
             const idActualMuesRaw = Number(idSolicitante) === 466 || Number(idSolicitante) === 229

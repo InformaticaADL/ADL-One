@@ -1,5 +1,6 @@
 import { getConnection } from '../config/database.js';
 import sql from 'mssql';
+import bcrypt from 'bcryptjs';
 import logger from '../utils/logger.js';
 
 class RbacService {
@@ -233,17 +234,19 @@ class RbacService {
                 .query('SELECT ISNULL(MAX(id_usuario), 0) + 1 AS newId FROM mae_usuario');
             const newId = idResult.recordset[0].newId;
 
+            const hashedPassword = await bcrypt.hash(userData.clave_usuario, 12);
+
             const result = await pool.request()
                 .input('id', sql.Numeric(10, 0), newId)
                 .input('nombreUsuario', sql.VarChar(50), userData.nombre_usuario)
                 .input('nombreReal', sql.VarChar(100), userData.nombre_real)
                 .input('correo', sql.VarChar(100), userData.correo_electronico)
-                .input('clave', sql.VarChar(50), userData.clave_usuario)
+                .input('clave', sql.VarChar(255), hashedPassword)
                 .input('idCargo', sql.Numeric(10, 0), userData.id_cargo || null)
                 .input('habilitado', sql.Char(1), 'S')
                 .query(`
                     INSERT INTO mae_usuario (id_usuario, nombre_usuario, usuario, correo_electronico, clave_usuario, id_cargo, habilitado)
-                    OUTPUT INSERTED.id_usuario, INSERTED.nombre_usuario, INSERTED.usuario, 
+                    OUTPUT INSERTED.id_usuario, INSERTED.nombre_usuario, INSERTED.usuario,
                            INSERTED.correo_electronico, INSERTED.id_cargo, INSERTED.habilitado
                     VALUES (@id, @nombreUsuario, @nombreReal, @correo, @clave, @idCargo, @habilitado)
                 `);
@@ -286,11 +289,12 @@ class RbacService {
     async updateUserPassword(userId, newPassword) {
         try {
             const pool = await getConnection();
+            const hashedPassword = await bcrypt.hash(newPassword, 12);
             const result = await pool.request()
                 .input('userId', sql.Numeric(10, 0), userId)
-                .input('newPassword', sql.VarChar(50), newPassword)
+                .input('newPassword', sql.VarChar(255), hashedPassword)
                 .query(`
-                    UPDATE mae_usuario 
+                    UPDATE mae_usuario
                     SET clave_usuario = @newPassword
                     WHERE id_usuario = @userId
                 `);

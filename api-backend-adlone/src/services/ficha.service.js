@@ -885,15 +885,19 @@ class FichaIngresoService {
     async getEnProcesoFichas(month, year) {
         const pool = await getConnection();
         try {
+            const request = pool.request();
             let whereClause = `WHERE (f.id_validaciontecnica = 5 OR f.id_validaciontecnica = 7)`;
 
             if (month && year) {
-                whereClause += ` AND MONTH(a.fecha_muestreo) = ${parseInt(month)} AND YEAR(a.fecha_muestreo) = ${parseInt(year)}`;
+                request.input('month', sql.Int, parseInt(month));
+                request.input('year', sql.Int, parseInt(year));
+                whereClause += ` AND MONTH(a.fecha_muestreo) = @month AND YEAR(a.fecha_muestreo) = @year`;
             } else if (year) {
-                whereClause += ` AND YEAR(a.fecha_muestreo) = ${parseInt(year)}`;
+                request.input('year', sql.Int, parseInt(year));
+                whereClause += ` AND YEAR(a.fecha_muestreo) = @year`;
             }
 
-            const result = await pool.request().query(`
+            const result = await request.query(`
                 SELECT
                     a.id_agendamam as id_agenda,
                     f.id_fichaingresoservicio as id,
@@ -1751,17 +1755,14 @@ class FichaIngresoService {
             const request = new sql.Request(transaction);
             request.input('id', sql.Numeric(10, 0), id);
             request.input('muestreador', sql.Numeric(10, 0), idMuestreador);
-            // Parse date string to object
             request.input('fecha', sql.Date, new Date(fecha));
+            request.input('coordinador', sql.Numeric(10, 0), user.id || 0);
 
-            // Logic to update App_Ma_Agenda_MUESTREOS
-            // Assuming updating all agenda items for this ficha that are pending?
-            // Or just specific ones. For simplicity updating all for this ficha
             await request.query(`
-                UPDATE App_Ma_Agenda_MUESTREOS 
-                SET id_muestreador = @muestreador, fecha_muestreo = @fecha, id_estadomuestreo = 2, id_coordinador = ${user.id || 0}
+                UPDATE App_Ma_Agenda_MUESTREOS
+                SET id_muestreador = @muestreador, fecha_muestreo = @fecha, id_estadomuestreo = 2, id_coordinador = @coordinador
                 WHERE id_fichaingresoservicio = @id
-                `);
+            `);
 
             // LOG HISTORY (Assignment)
             await this.logHistorial(transaction, {
@@ -1808,12 +1809,16 @@ class FichaIngresoService {
             
             // Augment results with coordinates and google maps links from ENC table
             if (result.recordset && result.recordset.length > 0) {
-                const encQuery = `
-                    SELECT id_fichaingresoservicio, referencia_googlemaps, ma_coordenadas, id_objetivomuestreo_ma
-                    FROM App_Ma_FichaIngresoServicio_ENC 
-                    WHERE id_fichaingresoservicio IN (${result.recordset.map(r => r.id_fichaingresoservicio || r.fichaingresoservicio).join(',')})
-                `;
+                const ids = result.recordset
+                    .map(r => parseInt(r.id_fichaingresoservicio || r.fichaingresoservicio))
+                    .filter(n => Number.isInteger(n) && n > 0);
+                const encQuery = ids.length
+                    ? `SELECT id_fichaingresoservicio, referencia_googlemaps, ma_coordenadas, id_objetivomuestreo_ma
+                       FROM App_Ma_FichaIngresoServicio_ENC
+                       WHERE id_fichaingresoservicio IN (${ids.join(',')})`
+                    : null;
                 try {
+                    if (!encQuery) throw new Error('no ids');
                     const encResult = await pool.request().query(encQuery);
                     const encMap = new Map(encResult.recordset.map(row => [row.id_fichaingresoservicio, row]));
                     

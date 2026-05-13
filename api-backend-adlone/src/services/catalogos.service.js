@@ -2,6 +2,27 @@ import { getConnection } from '../config/database.js';
 import sql from 'mssql';
 import logger from '../utils/logger.js';
 
+// Whitelist of tables accessible via the generic maestros API
+const ALLOWED_TABLES = new Set([
+  'mae_empresa', 'mae_empresaservicios', 'mae_contacto', 'mae_cargo', 'mae_rol',
+  'mae_usuario', 'mae_tipomuestra_ma', 'mae_subarea', 'mae_objetivomuestreo_ma',
+  'mae_tipomuestreo', 'mae_tipomuestra', 'mae_actividadmuestreo', 'mae_tipodescarga',
+  'mae_inspectorambiental', 'mae_muestreador', 'mae_coordinador', 'mae_centro',
+  'mae_modalidad', 'mae_frecuencia', 'mae_estadomuestreo', 'mae_equipo',
+  'mae_instrumentoambiental', 'mae_umedida', 'mae_lugaranalisis', 'mae_formacanal',
+  'mae_dispositivohidraulico', 'mae_solicitud_tipo', 'mae_permiso',
+  'mae_notificacion_regla', 'mae_evento_notificacion', 'mae_comuna',
+]);
+
+// Validates that a column/identifier is safe to interpolate (alphanumeric + underscores)
+const IDENTIFIER_RE = /^[a-z][a-z0-9_]{0,63}$/i;
+function assertIdentifier(value, label) {
+  if (!IDENTIFIER_RE.test(value)) throw new Error(`Invalid ${label}: ${value}`);
+}
+function assertTable(name) {
+  if (!ALLOWED_TABLES.has(name)) throw new Error(`Table not allowed: ${name}`);
+}
+
 export const catalogosService = {
   // Bloque 1: Identificación
   getLugaresAnalisis: async () => {
@@ -62,12 +83,12 @@ export const catalogosService = {
       }
 
       if (idEmpresaServicio) {
-        // Fallback: Find contacts for all companies under this service company if no specific client is selected
         const query = `
-          SELECT * FROM mae_contacto 
-          WHERE id_empresa IN (SELECT id_empresa FROM mae_empresa WHERE id_empresaservicio = ${Number(idEmpresaServicio)} AND habilitado = 'S')
+          SELECT * FROM mae_contacto
+          WHERE id_empresa IN (SELECT id_empresa FROM mae_empresa WHERE id_empresaservicio = @idEmpresaServicio AND habilitado = 'S')
           AND habilitado = 'S'
         `;
+        request.input('idEmpresaServicio', sql.Int, Number(idEmpresaServicio));
         const result = await request.query(query);
         logger.info(`Contactos for empresa_servicio ${idEmpresaServicio}: ${result.recordset.length} records`);
         return result.recordset;
@@ -101,7 +122,9 @@ export const catalogosService = {
       } else if (idEmpresaServicio) {
         const idServicio = Number(idEmpresaServicio);
         // We find all id_empresa that belong to this id_empresaservicio as a fallback
-        const clientRes = await pool.request().query("SELECT id_empresa FROM mae_empresa WHERE id_empresaservicio = " + idServicio + " AND habilitado = 'S'");
+        const clientRes = await pool.request()
+          .input('idServicio', sql.Int, idServicio)
+          .query("SELECT id_empresa FROM mae_empresa WHERE id_empresaservicio = @idServicio AND habilitado = 'S'");
         const allowedIds = clientRes.recordset.map(r => r.id_empresa);
         
         centros = centros.filter(c => 
@@ -141,7 +164,9 @@ export const catalogosService = {
 
       if (idEmpresaServicio) {
         const idS = Number(idEmpresaServicio);
-        const clientRes = await pool.request().query("SELECT id_empresa FROM mae_empresa WHERE id_empresaservicio = " + idS + " AND habilitado = 'S'");
+        const clientRes = await pool.request()
+          .input('idS', sql.Int, idS)
+          .query("SELECT id_empresa FROM mae_empresa WHERE id_empresaservicio = @idS AND habilitado = 'S'");
         const allowedIds = clientRes.recordset.map(r => r.id_empresa);
         
         // Filter objectives by those client IDs if possible (though objectives usually depend on clienteId more specifically)
@@ -384,9 +409,8 @@ export const catalogosService = {
 
   getMaestroData: async (tableName) => {
     try {
+      assertTable(tableName);
       const pool = await getConnection();
-      // SECURITY: While this matches against internal configs, we should still use a safe list if possible
-      // For now, it's restricted to internal use by the controller.
       const result = await pool.request().query(`SELECT * FROM ${tableName}`);
       return result.recordset;
     } catch (error) {
@@ -398,30 +422,30 @@ export const catalogosService = {
   // Generic CRUD for Maestros
   createMaestro: async (tableName, data) => {
     try {
+      assertTable(tableName);
+      Object.keys(data).forEach(k => assertIdentifier(k, 'column'));
       const pool = await getConnection();
-      
+
       // Check if table has an identity column
-      const identityCheck = await pool.request().query(`
-        SELECT name FROM sys.columns 
-        WHERE object_id = OBJECT_ID('${tableName}') 
-        AND is_identity = 1
-      `);
-      
+      const identityCheck = await pool.request()
+        .input('tName', sql.VarChar(128), tableName)
+        .query(`SELECT name FROM sys.columns WHERE object_id = OBJECT_ID(@tName) AND is_identity = 1`);
+
       const hasIdentity = identityCheck.recordset.length > 0;
       let finalData = { ...data };
-      
+
       if (!hasIdentity) {
-        // Find the primary key column name
-        const pkCheck = await pool.request().query(`
-          SELECT COLUMN_NAME
-          FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
-          WHERE TABLE_NAME = '${tableName}' 
-          AND OBJECTPROPERTY(OBJECT_ID(CONSTRAINT_SCHEMA + '.' + CONSTRAINT_NAME), 'IsPrimaryKey') = 1
-        `);
-        
+        const pkCheck = await pool.request()
+          .input('tName2', sql.VarChar(128), tableName)
+          .query(`
+            SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+            WHERE TABLE_NAME = @tName2
+            AND OBJECTPROPERTY(OBJECT_ID(CONSTRAINT_SCHEMA + '.' + CONSTRAINT_NAME), 'IsPrimaryKey') = 1
+          `);
+
         if (pkCheck.recordset.length > 0) {
           const pkName = pkCheck.recordset[0].COLUMN_NAME;
-          // Only auto-increment if the user didn't provide it or if it's 0/null
+          assertIdentifier(pkName, 'pk column');
           if (!finalData[pkName] || finalData[pkName] === 0 || finalData[pkName] === '0') {
             const maxIdRes = await pool.request().query(`SELECT MAX(${pkName}) as MaxID FROM ${tableName}`);
             const nextId = (maxIdRes.recordset[0].MaxID || 0) + 1;
@@ -433,19 +457,17 @@ export const catalogosService = {
 
       const columns = Object.keys(finalData).join(', ');
       const values = Object.keys(finalData).map(key => `@${key}`).join(', ');
-      
+
       const request = pool.request();
       Object.entries(finalData).forEach(([key, value]) => {
-        // Convert empty values to null for cleaner database state
         let finalValue = value;
         if (value === '' || value === undefined || (typeof value === 'number' && isNaN(value))) {
           finalValue = null;
         }
         request.input(key, finalValue);
       });
-      
-      const query = `INSERT INTO ${tableName} (${columns}) VALUES (${values})`;
-      await request.query(query);
+
+      await request.query(`INSERT INTO ${tableName} (${columns}) VALUES (${values})`);
       return { success: true };
     } catch (error) {
       logger.error(`Error in createMaestro (${tableName}):`, error);
@@ -455,22 +477,23 @@ export const catalogosService = {
 
   updateMaestro: async (tableName, idName, idValue, data) => {
     try {
+      assertTable(tableName);
+      assertIdentifier(idName, 'id column');
+      Object.keys(data).forEach(k => assertIdentifier(k, 'column'));
       const pool = await getConnection();
       const updates = Object.keys(data).map(key => `${key} = @${key}`).join(', ');
-      
+
       const request = pool.request();
       request.input('idValue', idValue);
       Object.entries(data).forEach(([key, value]) => {
-        // Convert empty values to null
         let finalValue = value;
         if (value === '' || value === undefined || (typeof value === 'number' && isNaN(value))) {
           finalValue = null;
         }
         request.input(key, finalValue);
       });
-      
-      const query = `UPDATE ${tableName} SET ${updates} WHERE ${idName} = @idValue`;
-      await request.query(query);
+
+      await request.query(`UPDATE ${tableName} SET ${updates} WHERE ${idName} = @idValue`);
       return { success: true };
     } catch (error) {
       logger.error(`Error in updateMaestro (${tableName}):`, error);
@@ -480,13 +503,15 @@ export const catalogosService = {
 
   toggleMaestroStatus: async (tableName, idName, idValue, statusColumn, newStatus) => {
     try {
+      assertTable(tableName);
+      assertIdentifier(idName, 'id column');
+      assertIdentifier(statusColumn, 'status column');
       const pool = await getConnection();
       const request = pool.request();
       request.input('idValue', idValue);
       request.input('newStatus', newStatus);
-      
-      const query = `UPDATE ${tableName} SET ${statusColumn} = @newStatus WHERE ${idName} = @idValue`;
-      await request.query(query);
+
+      await request.query(`UPDATE ${tableName} SET ${statusColumn} = @newStatus WHERE ${idName} = @idValue`);
       return { success: true };
     } catch (error) {
       logger.error(`Error in toggleMaestroStatus (${tableName}):`, error);

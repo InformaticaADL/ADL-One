@@ -235,20 +235,27 @@ export const equipoService = {
                     SELECT DISTINCT unidad_medida_textual as unidad FROM mae_equipo_catalogo WHERE unidad_medida_textual IS NOT NULL AND LEN(TRIM(unidad_medida_textual)) > 0
                 `;
 
-                if (currentSede && currentSede !== 'Todos') {
-                    typesQuery += ` AND sede = '${currentSede}'`;
-                    statesQuery += ` AND sede = '${currentSede}'`;
-                    queMideQuery += ` AND sede = '${currentSede}'`;
-                    unidadesQuery += ` AND sede = '${currentSede}'`;
+                const sedeParam = (currentSede && currentSede !== 'Todos') ? currentSede : null;
+                if (sedeParam) {
+                    typesQuery += ` AND sede = @sedeFilter`;
+                    statesQuery += ` AND sede = @sedeFilter`;
+                    queMideQuery += ` AND sede = @sedeFilter`;
+                    unidadesQuery += ` AND sede = @sedeFilter`;
                 }
 
+                const makeRequest = () => {
+                    const r = pool.request();
+                    if (sedeParam) r.input('sedeFilter', sql.VarChar(100), sedeParam);
+                    return r;
+                };
+
                 const [tRes, sRes, lRes, nRes, qRes, uRes] = await Promise.all([
-                    pool.request().query(typesQuery),
-                    pool.request().query(statesQuery),
+                    makeRequest().query(typesQuery),
+                    makeRequest().query(statesQuery),
                     pool.request().query(sedesQuery),
                     pool.request().query(namesQuery),
-                    pool.request().query(queMideQuery),
-                    pool.request().query(unidadesQuery)
+                    makeRequest().query(queMideQuery),
+                    makeRequest().query(unidadesQuery)
                 ]);
                 return {
                     tipos: tRes.recordset.map(r => r.tipo).sort(),

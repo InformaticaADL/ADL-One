@@ -501,8 +501,8 @@ class SolicitudService {
                         });
                     } else if (estado_tecnica === 'RECHAZADO') {
                         // Notify Muestreador (Requester)
-                        // Construct specific code for all types
-                        eventCode = `SOL_EQUIPO_${sol.tipo_solicitud}_${statusSuffix}`;
+                        const statusSuffix = 'RECH';
+                        let eventCode = `SOL_EQUIPO_${sol.tipo_solicitud}_${statusSuffix}`;
                         if (sol.tipo_solicitud === 'ALTA' && solDatos.isReactivation) eventCode = `SOL_EQUIPO_REAC_${statusSuffix}`;
 
                         notificationService.send(eventCode, {

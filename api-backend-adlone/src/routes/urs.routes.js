@@ -16,13 +16,14 @@ router.post('/types', validateRequest(ursValidationSchemas.createUpdateType), ur
 router.put('/types/:id', validateRequest(ursValidationSchemas.createUpdateType), ursController.createUpdateType);
 router.patch('/types/:id/status', validateRequest(ursValidationSchemas.toggleTypeStatus), ursController.toggleTypeStatus);
 
+router.get('/download/:idAdjunto', ursController.downloadAttachment);
+
 router.get('/', validateRequest(ursValidationSchemas.getRequests), ursController.getRequests);
 router.post('/', upload.any(), validateRequest(ursValidationSchemas.createRequest), ursController.createRequest);
 router.get('/:id', validateRequest(ursValidationSchemas.getRequestById), ursController.getRequestById);
 router.put('/:id/status', validateRequest(ursValidationSchemas.updateStatus), ursController.updateStatus);
 router.post('/:id/comments', upload.any(), validateRequest(ursValidationSchemas.addComment), ursController.addComment);
 router.post('/:id/derive', validateRequest(ursValidationSchemas.derive), ursController.derive);
-router.get('/download/:idAdjunto', ursController.downloadAttachment);
 
 // --- Granular Permissions & Notifications (Phase 22) ---
 router.get('/types/:id/permissions', ursController.getPermissions);
