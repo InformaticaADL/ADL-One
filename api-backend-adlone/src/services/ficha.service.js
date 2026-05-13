@@ -377,7 +377,7 @@ class FichaIngresoService {
             return { success: true, id: newId, message: 'Ficha creada correctamente' };
 
         } catch (error) {
-            console.error('CRITICAL CREATE ERROR:', error);
+            logger.error('Error creating ficha:', error);
             try { await transaction.rollback(); } catch (e) { }
             throw error;
         }
@@ -877,7 +877,7 @@ class FichaIngresoService {
             return { success: true, message: 'Ficha actualizada correctamente' };
 
         } catch (error) {
-            console.error('CRITICAL UPDATE ERROR:', error);
+            logger.error('Error updating ficha:', error);
             try { await transaction.rollback(); } catch (e) { }
             throw error;
         }

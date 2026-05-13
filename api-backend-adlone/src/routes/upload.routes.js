@@ -4,6 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import logger from '../utils/logger.js';
+import { authenticate } from '../middlewares/auth.middleware.js';
 
 dotenv.config();
 
@@ -28,7 +29,7 @@ const upload = multer({ storage: storage });
 
 // Single file upload endpoint
 // The 'file' argument matches the fieldname in the FormData sent by the frontend
-router.post('/', upload.single('archivo'), (req, res) => {
+router.post('/', authenticate, upload.single('archivo'), (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ success: false, message: 'No file uploaded' });
