@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { adminExportService } from '../../admin/services/admin.service';
+import { useToast } from '../../../contexts/ToastContext';
 import { 
     Modal, 
     Button, 
@@ -58,6 +59,7 @@ export const FichaExportModal: React.FC<FichaExportModalProps> = ({
 }) => {
     const [filters, setFilters] = useState(initialFilters);
     const [exporting, setExporting] = useState(false);
+    const { showToast } = useToast();
 
     const handleExportPdf = async () => {
         setExporting(true);
@@ -90,8 +92,7 @@ export const FichaExportModal: React.FC<FichaExportModalProps> = ({
             onClose();
         } catch (error: any) {
             console.error('Export PDF error:', error);
-            // In a real app, use toast here
-            alert(error.response?.data?.message || 'Error al exportar PDF.');
+            showToast({ type: 'error', message: error.response?.data?.message || 'Error al exportar PDF.' });
         } finally {
             setExporting(false);
         }

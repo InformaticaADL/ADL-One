@@ -69,7 +69,7 @@ export const FichaDetailView = () => {
 
     const [resendModalOpen, setResendModalOpen] = useState(false);
     const [selectedDocument, setSelectedDocument] = useState<any>(null);
-    const [resendTo, setResendTo] = useState('vremolcoy@adldiagnostic.cl');
+    const [resendTo, setResendTo] = useState(user?.email || '');
     const [resendCc, setResendCc] = useState('');
     const [resendLoading, setResendLoading] = useState(false);
     const [resendError, setResendError] = useState('');
@@ -942,7 +942,7 @@ export const FichaDetailView = () => {
                                                                     variant="light"
                                                                     color="green"
                                                                     leftSection={<IconSend size={12} />}
-                                                                    onClick={(e) => { e.stopPropagation(); setSelectedDocument(doc); setResendSuccess(false); setResendTo('vremolcoy@adldiagnostic.cl'); setResendCc(''); setResendModalOpen(true); }}
+                                                                    onClick={(e) => { e.stopPropagation(); setSelectedDocument(doc); setResendSuccess(false); setResendTo(user?.email || ''); setResendCc(''); setResendModalOpen(true); }}
                                                                 >
                                                                     Reenviar
                                                                 </Button>
@@ -1007,7 +1007,7 @@ export const FichaDetailView = () => {
                                                                             variant="light"
                                                                             color="green"
                                                                             leftSection={<IconSend size={12} />}
-                                                                            onClick={(e) => { e.stopPropagation(); setSelectedDocument(doc); setResendSuccess(false); setResendTo('vremolcoy@adldiagnostic.cl'); setResendCc(''); setResendModalOpen(true); }}
+                                                                            onClick={(e) => { e.stopPropagation(); setSelectedDocument(doc); setResendSuccess(false); setResendTo(user?.email || ''); setResendCc(''); setResendModalOpen(true); }}
                                                                         >
                                                                             Reenviar
                                                                         </Button>
@@ -1098,7 +1098,7 @@ export const FichaDetailView = () => {
                                     <IconCheck size={40} />
                                 </ThemeIcon>
                                 <Title order={3} ta="center">¡Documento Enviado!</Title>
-                                <Text c="dimmed" ta="center">El documento ha sido despachado exitosamente (en fase de pruebas hacia: vremolcoy@adldiagnostic.cl).</Text>
+                                <Text c="dimmed" ta="center">El documento ha sido despachado exitosamente.</Text>
                                 <Button color="blue" variant="light" onClick={() => setResendModalOpen(false)} mt="md">
                                     Cerrar y volver a la ficha
                                 </Button>

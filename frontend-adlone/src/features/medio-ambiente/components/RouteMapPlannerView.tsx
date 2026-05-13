@@ -252,7 +252,9 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                 });
 
                 // Parse coordinates from refGoogle / ref_google / ma_coordenadas
-                const parsedFichas: FichaWithCoords[] = await Promise.all(rawFichas.map(async (f: any) => {
+                // Process with concurrency limit of 5 to avoid flooding the backend with URL-resolve calls
+                const CONCURRENCY = 5;
+                const parseFicha = async (f: any): Promise<FichaWithCoords> => {
                     let lat: number | null = null;
                     let lng: number | null = null;
 
@@ -277,7 +279,7 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                         lat = parseFloat(f.latitud);
                         lng = parseFloat(f.longitud);
                     }
-                    
+
                     if (lat === null && f.ma_coordenadas) {
                         const directCoords = parseGoogleMapsUrl('fake_url/' + f.ma_coordenadas);
                         if (directCoords) { lat = directCoords.lat; lng = directCoords.lng; }
@@ -301,7 +303,14 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                         servicios_ejecutados: f.servicios_ejecutados || 0,
                         correlativos: (f.correlativos || []) as CorrelativoInfo[]
                     };
-                }));
+                };
+
+                const parsedFichas: FichaWithCoords[] = [];
+                for (let i = 0; i < rawFichas.length; i += CONCURRENCY) {
+                    const batch = rawFichas.slice(i, i + CONCURRENCY);
+                    const results = await Promise.all(batch.map(parseFicha));
+                    parsedFichas.push(...results);
+                }
 
                 setFichas(parsedFichas);
                 if (mData) setMuestreadores(mData);

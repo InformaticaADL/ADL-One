@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { equipoService } from '../services/equipo.service';
+import { useToast } from '../../../contexts/ToastContext';
 
 interface EquipmentExportModalProps {
     isOpen: boolean;
@@ -38,6 +39,7 @@ export const EquipmentExportModal: React.FC<EquipmentExportModalProps> = ({
     const [selectedTipo, setSelectedTipo] = useState<string>(initialFilters?.tipo || '');
     const [selectedSede, setSelectedSede] = useState<string>(initialFilters?.sede || '');
     const [exporting, setExporting] = useState(false);
+    const { showToast } = useToast();
 
     useEffect(() => {
         if (isOpen && initialFilters) {
@@ -153,7 +155,7 @@ export const EquipmentExportModal: React.FC<EquipmentExportModalProps> = ({
             onClose();
         } catch (error) {
             console.error("Export error:", error);
-            alert("Error al exportar los datos.");
+            showToast({ type: 'error', message: 'Error al exportar los datos.' });
         } finally {
             setExporting(false);
         }

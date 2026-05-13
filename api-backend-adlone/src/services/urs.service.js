@@ -454,8 +454,8 @@ class UrsService {
                 `);
 
             const solicitud = solicitudRes.recordset[0];
-            solicitud.datos_json = JSON.parse(solicitud.datos_json || '{}');
-            
+            try { solicitud.datos_json = JSON.parse(solicitud.datos_json || '{}'); } catch { solicitud.datos_json = {}; }
+
             // Trigger UNS (Phase 13/32 moved to end of flow)
             try {
                 logger.info(`URS: Disparando UNS para solicitud #${idSolicitud} (Tipo Orig: ${idTipo}, Final: ${currentIdTipo})`);
@@ -584,8 +584,8 @@ class UrsService {
             if (requestQueryResult.recordset.length === 0) return null;
 
             const solicitud = requestQueryResult.recordset[0];
-            solicitud.datos_json = JSON.parse(solicitud.datos_json || '{}');
-            solicitud.workflow_config = JSON.parse(solicitud.workflow_config || 'null');
+            try { solicitud.datos_json = JSON.parse(solicitud.datos_json || '{}'); } catch { solicitud.datos_json = {}; }
+            try { solicitud.workflow_config = JSON.parse(solicitud.workflow_config || 'null'); } catch { solicitud.workflow_config = null; }
 
             // Extraer origen_solicitud del JSON si no viene de la DB (Mobile Indicator Fix)
             if (!solicitud.origen_solicitud && solicitud.datos_json?.origen_solicitud) {
@@ -834,7 +834,7 @@ class UrsService {
                         accion: nuevoEstado === 'ACEPTADA' ? 'APROBACION' : (nuevoEstado === 'RECHAZADA' ? 'RECHAZO' : (nuevoEstado === 'REALIZADA' ? 'REALIZACION' : (nuevoEstado === 'EN_REVISION' ? 'REVISION' : 'ACTUALIZACION')))
                     });
                 }
-            });
+            }).catch(err => logger.error('UNS updateStatus notification error:', err));
 
             // --- Automated Execution Context (Phase 41) ---
             if (nuevoEstado === 'REALIZADA') {
@@ -851,7 +851,7 @@ class UrsService {
                     if (reqData.recordset.length > 0) {
                         const fullSol = reqData.recordset[0];
                         const type = fullSol.nombre_tipo;
-                        const currentSolDatos = JSON.parse(fullSol.datos_json || '{}');
+                        let currentSolDatos = {}; try { currentSolDatos = JSON.parse(fullSol.datos_json || '{}'); } catch { currentSolDatos = {}; }
 
                         if (type === 'Deshabilitar muestreador' || type === 'DESHABILITAR_MUESTREADOR') {
                             const idMuestreador = currentSolDatos.muestreador_origen_id || currentSolDatos.id_muestreador;
@@ -940,7 +940,7 @@ class UrsService {
                             es_privado: esPrivado
                         });
                     }
-                });
+                }).catch(err => logger.error('UNS addComment notification error:', err));
             }
 
             return comentario;
@@ -1035,8 +1035,8 @@ class UrsService {
                             motivo
                         });
                     }
-                });
-                
+                }).catch(err => logger.error('UNS derive notification error:', err));
+
                 return solicitudActualizada;
             } catch (err) {
                 await transaction.rollback();

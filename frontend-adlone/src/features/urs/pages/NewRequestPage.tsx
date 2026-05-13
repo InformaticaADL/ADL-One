@@ -36,6 +36,7 @@ import ReporteProblemaForm from '../components/ReporteProblemaForm';
 import VigenciaExtensionForm from '../components/VigenciaExtensionForm';
 import { useNavStore } from '../../../store/navStore';
 import FileIcon from '../components/FileIcon';
+import { useToast } from '../../../contexts/ToastContext';
 
 // Memoize sub-forms to prevent heavy parent re-renders when local state changes
 const MemoizedEquipoTraspasoForm = React.memo(EquipoTraspasoForm);
@@ -52,6 +53,7 @@ interface NewRequestPageProps {
 
 const NewRequestPage: React.FC<NewRequestPageProps> = ({ onBack }) => {
     const { setPendingRequestId, setUrsInboxMode, setActiveSubmodule } = useNavStore();
+    const { showToast } = useToast();
     
     // Navigation
     const goToInbox = () => setActiveSubmodule('');
@@ -118,7 +120,7 @@ const NewRequestPage: React.FC<NewRequestPageProps> = ({ onBack }) => {
             }, 2800);
         } catch (error) {
             console.error(error);
-            alert('Error al crear la solicitud');
+            showToast({ type: 'error', message: 'Error al crear la solicitud' });
             setIsSubmitting(false);
         }
     };

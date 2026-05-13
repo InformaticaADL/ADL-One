@@ -853,7 +853,7 @@ class GeneralChatService {
         await pool.request()
             .input('convId', sql.Numeric(10, 0), conversationId)
             .input('msgId', sql.Numeric(18, 0), msgId)
-            .query(`UPDATE mae_chat_conversacion SET ultimo_mensaje_id = @msgId, ultimo_mensaje_fecha = GETDATE() WHERE id_conversacion = @convId`);
+            .query(`UPDATE mae_chat_conversacion SET ultimo_mensaje_id = @msgId, ultimo_mensaje_fecha = GETUTCDATE() WHERE id_conversacion = @convId`);
     }
 }
 

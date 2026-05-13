@@ -886,7 +886,7 @@ class FichaIngresoService {
         const pool = await getConnection();
         try {
             const request = pool.request();
-            let whereClause = `WHERE (f.id_validaciontecnica = 5 OR f.id_validaciontecnica = 7)`;
+            let whereClause = `WHERE f.id_validaciontecnica = 5`;
 
             if (month && year) {
                 request.input('month', sql.Int, parseInt(month));

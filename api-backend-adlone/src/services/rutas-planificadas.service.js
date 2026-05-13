@@ -79,18 +79,19 @@ class RutasPlanificadasService {
             
             const idRuta = insertResult.recordset[0].id_ruta_planificada;
 
-            // Insertar Detalle
-            for (let i = 0; i < fichas.length; i++) {
-                const f = fichas[i];
+            // Insertar Detalle — bulk VALUES to avoid N round-trips
+            if (fichas.length > 0) {
                 const reqDetalle = new sql.Request(transaction);
                 reqDetalle.input('id_ruta', sql.Int, idRuta);
-                reqDetalle.input('id_ficha', sql.Numeric(10,0), f.id_fichaingresoservicio || f.id);
-                reqDetalle.input('orden', sql.Int, f.orden || (i + 1));
-                reqDetalle.input('correlativo', sql.VarChar(100), f.frecuencia_correlativo || null);
-                
+                const valueRows = fichas.map((f, i) => {
+                    reqDetalle.input(`id_ficha_${i}`, sql.Numeric(10, 0), f.id_fichaingresoservicio || f.id);
+                    reqDetalle.input(`orden_${i}`, sql.Int, f.orden || (i + 1));
+                    reqDetalle.input(`correlativo_${i}`, sql.VarChar(100), f.frecuencia_correlativo || null);
+                    return `(@id_ruta, @id_ficha_${i}, @orden_${i}, @correlativo_${i})`;
+                });
                 await reqDetalle.query(`
                     INSERT INTO mae_rutas_planificadas_detalle (id_ruta_planificada, id_fichaingresoservicio, orden, frecuencia_correlativo)
-                    VALUES (@id_ruta, @id_ficha, @orden, @correlativo)
+                    VALUES ${valueRows.join(', ')}
                 `);
             }
 
