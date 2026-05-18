@@ -77,7 +77,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                     borderRight: '1px solid rgba(0, 0, 0, 0.05)',
                 },
                 main: {
-                    backgroundColor: '#f4f4f5',
+                    backgroundColor: '#ffffff',
                     transition: 'padding-left 300ms ease',
                     display: 'flex',
                     flexDirection: 'column',

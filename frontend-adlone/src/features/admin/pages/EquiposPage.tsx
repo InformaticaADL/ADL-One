@@ -124,6 +124,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const [totalPages, setTotalPages] = useState(1);
     const [totalItems, setTotalItems] = useState(0);
     const [expiringCount, setExpiringCount] = useState(0);
+    const [expiringAlertDismissed, setExpiringAlertDismissed] = useState(false);
     const [muestreadorList, setMuestreadorList] = useState<any[]>([]);
     
     const [catalogs, setCatalogs] = useState<{ sedes: string[], tipos: string[], estados: string[] }>({
@@ -225,6 +226,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 setTotalPages(response.totalPages || 1);
                 setTotalItems(response.total || 0);
                 setExpiringCount(response.expiringCount ?? 0);
+                setExpiringAlertDismissed(false);
                 if (response.catalogs) {
                     setCatalogs(response.catalogs);
                 }
@@ -796,9 +798,22 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         });
     };
 
-    const hasActiveFilters = useMemo(() => 
+    const hasActiveFilters = useMemo(() =>
         searchTerm !== '' || filterTipo || filterSede || filterEstado || filterMuestreador || filterFechaDesde || filterFechaHasta,
     [searchTerm, filterTipo, filterSede, filterEstado, filterMuestreador, filterFechaDesde, filterFechaHasta]);
+
+    // Equipos con solicitudes pendientes aparecen primero; dentro de cada grupo, los que vencen pronto van antes
+    const sortedEquipos = useMemo(() => {
+        if (solicitudesRealizadas.length === 0) return equipos;
+        return [...equipos].sort((a, b) => {
+            const aAlert = getPendingRequestsForEquipo(a.id_equipo).length > 0 ? 2 : 0;
+            const bAlert = getPendingRequestsForEquipo(b.id_equipo).length > 0 ? 2 : 0;
+            const checkExp = (v?: string) => v && !isNaN(new Date(v).getTime()) && (new Date(v).getTime() - Date.now()) <= 30 * 86400000;
+            const aExp = checkExp(a.vigencia) ? 1 : 0;
+            const bExp = checkExp(b.vigencia) ? 1 : 0;
+            return (bAlert + bExp) - (aAlert + aExp);
+        });
+    }, [equipos, solicitudesRealizadas]);
 
     // --- Render Logic ---
     if (viewMode === 'form') {
@@ -818,9 +833,31 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     return (
         <Box p="lg" style={{ width: '100%' }}>
             <Stack gap="lg">
-                {expiringCount > 0 && (
-                    <Alert icon={<IconAlertTriangle size={20} />} title="Atención: Equipos por Vencer" color="orange" variant="light" withCloseButton>
-                        Hay {expiringCount} equipos que vencerán en los próximos 30 días. Por favor, revise la columna de vigencia en la tabla.
+                {expiringCount > 0 && !expiringAlertDismissed && (
+                    <Alert icon={<IconAlertTriangle size={20} />} title="Atención: Equipos por Vencer" color="orange" variant="light" withCloseButton onClose={() => setExpiringAlertDismissed(true)}>
+                        <Group justify="space-between" align="center" wrap="nowrap">
+                            <Text size="sm">
+                                Hay <b>{expiringCount}</b> equipo{expiringCount !== 1 ? 's' : ''} que vence{expiringCount === 1 ? '' : 'n'} en los próximos 30 días.
+                            </Text>
+                            <Button
+                                size="compact-sm"
+                                variant="filled"
+                                color="orange"
+                                style={{ flexShrink: 0 }}
+                                onClick={() => {
+                                    const today = new Date();
+                                    const in30 = new Date(today);
+                                    in30.setDate(today.getDate() + 30);
+                                    const fmt = (d: Date) => d.toISOString().split('T')[0];
+                                    setFilterFechaDesde('');
+                                    setFilterFechaHasta(fmt(in30));
+                                    setFilterEstado('Activo');
+                                    setPage(1);
+                                }}
+                            >
+                                Ver equipos
+                            </Button>
+                        </Group>
                     </Alert>
                 )}
 
@@ -965,7 +1002,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                         </Table.Td>
                                     </Table.Tr>
                                 ) : (
-                                    equipos.map(equipo => {
+                                    sortedEquipos.map(equipo => {
                                         const isInactive = equipo.estado?.toLowerCase() === 'inactivo';
                                         const pendingRequests = getPendingRequestsForEquipo(equipo.id_equipo);
                                         const hasAccepted = pendingRequests.some(req => req.estado === 'ACEPTADA');

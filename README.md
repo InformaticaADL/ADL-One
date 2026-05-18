@@ -1059,6 +1059,15 @@ Integración y consolidación de cambios del equipo de desarrollo, estandarizaci
     - Corrección del targeting de correlativos en la lógica de asignación para usar la frecuencia guardada en vez de forzar el primer registro disponible.
     - Implementación de un nuevo endpoint de **actualización atómica** (`PUT /:id`) para las rutas, que reemplaza registros de detalles dentro de una transacción segura, eliminando la posibilidad de pérdida de datos.
 
+### 63. Refinamiento de Estilos Globales y Alertas Logísticas en Equipos (Mayo 2026) 🎨📋
+Mejoras estéticas transversales y optimización en la experiencia de gestión de inventario para el módulo de equipos.
+
+- **Estética Global Premium (Clean White)**:
+    - Se reemplazó el fondo gris predeterminado (`#f4f4f5` / `var(--mantine-color-gray-0)`) por un fondo blanco puro (`#ffffff`) a través de `App.css`, `index.css` y `MainLayout.tsx`. Esto otorga a la plataforma una apariencia mucho más limpia, moderna y profesional.
+- **Gestión Inteligente de Equipos por Vencer**:
+    - **Alertas Accionables**: La alerta superior de "Equipos por Vencer" en `EquiposPage.tsx` ahora incluye un botón de acción rápida ("Ver equipos"). Al pulsarlo, el sistema aplica automáticamente los filtros pertinentes (Estado: Activo, Fecha Hasta: dentro de 30 días) para aislar instantáneamente los dispositivos críticos.
+    - **Ordenamiento Priorizado**: Se implementó un algoritmo de ordenamiento en memoria (`sortedEquipos`) que sitúa siempre en la parte superior de la tabla aquellos equipos que poseen **solicitudes pendientes**, seguidos inmediatamente por aquellos próximos a vencer, maximizando la visibilidad de los elementos que requieren atención operativa.
+
 ---
 
 ## 📈 Próximos Pasos (Hoja de Ruta 2026)
