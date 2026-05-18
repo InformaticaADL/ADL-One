@@ -15,7 +15,7 @@ class BulkExcelService {
     }
 
     // Attempt to match an Excel cell string to a catalog
-    matchCatalog(value, catalog, nameKey = 'nombre', idKey = 'id', minScore = 40) {
+    matchCatalog(value, catalog, nameKey = 'nombre', idKey = 'id', minScore = 80) {
         if (!value) return null;
         const normVal = this.normalize(value);
         if (!normVal || normVal === 'NO APLICA' || normVal === 'N/A') return null;
@@ -133,7 +133,8 @@ class BulkExcelService {
                 tipo_entrega_texto: getCellA(row, 'TIPO ENTREGA'),
                 normativa: getCellA(row, 'NORMATIVA'),
                 referencia: getCellA(row, 'REFERENCIA NORMATIVA'),
-                uf_individual: getCellA(row, 'UF INDIVIDUAL') || 0
+                // UF INDIVIDUAL is now directly entered by user per analysis row (no auto-distribution)
+                uf_individual: parseFloat(getCellA(row, 'UF INDIVIDUAL') || 0) || 0
             });
             
             rowCount++;
@@ -220,8 +221,7 @@ class BulkExcelService {
                 errs.push({ field: 'Fuente emisora', message: `No se encontró un centro para este cliente que coincida con: ${centroVal}` });
             }
 
-            // Capture UF to distribute for UI initialization
-            result.uf_distribuir = parseFloat(getCellF(row, 'UF DISTRIBUIR') || 0);
+            // UF DISTRIBUIR column has been removed. UF is now per-analysis only.
 
             // 4. Base de Operaciones
             const lugarVal = getCellF(row, 'BASE DE OPERACIONES');
@@ -392,6 +392,10 @@ class BulkExcelService {
                 }
                 
                 result.analysisErrors = analysisErrs;
+                
+                // Compute total UF for this ficha (sum of all uf_individual)
+                result._ufTotal = (result.analisis || []).reduce((sum, a) => sum + (parseFloat(a.uf_individual) || 0), 0);
+
 
                 if (normativaId) fields.selectedNormativa = String(normativaId);
                 if (normativaRefId) fields.selectedNormativaRef = String(normativaRefId);
@@ -419,6 +423,10 @@ class BulkExcelService {
             }
 
             results.push(result);
+            if (results.length >= 100) {
+                logger.warn(`[BulkExcel] Reached max batch limit of 100 fichas — truncating.`);
+                hasMore = false;
+            }
             rowCount++;
         }
 
@@ -434,6 +442,261 @@ class BulkExcelService {
             errors: err,
             items: results
         };
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // generateTemplate: Build a fresh Excel template with DB-populated masters
+    // ─────────────────────────────────────────────────────────────────────────
+    async generateTemplate() {
+        logger.info('[BulkExcel] Generating Excel template with live DB data...');
+
+        // Load catalogs (reuse existing method - already loads clientes, empresasServicio, centros)
+        const catalogs = await bulkFichaService.loadCatalogs();
+
+        // Load base template from disk
+        const path = await import('path');
+        const { fileURLToPath } = await import('url');
+        const __dirname = path.dirname(fileURLToPath(import.meta.url));
+        // Template is at: <project-root>/Formato_Carga_Masiva_ADL_test_oficial.xlsx
+        const templatePath = path.join(__dirname, '..', '..', '..', 'Formato_Carga_Masiva_ADL_test_oficial.xlsx');
+
+        const wb = new ExcelJS.Workbook();
+        await wb.xlsx.readFile(templatePath);
+
+        // ── Helper styles ──────────────────────────────────────────────────
+        const MASTER_HEAD_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF203864' } };
+        const MASTER_HEAD_FONT = { bold: true, color: { argb: 'FFFFFFFF' }, name: 'Calibri', size: 10 };
+        const DATA_FILL        = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
+        const DATA_FONT        = { name: 'Calibri', size: 10 };
+        const THIN_BORDER      = {
+            top:    { style: 'thin', color: { argb: 'FFBFBFBF' } },
+            left:   { style: 'thin', color: { argb: 'FFBFBFBF' } },
+            bottom: { style: 'thin', color: { argb: 'FFBFBFBF' } },
+            right:  { style: 'thin', color: { argb: 'FFBFBFBF' } }
+        };
+        const CENTER = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        const WRAP   = { horizontal: 'left',   vertical: 'middle', wrapText: true };
+
+        const applyHeaderCell = (cell, text) => {
+            cell.value     = text;
+            cell.fill      = MASTER_HEAD_FILL;
+            cell.font      = MASTER_HEAD_FONT;
+            cell.border    = THIN_BORDER;
+            cell.alignment = CENTER;
+        };
+
+        const applyDataCell = (cell, value) => {
+            cell.value     = value ?? '';
+            cell.fill      = DATA_FILL;
+            cell.font      = DATA_FONT;
+            cell.border    = THIN_BORDER;
+            cell.alignment = WRAP;
+        };
+
+        // ── Helper: rebuild a master sheet entirely ────────────────────────
+        const rebuildMasterSheet = (sheetName, titleText, rows, colWidths) => {
+            // Remove old and recreate to avoid stale data
+            const existing = wb.getWorksheet(sheetName);
+            if (existing) wb.removeWorksheet(existing.id);
+            const ws = wb.addWorksheet(sheetName, { state: 'visible' });
+
+            const colCount = rows[0]?.length || 1;
+
+            // Row 1: Title
+            ws.getCell('A1').value     = titleText;
+            ws.getCell('A1').font      = { bold: true, size: 12, color: { argb: 'FFFFFFFF' }, name: 'Calibri' };
+            ws.getCell('A1').fill      = MASTER_HEAD_FILL;
+            ws.getCell('A1').alignment = CENTER;
+            if (colCount > 1) ws.mergeCells(1, 1, 1, colCount);
+            ws.getRow(1).height = 28;
+
+            // Row 2: Note
+            ws.getCell('A2').value     = '⚠️ Hoja de referencia — Los valores de esta columna son los válidos para usar en la hoja FICHAS.';
+            ws.getCell('A2').font      = { italic: true, size: 9, color: { argb: 'FF555555' } };
+            ws.getCell('A2').alignment = WRAP;
+            if (colCount > 1) ws.mergeCells(2, 1, 2, colCount);
+            ws.getRow(2).height = 30;
+
+            // Row 3: Column headers
+            rows[0].forEach((h, ci) => applyHeaderCell(ws.getRow(3).getCell(ci + 1), h));
+            ws.getRow(3).height = 24;
+
+            // Data rows (rows 4+)
+            for (let ri = 1; ri < rows.length; ri++) {
+                const dataRow = ws.getRow(ri + 3);
+                rows[ri].forEach((val, ci) => applyDataCell(dataRow.getCell(ci + 1), val));
+                dataRow.height = 20;
+            }
+
+            // Column widths
+            (colWidths || [35]).forEach((w, ci) => { ws.getColumn(ci + 1).width = w; });
+
+            return ws;
+        };
+
+        // ── 1. MAESTRO_EMP_FACTURAR (Empresa a Facturar = Clientes) ───────
+        const empFactRows = [
+            ['Nombre Empresa a Facturar'],
+            ...catalogs.clientes.map(c => [c.nombre])
+        ];
+        const wsEF = rebuildMasterSheet(
+            'MAESTRO_EMP_FACTURAR',
+            'MAESTRO: Empresas a Facturar (Clientes)',
+            empFactRows,
+            [50]
+        );
+
+        // ── 2. MAESTRO_EMP_SERVICIO ────────────────────────────────────────
+        const empServRows = [
+            ['Nombre Empresa de Servicio'],
+            ...catalogs.empresasServicio.map(e => [e.nombre])
+        ];
+        const wsES = rebuildMasterSheet(
+            'MAESTRO_EMP_SERVICIO',
+            'MAESTRO: Empresas de Servicio',
+            empServRows,
+            [40]
+        );
+
+        // ── 3. MAESTRO_CENTROS ─────────────────────────────────────────────
+        const centrosRows = [
+            ['Nombre Centro / Fuente Emisora', 'Empresa Propietaria', 'Comuna', 'Región'],
+            ...catalogs.centros.map(c => {
+                const empNombre = catalogs.clientes.find(cl => String(cl.id) === String(c.id_empresa))?.nombre || '';
+                return [c.nombre, empNombre, c.comuna, c.region];
+            })
+        ];
+        const wsC = rebuildMasterSheet(
+            'MAESTRO_CENTROS',
+            'MAESTRO: Centros / Fuentes Emisoras',
+            centrosRows,
+            [50, 40, 25, 20]
+        );
+
+        // ── Update data validations in FICHAS to point to new master ranges ─
+        const wsFichas = wb.getWorksheet('FICHAS');
+        if (wsFichas) {
+            const efCount  = empFactRows.length  - 1; // exclude header
+            const esCount  = empServRows.length  - 1;
+            const ctCount  = centrosRows.length  - 1;
+
+            const DATA_START = 4;
+            const DATA_END   = 2003; // Up to 2000 fichas
+
+            const colLetter = (n) => {
+                let s = '';
+                while (n > 0) {
+                    const rem = (n - 1) % 26;
+                    s = String.fromCharCode(65 + rem) + s;
+                    n = Math.floor((n - 1) / 26);
+                }
+                return s;
+            };
+
+            // Find column indices from header row 3
+            const cmF = {};
+            wsFichas.getRow(3).eachCell({ includeEmpty: false }, (c, i) => {
+                const h = String(c.value || '').replace(/[\r\n🔁✏️\*]/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase();
+                if (h) cmF[h] = i;
+            });
+
+            const empresaServIdx  = cmF['EMPRESA DE SERVICIO'];
+            const empresaFactIdx  = cmF['EMPRESA A FACTURAR'];
+            const centroIdx       = cmF['CENTRO / FUENTE EMISORA'];
+
+            const setDropdown = (colIdx, formula, title, prompt) => {
+                if (!colIdx) return;
+                const col = colLetter(colIdx);
+                for (let r = DATA_START; r <= DATA_END; r++) {
+                    wsFichas.getCell(`${col}${r}`).dataValidation = {
+                        type: 'list',
+                        allowBlank: true,
+                        formulae: [formula],
+                        showErrorMessage: true,
+                        errorStyle: 'warning',
+                        errorTitle: 'Valor no en maestro',
+                        error: `"${title}" no encontrado en el maestro. Puede igualmente ingresarlo y el sistema intentará buscarlo por similitud.`,
+                        showInputMessage: true,
+                        promptTitle: title,
+                        prompt
+                    };
+                }
+            };
+
+            if (empresaFactIdx) setDropdown(empresaFactIdx, `MAESTRO_EMP_FACTURAR!$A$4:$A$${3 + efCount}`, 'Empresa a Facturar', 'Seleccione o escriba el nombre de la empresa a facturar.');
+            if (empresaServIdx) setDropdown(empresaServIdx, `MAESTRO_EMP_SERVICIO!$A$4:$A$${3 + esCount}`,  'Empresa de Servicio',  'Seleccione o escriba la empresa de servicio.');
+            if (centroIdx)      setDropdown(centroIdx,      `MAESTRO_CENTROS!$A$4:$A$${3 + ctCount}`,       'Centro / Fuente Emisora', 'Seleccione o escriba el centro/fuente emisora.');
+
+            // ── UF TOTAL (AUTO) column ─────────────────────────────────────
+            // Place it right after OBSERVACIONES (col 39), at col 40.
+            // Formula: =IF(A4="","",SUMIF(ANALISIS!$A:$A, A4, ANALISIS!$I:$I))
+            // Col I in ANALISIS = UF INDIVIDUAL (col 9)
+            const ufTotalCol   = 40;
+            const ufTotalColLt = colLetter(ufTotalCol);
+
+            // Header (row 3)
+            const ufHdrCell = wsFichas.getRow(3).getCell(ufTotalCol);
+            ufHdrCell.value     = '🔁 UF TOTAL\n(AUTO)';
+            ufHdrCell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFC000' } }; // orange
+            ufHdrCell.font      = { bold: true, color: { argb: 'FF000000' }, name: 'Calibri', size: 10 };
+            ufHdrCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+            ufHdrCell.border    = THIN_BORDER;
+            ufHdrCell.protection = { locked: true };
+
+            // Data rows: SUMIF formula + orange read-only style
+            const AUTO_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF2CC' } }; // light yellow-orange
+            for (let r = DATA_START; r <= DATA_END; r++) {
+                const idCol = colLetter(1); // Column A = ID MUESTRA
+                const cell  = wsFichas.getCell(`${ufTotalColLt}${r}`);
+                cell.value  = {
+                    formula: `IF(${idCol}${r}="","",SUMIF(ANALISIS!$A:$A,${idCol}${r},ANALISIS!$I:$I))`,
+                    result: 0
+                };
+                cell.numFmt     = '#,##0.00';
+                cell.fill       = AUTO_FILL;
+                cell.font       = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF7B5900' } };
+                cell.alignment  = { horizontal: 'right', vertical: 'middle' };
+                cell.border     = THIN_BORDER;
+                cell.protection = { locked: true };
+            }
+
+            // Column width
+            wsFichas.getColumn(ufTotalCol).width  = 14;
+            wsFichas.getColumn(ufTotalCol).hidden = false;
+
+            // Keep col 41 hidden (old UF TOTAL REAL remnant)
+            wsFichas.getColumn(41).hidden = true;
+
+            // ── Sheet protection: col 40 read-only, cols 1-39 editable ──────
+            // column.style = { protection: { locked: false } } unlocks ALL cells
+            // in that column (including empty ones the user will type into).
+            // This is the only reliable approach in ExcelJS.
+            for (let c = 1; c <= 39; c++) {
+                wsFichas.getColumn(c).style = {
+                    protection: { locked: false }
+                };
+            }
+            // Col 40 stays locked (default locked: true) — no need to set explicitly.
+
+            // Protect the sheet — locked cells become read-only, unlocked stay editable.
+            // No password so the user can unprotect via Excel if needed.
+            wsFichas.protect('', {
+                selectLockedCells:   true,   // can click on UF TOTAL to see value
+                selectUnlockedCells: true,   // can click and edit all other cells
+                formatCells:         true,
+                formatColumns:       true,
+                formatRows:          true,
+                insertRows:          true,
+                deleteRows:          true,
+                sort:                true,
+                autoFilter:          true,
+            });
+        }
+
+        // ── Serialize to Buffer ────────────────────────────────────────────
+        const buffer = await wb.xlsx.writeBuffer();
+        logger.info(`[BulkExcel] Template generated: ${empFactRows.length - 1} clientes, ${empServRows.length - 1} empresas, ${centrosRows.length - 1} centros`);
+        return buffer;
     }
 }
 

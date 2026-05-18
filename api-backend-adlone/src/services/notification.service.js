@@ -188,9 +188,12 @@ class NotificationService {
         }
     }
 
-    _compileTemplate(templateSource, context, isHtml = true) {
+    _compileTemplate(templateSource, contextInput, isHtml = true) {
+        // Work on a shallow copy to avoid mutating the caller's context object
+        const context = { ...contextInput };
+
         let output = '';
-        
+
         if (typeof templateSource === 'string') {
             output = templateSource;
         } else if (templateSource && typeof templateSource === 'object') {
@@ -204,7 +207,6 @@ class NotificationService {
         const attachments = [];
 
         // 0. Pre-process context: Merge datos_json into top-level for easier placeholder access
-        // Fix 5b: Guard datos_json — ensure it's always an object
         if (context.datos_json && typeof context.datos_json === 'string') {
             try {
                 context.datos_json = JSON.parse(context.datos_json);

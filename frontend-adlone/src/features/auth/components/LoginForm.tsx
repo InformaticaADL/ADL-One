@@ -1,26 +1,28 @@
-import { useState } from 'react';
-import { 
-    Paper, 
-    TextInput, 
-    PasswordInput, 
-    Checkbox, 
-    Button, 
-    Group, 
-    Stack, 
-    Image, 
-    Title, 
-    Text, 
+import { useState, useEffect } from 'react';
+import {
+    Paper,
+    TextInput,
+    PasswordInput,
+    Checkbox,
+    Button,
+    Group,
+    Stack,
+    Image,
+    Title,
+    Text,
     Modal,
     Anchor,
     ThemeIcon,
     Box,
-    Center
+    Center,
+    Alert
 } from '@mantine/core';
-import { 
-    IconLock, 
-    IconMail, 
-    IconPhone, 
-    IconArrowLeft 
+import {
+    IconLock,
+    IconMail,
+    IconPhone,
+    IconArrowLeft,
+    IconAlertCircle
 } from '@tabler/icons-react';
 import type { LoginCredentials } from '../types/index';
 import logoAdl from '../../../assets/images/logo-adlone.png';
@@ -35,6 +37,15 @@ export const LoginForm = ({ onSubmit, isLoading = false }: LoginFormProps) => {
     const [password, setPassword] = useState('');
     const [rememberMe, setRememberMe] = useState(false);
     const [showForgotModal, setShowForgotModal] = useState(false);
+    const [logoutReason, setLogoutReason] = useState<string | null>(null);
+
+    useEffect(() => {
+        const reason = sessionStorage.getItem('auth_logout_reason');
+        if (reason) {
+            setLogoutReason(reason);
+            sessionStorage.removeItem('auth_logout_reason');
+        }
+    }, []);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -56,6 +67,18 @@ export const LoginForm = ({ onSubmit, isLoading = false }: LoginFormProps) => {
             }}
         >
             <Stack gap="xl">
+                {logoutReason && (
+                    <Alert
+                        icon={<IconAlertCircle size={18} />}
+                        color="orange"
+                        radius="md"
+                        withCloseButton
+                        onClose={() => setLogoutReason(null)}
+                    >
+                        {logoutReason}
+                    </Alert>
+                )}
+
                 <Center flex={1}>
                     <Stack align="center" gap={0}>
                         <Image src={logoAdl} w={260} mb="xl" />

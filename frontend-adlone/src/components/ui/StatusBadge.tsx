@@ -31,10 +31,12 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
                 return { color: 'green', label: 'Aprobado' };
             case 'RECHAZADA':
             case 'RECHAZADO':
-            case 'CANCELADO':
             case 'ERROR':
             case 'RECHAZADO_TECNICA':
                 return { color: 'red', label: 'Rechazado' };
+            case 'CANCELADA':
+            case 'CANCELADO':
+                return { color: 'gray', label: 'Cancelada' };
             case 'EN_REVISION':
             case 'EN_REVISION_TECNICA':
             case 'PROCESANDO':

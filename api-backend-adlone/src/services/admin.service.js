@@ -75,9 +75,12 @@ export const adminService = {
             Nombre: data.nombre,
             Correo: data.correo,
             Clave: data.clave,
-            Firma: data.firma // Base64 or URL
+            Firma: data.firma
         });
-        return result[0]; // Returns { id_muestreador }
+        if (!result || !result[0] || !result[0].id_muestreador) {
+            throw new Error('El SP no devolvió un id_muestreador válido');
+        }
+        return result[0];
     },
 
     updateMuestreador: async (id, data) => {
@@ -89,7 +92,14 @@ export const adminService = {
             Clave: data.clave,
             Firma: data.firma
         });
-        return { success: true };
+        const pool = await getConnection();
+        const req = pool.request();
+        req.input('id', sql.Numeric(10, 0), Number(id));
+        const result = await req.query(`
+            SELECT id_muestreador, nombre_muestreador, correo_electronico, habilitado, firma_muestreador
+            FROM mae_muestreador WHERE id_muestreador = @id
+        `);
+        return result.recordset[0] ?? { success: true };
     },
 
     disableMuestreador: async (id) => {
@@ -109,7 +119,12 @@ export const adminService = {
             await equipoService.executeEquipmentReassignment(id, reassignmentOptions);
         } catch (reassignError) {
             logger.error(`ADMIN ACTION: Reassignment failed for sampler ${id}, re-enabling.`, reassignError);
-            await adminService.enableMuestreador(id);
+            try {
+                await adminService.enableMuestreador(id);
+                logger.info(`ADMIN ACTION: Compensation succeeded — sampler ${id} re-enabled after failed reassignment.`);
+            } catch (compensationError) {
+                logger.error(`ADMIN ACTION: CRITICAL — sampler ${id} is disabled but re-enable compensation also failed. Manual intervention required.`, compensationError);
+            }
             throw reassignError;
         }
 
@@ -125,14 +140,26 @@ export const adminService = {
     },
 
     checkDuplicateMuestreador: async (nombre, correo) => {
+        const n = nombre?.trim() || null;
+        const c = correo?.trim() || null;
+        if (!n && !c) return [];
+        nombre = n;
+        correo = c;
         const pool = await getConnection();
         const request = pool.request();
-        request.input('nombre', sql.VarChar(200), nombre);
-        request.input('correo', sql.VarChar(200), correo);
+        const conditions = [];
+        if (nombre) {
+            request.input('nombre', sql.VarChar(200), nombre);
+            conditions.push('nombre_muestreador = @nombre');
+        }
+        if (correo) {
+            request.input('correo', sql.VarChar(200), correo);
+            conditions.push('correo_electronico = @correo');
+        }
         const result = await request.query(`
             SELECT id_muestreador, nombre_muestreador, correo_electronico, habilitado
-            FROM mae_muestreador 
-            WHERE nombre_muestreador = @nombre OR correo_electronico = @correo
+            FROM mae_muestreador
+            WHERE ${conditions.join(' OR ')}
         `);
         return result.recordset;
     },
@@ -142,7 +169,7 @@ export const adminService = {
         try {
             const pool = await getConnection();
 
-            const [pdResult, mhResult, ivResult, irResult, eqResult, fcResult, agResult, msResult, evcResult, usResult, stResult, evResult, etResult, amResult] = await Promise.all([
+            const settled = await Promise.allSettled([
                 pool.request().query(`
                     SELECT
                         SUM(CASE WHEN
@@ -239,30 +266,41 @@ export const adminService = {
                 `)
             ]);
 
+            const row = (i, fallback = {}) => settled[i].status === 'fulfilled' ? (settled[i].value.recordset[0] ?? fallback) : fallback;
+            const rows = (i) => settled[i].status === 'fulfilled' ? (settled[i].value.recordset ?? []) : [];
+
+            settled.forEach((s, i) => {
+                if (s.status === 'rejected') logger.warn(`getDashboardStats: query ${i} failed`, s.reason);
+            });
+
+            const pd = row(0); const mh = row(1); const iv = row(2); const ir = row(3);
+            const eq = row(4); const fc = row(5); const ag = row(6); const ms = row(7);
+            const evc = row(8); const us = row(9);
+
             return {
-                pendientes: pdResult.recordset[0].pendientesTotales || 0,
-                pendientesCalidad: pdResult.recordset[0].pendientesCalidad || 0,
-                pendientesTecnica: pdResult.recordset[0].pendientesTecnica || 0,
-                muestrasHoy: mhResult.recordset[0].count,
-                informesPorRealizar: ivResult.recordset[0].count,
-                informesRealizados: irResult.recordset[0].count,
-                equiposActivos: eqResult.recordset[0].activos || 0,
-                equiposInactivos: eqResult.recordset[0].inactivos || 0,
-                fichasPendientes: fcResult.recordset[0].fichasPendientes || 0,
-                fichasEnProceso: fcResult.recordset[0].fichasEnProceso || 0,
-                totalFichas: fcResult.recordset[0].totalFichas || 0,
-                muestreosPendientes: agResult.recordset[0].muestreosPendientes || 0,
-                muestreosRetiro: agResult.recordset[0].muestreosRetiro || 0,
-                totalMuestreos: agResult.recordset[0].totalMuestreos || 0,
-                aprobadasMes: msResult.recordset[0].aprobadasMes || 0,
-                rechazadasMes: msResult.recordset[0].rechazadasMes || 0,
-                equiposVencidos: evcResult.recordset[0].count || 0,
-                totalUsuarios: usResult.recordset[0].count || 0,
+                pendientes: pd.pendientesTotales || 0,
+                pendientesCalidad: pd.pendientesCalidad || 0,
+                pendientesTecnica: pd.pendientesTecnica || 0,
+                muestrasHoy: mh.count || 0,
+                informesPorRealizar: iv.count || 0,
+                informesRealizados: ir.count || 0,
+                equiposActivos: eq.activos || 0,
+                equiposInactivos: eq.inactivos || 0,
+                fichasPendientes: fc.fichasPendientes || 0,
+                fichasEnProceso: fc.fichasEnProceso || 0,
+                totalFichas: fc.totalFichas || 0,
+                muestreosPendientes: ag.muestreosPendientes || 0,
+                muestreosRetiro: ag.muestreosRetiro || 0,
+                totalMuestreos: ag.totalMuestreos || 0,
+                aprobadasMes: ms.aprobadasMes || 0,
+                rechazadasMes: ms.rechazadasMes || 0,
+                equiposVencidos: evc.count || 0,
+                totalUsuarios: us.count || 0,
                 charts: {
-                    solicitudesPorTipo: stResult.recordset,
-                    evolucionSolicitudes: evResult.recordset,
-                    equiposPorTipo: etResult.recordset,
-                    actividadMuestreo: amResult.recordset
+                    solicitudesPorTipo: rows(10),
+                    evolucionSolicitudes: rows(11),
+                    equiposPorTipo: rows(12),
+                    actividadMuestreo: rows(13)
                 }
             };
         } catch (error) {
@@ -702,7 +740,7 @@ export const adminService = {
                 doc.table(table, {
                     width: 515,
                     prepareHeader: () => doc.font("Helvetica-Bold").fontSize(9).fillColor('black'),
-                    prepareRow: (row, indexColumn, indexRow, rectRow, rectCell) => {
+                    prepareRow: (_row, _indexColumn, _indexRow, _rectRow, _rectCell) => {
                         doc.font("Helvetica").fontSize(8).fillColor('#374151');
                     }
                 });

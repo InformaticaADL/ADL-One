@@ -5,7 +5,11 @@ import path from 'path';
 import { getConnection } from '../config/database.js';
 import sql from 'mssql';
 
-// Returns true if the user is the creator of the request or has admin access
+// Returns true if user can act on a request:
+// - Admin (AI_MA_ADMIN_ACCESO)
+// - Creator of the request
+// - Has GESTION permission for the request type (explicit or via role)
+// - Is the current derivation target
 async function canActOnRequest(idSolicitud, reqUser) {
     if (reqUser.permissions?.includes('AI_MA_ADMIN_ACCESO')) return true;
     try {
@@ -13,7 +17,27 @@ async function canActOnRequest(idSolicitud, reqUser) {
         const res = await pool.request()
             .input('id', sql.Numeric(10, 0), idSolicitud)
             .input('userId', sql.Numeric(10, 0), reqUser.id)
-            .query(`SELECT 1 as ok FROM mae_solicitud WHERE id_solicitud = @id AND id_solicitante = @userId`);
+            .query(`
+                SELECT 1 as ok FROM mae_solicitud WHERE id_solicitud = @id AND id_solicitante = @userId
+
+                UNION
+
+                -- GESTION permission via rel_solicitud_tipo_permiso (explicit user or via role)
+                SELECT 1 FROM mae_solicitud s
+                JOIN rel_solicitud_tipo_permiso p ON p.id_tipo = s.id_tipo AND p.tipo_acceso = 'GESTION'
+                LEFT JOIN rel_usuario_rol ur ON (p.id_rol = ur.id_rol AND ur.id_usuario = @userId)
+                WHERE s.id_solicitud = @id
+                AND (p.id_usuario = @userId OR ur.id_rol IS NOT NULL)
+
+                UNION
+
+                -- Current derivation target (user or via role)
+                SELECT 1 FROM mae_solicitud_derivacion d
+                LEFT JOIN rel_usuario_rol ur_d ON (d.id_rol_destino = ur_d.id_rol AND ur_d.id_usuario = @userId)
+                WHERE d.id_solicitud = @id
+                AND (d.usuario_destino = @userId OR ur_d.id_rol IS NOT NULL)
+                AND d.fecha = (SELECT MAX(fecha) FROM mae_solicitud_derivacion WHERE id_solicitud = @id)
+            `);
         return res.recordset.length > 0;
     } catch { return false; }
 }
@@ -116,12 +140,33 @@ class UrsController {
     async updateStatus(req, res) {
         try {
             const { id } = req.params;
-            if (!await canActOnRequest(id, req.user)) {
-                return res.status(403).json({ error: 'No autorizado para modificar esta solicitud' });
-            }
             const estado = req.body.status || req.body.estado;
             const observaciones = req.body.comment || req.body.observaciones || '';
             const idUsuario = req.user.id;
+            const isAdmin = req.user.permissions?.includes('AI_MA_ADMIN_ACCESO');
+
+            // CANCELADA: only the creator or admin can cancel, and only from PENDIENTE
+            if (estado === 'CANCELADA') {
+                const pool = await getConnection();
+                const check = await pool.request()
+                    .input('id', sql.Numeric(10, 0), id)
+                    .input('userId', sql.Numeric(10, 0), idUsuario)
+                    .query(`SELECT estado, id_solicitante FROM mae_solicitud WHERE id_solicitud = @id`);
+
+                if (!check.recordset.length) return res.status(404).json({ error: 'Solicitud no encontrada' });
+                const { estado: estadoActual, id_solicitante } = check.recordset[0];
+
+                if (!isAdmin && Number(id_solicitante) !== Number(idUsuario)) {
+                    return res.status(403).json({ error: 'Solo el solicitante puede cancelar su propia solicitud' });
+                }
+                if (estadoActual !== 'PENDIENTE') {
+                    return res.status(400).json({ error: 'Solo se puede cancelar una solicitud en estado PENDIENTE' });
+                }
+            } else {
+                if (!await canActOnRequest(id, req.user)) {
+                    return res.status(403).json({ error: 'No autorizado para modificar esta solicitud' });
+                }
+            }
 
             const solicitud = await ursService.updateStatus(id, estado, idUsuario, observaciones);
             res.json(solicitud);
@@ -233,10 +278,12 @@ class UrsController {
                 return res.status(404).json({ error: 'Archivo no encontrado' });
             }
 
-            const baseDir = process.env.UPLOAD_PATH || path.resolve('uploads');
-            // adjunto.ruta_archivo already contains the subfolder/name from DB
-            // We need to resolve it relative to the baseDir
+            const baseDir = path.resolve(process.env.UPLOAD_PATH || 'uploads');
             const filePath = path.resolve(baseDir, adjunto.ruta_archivo);
+
+            if (!filePath.startsWith(baseDir + path.sep) && filePath !== baseDir) {
+                return res.status(403).json({ error: 'Acceso denegado' });
+            }
 
             if (!fs.existsSync(filePath)) {
                 logger.error(`File physically missing: ${filePath}`);

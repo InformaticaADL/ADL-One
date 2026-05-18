@@ -21,14 +21,14 @@ router.get('/muestreadores/check-duplicate', verifyToken, adminController.checkD
 router.get('/muestreadores/export-pdf', verifyToken, verifyPermission('MU_EXP'), adminController.downloadMuestreadoresPdf);
 
 // --- DASHBOARD ---
-router.get('/dashboard/stats', verifyToken, adminController.getDashboardStats);
+router.get('/dashboard/stats', verifyToken, verifyPermission('MA_A_GEST_EQUIPO'), adminController.getDashboardStats);
 
 // --- CALENDARIO REPLICA ---
-router.get('/calendario', verifyToken, validateRequest(adminValidationSchemas.getCalendario), adminController.getCalendario);
+router.get('/calendario', verifyToken, verifyPermission(['MA_MUESTREADORES', 'MA_A_GEST_EQUIPO']), validateRequest(adminValidationSchemas.getCalendario), adminController.getCalendario);
 
 // --- EXPORT DATA ---
 router.get('/export-table', verifyToken, validateRequest(adminValidationSchemas.getExportData), adminController.getExportData);
-router.get('/export-pdf', verifyToken, adminController.downloadBulkPdf);
+router.get('/export-pdf', verifyToken, verifyPermission('MU_EXP'), adminController.downloadBulkPdf);
 
 // --- EQUIPOS ---
 router.get('/equipos/comparison-resampling', verifyToken, verifyPermission('MA_A_GEST_EQUIPO'), equipoController.getEquipmentComparison);

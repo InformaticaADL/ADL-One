@@ -265,7 +265,7 @@ const NewRequestModal: React.FC<NewRequestModalProps> = ({ isOpen, onClose, onSu
                 <Stack gap={4}>
                     <Text size="sm" fw={700}>Adjuntar Archivos</Text>
                     <Group gap="xs">
-                        <FileButton onChange={(payload) => setFiles(prev => [...prev, ...payload])} accept="*" multiple>
+                        <FileButton onChange={(payload) => setFiles(prev => [...prev, ...payload])} accept="image/*,application/pdf,.xlsx,.xls,.doc,.docx,.txt,.csv" multiple>
                             {(props) => (
                                 <Button {...props} variant="light" color="gray" leftSection={<IconPaperclip size={18} />} radius="md">
                                     Seleccionar Archivos

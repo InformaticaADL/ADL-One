@@ -831,7 +831,7 @@ class UrsService {
                         nombre_tipo: fullSol.nombre_tipo,
                         estado: nuevoEstado,
                         observaciones,
-                        accion: nuevoEstado === 'ACEPTADA' ? 'APROBACION' : (nuevoEstado === 'RECHAZADA' ? 'RECHAZO' : (nuevoEstado === 'REALIZADA' ? 'REALIZACION' : (nuevoEstado === 'EN_REVISION' ? 'REVISION' : 'ACTUALIZACION')))
+                        accion: nuevoEstado === 'ACEPTADA' ? 'APROBACION' : (nuevoEstado === 'RECHAZADA' ? 'RECHAZO' : (nuevoEstado === 'REALIZADA' ? 'REALIZACION' : (nuevoEstado === 'EN_REVISION' ? 'REVISION' : (nuevoEstado === 'CANCELADA' ? 'CANCELACION' : 'ACTUALIZACION'))))
                     });
                 }
             }).catch(err => logger.error('UNS updateStatus notification error:', err));

@@ -251,26 +251,37 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                     return f.servicios_disponibles > 0;
                 });
 
-                // Parse coordinates from refGoogle / ref_google / ma_coordenadas
-                // Process with concurrency limit of 5 to avoid flooding the backend with URL-resolve calls
+                // Resolve all unique goo.gl short URLs in one pass before processing fichas.
+                // Many fichas share the same URL, so resolving once and reusing saves N×1s calls.
+                const shortUrls = new Set<string>();
+                rawFichas.forEach((f: any) => {
+                    const u = f.ref_google || f.refGoogle || f.ma_ref_google || '';
+                    if (u && u.includes('goo.gl')) shortUrls.add(u);
+                });
+
+                const resolvedUrlMap = new Map<string, string>();
                 const CONCURRENCY = 5;
-                const parseFicha = async (f: any): Promise<FichaWithCoords> => {
+                const uniqueUrls = [...shortUrls];
+                for (let i = 0; i < uniqueUrls.length; i += CONCURRENCY) {
+                    const batch = uniqueUrls.slice(i, i + CONCURRENCY);
+                    await Promise.all(batch.map(async (u) => {
+                        try {
+                            const resolved = await fichaService.resolveGoogleUrl(u);
+                            if (resolved?.finalUrl) resolvedUrlMap.set(u, resolved.finalUrl);
+                        } catch {
+                            // keep original
+                        }
+                    }));
+                }
+
+                const parseFicha = (f: any): FichaWithCoords => {
                     let lat: number | null = null;
                     let lng: number | null = null;
 
-                    let googleUrl = f.ref_google || f.refGoogle || f.ma_ref_google || '';
-                    if (googleUrl) {
-                        if (googleUrl.includes('goo.gl')) {
-                            try {
-                                const resolved = await fichaService.resolveGoogleUrl(googleUrl);
-                                if (resolved?.finalUrl) {
-                                    googleUrl = resolved.finalUrl;
-                                }
-                            } catch (e) {
-                                console.warn('No se pudo resolver URL corta', googleUrl);
-                            }
-                        }
+                    const rawUrl = f.ref_google || f.refGoogle || f.ma_ref_google || '';
+                    let googleUrl = (rawUrl && resolvedUrlMap.has(rawUrl)) ? resolvedUrlMap.get(rawUrl)! : rawUrl;
 
+                    if (googleUrl) {
                         const coords = parseGoogleMapsUrl(googleUrl);
                         if (coords) { lat = coords.lat; lng = coords.lng; }
                     }
@@ -305,12 +316,7 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                     };
                 };
 
-                const parsedFichas: FichaWithCoords[] = [];
-                for (let i = 0; i < rawFichas.length; i += CONCURRENCY) {
-                    const batch = rawFichas.slice(i, i + CONCURRENCY);
-                    const results = await Promise.all(batch.map(parseFicha));
-                    parsedFichas.push(...results);
-                }
+                const parsedFichas: FichaWithCoords[] = rawFichas.map(parseFicha);
 
                 setFichas(parsedFichas);
                 if (mData) setMuestreadores(mData);
@@ -324,7 +330,7 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                             const items: SelectedItem[] = ruta.fichas.map((rf: any) => {
                                 const ficha = parsedFichas.find(f => f.id === rf.id_fichaingresoservicio);
                                 const corrParts = (rf.frecuencia_correlativo || '').split('-');
-                                const numSvc = corrParts.length >= 2 ? parseInt(corrParts[1]) : 1;
+                                const numSvc = corrParts.length >= 2 ? parseInt(corrParts[1], 10) : 1;
                                 return {
                                     fichaId: rf.id_fichaingresoservicio,
                                     frecuencia_correlativo: rf.frecuencia_correlativo || '',
@@ -470,10 +476,11 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
             setOsrmRoute([]);
             return;
         }
+        const controller = new AbortController();
         const fetchRoute = async () => {
             try {
                 const coordsStr = routePositions.map(p => `${p[1]},${p[0]}`).join(';');
-                const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${coordsStr}?overview=full&geometries=geojson`);
+                const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${coordsStr}?overview=full&geometries=geojson`, { signal: controller.signal });
                 const data = await res.json();
                 if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
                     const geometry = data.routes[0].geometry;
@@ -481,12 +488,15 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                 } else {
                     setOsrmRoute([]);
                 }
-            } catch (err) {
-                console.warn('OSRM routing fallback failed:', err);
-                setOsrmRoute([]);
+            } catch (err: any) {
+                if (err.name !== 'AbortError') {
+                    console.warn('OSRM routing fallback failed:', err);
+                    setOsrmRoute([]);
+                }
             }
         };
         fetchRoute();
+        return () => controller.abort();
     }, [routePositions]);
 
     const toggleFicha = useCallback((id: number) => {
@@ -576,13 +586,21 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
 
         setSaving(true);
         try {
-            const assignmentPromises = selectedItems.map(item => fichaService.getAssignmentDetail(item.fichaId));
-            const allDetails = await Promise.all(assignmentPromises);
+            const assignmentResults = await Promise.allSettled(
+                selectedItems.map(item => fichaService.getAssignmentDetail(item.fichaId))
+            );
 
             const assignments: any[] = [];
             for (let i = 0; i < selectedItems.length; i++) {
                 const item = selectedItems[i];
-                const rows = allDetails[i];
+                const result = assignmentResults[i];
+
+                if (result.status === 'rejected') {
+                    showToast({ type: 'warning', message: `Ficha #${item.fichaId}: error al obtener agenda. Se omitirá.` });
+                    continue;
+                }
+
+                const rows = result.value;
 
                 if (!Array.isArray(rows) || rows.length === 0) {
                     showToast({ type: 'warning', message: `Ficha #${item.fichaId} no tiene registros de agenda pendientes. Se omitirá.` });

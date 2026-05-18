@@ -8,7 +8,8 @@ const router = express.Router();
 router.use(authenticate);
 
 router.get('/', notificacionController.getMyNotifications);
-router.put('/:id/read', notificacionController.markAsRead);
+router.put('/read-all', notificacionController.markAllAsRead);
 router.put('/read-by-ref/:idReferencia', notificacionController.markAsReadByRef);
+router.put('/:id/read', notificacionController.markAsRead);
 
 export default router;

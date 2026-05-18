@@ -21,6 +21,7 @@ interface NotificationState {
     fetchNotifications: () => Promise<void>;
     markAsRead: (id: number) => Promise<void>;
     markAsReadByRef: (idReferencia: number) => Promise<void>;
+    markAllAsRead: () => Promise<void>;
     addLocalNotification: (notification: any) => void;
     initSocket: (userId: number, token: string) => void;
     disconnectSocket: () => void;
@@ -60,12 +61,23 @@ export const useNotificationStore = create<NotificationState>((set) => ({
         try {
             await notificationService.markAsReadByRef(idReferencia);
             set((state) => ({
-                notifications: state.notifications.map((n) => 
+                notifications: state.notifications.map((n) =>
                     n.id_referencia === idReferencia ? { ...n, leido: true } : n
                 ),
             }));
         } catch (error) {
             console.error('Error marking notifications as read by ref:', error);
+        }
+    },
+
+    markAllAsRead: async () => {
+        try {
+            await notificationService.markAllAsRead();
+            set((state) => ({
+                notifications: state.notifications.map((n) => ({ ...n, leido: true }))
+            }));
+        } catch (error) {
+            console.error('Error marking all notifications as read:', error);
         }
     },
 

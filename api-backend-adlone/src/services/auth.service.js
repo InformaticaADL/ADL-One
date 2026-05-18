@@ -36,17 +36,17 @@ class AuthService {
                         u.habilitado,
                         u.seccion,
                         u.foto,
+                        u.permisos_version,
                         c.nombre_cargo,
-                        (
-                            SELECT r.nombre_rol + ','
-                            FROM mae_rol r
-                            INNER JOIN rel_usuario_rol ur ON r.id_rol = ur.id_rol
-                            WHERE ur.id_usuario = u.id_usuario
-                            FOR XML PATH('')
-                        ) as roles_list
+                        STRING_AGG(r.nombre_rol, ',') WITHIN GROUP (ORDER BY r.nombre_rol) AS roles_list
                     FROM mae_usuario u
                     LEFT JOIN mae_cargo c ON u.id_cargo = c.id_cargo
+                    LEFT JOIN rel_usuario_rol ur ON ur.id_usuario = u.id_usuario
+                    LEFT JOIN mae_rol r ON r.id_rol = ur.id_rol
                     WHERE u.nombre_usuario = @username AND u.clave_usuario = @password
+                    GROUP BY u.id_usuario, u.nombre_usuario, u.usuario, u.mam_cargo,
+                             u.correo_electronico, u.habilitado, u.seccion, u.foto,
+                             u.permisos_version, c.nombre_cargo
                 `);
             logger.info(`AuthService: User Lookup Query executed in ${Date.now() - startUserQuery}ms`);
 
@@ -100,7 +100,8 @@ class AuthService {
                         name: user.usuario,
                         role: user.mam_cargo,
                         roles: rolesArray,
-                        permissions: permissions // Add permissions to token (Optional, good for client-side checks)
+                        permissions: permissions,
+                        permisos_version: user.permisos_version ?? 0
                     },
                     secret,
                     { expiresIn: rememberMe ? '30d' : '12h' }
@@ -128,7 +129,7 @@ class AuthService {
                         email: user.correo_electronico,
                         role: user.mam_cargo,
                         cargo: user.nombre_cargo,
-                        roles: user.roles_list ? user.roles_list.split(',').filter(r => r) : [],
+                        roles: user.roles_list ? user.roles_list.split(',').filter(r => r.trim()) : [],
                         foto: user.foto,
                         permissions: permissions // Return to client for Context
                     }

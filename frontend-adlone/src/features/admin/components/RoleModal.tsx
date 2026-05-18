@@ -37,6 +37,7 @@ import {
 import { rbacService } from '../services/rbac.service';
 import type { Role, Permission } from '../services/rbac.service';
 import { useToast } from '../../../contexts/ToastContext';
+import { ConfirmModal } from '../../../components/common/ConfirmModal';
 
 interface Props {
     role: Role | null;
@@ -51,6 +52,8 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
     const [nombre, setNombre] = useState('');
     const [descripcion, setDescripcion] = useState('');
     const [loading, setLoading] = useState(false);
+    const [confirmSaveOpen, setConfirmSaveOpen] = useState(false);
+    const [affectedCount, setAffectedCount] = useState<number | null>(null);
 
     // Permissions Management
     const [allPermissions, setAllPermissions] = useState<Permission[]>([]);
@@ -95,18 +98,16 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
         }
     };
 
-    const handleSave = async () => {
-        if (!nombre) {
-            showToast({ type: 'warning', message: 'El nombre es obligatorio' });
-            return;
-        }
-
+    const doSave = async () => {
+        setConfirmSaveOpen(false);
         setLoading(true);
         try {
             let savedRole = role;
 
             if (!savedRole) {
-                savedRole = await rbacService.createRole(nombre, descripcion);
+                savedRole = await rbacService.createRole(nombre.trim(), descripcion);
+            } else {
+                await rbacService.updateRole(savedRole.id_rol, nombre.trim(), descripcion);
             }
 
             if (savedRole) {
@@ -120,6 +121,33 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
             showToast({ type: 'error', message: 'Error al guardar rol' });
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleSave = async () => {
+        if (!nombre.trim()) {
+            showToast({ type: 'warning', message: 'El nombre es obligatorio' });
+            return;
+        }
+
+        // New role: no users yet, save directly
+        if (!role) {
+            doSave();
+            return;
+        }
+
+        // Existing role: check how many users will be affected
+        try {
+            const users = await rbacService.getUsersByRole(role.id_rol);
+            if (users.length === 0) {
+                doSave();
+            } else {
+                setAffectedCount(users.length);
+                setConfirmSaveOpen(true);
+            }
+        } catch {
+            // If fetch fails, proceed without warning
+            doSave();
         }
     };
 
@@ -346,7 +374,7 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
                                 required
                                 value={nombre}
                                 onChange={(e) => setNombre(e.currentTarget.value)}
-                                disabled={!!role}
+                                disabled={false}
                                 radius="md"
                             />
                             <TextInput 
@@ -425,9 +453,6 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
 
                                             <Box mt="md">
                                                 {Object.entries(submodules).map(([subName, perms], idx) => {
-                                                    const subId = `${moduleName}:${subName}`;
-                                                    const isExpanded = expandedSubmodules[subId] !== false;
-
                                                     return (
                                                         <Box key={subName} mt={idx > 0 ? "xl" : 0}>
                                                             <Divider 
@@ -552,9 +577,9 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
                 <Button variant="subtle" color="gray" onClick={onClose} fullWidth={isMobile}>
                     Cancelar / Descartar
                 </Button>
-                <Button 
-                    color="adl-blue" 
-                    loading={loading} 
+                <Button
+                    color="adl-blue"
+                    loading={loading}
                     onClick={handleSave}
                     leftSection={<IconCheck size={18} />}
                     radius="md"
@@ -563,6 +588,17 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
                     Guardar Cambios
                 </Button>
             </Group>
+
+            <ConfirmModal
+                isOpen={confirmSaveOpen}
+                title="Guardar Cambios de Permisos"
+                message={`${affectedCount} usuario${affectedCount !== 1 ? 's' : ''} ${affectedCount !== 1 ? 'tienen' : 'tiene'} este rol asignado y ${affectedCount !== 1 ? 'serán desconectados' : 'será desconectado'} para aplicar los nuevos permisos. ¿Confirmas?`}
+                confirmText="Sí, guardar"
+                cancelText="Cancelar"
+                confirmColor="var(--mantine-color-blue-6)"
+                onConfirm={doSave}
+                onCancel={() => { setConfirmSaveOpen(false); setAffectedCount(null); }}
+            />
         </Modal>
     );
 };

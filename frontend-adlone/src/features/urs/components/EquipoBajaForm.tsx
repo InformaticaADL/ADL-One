@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Select, Stack, Group, Text, Paper, Loader, Textarea, TextInput, Badge } from '@mantine/core';
 import apiClient from '../../../config/axios.config';
+import { useToast } from '../../../contexts/ToastContext';
 
 interface EquipoBajaFormProps {
     onDataChange: (data: any) => void;
 }
 
 const EquipoBajaForm: React.FC<EquipoBajaFormProps> = ({ onDataChange }) => {
+    const { showToast } = useToast();
     const [equipoId, setEquipoId] = useState<string | null>(null);
     const [motivo, setMotivo] = useState<string | null>(null);
     const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
@@ -25,7 +27,7 @@ const EquipoBajaForm: React.FC<EquipoBajaFormProps> = ({ onDataChange }) => {
                     label: `${e.nombre} [${e.codigo}]`
                 })));
             })
-            .catch(err => console.error("Error loading equipos:", err))
+            .catch(() => showToast({ type: 'error', message: 'Error al cargar inventario de equipos' }))
             .finally(() => setLoadingEquipos(false));
     }, []);
 

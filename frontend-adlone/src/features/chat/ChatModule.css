@@ -5,16 +5,12 @@
     background: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-5)) !important;
 }
 
-/* Show delete button on hover */
-.msg-delete-btn {
+/* Show message action buttons on hover — triggered by the entire msg-row */
+.msg-actions {
     opacity: 0 !important;
     transition: opacity 150ms ease !important;
 }
 
-*:hover > .msg-delete-btn {
-    opacity: 0.7 !important;
-}
-
-.msg-delete-btn:hover {
+.msg-row:hover .msg-actions {
     opacity: 1 !important;
 }

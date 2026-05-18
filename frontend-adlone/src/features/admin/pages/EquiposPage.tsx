@@ -105,8 +105,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     // Permissions
     const isMAMan = hasPermission('AI_MA_SOLICITUDES') || hasPermission('MA_A_GEST_EQUIPO');
     const isSuper = hasPermission('AI_MA_ADMIN_ACCESO');
-    // @ts-ignore
-    const canCreateEquipo = hasPermission('ADM_A_GEST_EQUIPO') || hasPermission('AI_ACCESO');
+    const canCreateEquipo = hasPermission('AI_MA_CREAR_EQUIPO') || isSuper;
     const canEditEquipo = hasPermission('AI_MA_EDITAR_EQUIPO') || isSuper;
 
     // --- Table & Filters State ---
@@ -121,9 +120,10 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const [filterFechaHasta, setFilterFechaHasta] = useState('');
     
     const [page, setPage] = useState(1);
-    const [limit] = useState(10); // increased for Mantine UI
+    const [limit] = useState(10);
     const [totalPages, setTotalPages] = useState(1);
     const [totalItems, setTotalItems] = useState(0);
+    const [expiringCount, setExpiringCount] = useState(0);
     const [muestreadorList, setMuestreadorList] = useState<any[]>([]);
     
     const [catalogs, setCatalogs] = useState<{ sedes: string[], tipos: string[], estados: string[] }>({
@@ -173,7 +173,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         if (showConfirmAltaModal) {
             if (equipoAltaPending?.datos_json?.motivo) {
                 const motive = equipoAltaPending.datos_json.motivo;
-                const code = (equipoAltaPending as any).codigo;
+                const code = equipoAltaPending.codigo;
                 if (code && motive) {
                     const escapedCode = code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                     const regex = new RegExp(`${escapedCode}:\\s*(\\d{2}[/\\-]\\d{2}[/\\-]\\d{4}|\\d{4}[/\\-]\\d{2}[/\\-]\\d{2})`, 'i');
@@ -224,8 +224,9 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 setEquipos(response.data || []);
                 setTotalPages(response.totalPages || 1);
                 setTotalItems(response.total || 0);
-                if ((response as any).catalogs) {
-                    setCatalogs((response as any).catalogs);
+                setExpiringCount(response.expiringCount ?? 0);
+                if (response.catalogs) {
+                    setCatalogs(response.catalogs);
                 }
             } else {
                 setEquipos([]);
@@ -266,8 +267,6 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                        tipoRaw.includes('ALTA') ||
                        tipoRaw.includes('BAJA');
             });
-            console.log("LOAD_SOLICITUDES RAW DATA:", data);
-            console.log("LOAD_SOLICITUDES FILTERED DATA:", filteredData);
             
             setSolicitudesRealizadas(filteredData);
         } catch (error) {
@@ -285,17 +284,11 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 id_equipo: undefined,
                 requestId: sol.id_solicitud,
                 requestStatus: sol.estado
-            } as any);
+            } as Equipo);
             setViewMode('form');
         } else {
             setReviewSolicitud(sol);
         }
-    };
-
-    // @ts-ignore
-    const handleCreate = () => {
-        setSelectedEquipo(null);
-        setViewMode('form');
     };
 
     const handleEdit = (equipo: Equipo) => {
@@ -416,7 +409,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                         id_equipo: undefined,
                         requestId: reviewSolicitud.id_solicitud,
                         requestStatus: reviewSolicitud.estado
-                    } as any);
+                    });
                     setViewMode('form');
                 }
             } else if (type === 'TRASPASO') {
@@ -431,7 +424,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                         ubicacion: reviewSolicitud.datos_json.nueva_ubicacion,
                         id_muestreador: reviewSolicitud.datos_json.nuevo_responsable_id || 0,
                         vigencia: reviewSolicitud.datos_json.vigencia
-                    } as any);
+                    } as Equipo);
                     setViewMode('form');
                 }
             } else if (type === 'VIGENCIA_PROXIMA') {
@@ -445,7 +438,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                         datos_json: reviewSolicitud.datos_json,
                         id_solicitud: reviewSolicitud.id_solicitud,
                         vigencia_propuesta: reviewSolicitud.datos_json.nueva_vigencia_solicitada
-                    } as any);
+                    });
                     setReactivationVigencia(reviewSolicitud.datos_json.nueva_vigencia_solicitada || '');
                     setShowConfirmAltaModal(true);
                     setReviewSolicitud(null);
@@ -502,6 +495,11 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
 
     const confirmApproveAlta = async () => {
         if (!equipoAltaPending || !reactivationVigencia) return;
+        const solicitudId = equipoAltaPending.id_solicitud;
+        if (!solicitudId) {
+            showToast({ type: 'error', message: 'No se encontró el ID de la solicitud asociada' });
+            return;
+        }
         setProcessingAction(true);
         try {
             const resp = await equipoService.getEquipoById(equipoAltaPending.originalId);
@@ -514,7 +512,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 vigencia: reactivationVigencia
             });
 
-            const currentSol = reviewSolicitud || { id_solicitud: equipoAltaPending.id_solicitud, datos_json: equipoAltaPending.datos_json };
+            const currentSol = { id_solicitud: solicitudId, datos_json: equipoAltaPending.datos_json };
             const eqAltas = currentSol.datos_json?.equipos_alta;
 
             if (eqAltas) {
@@ -723,16 +721,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         }
     };
 
-    const expiringCount = useMemo(() => {
-        return equipos.filter(e => {
-            if (!e.vigencia) return false;
-            const d = new Date(e.vigencia);
-            return !isNaN(d.getTime()) && (d.getTime() - Date.now()) <= (30 * 86400000) && e.estado?.toLowerCase() === 'activo';
-        }).length;
-    }, [equipos]);
 
     const [solicitudHistorial, setSolicitudHistorial] = useState<any[]>([]);
-    // @ts-ignore
     const [loadingHistorial, setLoadingHistorial] = useState(false);
 
     useEffect(() => {
@@ -742,8 +732,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 try {
                     const res = await adminService.getSolicitudHistorial(reviewSolicitud.id_solicitud);
                     setSolicitudHistorial(res.data || []);
-                } catch (error) {
-                    console.error("Error loading historial:", error);
+                } catch {
+                    showToast({ type: 'error', message: 'No se pudo cargar el historial de la solicitud' });
                 } finally {
                     setLoadingHistorial(false);
                 }
@@ -914,15 +904,12 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                             <Select
                                 label="Responsable"
                                 placeholder="Todos"
-                                data={['Todos', ...muestreadorList.map(m => m.nombre_muestreador)]}
-                                value={muestreadorList.find(m => String(m.id_muestreador) === filterMuestreador)?.nombre_muestreador || null}
-                                onChange={v => {
-                                    if (v === 'Todos' || !v) setFilterMuestreador(null);
-                                    else {
-                                        const found = muestreadorList.find(m => m.nombre_muestreador === v);
-                                        if (found) setFilterMuestreador(String(found.id_muestreador));
-                                    }
-                                }}
+                                data={muestreadorList.map(m => ({
+                                    value: String(m.id_muestreador),
+                                    label: m.nombre_muestreador
+                                }))}
+                                value={filterMuestreador}
+                                onChange={v => setFilterMuestreador(v || null)}
                                 clearable
                                 searchable
                             />
@@ -1105,7 +1092,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 size="lg"
                 radius="md"
             >
-                <LoadingOverlay visible={processingAction} />
+                <LoadingOverlay visible={processingAction || loadingHistorial} />
                 {reviewSolicitud && (
                     <Stack gap="lg">
                         <Paper withBorder p="md" bg="gray.0" radius="md">
@@ -1178,7 +1165,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                                                         setEquipoBajaPending({ ...eq, id_solicitud: reviewSolicitud.id_solicitud, datos_json: reviewSolicitud.datos_json });
                                                                         setShowConfirmBajaModal(true);
                                                                     } else {
-                                                                        setEquipoAltaPending({ ...eq, id: String(eq.id), originalId: Number(eq.id), id_solicitud: reviewSolicitud.id_solicitud, datos_json: reviewSolicitud.datos_json, vigencia_propuesta: eq.vigencia } as any);
+                                                                        setEquipoAltaPending({ id: String(eq.id), nombre: eq.nombre || '', codigo: eq.codigo || '', originalId: Number(eq.id), datos_json: reviewSolicitud.datos_json, id_solicitud: reviewSolicitud.id_solicitud, vigencia_propuesta: eq.vigencia });
                                                                         setReactivationVigencia(eq.vigencia || '');
                                                                         setShowConfirmAltaModal(true);
                                                                     }
@@ -1186,7 +1173,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                                             >
                                                                 Aprobar
                                                             </Button>
-                                                            <Button size="compact-xs" variant="outline" color="red" onClick={() => handleOpenIndividualRejection(eq, reviewSolicitud.tipo_solicitud as any)}>
+                                                            <Button size="compact-xs" variant="outline" color="red" onClick={() => handleOpenIndividualRejection(eq, reviewSolicitud.tipo_solicitud as 'ALTA' | 'BAJA')}>
                                                                 Rechazar
                                                             </Button>
                                                         </Group>

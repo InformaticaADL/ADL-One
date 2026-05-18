@@ -21,16 +21,17 @@ import {
     Avatar
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import { 
-    IconSearch, 
-    IconPlus, 
-    IconEdit, 
-    IconKey, 
-    IconBan, 
-    IconCheck, 
+import {
+    IconSearch,
+    IconPlus,
+    IconEdit,
+    IconKey,
+    IconBan,
+    IconCheck,
     IconUser,
     IconMail,
-    IconShield
+    IconShield,
+    IconClock
 } from '@tabler/icons-react';
 import { rbacService, type User, type CreateUserData, type UpdateUserData, type Role } from '../services/rbac.service';
 import { catalogosService } from '../../medio-ambiente/services/catalogos.service';
@@ -127,7 +128,8 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
             resetForm();
             loadUsers();
         } catch (error: any) {
-            showToast({ type: 'error', message: error.response?.data?.message || 'Error al crear usuario' });
+            const msg = error.response?.data?.message || 'Error al crear usuario';
+            showToast({ type: 'error', message: msg });
         } finally {
             setLoading(false);
         }
@@ -152,8 +154,9 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
             setShowEditModal(false);
             resetForm();
             loadUsers();
-        } catch (error) {
-            showToast({ type: 'error', message: 'Error al actualizar usuario' });
+        } catch (error: any) {
+            const msg = error.response?.data?.message || 'Error al actualizar usuario';
+            showToast({ type: 'error', message: msg });
         } finally {
             setLoading(false);
         }
@@ -194,8 +197,9 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
             setShowConfirmModal(false);
             setSelectedUser(null);
             loadUsers();
-        } catch (error) {
-            showToast({ type: 'error', message: 'Error al cambiar estado del usuario' });
+        } catch (error: any) {
+            const msg = error.response?.data?.message || 'Error al cambiar estado del usuario';
+            showToast({ type: 'error', message: msg });
         } finally {
             setLoading(false);
         }
@@ -249,6 +253,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
             clave_usuario: ''
         });
         setSelectedRoles([]);
+        setRoleSearchTerm('');
         setSelectedUser(null);
     };
 
@@ -362,6 +367,10 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                                                 <IconShield size={14} color="gray" />
                                                 <Text size="xs" fw={500}>{user.nombre_cargo || 'Sin Cargo'}</Text>
                                             </Group>
+                                            <Group gap="xs">
+                                                <IconClock size={14} color="gray" />
+                                                <Text size="xs" c="dimmed">{user.ultimo_acceso ?? 'Nunca'}</Text>
+                                            </Group>
                                             <Group gap={4} wrap="wrap">
                                                 {user.roles?.map((rol, i) => (
                                                     <Badge key={i} size="xs" variant="gray" radius="xs">{rol}</Badge>
@@ -399,6 +408,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                                             <Table.Th>Cargo</Table.Th>
                                             <Table.Th>Roles</Table.Th>
                                             <Table.Th>Email</Table.Th>
+                                            <Table.Th>Último Acceso</Table.Th>
                                             <Table.Th ta="center">Estado</Table.Th>
                                             <Table.Th ta="right">Acciones</Table.Th>
                                         </Table.Tr>
@@ -435,9 +445,15 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                                                         </Group>
                                                     </Table.Td>
                                                     <Table.Td>
+                                                        <Group gap="xs">
+                                                            <IconClock size={14} color="gray" />
+                                                            <Text size="xs" c="dimmed">{user.ultimo_acceso ?? 'Nunca'}</Text>
+                                                        </Group>
+                                                    </Table.Td>
+                                                    <Table.Td>
                                                         <Group justify="center">
-                                                            <Badge 
-                                                                color={user.habilitado === 'S' ? 'green' : 'red'} 
+                                                            <Badge
+                                                                color={user.habilitado === 'S' ? 'green' : 'red'}
                                                                 variant="light"
                                                                 radius="sm"
                                                             >
@@ -468,7 +484,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                                             ))
                                         ) : (
                                             <Table.Tr>
-                                                <Table.Td colSpan={7} ta="center" py="xl">
+                                                <Table.Td colSpan={8} ta="center" py="xl">
                                                     <Text c="dimmed">No se encontraron usuarios</Text>
                                                 </Table.Td>
                                             </Table.Tr>
@@ -567,7 +583,8 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                             <ScrollArea h={isMobile ? 250 : 180} scrollbarSize={6}>
                                 <Stack gap={4}>
                                     {roles
-                                        .filter(r => 
+                                        .filter(r => r.estado)
+                                        .filter(r =>
                                             r.nombre_rol.toLowerCase().includes(roleSearchTerm.toLowerCase()) ||
                                             (r.descripcion && r.descripcion.toLowerCase().includes(roleSearchTerm.toLowerCase()))
                                         )

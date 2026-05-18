@@ -12,7 +12,8 @@ import {
     Box,
     Badge,
     FileButton,
-    Center
+    Center,
+    Divider
 } from '@mantine/core';
 import {
     IconMessage,
@@ -23,6 +24,7 @@ import {
 } from '@tabler/icons-react';
 import { ursService } from '../../../services/urs.service';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useToast } from '../../../contexts/ToastContext';
 import FileIcon from './FileIcon';
 
 interface RequestActivityAndChatProps {
@@ -36,6 +38,7 @@ const RequestActivityAndChat: React.FC<RequestActivityAndChatProps> = ({ request
     const [files, setFiles] = useState<File[]>([]);
     const viewport = useRef<HTMLDivElement>(null);
     const { token } = useAuth();
+    const { showToast } = useToast();
 
     const scrollToBottom = () => {
         viewport.current?.scrollTo({ top: viewport.current.scrollHeight, behavior: 'smooth' });
@@ -55,8 +58,8 @@ const RequestActivityAndChat: React.FC<RequestActivityAndChatProps> = ({ request
             setComment('');
             setFiles([]);
             onReload();
-        } catch (error) {
-            console.error("Error sending message:", error);
+        } catch {
+            showToast({ type: 'error', message: 'Error al enviar el mensaje' });
         } finally {
             setSending(false);
         }
@@ -89,6 +92,16 @@ const RequestActivityAndChat: React.FC<RequestActivityAndChatProps> = ({ request
         return colors[Math.abs(hash) % colors.length];
     };
 
+    const getDateLabel = (dateStr: string): string => {
+        const d = new Date(dateStr);
+        const today = new Date();
+        const yesterday = new Date();
+        yesterday.setDate(today.getDate() - 1);
+        if (d.toDateString() === today.toDateString()) return 'Hoy';
+        if (d.toDateString() === yesterday.toDateString()) return 'Ayer';
+        return d.toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' });
+    };
+
     // Filtered Chat: Only user messages
     const chatMessages = useMemo(() => {
         return (request.conversacion || []).filter((m: any) => !m.es_sistema);
@@ -111,8 +124,23 @@ const RequestActivityAndChat: React.FC<RequestActivityAndChatProps> = ({ request
                             chatMessages.map((msg: any, i: number) => {
                                 const isOwn = msg.es_mio;
                                 const userColor = getUserColor(msg.id_usuario);
+                                const msgDate = new Date(msg.fecha).toDateString();
+                                const prevDate = i > 0 ? new Date(chatMessages[i - 1].fecha).toDateString() : null;
+                                const showDateSep = msgDate !== prevDate;
                                 return (
-                                    <Box key={i} style={{ alignSelf: isOwn ? 'flex-end' : 'flex-start', maxWidth: '85%' }}>
+                                    <React.Fragment key={i}>
+                                    {showDateSep && (
+                                        <Divider
+                                            label={
+                                                <Text size="xs" c="dimmed" fw={600} tt="capitalize">
+                                                    {getDateLabel(msg.fecha)}
+                                                </Text>
+                                            }
+                                            labelPosition="center"
+                                            my="xs"
+                                        />
+                                    )}
+                                    <Box style={{ alignSelf: isOwn ? 'flex-end' : 'flex-start', maxWidth: '85%' }}>
                                         <Group gap={6} mb={4} justify={isOwn ? 'flex-end' : 'flex-start'}>
                                             {!isOwn && <IconUser size={12} style={{ color: `var(--mantine-color-${userColor}-6)` }} />}
                                             <Text size="xs" fw={800} c={isOwn ? 'blue.7' : `${userColor}.7`}>
@@ -163,6 +191,7 @@ const RequestActivityAndChat: React.FC<RequestActivityAndChatProps> = ({ request
                                             )}
                                         </Paper>
                                     </Box>
+                                    </React.Fragment>
                                 );
                             })
                         ) : (
@@ -196,7 +225,7 @@ const RequestActivityAndChat: React.FC<RequestActivityAndChatProps> = ({ request
                         )}
                         
                         <Group align="flex-end" gap="xs">
-                            <FileButton onChange={(payload) => setFiles(prev => [...prev, ...payload])} accept="*" multiple>
+                            <FileButton onChange={(payload) => setFiles(prev => [...prev, ...payload])} accept="image/*,application/pdf,.xlsx,.xls,.doc,.docx,.txt,.csv" multiple>
                                 {(props) => (
                                     <ActionIcon {...props} variant="light" color="gray" size="lg" radius="md">
                                         <IconPaperclip size={20} />

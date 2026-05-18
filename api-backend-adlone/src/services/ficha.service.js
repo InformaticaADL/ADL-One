@@ -1446,8 +1446,8 @@ class FichaIngresoService {
 
             // Get current state (optional, for history) - Skipping for speed, assume known flow
 
-            // 1 = Aprobada (Val Technique)
-            await request.query("UPDATE App_Ma_FichaIngresoServicio_ENC SET id_validaciontecnica = 1, estado_ficha = 'Pendiente Área Coordinación', observaciones_jefaturatecnica = @obs WHERE id_fichaingresoservicio = @id");
+            // 1 = Aprobada (Val Technique) — only if currently in Pendiente Técnica (3) or Rechazada Coord (4)
+            await request.query("UPDATE App_Ma_FichaIngresoServicio_ENC SET id_validaciontecnica = 1, estado_ficha = 'Pendiente Área Coordinación', observaciones_jefaturatecnica = @obs WHERE id_fichaingresoservicio = @id AND id_validaciontecnica IN (3, 4)");
 
             // LOG HISTORY
             await this.logHistorial(transaction, {
@@ -1468,10 +1468,10 @@ class FichaIngresoService {
 
             let notifUser = user ? (user.usuario || user.nombre_usuario || user.name) : null;
 
-            // Fetch owner for notif
+            // Fetch owner for notif (use pool — transaction is already committed)
             let ownerId = 0;
             try {
-                const ownerReq = new sql.Request(transaction);
+                const ownerReq = new sql.Request(pool);
                 ownerReq.input('ownerFichaId', sql.Int, id);
                 const ownerRes = await ownerReq.query('SELECT id_usuario FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio = @ownerFichaId');
                 if (ownerRes.recordset.length > 0) ownerId = ownerRes.recordset[0].id_usuario;
@@ -1541,10 +1541,10 @@ class FichaIngresoService {
 
             let notifUser = user ? (user.usuario || user.nombre_usuario || user.name) : null;
 
-            // Fetch owner for notif
+            // Fetch owner for notif (use pool — transaction is already committed)
             let ownerId = 0;
             try {
-                const ownerReq = new sql.Request(transaction);
+                const ownerReq = new sql.Request(pool);
                 ownerReq.input('ownerFichaId', sql.Int, id);
                 const ownerRes = await ownerReq.query('SELECT id_usuario FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio = @ownerFichaId');
                 if (ownerRes.recordset.length > 0) ownerId = ownerRes.recordset[0].id_usuario;
@@ -1627,10 +1627,10 @@ class FichaIngresoService {
 
             let notifUser = user ? (user.usuario || user.nombre_usuario || user.name) : null;
 
-            // Fetch owner for notif
+            // Fetch owner for notif (use pool — transaction is already committed)
             let ownerId = 0;
             try {
-                const ownerReq = new sql.Request(transaction);
+                const ownerReq = new sql.Request(pool);
                 ownerReq.input('ownerFichaId', sql.Int, id);
                 const ownerRes = await ownerReq.query('SELECT id_usuario FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio = @ownerFichaId');
                 if (ownerRes.recordset.length > 0) ownerId = ownerRes.recordset[0].id_usuario;
@@ -1704,10 +1704,10 @@ class FichaIngresoService {
 
             let notifUser = user ? (user.usuario || user.nombre_usuario || user.name) : null;
 
-            // Fetch owner for notif
+            // Fetch owner for notif (use pool — transaction is already committed)
             let ownerId = 0;
             try {
-                const ownerReq = new sql.Request(transaction);
+                const ownerReq = new sql.Request(pool);
                 ownerReq.input('ownerFichaId', sql.Int, id);
                 const ownerRes = await ownerReq.query('SELECT id_usuario FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio = @ownerFichaId');
                 if (ownerRes.recordset.length > 0) ownerId = ownerRes.recordset[0].id_usuario;
@@ -1838,7 +1838,9 @@ class FichaIngresoService {
 
                 // Augment with agenda (correlativo) summary per ficha
                 try {
-                    const fichaIds = result.recordset.map(r => Number(r.id_fichaingresoservicio || r.fichaingresoservicio));
+                    const fichaIds = result.recordset
+                        .map(r => Number(r.id_fichaingresoservicio || r.fichaingresoservicio))
+                        .filter(n => Number.isInteger(n) && n > 0);
                     if (fichaIds.length > 0) {
                         // Query agenda with fecha_muestreo — the real indicator of "occupied"
                         const agendaResult = await pool.request().query(`
@@ -2152,6 +2154,7 @@ class FichaIngresoService {
                 id_coordinador = @idCoordinador,
                 frecuencia_correlativo = @frecuenciaCorrelativo
                     WHERE id_agendamam = @id_agenda
+                      AND (estado_caso IS NULL OR estado_caso NOT IN ('CANCELADO', 'REALIZADO'))
                 `);
 
 
@@ -2620,14 +2623,14 @@ class FichaIngresoService {
 
             // UPDATE Ficha Status to 'En Proceso' (so it moves out of Pendiente Programación)
             if (distinctFichas.length > 0) {
-                const reqUpdateStatus = new sql.Request(transaction);
                 for (const fid of distinctFichas) {
-                    // FIX: Also update id_validaciontecnica to 5 (En Proceso)
+                    const reqUpdateStatus = new sql.Request(transaction);
+                    reqUpdateStatus.input('fid', sql.Numeric(10, 0), Number(fid));
                     await reqUpdateStatus.query(`
-                     UPDATE App_Ma_FichaIngresoServicio_ENC 
+                     UPDATE App_Ma_FichaIngresoServicio_ENC
                      SET estado_ficha = 'En Proceso',
                          id_validaciontecnica = 5
-                     WHERE id_fichaingresoservicio = ${fid}
+                     WHERE id_fichaingresoservicio = @fid
                  `);
                 }
             }
@@ -2740,8 +2743,10 @@ class FichaIngresoService {
             // NOTIFICACIÓN: Muestreo Cancelado
             try {
                 const poolNotif = await getConnection();
-                const detailRes = await poolNotif.request().query(`
-                    SELECT 
+                const reqNotif = poolNotif.request();
+                reqNotif.input('idAgenda', sql.BigInt, Number(idAgenda));
+                const detailRes = await reqNotif.query(`
+                    SELECT
                         a.frecuencia_correlativo,
                         a.fecha_muestreo,
                         f.fichaingresoservicio,
@@ -2749,7 +2754,7 @@ class FichaIngresoService {
                     FROM App_Ma_Agenda_MUESTREOS a
                     INNER JOIN App_Ma_FichaIngresoServicio_ENC f ON a.id_fichaingresoservicio = f.id_fichaingresoservicio
                     LEFT JOIN mae_muestreador m ON a.id_muestreador = m.id_muestreador
-                    WHERE a.id_agendamam = ${idAgenda}
+                    WHERE a.id_agendamam = @idAgenda
                 `);
 
                 if (detailRes.recordset.length > 0) {

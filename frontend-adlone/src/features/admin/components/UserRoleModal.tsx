@@ -142,9 +142,10 @@ export const UserRoleModal: React.FC<Props> = ({ user, isOpen, onClose, onSucces
     };
 
     const filteredRoles = React.useMemo(() => {
-        if (!debouncedSearch.trim()) return roles;
+        const activeRoles = roles.filter(r => r.estado);
+        if (!debouncedSearch.trim()) return activeRoles;
         const term = debouncedSearch.toLowerCase();
-        return roles.filter(role =>
+        return activeRoles.filter(role =>
             role.nombre_rol.toLowerCase().includes(term) ||
             (role.descripcion && role.descripcion.toLowerCase().includes(term))
         );

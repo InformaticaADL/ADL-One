@@ -32,6 +32,7 @@ import { ursService } from '../../../services/urs.service';
 import { useNavStore } from '../../../store/navStore';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useNotificationStore } from '../../../store/notificationStore';
+import { useToast } from '../../../contexts/ToastContext';
 import RequestDetailPanel from './RequestDetailPanel';
 import RequestActivityAndChat from './RequestActivityAndChat';
 import { StatusBadge } from '../../../components/ui/StatusBadge';
@@ -51,7 +52,7 @@ interface Request {
 }
 
 const UniversalInbox: React.FC = () => {
-    const { 
+    const {
         setActiveSubmodule,
         pendingRequestId,
         setPendingRequestId,
@@ -61,9 +62,11 @@ const UniversalInbox: React.FC = () => {
         setUrsInboxMode,
         ursFilters,
         setUrsFilters,
+        setUrsUnreadCount,
     } = useNavStore();
 
     const { user } = useAuth();
+    const { showToast } = useToast();
     const isMobile = useMediaQuery('(max-width: 768px)');
     const { markAsReadByRef, notifications } = useNotificationStore();
 
@@ -84,8 +87,10 @@ const UniversalInbox: React.FC = () => {
         try {
             const reqs = await ursService.getRequests();
             setRequests(reqs);
-        } catch (error) {
-            console.error("Error loading inbox data:", error);
+            const totalUnread = reqs.filter((r: any) => (r.unread_count || 0) > 0).length;
+            setUrsUnreadCount(totalUnread);
+        } catch {
+            showToast({ type: 'error', message: 'Error al cargar la bandeja de solicitudes' });
         } finally {
             setLoading(false);
         }
@@ -102,8 +107,8 @@ const UniversalInbox: React.FC = () => {
             markAsReadByRef(id);
             const data = await ursService.getRequestDetail(id);
             setSelectedRequest(data);
-        } catch (error) {
-            console.error("Error loading request detail:", error);
+        } catch {
+            showToast({ type: 'error', message: 'Error al cargar el detalle de la solicitud' });
             setSelectedRequest(null);
         } finally {
             if (!silent) setLoadingDetail(false);
@@ -168,7 +173,7 @@ const UniversalInbox: React.FC = () => {
     useEffect(() => {
         if (notifications.length > prevNotifCountRef.current) {
             // A new notification arrived — refresh the inbox list
-            ursService.getRequests().then(reqs => setRequests(reqs)).catch(console.error);
+            ursService.getRequests().then(reqs => setRequests(reqs)).catch(() => {});
             // If a request is selected, refresh its detail too
             if (selectedRequestId) {
                 loadRequestDetail(selectedRequestId, true);
@@ -182,8 +187,8 @@ const UniversalInbox: React.FC = () => {
             try {
                 const reqs = await ursService.getRequests();
                 setRequests(reqs);
-            } catch (error) {
-                console.error("Error polling inbox list:", error);
+            } catch {
+                // Silent — background poll failure doesn't need user notification
             }
         }, 30000);
         return () => clearInterval(interval);
@@ -221,6 +226,16 @@ const UniversalInbox: React.FC = () => {
             return matchesSearch && matchesStatus && matchesArea && matchesType;
         });
     }, [requests, searchTerm, filter, ursInboxMode, user]);
+
+    const tipoOptions = useMemo(() => {
+        const types = [...new Set(requests.map(r => r.nombre_tipo).filter(Boolean))].sort();
+        return [{ value: '', label: 'Todos' }, ...types.map(t => ({ value: t, label: t }))];
+    }, [requests]);
+
+    const areaOptions = useMemo(() => {
+        const areas = [...new Set(requests.map(r => r.area_destino).filter(Boolean))].sort();
+        return [{ value: '', label: 'Todas' }, ...areas.map(a => ({ value: a, label: a }))];
+    }, [requests]);
 
     const groupedRequests = useMemo(() => {
         const groups: { [key: string]: Request[] } = {};
@@ -303,25 +318,33 @@ const UniversalInbox: React.FC = () => {
                                         { value: 'EN_REVISION', label: 'En Revisión' },
                                         { value: 'ACEPTADA', label: 'Aceptadas' },
                                         { value: 'REALIZADA', label: 'Realizadas' },
-                                        { value: 'RECHAZADA', label: 'Rechazadas' }
+                                        { value: 'RECHAZADA', label: 'Rechazadas' },
+                                        { value: 'CANCELADA', label: 'Canceladas' }
                                     ]}
                                     size="xs"
                                     radius="md"
                                 />
-                                <Select 
+                                <Select
                                     label="Área"
                                     placeholder="Seleccionar"
                                     value={filter.area}
                                     onChange={(val) => setFilter({...filter, area: val || ''})}
-                                    data={[
-                                        { value: '', label: 'Todas' },
-                                        { value: 'INF', label: 'Informática' },
-                                        { value: 'GC', label: 'Calidad' }
-                                    ]}
+                                    data={areaOptions}
                                     size="xs"
                                     radius="md"
                                 />
                             </Group>
+
+                            <Select
+                                label="Tipo"
+                                placeholder="Todos los tipos"
+                                value={filter.type}
+                                onChange={(val) => setFilter({...filter, type: val || ''})}
+                                data={tipoOptions}
+                                size="xs"
+                                radius="md"
+                                clearable
+                            />
                         </Stack>
 
                         {/* Scrollable list Section */}
@@ -363,7 +386,7 @@ const UniversalInbox: React.FC = () => {
                                                                     <Badge size="xs" color="gray" variant="light">#{req.id_solicitud}</Badge>
                                                                     {!isMine && (
                                                                         <Text size="xs" fw={700} c="adl-blue">
-                                                                            {req.nombre_solicitante?.split(' ')[0]}
+                                                                            {req.nombre_solicitante?.split(' ').slice(0, 2).join(' ')}
                                                                         </Text>
                                                                     )}
                                                                 </Group>

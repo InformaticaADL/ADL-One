@@ -15,7 +15,6 @@ import { AdminInfoHub } from '../features/admin/pages/AdminInfoHub';
 import { InformaticaHub } from '../features/admin/pages/InformaticaHub';
 import { UsersManagementPage } from '../features/admin/pages/UsersManagementPage';
 import { AdminMenuWebPage } from '../features/admin/pages/AdminMenuWebPage';
-import { UserRolesPage } from '../features/admin/pages/UserRolesPage';
 import { MaestrosHub } from '../features/admin/pages/MaestrosHub';
 import { AdminMaHub } from '../features/admin/pages/AdminMaHub';
 import { AdminGcHub } from '../features/admin/pages/AdminGcHub';
@@ -52,7 +51,7 @@ const DashboardPage = () => {
             ].some(p => hasPermission(p));
     };
 
-    const ADMIN_SUBMODULES = ['admin-roles', 'admin-users', 'admin-user-roles', 'admin-notifications', 'admin-urs', 'admin-menu-web', 'admin-maestros', 'informatica'];
+    const ADMIN_SUBMODULES = ['admin-roles', 'admin-users', 'admin-notifications', 'admin-urs', 'admin-menu-web', 'admin-maestros', 'informatica'];
     // Nota: 'admin-equipos-gestion' y 'admin-muestreadores' se verifican con sus propios permisos
     // y NO dependen de los permisos de Admin. Información
 
@@ -97,17 +96,16 @@ const DashboardPage = () => {
         if (activeSubmodule === 'ma-calendario-replica') return <CalendarioReplicaPage onBack={() => setActiveSubmodule('medio_ambiente')} />;
         if (activeSubmodule === 'admin-equipos-gestion') return <EquiposPage onBack={() => setActiveSubmodule('')} />;
         if (activeSubmodule === 'admin-muestreadores') return <MuestreadoresPage onBack={() => setActiveSubmodule('medio_ambiente')} />;
-        if (activeSubmodule === 'urs-new-request') return <NewRequestPage onBack={() => setActiveSubmodule('urs_bandeja')} />;
+        if (activeSubmodule === 'urs-new-request') return <NewRequestPage onBack={() => setActiveSubmodule('')} />;
 
         // --- 2. Lógica Específica del Módulo de Administración ---
         if (activeModule === 'admin_informacion') {
             if (!hasAdminAccess()) return <div className="dashboard-content" style={{ textAlign: 'center', padding: '3rem' }}><h1>🚫 Denegado</h1></div>;
 
             if (activeSubmodule === 'informatica') return <InformaticaHub onNavigate={(v) => setActiveSubmodule(v)} onBack={() => setActiveSubmodule('')} />;
-            if (['admin-roles', 'admin-users', 'admin-user-roles', 'admin-notifications', 'admin-urs', 'admin-menu-web', 'admin-maestros'].includes(activeSubmodule)) {
+            if (['admin-roles', 'admin-users', 'admin-notifications', 'admin-urs', 'admin-menu-web', 'admin-maestros'].includes(activeSubmodule)) {
                 if (activeSubmodule === 'admin-roles') return <RolesPage onBack={() => setActiveSubmodule('informatica')} />;
                 if (activeSubmodule === 'admin-users') return <UsersManagementPage onBack={() => setActiveSubmodule('informatica')} />;
-                if (activeSubmodule === 'admin-user-roles') return <UserRolesPage onBack={() => setActiveSubmodule('informatica')} />;
                 if (activeSubmodule === 'admin-notifications') return <NotificationsPage onBack={() => setActiveSubmodule('informatica')} />;
                 if (activeSubmodule === 'admin-urs') return <AdminUrsPage onBack={() => setActiveSubmodule('informatica')} />;
                 if (activeSubmodule === 'admin-menu-web') return <AdminMenuWebPage onBack={() => setActiveSubmodule('informatica')} />;

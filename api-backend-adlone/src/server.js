@@ -9,6 +9,7 @@ import { getConnection } from './config/database.js';
 import logger from './utils/logger.js';
 import { requestLogger } from './middlewares/logger.middleware.js';
 import { contextMiddleware } from './middlewares/context.middleware.js';
+import { auditMiddleware } from './middlewares/audit.middleware.js';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler.middleware.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -32,11 +33,11 @@ import uploadRoutes from './routes/upload.routes.js';
 import ursRoutes from './routes/urs.routes.js';
 import unsRoutes from './routes/notificacion.routes.js';
 import userRoutes from './routes/user.routes.js';
-import chatRoutes from './routes/chat.routes.js';
 import generalChatRoutes from './routes/general-chat.routes.js';
 import menuRoutes from './routes/menu.routes.js';
 import bulkFichaRoutes from './routes/bulk-ficha.routes.js';
 import rutasPlanificadasRoutes from './routes/rutas-planificadas.routes.js';
+import rutasEjecucionesRoutes from './routes/rutas-ejecuciones.routes.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -70,7 +71,8 @@ const io = new Server(httpServer, {
 });
 
 // Make io accessible via the socketManager module
-import { setIo } from './utils/socketManager.js';
+import { setIo, getIo } from './utils/socketManager.js';
+import sql from 'mssql';
 setIo(io);
 
 // Require valid JWT for all Socket.IO connections
@@ -97,13 +99,69 @@ io.on('connection', (socket) => {
         logger.info('Client disconnected');
     });
 
-    // General Chat: join/leave conversation rooms
-    socket.on('joinChat', (conversationId) => {
-        socket.join(`chat_${conversationId}`);
+    // General Chat: join/leave conversation rooms — verify participation first
+    socket.on('joinChat', async (conversationId) => {
+        try {
+            const pool = await getConnection();
+            const check = await pool.request()
+                .input('convId', sql.Numeric(10, 0), Number(conversationId))
+                .input('userId', sql.Numeric(10, 0), socket.user.id)
+                .query(`SELECT 1 FROM rel_chat_participante WHERE id_conversacion = @convId AND id_usuario = @userId AND activo = 1`);
+            if (check.recordset.length > 0) {
+                socket.join(`chat_${conversationId}`);
+            }
+        } catch (err) {
+            logger.warn(`joinChat auth failed for user ${socket.user?.id}: ${err.message}`);
+        }
     });
 
     socket.on('leaveChat', (conversationId) => {
         socket.leave(`chat_${conversationId}`);
+    });
+
+    // Typing indicators — delivered via user rooms (consistent with message delivery)
+    socket.on('typingStart', async ({ conversationId }) => {
+        try {
+            const pool = await getConnection();
+            const check = await pool.request()
+                .input('convId', sql.Numeric(10, 0), Number(conversationId))
+                .input('userId', sql.Numeric(10, 0), socket.user.id)
+                .query(`SELECT 1 FROM rel_chat_participante WHERE id_conversacion = @convId AND id_usuario = @userId AND activo = 1`);
+            if (check.recordset.length === 0) return;
+
+            const [others, senderInfo] = await Promise.all([
+                pool.request()
+                    .input('convId', sql.Numeric(10, 0), Number(conversationId))
+                    .input('userId', sql.Numeric(10, 0), socket.user.id)
+                    .query(`SELECT id_usuario FROM rel_chat_participante WHERE id_conversacion = @convId AND id_usuario <> @userId AND activo = 1`),
+                pool.request()
+                    .input('uid', sql.Numeric(10, 0), socket.user.id)
+                    .query(`SELECT usuario FROM mae_usuario WHERE id_usuario = @uid`)
+            ]);
+
+            const payload = {
+                conversationId: Number(conversationId),
+                userId: socket.user.id,
+                name: senderInfo.recordset[0]?.usuario || 'Alguien'
+            };
+            for (const p of others.recordset) {
+                getIo().to(`user_${p.id_usuario}`).emit('chatTyping', payload);
+            }
+        } catch (_) { /* typing is non-critical, swallow silently */ }
+    });
+
+    socket.on('typingStop', async ({ conversationId }) => {
+        try {
+            const pool = await getConnection();
+            const others = await pool.request()
+                .input('convId', sql.Numeric(10, 0), Number(conversationId))
+                .input('userId', sql.Numeric(10, 0), socket.user.id)
+                .query(`SELECT id_usuario FROM rel_chat_participante WHERE id_conversacion = @convId AND id_usuario <> @userId AND activo = 1`);
+            const payload = { conversationId: Number(conversationId), userId: socket.user.id };
+            for (const p of others.recordset) {
+                getIo().to(`user_${p.id_usuario}`).emit('chatStopTyping', payload);
+            }
+        } catch (_) { /* non-critical */ }
     });
 });
 
@@ -137,6 +195,7 @@ app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(contextMiddleware);
 app.use(requestLogger);
+app.use(auditMiddleware);
 
 // Routes
 app.use('/api/health', healthRoutes);
@@ -153,10 +212,10 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/urs', ursRoutes);
 app.use('/api/uns', unsRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/chat', chatRoutes);
 app.use('/api/gchat', generalChatRoutes);
 app.use('/api/menu', menuRoutes);
 app.use('/api/rutas-planificadas', rutasPlanificadasRoutes);
+app.use('/api/rutas-ejecuciones', rutasEjecucionesRoutes);
 
 // Serve uploads directory as static
 const uploadPath = process.env.UPLOAD_PATH || path.join(__dirname, '../uploads');

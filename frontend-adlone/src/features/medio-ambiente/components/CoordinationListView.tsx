@@ -28,6 +28,7 @@ import {
     IconEye,
     IconFilter
 } from '@tabler/icons-react';
+import { useToast } from '../../../contexts/ToastContext';
 
 interface Props {
     onBackToMenu: () => void;
@@ -35,6 +36,7 @@ interface Props {
 }
 
 export const CoordinationListView: React.FC<Props> = ({ onBackToMenu, onViewDetail }) => {
+    const { showToast } = useToast();
     // State
     const [searchId, setSearchId] = useState('');
     const [dateFrom, setDateFrom] = useState('');
@@ -63,6 +65,7 @@ export const CoordinationListView: React.FC<Props> = ({ onBackToMenu, onViewDeta
             setFichas(data || []);
         } catch (error) {
             console.error("Error loading coordination fichas:", error);
+            showToast({ type: 'error', message: 'Error al cargar fichas de coordinación' });
         } finally {
             setLoading(false);
         }
@@ -85,8 +88,10 @@ export const CoordinationListView: React.FC<Props> = ({ onBackToMenu, onViewDeta
             document.body.appendChild(link);
             link.click();
             link.parentNode?.removeChild(link);
+            window.URL.revokeObjectURL(url);
         } catch (error) {
             console.error("Error downloading PDF:", error);
+            showToast({ type: 'error', message: 'Error al descargar el PDF de la ficha' });
         }
     };
 

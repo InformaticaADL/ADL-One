@@ -81,9 +81,6 @@ const DeriveRequestModal: React.FC<DeriveRequestModalProps> = ({ isOpen, request
         return { value: val, label: lbl };
     }).filter(opt => opt.value);
 
-    // Debugging line (will appear in browser console)
-    if (targets.length > 0) console.log("URS Derivation Targets:", targetOptions);
-
     return (
         <Modal 
             opened={isOpen} 

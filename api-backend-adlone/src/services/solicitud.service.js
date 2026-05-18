@@ -248,10 +248,11 @@ class SolicitudService {
             query += ' ORDER BY s.fecha_solicitud DESC';
 
             const result = await request.query(query);
-            return result.recordset.map(row => ({
-                ...row,
-                datos_json: JSON.parse(row.datos_json)
-            }));
+            return result.recordset.map(row => {
+                let datos_json = {};
+                try { datos_json = JSON.parse(row.datos_json || '{}'); } catch { datos_json = {}; }
+                return { ...row, datos_json };
+            });
         } catch (error) {
             logger.error('Error fetching solicitudes:', error);
             throw error;

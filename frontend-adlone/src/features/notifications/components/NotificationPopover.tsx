@@ -35,7 +35,7 @@ interface NotificationPopoverProps {
 }
 
 export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ opened, onClose, children }) => {
-    const { notifications, markAsRead } = useNotificationStore();
+    const { notifications, markAsRead, markAllAsRead } = useNotificationStore();
     const { setActiveModule, setActiveSubmodule, setPendingRequestId, setPendingChatId, setSelectedRequestId } = useNavStore();
 
     const unreadNotifications = notifications.filter(n => !n.leido);
@@ -140,11 +140,23 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ opened
                 <Box p="md" style={{ backgroundColor: 'white' }}>
                     <Group justify="space-between" mb="xs">
                         <Text fw={700} size="sm">Notificaciones Recientes</Text>
-                        {unreadNotifications.length > 0 && (
-                            <Badge size="xs" color="red" variant="filled">
-                                {unreadNotifications.length} nuevas
-                            </Badge>
-                        )}
+                        <Group gap={6}>
+                            {unreadNotifications.length > 0 && (
+                                <Badge size="xs" color="red" variant="filled">
+                                    {unreadNotifications.length} nuevas
+                                </Badge>
+                            )}
+                            {unreadNotifications.length > 0 && (
+                                <Button
+                                    variant="subtle"
+                                    size="compact-xs"
+                                    color="gray"
+                                    onClick={markAllAsRead}
+                                >
+                                    Marcar todas como leídas
+                                </Button>
+                            )}
+                        </Group>
                     </Group>
                     <Divider my="xs" />
 

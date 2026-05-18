@@ -3,6 +3,7 @@ import sql from '../config/database.js';
 import logger from '../utils/logger.js';
 import unsService from '../services/uns.service.js';
 import transporter from '../config/mailer.js';
+import auditService from '../services/audit.service.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -108,7 +109,7 @@ export const removeRecipient = async (req, res) => {
 // NEW: Test SMTP connection
 export const testSMTP = async (req, res) => {
     try {
-        await transporter.verify();
+        await transporter().verify();
         logger.info('SMTP connection test successful');
         res.json({
             success: true,
@@ -139,11 +140,22 @@ export const sendTestNotification = async (req, res) => {
     }
 
     try {
-        logger.info(`Manual test notification triggered for event: ${eventCode}`);
-        await unsService.trigger(eventCode, context || { correlativo: 'TEST-123', usuario: 'Admin Test' });
+        const adminId = req.user.id || req.user.id_usuario;
+        logger.info(`[TEST] Notificación de prueba para evento: ${eventCode} — solo enviada al admin ID ${adminId}`);
+
+        // dryRun: only notify the admin triggering the test, never real recipients
+        await unsService.sendWebNotification(
+            adminId,
+            `[PRUEBA] ${eventCode}`,
+            `Prueba exitosa del evento "${eventCode}". Los destinatarios reales NO fueron notificados.`,
+            'INFO',
+            null,
+            'test'
+        );
+
         res.json({
             success: true,
-            message: `Notificación de prueba enviada para evento: ${eventCode}. Revisa los logs y la campanita.`
+            message: `Notificación de prueba enviada solo a ti. Los destinatarios reales no fueron afectados.`
         });
     } catch (error) {
         logger.error('Error sending test notification:', error);
@@ -170,8 +182,7 @@ export const testCustomHTML = async (req, res) => {
         // INJECT LOCAL LOGO via CID (Content-ID) for better Outlook support
         if (htmlContent.includes('{LOGO_BASE64}')) {
             try {
-                // Hardcoded path to dev environment logo - for testing purposes only
-                const logoPath = 'C:\\Users\\vremolcoy\\Desktop\\ADL ONE\\frontend-adlone\\src\\assets\\images\\logo-adlone.png';
+                const logoPath = path.resolve(__dirname, '../assets/logo-adlone.png');
 
                 if (fs.existsSync(logoPath)) {
                     // Replace placeholder with CID reference
@@ -199,7 +210,7 @@ export const testCustomHTML = async (req, res) => {
             attachments: attachments
         };
 
-        await transporter.sendMail(mailOptions);
+        await transporter().sendMail(mailOptions);
 
         logger.info(`Custom HTML test email sent to: ${recipient}`);
         res.json({
@@ -356,6 +367,20 @@ export const saveNotificationConfig = async (req, res) => {
         }
 
         await transaction.commit();
+
+        const adminId = req.user?.id || req.user?.id_usuario || 0;
+        auditService.log({
+            usuario_id: adminId,
+            area_key: 'it',
+            modulo_nombre: 'Notificaciones',
+            evento_tipo: 'NOTIFICATION_CONFIG_SAVE',
+            entidad_nombre: 'cfg_notificacion_config',
+            entidad_id: String(id_evento),
+            descripcion_humana: `${req.user?.nombre_usuario || `ID:${adminId}`} actualizó la configuración del evento de notificación ID ${id_evento} (${configs.length} destinatarios)`,
+            datos_nuevos: { id_evento, configs },
+            severidad: 1
+        });
+
         res.json({ success: true, message: 'Configuración actualizada correctamente' });
     } catch (error) {
         await transaction.rollback();

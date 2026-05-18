@@ -46,6 +46,11 @@ export const notificationService = {
         return response.data;
     },
 
+    markAllAsRead: async () => {
+        const response = await apiClient.put('/api/uns/read-all');
+        return response.data;
+    },
+
     // Architecture 3.0 Methods
     getNotificationCatalog: async () => {
         const response = await apiClient.get('/api/notifications/catalog');

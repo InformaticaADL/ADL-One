@@ -14,6 +14,12 @@ const ALLOWED_TABLES = new Set([
   'mae_notificacion_regla', 'mae_evento_notificacion', 'mae_comuna',
 ]);
 
+// Columns that must never be returned by the generic getMaestroData endpoint
+const SENSITIVE_COLUMNS = {
+  mae_usuario: new Set(['clave_usuario']),
+  mae_muestreador: new Set(['clave_muestreador']),
+};
+
 // Validates that a column/identifier is safe to interpolate (alphanumeric + underscores)
 const IDENTIFIER_RE = /^[a-z][a-z0-9_]{0,63}$/i;
 function assertIdentifier(value, label) {
@@ -54,12 +60,15 @@ export const catalogosService = {
   getClientes: async (idEmpresaServicio) => {
     try {
       const pool = await getConnection();
-      // Requirement: Show only habilitados
-      const result = await pool.request().query("SELECT id_empresa, nombre_empresa, id_empresaservicio, email_empresa FROM mae_empresa WHERE habilitado = 'S'");
-      let clientes = result.recordset;
-
-      logger.info(`Returning all enabled clientes (${clientes.length} records)`);
-      return clientes;
+      const request = pool.request();
+      let query = "SELECT id_empresa, nombre_empresa, id_empresaservicio, email_empresa FROM mae_empresa WHERE habilitado = 'S'";
+      if (idEmpresaServicio) {
+        request.input('idEmpresaServicio', sql.Int, Number(idEmpresaServicio));
+        query += ' AND id_empresaservicio = @idEmpresaServicio';
+      }
+      const result = await request.query(query);
+      logger.info(`Returning ${result.recordset.length} clientes${idEmpresaServicio ? ` for empresa_servicio ${idEmpresaServicio}` : ''}`);
+      return result.recordset;
     } catch (error) {
       logger.error('Error in getClientes service:', error);
       throw error;
@@ -106,35 +115,29 @@ export const catalogosService = {
   getCentros: async (idCliente, idEmpresaServicio) => {
     try {
       const pool = await getConnection();
+      const request = pool.request();
 
-      // FIX: "Procedure consulta_centro has no parameters and arguments were supplied."
-      // We must call it without params and filter in memory.
-      const result = await pool.request().execute('consulta_centro');
-      let centros = result.recordset;
+      // Direct parameterized query — avoids loading the full table into memory
+      let query = `
+        SELECT c.id_centro, c.codigo_centro, c.nombre_centro, c.ubicacion,
+               c.id_empresa, e.nombre_empresa
+        FROM mae_centro c
+        INNER JOIN mae_empresa e ON c.id_empresa = e.id_empresa
+        WHERE c.vigente = 'S'
+      `;
 
       if (idCliente) {
-        const idFilter = Number(idCliente);
-        centros = centros.filter(c =>
-          c.id_empresa === idFilter ||
-          c.IdEmpresa === idFilter
-        );
-        logger.info(`Centros filtered for cliente ${idCliente}: ${centros.length} records`);
+        request.input('idCliente', sql.Int, Number(idCliente));
+        query += ' AND c.id_empresa = @idCliente';
       } else if (idEmpresaServicio) {
-        const idServicio = Number(idEmpresaServicio);
-        // We find all id_empresa that belong to this id_empresaservicio as a fallback
-        const clientRes = await pool.request()
-          .input('idServicio', sql.Int, idServicio)
-          .query("SELECT id_empresa FROM mae_empresa WHERE id_empresaservicio = @idServicio AND habilitado = 'S'");
-        const allowedIds = clientRes.recordset.map(r => r.id_empresa);
-        
-        centros = centros.filter(c => 
-          allowedIds.includes(c.id_empresa) || 
-          allowedIds.includes(c.IdEmpresa)
-        );
-        logger.info(`Centros filtered for empresa_servicio ${idEmpresaServicio}: ${centros.length} records`);
+        request.input('idServicio', sql.Int, Number(idEmpresaServicio));
+        query += ' AND e.id_empresaservicio = @idServicio';
       }
 
-      return centros;
+      query += ' ORDER BY c.nombre_centro';
+      const result = await request.query(query);
+      logger.info(`Centros${idCliente ? ` for cliente ${idCliente}` : idEmpresaServicio ? ` for empresa_servicio ${idEmpresaServicio}` : ''}: ${result.recordset.length} records`);
+      return result.recordset;
     } catch (error) {
       logger.error('Error in getCentros service:', error);
       throw error;
@@ -412,7 +415,13 @@ export const catalogosService = {
       assertTable(tableName);
       const pool = await getConnection();
       const result = await pool.request().query(`SELECT * FROM ${tableName}`);
-      return result.recordset;
+      const blocked = SENSITIVE_COLUMNS[tableName];
+      if (!blocked) return result.recordset;
+      return result.recordset.map(row => {
+        const clean = { ...row };
+        blocked.forEach(col => delete clean[col]);
+        return clean;
+      });
     } catch (error) {
       logger.error(`Error in getMaestroData (${tableName}):`, error);
       throw error;
@@ -502,14 +511,18 @@ export const catalogosService = {
   },
 
   toggleMaestroStatus: async (tableName, idName, idValue, statusColumn, newStatus) => {
+    const ALLOWED_STATUS_VALUES = new Set(['S', 'N', 'activo', 'inactivo', 'Activo', 'Inactivo', '1', '0', 1, 0, true, false]);
     try {
       assertTable(tableName);
       assertIdentifier(idName, 'id column');
       assertIdentifier(statusColumn, 'status column');
+      if (!ALLOWED_STATUS_VALUES.has(newStatus)) {
+        throw new Error(`Invalid status value: ${newStatus}`);
+      }
       const pool = await getConnection();
       const request = pool.request();
       request.input('idValue', idValue);
-      request.input('newStatus', newStatus);
+      request.input('newStatus', String(newStatus));
 
       await request.query(`UPDATE ${tableName} SET ${statusColumn} = @newStatus WHERE ${idName} = @idValue`);
       return { success: true };

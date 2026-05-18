@@ -37,12 +37,6 @@ class MenuService {
 
                 if (!hasModuleAccess && mod.permissions_str) {
                     requiredPerms = mod.permissions_str.split(',').map(p => p.trim());
-                    
-                    // HOTFIX: MA_COMERCIAL_HISTORIAL_ACCESO belongs to GEM, not Medio Ambiente
-                    if (mod.id_modulo === 'medio_ambiente') {
-                        requiredPerms = requiredPerms.filter(p => p !== 'MA_COMERCIAL_HISTORIAL_ACCESO');
-                    }
-                    
                     hasModuleAccess = requiredPerms.some(p => userPermissions.includes(p));
                 }
 
@@ -120,7 +114,7 @@ class MenuService {
             const { id_modulo, label, icon_name, grupo, permissions_str, sort_order } = data;
             
             // Check if exists
-            const check = await pool.request().input('id', sql.NVarChar, id_modulo).query('SELECT id_modulo FROM mae_menu_modulo WHERE id_modulo = @id');
+            const check = await pool.request().input('id', sql.NVarChar(50), id_modulo).query('SELECT id_modulo FROM mae_menu_modulo WHERE id_modulo = @id');
             if (check.recordset.length > 0) throw new Error('El ID de módulo ya existe.');
 
             await pool.request()
@@ -168,6 +162,10 @@ class MenuService {
     async deleteModulo(id_modulo) {
         try {
             const pool = await getConnection();
+            // Cascade-disable all child links first
+            await pool.request()
+                .input('id', sql.NVarChar(50), id_modulo)
+                .query('UPDATE mae_menu_link SET activo = 0 WHERE id_modulo = @id');
             await pool.request()
                 .input('id', sql.NVarChar(50), id_modulo)
                 .query('UPDATE mae_menu_modulo SET activo = 0 WHERE id_modulo = @id');
@@ -182,7 +180,20 @@ class MenuService {
         try {
             const pool = await getConnection();
             const { id_modulo, id_accion, label, permissions_str, sort_order } = data;
-            
+
+            // Validate parent module exists
+            const modCheck = await pool.request()
+                .input('mid', sql.NVarChar(50), id_modulo)
+                .query('SELECT id_modulo FROM mae_menu_modulo WHERE id_modulo = @mid');
+            if (modCheck.recordset.length === 0) throw new Error(`El módulo padre '${id_modulo}' no existe.`);
+
+            // Validate id_accion is unique within the module
+            const dupCheck = await pool.request()
+                .input('mid', sql.NVarChar(50), id_modulo)
+                .input('aid', sql.NVarChar(100), id_accion)
+                .query('SELECT id_link FROM mae_menu_link WHERE id_modulo = @mid AND id_accion = @aid');
+            if (dupCheck.recordset.length > 0) throw new Error(`Ya existe un enlace con ID '${id_accion}' en este módulo.`);
+
             await pool.request()
                 .input('mid', sql.NVarChar(50), id_modulo)
                 .input('aid', sql.NVarChar(100), id_accion)
@@ -204,6 +215,13 @@ class MenuService {
         try {
             const pool = await getConnection();
             const { id_modulo, id_accion, label, permissions_str, sort_order, activo } = data;
+
+            // Validate parent module exists
+            const modCheck = await pool.request()
+                .input('mid', sql.NVarChar(50), id_modulo)
+                .query('SELECT id_modulo FROM mae_menu_modulo WHERE id_modulo = @mid');
+            if (modCheck.recordset.length === 0) throw new Error(`El módulo padre '${id_modulo}' no existe.`);
+
             await pool.request()
                 .input('id', sql.Int, id_link)
                 .input('mid', sql.NVarChar(50), id_modulo)

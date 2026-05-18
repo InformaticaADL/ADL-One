@@ -77,8 +77,8 @@ const NewRequestPage: React.FC<NewRequestPageProps> = ({ onBack }) => {
                 setTypes(res);
                 setLoading(false);
             })
-            .catch(err => {
-                console.error("Error loading types:", err);
+            .catch(() => {
+                showToast({ type: 'error', message: 'Error al cargar los tipos de solicitud. Recarga la página.' });
                 setLoading(false);
             });
     }, []);
@@ -93,10 +93,58 @@ const NewRequestPage: React.FC<NewRequestPageProps> = ({ onBack }) => {
         setFiles(prev => prev.filter((_, i) => i !== index));
     };
 
+    const validateSubForm = (): string | null => {
+        if (!subFormData) return null;
+        const d = subFormData;
+        switch (d._form_type) {
+            case 'ACTIVACION_EQUIPO':
+                if (d.subtipo_alta === 'EXISTENTE' && !d.id_equipo) return 'Selecciona un equipo del inventario.';
+                if (d.subtipo_alta === 'NUEVO' && !d.nombre_equipo?.trim()) return 'Ingresa el nombre/modelo del equipo.';
+                if (d.subtipo_alta === 'NUEVO' && !d.tipo_equipo) return 'Selecciona el tipo de equipo.';
+                if (!d.id_ubicacion) return 'Selecciona la ubicación destino.';
+                if (!d.id_responsable) return 'Selecciona el responsable asignado.';
+                break;
+            case 'BAJA_EQUIPO':
+                if (!d.id_equipo) return 'Selecciona el equipo a desvincular.';
+                if (!d.motivo) return 'Selecciona el motivo del cese.';
+                break;
+            case 'TRASPASO_EQUIPO':
+                if (!d.id_equipo) return 'Selecciona el equipo a traspasar.';
+                if (!d.traspaso_de?.length) return 'Indica qué deseas traspasar (ubicación y/o responsable).';
+                if (d.traspaso_de.includes('UBICACION') && !d.id_centro_destino) return 'Selecciona la nueva ubicación destino.';
+                if (d.traspaso_de.includes('RESPONSABLE') && !d.id_muestreador_destino) return 'Selecciona el nuevo responsable destino.';
+                break;
+            case 'NUEVO_EQUIPO':
+                if (!d.nombre_equipo?.trim()) return 'Ingresa el nombre descriptivo del equipo.';
+                if (!d.tipo_equipo) return 'Selecciona la categoría del equipo.';
+                break;
+            case 'REPORTE_PROBLEMA':
+                if (!d.asunto?.trim()) return 'Ingresa el asunto del reporte.';
+                if (!d.categoria_problema) return 'Selecciona la categoría del problema.';
+                if (!d.descripcion_problema?.trim()) return 'Ingresa la descripción detallada.';
+                break;
+            case 'EXTENSION_VIGENCIA':
+                if (!d.id_equipo) return 'Selecciona el equipo.';
+                if (!d.nueva_vigencia) return 'Indica la nueva fecha de vigencia.';
+                if (!d.justificacion?.trim()) return 'Ingresa la justificación de la extensión.';
+                break;
+        }
+        return null;
+    };
+
     const handleSubmit = async () => {
         if (!selectedTypeId) return;
-        if (!observations.trim()) return;
-        
+        if (!observations.trim()) {
+            showToast({ type: 'warning', message: 'Las observaciones son obligatorias.' });
+            return;
+        }
+
+        const subFormError = validateSubForm();
+        if (subFormError) {
+            showToast({ type: 'warning', message: subFormError });
+            return;
+        }
+
         setIsSubmitting(true);
         try {
             const payload = {
@@ -117,7 +165,7 @@ const NewRequestPage: React.FC<NewRequestPageProps> = ({ onBack }) => {
             
             setTimeout(() => {
                 goToInbox();
-            }, 2800);
+            }, 1500);
         } catch (error) {
             console.error(error);
             showToast({ type: 'error', message: 'Error al crear la solicitud' });

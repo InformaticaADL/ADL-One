@@ -1038,6 +1038,29 @@ Un extenso abanico de mejoras focalizadas en la estabilidad del control de acces
 
 ---
 
+### 62. Sincronización de Equipo, UI Responsiva y Rutas de Ejecución (Mayo 2026) 🤝🚀
+Integración y consolidación de cambios del equipo de desarrollo, estandarización de UI e implementación de nuevos módulos operativos.
+
+- **Estandarización de Layout UI (Sincronización de Equipo)**:
+    - Implementación generalizada de cabeceras responsivas (`PageHeader`) y navegación por migas de pan (breadcrumbs) en todo el módulo de Medio Ambiente, mejorando la navegación del usuario.
+    - Sincronización de estados "en ruta" desde el backend al frontend en el planificador de mapas (RouteMapPlanner), con mejoras visuales para tarjetas de dashboard deshabilitadas.
+    - Corrección de cadena de permisos que bloqueaba el acceso del rol Calidad.
+
+- **Módulo de Ejecución de Rutas (Rutas-Ejecuciones)**:
+    - Nuevo submódulo `rutas-ejecuciones` para gestionar el ciclo de vida y los estados de los servicios en terreno.
+    - Implementación del componente UI `NuevaEjecucionModal.tsx` junto con controladores y servicios de backend dedicados para el seguimiento de la ejecución operativa.
+
+- **Rendimiento, Seguridad y Prevención de Bloqueos**:
+    - **KPI Analyst (Fix de CPU)**: Refactorización de cálculos de métricas pesadas (usando iteradores asíncronos y `setImmediate`) para prevenir que el análisis de datos bloquee el Event Loop de Node.js, manteniendo la API web receptiva.
+    - **Protección de Rutas**: Implementación del middleware de autenticación a rutas previamente desprotegidas (subidas de archivos, catálogos).
+    - **Seguridad y Accesos**: Reversión temporal del hashing de contraseñas (bcryptjs) a texto plano a petición del usuario por necesidades operativas legadas.
+
+- **Mejoras Logísticas (Rutas Planificadas)**:
+    - Corrección del targeting de correlativos en la lógica de asignación para usar la frecuencia guardada en vez de forzar el primer registro disponible.
+    - Implementación de un nuevo endpoint de **actualización atómica** (`PUT /:id`) para las rutas, que reemplaza registros de detalles dentro de una transacción segura, eliminando la posibilidad de pérdida de datos.
+
+---
+
 ## 📈 Próximos Pasos (Hoja de Ruta 2026)
 1. **Bootstrapping ADL ECOSISTEMA**: Inicio del nuevo repositorio unificado en NestJS.
 2. **Implementación de ADL Sampling**: Desarrollo de la nueva App de shell dinámico para terreno.

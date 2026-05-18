@@ -1,15 +1,28 @@
 import axios, { AxiosError } from 'axios';
 import API_CONFIG from '../../../config/api.config';
 
-// Create axios instance with optimized configuration
+// Dedicated Axios instance for catalogos — has deduplication and retry logic not present in global apiClient.
+// Auth token is injected per-request from localStorage/sessionStorage via the interceptor below.
+// Note: 401 auto-logout from AuthContext does not fire for these requests (acceptable: catalogos data is non-sensitive).
 const axiosInstance = axios.create({
     baseURL: `${API_CONFIG.getBaseURL()}/api/catalogos`,
-    timeout: 15000, // 15 seconds timeout
+    timeout: 15000,
     headers: {
-        // Note: Accept-Encoding is set automatically by browsers
         'Content-Type': 'application/json'
     }
 });
+
+// Copy interceptors from apiClient to ensure auth token is sent
+axiosInstance.interceptors.request.use(
+    config => {
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+    },
+    error => Promise.reject(error)
+);
 
 // Request deduplication map to prevent duplicate simultaneous requests
 const pendingRequests = new Map<string, Promise<any>>();

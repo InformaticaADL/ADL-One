@@ -420,9 +420,11 @@ class GeneralChatService {
         }
     }
 
-    async getConversationMembers(conversationId) {
+    async getConversationMembers(conversationId, requestingUserId) {
         try {
             const pool = await getConnection();
+            // Only participants can view the member list
+            await this._verifyParticipant(pool, conversationId, requestingUserId);
             const result = await pool.request()
                 .input('convId', sql.Numeric(10, 0), conversationId)
                 .query(`
@@ -470,30 +472,47 @@ class GeneralChatService {
                 .input('offset', sql.Int, offset)
                 .input('pageSize', sql.Int, pageSize)
                 .query(`
-                    SELECT 
+                    SELECT
                         m.id_mensaje, m.id_conversacion, m.id_emisor, m.mensaje,
                         m.tipo_mensaje, m.fecha, m.editado, m.eliminado,
                         m.archivo_ruta, m.archivo_nombre,
+                        m.id_mensaje_padre,
+                        pm.mensaje as mensaje_padre,
+                        pm.id_emisor as id_emisor_padre,
+                        pu.usuario as nombre_emisor_padre,
+                        pm.tipo_mensaje as tipo_mensaje_padre,
+                        pm.archivo_nombre as archivo_nombre_padre,
+                        pm.eliminado as padre_eliminado,
                         u.usuario as nombre_emisor, u.foto as foto_emisor,
-                        CASE WHEN EXISTS (SELECT 1 FROM rel_chat_lectura l WHERE l.id_mensaje = m.id_mensaje AND l.id_usuario = @userId) THEN 1 ELSE 0 END as leido_por_mi
+                        CASE WHEN EXISTS (SELECT 1 FROM rel_chat_lectura l WHERE l.id_mensaje = m.id_mensaje AND l.id_usuario = @userId) THEN 1 ELSE 0 END as leido_por_mi,
+                        (SELECT r.emoji, r.id_usuario, ru.usuario as nombre_usuario
+                         FROM rel_chat_reaccion r
+                         JOIN mae_usuario ru ON r.id_usuario = ru.id_usuario
+                         WHERE r.id_mensaje = m.id_mensaje
+                         FOR JSON PATH) as reacciones_json
                     FROM mae_chat_mensaje m
                     JOIN mae_usuario u ON m.id_emisor = u.id_usuario
+                    LEFT JOIN mae_chat_mensaje pm ON m.id_mensaje_padre = pm.id_mensaje
+                    LEFT JOIN mae_usuario pu ON pm.id_emisor = pu.id_usuario
                     WHERE m.id_conversacion = @convId
-                    AND m.eliminado = 0
                     AND (m.fecha >= @fechaUnion AND (@ocultosHasta IS NULL OR m.fecha > @ocultosHasta))
                     ORDER BY m.fecha DESC
                     OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY
                 `);
 
-            // Reverse for chronological display
-            return result.recordset.reverse();
+            // Reverse for chronological display and parse reactions JSON
+            return result.recordset.reverse().map(msg => ({
+                ...msg,
+                reacciones: msg.reacciones_json ? JSON.parse(msg.reacciones_json) : [],
+                reacciones_json: undefined
+            }));
         } catch (error) {
             logger.error('Error in getMessages:', error);
             throw error;
         }
     }
 
-    async sendMessage(userId, conversationId, mensaje, file = null) {
+    async sendMessage(userId, conversationId, mensaje, file = null, replyToId = null) {
         try {
             const pool = await getConnection();
             await this._verifyParticipant(pool, conversationId, userId);
@@ -504,12 +523,13 @@ class GeneralChatService {
                 .input('mensaje', sql.NVarChar(sql.MAX), mensaje || null)
                 .input('tipoMensaje', sql.VarChar(20), file ? 'ARCHIVO' : 'TEXTO')
                 .input('archivoRuta', sql.NVarChar(500), file?.path || null)
-                .input('archivoNombre', sql.NVarChar(255), file?.originalname || null);
+                .input('archivoNombre', sql.NVarChar(255), file?.originalname || null)
+                .input('idMensajePadre', sql.Numeric(18, 0), replyToId || null);
 
             const result = await request.query(`
-                INSERT INTO mae_chat_mensaje (id_conversacion, id_emisor, mensaje, tipo_mensaje, archivo_ruta, archivo_nombre, fecha)
+                INSERT INTO mae_chat_mensaje (id_conversacion, id_emisor, mensaje, tipo_mensaje, archivo_ruta, archivo_nombre, fecha, id_mensaje_padre)
                 OUTPUT INSERTED.*
-                VALUES (@convId, @emisor, @mensaje, @tipoMensaje, @archivoRuta, @archivoNombre, GETUTCDATE())
+                VALUES (@convId, @emisor, @mensaje, @tipoMensaje, @archivoRuta, @archivoNombre, GETUTCDATE(), @idMensajePadre)
             `);
 
             const newMessage = result.recordset[0];
@@ -530,15 +550,34 @@ class GeneralChatService {
                 .input('userId', sql.Numeric(10, 0), userId)
                 .query(`INSERT INTO rel_chat_lectura (id_mensaje, id_usuario) VALUES (@msgId, @userId)`);
 
-            // Get sender info for real-time emission
+            // Get sender info + parent message data for real-time emission
             const senderInfo = await pool.request()
                 .input('uid', sql.Numeric(10, 0), userId)
                 .query(`SELECT usuario, foto FROM mae_usuario WHERE id_usuario = @uid`);
 
+            let parentData = {};
+            if (replyToId) {
+                const parentResult = await pool.request()
+                    .input('parentId', sql.Numeric(18, 0), replyToId)
+                    .query(`
+                        SELECT pm.mensaje as mensaje_padre, pm.id_emisor as id_emisor_padre,
+                               pm.tipo_mensaje as tipo_mensaje_padre, pm.archivo_nombre as archivo_nombre_padre,
+                               pu.usuario as nombre_emisor_padre
+                        FROM mae_chat_mensaje pm
+                        JOIN mae_usuario pu ON pm.id_emisor = pu.id_usuario
+                        WHERE pm.id_mensaje = @parentId
+                    `);
+                if (parentResult.recordset.length > 0) {
+                    parentData = parentResult.recordset[0];
+                }
+            }
+
             const messageForEmit = {
                 ...newMessage,
                 nombre_emisor: senderInfo.recordset[0]?.usuario,
-                foto_emisor: senderInfo.recordset[0]?.foto
+                foto_emisor: senderInfo.recordset[0]?.foto,
+                reacciones: [],
+                ...parentData
             };
 
             // Real-time: emit to all participants except sender
@@ -585,7 +624,6 @@ class GeneralChatService {
     async markAsRead(userId, conversationId) {
         try {
             const pool = await getConnection();
-            // Mark all unread messages in conversation
             await pool.request()
                 .input('userId', sql.Numeric(10, 0), userId)
                 .input('convId', sql.Numeric(10, 0), conversationId)
@@ -598,9 +636,106 @@ class GeneralChatService {
                     AND m.eliminado = 0
                     AND NOT EXISTS (SELECT 1 FROM rel_chat_lectura l WHERE l.id_mensaje = m.id_mensaje AND l.id_usuario = @userId)
                 `);
+
+            // Notify senders that their messages were read
+            const others = await pool.request()
+                .input('convId', sql.Numeric(10, 0), conversationId)
+                .input('userId', sql.Numeric(10, 0), userId)
+                .query(`SELECT id_usuario FROM rel_chat_participante WHERE id_conversacion = @convId AND id_usuario <> @userId AND activo = 1`);
+            const payload = { conversationId: Number(conversationId), readByUserId: userId, fecha: new Date().toISOString() };
+            for (const p of others.recordset) {
+                try { getIo().to(`user_${p.id_usuario}`).emit('chatMarkRead', payload); } catch (_) {}
+            }
+
             return { success: true };
         } catch (error) {
             logger.error('Error in markAsRead:', error);
+            throw error;
+        }
+    }
+
+    async addReaction(userId, messageId, emoji) {
+        try {
+            const pool = await getConnection();
+            const msgCheck = await pool.request()
+                .input('msgId', sql.Numeric(18, 0), messageId)
+                .query(`SELECT id_conversacion FROM mae_chat_mensaje WHERE id_mensaje = @msgId AND eliminado = 0`);
+            if (!msgCheck.recordset.length) throw new Error('Mensaje no encontrado');
+            const conversationId = msgCheck.recordset[0].id_conversacion;
+            await this._verifyParticipant(pool, conversationId, userId);
+
+            // One reaction per user per message (WhatsApp style)
+            const current = await pool.request()
+                .input('msgId', sql.Numeric(18, 0), messageId)
+                .input('userId', sql.Numeric(10, 0), userId)
+                .query(`SELECT emoji FROM rel_chat_reaccion WHERE id_mensaje = @msgId AND id_usuario = @userId`);
+
+            if (current.recordset.length > 0) {
+                if (current.recordset[0].emoji === emoji) {
+                    // Same emoji → toggle off
+                    await pool.request()
+                        .input('msgId', sql.Numeric(18, 0), messageId)
+                        .input('userId', sql.Numeric(10, 0), userId)
+                        .query(`DELETE FROM rel_chat_reaccion WHERE id_mensaje = @msgId AND id_usuario = @userId`);
+                } else {
+                    // Different emoji → replace
+                    await pool.request()
+                        .input('msgId', sql.Numeric(18, 0), messageId)
+                        .input('userId', sql.Numeric(10, 0), userId)
+                        .input('emoji', sql.NVarChar(10), emoji)
+                        .query(`UPDATE rel_chat_reaccion SET emoji = @emoji, fecha = GETUTCDATE() WHERE id_mensaje = @msgId AND id_usuario = @userId`);
+                }
+            } else {
+                await pool.request()
+                    .input('msgId', sql.Numeric(18, 0), messageId)
+                    .input('userId', sql.Numeric(10, 0), userId)
+                    .input('emoji', sql.NVarChar(10), emoji)
+                    .query(`INSERT INTO rel_chat_reaccion (id_mensaje, id_usuario, emoji) VALUES (@msgId, @userId, @emoji)`);
+            }
+
+            const reactions = await pool.request()
+                .input('msgId', sql.Numeric(18, 0), messageId)
+                .query(`SELECT r.emoji, r.id_usuario, u.usuario as nombre_usuario FROM rel_chat_reaccion r JOIN mae_usuario u ON r.id_usuario = u.id_usuario WHERE r.id_mensaje = @msgId`);
+
+            const participants = await pool.request()
+                .input('convId', sql.Numeric(10, 0), conversationId)
+                .query(`SELECT id_usuario FROM rel_chat_participante WHERE id_conversacion = @convId AND activo = 1`);
+            const payload = { messageId: Number(messageId), conversationId: Number(conversationId), reacciones: reactions.recordset };
+            for (const p of participants.recordset) {
+                try { getIo().to(`user_${p.id_usuario}`).emit('chatReaccion', payload); } catch (_) {}
+            }
+
+            return reactions.recordset;
+        } catch (error) {
+            logger.error('Error in addReaction:', error);
+            throw error;
+        }
+    }
+
+    async searchMessages(userId, conversationId, query) {
+        try {
+            const pool = await getConnection();
+            await this._verifyParticipant(pool, conversationId, userId);
+            const result = await pool.request()
+                .input('convId', sql.Numeric(10, 0), conversationId)
+                .input('query', sql.NVarChar(500), `%${query}%`)
+                .query(`
+                    SELECT TOP 50
+                        m.id_mensaje, m.id_conversacion, m.id_emisor, m.mensaje,
+                        m.tipo_mensaje, m.fecha, m.editado, m.eliminado,
+                        m.archivo_ruta, m.archivo_nombre,
+                        u.usuario as nombre_emisor, u.foto as foto_emisor
+                    FROM mae_chat_mensaje m
+                    JOIN mae_usuario u ON m.id_emisor = u.id_usuario
+                    WHERE m.id_conversacion = @convId
+                    AND m.eliminado = 0
+                    AND m.tipo_mensaje IN ('TEXTO', 'ARCHIVO')
+                    AND m.mensaje LIKE @query
+                    ORDER BY m.fecha DESC
+                `);
+            return result.recordset;
+        } catch (error) {
+            logger.error('Error in searchMessages:', error);
             throw error;
         }
     }
@@ -645,14 +780,28 @@ class GeneralChatService {
     async deleteMessage(userId, messageId) {
         try {
             const pool = await getConnection();
-            // Only allow deleting own messages
+            // Only allow deleting own messages — get conversationId first for socket emission
+            const msgCheck = await pool.request()
+                .input('msgId', sql.Numeric(18, 0), messageId)
+                .input('userId', sql.Numeric(10, 0), userId)
+                .query(`SELECT id_conversacion FROM mae_chat_mensaje WHERE id_mensaje = @msgId AND id_emisor = @userId AND eliminado = 0`);
+            if (!msgCheck.recordset.length) return { success: false };
+
+            const conversationId = msgCheck.recordset[0].id_conversacion;
             await pool.request()
                 .input('msgId', sql.Numeric(18, 0), messageId)
                 .input('userId', sql.Numeric(10, 0), userId)
-                .query(`
-                    UPDATE mae_chat_mensaje SET eliminado = 1 
-                    WHERE id_mensaje = @msgId AND id_emisor = @userId
-                `);
+                .query(`UPDATE mae_chat_mensaje SET eliminado = 1 WHERE id_mensaje = @msgId AND id_emisor = @userId`);
+
+            // Notify all participants so they see the deleted state in real-time
+            const participants = await pool.request()
+                .input('convId', sql.Numeric(10, 0), conversationId)
+                .query(`SELECT id_usuario FROM rel_chat_participante WHERE id_conversacion = @convId AND activo = 1`);
+            const payload = { messageId: Number(messageId), conversationId: Number(conversationId) };
+            for (const p of participants.recordset) {
+                try { getIo().to(`user_${p.id_usuario}`).emit('chatMensajeEliminado', payload); } catch (_) {}
+            }
+
             return { success: true };
         } catch (error) {
             logger.error('Error in deleteMessage:', error);
@@ -808,7 +957,7 @@ class GeneralChatService {
             const pool = await getConnection();
             const result = await pool.request()
                 .input('msgId', sql.Numeric(18, 0), attachmentMsgId)
-                .query(`SELECT archivo_ruta, archivo_nombre FROM mae_chat_mensaje WHERE id_mensaje = @msgId AND tipo_mensaje = 'ARCHIVO'`);
+                .query(`SELECT archivo_ruta, archivo_nombre FROM mae_chat_mensaje WHERE id_mensaje = @msgId AND tipo_mensaje = 'ARCHIVO' AND eliminado = 0`);
             return result.recordset[0] || null;
         } catch (error) {
             logger.error('Error in getAttachment:', error);

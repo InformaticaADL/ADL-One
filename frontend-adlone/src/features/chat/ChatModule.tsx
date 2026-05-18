@@ -1,10 +1,11 @@
-import { useEffect, useCallback, useState } from 'react';
+import { useEffect, useCallback, useState, useRef } from 'react';
 import { Paper, Text, Loader, Center, useMantineTheme } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { IconMessageCircle } from '@tabler/icons-react';
 import { useChatStore } from '../../store/chatStore';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavStore } from '../../store/navStore';
+import { useToast } from '../../contexts/ToastContext';
 import { generalChatService } from '../../services/general-chat.service';
 import type { ChatMessage } from '../../services/general-chat.service';
 import { io, Socket } from 'socket.io-client';
@@ -19,16 +20,22 @@ let chatSocket: Socket | null = null;
 
 const ChatModule: React.FC = () => {
     const { user } = useAuth();
+    const { showToast } = useToast();
     const {
         conversations, activeConversation, messages, loading, messagesLoading,
-        fetchConversations, setActiveConversation, fetchMessages, addMessage,
-        updateConversationLastMessage, decrementUnread, fetchFavorites
+        hasMoreMessages, fetchConversations, setActiveConversation, fetchMessages,
+        loadMoreMessages, addMessage, updateConversationLastMessage, updateMessageReactions,
+        markMessageDeleted, decrementUnread, fetchFavorites, typingUsers, setTypingUser, removeTypingUser,
     } = useChatStore();
+
+    // Typing auto-clear timeouts — keyed by `${conversationId}_${userId}`
+    const typingTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
     const [groupModalOpen, setGroupModalOpen] = useState(false);
     const [editingGroup, setEditingGroup] = useState<number | null>(null);
     const [profileUserId, setProfileUserId] = useState<number | null>(null);
     const [profileOpen, setProfileOpen] = useState(false);
+    const [otherUserReadAt, setOtherUserReadAt] = useState<Record<number, string>>({});
     
     const theme = useMantineTheme();
     const isMobile = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`);
@@ -79,15 +86,53 @@ const ChatModule: React.FC = () => {
             fetchConversations();
         });
 
-        chatSocket.on('chatMiembroRemovido', (data: { id_conversacion: number }) => {
+        chatSocket.on('chatMiembroRemovido', (data: { id_conversacion: number; nombre_grupo?: string }) => {
             fetchConversations();
             const state = useChatStore.getState();
             if (state.activeConversation?.id_conversacion === data.id_conversacion) {
                 setActiveConversation(null);
+                showToast({ type: 'info', message: `Fuiste removido del grupo${data.nombre_grupo ? ` "${data.nombre_grupo}"` : ''}` });
             }
         });
 
+        chatSocket.on('chatTyping', ({ conversationId, userId, name }: { conversationId: number; userId: number; name: string }) => {
+            const key = `${conversationId}_${userId}`;
+            if (typingTimeoutsRef.current[key]) clearTimeout(typingTimeoutsRef.current[key]);
+            setTypingUser(conversationId, userId, name);
+            // Auto-clear after 4s in case typingStop is never received
+            typingTimeoutsRef.current[key] = setTimeout(() => {
+                removeTypingUser(conversationId, userId);
+                delete typingTimeoutsRef.current[key];
+            }, 4000);
+        });
+
+        chatSocket.on('chatStopTyping', ({ conversationId, userId }: { conversationId: number; userId: number }) => {
+            const key = `${conversationId}_${userId}`;
+            if (typingTimeoutsRef.current[key]) {
+                clearTimeout(typingTimeoutsRef.current[key]);
+                delete typingTimeoutsRef.current[key];
+            }
+            removeTypingUser(conversationId, userId);
+        });
+
+        chatSocket.on('chatReaccion', ({ messageId, reacciones }: { messageId: number; conversationId: number; reacciones: any[] }) => {
+            updateMessageReactions(messageId, reacciones);
+        });
+
+        chatSocket.on('chatMarkRead', ({ conversationId, readByUserId, fecha }: { conversationId: number; readByUserId: number; fecha: string }) => {
+            if (readByUserId !== user?.id) {
+                setOtherUserReadAt(prev => ({ ...prev, [conversationId]: fecha }));
+            }
+        });
+
+        chatSocket.on('chatMensajeEliminado', ({ messageId }: { messageId: number; conversationId: number }) => {
+            markMessageDeleted(messageId);
+        });
+
         return () => {
+            // Clear all pending typing timeouts on disconnect
+            Object.values(typingTimeoutsRef.current).forEach(clearTimeout);
+            typingTimeoutsRef.current = {};
             chatSocket?.disconnect();
             chatSocket = null;
         };
@@ -113,8 +158,8 @@ const ChatModule: React.FC = () => {
             const state = useChatStore.getState();
             const conv = state.conversations.find(c => Number(c.id_conversacion) === Number(result.id_conversacion));
             if (conv) setActiveConversation(conv);
-        } catch (error) {
-            console.error('Error starting direct chat:', error);
+        } catch {
+            showToast({ type: 'error', message: 'Error al abrir el chat' });
         }
     }, [fetchConversations, setActiveConversation]);
 
@@ -125,8 +170,8 @@ const ChatModule: React.FC = () => {
             const state = useChatStore.getState();
             const conv = state.conversations.find(c => Number(c.id_conversacion) === Number(conversationId));
             if (conv) setActiveConversation(conv);
-        } catch (error) {
-            console.error('Error opening conversation:', error);
+        } catch {
+            showToast({ type: 'error', message: 'Error al abrir la conversación' });
         }
     }, [fetchConversations, setActiveConversation]);
 
@@ -147,35 +192,59 @@ const ChatModule: React.FC = () => {
         }
     }, [activeModule, pendingChatId, conversations, loading, setActiveConversation, setPendingChatId, handleSelectConversationById]);
 
-    const handleSendMessage = useCallback(async (mensaje?: string, archivo?: File) => {
+    const handleTypingStart = useCallback(() => {
+        if (!activeConversation) return;
+        chatSocket?.emit('typingStart', { conversationId: activeConversation.id_conversacion });
+    }, [activeConversation]);
+
+    const handleTypingStop = useCallback(() => {
+        if (!activeConversation) return;
+        chatSocket?.emit('typingStop', { conversationId: activeConversation.id_conversacion });
+    }, [activeConversation]);
+
+    const handleSendMessage = useCallback(async (mensaje?: string, archivo?: File, replyToId?: number) => {
         if (!activeConversation) return;
         try {
-            const newMsg = await generalChatService.sendMessage(activeConversation.id_conversacion, mensaje, archivo);
+            const newMsg = await generalChatService.sendMessage(activeConversation.id_conversacion, mensaje, archivo, replyToId);
             addMessage(newMsg);
             updateConversationLastMessage(activeConversation.id_conversacion, newMsg);
-        } catch (error) {
-            console.error('Error sending message:', error);
+        } catch {
+            showToast({ type: 'error', message: 'Error al enviar el mensaje' });
         }
     }, [activeConversation]);
+
+    const handleAddReaction = useCallback(async (messageId: number, emoji: string) => {
+        try {
+            const reacciones = await generalChatService.addReaction(messageId, emoji);
+            updateMessageReactions(messageId, reacciones);
+        } catch {
+            showToast({ type: 'error', message: 'Error al reaccionar' });
+        }
+    }, [updateMessageReactions]);
+
+    const handleLoadMore = useCallback(() => {
+        if (!activeConversation || !hasMoreMessages || messagesLoading) return;
+        loadMoreMessages(activeConversation.id_conversacion);
+    }, [activeConversation, hasMoreMessages, messagesLoading, loadMoreMessages]);
 
     const handleClearChat = useCallback(async () => {
         if (!activeConversation) return;
         try {
             await generalChatService.clearMessages(activeConversation.id_conversacion);
             fetchMessages(activeConversation.id_conversacion);
-        } catch (error) {
-            console.error('Error clearing messages:', error);
+        } catch {
+            showToast({ type: 'error', message: 'Error al limpiar el chat' });
         }
     }, [activeConversation]);
 
     const handleDeleteMessage = useCallback(async (messageId: number) => {
         try {
             await generalChatService.deleteMessage(messageId);
-            if (activeConversation) fetchMessages(activeConversation.id_conversacion);
-        } catch (error) {
-            console.error('Error deleting message:', error);
+            markMessageDeleted(messageId);
+        } catch {
+            showToast({ type: 'error', message: 'Error al eliminar el mensaje' });
         }
-    }, [activeConversation]);
+    }, [markMessageDeleted]);
 
     const handleViewProfile = useCallback((userId: number) => {
         setProfileUserId(userId);
@@ -238,6 +307,13 @@ const ChatModule: React.FC = () => {
                             onEditGroup={handleEditGroup}
                             isMobile={isMobile}
                             onBack={() => setActiveConversation(null)}
+                            onTypingStart={handleTypingStart}
+                            onTypingStop={handleTypingStop}
+                            typingUsers={typingUsers[activeConversation.id_conversacion] || []}
+                            onAddReaction={handleAddReaction}
+                            onLoadMore={handleLoadMore}
+                            hasMoreMessages={hasMoreMessages}
+                            otherUserReadAt={otherUserReadAt[activeConversation.id_conversacion] || null}
                         />
                     )
                 ) : !isMobile && (

@@ -15,6 +15,8 @@ router.use(authenticate);
 // === Roles ===
 router.get('/roles', rbacController.getRoles);
 router.post('/roles', verifyPermission('RBAC_MANAGE'), rbacController.createRole);
+router.put('/roles/:roleId', verifyPermission('RBAC_MANAGE'), rbacController.updateRole);
+router.put('/roles/:roleId/status', verifyPermission('RBAC_MANAGE'), rbacController.toggleRoleStatus);
 
 // === Permissions ===
 router.get('/permissions', rbacController.getPermissions);

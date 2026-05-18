@@ -29,6 +29,7 @@ import {
     IconCalendarStats,
     IconFilter
 } from '@tabler/icons-react';
+import { useToast } from '../../../contexts/ToastContext';
 
 interface Props {
     onBackToMenu: () => void;
@@ -36,6 +37,7 @@ interface Props {
 }
 
 export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssignment }) => {
+    const { showToast } = useToast();
     // State
     const [searchId, setSearchId] = useState('');
     const [searchEstado, setSearchEstado] = useState<string | null>(null);
@@ -71,6 +73,7 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
             setFichas(data || []);
         } catch (error) {
             console.error("Error loading fichas for assignment:", error);
+            showToast({ type: 'error', message: 'Error al cargar fichas para asignación' });
         } finally {
             setLoading(false);
         }

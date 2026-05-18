@@ -36,6 +36,8 @@ interface NavState {
     setDynamicModules: (modules: Record<string, unknown>[]) => void;
     ursFilters: { searchTerm: string; status: string; area: string; type: string };
     setUrsFilters: (filters: Partial<{ searchTerm: string; status: string; area: string; type: string }>) => void;
+    ursUnreadCount: number;
+    setUrsUnreadCount: (count: number) => void;
 }
 
 export const useNavStore = create<NavState>()(
@@ -97,6 +99,8 @@ export const useNavStore = create<NavState>()(
             setDynamicModules: (modules) => set({ dynamicModules: modules }),
             ursFilters: { searchTerm: '', status: '', area: '', type: '' },
             setUrsFilters: (filters) => set((state) => ({ ursFilters: { ...state.ursFilters, ...filters } })),
+            ursUnreadCount: 0,
+            setUrsUnreadCount: (count) => set({ ursUnreadCount: count }),
         }),
         {
             name: 'adl-nav-storage', // nombre en localStorage

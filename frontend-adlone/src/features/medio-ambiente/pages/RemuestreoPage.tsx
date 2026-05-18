@@ -101,10 +101,15 @@ const RemuestreoPageContent: React.FC = () => {
 
     const handleCreateRemuestreo = async () => {
         if (!antecedentesRef.current) return;
-        
+
         const antecedentesData = antecedentesRef.current.getData();
-        
-        // Basic validation
+
+        if (!antecedentesData?.tipoMonitoreo || !antecedentesData?.selectedEmpresa || !antecedentesData?.selectedCliente) {
+            showToast({ type: 'warning', message: 'Complete los antecedentes requeridos antes de crear el remuestreo' });
+            setActiveTab('antecedentes');
+            return;
+        }
+
         if (analysisList.length === 0) {
             showToast({ type: 'warning', message: 'Debe haber al menos un análisis grabado' });
             setActiveTab('analisis');

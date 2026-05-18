@@ -268,7 +268,17 @@ export const equipoService = {
 
             };
 
-            const catalogs = await getCatalogs(sede);
+            const [catalogs, expiringResult] = await Promise.all([
+                getCatalogs(sede),
+                pool.request().query(`
+                    SELECT COUNT(*) as cnt
+                    FROM mae_equipo
+                    WHERE habilitado = 'S'
+                      AND fecha_vigencia IS NOT NULL
+                      AND CAST(fecha_vigencia AS DATE) <= CAST(DATEADD(day, 30, GETDATE()) AS DATE)
+                      AND CAST(fecha_vigencia AS DATE) >= CAST(GETDATE() AS DATE)
+                `)
+            ]);
 
             return {
                 data: result.recordset,
@@ -276,6 +286,7 @@ export const equipoService = {
                 page: Number(page),
                 limit: Number(limit),
                 totalPages: Math.ceil(total / limit),
+                expiringCount: expiringResult.recordset[0].cnt,
                 catalogs
             };
         } catch (error) {
@@ -296,8 +307,9 @@ export const equipoService = {
                 WHERE tipoequipo = @tipo
             `;
             const result = await request.query(query);
-            const lastNum = result.recordset[0].lastCorrelativo || 0;
-            return { nextCorrelativo: Number(lastNum) + 1 };
+            const raw = result.recordset[0].lastCorrelativo;
+            const lastNum = (raw !== null && raw !== undefined && !isNaN(Number(raw))) ? Number(raw) : 0;
+            return { nextCorrelativo: lastNum + 1 };
         } catch (error) {
             logger.error('Error in getNextCorrelativo service:', error);
             throw error;
@@ -378,7 +390,7 @@ export const equipoService = {
             const nextCorr = lastCorrelativo + 1;
 
             // 3. Format code: [Sigla].[Correlativo]/MA.[Ubicacion]
-            const formattedCorr = nextCorr < 10 ? `0${nextCorr} ` : `${nextCorr} `;
+            const formattedCorr = String(nextCorr).padStart(2, '0');
             const suggestedCode = `${sigla}.${formattedCorr}/MA.${ubicacion}`;
 
             return {
@@ -694,10 +706,11 @@ export const equipoService = {
             const checkHistRes = await checkHistReq.query('SELECT id_historial FROM mae_equipo_historial WHERE id_equipo = @id_equipo AND version = @version');
 
             if (checkHistRes.recordset.length > 0) {
-                // UPDATE existing history entry's timestamp (Bubble up)
+                // UPDATE existing history entry — refresh timestamp AND record who made this edit
                 const updHistReq = new sql.Request(transaction);
                 updHistReq.input('id_h', sql.Numeric(10, 0), checkHistRes.recordset[0].id_historial);
-                await updHistReq.query('UPDATE mae_equipo_historial SET fecha_cambio = GETDATE() WHERE id_historial = @id_h');
+                updHistReq.input('usuario_cambio', sql.Numeric(10, 0), userId);
+                await updHistReq.query('UPDATE mae_equipo_historial SET fecha_cambio = GETDATE(), usuario_cambio = @usuario_cambio WHERE id_historial = @id_h');
             } else {
                 // INSERT new history entry
                 const requestHist = new sql.Request(transaction);
@@ -837,9 +850,11 @@ export const equipoService = {
 
     getEquipoHistorial: async (id) => {
         try {
+            const parsedId = Number(id);
+            if (!Number.isInteger(parsedId) || parsedId <= 0) throw new Error('ID de equipo inválido');
             const pool = await getConnection();
             const request = pool.request();
-            request.input('id', sql.Numeric(10, 0), id);
+            request.input('id', sql.Numeric(10, 0), parsedId);
 
             const query = `
                 SELECT TOP 7
@@ -1066,10 +1081,8 @@ export const equipoService = {
                 WHERE id_equipo = @id
             `);
 
-            // 6. DELETE the target version from history (as it is now active)
-            const delHistReq = new sql.Request(transaction);
-            delHistReq.input('id_h', sql.Numeric(10, 0), idHistorial);
-            await delHistReq.query('DELETE FROM mae_equipo_historial WHERE id_historial = @id_h');
+            // 6. Keep the target version in history — removing it would make re-restore impossible.
+            // The next edit will find it by version label and update its timestamp (bubble-up logic).
 
             await transaction.commit();
             return { success: true, newVersion: nextVersionLabel };

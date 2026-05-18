@@ -1,49 +1,86 @@
-import React, { useEffect, useState } from 'react';
-import { 
-    Box, 
-    Card, 
-    Tabs, 
-    Table, 
-    Button, 
-    Group, 
-    ActionIcon, 
-    Modal, 
-    TextInput, 
-    Select, 
+import React, { useEffect, useState, useMemo } from 'react';
+import {
+    Box,
+    Card,
+    Tabs,
+    Table,
+    Button,
+    Group,
+    ActionIcon,
+    Modal,
+    TextInput,
+    Select,
     NumberInput,
     Badge,
     Text,
     Switch,
     LoadingOverlay,
-    Popover
+    Popover,
+    Stack
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
-import { 
-    IconEdit, 
-    IconTrash, 
-    IconPlus, 
-    IconFolders, 
+import {
+    IconEdit,
+    IconTrash,
+    IconPlus,
+    IconFolders,
     IconLink,
-    IconLayoutSidebar
+    IconAlertTriangle
 } from '@tabler/icons-react';
 import { PageHeader } from '../../../components/layout/PageHeader';
-import axios from 'axios';
-import API_CONFIG from '../../../config/api.config';
-import { useAuth } from '../../../contexts/AuthContext';
+import apiClient from '../../../config/axios.config';
 import { useToast } from '../../../contexts/ToastContext';
+import { useNavStore } from '../../../store/navStore';
 import { IconRegistry, getIconComponent } from '../../../config/iconRegistry';
 
 interface Props {
     onBack: () => void;
 }
 
+// Lifted out of component — stable reference, no recreation on re-render
+const PermissionsRenderer = ({ permsStr, color = "blue" }: { permsStr: string; color?: string }) => {
+    if (!permsStr) return <Badge color="gray" variant="light">Público</Badge>;
+    const perms = permsStr.split(',').map(p => p.trim()).filter(Boolean);
+    if (perms.length <= 1) {
+        return <Badge size="sm" color={color}>{perms[0]}</Badge>;
+    }
+    return (
+        <Popover width={250} position="bottom" withArrow shadow="md">
+            <Popover.Target>
+                <Badge style={{ cursor: 'pointer', textTransform: 'none' }} color={color} variant="light">
+                    Ver {perms.length} Permisos
+                </Badge>
+            </Popover.Target>
+            <Popover.Dropdown>
+                <Group gap="xs">
+                    {perms.map(p => <Badge key={p} size="sm" color={color}>{p}</Badge>)}
+                </Group>
+            </Popover.Dropdown>
+        </Popover>
+    );
+};
+
+// Static — computed once at module load, not on every render
+const iconOptions = Object.keys(IconRegistry).map(k => ({ value: k, label: k }));
+
+const renderSelectOption = ({ option }: { option: any }) => {
+    const Icn = getIconComponent(option.value);
+    return (
+        <Group gap="sm">
+            {Icn ? <Icn size={18} /> : null}
+            <Text size="sm">{option.label}</Text>
+        </Group>
+    );
+};
+
 export const AdminMenuWebPage: React.FC<Props> = ({ onBack }) => {
-    const { token } = useAuth();
     const { showToast } = useToast();
-    
+    const { setDynamicModules } = useNavStore();
+
     const [modulos, setModulos] = useState<any[]>([]);
     const [links, setLinks] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
 
     // Modals state
     const [modModalOpen, setModModalOpen] = useState(false);
@@ -51,18 +88,19 @@ export const AdminMenuWebPage: React.FC<Props> = ({ onBack }) => {
     const [editingMod, setEditingMod] = useState<any>(null);
     const [editingLink, setEditingLink] = useState<any>(null);
 
+    // Delete confirmation state
+    const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'mod' | 'link'; id: string | number; label: string } | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+
     const fetchData = async () => {
         setLoading(true);
         try {
-            const res = await axios.get(`${API_CONFIG.getBaseURL()}/api/menu/admin/modulos`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const res = await apiClient.get('/api/menu/admin/modulos');
             if (res.data.success) {
                 setModulos(res.data.data.modulos);
                 setLinks(res.data.data.links);
             }
         } catch (error) {
-            console.error(error);
             showToast({ type: 'error', message: 'Error al cargar la configuración del menú.' });
         } finally {
             setLoading(false);
@@ -71,10 +109,17 @@ export const AdminMenuWebPage: React.FC<Props> = ({ onBack }) => {
 
     useEffect(() => {
         fetchData();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Forms
+    // Derived: module lookup map for the links tab (shows if parent is inactive)
+    const moduloMap = useMemo(() => new Map(modulos.map(m => [m.id_modulo, m])), [modulos]);
+
+    // Derived: options for "Módulo Padre" select in link form
+    const moduloOptions = useMemo(
+        () => modulos.map(m => ({ value: m.id_modulo, label: `${m.label}${!m.activo ? ' (inactivo)' : ''}` })),
+        [modulos]
+    );
+
     const formMod = useForm({
         initialValues: {
             id_modulo: '',
@@ -84,6 +129,10 @@ export const AdminMenuWebPage: React.FC<Props> = ({ onBack }) => {
             permissions_str: '',
             sort_order: 0,
             activo: true
+        },
+        validate: {
+            id_modulo: (v) => /^[a-z0-9_]+$/.test(v) ? null : 'Solo minúsculas, números y guión bajo (ej: medio_ambiente)',
+            label: (v) => v.trim() ? null : 'El nombre es requerido'
         }
     });
 
@@ -96,13 +145,26 @@ export const AdminMenuWebPage: React.FC<Props> = ({ onBack }) => {
             permissions_str: '',
             sort_order: 0,
             activo: true
+        },
+        validate: {
+            id_accion: (v) => v.trim() ? null : 'El ID de acción es requerido',
+            label: (v) => v.trim() ? null : 'El nombre es requerido',
+            id_modulo: (v) => v ? null : 'Selecciona un módulo padre'
         }
     });
 
     const openModModal = (mod?: any) => {
         if (mod) {
             setEditingMod(mod);
-            formMod.setValues(mod);
+            formMod.setValues({
+                id_modulo: mod.id_modulo,
+                label: mod.label,
+                icon_name: mod.icon_name,
+                grupo: mod.grupo,
+                permissions_str: mod.permissions_str || '',
+                sort_order: mod.sort_order,
+                activo: mod.activo
+            });
         } else {
             setEditingMod(null);
             formMod.reset();
@@ -113,7 +175,15 @@ export const AdminMenuWebPage: React.FC<Props> = ({ onBack }) => {
     const openLinkModal = (link?: any) => {
         if (link) {
             setEditingLink(link);
-            formLink.setValues(link);
+            formLink.setValues({
+                id_link: link.id_link,
+                id_modulo: link.id_modulo,
+                id_accion: link.id_accion,
+                label: link.label,
+                permissions_str: link.permissions_str || '',
+                sort_order: link.sort_order,
+                activo: link.activo
+            });
         } else {
             setEditingLink(null);
             formLink.reset();
@@ -122,112 +192,74 @@ export const AdminMenuWebPage: React.FC<Props> = ({ onBack }) => {
     };
 
     const saveModulo = async (values: typeof formMod.values) => {
+        if (isSaving) return;
+        setIsSaving(true);
         try {
             if (editingMod) {
-                await axios.put(`${API_CONFIG.getBaseURL()}/api/menu/admin/modulos/${values.id_modulo}`, values, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
+                await apiClient.put(`/api/menu/admin/modulos/${values.id_modulo}`, values);
                 showToast({ type: 'success', message: 'Módulo actualizado.' });
             } else {
-                await axios.post(`${API_CONFIG.getBaseURL()}/api/menu/admin/modulos`, values, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
+                await apiClient.post('/api/menu/admin/modulos', values);
                 showToast({ type: 'success', message: 'Módulo creado.' });
             }
-            fetchData();
+            setDynamicModules([]); // Invalidate Sidebar cache so it re-fetches
+            await fetchData();
             setModModalOpen(false);
         } catch (error: any) {
             showToast({ type: 'error', message: error.response?.data?.message || 'Error al guardar.' });
+        } finally {
+            setIsSaving(false);
         }
     };
 
     const saveLink = async (values: typeof formLink.values) => {
+        if (isSaving) return;
+        setIsSaving(true);
         try {
             if (editingLink) {
-                await axios.put(`${API_CONFIG.getBaseURL()}/api/menu/admin/links/${values.id_link}`, values, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
+                await apiClient.put(`/api/menu/admin/links/${values.id_link}`, values);
                 showToast({ type: 'success', message: 'Sub-enlace actualizado.' });
             } else {
-                await axios.post(`${API_CONFIG.getBaseURL()}/api/menu/admin/links`, values, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
+                await apiClient.post('/api/menu/admin/links', values);
                 showToast({ type: 'success', message: 'Sub-enlace creado.' });
             }
-            fetchData();
+            setDynamicModules([]); // Invalidate Sidebar cache
+            await fetchData();
             setLinkModalOpen(false);
         } catch (error: any) {
             showToast({ type: 'error', message: error.response?.data?.message || 'Error al guardar.' });
+        } finally {
+            setIsSaving(false);
         }
     };
 
-    const handleDeleteMod = async (id: string) => {
-        if (!window.confirm('¿Está seguro de dehabilitar este módulo?')) return;
+    const confirmDelete = async () => {
+        if (!deleteConfirm || isDeleting) return;
+        setIsDeleting(true);
         try {
-            await axios.delete(`${API_CONFIG.getBaseURL()}/api/menu/admin/modulos/${id}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            showToast({ type: 'success', message: 'Módulo deshabilitado.' });
-            fetchData();
-        } catch (error) {
+            if (deleteConfirm.type === 'mod') {
+                await apiClient.delete(`/api/menu/admin/modulos/${deleteConfirm.id}`);
+                showToast({ type: 'success', message: 'Módulo deshabilitado.' });
+            } else {
+                await apiClient.delete(`/api/menu/admin/links/${deleteConfirm.id}`);
+                showToast({ type: 'success', message: 'Enlace deshabilitado.' });
+            }
+            setDynamicModules([]); // Invalidate Sidebar cache
+            await fetchData();
+        } catch {
             showToast({ type: 'error', message: 'Error al deshabilitar.' });
+        } finally {
+            setIsDeleting(false);
+            setDeleteConfirm(null);
         }
-    };
-
-    const handleDeleteLink = async (id: number) => {
-        if (!window.confirm('¿Está seguro de dehabilitar este enlace?')) return;
-        try {
-            await axios.delete(`${API_CONFIG.getBaseURL()}/api/menu/admin/links/${id}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            showToast({ type: 'success', message: 'Enlace deshabilitado.' });
-            fetchData();
-        } catch (error) {
-            showToast({ type: 'error', message: 'Error al deshabilitar.' });
-        }
-    };
-
-    const iconOptions = Object.keys(IconRegistry).map(k => ({ value: k, label: k }));
-    const moduloOptions = modulos.map(m => ({ value: m.id_modulo, label: m.label }));
-
-    const renderSelectOption = ({ option }: { option: any }) => {
-        const Icn = getIconComponent(option.value);
-        return (
-            <Group gap="sm">
-                {Icn ? <Icn size={18} /> : null}
-                <Text size="sm">{option.label}</Text>
-            </Group>
-        );
-    };
-
-    const PermissionsRenderer = ({ permsStr, color = "blue" }: { permsStr: string, color?: string }) => {
-        if (!permsStr) return <Badge color="gray" variant="light">Público</Badge>;
-        const perms = permsStr.split(',').map(p => p.trim());
-        if (perms.length <= 1) {
-            return <Badge size="sm" color={color}>{perms[0]}</Badge>;
-        }
-        return (
-            <Popover width={250} position="bottom" withArrow shadow="md">
-                <Popover.Target>
-                    <Badge style={{ cursor: 'pointer', textTransform: 'none' }} color={color} variant="light">
-                        Ver {perms.length} Permisos
-                    </Badge>
-                </Popover.Target>
-                <Popover.Dropdown>
-                    <Group gap="xs">
-                        {perms.map(p => <Badge key={p} size="sm" color={color}>{p}</Badge>)}
-                    </Group>
-                </Popover.Dropdown>
-            </Popover>
-        );
     };
 
     return (
         <Box p="md" style={{ position: 'relative' }}>
             <LoadingOverlay visible={loading} zIndex={1000} overlayProps={{ radius: "sm", blur: 2 }} />
-            
-            <PageHeader 
-                title="Configuración de Menú CMS" 
+
+            <PageHeader
+                title="Configuración de Menú"
                 subtitle="Administre las unidades principales y los enlaces visibles del panel lateral."
                 onBack={onBack}
                 breadcrumbItems={[
@@ -285,14 +317,22 @@ export const AdminMenuWebPage: React.FC<Props> = ({ onBack }) => {
                                                 <PermissionsRenderer permsStr={m.permissions_str} />
                                             </Table.Td>
                                             <Table.Td>{m.sort_order}</Table.Td>
-                                            <Table.Td>{m.activo ? <Badge color="teal">Activo</Badge> : <Badge color="red">Inactivo</Badge>}</Table.Td>
+                                            <Table.Td>
+                                                {m.activo
+                                                    ? <Badge color="teal">Activo</Badge>
+                                                    : <Badge color="red">Inactivo</Badge>}
+                                            </Table.Td>
                                             <Table.Td>
                                                 <Group gap="xs">
                                                     <ActionIcon variant="light" color="blue" onClick={() => openModModal(m)}>
                                                         <IconEdit size={16} />
                                                     </ActionIcon>
                                                     {m.activo && (
-                                                        <ActionIcon variant="light" color="red" onClick={() => handleDeleteMod(m.id_modulo)}>
+                                                        <ActionIcon
+                                                            variant="light"
+                                                            color="red"
+                                                            onClick={() => setDeleteConfirm({ type: 'mod', id: m.id_modulo, label: m.label })}
+                                                        >
                                                             <IconTrash size={16} />
                                                         </ActionIcon>
                                                     )}
@@ -324,30 +364,49 @@ export const AdminMenuWebPage: React.FC<Props> = ({ onBack }) => {
                                 </Table.Tr>
                             </Table.Thead>
                             <Table.Tbody>
-                                {links.map((l) => (
-                                    <Table.Tr key={l.id_link}>
-                                        <Table.Td><Text fw={500} size="sm">{l.id_accion}</Text></Table.Td>
-                                        <Table.Td>{l.label}</Table.Td>
-                                        <Table.Td><Badge color="indigo">{l.id_modulo}</Badge></Table.Td>
-                                        <Table.Td>
-                                            <PermissionsRenderer permsStr={l.permissions_str} color="grape" />
-                                        </Table.Td>
-                                        <Table.Td>{l.sort_order}</Table.Td>
-                                        <Table.Td>{l.activo ? <Badge color="teal">Activo</Badge> : <Badge color="red">Inactivo</Badge>}</Table.Td>
-                                        <Table.Td>
-                                            <Group gap="xs">
-                                                <ActionIcon variant="light" color="blue" onClick={() => openLinkModal(l)}>
-                                                    <IconEdit size={16} />
-                                                </ActionIcon>
-                                                {l.activo && (
-                                                    <ActionIcon variant="light" color="red" onClick={() => handleDeleteLink(l.id_link)}>
-                                                        <IconTrash size={16} />
+                                {links.map((l) => {
+                                    const parentMod = moduloMap.get(l.id_modulo);
+                                    const parentInactive = parentMod && !parentMod.activo;
+                                    return (
+                                        <Table.Tr key={l.id_link}>
+                                            <Table.Td><Text fw={500} size="sm">{l.id_accion}</Text></Table.Td>
+                                            <Table.Td>{l.label}</Table.Td>
+                                            <Table.Td>
+                                                <Group gap={4}>
+                                                    <Badge color={parentInactive ? 'gray' : 'indigo'}>{l.id_modulo}</Badge>
+                                                    {parentInactive && (
+                                                        <Badge size="xs" color="orange" variant="light">módulo inactivo</Badge>
+                                                    )}
+                                                </Group>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <PermissionsRenderer permsStr={l.permissions_str} color="grape" />
+                                            </Table.Td>
+                                            <Table.Td>{l.sort_order}</Table.Td>
+                                            <Table.Td>
+                                                {l.activo
+                                                    ? <Badge color="teal">Activo</Badge>
+                                                    : <Badge color="red">Inactivo</Badge>}
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <Group gap="xs">
+                                                    <ActionIcon variant="light" color="blue" onClick={() => openLinkModal(l)}>
+                                                        <IconEdit size={16} />
                                                     </ActionIcon>
-                                                )}
-                                            </Group>
-                                        </Table.Td>
-                                    </Table.Tr>
-                                ))}
+                                                    {l.activo && (
+                                                        <ActionIcon
+                                                            variant="light"
+                                                            color="red"
+                                                            onClick={() => setDeleteConfirm({ type: 'link', id: l.id_link, label: l.label })}
+                                                        >
+                                                            <IconTrash size={16} />
+                                                        </ActionIcon>
+                                                    )}
+                                                </Group>
+                                            </Table.Td>
+                                        </Table.Tr>
+                                    );
+                                })}
                             </Table.Tbody>
                         </Table>
                     </Tabs.Panel>
@@ -357,30 +416,105 @@ export const AdminMenuWebPage: React.FC<Props> = ({ onBack }) => {
             {/* Modal Unidades */}
             <Modal opened={modModalOpen} onClose={() => setModModalOpen(false)} title={editingMod ? "Editar Unidad" : "Nueva Unidad"}>
                 <form onSubmit={formMod.onSubmit(saveModulo)}>
-                    <TextInput label="ID Clave (Interno)" placeholder="ej: medio_ambiente" {...formMod.getInputProps('id_modulo')} required disabled={!!editingMod} />
+                    <TextInput
+                        label="ID Clave (Interno)"
+                        placeholder="ej: medio_ambiente"
+                        description="Solo minúsculas, números y guión bajo"
+                        {...formMod.getInputProps('id_modulo')}
+                        required
+                        disabled={!!editingMod}
+                    />
                     <TextInput label="Label (Nombre Visible)" mt="sm" {...formMod.getInputProps('label')} required />
-                    <Select label="Ícono Tabler" data={iconOptions} renderOption={renderSelectOption} searchable mt="sm" {...formMod.getInputProps('icon_name')} />
-                    <Select label="Grupo" data={[{value: 'unidades', label: 'Unidades'}, {value: 'gestion', label: 'Gestión'}]} mt="sm" {...formMod.getInputProps('grupo')} />
-                    <TextInput label="Permisos (sep. comas)" placeholder="MA_ACCESO, INF_ACCESO" mt="sm" {...formMod.getInputProps('permissions_str')} />
+                    <Select
+                        label="Ícono Tabler"
+                        data={iconOptions}
+                        renderOption={renderSelectOption}
+                        searchable
+                        mt="sm"
+                        {...formMod.getInputProps('icon_name')}
+                    />
+                    <Select
+                        label="Grupo"
+                        data={[{ value: 'unidades', label: 'Unidades' }, { value: 'gestion', label: 'Gestión' }]}
+                        mt="sm"
+                        {...formMod.getInputProps('grupo')}
+                    />
+                    <TextInput
+                        label="Permisos (sep. comas)"
+                        placeholder="MA_ACCESO, INF_ACCESO"
+                        mt="sm"
+                        {...formMod.getInputProps('permissions_str')}
+                    />
                     <NumberInput label="Orden" mt="sm" {...formMod.getInputProps('sort_order')} />
                     {editingMod && <Switch label="Módulo Activo" mt="md" {...formMod.getInputProps('activo', { type: 'checkbox' })} />}
-                    <Button type="submit" fullWidth mt="xl">Guardar</Button>
+                    <Button type="submit" fullWidth mt="xl" loading={isSaving}>Guardar</Button>
                 </form>
             </Modal>
 
             {/* Modal Links */}
             <Modal opened={linkModalOpen} onClose={() => setLinkModalOpen(false)} title={editingLink ? "Editar Enlace" : "Nuevo Enlace"}>
                 <form onSubmit={formLink.onSubmit(saveLink)}>
-                    <TextInput label="ID Acción (React Route Clave)" placeholder="ej: ma-fichas-ingreso" {...formLink.getInputProps('id_accion')} required />
+                    <TextInput
+                        label="ID Acción (React Route Clave)"
+                        placeholder="ej: ma-fichas-ingreso"
+                        {...formLink.getInputProps('id_accion')}
+                        required
+                    />
                     <TextInput label="Label (Nombre Visible)" mt="sm" {...formLink.getInputProps('label')} required />
-                    <Select label="Módulo Padre" data={moduloOptions} searchable mt="sm" {...formLink.getInputProps('id_modulo')} required />
-                    <TextInput label="Permisos Extra (sep. comas)" description="Vacío hereda acceso del padre." placeholder="FI_NEW_CREAR" mt="sm" {...formLink.getInputProps('permissions_str')} />
+                    <Select
+                        label="Módulo Padre"
+                        data={moduloOptions}
+                        searchable
+                        mt="sm"
+                        {...formLink.getInputProps('id_modulo')}
+                        required
+                    />
+                    <TextInput
+                        label="Permisos Extra (sep. comas)"
+                        description="Vacío hereda acceso del padre."
+                        placeholder="FI_NEW_CREAR"
+                        mt="sm"
+                        {...formLink.getInputProps('permissions_str')}
+                    />
                     <NumberInput label="Orden" mt="sm" {...formLink.getInputProps('sort_order')} />
                     {editingLink && <Switch label="Enlace Activo" mt="md" {...formLink.getInputProps('activo', { type: 'checkbox' })} />}
-                    <Button type="submit" color="grape" fullWidth mt="xl">Guardar</Button>
+                    <Button type="submit" color="grape" fullWidth mt="xl" loading={isSaving}>Guardar</Button>
                 </form>
             </Modal>
 
+            {/* Delete Confirmation Modal */}
+            <Modal
+                opened={!!deleteConfirm}
+                onClose={() => setDeleteConfirm(null)}
+                title={
+                    <Group gap="xs">
+                        <IconAlertTriangle size={18} color="var(--mantine-color-orange-6)" />
+                        <Text fw={600}>Confirmar deshabilitación</Text>
+                    </Group>
+                }
+                size="sm"
+                centered
+            >
+                <Stack gap="lg">
+                    <Text size="sm">
+                        ¿Está seguro de deshabilitar{' '}
+                        <Text span fw={700}>{deleteConfirm?.label}</Text>?
+                        {deleteConfirm?.type === 'mod' && (
+                            <Text size="xs" c="dimmed" mt={4}>
+                                También se deshabilitarán todos sus sub-enlaces asociados.
+                            </Text>
+                        )}
+                    </Text>
+                    <Group justify="flex-end" gap="sm">
+                        <Button variant="default" onClick={() => setDeleteConfirm(null)} disabled={isDeleting}>
+                            Cancelar
+                        </Button>
+                        <Button color="red" onClick={confirmDelete} loading={isDeleting}>
+                            Deshabilitar
+                        </Button>
+                    </Group>
+                </Stack>
+            </Modal>
         </Box>
     );
 };

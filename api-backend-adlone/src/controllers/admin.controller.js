@@ -83,7 +83,8 @@ export const adminController = {
 
     checkDuplicateMuestreador: async (req, res) => {
         try {
-            const { nombre, correo } = req.query;
+            const nombre = req.query.nombre?.trim() || null;
+            const correo = req.query.correo?.trim() || null;
             if (!nombre && !correo) {
                 return res.json({ success: true, data: [] });
             }

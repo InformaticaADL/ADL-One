@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
     Group, 
     Text, 
@@ -120,17 +120,18 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
         return () => clearTimeout(timer);
     }, [searchTerm, statusFilter]);
 
-    // Handle incoming pending request from NavStore
+    // Handle incoming pending request from NavStore — find the muestreador it belongs to and open its requests modal
     useEffect(() => {
-        if (pendingRequestId && solicitudesRealizadas.length > 0) {
-            const sol = solicitudesRealizadas.find(s => s.id_solicitud === pendingRequestId);
-            if (sol) {
-                // Determine if it belongs to a sampler here or just open the global inbox?
-                // Usually these redirects go to UniversalInbox, but if we are here, we might want to highlight it.
-                // For now, let's keep it simple.
-            }
+        if (!pendingRequestId || solicitudesRealizadas.length === 0 || muestreadores.length === 0) return;
+        const sol = solicitudesRealizadas.find(s => s.id_solicitud === pendingRequestId);
+        if (!sol) return;
+        const d = sol.datos_json || {};
+        const idStr = String(d.id_muestreador || d.muestreador_origen_id || d.nuevo_responsable_id || '');
+        const target = muestreadores.find(m => String(m.id_muestreador) === idStr);
+        if (target) {
+            handleOpenRequests(target);
         }
-    }, [pendingRequestId, solicitudesRealizadas]);
+    }, [pendingRequestId, solicitudesRealizadas, muestreadores]);
 
     const handleCreate = () => {
         setSelectedMuestreador(null);
@@ -147,19 +148,27 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
         setShowRequestsModal(true);
     };
 
-    const getPendingRequestsForSampler = (id: number) => {
-        return solicitudesRealizadas.filter(sol => {
+    // Pre-build index once per solicitudesRealizadas change — O(1) lookup per row
+    const pendingBySampler = useMemo(() => {
+        const map = new Map<string, any[]>();
+        for (const sol of solicitudesRealizadas) {
             const d = sol.datos_json || {};
-            const idStr = String(id);
-            // check multiple possible ID keys (URS and Legacy)
-            if (String(d.id_muestreador) === idStr) return true;
-            if (String(d.muestreador_origen_id) === idStr) return true; // Fix for ID 11
-            if (String(d.muestreador_destino_id) === idStr) return true;
-            if (String(d.nuevo_responsable_id) === idStr) return true; // Legacy Traspaso
-            if (String(d.id_muestreador_nuevo) === idStr) return true; // Manual reassignment
-            return false;
-        });
-    };
+            const ids = [
+                d.id_muestreador,
+                d.muestreador_origen_id,
+                d.muestreador_destino_id,
+                d.nuevo_responsable_id,
+                d.id_muestreador_nuevo,
+            ].filter(Boolean).map(String);
+            for (const idStr of ids) {
+                if (!map.has(idStr)) map.set(idStr, []);
+                map.get(idStr)!.push(sol);
+            }
+        }
+        return map;
+    }, [solicitudesRealizadas]);
+
+    const getPendingRequestsForSampler = (id: number) => pendingBySampler.get(String(id)) ?? [];
 
     const handleDisableClick = (m: any) => {
         setMuestreadorToDisable(m);
@@ -445,49 +454,55 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                                             <Divider variant="dashed" />
 
                                             <Group grow gap="xs">
-                                                <Button 
-                                                    variant="light" 
-                                                    color={hasPending ? "orange" : "gray"} 
-                                                    onClick={() => handleOpenRequests(m)}
-                                                    leftSection={<IconBell size={16} />}
-                                                    size="xs"
-                                                    radius="md"
-                                                >
-                                                    Solicitudes
-                                                </Button>
-                                                <Button 
-                                                    variant="light" 
-                                                    color="blue" 
-                                                    onClick={() => handleEdit(m)}
-                                                    leftSection={<IconEdit size={16} />}
-                                                    size="xs"
-                                                    radius="md"
-                                                >
-                                                    Editar
-                                                </Button>
-                                                {m.habilitado === 'S' ? (
-                                                    <Button 
-                                                        variant="light" 
-                                                        color="red" 
-                                                        onClick={() => handleDisableClick(m)}
-                                                        leftSection={<IconPower size={16} />}
+                                                <ProtectedContent permission="MU_SOLICITUDES">
+                                                    <Button
+                                                        variant="light"
+                                                        color={hasPending ? "orange" : "gray"}
+                                                        onClick={() => handleOpenRequests(m)}
+                                                        leftSection={<IconBell size={16} />}
                                                         size="xs"
                                                         radius="md"
                                                     >
-                                                        Baja
+                                                        Solicitudes
                                                     </Button>
-                                                ) : (
-                                                    <Button 
-                                                        variant="light" 
-                                                        color="green" 
-                                                        onClick={() => handleEnableClick(m)}
-                                                        leftSection={<IconCheck size={16} />}
+                                                </ProtectedContent>
+                                                <ProtectedContent permission="AI_MA_EDITAR_MUESTREADOR">
+                                                    <Button
+                                                        variant="light"
+                                                        color="blue"
+                                                        onClick={() => handleEdit(m)}
+                                                        leftSection={<IconEdit size={16} />}
                                                         size="xs"
                                                         radius="md"
                                                     >
-                                                        Alta
+                                                        Editar
                                                     </Button>
-                                                )}
+                                                </ProtectedContent>
+                                                <ProtectedContent permission="AI_MA_DESHABILITAR_MUESTREADOR">
+                                                    {m.habilitado === 'S' ? (
+                                                        <Button
+                                                            variant="light"
+                                                            color="red"
+                                                            onClick={() => handleDisableClick(m)}
+                                                            leftSection={<IconPower size={16} />}
+                                                            size="xs"
+                                                            radius="md"
+                                                        >
+                                                            Baja
+                                                        </Button>
+                                                    ) : (
+                                                        <Button
+                                                            variant="light"
+                                                            color="green"
+                                                            onClick={() => handleEnableClick(m)}
+                                                            leftSection={<IconCheck size={16} />}
+                                                            size="xs"
+                                                            radius="md"
+                                                        >
+                                                            Alta
+                                                        </Button>
+                                                    )}
+                                                </ProtectedContent>
                                             </Group>
                                         </MantineStack>
                                     </Paper>

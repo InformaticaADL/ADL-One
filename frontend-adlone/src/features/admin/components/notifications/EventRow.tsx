@@ -11,15 +11,17 @@ import {
     useMantineTheme
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import { 
-    IconSettings, 
-    IconMail, 
-    IconBell, 
-    IconCheck, 
-    IconAlertCircle, 
-    IconBolt 
+import {
+    IconSettings,
+    IconMail,
+    IconBell,
+    IconCheck,
+    IconAlertCircle,
+    IconBolt,
+    IconPlayerPlay
 } from '@tabler/icons-react';
 import { notificationService } from '../../../../services/notification.service';
+import apiClient from '../../../../config/axios.config';
 import { useToast } from '../../../../contexts/ToastContext';
 
 interface Props {
@@ -39,16 +41,33 @@ export const EventRow: React.FC<Props> = ({ event, onOpenSettings, onStatusChang
     const isMobile = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`);
     const { showToast } = useToast();
     const [saving, setSaving] = useState(false);
+    const [testing, setTesting] = useState(false);
     const [localConfig, setLocalConfig] = useState(event.config || []);
 
     useEffect(() => {
         setLocalConfig(event.config || []);
     }, [event.config]);
 
+    const handleTest = async () => {
+        try {
+            setTesting(true);
+            await apiClient.post('/api/notifications/test/send', {
+                eventCode: event.codigo,
+                context: { correlativo: 'TEST-001', usuario: 'Admin Test' }
+            });
+            showToast({ type: 'success', message: `Notificación de prueba enviada para "${event.codigo}". Revisa la campanita y el email.` });
+        } catch {
+            showToast({ type: 'error', message: 'Error al enviar notificación de prueba' });
+        } finally {
+            setTesting(false);
+        }
+    };
+
     const hasEmail = localConfig.some(c => c.envia_email) || false;
     const hasWeb = localConfig.some(c => c.envia_web) || false;
 
     const toggleQuickChannel = async (channel: 'email' | 'web', currentVal: boolean) => {
+        const prevConfig = localConfig; // snapshot before optimistic update
         try {
             setSaving(true);
             let newConfigs: any[] = [];
@@ -74,14 +93,14 @@ export const EventRow: React.FC<Props> = ({ event, onOpenSettings, onStatusChang
 
             setLocalConfig(newConfigs);
             await notificationService.saveNotificationConfig(event.id, newConfigs);
-            showToast({ 
-                type: 'success', 
-                message: `${channel === 'email' ? 'Email' : 'Notificaciones Web'} ${!currentVal ? 'activadas' : 'desactivadas'}` 
+            showToast({
+                type: 'success',
+                message: `${channel === 'email' ? 'Email' : 'Notificaciones Web'} ${!currentVal ? 'activadas' : 'desactivadas'}`
             });
 
             if (onStatusChange) onStatusChange();
         } catch (error) {
-            setLocalConfig(event.config || []);
+            setLocalConfig(prevConfig); // revert to known-good state, not stale prop
             showToast({ type: 'error', message: 'Error al actualizar configuración rápida' });
         } finally {
             setSaving(false);
@@ -89,21 +108,20 @@ export const EventRow: React.FC<Props> = ({ event, onOpenSettings, onStatusChang
     };
 
     return (
-        <Paper 
-            p="md" 
-            mb="sm" 
-            shadow="xs" 
-            style={{ 
-                transition: 'transform 150ms ease, border-color 150ms ease',
-                cursor: 'default'
-            }}
-            onMouseOver={(e) => {
-                e.currentTarget.style.transform = 'translateX(4px)';
-                e.currentTarget.style.borderColor = 'var(--mantine-color-adl-blue-2)';
-            }}
-            onMouseOut={(e) => {
-                e.currentTarget.style.transform = 'none';
-                e.currentTarget.style.borderColor = 'var(--mantine-color-gray-2)';
+        <Paper
+            p="md"
+            mb="sm"
+            shadow="xs"
+            withBorder
+            styles={{
+                root: {
+                    transition: 'transform 150ms ease, border-color 150ms ease',
+                    cursor: 'default',
+                    '&:hover': {
+                        transform: 'translateX(4px)',
+                        borderColor: 'var(--mantine-color-adl-blue-2)',
+                    }
+                }
             }}
         >
             <Group justify="space-between" wrap={isMobile ? "wrap" : "nowrap"} align={isMobile ? "stretch" : "center"}>
@@ -168,9 +186,21 @@ export const EventRow: React.FC<Props> = ({ event, onOpenSettings, onStatusChang
                         </Tooltip>
                     </Group>
 
-                    <Button 
-                        variant="filled" 
-                        color="dark" 
+                    <Tooltip label="Enviar notificación de prueba a los destinatarios configurados" withArrow>
+                        <Button
+                            variant="light"
+                            color="teal"
+                            size="xs"
+                            leftSection={<IconPlayerPlay size={14} />}
+                            loading={testing}
+                            onClick={handleTest}
+                        >
+                            Probar
+                        </Button>
+                    </Tooltip>
+                    <Button
+                        variant="filled"
+                        color="dark"
                         size="xs"
                         leftSection={<IconSettings size={14} />}
                         onClick={() => onOpenSettings(event)}

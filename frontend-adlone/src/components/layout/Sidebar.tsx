@@ -199,6 +199,7 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotC
         resetNavigation,
         dynamicModules,
         setDynamicModules,
+        ursUnreadCount,
     } = useNavStore();
 
     const isCollapsed = forceNotCollapsed ? false : sidebarCollapsed;
@@ -218,36 +219,7 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotC
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 if (response.data && response.data.success) {
-                    const fetchedModules = response.data.data;
-                    const gemModule = fetchedModules.find((m: any) => m.id && m.id.toLowerCase() === 'gem');
-                    
-                    // Permisos que dan acceso a la Unidad GEM (GEM_REALIZADO está asignado al rol GEM MAM PM)
-                    const GEM_PERMISOS = ['GEM_ACCESO', 'GEM_REALIZADO'];
-
-                    const newLink = {
-                        id: 'gem-muestreos-completados',
-                        label: 'Muestreos Completados',
-                        permission: GEM_PERMISOS
-                    };
-
-                    if (gemModule) {
-                        if (!gemModule.links) gemModule.links = [];
-                        if (!gemModule.links.some((l: any) => l.id === newLink.id)) {
-                            gemModule.links.push(newLink);
-                        }
-                    } else if (hasPermission(GEM_PERMISOS)) {
-                        // Inyectamos el módulo GEM si el usuario tiene GEM_ACCESO o permisos de muestreos completados
-                        fetchedModules.push({
-                            id: 'gem',
-                            label: 'Unidad GEM',
-                            icon: 'IconFlask',
-                            group: 'unidades',
-                            permission: GEM_PERMISOS,
-                            links: [newLink]
-                        });
-                    }
-
-                    setDynamicModules(fetchedModules);
+                    setDynamicModules(response.data.data);
                 }
             } catch (_) {
                 // Silently fail — sidebar will show static modules only
@@ -414,11 +386,17 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotC
                 activeSubmodule={activeSubmodule}
                 collapsed={isCollapsed}
                 onClick={() => handleModuleClick(item.id)}
-                badge={(isNotificationsItem && unreadCount > 0) ? (
-                    <Badge size="xs" variant="filled" color="red" className={classes.badge}>
-                        {unreadCount}
-                    </Badge>
-                ) : null}
+                badge={
+                    isNotificationsItem && unreadCount > 0 ? (
+                        <Badge size="xs" variant="filled" color="red" className={classes.badge}>
+                            {unreadCount}
+                        </Badge>
+                    ) : item.id === 'solicitudes' && ursUnreadCount > 0 ? (
+                        <Badge size="xs" variant="filled" color="red" className={classes.badge}>
+                            {ursUnreadCount}
+                        </Badge>
+                    ) : null
+                }
                 notificationRef={isNotificationsItem ? notificationsRef : undefined} // Pass ref to notification item
                 onSubmoduleClick={(subId) => {
                     setActiveSubmodule(subId);

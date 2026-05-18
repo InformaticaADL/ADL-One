@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Select, Stack, Group, Text, Paper, TextInput, Checkbox, Alert, Badge, Divider, Box, Loader } from '@mantine/core';
 import { IconInfoCircle, IconArrowsExchange, IconUser, IconMapPin, IconCalendarEvent } from '@tabler/icons-react';
 import apiClient from '../../../config/axios.config';
+import { useToast } from '../../../contexts/ToastContext';
 
 interface EquipoTraspasoFormProps {
     onDataChange: (data: any) => void;
 }
 
 const EquipoTraspasoForm: React.FC<EquipoTraspasoFormProps> = ({ onDataChange }) => {
+    const { showToast } = useToast();
     const [equipoId, setEquipoId] = useState<string | null>(null);
     const [centroDestinoId, setCentroDestinoId] = useState<string | null>(null);
     const [muestreadorDestinoId, setMuestreadorDestinoId] = useState<string | null>(null);
@@ -41,7 +43,7 @@ const EquipoTraspasoForm: React.FC<EquipoTraspasoFormProps> = ({ onDataChange })
                     label: `${l.nombre_lugaranalisis} (${l.sigla})`
                 })));
             })
-            .catch(console.error)
+            .catch(() => showToast({ type: 'error', message: 'Error al cargar datos del formulario' }))
             .finally(() => setFetchingEquipos(false));
     }, []);
 
@@ -59,7 +61,7 @@ const EquipoTraspasoForm: React.FC<EquipoTraspasoFormProps> = ({ onDataChange })
                     setSelectedEquipoDetails(res.data.data || null);
                 }
             })
-            .catch(err => console.error("Error fetching equipo details:", err))
+            .catch(() => showToast({ type: 'error', message: 'Error al obtener detalles del equipo' }))
             .finally(() => setFetchingDetails(false));
     }, [equipoId]);
 
@@ -125,7 +127,7 @@ const EquipoTraspasoForm: React.FC<EquipoTraspasoFormProps> = ({ onDataChange })
                 <Select
                     label="1. Seleccione el Equipo"
                     placeholder={fetchingEquipos ? "Cargando..." : "Busque por nombre o código"}
-                    data={equipos.map(e => ({ value: String(e.id_equipo), label: `${e.nombre} [${e.codigo}]` }))}
+                    data={React.useMemo(() => equipos.map(e => ({ value: String(e.id_equipo), label: `${e.nombre} [${e.codigo}]` })), [equipos])}
                     value={equipoId}
                     onChange={setEquipoId}
                     searchable

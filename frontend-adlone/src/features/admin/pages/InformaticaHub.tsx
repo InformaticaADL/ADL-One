@@ -9,10 +9,9 @@ import {
     Box
 } from '@mantine/core';
 import { 
-    IconShieldCheck, 
-    IconUser, 
-    IconUsers, 
-    IconBell, 
+    IconShieldCheck,
+    IconUser,
+    IconBell,
     IconMail,
     IconLayoutSidebar,
     IconDatabase
@@ -45,15 +44,7 @@ export const InformaticaHub: React.FC<Props> = ({ onNavigate, onBack }) => {
             description: 'Crear, editar y administrar usuarios.', 
             permission: 'INF_USUARIOS' 
         },
-        { 
-            id: 'admin-user-roles', 
-            label: 'Asignación de Roles', 
-            icon: <IconUsers style={{ width: rem(32), height: rem(32) }} />, 
-            color: 'indigo',
-            description: 'Asignar roles a los usuarios.', 
-            permission: 'INF_ROLES' 
-        },
-        { 
+        {
             id: 'admin-notifications', 
             label: 'Notificaciones', 
             icon: <IconBell style={{ width: rem(32), height: rem(32) }} />, 

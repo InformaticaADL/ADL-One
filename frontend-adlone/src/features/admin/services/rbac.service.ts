@@ -26,6 +26,7 @@ export interface User {
     nombre_cargo?: string;
     roles?: string[];
     habilitado?: string;
+    ultimo_acceso?: string | null;
 }
 
 export interface CreateUserData {
@@ -53,11 +54,16 @@ class RbacService {
     }
 
     async createRole(nombre: string, descripcion: string): Promise<Role> {
-        const response = await apiClient.post('/api/rbac/roles', {
-            nombre,
-            descripcion
-        });
+        const response = await apiClient.post('/api/rbac/roles', { nombre, descripcion });
         return response.data.data;
+    }
+
+    async updateRole(roleId: number, nombre: string, descripcion: string): Promise<void> {
+        await apiClient.put(`/api/rbac/roles/${roleId}`, { nombre, descripcion });
+    }
+
+    async toggleRoleStatus(roleId: number, estado: boolean): Promise<void> {
+        await apiClient.put(`/api/rbac/roles/${roleId}/status`, { estado });
     }
 
     // === Permissions ===

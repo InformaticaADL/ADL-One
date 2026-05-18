@@ -104,11 +104,20 @@ class RutasPlanificadasService {
 
     async delete(id) {
         const pool = await getConnection();
-        // Delete detail first (safe even if CASCADE exists)
+
+        // Guard: prevent deletion if there are active executions linked to this route
+        const checkRes = await pool.request()
+            .input('id', sql.Int, id)
+            .query(`SELECT COUNT(*) AS cnt FROM mae_rutas_ejecuciones
+                    WHERE id_ruta_planificada = @id AND estado NOT IN ('COMPLETADA','CANCELADA','ANULADA')`);
+        if (checkRes.recordset[0].cnt > 0) {
+            throw new Error('No se puede eliminar la ruta porque tiene ejecuciones activas asociadas.');
+        }
+
+        // Delete detail first, then header
         await pool.request()
             .input('id', sql.Int, id)
             .query('DELETE FROM mae_rutas_planificadas_detalle WHERE id_ruta_planificada = @id');
-        // Then delete the header
         await pool.request()
             .input('id', sql.Int, id)
             .query('DELETE FROM mae_rutas_planificadas WHERE id_ruta_planificada = @id');

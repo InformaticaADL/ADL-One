@@ -54,18 +54,10 @@ const TextInput = React.memo(({ value: parentValue, onChange, ...props }: any) =
     }, [parentValue]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setLocalValue(e.target.value);
+        const next = e.target.value;
+        setLocalValue(next);
+        if (onChange) onChange({ target: { value: next } } as any);
     };
-
-    // Propagar hacia arriba solo después de 400ms de inactividad de teclado
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            if (localValue !== parentValue && onChange) {
-                 onChange({ target: { value: localValue } } as any);
-            }
-        }, 400);
-        return () => clearTimeout(timer);
-    }, [localValue, parentValue, onChange]);
 
     return <MantineTextInput value={localValue} onChange={handleChange} {...props} />;
 });
@@ -616,7 +608,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
     // Memoized Select Data for Performance
     const filteredCargosMemo = useMemo(() => {
-        if (responsableMuestreo === 'ADL') return cargos.filter(c => String(c.id) === '53');
+        if (responsableMuestreo === 'ADL') return cargos.filter(c => c.nombre?.toUpperCase().includes('ADL'));
         if (responsableMuestreo === 'Cliente') return cargos.filter(c => c.cliente === 'S' || c.cliente === true);
         return cargos;
     }, [cargos, responsableMuestreo]);
@@ -766,7 +758,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         <TextInput 
                             label="Ubicación / Dirección" 
                             value={ubicacion} 
-                            onChange={(e) => setUbicacion(e.target.value)}
+                            onChange={(e: any) => setUbicacion(e.target.value)}
                             size="sm"
                             radius="md"
                         />
@@ -841,7 +833,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         <TextInput 
                             label="Punto de Muestreo *" 
                             value={puntoMuestreo} 
-                            onChange={(e) => setPuntoMuestreo(e.target.value)}
+                            onChange={(e: any) => setPuntoMuestreo(e.target.value)}
                             size="sm"
                             radius="md"
                         />
@@ -859,14 +851,14 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         <TextInput 
                             label="Cant. Frecuencia" 
                             value={frecuencia}
-                            onChange={(e) => setFrecuencia(e.target.value)}
+                            onChange={(e: any) => setFrecuencia(e.target.value)}
                             size="sm"
                             radius="md"
                         />
                         <TextInput 
                             label="Factor" 
                             value={factor} 
-                            onChange={(e) => setFactor(e.target.value)}
+                            onChange={(e: any) => setFactor(e.target.value)}
                             size="sm"
                             radius="md"
                         />
@@ -906,7 +898,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         <TextInput 
                             label="UTM Norte *" 
                             value={utmNorte} 
-                            onChange={(e) => setUtmNorte(e.target.value)} 
+                            onChange={(e: any) => setUtmNorte(e.target.value)} 
                             disabled={!zona || zona === 'No aplica'}
                             size="sm"
                             radius="md"
@@ -914,7 +906,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         <TextInput 
                             label="UTM Este *" 
                             value={utmEste} 
-                            onChange={(e) => setUtmEste(e.target.value)} 
+                            onChange={(e: any) => setUtmEste(e.target.value)} 
                             disabled={!zona || zona === 'No aplica'}
                             size="sm"
                             radius="md"
@@ -942,7 +934,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             label={isVerySmall ? "Número Instrumento *" : "Número Instrumento *"} 
                             placeholder="Ej: 123/2023"
                             value={nroInstrumento} 
-                            onChange={(e) => setNroInstrumento(e.target.value)} 
+                            onChange={(e: any) => setNroInstrumento(e.target.value)} 
                             size="sm" 
                             radius="md" 
                         />
@@ -950,7 +942,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             label={isVerySmall ? "Año Instrumento *" : "Año Instrumento *"} 
                             placeholder="YYYY"
                             value={anioInstrumento} 
-                            onChange={(e) => setAnioInstrumento(e.target.value)} 
+                            onChange={(e: any) => setAnioInstrumento(e.target.value)} 
                             size="sm" 
                             radius="md" 
                         />
@@ -979,7 +971,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                     <TextInput 
                         label="Nombre de la Tabla (Glosa) *" 
                         value={glosa} 
-                        onChange={(e) => setGlosa(e.target.value)} 
+                        onChange={(e: any) => setGlosa(e.target.value)} 
                         maxLength={100}
                         description={`${glosa.length}/100 caracteres`}
                         size="sm"
@@ -1040,7 +1032,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             label="Duración (Hrs) *" 
                             type="number" 
                             value={duracion} 
-                            onChange={(e) => setDuracion(e.target.value)} 
+                            onChange={(e: any) => setDuracion(e.target.value)} 
                             size="sm"
                             radius="md"
                         />
@@ -1058,7 +1050,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         label="Referencia Google Maps" 
                         placeholder="https://maps..." 
                         value={refGoogle} 
-                        onChange={(e) => setRefGoogle(e.target.value)}
+                        onChange={(e: any) => setRefGoogle(e.target.value)}
                         size="sm"
                         radius="md"
                     />
@@ -1106,7 +1098,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                                 <TextInput 
                                     placeholder="Valor" 
                                     value={detalleCanal} 
-                                    onChange={(e) => setDetalleCanal(e.target.value)} 
+                                    onChange={(e: any) => setDetalleCanal(e.target.value)} 
                                     disabled={!tipoMedidaCanal}
                                     size="xs"
                                     radius="md"
@@ -1136,7 +1128,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                                 <TextInput 
                                     placeholder="Valor" 
                                     value={detalleDispositivo} 
-                                    onChange={(e) => setDetalleDispositivo(e.target.value)} 
+                                    onChange={(e: any) => setDetalleDispositivo(e.target.value)} 
                                     disabled={!tipoMedidaDispositivo}
                                     size="xs"
                                     radius="md"

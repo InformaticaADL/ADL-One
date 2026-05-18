@@ -105,6 +105,7 @@ export const FichaCreateForm = ({ onBackToMenu }: { onBackToMenu: () => void }) 
     const [createdFichaId, setCreatedFichaId] = useState<number | null>(null);
     const [isAntecedentesValid, setIsAntecedentesValid] = useState(false);
     const [isObservacionesValid, setIsObservacionesValid] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
     const [, startTransition] = useTransition();
     const [activeTab, setActiveTab] = useState<string | null>('antecedentes');
     const antecedentesRef = useRef<AntecedentesFormHandle>(null);
@@ -131,6 +132,8 @@ export const FichaCreateForm = ({ onBackToMenu }: { onBackToMenu: () => void }) 
     };
 
     const handleSave = async () => {
+        if (isSaving) return;
+        setIsSaving(true);
         try {
             const antData = antecedentesRef.current?.getData ? antecedentesRef.current.getData() : null;
             if (!antData) {
@@ -156,12 +159,14 @@ export const FichaCreateForm = ({ onBackToMenu }: { onBackToMenu: () => void }) 
                     showToast({ type: 'warning', message: 'Ficha creada pero no se recibió un ID válido.' });
                 }
             } else {
-                showToast({ type: 'error', message: 'Error al respuesta del servidor' });
+                showToast({ type: 'error', message: 'Error en la respuesta del servidor' });
             }
 
         } catch (error: any) {
             console.error("Error saving ficha:", error);
             showToast({ type: 'error', message: error.response?.data?.message || 'Error al grabar la ficha' });
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -322,6 +327,7 @@ export const FichaCreateForm = ({ onBackToMenu }: { onBackToMenu: () => void }) 
                                         leftSection={<IconPlus size={20} />}
                                         onClick={handleSave}
                                         disabled={!isAntecedentesValid || savedAnalysis.length === 0 || !isObservacionesValid}
+                                        loading={isSaving}
                                     >
                                         Grabar Ficha
                                     </Button>

@@ -160,6 +160,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 // El 403 (sin permiso para esa acción) NO debe cerrar sesión
                 const isLoginRequest = error.config?.url?.includes('/auth/login');
                 if (!isLoginRequest) {
+                    const serverMessage = error.response?.data?.message ?? '';
+                    if (serverMessage === 'Sesión expirada por cambio de permisos') {
+                        sessionStorage.setItem('auth_logout_reason', 'Tu sesión fue cerrada porque un administrador modificó tus permisos. Por favor ingresa nuevamente.');
+                    }
                     console.warn('[Auth] Session expired (401). Logging out...', {
                         status: error.response.status,
                         url: error.config?.url

@@ -50,6 +50,8 @@ router.put('/conversations/:conversationId/read', authenticate, generalChatContr
 router.put('/conversations/:conversationId/clear', authenticate, generalChatController.clearMessages);
 router.put('/conversations/:conversationId/unhide', authenticate, generalChatController.unhideConversation);
 router.delete('/messages/:messageId', authenticate, generalChatController.deleteMessage);
+router.post('/messages/:messageId/reactions', authenticate, generalChatController.addReaction);
+router.get('/conversations/:conversationId/search', authenticate, generalChatController.searchMessages);
 
 // ─── Contactos ─────────────────────────────────────────────
 router.get('/contacts/search', authenticate, generalChatController.searchContacts);

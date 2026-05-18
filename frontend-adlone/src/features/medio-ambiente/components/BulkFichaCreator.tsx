@@ -18,7 +18,8 @@ import {
     IconAlertCircle,
     IconDatabaseExport,
     IconPdf,
-    IconFileSpreadsheet
+    IconFileSpreadsheet,
+    IconDownload
 } from '@tabler/icons-react';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { fichaService } from '../services/ficha.service';
@@ -46,7 +47,7 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
     const [parsedItems, setParsedItems] = useState<any[]>([]);
     const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
     const [commitResults, setCommitResults] = useState<any>(null);
-    const [ufTotals, setUfTotals] = useState<Record<number, number>>({});
+    const [isDownloading, setIsDownloading] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -92,15 +93,6 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
                 const data = result.data;
                 setParsedItems(data.items);
             
-                // Initialize UF totals from Excel if available
-                const initialUfs: Record<number, number> = {};
-                data.items.forEach((item: any, idx: number) => {
-                    if (item.uf_distribuir) {
-                        initialUfs[idx] = item.uf_distribuir;
-                    }
-                });
-                setUfTotals(initialUfs);
-                
                 // Auto-select all READY items
                 setSelectedIndices(data.items.map((it: any, i: number) => (it.status === 'READY' || it.status === 'WARNING' ? i : -1)).filter((i: number) => i !== -1));
                 setProgress(100);
@@ -124,26 +116,7 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
         setStep(3);
         
         try {
-            // Inject uf_individual into each analysis before commit
-            const itemsToCommit = selectedIndices.map(idx => {
-                const item = { ...parsedItems[idx] };
-                const ufTotal = ufTotals[idx] || 0;
-                
-                // Check if we have individual UFs already (from Excel)
-                const hasIndividualUfs = (item.analisis || []).some((a: any) => parseFloat(a.uf_individual) > 0);
-                
-                if (!hasIndividualUfs) {
-                    const matchedCount = (item.analisis || []).filter((a: any) => a._matched).length;
-                    const ufIndividual = (ufTotal > 0 && matchedCount > 0) ? Math.round((ufTotal / matchedCount) * 100) / 100 : 0;
-                    
-                    item.analisis = (item.analisis || []).map((a: any) => ({
-                        ...a,
-                        uf_individual: a._matched ? ufIndividual : 0
-                    }));
-                }
-                
-                return item;
-            });
+            const itemsToCommit = selectedIndices.map(idx => ({ ...parsedItems[idx] }));
             
             const result = await fichaService.bulkCommit({
                 items: itemsToCommit,
@@ -223,6 +196,22 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
             >
                 Procesar Archivos ({files.length})
             </Button>
+
+            <Button
+                size="sm"
+                variant="subtle"
+                color="blue"
+                loading={isDownloading}
+                leftSection={<IconDownload size={16} />}
+                onClick={async () => {
+                    setIsDownloading(true);
+                    try { await fichaService.downloadBulkTemplate(); }
+                    catch { /* handled by service */ }
+                    finally { setIsDownloading(false); }
+                }}
+            >
+                Descargar plantilla Excel (con maestros actualizados)
+            </Button>
         </Stack>
     );
 
@@ -254,10 +243,11 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
                         <Button variant="default" onClick={() => { setStep(1); setFiles([]); setParsedItems([]); }}>
                             Cancelar
                         </Button>
-                        <Button 
-                            color="green" 
+                        <Button
+                            color="green"
                             onClick={handleCommit}
                             disabled={selectedIndices.length === 0}
+                            loading={isCommitting}
                             leftSection={<IconCheck size={18} />}
                         >
                             Crear Fichas ({selectedIndices.length})
@@ -282,8 +272,6 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
                         items={parsedItems} 
                         selectedIndices={selectedIndices}
                         onSelectChange={setSelectedIndices}
-                        ufTotals={ufTotals}
-                        onUfTotalChange={(idx, val) => setUfTotals(prev => ({ ...prev, [idx]: val }))}
                     />
                 </Paper>
             </Stack>

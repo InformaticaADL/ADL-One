@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { generalChatService } from '../services/general-chat.service';
-import type { ChatConversation, ChatMessage, ChatContact } from '../services/general-chat.service';
+import type { ChatConversation, ChatMessage, ChatContact, ChatReaccion } from '../services/general-chat.service';
+
+export interface TypingUser { userId: number; name: string; }
 
 interface ChatState {
     // State
@@ -10,21 +12,29 @@ interface ChatState {
     favorites: ChatContact[];
     loading: boolean;
     messagesLoading: boolean;
+    messagesPage: number;
+    hasMoreMessages: boolean;
     drafts: Record<number, { text: string; files: File[] }>;
+    typingUsers: Record<number, TypingUser[]>;
 
     // Actions
     fetchConversations: () => Promise<void>;
     setActiveConversation: (conv: ChatConversation | null) => void;
     fetchMessages: (conversationId: number, page?: number) => Promise<void>;
+    loadMoreMessages: (conversationId: number) => Promise<void>;
     fetchFavorites: () => Promise<void>;
     addMessage: (message: ChatMessage) => void;
     updateConversationLastMessage: (conversationId: number, message: ChatMessage) => void;
+    updateMessageReactions: (messageId: number, reacciones: ChatReaccion[]) => void;
+    markMessageDeleted: (messageId: number) => void;
     decrementUnread: (conversationId: number) => void;
     removeConversation: (conversationId: number) => void;
     deleteConversation: (conversationId: number) => Promise<void>;
     refreshConversation: (conversationId: number) => void;
     setDraft: (conversationId: number, draft: { text: string; files: File[] }) => void;
     clearDraft: (conversationId: number) => void;
+    setTypingUser: (conversationId: number, userId: number, name: string) => void;
+    removeTypingUser: (conversationId: number, userId: number) => void;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -34,7 +44,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     favorites: [],
     loading: false,
     messagesLoading: false,
+    messagesPage: 1,
+    hasMoreMessages: true,
     drafts: {},
+    typingUsers: {},
 
     fetchConversations: async () => {
         set({ loading: true });
@@ -54,12 +67,31 @@ export const useChatStore = create<ChatState>((set, get) => ({
     },
 
     fetchMessages: async (conversationId, page = 1) => {
-        set({ messagesLoading: true });
+        set({ messagesLoading: true, messagesPage: 1, hasMoreMessages: true });
         try {
             const messages = await generalChatService.getMessages(conversationId, page);
-            set({ messages, messagesLoading: false });
+            set({ messages, messagesLoading: false, hasMoreMessages: messages.length >= 50 });
         } catch (error) {
             console.error('Error fetching messages:', error);
+            set({ messagesLoading: false });
+        }
+    },
+
+    loadMoreMessages: async (conversationId) => {
+        const state = get();
+        if (state.messagesLoading || !state.hasMoreMessages) return;
+        const nextPage = state.messagesPage + 1;
+        set({ messagesLoading: true });
+        try {
+            const older = await generalChatService.getMessages(conversationId, nextPage);
+            set(s => ({
+                messages: [...older, ...s.messages],
+                messagesPage: nextPage,
+                hasMoreMessages: older.length >= 50,
+                messagesLoading: false
+            }));
+        } catch (error) {
+            console.error('Error loading more messages:', error);
             set({ messagesLoading: false });
         }
     },
@@ -76,6 +108,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
     addMessage: (message) => {
         set((state) => ({
             messages: [...state.messages, message]
+        }));
+    },
+
+    updateMessageReactions: (messageId, reacciones) => {
+        set((state) => ({
+            messages: state.messages.map(m =>
+                Number(m.id_mensaje) === Number(messageId) ? { ...m, reacciones } : m
+            )
+        }));
+    },
+
+    markMessageDeleted: (messageId) => {
+        set((state) => ({
+            messages: state.messages.map(m =>
+                m.id_mensaje === messageId ? { ...m, eliminado: true, mensaje: null, archivo_ruta: null, archivo_nombre: null } : m
+            )
         }));
     },
 
@@ -148,5 +196,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 [conversationId]: { text: '', files: [] }
             }
         }));
-    }
+    },
+
+    setTypingUser: (conversationId, userId, name) => {
+        set((state) => {
+            const prev = (state.typingUsers[conversationId] || []).filter(t => t.userId !== userId);
+            return { typingUsers: { ...state.typingUsers, [conversationId]: [...prev, { userId, name }] } };
+        });
+    },
+
+    removeTypingUser: (conversationId, userId) => {
+        set((state) => {
+            const prev = state.typingUsers[conversationId] || [];
+            return { typingUsers: { ...state.typingUsers, [conversationId]: prev.filter(t => t.userId !== userId) } };
+        });
+    },
 }));

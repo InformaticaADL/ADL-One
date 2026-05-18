@@ -83,20 +83,19 @@ export const RecipientModal: React.FC<Props> = ({ isOpen, onClose, event, onSave
         const users: number[] = [];
         let owner = false;
         let cc = '';
-        let email = false;
-        let web = false;
 
-        event.config.forEach((c, idx) => {
+        // Channels: true if ANY config entry has the channel enabled
+        const email = event.config.some(c => !!c.envia_email);
+        const web = event.config.some(c => !!c.envia_web);
+
+        event.config.forEach((c) => {
             if (c.id_rol) roles.push(c.id_rol);
             if (c.id_usuario) users.push(c.id_usuario);
             if (c.es_propietario) owner = true;
-            if (c.cc_emails) {
+            // CC: take the first non-empty value (it's the same across all rows)
+            if (c.cc_emails && !cc) {
                 cc = c.cc_emails;
                 setShowCc(true);
-            }
-            if (idx === 0) {
-                email = !!c.envia_email;
-                web = !!c.envia_web;
             }
         });
 
@@ -115,10 +114,17 @@ export const RecipientModal: React.FC<Props> = ({ isOpen, onClose, event, onSave
             if (event.es_transaccional) {
                 configs.push({ envia_email: channels.email, envia_web: channels.web });
             } else {
-                selectedRoles.forEach(roleId => configs.push({ id_rol: roleId, envia_email: channels.email, envia_web: channels.web, cc_emails: ccEmails }));
-                selectedUsers.forEach(userId => configs.push({ id_usuario: userId, envia_email: channels.email, envia_web: channels.web, cc_emails: ccEmails }));
-                if (notifyOwner) configs.push({ es_propietario: true, envia_email: channels.email, envia_web: channels.web, cc_emails: ccEmails });
-                if (configs.length === 0 && ccEmails) configs.push({ cc_emails: ccEmails, envia_email: true, envia_web: false });
+                // Recipients: each row carries channels but NOT cc_emails (cc is a single separate entry)
+                selectedRoles.forEach(roleId => configs.push({ id_rol: roleId, envia_email: channels.email, envia_web: channels.web }));
+                selectedUsers.forEach(userId => configs.push({ id_usuario: userId, envia_email: channels.email, envia_web: channels.web }));
+                if (notifyOwner) configs.push({ es_propietario: true, envia_email: channels.email, envia_web: channels.web });
+                // CC emails: a single dedicated row so they don't get duplicated per recipient
+                if (ccEmails.trim()) configs.push({ cc_emails: ccEmails.trim(), envia_email: true, envia_web: false });
+                // Edge case: only CCs configured with no other recipients
+                if (configs.length === 0) {
+                    showToast({ type: 'warning', message: 'Debe configurar al menos un destinatario o correo CC' });
+                    return;
+                }
             }
 
             await notificationService.saveNotificationConfig(event.id, configs);

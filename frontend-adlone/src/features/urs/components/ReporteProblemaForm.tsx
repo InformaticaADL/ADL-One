@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { TextInput, Select, Stack, Group, Text, Paper, Textarea, Loader, Badge } from '@mantine/core';
 import apiClient from '../../../config/axios.config';
+import { useToast } from '../../../contexts/ToastContext';
 
 interface ReporteProblemaFormProps {
     onDataChange: (data: any) => void;
 }
 
 const ReporteProblemaForm: React.FC<ReporteProblemaFormProps> = ({ onDataChange }) => {
+    const { showToast } = useToast();
     const [asunto, setAsunto] = useState('');
     const [categoria, setCategoria] = useState<string | null>(null);
     const [equipoId, setEquipoId] = useState<string | null>(null);
@@ -26,7 +28,7 @@ const ReporteProblemaForm: React.FC<ReporteProblemaFormProps> = ({ onDataChange 
                     label: `${e.nombre} [${e.codigo}]`
                 })));
             })
-            .catch(err => console.error("Error loading equipos:", err))
+            .catch(() => showToast({ type: 'error', message: 'Error al cargar inventario de equipos' }))
             .finally(() => setLoadingEquipos(false));
     }, []);
 
@@ -61,7 +63,8 @@ const ReporteProblemaForm: React.FC<ReporteProblemaFormProps> = ({ onDataChange 
                     onChange={(e) => setAsunto(e.currentTarget.value)}
                     required
                     radius="md"
-                    description="Describa brevemente el problema (máx 50 caract.)"
+                    maxLength={50}
+                    description={`Describa brevemente el problema (${asunto.length}/50 caract.)`}
                 />
 
                 <Group grow>

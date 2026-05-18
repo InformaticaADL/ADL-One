@@ -22,4 +22,11 @@ router.post('/bulk-commit',
     (req, res) => bulkFichaController.commitBatch(req, res)
 );
 
+// Download the Excel template with master sheets populated from DB
+router.get('/bulk-template',
+    authenticate,
+    verifyPermission('FI_CREAR'),
+    (req, res) => bulkFichaController.downloadTemplate(req, res)
+);
+
 export default router;

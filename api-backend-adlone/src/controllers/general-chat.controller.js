@@ -3,6 +3,7 @@ import { successResponse, errorResponse } from '../utils/response.js';
 import logger from '../utils/logger.js';
 import path from 'path';
 import fs from 'fs';
+import mime from 'mime-types';
 
 class GeneralChatController {
 
@@ -40,10 +41,16 @@ class GeneralChatController {
             const { nombre, memberIds, descripcion } = req.body;
             
             // memberIds might come as a string if using FormData
-            const parsedMembers = typeof memberIds === 'string' ? JSON.parse(memberIds) : memberIds;
+            let parsedMembers = memberIds;
+            if (typeof memberIds === 'string') {
+                try { parsedMembers = JSON.parse(memberIds); }
+                catch { return errorResponse(res, 'Lista de miembros con formato inválido', 400); }
+            }
 
-            if (!nombre || !parsedMembers || !Array.isArray(parsedMembers) || parsedMembers.length < 1) {
-                return errorResponse(res, 'Nombre y al menos 1 miembro son requeridos', 400);
+            if (!nombre || !nombre.trim()) return errorResponse(res, 'El nombre del grupo es requerido', 400);
+            if (nombre.trim().length > 100) return errorResponse(res, 'El nombre no puede superar 100 caracteres', 400);
+            if (!parsedMembers || !Array.isArray(parsedMembers) || parsedMembers.length < 1) {
+                return errorResponse(res, 'Se requiere al menos 1 miembro', 400);
             }
 
             const foto_grupo = req.file ? `/uploads/chat/${req.file.filename}` : null;
@@ -128,8 +135,10 @@ class GeneralChatController {
 
     async getConversationMembers(req, res) {
         try {
+            const userId = req.user.id;
             const { conversationId } = req.params;
-            const members = await generalChatService.getConversationMembers(Number(conversationId));
+            // Only participants can fetch the member list
+            const members = await generalChatService.getConversationMembers(Number(conversationId), userId);
             return successResponse(res, members);
         } catch (error) {
             logger.error('Error in getConversationMembers:', error);
@@ -168,14 +177,13 @@ class GeneralChatController {
         try {
             const userId = req.user.id;
             const { conversationId } = req.params;
-            const { mensaje } = req.body;
+            const { mensaje, replyToId } = req.body;
             const file = req.file || null;
 
             if (!mensaje && !file) {
                 return errorResponse(res, 'Mensaje o archivo requerido', 400);
             }
 
-            // Process file path for storage
             let fileData = null;
             if (file) {
                 fileData = {
@@ -184,11 +192,39 @@ class GeneralChatController {
                 };
             }
 
-            const result = await generalChatService.sendMessage(userId, Number(conversationId), mensaje, fileData);
+            const result = await generalChatService.sendMessage(userId, Number(conversationId), mensaje, fileData, replyToId ? Number(replyToId) : null);
             return successResponse(res, result, 'Mensaje enviado');
         } catch (error) {
             logger.error('Error in sendMessage:', error);
             return errorResponse(res, error.message || 'Error al enviar mensaje', error.message?.includes('participante') ? 403 : 500);
+        }
+    }
+
+    async addReaction(req, res) {
+        try {
+            const userId = req.user.id;
+            const { messageId } = req.params;
+            const { emoji } = req.body;
+            if (!emoji) return errorResponse(res, 'Emoji requerido', 400);
+            const result = await generalChatService.addReaction(userId, Number(messageId), emoji);
+            return successResponse(res, result, 'Reacción actualizada');
+        } catch (error) {
+            logger.error('Error in addReaction:', error);
+            return errorResponse(res, error.message || 'Error al reaccionar', error.message?.includes('participante') ? 403 : 500);
+        }
+    }
+
+    async searchMessages(req, res) {
+        try {
+            const userId = req.user.id;
+            const { conversationId } = req.params;
+            const { q } = req.query;
+            if (!q || q.trim().length < 2) return errorResponse(res, 'Búsqueda demasiado corta', 400);
+            const results = await generalChatService.searchMessages(userId, Number(conversationId), q.trim());
+            return successResponse(res, results);
+        } catch (error) {
+            logger.error('Error in searchMessages:', error);
+            return errorResponse(res, error.message || 'Error al buscar mensajes', error.message?.includes('participante') ? 403 : 500);
         }
     }
 
@@ -267,14 +303,12 @@ class GeneralChatController {
 
     async addFavorite(req, res) {
         try {
-            logger.debug('TRACE: addFavorite reached', { params: req.params, query: req.query });
             const userId = req.user.id;
             const { contactId } = req.params;
             const { tipo } = req.query;
             const result = await generalChatService.addFavoriteContact(userId, Number(contactId), tipo || 'USER');
             return successResponse(res, result, 'Agregado a favoritos');
         } catch (error) {
-            logger.error('TRACE: addFavorite Error:', error);
             logger.error('Error in addFavorite:', error);
             return errorResponse(res, 'Error al agregar favorito', 500);
         }
@@ -316,13 +350,24 @@ class GeneralChatController {
             if (!attachment) return errorResponse(res, 'Adjunto no encontrado', 404);
 
             const uploadPath = process.env.UPLOAD_PATH || path.resolve(process.cwd(), 'uploads');
-            const filePath = path.join(uploadPath, 'chat', path.basename(attachment.archivo_ruta));
+            const chatDir = path.resolve(uploadPath, 'chat');
+            const filePath = path.resolve(chatDir, path.basename(attachment.archivo_ruta));
+
+            // Prevent path traversal: resolved path must stay within chat upload dir
+            if (!filePath.startsWith(chatDir + path.sep) && filePath !== chatDir) {
+                return errorResponse(res, 'Ruta de archivo inválida', 400);
+            }
 
             if (!fs.existsSync(filePath)) {
                 return errorResponse(res, 'Archivo no encontrado en el servidor', 404);
             }
 
-            res.setHeader('Content-Disposition', `attachment; filename="${attachment.archivo_nombre}"`);
+            const mimeType = mime.lookup(filePath) || 'application/octet-stream';
+            const isInline = mimeType.startsWith('image/') || mimeType === 'application/pdf';
+            const safeName = encodeURIComponent(attachment.archivo_nombre || path.basename(filePath));
+
+            res.setHeader('Content-Type', mimeType);
+            res.setHeader('Content-Disposition', `${isInline ? 'inline' : 'attachment'}; filename="${safeName}"`);
             res.sendFile(filePath);
         } catch (error) {
             logger.error('Error in downloadAttachment:', error);

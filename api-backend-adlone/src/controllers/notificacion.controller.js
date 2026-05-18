@@ -1,5 +1,7 @@
 import unsService from '../services/uns.service.js';
 import logger from '../utils/logger.js';
+import { getConnection } from '../config/database.js';
+import sql from '../config/database.js';
 
 class NotificacionController {
     async getMyNotifications(req, res) {
@@ -44,6 +46,20 @@ class NotificacionController {
         } catch (error) {
             logger.error('Error in NotificacionController.markAsReadByRef:', error);
             res.status(500).json({ error: 'Error al marcar notificaciones como leídas' });
+        }
+    }
+
+    async markAllAsRead(req, res) {
+        try {
+            const idUsuario = req.user.id || req.user.id_usuario;
+            const pool = await getConnection();
+            await pool.request()
+                .input('idUsuario', sql.Numeric(10, 0), idUsuario)
+                .query('UPDATE mae_notificacion SET leido = 1 WHERE id_usuario = @idUsuario AND leido = 0');
+            res.json({ success: true });
+        } catch (error) {
+            logger.error('Error in NotificacionController.markAllAsRead:', error);
+            res.status(500).json({ error: 'Error al marcar todas como leídas' });
         }
     }
 }

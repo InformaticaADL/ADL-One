@@ -41,22 +41,23 @@ const FitBounds: React.FC<{ positions: [number, number][] }> = ({ positions }) =
     return null;
 };
 
-import { 
-    IconTrash, IconCalendarEvent, IconRefresh, IconPlus, 
-    IconEdit, IconUserPlus, IconRoute, IconMapPin, IconCheck, IconEye, IconList, IconMap
+import {
+    IconTrash, IconCalendarEvent, IconRefresh, IconPlus,
+    IconEdit, IconRoute, IconMapPin, IconEye, IconList, IconMap, IconHistory
 } from '@tabler/icons-react';
 import { 
     Table, Button, Badge, Group, ActionIcon, Text, Loader, Center, 
-    Paper, Stack, Title, Modal, Select, TextInput, Tooltip, ThemeIcon,
+    Paper, Stack, Title, Modal, Tooltip, ThemeIcon,
     ScrollArea as MantineScrollArea, SegmentedControl
 } from '@mantine/core';
 import { rutasPlanificadasService } from '../services/rutasPlanificadas.service';
+import { rutasEjecucionesService } from '../services/rutasEjecuciones.service';
 import { fichaService } from '../services/ficha.service';
-import { catalogosService } from '../services/catalogos.service';
 import { useCatalogos } from '../context/CatalogosContext';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
+import { NuevaEjecucionModal } from './NuevaEjecucionModal';
 
 interface RutasListViewProps {
     onBackToMenu: () => void;
@@ -69,7 +70,6 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
     const [loading, setLoading] = useState(false);
     const { showToast } = useToast();
     const { hasPermission } = useAuth();
-    const { getCatalogo } = useCatalogos();
 
     // Delete confirmation modal
     const [deleteTarget, setDeleteTarget] = useState<{ id: number; nombre: string } | null>(null);
@@ -151,31 +151,43 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
 
     useEffect(() => {
         if (viewRoutePositions.length < 2) { setViewOsrmRoute([]); return; }
+        const controller = new AbortController();
         const fetchOsrm = async () => {
             try {
                 const coordsStr = viewRoutePositions.map(p => `${p[1]},${p[0]}`).join(';');
-                const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${coordsStr}?overview=full&geometries=geojson`);
+                const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${coordsStr}?overview=full&geometries=geojson`, { signal: controller.signal });
                 const data = await res.json();
                 if (data.code === 'Ok' && data.routes?.length > 0) {
                     setViewOsrmRoute(data.routes[0].geometry.coordinates.map((c: any) => [c[1], c[0]] as [number, number]));
                 } else setViewOsrmRoute([]);
-            } catch { setViewOsrmRoute([]); }
+            } catch (err: any) {
+                if (err.name !== 'AbortError') setViewOsrmRoute([]);
+            }
         };
         fetchOsrm();
+        return () => controller.abort();
     }, [viewRoutePositions]);
 
-    // Assignment modal
-    const [assignTarget, setAssignTarget] = useState<{ id: number; nombre: string; fichas: number } | null>(null);
-    const [assigning, setAssigning] = useState(false);
-    const [assignDate, setAssignDate] = useState('');
-    const [assignMuestreadorInst, setAssignMuestreadorInst] = useState<string | null>(null);
-    const [assignMuestreadorRet, setAssignMuestreadorRet] = useState<string | null>(null);
-    const [muestreadores, setMuestreadores] = useState<any[]>([]);
+    // Nueva ejecución modal
+    const [ejecucionTarget, setEjecucionTarget] = useState<{ id: number; nombre: string } | null>(null);
 
-    const muestreadorOptions = useMemo(() =>
-        muestreadores.map((m: any) => ({ value: String(m.id_muestreador), label: m.nombre_muestreador })),
-        [muestreadores]
-    );
+    // Ejecuciones history modal
+    const [histTarget, setHistTarget] = useState<{ id: number; nombre: string } | null>(null);
+    const [histEjecuciones, setHistEjecuciones] = useState<any[]>([]);
+    const [histLoading, setHistLoading] = useState(false);
+
+    const handleViewHistorial = async (r: any) => {
+        setHistTarget({ id: r.id_ruta_planificada, nombre: r.nombre_ruta });
+        setHistLoading(true);
+        try {
+            const data = await rutasEjecucionesService.getEjecucionesByPlantilla(r.id_ruta_planificada);
+            setHistEjecuciones(data || []);
+        } catch {
+            showToast({ type: 'error', message: 'Error al cargar el historial de ejecuciones' });
+        } finally {
+            setHistLoading(false);
+        }
+    };
 
     const fetchRutas = async () => {
         setLoading(true);
@@ -191,10 +203,6 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
 
     useEffect(() => {
         fetchRutas();
-        // Pre-load muestreadores for assignment
-        getCatalogo('muestreadores', () => catalogosService.getMuestreadores())
-            .then(data => { if (data) setMuestreadores(data); })
-            .catch(() => {});
     }, []);
 
     // --- DELETE ---
@@ -211,41 +219,6 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
         } finally {
             setDeleting(false);
         }
-    };
-
-    // --- ASSIGN ---
-    const handleAssignConfirm = async () => {
-        if (!assignTarget) return;
-        if (!assignDate) {
-            showToast({ type: 'warning', message: 'Selecciona una fecha de muestreo' });
-            return;
-        }
-        if (!assignMuestreadorInst) {
-            showToast({ type: 'warning', message: 'Selecciona un muestreador de instalación' });
-            return;
-        }
-        setAssigning(true);
-        try {
-            await rutasPlanificadasService.asignar(assignTarget.id, {
-                assignDate,
-                assignMuestreadorInst,
-                assignMuestreadorRet: assignMuestreadorRet || undefined
-            });
-            showToast({ type: 'success', message: `Ruta "${assignTarget.nombre}" asignada oficialmente ✅` });
-            setAssignTarget(null);
-            resetAssignForm();
-            fetchRutas();
-        } catch (e: any) {
-            showToast({ type: 'error', message: e?.response?.data?.message || 'Error al asignar la ruta' });
-        } finally {
-            setAssigning(false);
-        }
-    };
-
-    const resetAssignForm = () => {
-        setAssignDate('');
-        setAssignMuestreadorInst(null);
-        setAssignMuestreadorRet(null);
     };
 
     // --- EDIT ---
@@ -373,20 +346,21 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
                                                         </ActionIcon>
                                                     </Tooltip>
                                                 )}
+                                                <Tooltip label="Historial de ejecuciones">
+                                                    <ActionIcon color="teal" variant="subtle" onClick={() => handleViewHistorial(r)}>
+                                                        <IconHistory size={16} />
+                                                    </ActionIcon>
+                                                </Tooltip>
                                                 {r.estado === 'PENDIENTE' && (
-                                                    <Tooltip label="Asignar fecha y muestreador">
-                                                        <Button 
-                                                            size="compact-xs" 
-                                                            color="green" 
+                                                    <Tooltip label="Nueva ejecución — seleccionar fichas y correlativos">
+                                                        <Button
+                                                            size="compact-xs"
+                                                            color="green"
                                                             variant="light"
                                                             leftSection={<IconCalendarEvent size={14} />}
-                                                            onClick={() => setAssignTarget({ 
-                                                                id: r.id_ruta_planificada, 
-                                                                nombre: r.nombre_ruta, 
-                                                                fichas: r.cantidad_fichas 
-                                                            })}
+                                                            onClick={() => setEjecucionTarget({ id: r.id_ruta_planificada, nombre: r.nombre_ruta })}
                                                         >
-                                                            Asignar
+                                                            Ejecutar
                                                         </Button>
                                                     </Tooltip>
                                                 )}
@@ -599,71 +573,75 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
                 </Stack>
             </Modal>
 
-            {/* ======================== ASSIGNMENT MODAL ======================== */}
+            {/* ======================== NUEVA EJECUCIÓN MODAL ======================== */}
+            {ejecucionTarget && (
+                <NuevaEjecucionModal
+                    opened={ejecucionTarget !== null}
+                    onClose={() => setEjecucionTarget(null)}
+                    rutaId={ejecucionTarget.id}
+                    rutaNombre={ejecucionTarget.nombre}
+                    onSuccess={fetchRutas}
+                />
+            )}
+
+            {/* ======================== HISTORIAL EJECUCIONES MODAL ======================== */}
             <Modal
-                opened={assignTarget !== null}
-                onClose={() => { setAssignTarget(null); resetAssignForm(); }}
+                opened={histTarget !== null}
+                onClose={() => { setHistTarget(null); setHistEjecuciones([]); }}
                 title={
                     <Group gap="xs">
-                        <IconCalendarEvent size={20} color="var(--mantine-color-green-6)" />
-                        <Text fw={600} size="lg">Asignar Ruta Oficialmente</Text>
+                        <IconHistory size={20} color="var(--mantine-color-teal-6)" />
+                        <Text fw={600} size="lg">Historial de Ejecuciones</Text>
+                        {histTarget && <Badge variant="light" color="blue" size="sm">{histTarget.nombre}</Badge>}
                     </Group>
                 }
                 centered
-                size="md"
+                size="lg"
             >
-                <Stack gap="md">
-                    <Paper withBorder p="sm" radius="sm" bg="blue.0">
-                        <Group gap="xs">
-                            <IconRoute size={16} color="var(--mantine-color-blue-7)" />
-                            <Text size="sm" fw={600} c="blue.8">{assignTarget?.nombre}</Text>
-                            <Badge size="xs" variant="light" color="blue">{assignTarget?.fichas} fichas</Badge>
-                        </Group>
-                    </Paper>
-
-                    <TextInput
-                        label="Fecha de Muestreo"
-                        type="date"
-                        value={assignDate}
-                        onChange={(e) => setAssignDate(e.target.value)}
-                        leftSection={<IconCalendarEvent size={16} />}
-                        required
-                    />
-                    <Select
-                        label="Muestreador Instalación"
-                        data={muestreadorOptions}
-                        value={assignMuestreadorInst}
-                        onChange={(v) => { setAssignMuestreadorInst(v); if (!assignMuestreadorRet) setAssignMuestreadorRet(v); }}
-                        searchable
-                        placeholder="Seleccionar muestreador..."
-                        leftSection={<IconUserPlus size={16} />}
-                        required
-                        comboboxProps={{ zIndex: 10001 }}
-                    />
-                    <Select
-                        label="Muestreador Retiro"
-                        data={muestreadorOptions}
-                        value={assignMuestreadorRet}
-                        onChange={setAssignMuestreadorRet}
-                        searchable
-                        placeholder="Igual al de instalación"
-                        leftSection={<IconUserPlus size={16} />}
-                        comboboxProps={{ zIndex: 10001 }}
-                    />
-
-                    <Button
-                        fullWidth
-                        color="green"
-                        size="md"
-                        leftSection={<IconCheck size={20} />}
-                        onClick={handleAssignConfirm}
-                        loading={assigning}
-                        disabled={!assignDate || !assignMuestreadorInst}
-                        mt="xs"
-                    >
-                        Confirmar Asignación Oficial
-                    </Button>
-                </Stack>
+                {histLoading ? (
+                    <Center py="xl"><Loader /></Center>
+                ) : histEjecuciones.length === 0 ? (
+                    <Stack align="center" py="xl" gap="xs">
+                        <IconHistory size={40} color="var(--mantine-color-gray-4)" />
+                        <Text c="dimmed" size="sm">Sin ejecuciones registradas para esta ruta.</Text>
+                        <Text c="dimmed" size="xs">Haz clic en "Ejecutar" para crear la primera ejecución.</Text>
+                    </Stack>
+                ) : (
+                    <MantineScrollArea mah={400} offsetScrollbars>
+                        <Stack gap="xs" p="xs">
+                            {histEjecuciones.map((e: any) => (
+                                <Paper key={e.id_ejecucion} withBorder p="sm" radius="sm">
+                                    <Group justify="space-between" wrap="nowrap">
+                                        <Stack gap={2}>
+                                            <Group gap="xs">
+                                                <Badge size="xs" color="green" variant="light">{e.estado}</Badge>
+                                                <Text size="xs" fw={600}>
+                                                    {e.fecha_ejecucion
+                                                        ? new Date(e.fecha_ejecucion).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' })
+                                                        : '-'}
+                                                </Text>
+                                                <Badge size="xs" variant="dot" color="blue">{e.cantidad_fichas} fichas</Badge>
+                                            </Group>
+                                            <Text size="xs" c="dimmed">
+                                                Inst: <strong>{e.muestreador_inst || '-'}</strong>
+                                                {e.muestreador_ret && e.muestreador_ret !== e.muestreador_inst && (
+                                                    <> · Ret: <strong>{e.muestreador_ret}</strong></>
+                                                )}
+                                            </Text>
+                                            {e.observaciones && <Text size="10px" c="dimmed" fs="italic">{e.observaciones}</Text>}
+                                        </Stack>
+                                        <Text size="10px" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                                            #{e.id_ejecucion}
+                                        </Text>
+                                    </Group>
+                                </Paper>
+                            ))}
+                        </Stack>
+                    </MantineScrollArea>
+                )}
+                <Group justify="flex-end" mt="sm">
+                    <Button variant="default" onClick={() => { setHistTarget(null); setHistEjecuciones([]); }}>Cerrar</Button>
+                </Group>
             </Modal>
         </Stack>
     );

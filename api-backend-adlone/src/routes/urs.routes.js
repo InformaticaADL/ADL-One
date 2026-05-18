@@ -2,6 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import ursController from '../controllers/urs.controller.js';
 import { authenticate } from '../middlewares/auth.middleware.js';
+import { verifyPermission } from '../middlewares/verifyPermission.js';
 import { validateRequest, ursValidationSchemas } from '../middlewares/validate.middleware.js';
 
 const upload = multer();
@@ -12,9 +13,9 @@ const router = express.Router();
 router.use(authenticate);
 
 router.get('/types', ursController.getTypes);
-router.post('/types', validateRequest(ursValidationSchemas.createUpdateType), ursController.createUpdateType);
-router.put('/types/:id', validateRequest(ursValidationSchemas.createUpdateType), ursController.createUpdateType);
-router.patch('/types/:id/status', validateRequest(ursValidationSchemas.toggleTypeStatus), ursController.toggleTypeStatus);
+router.post('/types', verifyPermission('RBAC_MANAGE'), validateRequest(ursValidationSchemas.createUpdateType), ursController.createUpdateType);
+router.put('/types/:id', verifyPermission('RBAC_MANAGE'), validateRequest(ursValidationSchemas.createUpdateType), ursController.createUpdateType);
+router.patch('/types/:id/status', verifyPermission('RBAC_MANAGE'), validateRequest(ursValidationSchemas.toggleTypeStatus), ursController.toggleTypeStatus);
 
 router.get('/download/:idAdjunto', ursController.downloadAttachment);
 
@@ -27,10 +28,10 @@ router.post('/:id/derive', validateRequest(ursValidationSchemas.derive), ursCont
 
 // --- Granular Permissions & Notifications (Phase 22) ---
 router.get('/types/:id/permissions', ursController.getPermissions);
-router.post('/types/:id/permissions', ursController.addPermission);
-router.delete('/permissions/:idRelacion', ursController.removePermission);
+router.post('/types/:id/permissions', verifyPermission('RBAC_MANAGE'), ursController.addPermission);
+router.delete('/permissions/:idRelacion', verifyPermission('RBAC_MANAGE'), ursController.removePermission);
 router.get('/types/:id/derivation-targets', ursController.getDerivationTargets);
 router.get('/types/:id/notifications', ursController.getNotificationConfig);
-router.post('/types/:id/notifications', ursController.saveNotificationConfig);
+router.post('/types/:id/notifications', verifyPermission('RBAC_MANAGE'), ursController.saveNotificationConfig);
 
 export default router;

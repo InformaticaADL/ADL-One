@@ -1,26 +1,30 @@
 import { useEffect, useState, useMemo } from 'react';
-import { 
-    Title, 
-    Text, 
-    Paper, 
-    Stack, 
-    Group, 
-    Badge, 
+import {
+    Title,
+    Text,
+    Paper,
+    Stack,
+    Group,
+    Badge,
     Divider,
     Box,
     SegmentedControl,
     Select,
-    TextInput
+    TextInput,
+    Button,
+    Loader,
+    Center
 } from '@mantine/core';
-import { 
-    IconBell, 
+import {
+    IconBell,
     IconCalendar,
     IconChevronRight,
     IconInfoCircle,
     IconAlertTriangle,
     IconCircleCheck,
     IconCircleX,
-    IconSearch
+    IconSearch,
+    IconChecks
 } from '@tabler/icons-react';
 import { useNotificationStore, type Notification } from '../../../store/notificationStore';
 import { useNavStore } from '../../../store/navStore';
@@ -31,16 +35,17 @@ import 'dayjs/locale/es';
 dayjs.locale('es');
 
 export const UserNotificationsPage = () => {
-    const { notifications, fetchNotifications, markAsRead } = useNotificationStore();
-    const { 
-        setActiveModule, setActiveSubmodule, 
-        setPendingRequestId, setPendingChatId, setSelectedRequestId 
+    const { notifications, loading, fetchNotifications, markAsRead, markAllAsRead } = useNotificationStore();
+    const {
+        setActiveModule, setActiveSubmodule,
+        setPendingRequestId, setPendingChatId, setSelectedRequestId
     } = useNavStore();
 
     const [statusFilter, setStatusFilter] = useState('ALL');
     const [areaFilter, setAreaFilter] = useState<string | null>(null);
     const [typeFilter, setTypeFilter] = useState<string | null>(null);
     const [searchFilter, setSearchFilter] = useState('');
+    const [markingAll, setMarkingAll] = useState(false);
 
     useEffect(() => {
         fetchNotifications();
@@ -50,7 +55,6 @@ export const UserNotificationsPage = () => {
         if (!notif.leido) {
             await markAsRead(notif.id_notificacion);
         }
-
         handleNotificationNavigation(notif, {
             setActiveModule,
             setActiveSubmodule,
@@ -58,6 +62,15 @@ export const UserNotificationsPage = () => {
             setPendingChatId,
             setSelectedRequestId
         });
+    };
+
+    const handleMarkAllAsRead = async () => {
+        setMarkingAll(true);
+        try {
+            await markAllAsRead();
+        } finally {
+            setMarkingAll(false);
+        }
     };
 
     const getIcon = (tipo: string) => {
@@ -71,40 +84,34 @@ export const UserNotificationsPage = () => {
 
     const formatTitle = (title: string) => {
         if (!title) return '';
-        // Reemplazar guiones bajos por espacios y limpiar el prefijo "Aviso: " si es un código interno
-        let cleanTitle = title;
         if (title.includes('_')) {
-            cleanTitle = title.replace(/^Aviso:\s*/, '').replace(/_/g, ' ');
+            return title.replace(/^Aviso:\s*/, '').replace(/_/g, ' ');
         }
-        return cleanTitle;
+        return title;
     };
 
-    // Extract unique areas
     const areas = useMemo(() => {
         const uniqueAreas = new Set(notifications.map(n => n.area).filter(Boolean));
         return Array.from(uniqueAreas) as string[];
     }, [notifications]);
 
-    // Apply filters
+    const unreadCount = notifications.filter(n => !n.leido).length;
+
     const filteredNotifications = useMemo(() => {
         return notifications.filter(n => {
             if (statusFilter === 'UNREAD' && n.leido) return false;
             if (areaFilter && n.area !== areaFilter) return false;
             if (typeFilter && n.tipo !== typeFilter) return false;
-            
             if (searchFilter) {
                 const searchLower = searchFilter.toLowerCase();
                 const titleLower = formatTitle(n.titulo).toLowerCase();
                 const messageLower = (n.mensaje || '').toLowerCase();
-                if (!titleLower.includes(searchLower) && !messageLower.includes(searchLower)) {
-                    return false;
-                }
+                if (!titleLower.includes(searchLower) && !messageLower.includes(searchLower)) return false;
             }
             return true;
         });
     }, [notifications, statusFilter, areaFilter, typeFilter, searchFilter]);
 
-    // Grouping logic
     const groupNotifications = () => {
         const groups: Record<string, Notification[]> = {
             'Hoy': [],
@@ -112,23 +119,15 @@ export const UserNotificationsPage = () => {
             'Esta semana': [],
             'Anteriores': []
         };
-
         const now = dayjs();
-
         filteredNotifications.forEach(n => {
             const date = dayjs(n.fecha);
-            if (date.isSame(now, 'day')) {
-                groups['Hoy'].push(n);
-            } else if (date.isSame(now.subtract(1, 'day'), 'day')) {
-                groups['Ayer'].push(n);
-            } else if (date.isAfter(now.subtract(7, 'day'))) {
-                groups['Esta semana'].push(n);
-            } else {
-                groups['Anteriores'].push(n);
-            }
+            if (date.isSame(now, 'day')) groups['Hoy'].push(n);
+            else if (date.isSame(now.subtract(1, 'day'), 'day')) groups['Ayer'].push(n);
+            else if (date.isAfter(now.subtract(7, 'day'))) groups['Esta semana'].push(n);
+            else groups['Anteriores'].push(n);
         });
-
-        return Object.entries(groups).filter(([_, items]) => items.length > 0);
+        return Object.entries(groups).filter(([, items]) => items.length > 0);
     };
 
     const grouped = groupNotifications();
@@ -180,19 +179,35 @@ export const UserNotificationsPage = () => {
                                 { label: 'No leídas', value: 'UNREAD' },
                             ]}
                         />
+                        {unreadCount > 0 && (
+                            <Button
+                                variant="light"
+                                color="gray"
+                                size="sm"
+                                leftSection={<IconChecks size={16} />}
+                                loading={markingAll}
+                                onClick={handleMarkAllAsRead}
+                            >
+                                Marcar todas como leídas
+                            </Button>
+                        )}
                     </Group>
                 </Group>
             </Box>
 
-            {filteredNotifications.length === 0 ? (
+            {loading ? (
+                <Center h={300}>
+                    <Loader size="lg" />
+                </Center>
+            ) : filteredNotifications.length === 0 ? (
                 <Paper p="xl" radius="md" withBorder style={{ textAlign: 'center', backgroundColor: 'transparent', borderStyle: 'dashed' }}>
                     <Stack align="center" gap="xs">
                         <IconBell size={48} color="var(--mantine-color-gray-4)" stroke={1} />
                         <Title order={3} c="dimmed">
-                            {notifications.length === 0 ? "No tienes notificaciones" : "No hay resultados"}
+                            {notifications.length === 0 ? 'No tienes notificaciones' : 'No hay resultados'}
                         </Title>
                         <Text c="dimmed" size="sm">
-                            {notifications.length === 0 ? "Te avisaremos cuando haya algo nuevo para ti." : "Intenta cambiar los filtros seleccionados."}
+                            {notifications.length === 0 ? 'Te avisaremos cuando haya algo nuevo para ti.' : 'Intenta cambiar los filtros seleccionados.'}
                         </Text>
                     </Stack>
                 </Paper>
@@ -205,22 +220,27 @@ export const UserNotificationsPage = () => {
                                 <Text size="xs" fw={700} c="dimmed" tt="uppercase" lts={1}>{groupName}</Text>
                                 <Divider style={{ flex: 1 }} />
                             </Group>
-                            
+
                             <Stack gap="sm">
                                 {items.map((notif) => (
-                                    <Paper 
+                                    <Paper
                                         key={notif.id_notificacion}
                                         p="md"
                                         radius="md"
                                         withBorder
-                                        className="notif-card"
                                         onClick={() => handleNotificationClick(notif)}
-                                        style={{
-                                            cursor: 'pointer',
-                                            transition: 'all 0.2s ease',
-                                            borderLeft: notif.leido ? 'none' : '4px solid var(--mantine-color-adl-blue-6)',
-                                            backgroundColor: notif.leido ? 'white' : 'var(--mantine-color-adl-blue-0)',
-                                            position: 'relative'
+                                        styles={{
+                                            root: {
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s ease',
+                                                borderLeft: notif.leido ? undefined : '4px solid var(--mantine-color-adl-blue-6)',
+                                                backgroundColor: notif.leido ? undefined : 'var(--mantine-color-adl-blue-0)',
+                                                '&:hover': {
+                                                    transform: 'translateY(-2px)',
+                                                    boxShadow: 'var(--mantine-shadow-md)',
+                                                    borderColor: 'var(--mantine-color-adl-blue-2)',
+                                                }
+                                            }
                                         }}
                                     >
                                         <Group wrap="nowrap" align="flex-start">
@@ -232,7 +252,6 @@ export const UserNotificationsPage = () => {
                                                     <Text size="sm" fw={700} c={notif.leido ? 'dark.4' : 'dark.7'}>
                                                         {formatTitle(notif.titulo)}
                                                     </Text>
-
                                                     <Text size="xs" c="dimmed">
                                                         {dayjs(notif.fecha).format('HH:mm')}
                                                     </Text>
@@ -255,14 +274,6 @@ export const UserNotificationsPage = () => {
                     ))}
                 </Stack>
             )}
-
-            <style>{`
-                .notif-card:hover {
-                    transform: translateY(-2px);
-                    box-shadow: var(--mantine-shadow-md);
-                    border-color: var(--mantine-color-adl-blue-2);
-                }
-            `}</style>
         </Box>
     );
 };

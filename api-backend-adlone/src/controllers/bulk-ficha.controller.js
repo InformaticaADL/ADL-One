@@ -86,13 +86,13 @@ class BulkFichaController {
      */
     async commitBatch(req, res) {
         try {
-            const { items, userId } = req.body;
+            const { items } = req.body;
 
             if (!items || !Array.isArray(items) || items.length === 0) {
                 return errorResponse(res, 'No se recibieron fichas para crear', 400);
             }
 
-            const effectiveUserId = userId || (req.user ? (req.user.id_usuario || req.user.id) : 0);
+            const effectiveUserId = req.user ? (req.user.id_usuario || req.user.id) : null;
 
             if (!effectiveUserId) {
                 return errorResponse(res, 'Se requiere un usuario autenticado para crear fichas', 401);
@@ -107,6 +107,26 @@ class BulkFichaController {
         } catch (err) {
             logger.error('[BulkFicha] Error in commitBatch:', err);
             return errorResponse(res, 'Error al crear las fichas', 500, err.message);
+        }
+    }
+    /**
+     * GET /api/fichas/bulk-template
+     * Generates and downloads an Excel template with master sheets
+     * populated from the current DB data (clientes, empresas, centros).
+     */
+    async downloadTemplate(req, res) {
+        try {
+            logger.info('[BulkFicha] Generating Excel template with DB masters...');
+            const buffer = await bulkExcelService.generateTemplate();
+
+            const filename = `Formato_Carga_Masiva_ADL_${new Date().toISOString().slice(0, 10)}.xlsx`;
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+            res.setHeader('Content-Length', buffer.length);
+            res.send(buffer);
+        } catch (err) {
+            logger.error('[BulkFicha] Error generating template:', err);
+            return errorResponse(res, 'Error al generar la plantilla Excel', 500, err.message);
         }
     }
 }

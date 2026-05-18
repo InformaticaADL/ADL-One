@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
     Box, 
     SimpleGrid, 
@@ -48,6 +48,7 @@ import {
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { MaestroDataManager } from '../components';
 import { EmpresaServicioFormView } from '../../medio-ambiente/components/EmpresaServicioFormView';
+import '../../../App.css';
 
 type MaestroArea = 'general' | 'medio-ambiente' | 'logistica' | 'tecnica' | 'sistema';
 
@@ -83,7 +84,7 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
     const [activeTab, setActiveTab] = useState<string | null>('general');
     const [hubSearch, setHubSearch] = useState('');
 
-    const MAESTROS_CONFIG: MaestroConfig[] = [
+    const MAESTROS_CONFIG: MaestroConfig[] = useMemo(() => [
         // AREA: GESTIÓN ORGANIZACIONAL
         { 
             id: 'clientes', 
@@ -497,10 +498,15 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             displayColumn: 'codigo_evento',
             summaryColumns: ['codigo_evento', 'descripcion', 'modulo', 'es_transaccional']
         }
-    ];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    ], []);
 
     if (selectedMaestro) {
         const config = MAESTROS_CONFIG.find(m => m.id === selectedMaestro);
+        if (!config) {
+            setSelectedMaestro(null);
+            return null;
+        }
         
         // ESPECIALIZADO: Si es Empresa de Servicio, usar el componente premium dedicado
         if (config?.tableName === 'mae_empresaservicios') {
@@ -512,17 +518,23 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
         }
 
         return (
-            <MaestroDataManager 
-                config={config!} 
-                onBack={() => setSelectedMaestro(null)} 
+            <MaestroDataManager
+                config={config}
+                onBack={() => setSelectedMaestro(null)}
             />
         );
     }
 
+    const filteredBySearch = useMemo(() => {
+        const q = hubSearch.toLowerCase();
+        if (!q) return MAESTROS_CONFIG;
+        return MAESTROS_CONFIG.filter(m =>
+            m.label.toLowerCase().includes(q) || m.description.toLowerCase().includes(q)
+        );
+    }, [hubSearch, MAESTROS_CONFIG]);
+
     const renderGrid = (area: MaestroArea) => {
-        const filtered = MAESTROS_CONFIG
-            .filter(m => m.area === area)
-            .filter(m => !hubSearch || m.label.toLowerCase().includes(hubSearch.toLowerCase()) || m.description.toLowerCase().includes(hubSearch.toLowerCase()));
+        const filtered = filteredBySearch.filter(m => m.area === area);
 
         if (filtered.length === 0) {
             return (
@@ -681,12 +693,6 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
                 </Tabs.Panel>
             </Tabs>
 
-            <style dangerouslySetInnerHTML={{ __html: `
-                .maestro-card:hover {
-                    transform: translateY(-6px);
-                    box-shadow: 0 20px 40px rgba(0,0,0,0.12);
-                }
-            `}} />
         </Box>
     );
 };

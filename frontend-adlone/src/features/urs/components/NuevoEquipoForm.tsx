@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TextInput, Select, Stack, Group, Text, Paper, Textarea } from '@mantine/core';
+import { TIPOS_EQUIPO } from '../constants/equipoTypes';
 
 interface NuevoEquipoFormProps {
     onDataChange: (data: any) => void;
@@ -45,16 +46,7 @@ const NuevoEquipoForm: React.FC<NuevoEquipoFormProps> = ({ onDataChange }) => {
                     <Select
                         label="Categoría / Tipo"
                         placeholder="Seleccione tipo"
-                        data={[
-                            'Multiparámetro',
-                            'Muestreador Isotérmico',
-                            'Muestreador Automático',
-                            'Sonda Nivel',
-                            'GPS',
-                            'Centrifuga',
-                            'Nevera / Termo',
-                            'Otro'
-                        ]}
+                        data={TIPOS_EQUIPO}
                         value={tipo}
                         onChange={setTipo}
                         required

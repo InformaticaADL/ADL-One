@@ -21,6 +21,12 @@ export interface ChatConversation {
     es_favorito: number;
 }
 
+export interface ChatReaccion {
+    emoji: string;
+    id_usuario: number;
+    nombre_usuario: string;
+}
+
 export interface ChatMessage {
     id_mensaje: number;
     id_conversacion: number;
@@ -35,6 +41,16 @@ export interface ChatMessage {
     nombre_emisor: string;
     foto_emisor: string | null;
     leido_por_mi: boolean;
+    // Reply/quote fields
+    id_mensaje_padre: number | null;
+    mensaje_padre: string | null;
+    id_emisor_padre: number | null;
+    nombre_emisor_padre: string | null;
+    tipo_mensaje_padre: string | null;
+    archivo_nombre_padre: string | null;
+    padre_eliminado: boolean | null;
+    // Reactions
+    reacciones: ChatReaccion[];
 }
 
 export interface ChatContact {
@@ -135,17 +151,28 @@ class GeneralChatService {
         return res.data.data;
     }
 
-    async sendMessage(conversationId: number, mensaje?: string, archivo?: File): Promise<ChatMessage> {
+    async sendMessage(conversationId: number, mensaje?: string, archivo?: File, replyToId?: number): Promise<ChatMessage> {
         if (archivo) {
             const formData = new FormData();
             if (mensaje) formData.append('mensaje', mensaje);
             formData.append('archivo', archivo);
+            if (replyToId) formData.append('replyToId', String(replyToId));
             const res = await apiClient.post(`/api/gchat/conversations/${conversationId}/messages`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
             return res.data.data;
         }
-        const res = await apiClient.post(`/api/gchat/conversations/${conversationId}/messages`, { mensaje });
+        const res = await apiClient.post(`/api/gchat/conversations/${conversationId}/messages`, { mensaje, replyToId });
+        return res.data.data;
+    }
+
+    async addReaction(messageId: number, emoji: string): Promise<ChatReaccion[]> {
+        const res = await apiClient.post(`/api/gchat/messages/${messageId}/reactions`, { emoji });
+        return res.data.data;
+    }
+
+    async searchMessages(conversationId: number, query: string): Promise<ChatMessage[]> {
+        const res = await apiClient.get(`/api/gchat/conversations/${conversationId}/search`, { params: { q: query } });
         return res.data.data;
     }
 
@@ -177,13 +204,11 @@ class GeneralChatService {
     }
 
     async addFavorite(contactId: number, tipo: 'USER' | 'GROUP' = 'USER'): Promise<any> {
-        console.log('TRACE: addFavorite call', { contactId, tipo });
         const res = await apiClient.post(`/api/gchat/contacts/favorites/${contactId}`, {}, { params: { tipo } });
         return res.data;
     }
 
     async removeFavorite(contactId: number, tipo: 'USER' | 'GROUP' = 'USER'): Promise<any> {
-        console.log('TRACE: removeFavorite call', { contactId, tipo });
         const res = await apiClient.delete(`/api/gchat/contacts/favorites/${contactId}`, { params: { tipo } });
         return res.data;
     }

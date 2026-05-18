@@ -70,6 +70,7 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
     const isVerySmall = useMediaQuery('(max-width: 450px)');
 
     const [loading, setLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
     const [activeTab, setActiveTab] = useState<string>('antecedentes');
     const [visitedTabs, setVisitedTabs] = useState({ antecedentes: true, analisis: false, observaciones: false });
@@ -179,8 +180,8 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
         };
 
         try {
-            setLoading(true);
-            const response = await fichaService.update(fichaId, payload, auth?.user);
+            setIsSaving(true);
+            const response = await fichaService.update(fichaId, payload, auth?.user as any);
             if (response && response.success) {
                 showToast({ type: 'success', message: 'Ficha actualizada correctamente' });
                 setIsEditing(false);
@@ -192,7 +193,7 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
         } catch (error) {
             showToast({ type: 'error', message: 'Excepción al guardar cambios' });
         } finally {
-            setLoading(false);
+            setIsSaving(false);
         }
     };
 
@@ -237,6 +238,7 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
             document.body.appendChild(link);
             link.click();
             link.parentNode?.removeChild(link);
+            window.URL.revokeObjectURL(url);
         } catch (error) {
             showToast({ type: 'error', message: 'Error al generar el PDF' });
         }
@@ -314,7 +316,7 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
                             </Badge>
                             {isEditing ? (
                                 <>
-                                    <Button color="green" leftSection={<IconDeviceFloppy size={18} />} onClick={handleSaveChanges} loading={loading}>
+                                    <Button color="green" leftSection={<IconDeviceFloppy size={18} />} onClick={handleSaveChanges} loading={isSaving}>
                                         Guardar
                                     </Button>
                                     <Button variant="light" color="gray" leftSection={<IconX size={18} />} onClick={() => setShowCancelModal(true)}>

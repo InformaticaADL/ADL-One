@@ -28,6 +28,8 @@ export interface Equipo {
     error15?: number;
     error30?: number;
     version?: string;
+    requestId?: number;
+    requestStatus?: string;
 }
 
 export interface EquipoHistorial extends Equipo {
@@ -44,15 +46,15 @@ export interface EquiposResponse {
     page: number;
     limit: number;
     totalPages: number;
+    expiringCount?: number;
     catalogs?: {
         tipos: string[];
         estados: string[];
         sedes: string[];
-        nombres: any[]; // Returning full objects from catalog for metadata extraction
+        nombres: any[];
         que_mide: string[];
         unidades: string[];
     };
-
 }
 
 export const equipoService = {

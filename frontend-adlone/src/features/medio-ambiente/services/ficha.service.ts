@@ -136,5 +136,18 @@ export const fichaService = {
     bulkCommit: async (data: { items: Record<string, unknown>[], userId?: number }) => {
         const response = await apiClient.post('/api/fichas/bulk-commit', data);
         return response.data;
+    },
+    downloadBulkTemplate: async () => {
+        const response = await apiClient.get('/api/fichas/bulk-template', { responseType: 'blob' });
+        // Trigger browser download
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        const date = new Date().toISOString().slice(0, 10);
+        link.setAttribute('download', `Formato_Carga_Masiva_ADL_${date}.xlsx`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
     }
 };

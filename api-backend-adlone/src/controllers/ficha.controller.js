@@ -2,6 +2,9 @@ import fichaService from '../services/ficha.service.js';
 import logger from '../utils/logger.js';
 import { successResponse, errorResponse } from '../utils/response.js';
 
+// In-memory cache for resolved Google short URLs (goo.gl always resolves to the same destination)
+const resolvedUrlCache = new Map();
+
 class FichaIngresoController {
     async getAll(_req, res) {
         try {
@@ -38,11 +41,16 @@ class FichaIngresoController {
             if (!ALLOWED_HOSTS.has(parsed.hostname)) {
                 return errorResponse(res, 'Dominio no permitido', 400);
             }
-            const response = await fetch(url, { method: 'HEAD', redirect: 'follow' }).catch(() => null);
-            if (response && response.url) {
-                return successResponse(res, { finalUrl: response.url }, 'URL resolved');
+
+            // Return cached result immediately — goo.gl URLs never change destination
+            if (resolvedUrlCache.has(url)) {
+                return successResponse(res, { finalUrl: resolvedUrlCache.get(url), cached: true }, 'URL resolved (cached)');
             }
-            return successResponse(res, { finalUrl: url }, 'URL kept as is');
+
+            const response = await fetch(url, { method: 'HEAD', redirect: 'follow' }).catch(() => null);
+            const finalUrl = (response && response.url) ? response.url : url;
+            resolvedUrlCache.set(url, finalUrl);
+            return successResponse(res, { finalUrl }, 'URL resolved');
         } catch (err) {
             logger.error('Error resolving Google Maps URL:', err);
             return successResponse(res, { finalUrl: req.query.url }, 'Failed to resolve URL');
@@ -340,7 +348,7 @@ class FichaIngresoController {
     async enviarDocumentoManual(req, res) {
         try {
             const { idFicha, correlativo, documento, to, cc } = req.body;
-            const userData = req.user || req.body.user || { id: 0 };
+            const userData = req.user || { id: 0 };
             
             if (!idFicha || !correlativo || !documento) {
                 return errorResponse(res, 'Faltan datos requeridos (idFicha, correlativo, documento)', 400);

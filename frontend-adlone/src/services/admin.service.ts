@@ -132,16 +132,11 @@ export const adminService = {
     },
 
     getMuestreadoresPdf: async (nombre?: string, estado?: string) => {
-        try {
-            const response = await apiClient.get('/api/admin/muestreadores/export-pdf', {
-                params: { nombre, estado },
-                responseType: 'blob'
-            });
-            return response.data;
-        } catch (error) {
-            console.error('Error in getMuestreadoresPdf:', error);
-            throw error;
-        }
+        const response = await apiClient.get('/api/admin/muestreadores/export-pdf', {
+            params: { nombre, estado },
+            responseType: 'blob'
+        });
+        return response.data;
     },
 
     getEquipmentComparison: async (idOriginal: number | string, idNueva: number | string, idMuestreador: number | string) => {

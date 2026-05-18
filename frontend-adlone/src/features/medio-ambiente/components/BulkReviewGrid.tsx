@@ -17,8 +17,7 @@ import {
     Divider,
     Tabs,
     SimpleGrid,
-    Paper,
-    NumberInput
+    Paper
 } from '@mantine/core';
 import {
     IconCheck,
@@ -28,19 +27,16 @@ import {
     IconFlask,
     IconEye,
     IconClipboardList,
-    IconCodeDots,
-    IconCurrencyDollar
+    IconCodeDots
 } from '@tabler/icons-react';
 
 interface Props {
     items: any[];
     selectedIndices: number[];
     onSelectChange: (indices: number[]) => void;
-    ufTotals: Record<number, number>;
-    onUfTotalChange: (index: number, value: number) => void;
 }
 
-export const BulkReviewGrid: React.FC<Props> = ({ items, selectedIndices, onSelectChange, ufTotals, onUfTotalChange }) => {
+export const BulkReviewGrid: React.FC<Props> = ({ items, selectedIndices, onSelectChange }) => {
     const [previewItem, setPreviewItem] = React.useState<any>(null);
     const [previewIndex, setPreviewIndex] = React.useState<number>(-1);
 
@@ -53,6 +49,8 @@ export const BulkReviewGrid: React.FC<Props> = ({ items, selectedIndices, onSele
     };
 
     const toggleItem = (index: number) => {
+        const item = items[index];
+        if (!item || (item.status !== 'READY' && item.status !== 'WARNING')) return;
         if (selectedIndices.includes(index)) {
             onSelectChange(selectedIndices.filter(i => i !== index));
         } else {
@@ -72,13 +70,6 @@ export const BulkReviewGrid: React.FC<Props> = ({ items, selectedIndices, onSele
     const isAllSelected = items.length > 0 && selectedIndices.length === items.filter(i => i.status === 'READY' || i.status === 'WARNING').length;
     const hasIndeterminate = selectedIndices.length > 0 && !isAllSelected;
 
-    // Calculate UF individual for a given item
-    const getUfIndividual = (itemIndex: number, item: any) => {
-        const ufTotal = ufTotals[itemIndex] || 0;
-        const matchedCount = (item.analisis || []).filter((a: any) => a._matched).length;
-        if (ufTotal <= 0 || matchedCount === 0) return 0;
-        return Math.round((ufTotal / matchedCount) * 100) / 100; // 2 decimals
-    };
 
     return (
         <>
@@ -186,20 +177,13 @@ export const BulkReviewGrid: React.FC<Props> = ({ items, selectedIndices, onSele
                                             )}
                                         </Group>
                                     </Table.Td>
+
                                     <Table.Td>
-                                        <NumberInput
-                                            size="xs"
-                                            w={80}
-                                            min={0}
-                                            step={0.5}
-                                            decimalScale={2}
-                                            placeholder="0"
-                                            value={ufTotals[idx] || ''}
-                                            onChange={(val) => onUfTotalChange(idx, Number(val) || 0)}
-                                            disabled={!canSelect}
-                                            leftSection={<IconCurrencyDollar size={12} />}
-                                        />
+                                        <Text size="xs" c={(item._ufTotal || 0) > 0 ? 'green.7' : 'dimmed'} fw={600}>
+                                            {(item._ufTotal || 0) > 0 ? `${Number(item._ufTotal).toFixed(2)} UF` : '-'}
+                                        </Text>
                                     </Table.Td>
+
                                     <Table.Td align="center">
                                         {(hasErrors || hasWarnings) ? (
                                             <Popover width={350} position="left" withArrow shadow="md">
@@ -359,7 +343,7 @@ export const BulkReviewGrid: React.FC<Props> = ({ items, selectedIndices, onSele
                         <Tabs.Panel value="analisis" p="xl" bg="gray.0">
                             <Stack gap="xl">
                                 <Paper withBorder p="md" radius="md" bg="blue.0">
-                                    <SimpleGrid cols={{ base: 1, sm: 3 }}>
+                                    <SimpleGrid cols={{ base: 1, sm: 2 }}>
                                         <Group gap={4}>
                                             <Text size="xs" fw={700} c="dimmed" tt="uppercase">Normativa:</Text>
                                             <Text size="sm" fw={600}>{previewItem._normativa || '-'}</Text>
@@ -367,25 +351,6 @@ export const BulkReviewGrid: React.FC<Props> = ({ items, selectedIndices, onSele
                                         <Group gap={4}>
                                             <Text size="xs" fw={700} c="dimmed" tt="uppercase">Referencia:</Text>
                                             <Text size="sm" fw={600}>{previewItem._normativaRef || '-'}</Text>
-                                        </Group>
-                                        <Group gap={4} align="center">
-                                            <Text size="xs" fw={700} c="dimmed" tt="uppercase">UF Total:</Text>
-                                            <NumberInput
-                                                size="xs"
-                                                w={100}
-                                                min={0}
-                                                step={0.5}
-                                                decimalScale={2}
-                                                value={previewIndex >= 0 ? (ufTotals[previewIndex] || '') : ''}
-                                                onChange={(val) => { if (previewIndex >= 0) onUfTotalChange(previewIndex, Number(val) || 0); }}
-                                                leftSection={<IconCurrencyDollar size={14} />}
-                                                placeholder="Ingresar UF"
-                                            />
-                                            {previewIndex >= 0 && ufTotals[previewIndex] > 0 && (
-                                                <Badge color="green" variant="light" size="sm">
-                                                    = {getUfIndividual(previewIndex, previewItem)} UF c/u
-                                                </Badge>
-                                            )}
                                         </Group>
                                     </SimpleGrid>
                                 </Paper>
@@ -406,7 +371,6 @@ export const BulkReviewGrid: React.FC<Props> = ({ items, selectedIndices, onSele
                                         </Table.Thead>
                                         <Table.Tbody>
                                             {previewItem.analisis?.map((row: any, i: number) => {
-                                                const ufInd = row._matched && previewIndex >= 0 ? getUfIndividual(previewIndex, previewItem) : 0;
                                                 return (
                                                 <Table.Tr key={i} bg={!row._matched ? 'orange.0' : undefined}>
                                                     <Table.Td>
@@ -429,8 +393,8 @@ export const BulkReviewGrid: React.FC<Props> = ({ items, selectedIndices, onSele
                                                     <Table.Td ta="right">{row.limitemax_h}</Table.Td>
                                                     <Table.Td>{row.tipo_entrega_texto}</Table.Td>
                                                     <Table.Td>{row.laboratorio_texto}</Table.Td>
-                                                    <Table.Td ta="right" fw={600} c={ufInd > 0 ? 'green.7' : 'dimmed'}>
-                                                        {ufInd > 0 ? ufInd.toFixed(2) : '-'}
+                                                    <Table.Td ta="right" fw={600} c={row.uf_individual > 0 ? 'green.7' : 'dimmed'}>
+                                                        {row.uf_individual > 0 ? parseFloat(row.uf_individual).toFixed(2) : '-'}
                                                     </Table.Td>
                                                 </Table.Tr>
                                                 );

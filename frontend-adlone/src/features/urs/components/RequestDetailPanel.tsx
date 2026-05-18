@@ -1,5 +1,6 @@
 import { ursService } from '../../../services/urs.service';
 import { useAuth } from '../../../contexts/AuthContext';
+import { IconBan } from '@tabler/icons-react';
 import React, { useState, useMemo } from 'react';
 import FileIcon from './FileIcon';
 import DeriveRequestModal from './DeriveRequestModal';
@@ -68,6 +69,7 @@ const CODE_VALUE_MAP: Record<string, string> = {
     'ACEPTADA': 'Aceptada',
     'RECHAZADA': 'Rechazada',
     'REALIZADA': 'Realizada',
+    'CANCELADA': 'Cancelada',
     'NORMAL': 'Normal',
     'ALTA': 'Alta',
     'CRITICO': 'Crítico',
@@ -100,7 +102,7 @@ interface RequestDetailPanelProps {
 
 const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequestUpdate, onReload }) => {
     const [isDeriving, setIsDeriving] = useState(false);
-    const { token } = useAuth();
+    const { token, user } = useAuth();
     const { showToast } = useToast();
     const theme = useMantineTheme();
     const isMobile = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`);
@@ -113,7 +115,9 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
     // Action history toggle
     const [historyOpen, setHistoryOpen] = useState(false);
 
-    const isClosed = request?.estado === 'REALIZADA' || request?.estado === 'RECHAZADA';
+    const isClosed = request?.estado === 'REALIZADA' || request?.estado === 'RECHAZADA' || request?.estado === 'CANCELADA';
+    const isCreator = Number(request?.id_solicitante) === Number(user?.id);
+    const canCancel = !isClosed && request?.estado === 'PENDIENTE' && isCreator;
 
     // Build unified action history from system comments + derivations
     const actionHistory = useMemo(() => {
@@ -178,6 +182,7 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
             case 'RECHAZADA': return 'Rechazar Solicitud';
             case 'EN_REVISION': return 'Poner En Revisión';
             case 'REALIZADA': return 'Marcar como Realizada';
+            case 'CANCELADA': return 'Cancelar Solicitud';
             default: return 'Confirmar';
         }
     };
@@ -188,6 +193,7 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
             case 'RECHAZADA': return 'red';
             case 'EN_REVISION': return 'blue';
             case 'REALIZADA': return 'green';
+            case 'CANCELADA': return 'gray';
             default: return 'gray';
         }
     };
@@ -204,7 +210,8 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                 'ACEPTADA': 'Solicitud aceptada correctamente',
                 'RECHAZADA': 'Solicitud rechazada',
                 'EN_REVISION': 'Solicitud puesta en revisión',
-                'REALIZADA': 'Solicitud marcada como realizada'
+                'REALIZADA': 'Solicitud marcada como realizada',
+                'CANCELADA': 'Solicitud cancelada'
             };
             showToast({ message: messages[pendingAction] || 'Estado actualizado', type: 'success' });
             setObsModalOpen(false);
@@ -243,7 +250,7 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                         <StatusBadge status={request.estado} size={isMobile ? 'xs' : 'md'} />
                     </Group>
                     
-                    {(request.origen_solicitud === 'MUESTREADOR' || request.datos_json?.origen_solicitud === 'MUESTREADOR' || request.datos_json?.app_version || Number(request.id_solicitante) === 466 || Number(request.id_solicitante) === 229) && (
+                    {(request.origen_solicitud === 'MUESTREADOR' || request.datos_json?.origen_solicitud === 'MUESTREADOR' || request.datos_json?.app_version) && (
                         <Text size="xs" fw={700} c="blue.7" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                             📱 Solicitud enviada vía aplicación móvil ADL Sampling
                         </Text>
@@ -396,8 +403,8 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                                         <Group gap="xs">
                                             <IconMapPin size={16} />
                                             <Box>
-                                                <Text size="xs" c="dimmed">Sede / Centro</Text>
-                                                <Text size="sm" fw={700}>{request.datos_json?.nombre_centro || 'N/A'}</Text>
+                                                <Text size="xs" c="dimmed">Sede / Ubicación</Text>
+                                                <Text size="sm" fw={700}>{request.datos_json?.nombre_ubicacion || request.datos_json?.nombre_centro || 'N/A'}</Text>
                                             </Box>
                                         </Group>
                                     </Paper>
@@ -595,6 +602,11 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                     <Text size="sm" fw={700}>Solicitud en revisión. Se está evaluando para proceder.</Text>
                 </Alert>
             )}
+            {request.estado === 'CANCELADA' && (
+                <Alert icon={<IconBan size={20} />} color="gray" variant="light" radius="lg">
+                    <Text size="sm" fw={700}>Solicitud cancelada por el solicitante.</Text>
+                </Alert>
+            )}
 
             {/* Management Section - Only show if not closed */}
             {!isClosed && (
@@ -650,6 +662,27 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                             </Button>
                         )}
                     </Stack>
+                </Paper>
+            )}
+
+            {/* Cancel Section - Only creator, only PENDIENTE */}
+            {canCancel && (
+                <Paper p="md" radius="xl" bg="gray.0" withBorder style={{ borderColor: 'var(--mantine-color-gray-3)' }}>
+                    <Group justify="space-between" align="center">
+                        <Box>
+                            <Text size="sm" fw={700} c="dimmed">¿Deseas retirar esta solicitud?</Text>
+                            <Text size="xs" c="dimmed">Solo el solicitante puede cancelar mientras esté pendiente.</Text>
+                        </Box>
+                        <Button
+                            variant="light"
+                            color="gray"
+                            leftSection={<IconBan size={16} />}
+                            radius="md"
+                            onClick={() => openObservationModal('CANCELADA')}
+                        >
+                            Cancelar solicitud
+                        </Button>
+                    </Group>
                 </Paper>
             )}
 
@@ -728,11 +761,13 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                 zIndex={1100}
             >
                 <Stack gap="md">
-                    {(pendingAction === 'RECHAZADA' || pendingAction === 'REALIZADA') && (
-                        <Alert color={pendingAction === 'RECHAZADA' ? 'red' : 'orange'} variant="light" radius="md">
+                    {(pendingAction === 'RECHAZADA' || pendingAction === 'REALIZADA' || pendingAction === 'CANCELADA') && (
+                        <Alert color={pendingAction === 'RECHAZADA' ? 'red' : pendingAction === 'CANCELADA' ? 'gray' : 'orange'} variant="light" radius="md">
                             <Text size="sm" fw={500}>
                                 {pendingAction === 'RECHAZADA'
                                     ? 'Esta acción es irreversible. La solicitud quedará rechazada definitivamente.'
+                                    : pendingAction === 'CANCELADA'
+                                    ? 'La solicitud será cancelada. Esta acción no puede deshacerse.'
                                     : 'Esta acción marcará la solicitud como completada. No podrá revertirse.'}
                             </Text>
                         </Alert>

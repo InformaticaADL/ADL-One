@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ursService } from '../../../services/urs.service';
 import { useNavStore } from '../../../store/navStore';
 import apiClient from '../../../config/axios.config';
+import { useToast } from '../../../contexts/ToastContext';
 import {
     Stack,
     Group,
@@ -53,11 +54,12 @@ const MuestreadorDeactivationForm: React.FC<MuestreadorDeactivationFormProps> = 
     const [equipmentCount, setEquipmentCount] = useState<number | null>(null);
     const [submitted, setSubmitted] = useState(false);
     const { setActiveSubmodule } = useNavStore();
+    const { showToast } = useToast();
 
     useEffect(() => {
         apiClient.get('/api/catalogos/muestreadores')
             .then(res => setMuestreadores(res.data.data))
-            .catch(console.error);
+            .catch(() => showToast({ type: 'error', message: 'Error al cargar muestreadores' }));
     }, []);
 
     useEffect(() => {
@@ -70,7 +72,7 @@ const MuestreadorDeactivationForm: React.FC<MuestreadorDeactivationFormProps> = 
                     setEquipmentList(list);
                     setEquipmentCount(list.length);
                 })
-                .catch(console.error)
+                .catch(() => showToast({ type: 'error', message: 'Error al cargar equipos del muestreador' }))
                 .finally(() => setLoadingEquipos(false));
         } else {
             setEquipmentList([]);
@@ -150,8 +152,8 @@ const MuestreadorDeactivationForm: React.FC<MuestreadorDeactivationFormProps> = 
             });
             setSubmitted(true);
             if (onSuccess) onSuccess();
-        } catch (error) {
-            console.error(error);
+        } catch {
+            showToast({ type: 'error', message: 'Error al crear la solicitud de deshabilitación' });
         } finally {
             setLoading(false);
         }
@@ -165,7 +167,7 @@ const MuestreadorDeactivationForm: React.FC<MuestreadorDeactivationFormProps> = 
                 </ThemeIcon>
                 <Title order={2} mb="xs">¡Solicitud Enviada!</Title>
                 <Text c="dimmed" mb="lg">La solicitud de deshabilitación ha sido creada correctamente.</Text>
-                <Button color="adl-blue" radius="md" onClick={() => setActiveSubmodule('urs-list')}>
+                <Button color="adl-blue" radius="md" onClick={() => setActiveSubmodule('')}>
                     Volver a la lista
                 </Button>
             </Paper>
