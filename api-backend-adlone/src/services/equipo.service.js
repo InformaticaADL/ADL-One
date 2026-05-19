@@ -117,7 +117,7 @@ export const equipoService = {
      */
     getEquipos: async (params = {}) => {
         try {
-            const { search, tipo, sede, estado, fechaDesde, fechaHasta, id_muestreador, page = 1, limit = 10 } = params;
+            const { search, tipo, sede, estado, fechaDesde, fechaHasta, id_muestreador, sortBy, page = 1, limit = 10 } = params;
             const pool = await getConnection();
 
             // Filters logic for both count and data
@@ -209,7 +209,18 @@ export const equipoService = {
                 FROM mae_equipo e
                 LEFT JOIN mae_muestreador m ON e.id_muestreador = m.id_muestreador
                 ${whereClause}
-                ORDER BY e.id_equipo ASC 
+                ORDER BY
+                    (CASE WHEN EXISTS (
+                        SELECT 1 FROM mae_solicitud s
+                        JOIN mae_solicitud_tipo t ON s.id_tipo = t.id_tipo
+                        WHERE s.estado IN ('PENDIENTE', 'ACEPTADA', 'EN_REVISION')
+                          AND t.modulo_destino = 'EQUIPOS'
+                          AND JSON_VALUE(s.datos_json, '$.id_equipo') = CAST(e.id_equipo AS NVARCHAR(20))
+                    ) THEN 0 ELSE 1 END) ASC,
+                    ${sortBy === 'vigencia'
+                        ? 'CASE WHEN e.fecha_vigencia IS NULL THEN 1 ELSE 0 END ASC, e.fecha_vigencia ASC,'
+                        : ''}
+                    e.id_equipo ASC
                 OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
             `;
 

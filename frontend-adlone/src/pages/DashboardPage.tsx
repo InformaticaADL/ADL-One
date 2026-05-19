@@ -95,7 +95,7 @@ const DashboardPage = () => {
         );
         if (activeSubmodule === 'ma-calendario-replica') return <CalendarioReplicaPage onBack={() => setActiveSubmodule('medio_ambiente')} />;
         if (activeSubmodule === 'admin-equipos-gestion') return <EquiposPage onBack={() => setActiveSubmodule('')} />;
-        if (activeSubmodule === 'admin-muestreadores') return <MuestreadoresPage onBack={() => setActiveSubmodule('medio_ambiente')} />;
+        if (activeSubmodule === 'admin-muestreadores') return <MuestreadoresPage onBack={() => setActiveSubmodule('')} />;
         if (activeSubmodule === 'urs-new-request') return <NewRequestPage onBack={() => setActiveSubmodule('')} />;
 
         // --- 2. Lógica Específica del Módulo de Administración ---

@@ -381,19 +381,39 @@ class NotificationService {
                 } else {
                     // Generic handling for other URS request types (Formulario dinámico)
                     const keysToSkip = [
-                        'muestreador_origen_id', 'muestreador_origen_nombre', 'tipo_traspaso', 'base_destino', 
-                        'muestreador_destino_id', 'muestreador_destino_nombre', 'reasignacion_manual', 'id_equipo', 
+                        'muestreador_origen_id', 'muestreador_origen_nombre', 'tipo_traspaso', 'base_destino',
+                        'muestreador_destino_id', 'muestreador_destino_nombre', 'reasignacion_manual', 'id_equipo',
                         'id_equipo_original', 'fecha_traspaso', 'form_type', '_form_type', 'formType', 'formtype',
                         'id_muestreador_destino', 'info_actual', 'traspaso_de', 'id_solicitante', 'id_centro_destino',
                         'nombre_equipo', 'nombre_equipo_full', 'encargado_actual', 'ubicacion_actual',
                         'id_tecnico', 'idTecnico', 'origen_solicitud', 'codigo_equipo', 'id_muestreador',
-                        'id_muestreo', 'id_ficha', 'relacion_tipo', 'num_ficha', 'id_tipo_aviso'
+                        'id_muestreo', 'id_ficha', 'relacion_tipo', 'num_ficha', 'id_tipo_aviso',
+                        'observaciones'
                     ];
                     
+                    // Human-readable field labels
+                    const FIELD_LABELS = {
+                        'motivo': 'Motivo', 'fecha_baja': 'Fecha Efectiva',
+                        'fecha_suceso': 'Fecha del Suceso', 'fecha_extravio': 'Fecha de Extravío',
+                        'fecha_ocurrencia': 'Fecha de Ocurrencia', 'fecha_anulacion': 'Fecha de Anulación',
+                        'nombre_centro_destino': 'Centro Destino', 'nombre_muestreador_destino': 'Muestreador Destino',
+                        'sede_actual': 'Sede Actual', 'responsable_actual': 'Responsable Actual',
+                        'descripcion': 'Descripción', 'descripcion_problema': 'Descripción del Problema',
+                        'tipo_equipo': 'Tipo de Equipo', 'nombre_ubicacion': 'Ubicación',
+                    };
+                    // Skip auto-set date duplicates of fecha_baja
+                    const _fechaBaja = dj.fecha_baja;
+                    const _datesToSkip = new Set();
+                    if (_fechaBaja) {
+                        if (dj.fecha_suceso === _fechaBaja) _datesToSkip.add('fecha_suceso');
+                        if (dj.fecha_extravio === _fechaBaja) _datesToSkip.add('fecha_extravio');
+                        if (dj.fecha_ocurrencia === _fechaBaja) _datesToSkip.add('fecha_ocurrencia');
+                    }
+
                     const details = Object.entries(dj)
-                        .filter(([key]) => !keysToSkip.includes(key) && typeof dj[key] !== 'object' && dj[key] !== null && dj[key] !== '' && dj[key] !== 'N/A')
+                        .filter(([key]) => !keysToSkip.includes(key) && !_datesToSkip.has(key) && typeof dj[key] !== 'object' && dj[key] !== null && dj[key] !== '' && dj[key] !== 'N/A')
                         .map(([key, val]) => {
-                            const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                            const label = FIELD_LABELS[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
                             
                             // Specific Traspaso Hide Logic based on traspaso_de array
                             if (dj._form_type === 'TRASPASO_EQUIPO' && Array.isArray(dj.traspaso_de)) {
@@ -401,9 +421,17 @@ class NotificationService {
                                 if (key === 'nombre_muestreador_destino' && !dj.traspaso_de.includes('RESPONSABLE')) return '';
                             }
 
-                            // Fix text formatting (DAÑO, DD-MM-YYYY)
+                            // Fix text formatting (code values → human-readable, DD-MM-YYYY)
                             let displayVal = val;
-                            if (typeof val === 'string' && val.trim().toUpperCase() === 'DANIO') displayVal = 'DAÑO';
+                            const CODE_LABELS = {
+                                'DANIO': 'Daño irreparable', 'DANO': 'Daño irreparable',
+                                'OBSOLESCENCIA': 'Obsolescencia', 'PERDIDA': 'Pérdida', 'ROBO': 'Robo',
+                                'VIDA_UTIL': 'Vida Útil', 'DETERIORO': 'Deterioro', 'REEMPLAZO': 'Reemplazo',
+                                'BAJA': 'Baja', 'MEDIA': 'Media', 'ALTA': 'Alta', 'OTRO': 'Otro',
+                                'ACEPTADA': 'Aceptada', 'RECHAZADA': 'Rechazada', 'PENDIENTE': 'Pendiente',
+                                'REALIZADA': 'Realizada', 'EN_REVISION': 'En Revisión', 'CANCELADA': 'Cancelada',
+                            };
+                            if (typeof val === 'string') displayVal = CODE_LABELS[val.trim().toUpperCase()] || displayVal;
                             
                             // Date formatting logic (shared)
                             const formatDate = (dateStr) => {
@@ -422,33 +450,42 @@ class NotificationService {
                             return `<div style="margin-bottom: 6px;"><strong>${label}:</strong> <span style="color: #475569;">${displayVal}</span></div>`;
                         }).join('');
 
-                    // Field Prioritization for Header (V16 Robustness)
-                    // Robust type detection with accent normalization (V19.2)
-                    const cleanTipo = (context.TIPO_SOLICITUD || '').toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                    const isFicha = cleanTipo.includes('FICHA') || 
-                                    cleanTipo.includes('CANCELACION') || 
-                                    cleanTipo.includes('ANULACION') || 
+                    // Type-aware block title and styling
+                    const cleanTipo = (context.TIPO_SOLICITUD || context.nombre_tipo || '').toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                    const isFicha = cleanTipo.includes('FICHA') || cleanTipo.includes('CANCELACION') || cleanTipo.includes('ANULACION') ||
                                     [12, 15].includes(Number(context.id_tipo)) ||
-                                    (dj.relacion_tipo || '').toUpperCase() === 'SERVICIO' ||
-                                    (dj.relacion_tipo || '').toUpperCase() === 'FICHA' ||
+                                    (dj.relacion_tipo || '').toUpperCase() === 'SERVICIO' || (dj.relacion_tipo || '').toUpperCase() === 'FICHA' ||
                                     (context.relacion_tipo || '').toUpperCase() === 'SERVICIO';
-                    
-                    const eqName = isFicha 
+
+                    let blockTitle = 'Detalle de la Solicitud';
+                    let blockBg = '#f8fafc', blockBorder = '#e2e8f0', blockTitleColor = '#0062a8', eqColor = '#0062a8';
+                    if (cleanTipo.includes('BAJA') || cleanTipo.includes('DESVINCULACI')) {
+                        blockTitle = 'Plan de Desvinculaci\u00f3n de Equipo';
+                        blockBg = '#fff5f5'; blockBorder = '#feb2b2'; blockTitleColor = '#dc3545'; eqColor = '#dc3545';
+                    } else if (cleanTipo.includes('TRASPASO')) {
+                        blockTitle = 'Detalle del Traspaso';
+                        blockBg = '#f0fff4'; blockBorder = '#9ae6b4'; blockTitleColor = '#276749'; eqColor = '#276749';
+                    } else if (cleanTipo.includes('ACTIVACI') || cleanTipo.includes('ALTA')) {
+                        blockTitle = 'Solicitud de Activaci\u00f3n';
+                        blockBg = '#ebf8ff'; blockBorder = '#bee3f8'; blockTitleColor = '#2b6cb0'; eqColor = '#2b6cb0';
+                    } else if (cleanTipo.includes('DESHABILITAR') || cleanTipo.includes('MUESTREADOR')) {
+                        blockTitle = 'Solicitud de Deshabilitaci\u00f3n';
+                        blockBg = '#fffaf0'; blockBorder = '#fbd38d'; blockTitleColor = '#c05621'; eqColor = '#c05621';
+                    }
+                    const labelHeader = isFicha ? 'Servicio' : 'Equipo';
+                    const eqName = isFicha
                         ? (dj.id_ficha || dj.num_ficha || context.equipo_nombre || context.nombre_equipo_full || dj.id_muestreo || dj.correlativo || 'N/A')
                         : (context.equipo_nombre || context.nombre_equipo_full || dj.nombre_equipo_full || dj.equipo_nombre || dj.nombre_equipo || 'N/A');
-                    
                     const eqCode = context.codigo_equipo || context.codigo_equipo_db || dj.codigo_equipo || dj.codigo_equipo_db || '';
-                    
-                    const labelHeader = isFicha ? 'Servicio:' : 'Equipo:';
-                    
+
                     if (details.trim() || eqName !== 'N/A') {
                         const eqNameStr = String(eqName);
                         const displayTitle = eqNameStr.includes('[') ? eqNameStr : `${eqNameStr}${eqCode ? ` [${eqCode}]` : ''}`;
                         equiposHtml = `
-                            <div style="padding: 15px; margin-top: 15px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;">
-                                <h4 style="margin: 0 0 12px 0; color: #0062a8; font-size: 15px; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px;">Detalle de la Solicitud:</h4>
+                            <div style="padding: 15px; background: ${blockBg}; border: 1px solid ${blockBorder}; border-radius: 8px;">
+                                <h4 style="margin: 0 0 10px 0; color: ${blockTitleColor}; font-size: 15px; border-bottom: 1px solid ${blockBorder}; padding-bottom: 8px;">${blockTitle}:</h4>
                                 <div style="font-size: 14px; color: #1e293b;">
-                                    ${eqName !== 'N/A' ? `<div style="margin-bottom: 10px; font-size: 15px;"><strong>${labelHeader}</strong> <span style="color: #0062a8; font-weight: bold;">${displayTitle}</span></div>` : ''}
+                                    ${eqName !== 'N/A' ? `<div style="margin-bottom: 8px; font-size: 15px;"><strong>${labelHeader}:</strong> <span style="color: ${eqColor}; font-weight: bold;">${displayTitle}</span></div>` : ''}
                                     ${details}
                                 </div>
                             </div>
@@ -457,55 +494,19 @@ class NotificationService {
                 }
             }
 
-            // AVOID DUPLICATION: If the template already contains specific URS placeholders or markers,
-            // we should NOT inject the automatic block unless {EQUIPOS_DETALLE} is explicitly present.
-            // AVOID DUPLICATION: Check for specific placeholders. 
-            // V17: Loosened regex and added DETALLE_SOLICITUD synonym support.
-            const hasSpecificPlaceholders = /\{muestreador_(origen|destino)_nombre\}|\{tipo_traspaso\}/i.test(output);
-            const shouldInject = !hasSpecificPlaceholders || output.includes('{EQUIPOS_DETALLE}') || output.includes('{DETALLE_SOLICITUD}');
-
-            if (equiposHtml && shouldInject) {
+            // El bloque de detalle SOLO se inyecta si el template lo solicita explícitamente
+            // con {EQUIPOS_DETALLE} o {DETALLE_SOLICITUD}. Nunca se inyecta automáticamente.
+            if (equiposHtml && (output.includes('{EQUIPOS_DETALLE}') || output.includes('{DETALLE_SOLICITUD}'))) {
                 if (output.includes('{EQUIPOS_DETALLE}')) {
                     output = output.split('{EQUIPOS_DETALLE}').join(equiposHtml);
                 } else if (output.includes('{DETALLE_SOLICITUD}')) {
                     output = output.split('{DETALLE_SOLICITUD}').join(equiposHtml);
                 } else {
-                    const injectionHtml = `
-                        <div style="margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
-                            ${equiposHtml}
-                        </div>
-                    `;
-                    // Fix 1: Inject BEFORE the firma/footer section, not after it
-                    // Look for the firma marker (ADL Diagnostic / Sistema de Gestión) and inject before it
-                    const firmaMarkers = ['ADL Diagnostic', 'Sistema de Gesti', 'Laboratorio de Diagn'];
-                    let injected = false;
-                    for (const marker of firmaMarkers) {
-                        const markerIdx = output.indexOf(marker);
-                        if (markerIdx > 0) {
-                            // Find the start of the containing element (td, div, p) before the marker
-                            const searchArea = output.substring(Math.max(0, markerIdx - 500), markerIdx);
-                            // Find the last closing tag before this marker's container
-                            const lastTdClose = searchArea.lastIndexOf('</td>');
-                            const lastDivClose = searchArea.lastIndexOf('</div>');
-                            const bestClose = Math.max(lastTdClose, lastDivClose);
-                            if (bestClose > -1) {
-                                const actualIdx = Math.max(0, markerIdx - 500) + bestClose;
-                                const tag = output.substring(actualIdx, actualIdx + 6) === '</div>' ? '</div>' : '</td>';
-                                output = output.substring(0, actualIdx + tag.length) + injectionHtml + output.substring(actualIdx + tag.length);
-                                injected = true;
-                                break;
-                            }
-                        }
-                    }
-                    // Fallback: if no firma found, inject before </body> or append
-                    if (!injected) {
-                        if (output.includes('</body>')) {
-                            output = output.replace('</body>', `${injectionHtml}</body>`);
-                        } else if (output.includes('</html>')) {
-                            output = output.replace('</html>', `${injectionHtml}</html>`);
-                        } else {
-                            output += injectionHtml;
-                        }
+                    // dead branch — kept for safety
+                    if (output.includes('</body>')) {
+                        output = output.replace('</body>', `${equiposHtml}</body>`);
+                    } else {
+                        output += equiposHtml;
                     }
                 }
             }

@@ -167,8 +167,8 @@ export const ursValidationSchemas = {
     updateStatus: Joi.object({
         body: Joi.object({
             // Controller acepta tanto 'status' como 'estado' (legacy)
-            status: Joi.string().valid('PENDIENTE', 'ACEPTADA', 'RECHAZADA', 'REALIZADA').optional(),
-            estado: Joi.string().valid('PENDIENTE', 'ACEPTADA', 'RECHAZADA', 'REALIZADA').optional(),
+            status: Joi.string().valid('PENDIENTE', 'ACEPTADA', 'RECHAZADA', 'REALIZADA', 'EN_REVISION', 'CANCELADA').optional(),
+            estado: Joi.string().valid('PENDIENTE', 'ACEPTADA', 'RECHAZADA', 'REALIZADA', 'EN_REVISION', 'CANCELADA').optional(),
             comment: Joi.string().max(5000).optional(),
             observaciones: Joi.string().max(5000).optional(),
         }).or('status', 'estado').unknown(true).required(),

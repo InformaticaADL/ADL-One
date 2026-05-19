@@ -279,7 +279,9 @@ class UrsController {
             }
 
             const baseDir = path.resolve(process.env.UPLOAD_PATH || 'uploads');
-            const filePath = path.resolve(baseDir, adjunto.ruta_archivo);
+            // Strip leading 'uploads/' from legacy records to avoid path doubling
+            const relPath = adjunto.ruta_archivo.replace(/^uploads[\\/]/, '');
+            const filePath = path.resolve(baseDir, relPath);
 
             if (!filePath.startsWith(baseDir + path.sep) && filePath !== baseDir) {
                 return res.status(403).json({ error: 'Acceso denegado' });
@@ -294,6 +296,17 @@ class UrsController {
         } catch (error) {
             logger.error('Error in downloadAttachment:', error);
             res.status(500).json({ error: 'Error al procesar la descarga' });
+        }
+    }
+
+    async getUnreadCount(req, res) {
+        try {
+            const isAdmin = req.user.permissions?.includes('AI_MA_ADMIN_ACCESO');
+            const count = await ursService.getUnreadCount(req.user.id, isAdmin);
+            res.json({ success: true, data: { count } });
+        } catch (error) {
+            logger.error('Error in getUnreadCount:', error);
+            res.status(500).json({ success: false, message: 'Error al obtener contador' });
         }
     }
 }

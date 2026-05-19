@@ -53,6 +53,7 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
     const [currentPage, setCurrentPage] = useState(1);
     const [loading, setLoading] = useState(true);
     const [fichas, setFichas] = useState<any[]>([]);
+    const [assignmentCounts, setAssignmentCounts] = useState<Record<number, { assigned: number; total: number }>>({});
     const isMobile = useMediaQuery('(max-width: 768px)');
 
     const itemsPerPage = 12;
@@ -60,6 +61,39 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
     useEffect(() => {
         loadFichas();
     }, []);
+
+    useEffect(() => {
+        const loadAssignmentCounts = async () => {
+            const itemsPerPage = 12;
+            const counts: Record<number, { assigned: number; total: number }> = {};
+
+            const fichasToLoad = fichas.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+            for (const ficha of fichasToLoad) {
+                const fichId = ficha.id_fichaingresoservicio || ficha.fichaingresoservicio;
+                if (!fichId || assignmentCounts[fichId]) continue;
+
+                try {
+                    const data = await fichaService.getAssignmentDetail(fichId);
+                    if (Array.isArray(data)) {
+                        const total = data.filter(r => !['CANCELADO', 'ANULADO'].includes((r.nombre_estadomuestreo || '').toUpperCase())).length;
+                        const assigned = data.filter(r =>
+                            !['CANCELADO', 'ANULADO'].includes((r.nombre_estadomuestreo || '').toUpperCase()) &&
+                            r.id_muestreador
+                        ).length;
+                        counts[fichId] = { assigned, total };
+                    }
+                } catch (error) {
+                    console.error(`Error loading counts for ficha ${fichId}:`, error);
+                }
+            }
+            if (Object.keys(counts).length > 0) {
+                setAssignmentCounts(prev => ({ ...prev, ...counts }));
+            }
+        };
+
+        loadAssignmentCounts();
+    }, [fichas, currentPage]);
 
     const loadFichas = async () => {
         setLoading(true);
@@ -197,9 +231,19 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
             const statusB = b.estado_ficha || b.nombre_estadomuestreo || '';
             const p = getStatusPriority(statusA) - getStatusPriority(statusB);
             if (p !== 0) return p;
+
+            const fichIdA = a.id_fichaingresoservicio || a.fichaingresoservicio;
+            const fichIdB = b.id_fichaingresoservicio || b.fichaingresoservicio;
+            const countsA = assignmentCounts[fichIdA];
+            const countsB = assignmentCounts[fichIdB];
+
+            const pendingA = countsA ? countsA.total - countsA.assigned : 0;
+            const pendingB = countsB ? countsB.total - countsB.assigned : 0;
+
+            if (pendingA !== pendingB) return pendingB - pendingA;
             return (b.id_fichaingresoservicio || 0) - (a.id_fichaingresoservicio || 0);
         });
-    }, [filteredFichas]);
+    }, [filteredFichas, assignmentCounts]);
 
     const totalPages = Math.ceil(sortedFichas.length / itemsPerPage);
     const displayedFichas = sortedFichas.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -364,6 +408,7 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                                             <Table.Th w={140}>Estado</Table.Th>
                                             <Table.Th miw={140}>Cliente / E. Servicio</Table.Th>
                                             <Table.Th miw={140}>F. Emisora</Table.Th>
+                                            <Table.Th ta="center" w={120}>Asignación</Table.Th>
                                             <Table.Th ta="center" w={70}>Asignar</Table.Th>
                                         </Table.Tr>
                                     </Table.Thead>
@@ -386,11 +431,30 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                                                 </Table.Td>
 
                                                 <Table.Td ta="center">
+                                                    {(() => {
+                                                        const fichId = row.id_fichaingresoservicio || row.fichaingresoservicio;
+                                                        const counts = assignmentCounts[fichId];
+                                                        if (!counts) return <Text size="xs" c="dimmed">-</Text>;
+                                                        const pending = counts.total - counts.assigned;
+                                                        return (
+                                                            <Stack gap={0} align="center">
+                                                                <Text size="xs" fw={600} c={counts.assigned > 0 ? 'green.7' : 'gray.6'}>
+                                                                    {counts.assigned} asignados
+                                                                </Text>
+                                                                {pending > 0 && (
+                                                                    <Text size="xs" c="orange.7">{pending} pendientes</Text>
+                                                                )}
+                                                            </Stack>
+                                                        );
+                                                    })()}
+                                                </Table.Td>
+
+                                                <Table.Td ta="center">
                                                     <ProtectedContent permission="FI_GEST_ASIG">
                                                         <Tooltip label="Gestionar Asignación">
-                                                            <ActionIcon 
-                                                                color="grape" 
-                                                                variant="filled" 
+                                                            <ActionIcon
+                                                                color="grape"
+                                                                variant="filled"
                                                                 onClick={() => onViewAssignment(row.id_fichaingresoservicio || row.fichaingresoservicio)}
                                                             >
                                                                 <IconCalendarStats size={18} />

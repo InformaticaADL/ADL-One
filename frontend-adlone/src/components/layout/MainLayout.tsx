@@ -9,6 +9,7 @@ import { useNotificationStore } from '../../store/notificationStore';
 import { useAuth } from '../../contexts/AuthContext';
 import ContextualNotificationPanel from '../../features/notifications/components/ContextualNotificationPanel';
 import { ScrollButtons } from '../common/ScrollButtons';
+import { ursService } from '../../services/urs.service';
 
 interface MainLayoutProps {
     children?: React.ReactNode;
@@ -38,18 +39,20 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
     // Global Notifications listener (Toast logic)
     const { user, token } = useAuth();
     const { fetchNotifications, initSocket, disconnectSocket } = useNotificationStore();
+    const { setUrsUnreadCount } = useNavStore();
 
-    // Socket Initialization
+    // Socket Initialization + global counters fetch
     useEffect(() => {
         if (user?.id && token) {
             initSocket(user.id, token);
-            fetchNotifications(); // Initial fetch
+            fetchNotifications();
+            ursService.getUnreadCount().then(setUrsUnreadCount).catch(() => {});
         }
 
         return () => {
             disconnectSocket();
         };
-    }, [user?.id, token, initSocket, disconnectSocket, fetchNotifications]);
+    }, [user?.id, token, initSocket, disconnectSocket, fetchNotifications, setUrsUnreadCount]);
 
 
 

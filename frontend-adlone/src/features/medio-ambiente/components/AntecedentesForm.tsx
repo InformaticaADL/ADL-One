@@ -29,7 +29,6 @@ import {
     IconPlus
 } from '@tabler/icons-react';
 import { CreateEmpresaServicioModal } from './CreateEmpresaServicioModal';
-import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 
 // Helper to dedup options
 const dedupOptions = (options: { value: string; label: string }[]) => {
@@ -610,7 +609,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
     // Memoized Select Data for Performance
     const filteredCargosMemo = useMemo(() => {
-        if (responsableMuestreo === 'ADL') return cargos.filter(c => c.nombre?.toUpperCase().includes('ADL'));
+        if (responsableMuestreo === 'ADL') return cargos; // show all cargos; auto-fill selects the right one
         if (responsableMuestreo === 'Cliente') return cargos.filter(c => c.cliente === 'S' || c.cliente === true);
         return cargos;
     }, [cargos, responsableMuestreo]);
@@ -657,12 +656,13 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
     // LÓGICA AUTOMÁTICA DE CARGO
     useEffect(() => {
         if (isHydrating.current) return;
-        if (responsableMuestreo === 'ADL') {
-            setCargoResponsable('53');
-        } else if (responsableMuestreo === 'Cliente' && cargoResponsable === '53') {
+        if (responsableMuestreo === 'ADL' && cargos.length > 0) {
+            const match = cargos.find(c => c.nombre?.toUpperCase().includes('MUESTREADOR'));
+            if (match) setCargoResponsable(String(match.id));
+        } else if (responsableMuestreo !== 'ADL') {
             setCargoResponsable(null);
         }
-    }, [responsableMuestreo]);
+    }, [responsableMuestreo, cargos]);
 
     useEffect(() => {
         if (frecuencia === 'No Aplica' || factor === 'No Aplica') setTotalServicios('No Aplica');

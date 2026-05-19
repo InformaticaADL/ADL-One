@@ -49,7 +49,7 @@ Backend listens on port `4000` by default; frontend expects it at port `8002` (s
 
 **UI library** — Mantine v8 is the primary component library (`@mantine/core`, `@mantine/hooks`, `@mantine/form`, etc.). Tabler icons (`@tabler/icons-react`) are used throughout. Ant Design (`antd`) is also present but used sparingly.
 
-**Feature modules** — Business logic lives under `src/features/`. Each domain (e.g., `medio-ambiente`, `admin`, `urs`, `chat`) has its own `pages/`, `components/`, and `services/` subdirectories. Feature services call `apiClient` directly and return typed data.
+**Feature modules** — Business logic lives under `src/features/`. Each domain (e.g., `medio-ambiente`, `admin`, `urs` for Service Requests, `chat`, `notifications`) has its own `pages/`, `components/`, and `services/` subdirectories. Catalogs and Master Data are dynamically managed under `admin` with support for dynamic filters. Feature services call `apiClient` directly and return typed data.
 
 **Global state** — Zustand stores:
 - `useNavStore` — navigation state (active module/submodule, deep-link IDs, fichas mode)

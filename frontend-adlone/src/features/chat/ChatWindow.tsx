@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 import {
     Box, ScrollArea, TextInput, ActionIcon, Avatar, Text, Group, Paper,
-    Tooltip, Menu, Loader, Center, FileButton, Badge, Button, Stack, Popover
+    Tooltip, Menu, Loader, Center, FileButton, Badge, Button, Stack, Popover, Modal
 } from '@mantine/core';
 import {
     IconSend, IconPaperclip, IconDotsVertical, IconTrash, IconClearAll,
@@ -194,13 +194,26 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
 
     const baseUrl = API_CONFIG.getBaseURL();
 
-    const handleDownload = (messageId: number) => {
+    const handleDownload = async (messageId: number, fileName?: string) => {
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        const url = `${baseUrl}/api/gchat/download/${messageId}${token ? `?token=${token}` : ''}`;
-        const link = document.createElement('a');
-        link.href = url; link.style.display = 'none'; link.setAttribute('download', '');
-        document.body.appendChild(link); link.click();
-        setTimeout(() => { if (document.body.contains(link)) document.body.removeChild(link); }, 100);
+        const url = `${baseUrl}/api/gchat/download/${messageId}`;
+        try {
+            const response = await fetch(url, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
+            if (!response.ok) throw new Error('Download failed');
+            const blob = await response.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = fileName || 'archivo';
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            setTimeout(() => { URL.revokeObjectURL(blobUrl); document.body.removeChild(link); }, 100);
+        } catch {
+            window.open(url, '_blank');
+        }
     };
 
     const handleFileClick = (messageId: number) => {
@@ -829,38 +842,36 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                 onCancel={() => setConfirmDeleteId(null)}
             />
 
-            {/* Image viewer */}
-            {selectedImage && (
-                <Box
-                    style={{
-                        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-                        backgroundColor: 'rgba(0,0,0,0.75)', zIndex: 200,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(2px)'
-                    }}
-                    onClick={() => setSelectedImage(null)}
-                >
-                    <Box onClick={e => e.stopPropagation()} p="md"
-                        style={{
-                            backgroundColor: 'var(--mantine-color-body)', borderRadius: 8,
-                            display: 'flex', flexDirection: 'column', gap: 12, maxWidth: '90%', maxHeight: '90%'
-                        }}>
-                        <Group justify="space-between" wrap="nowrap">
-                            <Text fw={600} size="sm" truncate>{selectedImage.name || 'Visor de Imagen'}</Text>
-                            <ActionIcon variant="subtle" color="gray" onClick={() => setSelectedImage(null)}>
-                                <IconClearAll size={16} />
-                            </ActionIcon>
-                        </Group>
-                        <Box style={{ flex: 1, overflow: 'hidden', display: 'flex', justifyContent: 'center' }}>
-                            <img src={selectedImage.url} alt={selectedImage.name}
-                                style={{ maxWidth: '100%', maxHeight: '60vh', objectFit: 'contain' }} />
+            {/* Image viewer — rendered in a Portal so it covers the full viewport including sidebar */}
+            <Modal
+                opened={!!selectedImage}
+                onClose={() => setSelectedImage(null)}
+                title={selectedImage?.name || 'Visor de Imagen'}
+                size="xl"
+                centered
+                overlayProps={{ backgroundOpacity: 0.75, blur: 4 }}
+                styles={{ body: { display: 'flex', flexDirection: 'column', gap: 12 } }}
+            >
+                {selectedImage && (
+                    <>
+                        <Box style={{ display: 'flex', justifyContent: 'center', overflow: 'hidden' }}>
+                            <img
+                                src={selectedImage.url}
+                                alt={selectedImage.name}
+                                style={{ maxWidth: '100%', maxHeight: '65vh', objectFit: 'contain', borderRadius: 4 }}
+                            />
                         </Box>
-                        <Button leftSection={<IconDownload size={16} />}
-                            onClick={() => handleDownload(selectedImage.messageId)} fullWidth color="blue">
+                        <Button
+                            leftSection={<IconDownload size={16} />}
+                            onClick={() => handleDownload(selectedImage.messageId, selectedImage.name)}
+                            fullWidth
+                            color="blue"
+                        >
                             Descargar Imagen Original
                         </Button>
-                    </Box>
-                </Box>
-            )}
+                    </>
+                )}
+            </Modal>
         </Box>
     );
 };

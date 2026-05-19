@@ -425,7 +425,12 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                                     <Box>
                                         <Text size="xs" c="dimmed" fw={700}>FECHA EFECTIVA</Text>
                                         <Text fw={700}>
-                                            📅 {request.datos_json?.fecha_baja ? request.datos_json.fecha_baja.split('-').reverse().join('/') : 'N/A'}
+                                            📅 {request.datos_json?.fecha_baja ? (() => {
+                                                const parts = String(request.datos_json.fecha_baja).split('T')[0].split('-');
+                                                return parts.length === 3
+                                                    ? (parts[0].length === 4 ? `${parts[2]}/${parts[1]}/${parts[0]}` : parts.join('/'))
+                                                    : request.datos_json.fecha_baja;
+                                            })() : 'N/A'}
                                         </Text>
                                     </Box>
                                 </SimpleGrid>
@@ -464,7 +469,11 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                                                     📅 {(() => {
                                                         const d = request.datos_json?.fecha_extravio || request.datos_json?.fecha_suceso || request.datos_json?.fecha_ocurrencia;
                                                         if (!d) return 'N/A';
-                                                        return String(d).includes('-') ? String(d).split('T')[0].split('-').reverse().join('/') : String(d);
+                                                        const parts = String(d).split('T')[0].split('-');
+                                                        if (parts.length === 3) {
+                                                            return parts[0].length === 4 ? `${parts[2]}/${parts[1]}/${parts[0]}` : parts.join('/');
+                                                        }
+                                                        return String(d);
                                                     })()}
                                                 </Text>
                                             </Box>

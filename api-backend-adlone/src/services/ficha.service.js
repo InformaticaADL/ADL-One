@@ -925,6 +925,8 @@ class FichaIngresoService {
                     f.nombre_tabla_largo as glosa,
                     a.estado_caso,
                     a.motivo_cancelacion,
+                    a.id_estadomuestreo,
+                    a.realizado_por_gem,
                     f.id_validaciontecnica,
                     f.es_remuestreo,
                     f.id_ficha_original

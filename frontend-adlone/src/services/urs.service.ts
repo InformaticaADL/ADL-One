@@ -40,6 +40,11 @@ export const ursService = {
         return response.data;
     },
 
+    getUnreadCount: async (): Promise<number> => {
+        const response = await apiClient.get('/api/urs/unread-count');
+        return response.data?.data?.count ?? 0;
+    },
+
     getRequests: async (filters: any = {}) => {
         const response = await apiClient.get('/api/urs', { params: filters });
         return response.data;

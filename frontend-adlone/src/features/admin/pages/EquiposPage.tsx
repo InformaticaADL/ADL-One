@@ -206,8 +206,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     }, [showConfirmAltaModal, equipoAltaPending]);
 
     // --- Data Loaders ---
-    const fetchData = async () => {
-        setLoading(true);
+    const fetchData = async (silent = false) => {
+        if (!silent) setLoading(true);
         try {
             const params = {
                 page,
@@ -218,7 +218,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 estado: filterEstado || '',
                 fechaDesde: filterFechaDesde,
                 fechaHasta: filterFechaHasta,
-                id_muestreador: filterMuestreador || ''
+                id_muestreador: filterMuestreador || '',
+                sortBy: 'vigencia'
             };
             const response = await equipoService.getEquipos(params);
             if (response) {
@@ -242,34 +243,42 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
 
     const loadSolicitudes = async () => {
         try {
-            const targetStates = ['ACEPTADA'].join(',');
-            // Fetch from both legacy and new URS systems concurrently
-            const [legacyData, ursData] = await Promise.all([
-                adminService.getSolicitudes({ estado: targetStates }).catch(() => []),
-                ursService.getRequests({ estado: targetStates }).catch(() => [])
+            // Load all active states so sort covers both pending and accepted solicitudes
+            const [legacyAceptada, legacyPendiente, ursAceptada, ursPendiente, ursEnRevision] = await Promise.all([
+                adminService.getSolicitudes({ estado: 'ACEPTADA' }).catch(() => []),
+                adminService.getSolicitudes({ estado: 'PENDIENTE' }).catch(() => []),
+                ursService.getRequests({ estado: 'ACEPTADA' }).catch(() => []),
+                ursService.getRequests({ estado: 'PENDIENTE' }).catch(() => []),
+                ursService.getRequests({ estado: 'EN_REVISION' }).catch(() => []),
             ]);
-            
-            // Merge results
-            const data = [...(Array.isArray(legacyData) ? legacyData : []), ...(Array.isArray(ursData) ? ursData : [])];
-            
-            // Expand matching criteria to include URS form types and common keywords
-            const filteredData = data.filter((s: any) => {
-                // 1. Dynamic check via new modulo_destino metadata
-                if (s.modulo_destino === 'EQUIPOS') return true;
 
-                // 2. Robust fallback for legacy types or URS types without metadata
+            // URS solicitudes: accept all (matching by id_equipo in getPendingRequestsForEquipo is the real guard)
+            // Legacy solicitudes: filter by modulo/type keywords since they don't use id_equipo the same way
+            const ursAll = [
+                ...(Array.isArray(ursAceptada) ? ursAceptada : []),
+                ...(Array.isArray(ursPendiente) ? ursPendiente : []),
+                ...(Array.isArray(ursEnRevision) ? ursEnRevision : []),
+            ];
+            const legacyAll = [
+                ...(Array.isArray(legacyAceptada) ? legacyAceptada : []),
+                ...(Array.isArray(legacyPendiente) ? legacyPendiente : []),
+            ].filter((s: any) => {
+                if (s.modulo_destino === 'EQUIPOS') return true;
                 const tipoRaw = (s.tipo_solicitud || '').toUpperCase();
-                const formType = (s.datos_json?._form_type || '').toUpperCase();
-                
-                return tipoRaw.includes('EQUIPO') || 
-                       formType.includes('EQUIPO') ||
-                       tipoRaw.includes('MUESTREADOR') ||
-                       tipoRaw.includes('REVISI') ||
-                       tipoRaw.includes('TRASPASO') ||
-                       tipoRaw.includes('ALTA') ||
-                       tipoRaw.includes('BAJA');
+                return tipoRaw.includes('EQUIPO') || tipoRaw.includes('TRASPASO') ||
+                       tipoRaw.includes('BAJA') || tipoRaw.includes('ALTA') ||
+                       tipoRaw.includes('MUESTREADOR') || tipoRaw.includes('REVISI');
             });
-            
+
+            // Merge and deduplicate by id_solicitud
+            const seen = new Set<number>();
+            const filteredData = [...ursAll, ...legacyAll].filter((s: any) => {
+                const id = s.id_solicitud;
+                if (seen.has(id)) return false;
+                seen.add(id);
+                return true;
+            });
+
             setSolicitudesRealizadas(filteredData);
         } catch (error) {
             console.error("Error loading solicitudes:", error);
@@ -278,7 +287,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
 
     // --- Handlers ---
     const handleNotificationClick = async (sol: any) => {
-        const type = sol.tipo_solicitud;
+        const type = sol.tipo_solicitud || sol.nombre_tipo || '';
         const isCreation = type === 'NUEVO_EQUIPO' || (type === 'ALTA' && !sol.datos_json?.isReactivation);
         if (isCreation) {
             setSelectedEquipo({
@@ -759,9 +768,9 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
 
     // --- Helper Logic ---
     const getTipoLabelDisplay = (sol: any) => {
-        const type = sol.tipo_solicitud;
+        const type = (sol.tipo_solicitud || sol.nombre_tipo || '');
         if (type === 'ALTA') return sol.datos_json?.isReactivation ? 'Activación' : 'Creación';
-        if (['NUEVO_EQUIPO', 'BAJA', 'TRASPASO', 'VIGENCIA_PROXIMA', 'REPORTE_PROBLEMA', 'REVISION', 'EQUIPO_PERDIDO', 'EQUIPO_DESHABILITADO', 'BAJA_EQUIPO', 'TRASPASO_EQUIPO'].includes(type) || type.includes('EQUIPO')) {
+        if (['NUEVO_EQUIPO', 'BAJA', 'TRASPASO', 'VIGENCIA_PROXIMA', 'REPORTE_PROBLEMA', 'REVISION', 'EQUIPO_PERDIDO', 'EQUIPO_DESHABILITADO', 'BAJA_EQUIPO', 'TRASPASO_EQUIPO'].includes(type) || type.toUpperCase().includes('EQUIPO')) {
             return type.replace(/_/g, ' ');
         }
         return type;
@@ -770,7 +779,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const getPendingRequestsForEquipo = (id: number) => {
         return solicitudesRealizadas.filter(sol => {
             const d = sol.datos_json || {};
-            const typeRaw = (sol.tipo_solicitud || '').toUpperCase();
+            const typeRaw = (sol.tipo_solicitud || sol.nombre_tipo || '').toUpperCase();
             const formType = (d._form_type || '').toUpperCase();
             
             // Check direct id_equipo
@@ -802,16 +811,25 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         searchTerm !== '' || filterTipo || filterSede || filterEstado || filterMuestreador || filterFechaDesde || filterFechaHasta,
     [searchTerm, filterTipo, filterSede, filterEstado, filterMuestreador, filterFechaDesde, filterFechaHasta]);
 
-    // Equipos con solicitudes pendientes aparecen primero; dentro de cada grupo, los que vencen pronto van antes
+    // Equipos con solicitudes pendientes aparecen primero; luego los que vencen pronto (más cercano primero)
     const sortedEquipos = useMemo(() => {
-        if (solicitudesRealizadas.length === 0) return equipos;
+        const now = Date.now();
+        const isExpiring = (v?: string) => {
+            if (!v) return false;
+            const t = new Date(v).getTime();
+            return !isNaN(t) && (t - now) <= 30 * 86400000;
+        };
         return [...equipos].sort((a, b) => {
             const aAlert = getPendingRequestsForEquipo(a.id_equipo).length > 0 ? 2 : 0;
             const bAlert = getPendingRequestsForEquipo(b.id_equipo).length > 0 ? 2 : 0;
-            const checkExp = (v?: string) => v && !isNaN(new Date(v).getTime()) && (new Date(v).getTime() - Date.now()) <= 30 * 86400000;
-            const aExp = checkExp(a.vigencia) ? 1 : 0;
-            const bExp = checkExp(b.vigencia) ? 1 : 0;
-            return (bAlert + bExp) - (aAlert + aExp);
+            const aExp = isExpiring(a.vigencia) ? 1 : 0;
+            const bExp = isExpiring(b.vigencia) ? 1 : 0;
+            const priorityDiff = (bAlert + bExp) - (aAlert + aExp);
+            if (priorityDiff !== 0) return priorityDiff;
+            // Mismo nivel de prioridad: ordenar por fecha de vigencia ascendente (vence antes = primero)
+            const aDate = a.vigencia ? new Date(a.vigencia).getTime() : Infinity;
+            const bDate = b.vigencia ? new Date(b.vigencia).getTime() : Infinity;
+            return aDate - bDate;
         });
     }, [equipos, solicitudesRealizadas]);
 
@@ -1462,8 +1480,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 idEquipo={requestsEquipoInfo?.id || null}
                 nombreEquipo={requestsEquipoInfo?.nombre || ''}
                 codigoEquipo={requestsEquipoInfo?.codigo}
-                requests={requestsEquipoInfo ? getPendingRequestsForEquipo(requestsEquipoInfo.id as number) : []}
-                onRefresh={() => { fetchData(); loadSolicitudes(); }}
+                requests={requestsEquipoInfo ? getPendingRequestsForEquipo(requestsEquipoInfo.id as number).filter((s: any) => s.estado === 'ACEPTADA') : []}
+                onRefresh={() => { fetchData(true); loadSolicitudes(); }}
             />
         </Box>
     );

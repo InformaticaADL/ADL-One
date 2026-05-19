@@ -19,7 +19,7 @@ import './ChatModule.css';
 let chatSocket: Socket | null = null;
 
 const ChatModule: React.FC = () => {
-    const { user } = useAuth();
+    const { user, token } = useAuth();
     const { showToast } = useToast();
     const {
         conversations, activeConversation, messages, loading, messagesLoading,
@@ -55,13 +55,23 @@ const ChatModule: React.FC = () => {
 
     // Socket.IO for real-time messages
     useEffect(() => {
-        if (!user?.id) return;
+        if (!user?.id || !token) return;
 
         const baseUrl = API_CONFIG.getBaseURL();
-        chatSocket = io(baseUrl);
+        chatSocket = io(baseUrl, {
+            auth: { token },
+            reconnection: true,
+            reconnectionAttempts: 10,
+            reconnectionDelay: 2000,
+            reconnectionDelayMax: 10000,
+        });
 
         chatSocket.on('connect', () => {
             chatSocket?.emit('join', user.id);
+        });
+
+        chatSocket.on('connect_error', (err) => {
+            console.warn('[ChatSocket] Connection error:', err.message);
         });
 
         chatSocket.on('nuevoChatMensaje', (msg: ChatMessage) => {
@@ -74,7 +84,7 @@ const ChatModule: React.FC = () => {
             }
 
             // If the message is for the active conversation, add it
-            if (state.activeConversation?.id_conversacion === msg.id_conversacion) {
+            if (Number(state.activeConversation?.id_conversacion) === Number(msg.id_conversacion)) {
                 addMessage(msg);
                 generalChatService.markAsRead(msg.id_conversacion).catch(() => {});
             }
@@ -136,7 +146,7 @@ const ChatModule: React.FC = () => {
             chatSocket?.disconnect();
             chatSocket = null;
         };
-    }, [user?.id]);
+    }, [user?.id, token]);
 
     // Fetch messages when active conversation changes
     useEffect(() => {

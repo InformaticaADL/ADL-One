@@ -61,7 +61,7 @@ const NewRequestPage: React.FC<NewRequestPageProps> = ({ onBack }) => {
     // State
     const [types, setTypes] = useState<any[]>([]);
     const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
-    const [priority, setPriority] = useState('NORMAL');
+    const [priority, setPriority] = useState('MEDIA');
     const [observations, setObservations] = useState('');
     const [files, setFiles] = useState<File[]>([]);
     const [subFormData, setSubFormData] = useState<any>(null);
@@ -324,11 +324,11 @@ const NewRequestPage: React.FC<NewRequestPageProps> = ({ onBack }) => {
                                         value={priority}
                                         onChange={setPriority}
                                         data={[
-                                            { label: 'Normal', value: 'NORMAL' },
+                                            { label: 'Baja', value: 'BAJA' },
+                                            { label: 'Media', value: 'MEDIA' },
                                             { label: 'Alta', value: 'ALTA' },
-                                            { label: 'Urgente', value: 'URGENTE' },
                                         ]}
-                                        color={priority === 'URGENTE' ? 'red' : priority === 'ALTA' ? 'orange' : 'blue'}
+                                        color={priority === 'ALTA' ? 'orange' : priority === 'MEDIA' ? 'blue' : 'gray'}
                                         fullWidth
                                         radius="md"
                                         size="md"

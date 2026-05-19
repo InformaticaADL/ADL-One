@@ -29,8 +29,18 @@ export const handleNotificationNavigation = (notif: Notification, actions: NavAc
     const mensaje = (notif.mensaje || '').toLowerCase();
     const area = (notif.area || '').toLowerCase();
 
-    // 1. Solicitudes (Universal Inbox)
-    const isRequest = 
+    // 1. Chat — check FIRST to prevent mis-routing (chat notifications can have titles
+    //    like "nuevo mensaje" that would otherwise match the solicitudes check below)
+    const isChat = area === 'chat' || area === 'mensajería';
+    if (isChat) {
+        setPendingChatId(notif.id_referencia);
+        setActiveModule('chat');
+        setActiveSubmodule('');
+        return;
+    }
+
+    // 2. Solicitudes (Universal Inbox)
+    const isRequest =
         titulo.includes('solicitud') || titulo.includes('estado') ||
         titulo.includes('derivación') || titulo.includes('derivacion') ||
         titulo.includes('baja') || titulo.includes('traspaso') ||
@@ -43,15 +53,6 @@ export const handleNotificationNavigation = (notif: Notification, actions: NavAc
     if (isRequest) {
         setSelectedRequestId(notif.id_referencia);
         setActiveModule('solicitudes');
-        setActiveSubmodule('');
-        return;
-    }
-
-    // 2. Chat
-    const isChat = area === 'chat' || titulo.includes('grupo') || area === 'mensajería';
-    if (isChat) {
-        setPendingChatId(notif.id_referencia);
-        setActiveModule('chat');
         setActiveSubmodule('');
         return;
     }

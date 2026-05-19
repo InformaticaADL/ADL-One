@@ -72,7 +72,7 @@ export const MuestreadorForm: React.FC<Props> = ({
 
     useEffect(() => {
         if (initialData) {
-            setFormData(initialData);
+            setFormData({ ...initialData, clave_usuario: initialData.clave_usuario ?? '' });
         } else {
             setFormData({
                 nombre_muestreador: '',

@@ -70,6 +70,7 @@ export const EquipmentRequestsModal: React.FC<EquipmentRequestsModalProps> = ({
             }
             showToast({ type: 'success', message: `Solicitud #${sol.id_solicitud} marcada como realizada` });
             onRefresh();
+            onClose();
 
         } catch (error) {
             console.error('Error updating status:', error);

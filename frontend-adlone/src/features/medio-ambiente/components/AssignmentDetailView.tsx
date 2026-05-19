@@ -62,7 +62,6 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
     const [frequencyDays, setFrequencyDays] = useState<number>(0);
     const [numericFrequency, setNumericFrequency] = useState<number>(1);
     const [frecuenciaFactor, setFrecuenciaFactor] = useState<number>(1);
-    const [totalServicios, setTotalServicios] = useState<number>(0);
     const [duracionMuestreo, setDuracionMuestreo] = useState<number>(0);
     const [editableDates, setEditableDates] = useState<Record<number, string>>({});
     const [editableRetiroDates, setEditableRetiroDates] = useState<Record<number, string>>({});
@@ -80,12 +79,16 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
         const first = rows[0];
         // Normalización para SQL Server (puede venir como 'S', 1 o boolean)
         if (first.es_remuestreo !== 'S' && first.es_remuestreo !== true && first.es_remuestreo !== 1) return null;
-        
+
         return {
             idOriginal: first.id_ficha_original,
             nombreOriginal: first.nombre_muestreador_original,
             idMuestreadorOriginal: first.id_muestreador_original
         };
+    }, [rows]);
+
+    const activeServicesCount = useMemo(() => {
+        return rows.filter(r => !['CANCELADO', 'ANULADO'].includes((r.nombre_estadomuestreo || '').toUpperCase())).length;
     }, [rows]);
 
     const handleTechnicianChange = (rowId: number, newId: number, type: 'instalacion' | 'retiro') => {
@@ -185,7 +188,6 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                     setFrequencyDays(data[0].dias || 0);
                     setNumericFrequency(Number(data[0].frecuencia) || 1);
                     setFrecuenciaFactor(Number(data[0].frecuencia_factor) || 1);
-                    setTotalServicios(Number(data[0].total_servicios) || data.length);
                     setDuracionMuestreo(Number(data[0].ma_duracion_muestreo) || 0);
 
                     const existingDates: Record<number, string> = {};
@@ -297,35 +299,37 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
     };
 
     const handleSaveAssignment = async () => {
-        if (rows.some(r => !editableDates[r.id_agendamam])) {
-            showToast({ message: 'Debe calcular o ingresar fechas para todos los registros', type: 'warning' });
-            return;
-        }
+        const activeRows = rows.filter(r => !['CANCELADO', 'ANULADO'].includes((r.nombre_estadomuestreo || '').toUpperCase()));
+        const completedRows = activeRows.filter(r =>
+            editableDates[r.id_agendamam] && muestreadorInstalacion[r.id_agendamam]
+        );
 
-        if (rows.some(r => !muestreadorInstalacion[r.id_agendamam])) {
-            showToast({ message: 'Debe seleccionar Muestreador de Instalación para todos los registros', type: 'warning' });
+        if (completedRows.length === 0) {
+            showToast({ message: 'Debe completar al menos un registro con fecha y muestreador para guardar', type: 'warning' });
             return;
         }
 
         if (resamplingData) {
-            const rowsMissingVersions = rows.filter(r => 
-                muestreadorInstalacion[r.id_agendamam] === resamplingData.idMuestreadorOriginal && 
+            const rowsMissingVersions = completedRows.filter(r =>
+                muestreadorInstalacion[r.id_agendamam] === resamplingData.idMuestreadorOriginal &&
                 !equipmentSelections[r.frecuencia_correlativo]
             );
-            
+
             if (rowsMissingVersions.length > 0) {
-                showToast({ 
-                    message: `Debe seleccionar las versiones de equipos para ${rowsMissingVersions.length} registros de remuestreo`, 
-                    type: 'warning' 
+                showToast({
+                    message: `Debe seleccionar las versiones de equipos para ${rowsMissingVersions.length} registros de remuestreo`,
+                    type: 'warning'
                 });
                 return;
             }
         }
 
+        const skippedCount = activeRows.length - completedRows.length;
+
         const executeSave = async () => {
             setSaving(true);
             try {
-                const assignments = rows.map((row: any) => ({
+                const assignments = completedRows.map((row: any) => ({
                     id: row.id_agendamam,
                     fecha: editableDates[row.id_agendamam],
                     fechaRetiro: editableRetiroDates[row.id_agendamam] || editableDates[row.id_agendamam],
@@ -355,15 +359,38 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
         };
 
         // Verificación final de conflictos de muestreador (solo para remuestreos)
-        const hasConflicts = resamplingData && rows.some(row => {
+        const hasConflicts = resamplingData && completedRows.some(row => {
             const instId = muestreadorInstalacion[row.id_agendamam];
             const retId = muestreadorRetiro[row.id_agendamam] || instId;
             const originalId = resamplingData.idMuestreadorOriginal;
             return (instId && instId !== originalId) || (retId && retId !== originalId);
         });
 
+        const openSaveConfirm = (onConfirm: () => void) => {
+            if (skippedCount > 0) {
+                modals.openConfirmModal({
+                    title: 'Guardado Parcial',
+                    centered: true,
+                    children: (
+                        <Stack gap="sm">
+                            <Text size="sm">
+                                Se guardarán <b>{completedRows.length}</b> de <b>{activeRows.length}</b> correlativos.
+                                Los <b>{skippedCount}</b> restantes quedan sin asignar.
+                            </Text>
+                            <Text size="sm">¿Desea continuar?</Text>
+                        </Stack>
+                    ),
+                    labels: { confirm: 'Guardar de todas formas', cancel: 'Volver' },
+                    confirmProps: { color: 'blue' },
+                    onConfirm
+                });
+            } else {
+                onConfirm();
+            }
+        };
+
         if (hasConflicts) {
-            modals.openConfirmModal({
+            openSaveConfirm(() => modals.openConfirmModal({
                 title: 'Confirmar Guardado con Conflictos',
                 centered: true,
                 size: 'md',
@@ -383,9 +410,9 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                 labels: { confirm: 'Confirmar y Guardar', cancel: 'Volver a Revisar' },
                 confirmProps: { color: 'orange' },
                 onConfirm: executeSave
-            });
+            }));
         } else {
-            executeSave();
+            openSaveConfirm(executeSave);
         }
     };
 
@@ -448,7 +475,7 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                     <Divider orientation="vertical" />
                                     <Stack gap={0} align="center">
                                         <Text size="xs" fw={700} c="dimmed" tt="uppercase">Servicios</Text>
-                                        <Badge color="blue" variant="filled">{totalServicios}</Badge>
+                                        <Badge color="blue" variant="filled">{activeServicesCount}</Badge>
                                     </Stack>
                                     <Divider orientation="vertical" />
                                     <Stack gap={0} align="center">
@@ -648,26 +675,24 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                             size="xs" 
                                                             style={{ width: 125, margin: '0 auto' }}
                                                             disabled={isCancelled}
-                                                            value={editableDates[rowId] || ''} 
+                                                            value={editableDates[rowId] || ''}
                                                             onChange={(e) => {
                                                                 const val = e.currentTarget.value;
                                                                 setEditableDates(prev => ({ ...prev, [rowId]: val }));
                                                             }}
-                                                            error={!editableDates[rowId]}
                                                         />
                                                     </Table.Td>
                                                     <Table.Td ta="center">
-                                                        <TextInput 
-                                                            type="date" 
-                                                            size="xs" 
+                                                        <TextInput
+                                                            type="date"
+                                                            size="xs"
                                                             style={{ width: 125, margin: '0 auto' }}
                                                             disabled={isCancelled}
-                                                            value={editableRetiroDates[rowId] || ''} 
+                                                            value={editableRetiroDates[rowId] || ''}
                                                             onChange={(e) => {
                                                                 const val = e.currentTarget.value;
                                                                 setEditableRetiroDates(prev => ({ ...prev, [rowId]: val }));
                                                             }}
-                                                            error={!editableRetiroDates[rowId]}
                                                         />
                                                     </Table.Td>
                                                     <Table.Td ta="center">

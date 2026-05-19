@@ -509,13 +509,21 @@ class UrsService {
                 // Prioritize business correlative for some types (V19.1)
                 const CORRELATIVO = datos.correlativo || datos.num_ficha || datos.id_muestreo || String(idSolicitud);
 
-                // Consolidated Observation logic
-                const finalObs = datos.motivo || datos.descripcion_problema || datos.observaciones || observaciones || 'Sin observaciones';
+                // Use the user's free-text observations (not motivo — that's already a dedicated template field)
+                const finalObs = observaciones || datos.observaciones || datos.descripcion_problema || 'Sin observaciones';
+
+                // Format code-values to human-readable labels for email display
+                const MOTIVO_LABELS = {
+                    'DANIO': 'Daño irreparable', 'DANO': 'Daño irreparable',
+                    'OBSOLESCENCIA': 'Obsolescencia', 'PERDIDA': 'Pérdida', 'ROBO': 'Robo',
+                    'VIDA_UTIL': 'Vida Útil', 'DETERIORO': 'Deterioro', 'REEMPLAZO': 'Reemplazo', 'OTRO': 'Otro',
+                };
+                const motivoLabel = MOTIVO_LABELS[(datos.motivo || '').toUpperCase()] || datos.motivo || '';
 
                 logger.info(`URS: Triggering UNS event: ${eventOverride} for #${idSolicitud}`);
                 await uns.default.trigger(eventOverride, {
                     ...datos, // Expandir todos los campos del formulario para placeholders directos
-                    datos_json: datos, // Requerido por la lógica de NotificationService especializada
+                    datos_json: { ...datos, motivo: motivoLabel }, // Requerido por la lógica de NotificationService especializada
                     id_solicitud: idSolicitud,
                     id_tipo: idTipo,
                     id_solicitante: idSolicitante,
@@ -528,16 +536,16 @@ class UrsService {
                     USUARIO: USUARIO_NOMBRE,
                     SOLICITANTE: USUARIO_NOMBRE,
                     nombre_solicitante: USUARIO_NOMBRE,
+                    motivo: motivoLabel, // override raw code with human-readable label
                     FECHA: new Date().toLocaleDateString('es-CL'),
-                    HORA: new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: true }),
-                    FECHA_SOLICITUD: new Date().toLocaleString('es-CL'),
+                    HORA: new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false }),
                     equipo_nombre: solicitud.nombre_equipo_full || datos.nombre_equipo_full || datos.equipo_nombre || 'N/A',
                     codigo_equipo: datos.codigo_equipo || 'N/A',
                     fecha_suceso: datos.fecha_suceso || datos.fecha_extravio || 'N/A',
                     prioridad: prioridad,
                     area_destino: areaActual,
                     nombre_tipo: solicitud.nombre_tipo,
-                    FECHA_SOLICITUD: new Date().toLocaleString('es-CL', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }).replace(',', ' a las'),
+                    FECHA_SOLICITUD: new Date().toLocaleString('es-CL', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).replace(',', ' a las'),
                     OBSERVACION: finalObs,
                     observaciones: finalObs,
                     etiqueta_observacion: nombreTipoUpper.includes('BAJA') ? 'Observaciones Técnicas' : (nombreTipoUpper.includes('REPORTE') ? 'Descripción detallada del Problema' : (datos.motivo ? 'Motivo de la Solicitud' : 'Observaciones'))
@@ -820,16 +828,39 @@ class UrsService {
                         parsedDatosJson = typeof fullSol.datos_json === 'string' ? JSON.parse(fullSol.datos_json) : (fullSol.datos_json || {});
                     } catch (e) { parsedDatosJson = {}; }
                     
+                    const STATUS_MOTIVO_LABELS = {
+                        'DANIO': 'Daño irreparable', 'DANO': 'Daño irreparable',
+                        'OBSOLESCENCIA': 'Obsolescencia', 'PERDIDA': 'Pérdida', 'ROBO': 'Robo',
+                        'VIDA_UTIL': 'Vida Útil', 'DETERIORO': 'Deterioro', 'REEMPLAZO': 'Reemplazo', 'OTRO': 'Otro',
+                    };
+                    const motivoRaw = parsedDatosJson.motivo || '';
+                    const motivoLabelStatus = STATUS_MOTIVO_LABELS[motivoRaw.toUpperCase()] || motivoRaw;
+
+                    const accionLabel = nuevoEstado === 'ACEPTADA' ? 'Aprobada' : nuevoEstado === 'RECHAZADA' ? 'Rechazada' : nuevoEstado === 'REALIZADA' ? 'Realizada' : nuevoEstado === 'EN_REVISION' ? 'En Revisión' : nuevoEstado === 'CANCELADA' ? 'Cancelada' : 'Actualizada';
+                    const now = new Date();
+
                     uns.default.trigger('SOLICITUD_ESTADO_CAMBIO', {
+                        ...parsedDatosJson,   // spread datos_json fields to top level for placeholder access
                         ...fullSol,
-                        datos_json: parsedDatosJson,
+                        datos_json: { ...parsedDatosJson, motivo: motivoLabelStatus },
+                        motivo: motivoLabelStatus,
                         id_solicitud: id,
                         id_usuario_accion: idUsuario,
                         id_usuario_propietario: fullSol.id_solicitante,
                         usuario_accion: fullSol.nombre_autor,
+                        USUARIO: fullSol.nombre_autor,
+                        SOLICITANTE: fullSol.nombre_solicitante,
                         solicitante: fullSol.nombre_solicitante,
                         nombre_tipo: fullSol.nombre_tipo,
+                        TIPO_SOLICITUD: fullSol.nombre_tipo,
+                        TITULO_CORREO: `Solicitud ${accionLabel} — ${fullSol.nombre_tipo}`,
+                        CORRELATIVO: String(id),
+                        FECHA: now.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+                        HORA: now.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false }),
+                        LABEL_SOLICITANTE: 'Accionado por',
+                        ETIQUETA_OBSERVACION: `Comentarios (${accionLabel})`,
                         estado: nuevoEstado,
+                        OBSERVACION: observaciones || 'Sin comentarios',
                         observaciones,
                         accion: nuevoEstado === 'ACEPTADA' ? 'APROBACION' : (nuevoEstado === 'RECHAZADA' ? 'RECHAZO' : (nuevoEstado === 'REALIZADA' ? 'REALIZACION' : (nuevoEstado === 'EN_REVISION' ? 'REVISION' : (nuevoEstado === 'CANCELADA' ? 'CANCELACION' : 'ACTUALIZACION'))))
                     });
@@ -1065,7 +1096,7 @@ class UrsService {
                 // Generar nombre único para evitar colisiones
                 const fileName = `${Date.now()}_${file.originalname.replace(/\s+/g, '_')}`;
                 const filePath = path.join(uploadDir, fileName);
-                const relativePath = `uploads/solicitudes/${fileName}`;
+                const relativePath = `solicitudes/${fileName}`;
 
                 // Guardar archivo físico
                 fs.writeFileSync(filePath, file.buffer);
@@ -1098,6 +1129,46 @@ class UrsService {
             return result.recordset[0];
         } catch (error) {
             logger.error('Error in getAttachmentById:', error);
+            throw error;
+        }
+    }
+
+    async getUnreadCount(userId, isAdmin = false) {
+        try {
+            const pool = await getConnection();
+            const request = pool.request();
+            request.input('userId', sql.Numeric(10, 0), userId);
+            request.input('isAdmin', sql.Bit, isAdmin ? 1 : 0);
+
+            // Mirror the same visibility rules as getRequests so the count matches the inbox
+            const result = await request.query(`
+                SELECT COUNT(DISTINCT s.id_solicitud) as unread_count
+                FROM mae_solicitud s
+                LEFT JOIN rel_solicitud_tipo_permiso p ON s.id_tipo = p.id_tipo AND p.tipo_acceso IN ('GESTION', 'VISTA')
+                LEFT JOIN rel_usuario_rol ur ON (p.id_rol = ur.id_rol AND ur.id_usuario = @userId)
+                WHERE (
+                    @isAdmin = 1
+                    OR s.id_solicitante = @userId
+                    OR p.id_usuario = @userId
+                    OR ur.id_rol IS NOT NULL
+                    OR EXISTS (
+                        SELECT 1 FROM mae_solicitud_derivacion d
+                        LEFT JOIN rel_usuario_rol ur_d ON (d.id_rol_destino = ur_d.id_rol AND ur_d.id_usuario = @userId)
+                        WHERE d.id_solicitud = s.id_solicitud
+                        AND (d.usuario_destino = @userId OR ur_d.id_rol IS NOT NULL)
+                        AND d.fecha = (SELECT MAX(fecha) FROM mae_solicitud_derivacion WHERE id_solicitud = s.id_solicitud)
+                    )
+                )
+                AND EXISTS (
+                    SELECT 1 FROM mae_notificacion n
+                    WHERE n.id_referencia = s.id_solicitud
+                    AND n.id_usuario = @userId
+                    AND n.leido = 0
+                )
+            `);
+            return result.recordset[0].unread_count || 0;
+        } catch (error) {
+            logger.error('Error in getUnreadCount:', error);
             throw error;
         }
     }

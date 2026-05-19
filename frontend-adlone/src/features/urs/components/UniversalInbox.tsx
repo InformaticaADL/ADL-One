@@ -199,13 +199,14 @@ const UniversalInbox: React.FC = () => {
         const d = new Date(dateStr);
         const today = new Date();
         if (d.toDateString() === today.toDateString()) {
-            return d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
+            return d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false });
         }
-        return d.toLocaleDateString('es-CL', { 
-            day: '2-digit', 
+        return d.toLocaleString('es-CL', {
+            day: '2-digit',
             month: '2-digit',
             hour: '2-digit',
-            minute: '2-digit'
+            minute: '2-digit',
+            hour12: false
         }).replace(',', '');
     };
 

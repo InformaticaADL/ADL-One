@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+﻿import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { 
     Stack, 
     Paper, 
@@ -72,6 +72,8 @@ interface FichaEvento {
     id_validaciontecnica?: number;
     muestreador_retiro?: string;
     motivo_cancelacion?: string;
+    id_estadomuestreo?: number | null;
+    realizado_por_gem?: string | null;
     es_remuestreo?: string | null;
     id_ficha_original?: number | null;
     cliente?: string;
@@ -166,7 +168,7 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
             setEditedDate(dateStr);
             setEditedSamplerId(selectedEvent.id_muestreador2 || selectedEvent.id_muestreador || '');
         }
-    }, [selectedEvent, showToast]);
+    }, [selectedEvent]);
 
     const loadData = useCallback(async () => {
         const month = currentMonth.getMonth() + 1;
@@ -278,6 +280,15 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
 
     const empresas = useMemo(() => Array.from(new Set(allEvents.map(e => (e.empresa_servicio || '').trim()))).filter(Boolean).sort(), [allEvents]);
     const muestreadores = useMemo(() => Array.from(new Set(allEvents.map(e => (e.muestreador || '').trim()))).filter(Boolean).sort(), [allEvents]);
+    const muestreadorOptions = useMemo(() =>
+        globalMuestreadores.map(m => ({ value: String(m.id_muestreador), label: m.nombre_muestreador })),
+        [globalMuestreadores]
+    );
+
+    const cancellationOptions = useMemo(() =>
+        cancellationReasons.map(r => ({ value: String(r.id_estadomuestreo), label: r.nombre_estadomuestreo })),
+        [cancellationReasons]
+    );
     const centros = useMemo(() => {
         const filtered = allEvents.filter(e => !selectedEmpresa || e.empresa_servicio === selectedEmpresa);
         return Array.from(new Set(filtered.map(e => (e.centro || '').trim()))).filter(Boolean).sort();
@@ -293,16 +304,23 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
     const monthName = currentMonth.toLocaleString('es-ES', { month: 'long' });
     const capitalizedMonth = monthName.charAt(0).toUpperCase() + monthName.slice(1);
 
-    const getStatusColor = useCallback((ev: CalendarEvent) => {
-        const fullStatusInfo = `${ev.estado_caso || ''} ${ev.correlativo || ''}`.toLowerCase();
-        
-        if (fullStatusInfo.includes('pendiente')) return 'orange';
-        if (fullStatusInfo.includes('ejecutado')) return 'green';
-        if (fullStatusInfo.includes('cancelado')) return 'red';
-        
-        // Fallback a colores fijos si no se encuentra palabra clave
-        return ev.tipo_evento === 'INICIO' ? 'orange' : 'red';
+    const isCancelledEvent = useCallback((ev: CalendarEvent) => {
+        const s = (ev.estado_caso || ev.motivo_cancelacion || '').toUpperCase();
+        return s.includes('CANCELAD') || s.includes('ANULAD');
     }, []);
+
+    const isExecutedEvent = useCallback((ev: CalendarEvent) => {
+        if (ev.id_estadomuestreo === 3) return true;
+        if (ev.realizado_por_gem) return true;
+        const s = (ev.estado_caso || '').toUpperCase();
+        return s.includes('EJECUTADO') || s.includes('REALIZADO') || s.includes('COMPLETADO');
+    }, []);
+
+    const getStatusColor = useCallback((ev: CalendarEvent) => {
+        if (isCancelledEvent(ev)) return 'red';
+        if (isExecutedEvent(ev)) return 'green';
+        return 'orange';
+    }, [isCancelledEvent, isExecutedEvent]);
 
     const StaticField = ({ label, value }: { label: string, value: any }) => (
         <Stack gap={2}>
@@ -497,6 +515,13 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
 
 
 
+                <Group gap="xs" mb="xs">
+                    <Text size="xs" c="dimmed" fw={600}>Leyenda:</Text>
+                    <Badge color="orange" variant="filled" size="xs" radius="sm">Pendiente</Badge>
+                    <Badge color="green" variant="filled" size="xs" radius="sm">Ejecutado</Badge>
+                    <Badge color="red" variant="filled" size="xs" radius="sm">Cancelado</Badge>
+                </Group>
+
                 <Paper withBorder radius="md" shadow="sm" p="md" pos="relative" style={{ minHeight: '650px' }}>
                     {isLoading && (
                         <div style={{ 
@@ -558,7 +583,7 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                                     <Stack gap="xs">
                                                         {events.sort((a,b) => a.correlativo.localeCompare(b.correlativo)).map((ev) => {
                                                             const statusColor = getStatusColor(ev);
-                                                            const isCancelled = statusColor === 'red';
+                                                            const cancelled = isCancelledEvent(ev);
 
                                                             return (
                                                                 <UnstyledButton
@@ -571,21 +596,24 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                                                         setSelectedEvent(ev);
                                                                     }}
                                                                 >
-                                                                    <Paper 
+                                                                    <Paper
                                                                         withBorder p="xs" radius="sm" shadow="xs"
-                                                                        style={{ 
-                                                                            borderLeftWidth: 4, 
+                                                                        style={{
+                                                                            borderLeftWidth: 4,
                                                                             borderLeftColor: `var(--mantine-color-${statusColor}-6)`,
-                                                                            opacity: isCancelled ? 0.6 : 1,
+                                                                            opacity: cancelled ? 0.65 : 1,
+                                                                            backgroundColor: cancelled ? 'var(--mantine-color-red-0)' : 'white'
                                                                         }}
-                                                                        bg="white"
                                                                     >
                                                                         <Group justify="space-between" mb={4} wrap="nowrap" gap="xs">
-                                                                            <Text size="10px" fw={900} c={statusColor} truncate>{ev.correlativo}</Text>
-                                                                            <Badge size="10px" color={statusColor} radius="xs" style={{ flexShrink: 0 }}>{ev.tipo_evento}</Badge>
+                                                                            <Text size="10px" fw={900} c={statusColor} truncate style={{ textDecoration: cancelled ? 'line-through' : 'none' }}>{ev.correlativo}</Text>
+                                                                            <Badge size="10px" color={statusColor} radius="xs" style={{ flexShrink: 0 }}>{cancelled ? 'CANCEL.' : ev.tipo_evento}</Badge>
                                                                         </Group>
                                                                         <Text size="xs" fw={700} truncate title={ev.empresa_servicio}>{ev.empresa_servicio}</Text>
                                                                         <Text size="10px" c="dimmed" truncate>{ev.centro}</Text>
+                                                                        {cancelled && ev.motivo_cancelacion && (
+                                                                            <Text size="10px" c="red.7" fw={600} truncate title={ev.motivo_cancelacion}>⚠ {ev.motivo_cancelacion}</Text>
+                                                                        )}
                                                                     </Paper>
                                                                 </UnstyledButton>
                                                             );
@@ -718,7 +746,7 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                                     <Stack gap={6}>
                                                         {dayEvents.sort((a,b) => a.correlativo.localeCompare(b.correlativo)).map((ev) => {
                                                             const statusColor = getStatusColor(ev);
-                                                            const isCancelled = statusColor === 'red';
+                                                            const cancelled = isCancelledEvent(ev);
 
                                                             return (
                                                                 <UnstyledButton
@@ -731,21 +759,24 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                                                         setSelectedEvent(ev);
                                                                     }}
                                                                 >
-                                                                    <Paper 
+                                                                    <Paper
                                                                         withBorder p={6} radius="xs" shadow="xs"
-                                                                        style={{ 
-                                                                            borderLeftWidth: 4, 
+                                                                        style={{
+                                                                            borderLeftWidth: 4,
                                                                             borderLeftColor: `var(--mantine-color-${statusColor}-6)`,
-                                                                            opacity: isCancelled ? 0.6 : 1,
+                                                                            opacity: cancelled ? 0.65 : 1,
+                                                                            backgroundColor: cancelled ? 'var(--mantine-color-red-0)' : 'white'
                                                                         }}
-                                                                        bg="white"
                                                                     >
                                                                         <Group justify="space-between" mb={2} wrap="nowrap" gap="xs">
-                                                                            <Text size="10px" fw={900} c={statusColor} truncate>{ev.correlativo}</Text>
-                                                                            <Badge size="8px" variant="filled" color={statusColor} style={{ flexShrink: 0 }}>{ev.tipo_evento.charAt(0)}</Badge>
+                                                                            <Text size="10px" fw={900} c={statusColor} truncate style={{ textDecoration: cancelled ? 'line-through' : 'none' }}>{ev.correlativo}</Text>
+                                                                            <Badge size="8px" variant="filled" color={statusColor} style={{ flexShrink: 0 }}>{cancelled ? 'C' : ev.tipo_evento.charAt(0)}</Badge>
                                                                         </Group>
                                                                         <Text size="xs" fw={700} truncate lh={1}>{ev.empresa_servicio}</Text>
                                                                         <Text size="9px" c="dimmed" truncate>{ev.muestreador || 'Sin Asignar'}</Text>
+                                                                        {cancelled && ev.motivo_cancelacion && (
+                                                                            <Text size="9px" c="red.7" fw={600} truncate title={ev.motivo_cancelacion}>⚠ {ev.motivo_cancelacion}</Text>
+                                                                        )}
                                                                     </Paper>
                                                                 </UnstyledButton>
                                                             );
@@ -867,12 +898,12 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                             </Grid.Col>
                             <Grid.Col span={6}>
                                 {hasPermission('MA_CALENDARIO_REASIGNAR') ? (
-                                    <Select 
-                                        label="Re-Asignar Muestreador" 
+                                    <Select
+                                        label="Re-Asignar Muestreador"
                                         placeholder="Seleccione..."
-                                        data={Array.from(new Map(globalMuestreadores.map(m => [m.id_muestreador.toString(), m.nombre_muestreador])).entries()).map(([value, label]) => ({ value, label }))}
-                                        value={editedSamplerId.toString()}
-                                        onChange={(val) => { setEditedSamplerId(Number(val) || ''); setIsEditingSampler(true); }}
+                                        data={muestreadorOptions}
+                                        value={editedSamplerId ? String(editedSamplerId) : ''}
+                                        onChange={(val) => { if (val) setEditedSamplerId(Number(val)); setIsEditingSampler(true); }}
                                         size="sm"
                                         searchable
                                     />
@@ -914,40 +945,82 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                         loading={isSavingEvent}
                                         onClick={async () => {
                                             if (!selectedEvent) return;
-                                            
+
+                                            if (isEditingSampler && !editedSamplerId) {
+                                                showToast({ type: 'warning', message: 'Debe seleccionar un muestreador válido' });
+                                                return;
+                                            }
+
+                                            if (isEditingDate && !editedDate) {
+                                                showToast({ type: 'warning', message: 'Debe ingresar una fecha válida' });
+                                                return;
+                                            }
+
                                             let finalFecha = selectedEvent.fecha;
                                             let finalFechaRetiro = selectedEvent.fecha_retiro;
 
                                             if (selectedEvent.tipo_evento === 'INICIO' && isEditingDate) {
                                                 finalFecha = editedDate;
                                                 if (selectedEvent.fecha && selectedEvent.fecha_retiro) {
-                                                    const start = new Date(selectedEvent.fecha);
-                                                    const end = new Date(selectedEvent.fecha_retiro);
-                                                    const gapMs = end.getTime() - start.getTime();
-                                                    if (gapMs > 0) {
-                                                        const newStart = new Date(editedDate + 'T00:00:00Z');
-                                                        const newEnd = new Date(newStart.getTime() + gapMs);
-                                                        finalFechaRetiro = newEnd.toISOString().split('T')[0];
+                                                    try {
+                                                        const start = new Date(selectedEvent.fecha);
+                                                        const end = new Date(selectedEvent.fecha_retiro);
+                                                        const gapMs = end.getTime() - start.getTime();
+                                                        if (gapMs >= 0) {
+                                                            const newStart = new Date(editedDate + 'T00:00:00');
+                                                            const newEnd = new Date(newStart.getTime() + gapMs);
+                                                            const year = newEnd.getFullYear();
+                                                            const month = String(newEnd.getMonth() + 1).padStart(2, '0');
+                                                            const day = String(newEnd.getDate()).padStart(2, '0');
+                                                            finalFechaRetiro = `${year}-${month}-${day}`;
+                                                        }
+                                                    } catch (err) {
+                                                        console.error('Error calculating retiro date:', err);
                                                     }
                                                 }
                                             } else if (selectedEvent.tipo_evento === 'RETIRO' && isEditingDate) {
                                                 finalFechaRetiro = editedDate;
                                             }
 
+                                            const currentSamplerId = isEditingSampler
+                                                ? Number(editedSamplerId)
+                                                : (selectedEvent.tipo_evento === 'INICIO'
+                                                    ? Number(selectedEvent.id_muestreador) || 0
+                                                    : Number(selectedEvent.id_muestreador2 || selectedEvent.id_muestreador) || 0);
+
                                             const payload = {
                                                 assignments: [{
                                                     id: selectedEvent.id_agenda,
                                                     fecha: finalFecha,
                                                     fechaRetiro: finalFechaRetiro,
-                                                    idMuestreadorInstalacion: selectedEvent.tipo_evento === 'INICIO' ? Number(editedSamplerId) || 0 : Number(selectedEvent.id_muestreador) || 0,
-                                                    idMuestreadorRetiro: selectedEvent.tipo_evento === 'RETIRO' ? Number(editedSamplerId) || 0 : Number(selectedEvent.id_muestreador2 || selectedEvent.id_muestreador) || 0,
+                                                    idMuestreadorInstalacion: selectedEvent.tipo_evento === 'INICIO' ? currentSamplerId : (Number(selectedEvent.id_muestreador) || 0),
+                                                    idMuestreadorRetiro: selectedEvent.tipo_evento === 'RETIRO' ? currentSamplerId : (Number(selectedEvent.id_muestreador2 || selectedEvent.id_muestreador) || 0),
                                                     idFichaIngresoServicio: selectedEvent.id,
                                                     frecuenciaCorrelativo: selectedEvent.correlativo
                                                 }],
                                                 user: { id: user?.id || 0, usuario: user?.name || 'Sistema' }
                                             };
-                                            setPendingPayload(payload);
-                                            setShowVersionPrompt(true);
+
+                                            // Solo preguntar por versiones si se cambió la fecha (tiene impacto en equipos)
+                                            if (isEditingDate) {
+                                                setPendingPayload(payload);
+                                                setShowVersionPrompt(true);
+                                            } else {
+                                                // Solo re-asignación: guardar directamente sin preguntar versiones
+                                                setIsSavingEvent(true);
+                                                fichaService.batchUpdateAgenda(payload)
+                                                    .then(() => {
+                                                        showToast({ type: 'success', message: 'Muestreador re-asignado correctamente.' });
+                                                        lastFetchRef.current = '';
+                                                        setSelectedEvent(null);
+                                                        loadData();
+                                                    })
+                                                    .catch((error) => {
+                                                        console.error('Error saving reassignment:', error);
+                                                        showToast({ type: 'error', message: 'Error al re-asignar el muestreador.' });
+                                                    })
+                                                    .finally(() => setIsSavingEvent(false));
+                                            }
                                         }}
                                     >
                                         Guardar Cambios
@@ -968,11 +1041,11 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                 <Stack gap="md">
                     <Text size="sm">¿Está seguro que desea cancelar este muestreo? Esta acción es irreversible.</Text>
                     
-                    <Select 
-                        label="Motivo de Cancelación" 
+                    <Select
+                        label="Motivo de Cancelación"
                         placeholder="Seleccione un motivo..."
-                        data={Array.from(new Map(cancellationReasons.map(r => [r.id_estadomuestreo.toString(), r.nombre_estadomuestreo])).entries()).map(([value, label]) => ({ value, label }))}
-                        value={selectedReasonId.toString()}
+                        data={cancellationOptions}
+                        value={selectedReasonId ? String(selectedReasonId) : ''}
                         onChange={(val) => setSelectedReasonId(Number(val) || '')}
                         required
                     />
@@ -1003,6 +1076,7 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                         Number(selectedReasonId)
                                     );
                                     showToast({ type: 'success', message: 'Muestreo cancelado correctamente.' });
+                                    lastFetchRef.current = '';
                                     setShowCancelConfirm(false);
                                     setCancelReason('');
                                     setSelectedReasonId('');
@@ -1039,6 +1113,7 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                 try {
                                     await fichaService.batchUpdateAgenda(pendingPayload);
                                     showToast({ type: 'success', message: 'Muestreo reprogramado (versión original mantenida).' });
+                                    lastFetchRef.current = '';
                                     setSelectedEvent(null);
                                     loadData();
                                 } catch (error) {
@@ -1064,6 +1139,7 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                     }));
                                     await fichaService.batchUpdateAgenda(updatedPayload);
                                     showToast({ type: 'success', message: 'Muestreo reprogramado con versiones actualizadas.' });
+                                    lastFetchRef.current = '';
                                     setSelectedEvent(null);
                                     loadData();
                                 } catch (error) {

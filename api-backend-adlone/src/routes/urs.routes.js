@@ -19,6 +19,7 @@ router.patch('/types/:id/status', verifyPermission('RBAC_MANAGE'), validateReque
 
 router.get('/download/:idAdjunto', ursController.downloadAttachment);
 
+router.get('/unread-count', ursController.getUnreadCount);
 router.get('/', validateRequest(ursValidationSchemas.getRequests), ursController.getRequests);
 router.post('/', upload.any(), validateRequest(ursValidationSchemas.createRequest), ursController.createRequest);
 router.get('/:id', validateRequest(ursValidationSchemas.getRequestById), ursController.getRequestById);

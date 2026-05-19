@@ -9,7 +9,6 @@ import {
     Collapse,
     ThemeIcon,
     Box,
-    Badge,
     Menu,
     ActionIcon,
     Tooltip,
@@ -388,13 +387,13 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotC
                 onClick={() => handleModuleClick(item.id)}
                 badge={
                     isNotificationsItem && unreadCount > 0 ? (
-                        <Badge size="xs" variant="filled" color="red" className={classes.badge}>
-                            {unreadCount}
-                        </Badge>
+                        <span className={classes.counter}>
+                            {unreadCount > 99 ? '99+' : unreadCount}
+                        </span>
                     ) : item.id === 'solicitudes' && ursUnreadCount > 0 ? (
-                        <Badge size="xs" variant="filled" color="red" className={classes.badge}>
-                            {ursUnreadCount}
-                        </Badge>
+                        <span className={classes.counter}>
+                            {ursUnreadCount > 99 ? '99+' : ursUnreadCount}
+                        </span>
                     ) : null
                 }
                 notificationRef={isNotificationsItem ? notificationsRef : undefined} // Pass ref to notification item

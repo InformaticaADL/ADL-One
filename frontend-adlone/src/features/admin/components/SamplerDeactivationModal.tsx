@@ -162,6 +162,26 @@ const SamplerDeactivationModal: React.FC<SamplerDeactivationModalProps> = ({
 
                 <Stack gap="xs">
                     <Text size="sm" fw={700}>¿Qué desea hacer con los equipos? ({equipmentCount ?? '...'})</Text>
+
+                    {/* Equipos list */}
+                    {equipmentList.length > 0 && (
+                        <Paper p="xs" withBorder radius="md" bg="gray.0">
+                            <Stack gap={4} style={{ maxHeight: 140, overflowY: 'auto' }}>
+                                {loadingEquipos ? (
+                                    <Center py="xs"><Loader size="xs" /></Center>
+                                ) : equipmentList.map(eq => (
+                                    <Group key={eq.id_equipo} gap="xs" wrap="nowrap">
+                                        <Badge variant="light" color="gray" size="xs" style={{ flexShrink: 0 }}>
+                                            {eq.codigo || `#${eq.id_equipo}`}
+                                        </Badge>
+                                        <Text size="xs" fw={600} truncate>{eq.nombre}</Text>
+                                        {eq.ubicacion && <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>{eq.ubicacion}</Text>}
+                                    </Group>
+                                ))}
+                            </Stack>
+                        </Paper>
+                    )}
+
                     <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
                         {[
                             { id: 'BASE', label: 'Traspaso a Base', icon: <IconBuildingCommunity size={20} />, color: 'blue' },
