@@ -84,6 +84,7 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
     const [saving, setSaving] = useState(false);
     const [confirmSaveOpen, setConfirmSaveOpen] = useState(false);
     const [statusFilter, setStatusFilter] = useState<string>('all');
+    const [dynamicFilters, setDynamicFilters] = useState<{[key: string]: string}>({});
     const [view, setView] = useState<'list' | 'form'>('list');
     const [quickCreateType, setQuickCreateType] = useState<'clientes' | 'componentes' | null>(null);
     const [quickFormData, setQuickFormData] = useState<any>({});
@@ -143,6 +144,9 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
 
     // Check dependencies (e.g., if we need Clientes to create a Centro)
     useEffect(() => {
+        setDynamicFilters({});
+        setSearchTerm('');
+        setStatusFilter('all');
         const checkDependencies = async () => {
             if (config.dependsOn) {
                 setDependencyLoading(true);
@@ -205,6 +209,13 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
             });
         }
 
+        // Apply dynamic filters (FK relations, dependancies)
+        Object.entries(dynamicFilters).forEach(([col, val]) => {
+            if (val) {
+                filtered = filtered.filter(item => String(item[col]) === val);
+            }
+        });
+
         // Apply search term filter
         if (!searchTerm) return filtered;
         const s = searchTerm.toLowerCase();
@@ -213,7 +224,7 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
                 String(val).toLowerCase().includes(s)
             )
         );
-    }, [data, searchTerm, statusFilter, config]);
+    }, [data, searchTerm, statusFilter, dynamicFilters, config]);
 
     const paginatedData = useMemo(() => {
         const start = (page - 1) * itemsPerPage;
@@ -493,7 +504,7 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
         }
 
         // Precise boolean detection: exact names, or specific prefixes (no false positives on 'nombre_estadomuestreo')
-        const boolExact    = ['habilitado','activo','active','enabled','vigente','estado','visible','oculto','transaccional','inspector'];
+        const boolExact    = ['habilitado','activo','active','enabled','vigente','estado','visible','oculto','transaccional','inspector','guia','realiza_screening'];
         const boolPrefix   = ['envia_','es_','is_','tiene_','permite_','perfil_'];
         const boolSuffix   = ['_habilitado','_activo','_estado','_vigente','_oculto'];
         const isBoolField  =
@@ -1101,9 +1112,9 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
                                 {config.tableName}
                             </Badge>
                         </Group>
-                        <Group>
+                        <Group gap="sm">
                             <Select 
-                                placeholder="Filtrar por estado"
+                                placeholder="Estado"
                                 data={[
                                     { value: 'all', label: 'Todos los estados' },
                                     { value: 'active', label: 'Solo Activos' },
@@ -1111,14 +1122,72 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
                                 ]}
                                 value={statusFilter}
                                 onChange={(v) => setStatusFilter(v || 'all')}
-                                style={{ width: 180 }}
+                                style={{ width: 150 }}
+                                radius="md"
                             />
+
+                            {/* Dynamic filters based on FK lookups */}
+                            {config.lookups && Object.entries(config.lookups).map(([field, lookup]) => {
+                                if (!lookup) return null;
+                                const options = lookupData[field] || [];
+                                return (
+                                    <Select
+                                        key={`filter-${field}`}
+                                        placeholder={`Filtrar por ${formatHeader(field)}`}
+                                        data={options.map(opt => ({
+                                            value: String(opt[lookup.idColumn]),
+                                            label: String(opt[lookup.displayColumn])
+                                        }))}
+                                        value={dynamicFilters[field] || null}
+                                        onChange={(v) => setDynamicFilters(prev => ({ ...prev, [field]: v || '' }))}
+                                        clearable
+                                        searchable
+                                        style={{ width: 200 }}
+                                        radius="md"
+                                    />
+                                );
+                            })}
+
+                            {/* Dynamic filters based on hierarchical dependencies */}
+                            {config.dependsOn === 'clientes' && (
+                                <Select
+                                    placeholder="Filtrar por Cliente"
+                                    data={dependencyData.map(c => ({
+                                        value: String(c.id || c.id_empresa),
+                                        label: String(c.nombre || c.nombre_empresa)
+                                    }))}
+                                    value={dynamicFilters['id_empresa'] || null}
+                                    onChange={(v) => setDynamicFilters(prev => ({ ...prev, id_empresa: v || '' }))}
+                                    clearable
+                                    searchable
+                                    style={{ width: 200 }}
+                                    radius="md"
+                                />
+                            )}
+
+                            {config.dependsOn === 'componentes' && (
+                                <Select
+                                    placeholder="Filtrar por Componente"
+                                    data={dependencyData.map(c => ({
+                                        value: String(c.id || c.id_tipomuestra),
+                                        label: String(c.nombre || c.nombre_tipomuestra)
+                                    }))}
+                                    value={dynamicFilters['id_tipomuestra'] || null}
+                                    onChange={(v) => setDynamicFilters(prev => ({ ...prev, id_tipomuestra: v || '' }))}
+                                    clearable
+                                    searchable
+                                    style={{ width: 200 }}
+                                    radius="md"
+                                />
+                            )}
+
                             <TextInput 
                                 placeholder="Buscar..." 
                                 leftSection={<IconSearch size={16} />}
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.currentTarget.value)}
-                                style={{ width: 300 }}
+                                style={{ width: 250 }}
+                                radius="md"
                             />
                         </Group>
                     </Group>

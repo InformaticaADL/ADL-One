@@ -1070,6 +1070,25 @@ Mejoras estéticas transversales y optimización en la experiencia de gestión d
 
 ---
 
+### 64. Optimizaciones en Empresas de Servicio y Filtros Inteligentes en Catálogos Maestros (Mayo 2026) 🏢🔍
+Múltiples refinamientos de UX y ampliación técnica de columnas en el módulo de administración de Maestros y Empresas de Servicio.
+
+- **Diseño Premium y Scroll en Empresas de Servicio**:
+    - Optimización en el componente especializado `EmpresaServicioFormView.tsx` limitando la visualización a una cuadrícula con altura fija y desplazamiento inteligente (`ScrollArea offsetScrollbars h={678}`) tras 11 registros, permitiendo un acceso ergonómico y visualización limpia.
+- **Ampliación de Columnas y Compatibilidad en Catálogos**:
+    - **Tipos de Muestra (`mae_tipomuestra`)**: Integración total de los campos faltantes en base de datos (`modo_ingreso`, `aplicado_a`, `nombre_sernapesca`, `metodologia`, `realiza_screening`, `guia`) en el listado, formulario de edición e inserción.
+    - **Tipos de Muestreo (`mae_tipomuestreo`)**: Incorporación de la columna `aplicado_a` para coincidir de forma idéntica con el esquema de la base de datos SQL.
+- **Sistema de Filtros Inteligentes y Contextuales (Adaptativos)**:
+    - Implementación de lógica inteligente en `MaestroDataManager.tsx` que detecta relaciones (Claves Foráneas / Lookups) y jerarquías (`dependsOn`) de cada maestro, generando de forma autónoma selectores (`Select searchable clearable`) específicos en la barra superior.
+    - **Filtros Automáticos**: 
+        - En *Contactos*: permite filtrar instantáneamente por Cliente, Empresa de Servicio y Cargo.
+        - En *Usuarios*: permite filtrar por Cargo y Lugar de Análisis.
+        - En *Sub Áreas*: permite filtrar por Componente.
+        - En *Centros*: permite filtrar por Cliente.
+    - Sincronización transparente con el filtro global por texto y de estado (`activo` / `habilitado`).
+
+---
+
 ## 📈 Próximos Pasos (Hoja de Ruta 2026)
 1. **Bootstrapping ADL ECOSISTEMA**: Inicio del nuevo repositorio unificado en NestJS.
 2. **Implementación de ADL Sampling**: Desarrollo de la nueva App de shell dinámico para terreno.

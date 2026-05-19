@@ -32,10 +32,10 @@ router.get('/instrumentos-ambientales', authenticate, catalogosController.getIns
 router.get('/unidades-medida', authenticate, catalogosController.getUnidadesMedida);
 router.get('/estados-muestreo', authenticate, catalogosController.getEstadosMuestreo);
 
-// Maestros CRUD — require admin permission for writes
+// Maestros CRUD — require INF_ACCESO (Informática module permission) for writes
 router.get('/maestros/:tableName', authenticate, catalogosController.getMaestroData);
-router.post('/maestros', authenticate, verifyPermission('RBAC_MANAGE'), catalogosController.createMaestro);
-router.put('/maestros', authenticate, verifyPermission('RBAC_MANAGE'), catalogosController.updateMaestro);
-router.delete('/maestros', authenticate, verifyPermission('RBAC_MANAGE'), catalogosController.toggleMaestroStatus);
+router.post('/maestros', authenticate, verifyPermission('INF_ACCESO'), catalogosController.createMaestro);
+router.put('/maestros', authenticate, verifyPermission('INF_ACCESO'), catalogosController.updateMaestro);
+router.delete('/maestros', authenticate, verifyPermission('INF_ACCESO'), catalogosController.toggleMaestroStatus);
 
 export default router;

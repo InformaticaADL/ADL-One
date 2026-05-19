@@ -96,6 +96,10 @@ export const useCachedCatalogos = () => {
         return getCatalogo('unidades-medida', () => catalogosService.getUnidadesMedida());
     }, [getCatalogo]);
 
+    const getZonasUTM = useCallback(async (): Promise<any[]> => {
+        return getCatalogo('zonas-utm', () => catalogosService.getZonasUTM());
+    }, [getCatalogo]);
+
     // ===== Analysis Service Methods (Cached) =====
     const getNormativas = useCallback(async (): Promise<any[]> => {
         return getCatalogo('normativas', () => import('../services/analysis.service').then(m => m.analysisService.getNormativas()));
@@ -141,6 +145,7 @@ export const useCachedCatalogos = () => {
         getDispositivosHidraulicos,
         getInstrumentosAmbientales,
         getUnidadesMedida,
+        getZonasUTM,
 
         // Analysis getters
         getNormativas,

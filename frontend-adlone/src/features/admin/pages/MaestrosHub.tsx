@@ -71,7 +71,7 @@ interface MaestroConfig {
             idColumn: string;
             displayColumn: string;
             noCreate?: boolean;
-        }
+        } | undefined;
     };
 }
 
@@ -225,7 +225,9 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             tableName: 'mae_tipomuestreo',
             idName: 'id_tipomuestreo',
             area: 'medio-ambiente',
-            displayColumn: 'nombre_tipomuestreo'
+            displayColumn: 'nombre_tipomuestreo',
+            statusColumn: 'habilitado',
+            summaryColumns: ['nombre_tipomuestreo', 'aplicado_a']
         },
         { 
             id: 'tipos-muestra', 
@@ -237,11 +239,16 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             idName: 'id_tipomuestra',
             area: 'medio-ambiente',
             displayColumn: 'nombre_tipomuestra',
-            dependsOn: 'tipos-muestreo',
-            summaryColumns: ['nombre_tipomuestra', 'id_tipomuestreo'],
-            lookups: {
-                id_tipomuestreo: { tableName: 'mae_tipomuestreo', idColumn: 'id_tipomuestreo', displayColumn: 'nombre_tipomuestreo' }
-            }
+            statusColumn: 'activo',
+            summaryColumns: [
+                'nombre_tipomuestra', 
+                'modo_ingreso', 
+                'aplicado_a', 
+                'nombre_sernapesca', 
+                'metodologia', 
+                'realiza_screening', 
+                'guia'
+            ]
         },
         { 
             id: 'actividades', 
@@ -441,6 +448,19 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             area: 'tecnica',
             displayColumn: 'nombre_dispositivohidraulico'
         },
+        { 
+            id: 'zonas-utm', 
+            label: 'Zonas UTM', 
+            icon: <IconMapPin size={24} />, 
+            color: 'orange',
+            description: 'Zonas UTM para referenciación geográfica.',
+            tableName: 'mae_zonautm',
+            idName: 'id_zonautm',
+            area: 'tecnica',
+            displayColumn: 'nombre_zonautm',
+            statusColumn: 'habilitado',
+            summaryColumns: ['nombre_zonautm']
+        },
 
         // AREA: SISTEMA
         { 
@@ -501,6 +521,15 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     ], []);
 
+    // Hook must be declared before any conditional return
+    const filteredBySearch = useMemo(() => {
+        const q = hubSearch.toLowerCase();
+        if (!q) return MAESTROS_CONFIG;
+        return MAESTROS_CONFIG.filter(m =>
+            m.label.toLowerCase().includes(q) || m.description.toLowerCase().includes(q)
+        );
+    }, [hubSearch, MAESTROS_CONFIG]);
+
     if (selectedMaestro) {
         const config = MAESTROS_CONFIG.find(m => m.id === selectedMaestro);
         if (!config) {
@@ -524,14 +553,6 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             />
         );
     }
-
-    const filteredBySearch = useMemo(() => {
-        const q = hubSearch.toLowerCase();
-        if (!q) return MAESTROS_CONFIG;
-        return MAESTROS_CONFIG.filter(m =>
-            m.label.toLowerCase().includes(q) || m.description.toLowerCase().includes(q)
-        );
-    }, [hubSearch, MAESTROS_CONFIG]);
 
     const renderGrid = (area: MaestroArea) => {
         const filtered = filteredBySearch.filter(m => m.area === area);

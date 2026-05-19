@@ -127,6 +127,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
     const [nroInstrumento, setNroInstrumento] = useState<string>('');
     const [anioInstrumento, setAnioInstrumento] = useState<string>('');
     const [instrumentosAmbientales, setInstrumentosAmbientales] = useState<any[]>([]);
+    const [zonasUTMList, setZonasUTMList] = useState<any[]>([]);
 
     const [componentes, setComponentes] = useState<any[]>([]);
     const [selectedComponente, setSelectedComponente] = useState<string | null>(null);
@@ -571,14 +572,15 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
     const loadCatalogosComplementarios = async () => {
         try {
-            const [comps, insp, tMuestreo, tDescarga, mods, instrs, umeds, cargosList, freqsList, formasCanalList, dispositivosList] = await Promise.all([
+            const [comps, insp, tMuestreo, tDescarga, mods, instrs, umeds, cargosList, freqsList, formasCanalList, dispositivosList, zonasUTMListRes] = await Promise.all([
                 catalogos.getComponentesAmbientales(), catalogos.getInspectores(), catalogos.getTiposMuestreo(),
                 catalogos.getTiposDescarga(), catalogos.getModalidades(), catalogos.getInstrumentosAmbientales(),
                 catalogos.getUnidadesMedida(), catalogos.getCargos(), catalogos.getFrecuenciasPeriodo(),
-                catalogos.getFormasCanal(), catalogos.getDispositivosHidraulicos()
+                catalogos.getFormasCanal(), catalogos.getDispositivosHidraulicos(), catalogos.getZonasUTM()
             ]);
 
             setUnidadesMedida((umeds || []).map((u: any) => ({ value: String(u.id_umedida || u.id || ''), label: u.nombre_umedida || u.nombre || '-' })).filter(u => u.label !== 'NA' && u.label !== 'No Aplica'));
+            setZonasUTMList((zonasUTMListRes || []).map((z: any) => ({ value: z.nombre_zonautm, label: z.nombre_zonautm })));
             setComponentes((comps || []).map((c: any) => ({ value: String(c.id_tipomuestra || c.id), label: c.nombre_tipomuestra || c.nombre })));
             setInspectores((insp || []).map((i: any) => ({ value: String(i.id_inspectorambiental || i.id), label: i.nombre_inspector || i.nombre })));
             setTiposMuestreo((tMuestreo || []).map((t: any) => ({ value: String(t.id_tipomuestreo || t.id), label: t.nombre_tipomuestreo || t.nombre })));
@@ -630,6 +632,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
     const modalidadesData = useMemo(() => [{ value: 'No Aplica', label: 'No Aplica' }, ...modalidades], [modalidades]);
     const formasCanalData = useMemo(() => [{ value: 'No Aplica', label: 'No Aplica' }, ...formasCanal], [formasCanal]);
     const dispositivosData = useMemo(() => [{ value: 'No Aplica', label: 'No Aplica' }, ...dispositivos], [dispositivos]);
+    const zonasUTMData = useMemo(() => zonasUTMList, [zonasUTMList]);
 
     const handlePeriodoChange = (val: string | null) => {
         setPeriodo(val);
@@ -889,7 +892,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                     <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
                         <Select 
                             label="Zona UTM *" 
-                            data={['18G', '18H', '18F', '19H', '19F', 'No aplica']}
+                            data={zonasUTMData}
                             value={zona}
                             onChange={(v) => setZona(v || '')}
                             size="sm"

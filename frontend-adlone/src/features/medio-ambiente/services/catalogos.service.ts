@@ -305,6 +305,14 @@ export const catalogosService = {
         });
     },
 
+    getZonasUTM: async (): Promise<any[]> => {
+        return deduplicatedRequest('zonas-utm', async () => {
+            const data = await axiosInstance.get('/maestros/mae_zonautm');
+            // Filter only enabled zones
+            return data.data.data.filter((z: any) => z.habilitado === 'S');
+        });
+    },
+
     // CRUD Methods for Maestros
     getMaestroData: async (tableName: string): Promise<any[]> => {
         const response = await axiosInstance.get(`/maestros/${tableName}`);

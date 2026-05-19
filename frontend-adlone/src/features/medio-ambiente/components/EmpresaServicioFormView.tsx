@@ -817,7 +817,7 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
 
                         <Box pos="relative">
                             <LoadingOverlay visible={loading} overlayProps={{ blur: 2 }} />
-                            <ScrollArea offsetScrollbars>
+                            <ScrollArea offsetScrollbars h={678}>
                                 <Table verticalSpacing="md" highlightOnHover style={{ minWidth: 800 }}>
                                     <Table.Thead bg="gray.0">
                                         <Table.Tr>

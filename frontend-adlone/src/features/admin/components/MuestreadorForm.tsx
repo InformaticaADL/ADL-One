@@ -62,6 +62,8 @@ export const MuestreadorForm: React.FC<Props> = ({
         clave_usuario: '',
         firma_muestreador: ''
     });
+    // Helper to safely read clave_usuario length (guards against undefined from API responses)
+    const claveLength = (formData.clave_usuario ?? '').length;
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
@@ -196,8 +198,8 @@ export const MuestreadorForm: React.FC<Props> = ({
                                     placeholder="******"
                                     required
                                     maxLength={6}
-                                    description={`${formData.clave_usuario.length} / 6 caracteres`}
-                                    value={formData.clave_usuario}
+                                    description={`${claveLength} / 6 caracteres`}
+                                    value={formData.clave_usuario ?? ''}
                                     onChange={(e) => setFormData({ ...formData, clave_usuario: e.target.value })}
                                     radius="md"
                                 />
