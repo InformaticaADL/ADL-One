@@ -7,38 +7,23 @@
 DECLARE @html_ficha NVARCHAR(MAX) = N'<!DOCTYPE html><html><head><meta charset="UTF-8"><style type="text/css">body{margin:0;padding:0;background-color:#f0f8ff!important;font-family:''Segoe UI'',Tahoma,Geneva,Verdana,sans-serif}table{border-spacing:0;border-collapse:collapse}td{padding:0}</style></head><body style="margin:0;padding:0;background-color:#f0f8ff;"><table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:#f0f8ff;width:100%;"><tr><td align="center" style="padding:40px 0;"><table role="presentation" width="600" border="0" cellspacing="0" cellpadding="0" style="background-color:#ffffff;max-width:600px;width:100%;border-radius:12px;overflow:hidden;box-shadow:0 10px 25px rgba(0,98,168,0.15);border:1px solid #dbeafe;"><thead><tr><td style="background-color:#ffffff;padding:20px 40px;border-bottom:6px solid {COLOR_PRINCIPAL};"><img src="{LOGO_BASE64}" alt="ADL ONE" width="240" style="display:block;width:240px;max-width:240px;height:auto;border:0;"></td></tr></thead><tbody><tr><td style="padding:40px;"><h2 style="margin:0 0 5px 0;color:{COLOR_PRINCIPAL};font-family:Arial,sans-serif;font-size:22px;font-weight:700;">{TITULO_CORREO}</h2><p style="margin:0 0 25px 0;color:#718096;font-family:Arial,sans-serif;font-size:18px;">Ficha N°: <strong style="color:{COLOR_PRINCIPAL};font-size:24px;">{CORRELATIVO}</strong></p><table width="100%" border="0" cellspacing="0" cellpadding="0" style="border-top:1px solid #edf2f7;padding-top:20px;margin-bottom:20px;"><tr><td width="160" style="padding:6px 0;color:{COLOR_PRINCIPAL};font-weight:bold;font-size:13px;font-family:Arial,sans-serif;">{LABEL_SOLICITANTE}:</td><td style="padding:6px 0;color:#333333;font-size:13px;font-family:Arial,sans-serif;">{USUARIO}</td></tr><tr><td style="padding:6px 0;color:{COLOR_PRINCIPAL};font-weight:bold;font-size:13px;font-family:Arial,sans-serif;">Empresa Servicio:</td><td style="padding:6px 0;color:#333333;font-size:13px;font-family:Arial,sans-serif;">{empresa_servicio}</td></tr><tr><td style="padding:6px 0;color:{COLOR_PRINCIPAL};font-weight:bold;font-size:13px;font-family:Arial,sans-serif;">Centro / Fuente:</td><td style="padding:6px 0;color:#333333;font-size:13px;font-family:Arial,sans-serif;">{fuente_centro}</td></tr><tr><td style="padding:6px 0;color:{COLOR_PRINCIPAL};font-weight:bold;font-size:13px;font-family:Arial,sans-serif;">Monitoreo:</td><td style="padding:6px 0;color:#333333;font-size:13px;font-family:Arial,sans-serif;">{monitoreo}</td></tr><tr><td style="padding:6px 0;color:{COLOR_PRINCIPAL};font-weight:bold;font-size:13px;font-family:Arial,sans-serif;">Fecha:</td><td style="padding:6px 0;color:#333333;font-size:13px;font-family:Arial,sans-serif;">{FECHA}</td></tr><tr><td style="padding:6px 0;color:{COLOR_PRINCIPAL};font-weight:bold;font-size:13px;font-family:Arial,sans-serif;">Hora:</td><td style="padding:6px 0;color:#333333;font-size:13px;font-family:Arial,sans-serif;">{HORA}</td></tr></table><div style="margin-bottom:20px;"><h3 style="margin:0 0 12px 0;color:{COLOR_PRINCIPAL};font-size:15px;font-family:Arial,sans-serif;border-bottom:2px solid {COLOR_PRINCIPAL};padding-bottom:8px;">Detalle de Servicios</h3><div style="background-color:#f8fafc;padding:12px;border-radius:6px;">{servicios_detalle}</div></div><div style="margin-top:16px;padding:14px;background-color:#f0f8ff;border-left:4px solid {COLOR_PRINCIPAL};color:#333333;font-size:13px;font-family:Arial,sans-serif;border-radius:0 4px 4px 0;"><strong>{ETIQUETA_OBSERVACION}:</strong><br>{OBSERVACION}</div></td></tr><tr><td style="padding:25px 40px;background-color:#f8fafc;border-top:1px solid #e2e8f0;"><table width="100%" border="0" cellspacing="0" cellpadding="0"><tr><td align="left" valign="top" style="padding-right:20px;"><strong style="color:#0062a8;font-size:13px;font-family:Arial,sans-serif;display:block;margin-bottom:4px;">ADL Diagnostic Chile SpA</strong><div style="color:#64748b;font-size:11px;line-height:1.4;font-family:Arial,sans-serif;">Laboratorio de Diagnóstico y Biotecnología<br>Sector La Vara s/n Camino a Alerce, Puerto Montt<br>Tel/fax: (56 65) 2250292 - 2250234 – 2250287<br><a href="http://www.adldiagnostic.cl" style="color:#0062a8;text-decoration:none;">www.adldiagnostic.cl</a></div></td><td align="right" valign="top" style="color:#94a3b8;font-size:11px;font-family:Arial,sans-serif;white-space:nowrap;">Sistema de Gestión<br><strong style="color:#0062a8;">Empresarial</strong></td></tr></table></td></tr></tbody></table></td></tr></table></body></html>';
 
 -- FICHA_ASIGNADA
-IF EXISTS (SELECT 1 FROM mae_evento_notificacion WHERE codigo_evento = 'FICHA_ASIGNADA')
-    UPDATE mae_evento_notificacion
-    SET asunto_template = N'Muestreo Asignado - Ficha #{CORRELATIVO}',
-        cuerpo_template_html = @html_ficha,
-        activo = 1
-    WHERE codigo_evento = 'FICHA_ASIGNADA';
-ELSE
-    INSERT INTO mae_evento_notificacion (codigo_evento, nombre_evento, asunto_template, cuerpo_template_html, activo)
-    VALUES ('FICHA_ASIGNADA', N'Muestreo Asignado', N'Muestreo Asignado - Ficha #{CORRELATIVO}', @html_ficha, 1);
+UPDATE mae_evento_notificacion
+SET asunto_template = N'Muestreo Asignado - Ficha #{CORRELATIVO}',
+    cuerpo_template_html = @html_ficha
+WHERE codigo_evento = 'FICHA_ASIGNADA';
 
 -- FICHA_MUESTREO_REPROGRAMADO
-IF EXISTS (SELECT 1 FROM mae_evento_notificacion WHERE codigo_evento = 'FICHA_MUESTREO_REPROGRAMADO')
-    UPDATE mae_evento_notificacion
-    SET asunto_template = N'Muestreo Reprogramado - Ficha #{CORRELATIVO}',
-        cuerpo_template_html = @html_ficha,
-        activo = 1
-    WHERE codigo_evento = 'FICHA_MUESTREO_REPROGRAMADO';
-ELSE
-    INSERT INTO mae_evento_notificacion (codigo_evento, nombre_evento, asunto_template, cuerpo_template_html, activo)
-    VALUES ('FICHA_MUESTREO_REPROGRAMADO', N'Muestreo Reprogramado', N'Muestreo Reprogramado - Ficha #{CORRELATIVO}', @html_ficha, 1);
+UPDATE mae_evento_notificacion
+SET asunto_template = N'Muestreo Reprogramado - Ficha #{CORRELATIVO}',
+    cuerpo_template_html = @html_ficha
+WHERE codigo_evento = 'FICHA_MUESTREO_REPROGRAMADO';
 
 -- FICHA_MUESTREO_CANCELADO
-IF EXISTS (SELECT 1 FROM mae_evento_notificacion WHERE codigo_evento = 'FICHA_MUESTREO_CANCELADO')
-    UPDATE mae_evento_notificacion
-    SET asunto_template = N'Muestreo Cancelado - Ficha #{CORRELATIVO}',
-        cuerpo_template_html = @html_ficha,
-        activo = 1
-    WHERE codigo_evento = 'FICHA_MUESTREO_CANCELADO';
-ELSE
-    INSERT INTO mae_evento_notificacion (codigo_evento, nombre_evento, asunto_template, cuerpo_template_html, activo)
-    VALUES ('FICHA_MUESTREO_CANCELADO', N'Muestreo Cancelado', N'Muestreo Cancelado - Ficha #{CORRELATIVO}', @html_ficha, 1);
+UPDATE mae_evento_notificacion
+SET asunto_template = N'Muestreo Cancelado - Ficha #{CORRELATIVO}',
+    cuerpo_template_html = @html_ficha
+WHERE codigo_evento = 'FICHA_MUESTREO_CANCELADO';
 
 -- Verificar resultado
-SELECT codigo_evento, nombre_evento, activo FROM mae_evento_notificacion
+SELECT codigo_evento, descripcion FROM mae_evento_notificacion
 WHERE codigo_evento IN ('FICHA_ASIGNADA', 'FICHA_MUESTREO_REPROGRAMADO', 'FICHA_MUESTREO_CANCELADO');

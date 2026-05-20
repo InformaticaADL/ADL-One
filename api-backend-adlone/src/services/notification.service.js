@@ -235,8 +235,16 @@ class NotificationService {
 
         // 2. Handle SERVICIOS_DETALLE (dynamic array processing)
         if (isHtml && context.servicios && Array.isArray(context.servicios)) {
+            // Helper to check if a formatted date string is valid (not the 1900 SQL default)
+            const isValidDate = (dateStr) => {
+                if (!dateStr || dateStr === 'No asignada') return false;
+                if (dateStr.includes('1900') || dateStr.includes('enero de 1900')) return false;
+                return true;
+            };
+
             const serviciosHtml = context.servicios.map((servicio) => {
                 const hasFechaChange = !!servicio.old_fecha;
+                const hasFechaRetiroChange = !!servicio.old_fecha_retiro;
                 const hasInstalacionChange = !!servicio.old_muestreador_instalacion;
                 const hasRetiroChange = !!servicio.old_muestreador_retiro;
 
@@ -245,13 +253,30 @@ class NotificationService {
                     ? `<span style="color: #e53e3e; text-decoration: line-through; margin-right: 8px;">${servicio.old_fecha}</span> <span style="color: #2b6cb0; font-weight: bold;">➔ ${servicio.fecha_muestreo}</span>`
                     : `<span>${servicio.fecha_muestreo}</span>`;
 
+                // Fecha Retiro: only show if valid (not 1900, not null)
+                const retiroValido = isValidDate(servicio.fecha_retiro);
+                const oldRetiroValido = isValidDate(servicio.old_fecha_retiro);
+                let fechaRetiroHtml = null;
+                if (hasFechaRetiroChange && oldRetiroValido) {
+                    fechaRetiroHtml = `<span style="color: #e53e3e; text-decoration: line-through; margin-right: 8px;">${servicio.old_fecha_retiro}</span> <span style="color: #2b6cb0; font-weight: bold;">➔ ${retiroValido ? servicio.fecha_retiro : 'No asignada'}</span>`;
+                } else if (retiroValido) {
+                    fechaRetiroHtml = `<span>${servicio.fecha_retiro}</span>`;
+                }
+                // If fechaRetiroHtml is null → omit the row entirely
+
                 const instalacionHtml = hasInstalacionChange
                     ? `<span style="color: #e53e3e; text-decoration: line-through; margin-right: 8px;">${servicio.old_muestreador_instalacion}</span> <span style="color: #2b6cb0; font-weight: bold;">➔ ${servicio.muestreador_instalacion}</span>`
                     : `<span>${servicio.muestreador_instalacion}</span>`;
 
-                const retiroHtml = hasRetiroChange
-                    ? `<span style="color: #e53e3e; text-decoration: line-through; margin-right: 8px;">${servicio.old_muestreador_retiro}</span> <span style="color: #2b6cb0; font-weight: bold;">➔ ${servicio.muestreador_retiro}</span>`
-                    : `<span>${servicio.muestreador_retiro}</span>`;
+                // Muestreador Retiro: omit row if "No asignado" and no change
+                const retiroMuestreador = servicio.muestreador_retiro;
+                const hasRetiroMuestreador = retiroMuestreador && retiroMuestreador !== 'No asignado';
+                let retiroHtml = null;
+                if (hasRetiroChange) {
+                    retiroHtml = `<span style="color: #e53e3e; text-decoration: line-through; margin-right: 8px;">${servicio.old_muestreador_retiro}</span> <span style="color: #2b6cb0; font-weight: bold;">➔ ${retiroMuestreador}</span>`;
+                } else if (hasRetiroMuestreador) {
+                    retiroHtml = `<span>${retiroMuestreador}</span>`;
+                }
 
                 return `
                 <table width="100%" border="0" cellspacing="0" cellpadding="0" style="width: 100%; margin-bottom: 15px; font-family: Arial, sans-serif;">
@@ -259,9 +284,10 @@ class NotificationService {
                         <td style="padding: 12px 16px; background-color: #ffffff; border-left: 4px solid #0062a8; border-top: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; border-radius: 0 8px 8px 0;">
                             <strong style="color: #0062a8; font-size: 14px; font-family: Arial, sans-serif;">Servicio ${servicio.numero}:</strong>
                             <div style="margin-top: 8px; color: #333; font-size: 13px; line-height: 1.6; font-family: Arial, sans-serif;">
-                                <div style="margin-bottom: 4px;">📥 <strong>Instalación:</strong> ${instalacionHtml}</div>
-                                <div style="margin-bottom: 4px;">📤 <strong>Retiro:</strong> ${retiroHtml}</div>
-                                <div>📅 <strong>Fecha muestreo:</strong> ${fechaHtml}</div>
+                                <div style="margin-bottom: 4px;">📥 <strong>Muestreador Inst.:</strong> ${instalacionHtml}</div>
+                                ${retiroHtml ? `<div style="margin-bottom: 4px;">📤 <strong>Muestreador Ret.:</strong> ${retiroHtml}</div>` : ''}
+                                <div style="margin-bottom: 4px;">📅 <strong>Fecha Instalación:</strong> ${fechaHtml}</div>
+                                ${fechaRetiroHtml ? `<div>📅 <strong>Fecha Retiro:</strong> ${fechaRetiroHtml}</div>` : ''}
                             </div>
                         </td>
                     </tr>
@@ -270,6 +296,7 @@ class NotificationService {
             }).join('');
 
             output = output.replace(/\{servicios_detalle\}/gi, serviciosHtml);
+
         }
 
         // Add alias for Planta if present
@@ -584,6 +611,38 @@ class NotificationService {
         if (isHtml) {
             // Keep {LOGO_BASE64} if it hasn't been replaced yet (though it should be)
             output = output.replace(/\{(?!LOGO_BASE64)[A-Z0-9_\-| ]+\}/gi, '');
+        }
+
+        // 6. Post-render: clean up rows where the VALUE cell is empty after placeholder replacement
+        // Also normalize all detail table padding from 6px to 4px for visual harmony
+        if (isHtml) {
+            // 6a. Remove <tr> elements where the second <td> (value cell) is completely empty
+            // Pattern: <tr><td...>LABEL</td><td...></td></tr> — value cell has nothing or only whitespace
+            output = output.replace(
+                /<tr>\s*<td[^>]*>[^<]*<\/td>\s*<td[^>]*>\s*<\/td>\s*<\/tr>/gi,
+                ''
+            );
+            // Also handle: <tr><td...>LABEL</td><td style="..."></td></tr> with "No especificad" fallback values
+            output = output.replace(
+                /<tr>\s*(<td[^>]*>[^<]+<\/td>)\s*<td[^>]*>\s*(?:No especificad[ao]|No asignada?|Sin especificar)?\s*<\/td>\s*<\/tr>/gi,
+                ''
+            );
+
+            // 6b. Normalize detail table row padding: 6px → 3px (tight, matches metadata block)
+            output = output.replace(/padding:\s*6px\s+0\s*;/gi, 'padding:3px 0;');
+            output = output.replace(/padding:\s*6px\s+16px\s+6px\s+0\s*;/gi, 'padding:3px 16px 3px 0;');
+            output = output.replace(/padding:\s*6px\s+0/gi, 'padding:3px 0');
+
+            // 6c. Fix border-collapse: separate → collapse (prevents implicit row gaps in email clients)
+            output = output.replace(/border-collapse:\s*separate\s*;/gi, 'border-collapse: collapse;');
+
+            // 6d. Fix any remaining {COLOR_PRINCIPAL} placeholder in the rendered HTML → #0062a8
+            output = output.replace(/color:\s*\{COLOR_PRINCIPAL\}/gi, 'color:#0062a8');
+            output = output.replace(/border-bottom:\s*2px solid \{COLOR_PRINCIPAL\}/gi, 'border-bottom: 2px solid #0062a8');
+            output = output.replace(/border:\s*1px solid \{COLOR_PRINCIPAL\}/gi, 'border: 1px solid #0062a8');
+
+            // 6e. Fix line-height on parent div: 1.6 → 1.4 (reduces inherited spacing in table cells)
+            output = output.replace(/(font-size: 14px; line-height: )1\.6(; font-family)/gi, '$11.4$2');
         }
 
         return { html: output, attachments };

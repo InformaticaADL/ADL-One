@@ -388,38 +388,68 @@ class UnsService {
                         const correlativo = context.correlativo || context.CORRELATIVO || '';
                         if (codigoEvento === 'FICHA_APROBADA_TECNICA') {
                             colorPrincipal = '#0d9488';
-                            tituloCorreo = `Ficha Aprobada Técnica: #${correlativo}`;
+                            tituloCorreo = 'Ficha Aprobada Técnica';
                             etiquetaObs = 'Observaciones';
                             labelSolicitante = 'Aprobado por';
                             etiquetaHora = 'Hora Aprobación';
                         } else if (codigoEvento === 'FICHA_RECHAZADA_TECNICA') {
                             colorPrincipal = '#dc3545';
-                            tituloCorreo = `Ficha Rechazada: #${correlativo}`;
+                            tituloCorreo = 'Ficha Rechazada';
                             etiquetaObs = 'Motivo del Rechazo';
                             labelSolicitante = 'Rechazado por';
                             etiquetaHora = 'Hora Rechazo';
                         } else if (codigoEvento === 'FICHA_APROBADA_COORDINACION') {
                             colorPrincipal = '#0d9488';
-                            tituloCorreo = `Ficha Aprobada Coordinación: #${correlativo}`;
+                            tituloCorreo = 'Ficha Aprobada Coordinación';
                             etiquetaObs = 'Observaciones';
                             labelSolicitante = 'Aprobado por';
                             etiquetaHora = 'Hora Aprobación';
                         } else if (codigoEvento === 'FICHA_RECHAZADA_COORDINACION') {
                             colorPrincipal = '#dc3545';
-                            tituloCorreo = `Ficha Devuelta a Revisión: #${correlativo}`;
+                            tituloCorreo = 'Ficha Devuelta a Revisión';
                             etiquetaObs = 'Motivo';
                             labelSolicitante = 'Revisado por';
                             etiquetaHora = 'Hora Rechazo';
                         } else if (codigoEvento === 'FICHA_CREADA' || codigoEvento === 'FICHA_REMUESTREO_CREADA') {
-                            tituloCorreo = `Nueva Ficha Comercial: #${correlativo}`;
+                            tituloCorreo = 'Nueva Ficha Comercial';
                             etiquetaObs = 'Detalle';
                             labelSolicitante = 'Creado por';
                             etiquetaHora = 'Hora Creación';
                         } else if (codigoEvento === 'FICHA_ASIGNADA') {
                             colorPrincipal = '#6366f1';
-                            tituloCorreo = `Muestreo Asignado: #${correlativo}`;
+                            tituloCorreo = 'Muestreo Asignado';
                             labelSolicitante = 'Asignado por';
                             etiquetaHora = 'Hora Asignación';
+                        } else if (codigoEvento === 'FICHA_MUESTREO_CANCELADO') {
+                            colorPrincipal = '#dc2626';
+                            tituloCorreo = 'Muestreo Individual Cancelado';
+                            etiquetaObs = 'Observaciones';
+                            labelSolicitante = 'Cancelado por';
+                            etiquetaHora = 'Hora Cancelación';
+                        } else if (codigoEvento === 'FICHA_MUESTREO_REAGENDADO') {
+                            colorPrincipal = '#ff8c00';
+                            tituloCorreo = 'Muestreo Reagendado (Fecha)';
+                            etiquetaObs = 'Observaciones';
+                            labelSolicitante = 'Modificado por';
+                            etiquetaHora = 'Hora Modificación';
+                        } else if (codigoEvento === 'FICHA_MUESTREO_REASIGNADO') {
+                            colorPrincipal = '#ff8c00';
+                            tituloCorreo = 'Muestreo Reasignado';
+                            etiquetaObs = 'Observaciones';
+                            labelSolicitante = 'Modificado por';
+                            etiquetaHora = 'Hora Modificación';
+                        } else if (codigoEvento === 'FICHA_MUESTREO_REAGENDADO_REASIGNADO') {
+                            colorPrincipal = '#ff8c00';
+                            tituloCorreo = 'Muestreo Reagendado y Reasignado';
+                            etiquetaObs = 'Observaciones';
+                            labelSolicitante = 'Modificado por';
+                            etiquetaHora = 'Hora Modificación';
+                        } else if (codigoEvento === 'FICHA_MUESTREO_REPROGRAMADO') {
+                            colorPrincipal = '#ff8c00';
+                            tituloCorreo = 'Muestreo Individual Reprogramado';
+                            etiquetaObs = 'Observaciones';
+                            labelSolicitante = 'Modificado por';
+                            etiquetaHora = 'Hora Modificación';
                         }
                     // ── Eventos de Solicitudes ─────────────────────────────
                     } else if (codigoEvento.includes('NUEVA') || codigoEvento.includes('CREADA')) {
@@ -448,7 +478,15 @@ class UnsService {
                         HORA: now.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false }),
                         ETIQUETA_HORA: etiquetaHora,
                         TIPO_SOLICITUD: context.nombre_tipo || 'Notificación General',
-                        OBSERVACION: context.observaciones || context.mensaje || 'Sin observaciones adicionales.',
+                        // For reasignado/reagendado events, `glosa` is the commercial service name (e.g. "1300P LVD - Autocontrol RILes"),
+                        // NOT a user observation. We must NOT show it as Observaciones in the email.
+                        // For CANCELADO: user's reason is passed as `motivo`, not `observaciones`.
+                        // For other events: fall back to glosa/mensaje as before.
+                        OBSERVACION: (['FICHA_MUESTREO_REASIGNADO', 'FICHA_MUESTREO_REAGENDADO', 'FICHA_MUESTREO_REAGENDADO_REASIGNADO', 'FICHA_MUESTREO_REPROGRAMADO'].includes(codigoEvento))
+                            ? (context.observaciones || '')
+                            : codigoEvento === 'FICHA_MUESTREO_CANCELADO'
+                                ? (context.observaciones || context.motivo || '')
+                                : (context.observaciones || context.glosa || context.mensaje || 'Sin observaciones adicionales.'),
                         TITULO_CORREO: tituloCorreo,
                         ETIQUETA_OBSERVACION: context.etiqueta_observacion || etiquetaObs,
                         LABEL_SOLICITANTE: labelSolicitante,
@@ -577,7 +615,10 @@ class UnsService {
 
             // Merge con mapa global
             userIdsInRule.forEach((email, uid) => {
-                if (!isNotActor(uid, email)) return;
+                // Si es un destinatario directo configurado en la regla (id_usuario_destino), omitimos la exclusión del actor.
+                // Esto permite pruebas propias y garantiza el envío a usuarios suscritos directamente.
+                const isDirectUser = regla.id_usuario_destino && Number(regla.id_usuario_destino) === uid;
+                if (!isDirectUser && !isNotActor(uid, email)) return;
                 const existing = recipientsMap.get(uid) || { id_usuario: uid, web: false, email: false };
                 recipientsMap.set(uid, {
                     id_usuario: uid,
@@ -943,3 +984,4 @@ class UnsService {
 }
 
 export default new UnsService();
+

@@ -70,12 +70,12 @@ export const fichaValidationSchemas = {
 
     updateAgenda: Joi.object({
         body: Joi.object({
-            idMuestreador: Joi.alternatives().try(Joi.number().positive(), Joi.string()).optional(),
+            idMuestreador: Joi.alternatives().try(Joi.number().min(0), Joi.string()).optional(),
             fecha: Joi.alternatives().try(Joi.date(), Joi.string()).optional(),
             observaciones: Joi.string().max(5000).optional(),
             fecha_programada: Joi.date().optional(),
             hora_inicio: Joi.string().regex(/^\d{2}:\d{2}$/).optional(),
-            muestreadores: Joi.array().items(Joi.number().positive()).optional(),
+            muestreadores: Joi.array().items(Joi.number().min(0)).optional(),
         }).unknown(true).required(),
         query: Joi.object(),
         params: Joi.object({
@@ -118,8 +118,8 @@ export const fichaValidationSchemas = {
             assignments: Joi.array().items(
                 Joi.object({
                     id: Joi.alternatives().try(Joi.number(), Joi.string()).required(),
-                    idMuestreadorInstalacion: Joi.alternatives().try(Joi.number().positive(), Joi.string()).optional(),
-                    idMuestreadorRetiro: Joi.alternatives().try(Joi.number().positive(), Joi.string()).optional(),
+                    idMuestreadorInstalacion: Joi.alternatives().try(Joi.number().min(0), Joi.string()).optional(),
+                    idMuestreadorRetiro: Joi.alternatives().try(Joi.number().min(0), Joi.string()).optional(),
                     fecha: Joi.alternatives().try(Joi.date(), Joi.string()).optional(),
                 }).unknown(true)
             ).required(),

@@ -1,10 +1,12 @@
-# ADL One - Sistema de Gestión Empresarial
+# ADL One — Sistema de Gestión Empresarial
 
-Sistema empresarial profesional desarrollado con arquitectura moderna y escalable.
+Sistema empresarial profesional desarrollado con arquitectura moderna y escalable para ADL Diagnostic Chile SpA.
+
+---
 
 ## 🏗️ Arquitectura del Proyecto
 
-### Backend - Node.js + Express + SQL Server
+### Backend — Node.js + Express + SQL Server
 
 ```
 api-backend-adlone/
@@ -15,27 +17,41 @@ api-backend-adlone/
 │   │   ├── ficha.controller.js
 │   │   ├── bulk-ficha.controller.js
 │   │   ├── rutas-planificadas.controller.js
+│   │   ├── admin.controller.js
+│   │   ├── solicitud.controller.js
+│   │   ├── catalogos.controller.js
+│   │   ├── menu.controller.js
 │   │   └── auth.controller.js
-│   ├── services/            # LÓGICA DE NEGOCIO (capa de inteligencia)
-│   │   ├── health.service.js
+│   ├── services/            # Lógica de negocio
 │   │   ├── ficha.service.js
 │   │   ├── bulk-ficha.service.js
-│   │   ├── rutas-planificadas.service.js
+│   │   ├── admin.service.js
+│   │   ├── notification.service.js
+│   │   ├── uns.service.js
+│   │   ├── urs.service.js
+│   │   ├── menu.service.js
 │   │   ├── kpi-analyst.service.js
 │   │   └── auth.service.js
 │   ├── routes/              # Definición de endpoints de la API
-│   │   ├── health.routes.js
-│   │   ├── ficha.routes.js
-│   │   ├── bulk-ficha.routes.js
-│   │   ├── rutas-planificadas.routes.js
-│   │   └── auth.routes.js
-│   ├── utils/               # Funciones de ayuda (helpers)
-│   │   ├── logger.js
-│   │   └── response.js
+│   ├── middlewares/         # Auth, validación, errores, logging
+│   ├── utils/               # Funciones de ayuda (logger, response)
 │   └── server.js            # Punto de entrada de la aplicación
 ├── logs/                    # Logs de la aplicación (auto-generados)
 ├── .env                     # Variables de entorno
-├── .gitignore
+└── package.json
+```
+
+### Frontend — React + TypeScript + Mantine UI
+
+```
+frontend-adlone/
+├── src/
+│   ├── components/          # Componentes reutilizables
+│   ├── contexts/            # AuthContext, ThemeContext
+│   ├── pages/               # Vistas principales por módulo
+│   ├── services/            # Capa de comunicación con la API
+│   ├── stores/              # State management con Zustand
+│   └── App.tsx              # Punto de entrada del frontend
 └── package.json
 ```
 
@@ -44,157 +60,381 @@ api-backend-adlone/
 ## 🚀 Tecnologías Utilizadas
 
 ### Backend
-- **Node.js** - Runtime de JavaScript
-- **Express** - Framework web
-- **SQL Server (mssql)** - Base de datos
-- **Winston** - Sistema de logging profesional
-- **JWT (jsonwebtoken)** - Autenticación
-- **Joi** - Validación de esquemas
-- **Bcrypt** - Encriptación de contraseñas
-- **Nodemailer** - Envío de emails (Notificaciones)
-- **Helmet** - Seguridad HTTP
-- **Morgan** - Logger de peticiones HTTP
-- **CORS** - Manejo de peticiones cross-origin
+| Tecnología | Propósito |
+|---|---|
+| **Node.js** | Runtime de JavaScript |
+| **Express** | Framework web RESTful |
+| **SQL Server (mssql)** | Base de datos principal |
+| **Winston** | Sistema de logging profesional |
+| **JWT (jsonwebtoken)** | Autenticación stateless |
+| **Joi** | Validación de esquemas |
+| **Bcrypt** | Encriptación de contraseñas |
+| **Nodemailer** | Envío de correos (SMTP) |
+| **Socket.io** | Comunicación en tiempo real |
+| **Helmet / CORS** | Seguridad HTTP |
 
 ### Frontend
-- **React 18** - Biblioteca de UI
-- **Vite** - Build tool y dev server
-- **TypeScript** - Tipado estático
-- **Mantine UI v7** - Biblioteca de componentes y sistema de temas
-- **Zustand** - State management
-- **CSS3 / Vanilla CSS** - Estilos modernos con gradientes, glassmorphism y animaciones
-- **Leaflet / React-Leaflet** - Motor de mapas interactivos para planificación de rutas
-- **Recharts** - Biblioteca de visualización de datos para dashboards
-- **Zustand** - State management ligero y persistente
+| Tecnología | Propósito |
+|---|---|
+| **React 18** | Biblioteca de UI |
+| **TypeScript** | Tipado estático |
+| **Vite** | Build tool y dev server |
+| **Mantine UI v7** | Componentes y sistema de temas |
+| **Zustand** | State management ligero y persistente |
+| **Leaflet / React-Leaflet** | Mapas interactivos para planificación de rutas |
+| **Recharts** | Visualización de datos y dashboards |
+| **Vanilla CSS** | Estilos modernos con glassmorphism y animaciones |
 
 ---
 
-## 🎯 Características Implementadas
+## 🎯 Características del Sistema
 
 ### Backend
-
-✅ **Arquitectura en Capas**
-- Controllers: Manejo de peticiones HTTP
-- Services: Lógica de negocio
-- Repositories: Acceso a datos
-- Middlewares: Auth, validación, errores, logging
-
-✅ **Sistema de Notificaciones (Nodemailer)**
-- Envío asíncrono de correos (Fire and Forget)
-- Configuración SMTP segura (SSL/TLS)
-- Listas de distribución configurables por entorno (.env)
-
-✅ **Autenticación y Autorización**
-- Login Integrado con SQL Server
-- Validación contra tabla `mae_usuario`
-- JWT para sesiones stateless
-- Propagación de ID de usuario a procesos de negocio
+✅ **Arquitectura en Capas** — Controllers → Services → BD + Middlewares  
+✅ **Motor de Notificaciones Universal (UNS)** — Email + Web + Socket.io  
+✅ **Autenticación y Autorización RBAC** — JWT + permisos granulares  
+✅ **Auditoría Completa** — Registro de IP, usuario y cambios por acción  
+✅ **Menús Dinámicos** — Navegación definida por backend según permisos  
 
 ### Frontend
-
-✅ **Arquitectura Modular**
-- Componentes organizados por features
-- Hooks personalizados reutilizables
-- State management con Zustand
-
-✅ **Diseño Profesional**
-- Estilos CSS "Mobile First"
-- Sistema de Drawer/Sidebar Responsivo
-- Notificaciones Toast No-Bloqueantes
+✅ **Arquitectura Modular** — Componentes organizados por features  
+✅ **Diseño Premium** — Mobile First, glassmorphism, micro-animaciones  
+✅ **Dashboard Inteligente** — KPIs, gráficos Recharts, análisis automático  
+✅ **Chat en Tiempo Real** — Mensajería directa y grupal vía Socket.io  
 
 ---
 
-## ✨ Nuevas Implementaciones (Sprint Enero 2026)
+## 📋 Historial de Versiones
 
-### 1. Sistema de Autenticación 🔐
-Se implementó un módulo de seguridad robusto que conecta directamente con los usuarios del sistema legacy.
+### 1. Sistema de Autenticación (Enero 2026) 🔐
 - **Login Page**: Interfaz moderna con validación en tiempo real.
 - **AuthContext**: Manejo de sesión global persistente en cliente.
-- **Auditoría**: Todas las acciones (Crear, Aprobar, Rechazar) registran el ID real del usuario en la base de datos y tablas de auditoría.
+- **Auditoría**: Todas las acciones registran el ID real del usuario en la base de datos.
 
-### 2. Flujo de Trabajo Área Técnica 🧪
-Módulo completo para la gestión y validación de Fichas Comerciales por el equipo técnico.
-- **Vista de Detalle**: Reutilización de componentes comerciales para una vista "ReadOnly" segura.
-- **Acciones**: Botones de **Aceptar** y **Rechazar** integrados con procedimientos almacenados.
-- **Validación Backend**: Actualización de estados (`id_validaciontecnica`) y registro de observaciones.
+### 2. Flujo de Trabajo Área Técnica (Enero 2026) 🧪
+- Vista de detalle ReadOnly para fichas comerciales.
+- Botones de **Aceptar** y **Rechazar** integrados con procedimientos almacenados.
+- Actualización de estados (`id_validaciontecnica`) y registro de observaciones.
 
-### 3. Notificaciones por Correo 📧
-Sistema de alertas automáticas para mantener informados a los involucrados en el flujo de la ficha.
-- **Motor**: Nodemailer con transporte SMTP seguro.
-- **Lógica de Negocio (Paridad Legacy)**:
-  - **Aceptada**: Envío a lista de distribución técnica fija (e.g., Jefatura Técnica).
-  - **Rechazada**: Envío a lista de distribución comercial fija.
-- **Entornos**: Capacidad de redreccionar todos los correos a una cuenta de desarrollador en modo DEV.
+### 3. Notificaciones por Correo (Enero 2026) 📧
+- Motor Nodemailer con transporte SMTP seguro (SSL/TLS).
+- Listas de distribución configurables por entorno (`.env`).
+- Capacidad de redirigir todos los correos a cuenta de desarrollador en modo DEV.
 
-### 4. Corrección de Errores y Estabilidad 🛠️
-- **Crash Prevention**: Manejo de errores en carga de datos asíncronos (`response.data` unwrap).
-- **State Integrity**: Restauración de variables de estado críticas en formularios complejos (`ReferenceError`).
-- **Database Alignment**: Corrección de discrepancias en nombres de columnas (`id_cargo` vs `mam_cargo`).
+### 4. Corrección de Errores y Estabilidad (Enero 2026) 🛠️
+- Manejo de errores en carga de datos asíncronos.
+- Restauración de variables de estado críticas en formularios complejos.
+- Corrección de discrepancias en nombres de columnas de la BD.
 
-### 5. Módulo de Planificación y Asignación (Medio Ambiente) 🗓️
-Módulo avanzado para la gestión de agendas de muestreo, asignación de personal y equipos.
-- **Visualización Integral**: Tabla detallada con información de fichas, estados, fechas y responsables.
-- **Asignación Masiva e Individual**: Herramientas para asignar muestreadores (Instalación/Retiro) de forma eficiente.
-- **Lógica de Guardado Inteligente (UPSERT)**: 
-  - Prevención de duplicados en agenda (`App_Ma_Agenda_MUESTREOS`).
-  - Actualización dinámica de resultados (`App_Ma_Resultados`) y equipos (`App_Ma_Equipos_MUESTREOS`).
-- **Integridad de Datos**: Correcciones en procedimientos almacenados (`MAM_FichaComercial_ConsultaCoordinadorDetalle`) para asegurar la consistencia del campo Coordinador.
-- **Experiencia de Usuario**: Redirect automático tras guardado y carga de datos existentes para edición.
+### 5. Módulo de Planificación y Asignación (Enero 2026) 🗓️
+- Visualización integral de fichas, estados, fechas y responsables.
+- Asignación masiva e individual de muestreadores (Instalación/Retiro).
+- Lógica de guardado UPSERT con prevención de duplicados.
+- Integridad de datos en procedimientos almacenados de coordinación.
 
-### 6. Estandarización de Filtros Avanzados (UI/UX) 🔍
-Unificación de la experiencia de búsqueda y filtrado en todos los módulos de gestión (Comercial, Coordinación, Técnica, Asignación).
-- **Componente SearchableSelect**: Nuevo componente reutilizable con búsqueda integrada y autocompletado dinámico.
-- **Funcionalidad de Limpieza**: 
-  - Botón "Limpiar Todo" global.
-  - **Limpieza Individual (X)**: Permite borrar filtros específicos sin afectar al resto de la selección.
-- **Grillas Responsivas**: Layout estandarizado estilo "Nueva Ficha" para una interfaz limpia y consistente.
-- **Ordenamiento Inteligente**: En el módulo de Asignación, las fichas se ordenan automáticamente por urgencia (Por Asignar > Pendiente > Ejecutado).
+### 6. Estandarización de Filtros Avanzados (Enero 2026) 🔍
+- Componente `SearchableSelect` reutilizable con autocompletado dinámico.
+- Botón "Limpiar Todo" global y limpieza individual por filtro (X).
+- Ordenamiento inteligente por urgencia en módulo de Asignación.
 
-### 7. Mejoras de UI/UX y Estabilidad Móvil (Responsividad) 📱
-Focalización en la experiencia de usuario en dispositivos móviles y tablets.
-- **Eliminación de Flickers**: Implementación de estados de carga "full-screen" para evitar parpadeos visuales en transiciones de navegación.
-- **Layouts Adaptables**: 
-  - Las vistas de detalle (Técnica, Coordinación) ahora apilan verticalmente los campos de observación y botones de acción en móviles.
-  - Ajuste de márgenes y paddings en modales y tablas para evitar desbordes.
-- **Fix Visual Dashboard**: Corrección de fondo morado persistente mediante limpieza de estilos globales legacy en `App.css`.
-- **Identidad de Usuario**: Personalización de avatar de usuario (`logo_user.png`) con ajustes de `object-fit` para visualización perfecta en el header.
-- **Tablas Compactas**: Optimización de `AssignmentListView` y otras tablas para visualización tipo "Tarjeta" en pantallas pequeñas.
+### 7. Mejoras de UI/UX y Responsividad Móvil (Enero 2026) 📱
+- Eliminación de flickers con estados de carga full-screen.
+- Layouts adaptables en vistas de detalle para móviles y tablets.
+- Fix de fondo morado persistente en `App.css`.
+- Tablas compactas tipo "Tarjeta" en pantallas pequeñas.
 
-### 8. Recent Enhancements (January 30, 2026) 🆕
-Focus on data integrity, user experience, and visual tracking of the workflow.
+### 8. Modo de Edición Comercial y Línea de Tiempo (Enero 2026) 🆕
+- **Edición Comercial**: Soporte completo de edición en "Antecedentes" y "Análisis" con Soft Delete y auditoría (`EDICION_COMERCIAL`).
+- **Línea de Tiempo de Observaciones**: Componente `ObservationTimeline.tsx` que traza el ciclo de vida completo de una ficha.
+- Optimización de rendimiento con `useMemo` y `React.memo`.
 
-- **Commercial Edit Mode**: 
-  - Enabled full editing capabilities for "Antecedentes" and "Análisis" in `CommercialDetailView`.
-  - Implemented **Soft Delete** for analysis items (`activo = 0`) to preserve historical data integrity.
-  - Added robust **Audit Logging** (`EDICION_COMERCIAL`) tracking user, timestamp, and changes.
+### 9. Estandarización de UI y Refactorización (Febrero 2026) 🎨
+- Sistema unificado de colores de estado: Morado, Ámbar, Azul, Verde.
+- Formato Title Case en todos los estados.
+- Anchos de columna fijos (`table-layout: fixed`) para evitar saltos de layout.
 
-- **Observation Timeline (Línea de Tiempo)**:
-  - New visual component `ObservationTimeline.tsx` tracking the entire lifecycle: Creation -> Technical Approval -> Coordination -> Assignment.
-  - Formatted messages to be user-friendly (e.g., "Ficha 61 creada por el Área Comercial").
-  - Optimized performance with `useMemo` and `React.memo` to prevent re-renders and flickering.
+### 10. Flujo de Trabajo e Integridad de Datos (Febrero 2026) 🔄
+- **Sistema de Alertas en Cascada**: Bloqueo contextual de acciones según estado del flujo en las áreas Técnica, Coordinación y Comercial.
+- **Gestión de Frecuencia Correlativo**: Generación automática con formato `{id_ficha}-{frecuencia}-{estado}-{id_agenda}`, reactivación inteligente al aumentar frecuencia y anulación suave al reducirla.
+- **Corrección de Carga de Análisis**: Migración a `LEFT JOIN` en SP para cargar análisis correctamente.
+- Estabilidad de ancho de columnas y reinicio inteligente de paginación.
 
-- **Critical Fixes & Stability**:
-  - **Hook Order Violation**: Resolved React crashes in Detail Views by ensuring consistent hook execution.
-  - **Data Hydration**: Fixed issue where loading dependent catalogs would clear existing form data (implemented `hydrationEnabled` flag).
-  - **UI Refinements**: Removed default expansion in timeline and improved text readability.
+### 11. Mejoras en Notificaciones y Diseño de Email (Febrero 2026) 📧
+- Plantillas HTML dinámicas con logo corporativo (compatible con Outlook).
+- `FICHA_ASIGNADA`: Desglose completo de servicios asignados con fechas y muestreadores.
+- Corrección de desfase de zona horaria (-1 día) mediante uso estricto de UTC.
+- Atribución correcta del usuario asignador con lógica en cascada.
+
+### 12. Mejoras en Login y Gestión de Sesión (Febrero 2026) 🔐
+- **Recuérdame**: Persistencia de credenciales en `localStorage` por 30 días.
+- **Seguridad**: Migración a `sessionStorage` como almacenamiento por defecto para tokens JWT.
+- **Modal de Contraseña Olvidada**: Con información de contacto de informática.
+- **Reset de Navegación en Logout**: Previene que el siguiente usuario herede la sesión anterior.
+- **Guards de Permisos RBAC**: Validación granular por permiso (`MA_ADMIN_ACCESO`).
+
+### 13. Módulo de Gestión de Equipos y Solicitudes (Febrero 2026) 🏗️
+- Gestión centralizada de solicitudes: **ALTA**, **TRASPASO** y **BAJA**.
+- Flujo de aprobación administrativa con diálogos de confirmación.
+- Sistema de **Snapshots** automáticos en `mae_equipo_historial` para auditoría.
+- Generación automática de Siglas y Correlativos por Tipo de Equipo y Sede.
+
+### 14. Seguridad y Smart Fill (Febrero 2026) 🔒
+- **Interceptor Axios 401**: Gestión global de sesiones expiradas.
+- **Auto-completado Inteligente**: Al crear o aprobar un equipo, auto-puebla campos técnicos desde el catálogo maestro.
+
+### 15. Notificaciones Proactivas y Gestión Integrada (Febrero 2026) 🔔
+- El `EquipoForm` integra sección de Solicitudes Pendientes para aprobar/rechazar sin salir de la ficha.
+- **Centro de Notificaciones**: Redirección por rol y persistencia del resultado de solicitudes.
+- Iconos de alerta `⚠️` para trámites en curso y prevención de ediciones conflictivas.
+
+### 16. Mejoras de UI/UX y Headers Responsivos (Febrero 2026) 🎨📱
+- Implementación de cabeceras responsivas (`PageHeader`) con navegación por migas de pan (breadcrumbs).
+- Alineación de tarjetas y badges en Hubs administrativos (`AdminMaHub`, `AdminGcHub`, `EquiposHub`).
+- Badges de "pendientes" inteligentes por rol (Técnica vs. Calidad).
+
+### 17. Permisos Granulares y Seguridad de Reportes (Febrero 2026) 🔐📊
+- Nuevos permisos: `MA_A_REPORTES_DETALLE` y `MA_A_REPORTES_REVISION`.
+- Corrección de visibilidad global: usuarios con permisos de reportes omiten el filtro por sección.
+
+### 18. Diferenciación de Eventos en Calendario (Marzo 2026) 📅🔀
+- Eventos separados de **Instalación** (`INICIO`) y **Retiro** (`RETIRO`) con colores e indicadores distintos.
+- El modal muestra el muestreador correcto según el tipo de evento seleccionado.
+
+### 19. Actualización de Filtros y Fuentes de Datos del Calendario (Marzo 2026) 🔍📊
+- Empresa: datos desde `sc_empresa`; Muestreadores: solo activos desde `mae_muestreador`.
+- **Fix**: Migración de `INNER JOIN` a `LEFT JOIN` en SP `MAM_FichaComercial_ConsultaCoordinador` para mostrar fichas sin agenda asignada.
+
+### 20. Flujo de Cancelación de Muestreos (Marzo 2026) ❌📋
+- Cancelación con motivo desde el modal del evento en calendario.
+- Visualización de estado cancelado con motivo registrado.
+- Bloqueo de acciones en eventos cancelados o con `id_validaciontecnica = 7`.
+
+### 21. Equipos Duales por Muestreador y Versionamiento (Marzo 2026) 🔧📦
+- Registro de equipos tanto del muestreador de instalación como del de retiro.
+- Nueva columna `version` en `App_Ma_Equipos_MUESTREOS`.
+- **Prompt de Versión en Reagendamiento**: Diálogo para mantener versión original o actualizar al maestro.
+
+### 22. Ordenamiento de Servicios en Notificaciones (Marzo 2026) 📧🔢
+- **Fix**: Los servicios asignados ahora se listan en orden numérico (1, 2, 3…) en lugar de lexicográfico.
+
+### 23. Gestión de Muestreadores — Habilitación y Validación (Marzo 2026) 👤✅
+- **Botón Habilitar**: Para muestreadores inactivos, con modal de confirmación.
+- **Validación de Duplicados**: Al crear un muestreador, verifica nombre y correo existentes.
+- Endpoints: `PUT /api/admin/muestreadores/:id/enable` y `GET /api/admin/muestreadores/check-duplicate`.
+
+### 24. Gestión de Solicitudes y Resolución de Identidades (Marzo 2026) 📝👤
+- Columna CÓDIGO/NOMBRE con código real de equipo, eliminando fallbacks `N/A`.
+- **Estrategia de Resolución en Cascada**: Precarga de usuarios y muestreadores, mapeo de IDs y alias para mostrar nombres reales.
+- Fix de modales dobles y pantalla en blanco por tag React mal cerrado.
+
+### 25. Refinamiento de Notificaciones y Metadatos (Marzo 2026) 📧✨
+- **Enriquecimiento de Metadatos SQL**: Inclusión de `{CLIENTE}`, `{PLANTA}`, `{CONTACTO_EMPRESA}`, `{CORREO_CONTACTO}`, `{MONITOREO}`, `{OBJETIVO}`.
+- **Filtrado Inteligente de Servicios en Reprogramación**: Solo muestra servicios con cambios reales, con comparativa visual ~~Antiguo~~ ➔ **Nuevo**.
+- Prevención de correos vacíos si no hay cambios detectados.
+
+### 26. Resolución de Errores Críticos de Backend (Marzo 2026) 🛠️🔒
+- **Fix Error 500 (batch-agenda)**: Corrección de nombres de tablas y columnas incorrectas.
+- Propagación correcta de `correo_empresa` y datos de contacto hacia el servicio de notificaciones.
+
+### 27. Finalización de Módulo de Fichas y Planificación (Marzo 2026) 🛠️📋
+- Diferenciación de Cliente (a facturar) vs. Empresa de Servicio.
+- Actualización del catálogo de Instrumento Ambiental con nuevas opciones normativas.
+- Validaciones de integridad: al menos 1 servicio y 1 normativa por ficha.
+- Selección de laboratorio por parámetro individual.
+- Control de visibilidad de valores en UF (solo Área Comercial).
+- Corrección del cálculo de Fechas Recomendadas y sincronización de Fecha Retiro.
+
+### 28. Dashboards Especializados y Analítica Avanzada (Marzo 2026) 📊📈
+- Dashboards dedicados para **Gestión Operativa**, **Servicios y Clientes** y **Logística y Centros**.
+- Gráficos Recharts: Radar, Treemap, Composed Charts.
+- Filtros dinámicos con drill-down temporal y geográfico.
+
+### 29. Refuerzo de Auditoría Global (Marzo 2026) 🛡️🔍
+- Captura automática de `ip_address`, `trace_id` y `metadatos_extra` en `App_Audit_Log`.
+- Middleware de contexto global que propaga la identidad del usuario a todas las capas del servicio.
+
+### 30. Validación Estricta y Auto-Completado de Equipos (Marzo 2026) 📋⚡
+- Campos de nombre de equipo, parámetros y unidades funcionan como selectores (sin texto libre).
+- Al elegir un equipo, se auto-pueblan "Qué Mide" y "Unidad de Medida" desde el catálogo maestro.
+
+### 31. Módulo de Administración de Información y Exportador de Datos (Marzo 2026) 📊
+- `AdminInfoHub.tsx`: Exportación de tablas maestras, fichas, solicitudes y equipos a Excel (`.xlsx`).
+- Generación de reportes personalizada por área de negocio.
+- Acceso restringido por permiso `AI_MA_ADMIN_ACCESO`.
+
+### 32. Rediseño Minimalista del Catálogo Maestro (Marzo 2026) ✨🛠️
+- Refactorización de `EquipoCatalogoView.tsx` con clases CSS `catalog-*-refined`.
+- Scroll automático tras 6 elementos en la tabla principal.
+- Columna **Sigla** visible en la lista de catálogo.
+- Formularios en cuadrículas de 2 columnas con micro-animaciones (fadeIn).
+
+### 33. Motor de Notificaciones Universal (UNS) (Marzo 2026) 🔔🔄
+- Servicio unificado para alertas en tiempo real (Socket.io) y correos (Nodemailer).
+- **Priorización de Reglas**: Usuario > Rol > Aplicación.
+- Sincronización total entre el Hub administrativo y la tabla `mae_notificacion_regla`.
+- **Toast Shield**: Escudo de 5 segundos durante el arranque para evitar notificaciones fantasmas.
+- Diseño corporativo de correos con compatibilidad total para Outlook y móviles.
+
+### 34. Resiliencia, Seguridad y Centro de Ayuda (Marzo 2026) 🛡️✨
+- **Gestión Avanzada de Contraseñas**: Indicador de fortaleza en tiempo real, validación de coincidencia instantánea.
+- **Landing Page Unificada**: Al seleccionar un módulo, muestra la WelcomePage con avisos relevantes.
+- **ErrorBoundary Global** en `App.tsx` con ErrorPage de glassmorphism.
+- **HelpCenter Modal**: Acceso a soporte vía WhatsApp y Email, con FAQ de acordeones.
+
+### 35. Personalización y Perfil de Usuario (Marzo 2026) 👤✨
+- Página "Mi Perfil" con encabezado de degradado dinámico adaptado al tema visual.
+- Información dividida en tarjetas: "Información Personal" y "Seguridad y Rol".
+- Panel de preferencias con atajos de configuración integrados.
+
+### 36. Módulo de Chat General en Tiempo Real (Marzo 2026) 💬⚡
+- Chats directos (uno a uno) y grupos de trabajo con múltiples integrantes.
+- Motor Socket.io con entrega inmediata de mensajes y avisos de "escribiendo...".
+
+### 37. Accesibilidad y Usabilidad Móvil (Marzo 2026) 📱🚀
+- Filas cliqueables en tablas de gestión de roles para móviles.
+- Clase `.mobile-hide` para ocultar elementos no críticos en pantallas pequeñas.
+
+### 38. Fidelidad y Estandarización de Notificaciones URS (Abril 2026) 🔔📧
+- Resolución de identidad real del técnico solicitante (elimina el genérico "Sistema").
+- **Remapeo Automático**: Solicitudes Tipo 13 (General) se reclasifican automáticamente a Tipo 14 (Equipo) o Tipo 15 (Servicio/Ficha).
+- Correlativos de negocio en notificaciones (ej. `123-1-Pendiente-1835`) en lugar de IDs internos.
+- Actualización masiva de 7 plantillas URS al diseño corporativo premium.
+
+### 39. Optimización de Flujos, Identidad y Experiencia Visual (Abril 2026) 🚀🎨
+- **Resolución de Identidad Móvil (URS)**: Cruce de `id_tecnico` con tabla de usuarios para identificar nombres reales.
+- **Auto-Jump por Rol**: Redirección automática al área de trabajo al acceder a Fichas de Ingreso con acceso único.
+- **ConfirmModal** con colores verdes e iconos de éxito para aprobaciones técnicas.
+- Corrección de desbordes en el Sidebar para nombres/correos largos.
+
+### 40. Consolidación del Módulo Medio Ambiente y Menús Dinámicos (Abril 2026) 🚀📋
+- **Explorador de Fichas Universal** (`FichasExploradorView.tsx`): Unifica las vistas de Comercial, Técnica y Coordinación.
+- **Sistema de Menús Dinámicos**: Motor en `menu.service.js` que entrega navegación según permisos del usuario.
+- **Refactorización de Sidebar**: Consume el API de menús para cambios de navegación sin despliegues.
+
+### 41. Planificación de Evolución del Ecosistema (Abril 2026) 🏗️🚀
+- Definición de la nueva arquitectura: **Monolito Modular** con NestJS y PostgreSQL.
+- Motor de **Backend-Driven UI** basado en JSON Schema.
+- Esquema "Zero" de base de datos con integridad referencial estricta y soporte JSONB.
+
+### 42. Refinamiento del Planificador de Rutas (Abril 2026) 🗺️🚗
+- **Selección Precisa de Correlativos**: Selector desplegable para elegir exactamente qué servicio se asocia a la ruta.
+- **Smart Zoom**: Auto-ajuste del mapa con zoom máximo 15 para grupos y 16 para marcadores individuales.
+- **Fix SQL Server**: Validación `getFullYear() > 1900` para discriminar fechas dummy `1900-01-01`.
+- Refactorización de estado para evitar duplicación de Toasts en React Strict Mode.
+
+### 43. Dashboard Inteligente y Analítica de KPIs (Abril 2026) 📊🚀
+- `KpiAnalystDashboardView.tsx`: Centraliza métricas de rendimiento operativo.
+- Algoritmos de detección automática de riesgos y alertas operativas.
+- Insights estratégicos: narrativas automáticas basadas en la data.
+- Visualización con tendencias temporales y distribución por clientes.
+
+### 44. Planificador de Rutas y Logística Geográfica (Abril 2026) 🗺️🚗
+- `RouteMapPlannerView.tsx`: Mapa interactivo Leaflet para agrupar servicios en rutas lógicas.
+- `RutasListView.tsx`: Seguimiento de rutas planificadas, vehículos y estados.
+- Backend `rutas-planificadas.service.js` para persistencia de datos geográficos.
+- Scripts SQL de creación de tablas de rutas.
+
+### 45. Sistema de Carga Masiva — Bulk Ficha Creator (Abril 2026) 📑⚡
+- `BulkFichaCreator.tsx`: Ingreso de múltiples servicios en un solo flujo.
+- `BulkReviewGrid.tsx`: Validación exhaustiva antes del guardado definitivo.
+- Motor `bulk-ficha.service.js` con parsing de PDFs (`pdf-parse`) y archivos Excel.
+
+### 46. Gestión de Maestros de Empresas de Servicio (Abril 2026) 🏢🛠️
+- `EmpresaServicioFormView.tsx`: Gestión centralizada de empresas prestadoras de muestreo.
+- Filtrado por estados para mostrar solo proveedores activos.
+- Sincronización de datos de contacto y correos electrónicos de proveedores.
+
+### 47. Estabilización de Carga Masiva y Navegación (Mayo 2026) 🛠️🚀
+- Soporte de archivos Excel junto a PDF en el módulo de carga masiva.
+- **Fix Bug Sidebar**: Corrección del bug que eliminaba permisos al navegar al inicio.
+- **Fix Batch-Agenda 400**: Ajuste del schema Joi para manejar correctamente las asignaciones masivas.
+
+### 48. Mejoras en Chat Interno y Plantillas de Correo (Mayo 2026) 💬📧
+- **Fix ChatSidebar**: Exclusión del usuario autenticado de los resultados de búsqueda de contactos.
+- Estandarización visual de correos de aprobación/rechazo de fichas.
+- Incorporación del campo **Hora** en notificaciones de fichas para mayor trazabilidad.
+
+### 49. Correcciones Críticas de Permisos y Seguridad (Mayo 2026) 🔐🛡️
+- **Fix 400 GET `/api/admin/muestreadores`**: Schema Joi actualizado para aceptar `ACTIVOS`, `INACTIVOS` y `TODOS`.
+- **SQL Directo en Muestreadores**: Reemplazo del SP por consulta directa con mapeo correcto de estados.
+- **Permisos Alternativos**: Ruta acepta `MA_MUESTREADORES` OR `MA_A_GEST_EQUIPO`.
+- **Fix Crítico — Logout por 403**: El interceptor Axios ahora solo hace logout en errores **401**; los 403 se propagan sin cerrar la sesión.
+- **Desacoplamiento de Guards**: `admin-equipos-gestion` y `admin-muestreadores` fuera del guard general, con verificaciones independientes.
+- **Fix idValue = 0**: Validación corregida de `!idValue` a `=== undefined || === null` en `catalogos.controller.js`.
+
+### 50. Efectos Visuales — Glassmorphism en Dashboard (Mayo 2026) 🎨🔒
+- Overlay de privacidad con `backdrop-filter: grayscale(100%) blur(2px)` en tarjetas inactivas.
+- Bloqueo de interacciones con `pointer-events: none` en secciones en desarrollo.
+- Preservación de la imagen principal en color dentro del overlay.
+
+### 51. Refinamiento en Asignación de Rutas (Mayo 2026) 🗺️🚫
+- Validación estricta de correlativos antes de guardar la ruta.
+- Bloqueo y ocultamiento de fichas en estado `AGENDADO` o `en_ruta` para prevenir duplicidad.
+- **Fix SQL**: Evaluación del estado de ruta por exclusión lógica (`NOT IN ('COMPLETADA', 'CANCELADA', 'ANULADA')`).
+
+### 52. Georeferenciación, RBAC Estricto y UI Premium (Mayo 2026) ✨🚀
+- **Fix Error 500 en Rutas**: `LEFT JOIN` a `mae_centro` para obtener coordenadas reales.
+- **Algoritmo de Extracción Tri-Fase**: Parsing de Google Maps, goo.gl y fallback a columnas legadas.
+- **Migración a RBAC Estricto**: Permiso atómico `GEM_REALIZADO` reemplaza validación por nombre de rol.
+- **Loader Inteligente para KPIs**: Pantalla de transición con `Loader` de Mantine tipo bars.
+- **Menús Animados**: Reemplazo de Framer Motion por animaciones CSS para evitar pantalla en blanco.
+- Expansión del catálogo de Maestros con nuevas entidades: "Orígenes", "Tipos de Instalación", "Medio".
+
+### 53. Sincronización de Equipo y Módulo de Ejecución de Rutas (Mayo 2026) 🤝🚀
+- Implementación generalizada de `PageHeader` y breadcrumbs en todo el módulo de Medio Ambiente.
+- **Módulo `rutas-ejecuciones`**: Gestión del ciclo de vida y estados de servicios en terreno.
+- **KPI Analyst — Fix de CPU**: Cálculos asíncronos con `setImmediate` para evitar bloqueo del Event Loop.
+- Protección de rutas previamente desprotegidas (subidas de archivos, catálogos).
+- Actualización atómica de rutas planificadas con endpoint `PUT /:id` dentro de una transacción.
+
+### 54. Estética Global Premium y Alertas de Equipos (Mayo 2026) 🎨📋
+- Fondo blanco puro (`#ffffff`) en `App.css`, `index.css` y `MainLayout.tsx`.
+- **Alertas Accionables en Equipos por Vencer**: Botón de acción que aplica filtros automáticos.
+- **Ordenamiento Priorizado**: Equipos con solicitudes pendientes y próximos a vencer al tope de la tabla.
+
+### 55. Empresas de Servicio, Filtros Adaptativos y Catálogos (Mayo 2026) 🏢🔍
+- `EmpresaServicioFormView.tsx` con scroll inteligente tras 11 registros.
+- **Tipos de Muestra** (`mae_tipomuestra`): Campos `modo_ingreso`, `aplicado_a`, `nombre_sernapesca`, `metodologia`, `realiza_screening`, `guia`.
+- **Sistema de Filtros Adaptativos** en `MaestroDataManager.tsx`: Selectores automáticos por clave foránea, con filtros por Cliente, Empresa, Cargo, Componente y Lugar de Análisis.
+
+### 56. Corrección de Numeración de Servicios y Estilo de Bloques (Mayo 2026) 📧✏️
+- **Fix numeración doble**: Los servicios en correos de `FICHA_MUESTREO_REAGENDADO_REASIGNADO` ya no muestran el número duplicado (ej. `36 36`), sino solo uno.
+- **Estilo compacto del bloque de metadata**: Las filas de "Modificado por", "Fecha" y "Hora" ahora usan `padding:4px` y `line-height:1.2` igualando el estilo de todos los demás templates.
+- Aplicado a todos los templates: Cancelado, Reasignado, Reagendado y Reagendado+Reasignado.
+
+### 57. Motor de Observaciones y Limpieza de Datos en Correos (Mayo 2026) 🧹📧
+- **Fix Observaciones en Reasignado**: El bloque "Observaciones" ahora solo aparece cuando hay texto real ingresado por el usuario; la `glosa` comercial del servicio ya no se filtra como observación.
+- **Fix Usuario en Correo Cancelado**: El campo "Cancelado por" resuelve correctamente el nombre del usuario real que realizó la acción.
+- **Corrección de Correo Reagendado**: El correo de reagendado ahora se envía correctamente (fix del pipeline de contexto enriquecido).
+
+### 58. Auto-Cálculo de Fecha de Retiro y Display Inteligente (Mayo 2026) 📅🔧
+- **Auto-cálculo automático**: Al cambiar solo la Fecha de Instalación, el sistema calcula automáticamente la nueva Fecha de Retiro manteniendo el mismo intervalo de días del registro histórico.
+  - Ej.: instalación cambia del 21 al 22 → retiro pasa del 22 al 23 automáticamente.
+  - Si la fecha de retiro histórica era inválida (`1900-01-01`), el auto-cálculo se omite.
+- **Ocultamiento de fechas inválidas**: Las filas "📅 Fecha Retiro" y "📤 Muestreador Ret." ya no se muestran si el valor es `null`, vacío o la fecha dummy de SQL Server.
+
+### 59. Armonización Visual de Bloques de Metadata en Correos (Mayo 2026) 🎨📧
+- **Filas vacías eliminadas en runtime**: Post-render en `notification.service.js` elimina filas `<tr>` donde la celda de valor queda vacía después del reemplazo de placeholders (ej. "Empresa Servicio:" sin valor).
+- **Fix estructural de tabla** (`FICHA_ASIGNADA`): Migración de `padding`/`background-color`/`border-radius` desde el elemento `<table>` (no soportado en Outlook) hacia un `<td>` wrapper externo — exactamente la misma estructura correcta del template Cancelado.
+- **Normalización global de padding**: Todas las filas de detail tables usan `padding:3px`, `line-height:1.2` y `vertical-align:middle` para un aspecto compacto y armonioso.
+- **Fix `border-collapse`**: Cambio de `separate` → `collapse` en todas las tablas internas, eliminando el espacio implícito entre filas.
+- **`{COLOR_PRINCIPAL}` resuelto en runtime**: Cualquier placeholder de color residual se reemplaza por `#0062a8` durante el render.
+- **Actualización masiva en BD**: 73 templates actualizados con el nuevo estilo compacto.
 
 ---
-
 
 ## 🔧 Configuración para Desarrollo
 
-### Notificaciones de Correo
-Para evitar el envío de correos a usuarios reales durante el desarrollo, configurar las siguientes variables en `.env`:
-
+### Variables de Entorno — Base de Datos
 ```env
-# Email Recipients - DEVELOPMENT
-EMAIL_TO_LIST=tu_correo_dev@adldiagnostic.cl
-EMAIL_TO_REJECT_LIST=tu_correo_dev@adldiagnostic.cl
-EMAIL_BCC_LIST=tu_correo_dev@adldiagnostic.cl
+DB_SERVER=192.168.x.x
+DB_DATABASE=NombreBD
+DB_USER=usuario
+DB_PASSWORD=contraseña
+DB_PORT=1433
 ```
 
-### Configuración SMTP
-El sistema requiere un servidor SMTP válido:
+### Variables de Entorno — SMTP
 ```env
 SMTP_HOST=mail.server.com
 SMTP_PORT=465
@@ -203,889 +443,26 @@ SMTP_USER=sender@server.com
 SMTP_PASS=password
 ```
 
----
-
-## 📄 Estado del Proyecto
-✅ **Backend**: Node.js + Express (API RESTful, Auth, Email, SQL)
-✅ **Frontend**: React + TypeScript (Dashboards, Formularios Complejos, Auth)
-✅ **Base de Datos**: SQL Server (Procedimientos Almacenados, Transacciones)
-
-### 9. UI Standardization & Refactoring (February 2026) 🎨
-Complete alignment of visuals and behavior across Commercial, Technical, and Coordination modules to ensure a consistent user experience.
-
-- **Unified Status System**:
-  - Implemented a single color-coding logic across all list and detail views.
-  - **Colors**: Purple (Programación), Amber (Área Técnica), Blue (Coordinación), Green (Vigente/Finalizado).
-  - **Formatting**: Applied **Title Case** (e.g., "Pendiente Programación") for better readability.
-
-- **Table Layout Optimization**:
-  - **Fixed Layouts**: Standardized column widths (State: 160px, Actions: 50px) to prevent layout shifts.
-  - **Emphasis**: Increased visual hierarchy for the "Estado" column.
-  - **Cleanup**: Removed the "Usuario" column from Technical and Coordination views as requested.
-
-
-### 10. Mejoras de Flujo de Trabajo e Integridad de Datos (5 de Febrero, 2026) 🔄
-Mejoras importantes en validación de flujo de trabajo, consistencia de datos y experiencia de usuario en todas las tablas de consulta.
-
-- **Sistema de Alertas en Cascada**:
-  - Implementación de alertas contextuales en vistas de detalle de Área Técnica, Coordinación y Comercial.
-  - **Área Técnica**: Bloquea acciones cuando el estado es Aprobada (1), Rechazada (2/4), En Proceso (5), Aprobada por Coordinación (6) o Cancelado (7).
-  - **Área Coordinación**: Bloquea acciones cuando el estado es Borrador (0), Rechazada (2/4), Pendiente Área Técnica (3), En Proceso (5), Aprobada (6) o Cancelado (7).
-  - **Área Comercial**: Solo alertas informativas (nunca bloquea acciones).
-  - Asegura que los usuarios no puedan realizar operaciones inválidas según el estado actual del flujo de trabajo.
-
-- **Gestión Inteligente de Frecuencia Correlativo**:
-  - **Generación Automática**: Eliminada dependencia de SP poco confiable, ahora genera correlativos directamente en código.
-  - **Formato**: `{id_ficha}-{numero_frecuencia}-{estado}-{id_agenda}` (ej: `62-1-Pendiente-596`).
-  - **Reactivación Inteligente**: Al aumentar frecuencia, reactiva ítems de agenda previamente anulados (`CANCELADO`) antes de crear nuevos.
-  - **Anulación Suave**: Al reducir frecuencia, marca ítems excedentes como `CANCELADO` y actualiza correlativo a `{id}-{num}-CANCEL-{agenda}`.
-  - **Persistencia**: Los correlativos se mantienen durante asignaciones de fechas/muestreadores.
-  - **Sincronización de Estado**: Actualiza automáticamente `id_validaciontecnica = 5` (En Proceso) cuando se realizan asignaciones.
-  - **Consistencia de Datos**: Asegura `estado_caso = ''` (string vacío) en todas las operaciones.
-
-- **Corrección de Carga de Datos en Pestaña Análisis**:
-  - Modificado SP `MAM_FichaComercial_ConsultaComercial_DET_unaficha` para usar `LEFT JOIN` en lugar de `INNER JOIN`.
-  - Implementada consulta de respaldo en `ficha.service.js` si el SP falla.
-  - Asegura que los datos de análisis se carguen correctamente incluso cuando tablas relacionadas no tienen registros coincidentes.
-
-- **Mejoras de Diseño de Tablas y Paginación** (5 páginas de consulta):
-  - **Estabilidad de Ancho de Columnas**: Corregido problema donde las columnas se comprimían al mostrar menos de 10 filas.
-    - Reemplazadas filas vacías con `colSpan` por celdas `<td>` individuales que coinciden con el número de columnas.
-    - Aplicado a: AssignmentListView (9 cols), CoordinationListView (11 cols), CoordinacionPage (10 cols).
-  - **Reinicio Inteligente de Paginación**: Agregados hooks `useEffect` para reiniciar `currentPage` a 1 cuando cambia cualquier filtro.
-    - Previene páginas vacías al filtrar desde números de página altos.
-    - Aplicado a todas las páginas de consulta: Asignación, Coordinación, Comercial, Técnica y CoordinacionPage.
-
-- **Archivos Modificados**:
-  - Backend: `ficha.service.js` (9 cambios para lógica de correlativo)
-  - Frontend: `TechnicalDetailView.tsx`, `CoordinacionDetailView.tsx`, `CommercialDetailView.tsx` (alertas en cascada)
-  - Frontend: `AssignmentListView.tsx`, `CoordinationListView.tsx`, `CoordinacionPage.tsx`, `ComercialPage.tsx`, `TecnicaPage.tsx` (correcciones de tablas)
-  - Base de Datos: SP `MAM_FichaComercial_ConsultaComercial_DET_unaficha` (corrección LEFT JOIN)
-
-### 11. Mejoras en Notificaciones y Diseño de Email (6 de Febrero, 2026) 📧
-Optimización completa del sistema de notificaciones por correo electrónico, enfocándose en diseño corporativo, detalle de información y precisión de datos.
-
-- **Plantillas HTML Dinámicas y Corporativas**:
-    - Implementación de un diseño unificado y profesional con logo corporativo (CID embedding) para compatibilidad con Outlook.
-    - **Placeholders Estandarizados**: `{LOGO_BASE64}`, `{CORRELATIVO}`, `{USUARIO}`, `{FECHA}`.
-    - **Variaciones de Estado**: Colores distintivos según el tipo de evento (Verde/Aprobado, Azul/Información, Rojo/Rechazo).
-
-- **FICHA_ASIGNADA (Mejora Crítica)**:
-    - **Desglose Detallado**: Ahora incluye lista completa de servicios asignados, con nombres de muestreadores (Instalación/Retiro) y fechas específicas.
-    - **Precisión de Fechas**: Corrección de desfase de zona horaria (-1 día) mediante uso estricto de UTC en el backend.
-    - **Atribución Correcta**: Implementación de lógica robusta para identificar al usuario asignador, priorizando "Nombre Completo" > "Login" > "Base de Datos".
-
-- **Correcciones de Layout en Tablas (Frontend)**:
-    - Replica exacta del diseño de "Gestión Coordinación" en "Planificación y Asignación".
-    - **Propiedad Clave**: `table-layout: fixed` aplicada para forzar respeto de anchos de columna.
-    - **Ajuste de Columnas**: N° Ficha (50px), Estado (160px) con ajuste de texto.
-
----
-
-## 📄 Estado del Proyecto
-✅ **Backend**: Node.js + Express (API RESTful, Auth, Email, SQL)
-✅ **Frontend**: React + TypeScript (Dashboards, Formularios Complejos, Auth)
-✅ **Base de Datos**: SQL Server (Procedimientos Almacenados, Transacciones)
-
-### 12. Mejoras en Login y Sesión (Febrero 2026) 🔐
-Optimización de la seguridad y experiencia de usuario en el proceso de autenticación.
-
-- **Funcionalidad "Recuérdame" (Remember Me)**:
-  - Implementación de persistencia opcional de credenciales (email) mediante `localStorage`.
-  - Checkbox interactivo en el formulario de login que permite al usuario decidir si desea mantener su sesión activa por 30 días.
-
-- **Gestión de Sesión Segura**:
-  - Migración a `sessionStorage` como almacenamiento por defecto para tokens JWT.
-  - Mejora la seguridad al asegurar que la sesión se cierre automáticamente al cerrar la pestaña o el navegador, a menos que el usuario haya seleccionado explícitamente "Recuérdame".
-
-- **Recuperación de Contraseña (Forgot Password)**:
-  - Nuevo enlace "¿Olvidaste tu contraseña?" en la pantalla de login.
-  - **Modal Interactivo**: Diseño tipo overlay integrado en la tarjeta de login.
-  - **Identidad Visual**: Cabecera con degradado azul corporativo y botones de acción con acentos naranja (`#ff9800`), alineados con el manual de marca.
-  - Provee información clara de contacto con el área de informática (Email y Teléfono) para restablecimiento de claves.
-
-- **Refinamiento UI/UX**:
-  - Ajustes de espaciado (padding/margins) en el formulario de login para una apariencia más limpia y compacta.
-  - Eliminación de bordes y sombras innecesarias en modales para un look "glassmorphism" moderno.
-
-- **Seguridad de Navegación y Persistencia de Sesión**:
-  - **Reset Automático de Navegación en Logout**: Implementación de función `resetNavigation()` en el store de navegación (Zustand) que se invoca automáticamente al cerrar sesión, previniendo que el siguiente usuario herede la navegación del usuario anterior.
-  - **Guards de Permisos en Rutas**: Validación de permisos basada en RBAC antes de renderizar componentes administrativos en `DashboardPage.tsx`.
-  - **Protección Multicapa**: 
-    - `useEffect` guard que detecta y resetea automáticamente si un usuario sin permisos intenta acceder a módulos restringidos.
-    - Render guard que muestra mensaje "Acceso Denegado" si se intenta renderizar contenido sin autorización.
-  - **Validación por Permisos**: Sistema de control de acceso basado en permisos específicos (`MA_ADMIN_ACCESO`) en lugar de roles genéricos, permitiendo granularidad en el control de acceso.
-
-### 13. Módulo de Gestión de Equipos y Solicitudes (Medio Ambiente) 🏗️
-Se desarrolló un ecosistema completo para la gestión del inventario de equipos y el flujo de solicitudes desde terreno.
-
-- **Saturación y Tipos de Solicitud**: 
-  - Gestión centralizada de solicitudes de tipo **ALTA** (nuevos equipos), **TRASPASO** (cambio de ubicación/responsable) y **BAJA** (retiro de inventario).
-  - Formularios dinámicos que adaptan sus campos según el tipo de solicitud seleccionada por el usuario.
-- **Flujo de Aprobación Administrativa**: 
-  - Interfaz de "Review" para administradores que permite validar los datos enviados por Medio Ambiente antes de impactar el inventario real.
-  - Implementación de un proceso de aprobación simplificado para **ALTA** mediante diálogos de confirmación directa.
-- **Control de Versiones y Trazabilidad**:
-  - Sistema de **Snapshots** automáticos: cada edición guarda la versión anterior en `mae_equipo_historial` para permitir auditoría y restauración.
-  - Preservación obligatoria de la primera versión del equipo para trazabilidad histórica.
-- **Lógica de Generación de Códigos**: 
-  - Cálculo automático de Siglas y Correlativos basados en el Tipo de Equipo y Sede.
-  - Actualización dinámica del sufijo del código al realizar traspasos de ubicación.
-
-### 14. Mejoras Funcionales y de Seguridad (Febrero 2026) 🔒
-- **Manejo Automático de Errores 401**: Interceptor Axios global que gestiona sesiones expiradas, redirigiendo al usuario al login de forma segura.
-- **Autocompletado Inteligente (Smart Fill)**: 
-  - Al crear o aprobar un equipo, el sistema detecta equipos "plantilla" del mismo tipo para auto-poblar campos técnicos como **"Qué Mide"** y **"Unidad de Medida"**.
-  - Mejora significativa en la velocidad de ingreso de datos y reducción de errores humanos.
-
-### 15. Notificaciones Proactivas y Gestión Integrada (Febrero 2026) 🔔
-Optimización del flujo de aprobación y comunicación entre el área de Medio Ambiente y Calidad.
-
-- **Gestión Directa desde el Formulario**: 
-  - El `EquipoForm` integra ahora una sección de **Solicitudes Pendientes**. Los administradores pueden procesar (Aprobar/Rechazar) cambios de ubicación, bajas o reactivaciones sin salir de la ficha del equipo.
-  - Al aprobar, los datos se sincronizan y guardan automáticamente, eliminando redundancias.
-- **Centro de Notificaciones Inteligente**:
-  - **Redirección por Rol**: Las notificaciones redirigen al usuario según su necesidad comercial (`ma-solicitudes` para gestores) o administrativa (`gc-equipos` para revisores).
-  - **Persistencia de Feedback**: Los resultados de las solicitudes se mantienen en la campana del solicitante con el motivo detallado de aprobación o rechazo.
-- **Seguridad y Limpieza de Permisos**:
-  - Remoción definitiva de permisos obsoletos (`AI_MA_NOTIF_REC/ENV`), consolidando el acceso mediante subpermisos granulares.
-- **Prevención de Inconsistencias**:
-  - Iconos de alerta `⚠️` y mensajes dinámicos que informan sobre trámites en curso para evitar ediciones conflictivas.
-
-### 16. Mejoras de UI/UX y Estandarización de Headers Responsivos (23 de Febrero 2026) 🎨📱
-Mejoras visuales y de layout enfocadas en consistencia, usabilidad móvil y ergonomía de formularios en los módulos de Medio Ambiente y Administración.
-
-### 17. Permisos Granulares y Seguridad de Reportes (26 de Febrero 2026) 🔐📊
-Se implementó un sistema de permisos más fino para el área de reportes y se corrigieron discrepancias de visibilidad en el servidor.
-
-- **Nuevos Permisos de Reportes**:
-    - `MA_A_REPORTES_DETALLE`: Permite ver el detalle extendido de una solicitud en la pestaña de reportes.
-    - `MA_A_REPORTES_REVISION`: Permite solicitar revisiones técnicas de reportes existentes.
-    - **Agrupación lógica**: Estos permisos se configuraron en `RoleModal.tsx` para aparecer agrupados bajo "Medio Ambiente" -> "Reportes".
-
-- **Corrección de Visibilidad Global (Fix Técnico)**:
-    - Se modificó el controlador `solicitud.controller.js` en el backend.
-    - **El Problema**: Los usuarios del Área Técnica estaban restringidos por sección (sólo veían solicitudes de su área), mientras que Calidad tenía acceso global.
-    - **La Solución**: Se añadió una excepción para que cualquier usuario con permisos de reportes (`MA_A_REPORTES`) se salte el filtrado por sección, garantizando paridad de información entre Calidad y Técnica.
-
-### 18. Mejoras de UI/UX y Estética Premium (Febrero 2026) ✨🎨
-Refinamiento visual para asegurar una interfaz profesional, centrada y adaptable.
-
-- **Hubs Administrativos Centrados**:
-    - Se corrigió la alineación de las tarjetas en `AdminMaHub.tsx`, `AdminGcHub.tsx` y `EquiposHub.tsx`.
-    - Títulos y badges de "pendientes" ahora aparecen perfectamente centrados respecto al icono, eliminando el sesgo a la izquierda.
-- **Optimización de SolicitudesMaPage**:
-    - Centrado de pestañas y contenedores principales (max-width `1000px`).
-    - Mejora en la visualización de la pestaña de **Reportes y Vouchers** para que sea responsiva y consistente con el diseño de Gestión de Equipos.
-- **Visibilidad Basada en Roles**:
-    - Los badges rojos de "pendientes" en los Hubs ahora son inteligentes: solo muestran conteos relevantes al rol del usuario (Técnica vs. Calidad).
-
-### 19. Usabilidad Móvil y Accesibilidad 📱🚀
-- **Filas Cliqueables**: En la gestión de roles, las filas de la tabla ahora son totalmente cliqueables en móviles para abrir el detalle directamente sin depender de botones pequeños.
-- **Ocultamiento Inteligente**: Se implementó la clase `.mobile-hide` para ocultar elementos no críticos (como el widget de clima/reloj previo) en pantallas pequeñas, maximizando el espacio útil.
-### 20. Diferenciación de Eventos en Calendario (Marzo 2026) 📅🔀
-Mejoras en la vista de calendario para diferenciar visualmente entre eventos de Instalación y Retiro.
-
-- **Eventos Separados (INICIO / RETIRO)**:
-    - Transformación de datos de muestreo en eventos individuales de Instalación (`INICIO`) y Retiro (`RETIRO`).
-    - Cada tipo de evento tiene indicadores visuales distintos (colores, etiquetas).
-    - Vista diaria con tarjetas diferenciadas por tipo de evento.
-- **Muestreador Correcto por Tipo de Evento**:
-    - La query `getEnProcesoFichas` ahora incluye `LEFT JOIN` adicional a `mae_muestreador` para traer el nombre del muestreador de retiro (`muestreador_retiro`).
-    - El modal del calendario muestra el muestreador correcto según el tipo de evento seleccionado.
-- **Archivos Modificados**:
-    - Backend: `ficha.service.js` (query `getEnProcesoFichas` con segundo JOIN a `mae_muestreador`)
-    - Frontend: `EnProcesoCalendarView.tsx` (transformación de eventos, renderizado diferenciado)
-
-### 21. Actualización de Filtros y Fuentes de Datos del Calendario (Marzo 2026) 🔍📊
-Corrección de fuentes de datos para garantizar que los filtros del calendario y la vista de coordinación funcionen correctamente.
-
-- **Filtros de Empresa y Muestreador**:
-    - Empresa: Datos obtenidos de la tabla `sc_empresa`.
-    - Muestreadores: Solo muestreadores habilitados desde `mae_muestreador`.
-- **Corrección de Visualización de Fichas Pendientes**:
-    - **Problema**: Las fichas recién aprobadas con estado `PENDIENTE PROGRAMACIÓN` (`id_validaciontecnica = 6`) no aparecían en la vista de Planificación y Asignación.
-    - **Causa Raíz**: El SP `MAM_FichaComercial_ConsultaCoordinador` usaba `INNER JOIN` con `App_Ma_Agenda_MUESTREOS` y `mae_empresaservicios`, filtrando fichas que aún no tenían registros de agenda o cuyo ID de empresa servicio no existía en la tabla maestra.
-    - **Solución**: Migración de todos los `INNER JOIN` a `LEFT JOIN` en el SP, permitiendo que fichas sin agenda o con datos maestros faltantes aparezcan correctamente.
-- **Archivos Modificados**:
-    - Base de Datos: SP `MAM_FichaComercial_ConsultaCoordinador` (todos los JOINs cambiados a LEFT JOIN)
-    - Script local: `db_scripts/modify_assignment_sp.sql`
-
-### 22. Flujo de Cancelación de Muestreos (Marzo 2026) ❌📋
-Implementación del flujo completo de cancelación de eventos de muestreo desde el calendario.
-
-- **Cancelación con Motivo**:
-    - Botón de cancelación disponible en el modal de detalle del evento.
-    - Registro del motivo de cancelación (`motivo_cancelacion`) en la base de datos.
-    - Corrección del backend para guardar correctamente el motivo en la tabla `App_Ma_Agenda_MUESTREOS`.
-- **Visualización de Estado**:
-    - Los eventos cancelados se marcan visualmente y muestran el motivo registrado.
-    - Bloqueo de acciones (guardar, reasignar) en eventos ya cancelados o con `id_validaciontecnica = 7`.
-- **Archivos Modificados**:
-    - Backend: `ficha.service.js` (función `cancelAgendaSampling`)
-    - Frontend: `EnProcesoCalendarView.tsx` (UI de cancelación con motivo)
-
-### 23. Equipos Duales por Muestreador y Versionamiento (Marzo 2026) 🔧📦
-Mejoras profundas en la lógica de asignación de equipos para soportar muestreadores duales y control de versiones.
-
-- **Equipos de Ambos Muestreadores**:
-    - Al asignar un muestreo, se registran los equipos tanto del muestreador de **instalación** como del de **retiro**.
-    - Se evitan duplicados si ambos muestreadores comparten equipos (validado por `id_equipo`).
-    - Cada equipo registra a qué muestreador pertenece (`id_muestreador`).
-- **Control de Versión de Equipos**:
-    - Nueva columna `version` en `App_Ma_Equipos_MUESTREOS` para capturar la versión del equipo al momento de la asignación.
-    - La versión se obtiene directamente de `mae_equipo.version` durante la inserción.
-- **Prompt de Versión en Reagendamiento**:
-    - Al reagendar un muestreo desde el calendario, se muestra un diálogo con dos opciones:
-        - **"Mantener versión original"**: Preserva los equipos y versiones tal como fueron registrados originalmente.
-        - **"Usar versión actual"**: Refresca los equipos y versiones desde la tabla maestra (`mae_equipo`).
-    - Flag `actualizarVersiones` en el payload que controla el comportamiento del backend.
-- **Simplificación de UI**:
-    - Eliminada la sección de visualización de equipos del modal del calendario (a solicitud del usuario).
-    - Eliminados los estados y efectos de fetch de equipos (`samplingEquipos`, `isLoadingEquipos`).
-- **Archivos Modificados**:
-    - Backend: `ficha.service.js` (función `batchUpdateAgenda` reescrita para lógica dual + versión)
-    - Frontend: `EnProcesoCalendarView.tsx` (prompt de versión, eliminación de sección de equipos)
-    - Base de Datos: `ALTER TABLE App_Ma_Equipos_MUESTREOS ADD version VARCHAR(50)`
-
-### 24. Ordenamiento de Servicios en Notificaciones (Marzo 2026) 📧🔢
-Corrección del orden de servicios en los correos de notificación `FICHA_ASIGNADA`.
-
-- **Problema**: Los servicios asignados se listaban en orden lexicográfico (1, 10, 11, 12, 2, 3...) en lugar de numérico.
-- **Solución**: Implementación de ordenamiento numérico en JavaScript antes del envío del correo, extrayendo el número de servicio del `frecuencia_correlativo`.
-- **Archivos Modificados**:
-    - Backend: `ficha.service.js` (lógica de ordenamiento en la sección de notificación `FICHA_ASIGNADA`)
-
-### 25. Gestión de Muestreadores - Habilitación y Validación de Duplicados (Marzo 2026) 👤✅
-Nuevas funcionalidades para la administración de muestreadores en el módulo de gestión.
-
-- **Botón Habilitar Muestreador**:
-    - Nuevo botón verde con ícono de verificación (✓) visible para muestreadores **inactivos**.
-    - Modal de confirmación antes de ejecutar la habilitación.
-    - Endpoint `PUT /api/admin/muestreadores/:id/enable` que actualiza `habilitado = 'S'` en `mae_muestreador`.
-- **Validación de Duplicados al Crear**:
-    - Al crear un nuevo muestreador, el sistema verifica automáticamente si ya existe uno con el mismo **nombre** o **correo electrónico**.
-    - Si se detecta un duplicado, se muestra una advertencia amarilla con:
-        - Nombre y correo del muestreador existente.
-        - Estado actual (Activo/Inactivo).
-        - Sugerencia de habilitarlo desde la lista si está inactivo.
-    - La advertencia **bloquea** la creación hasta que se corrijan los datos.
-    - Endpoint `GET /api/admin/muestreadores/check-duplicate?nombre=...&correo=...`.
-- **Archivos Modificados**:
-    - Backend: `admin.service.js` (funciones `enableMuestreador`, `checkDuplicateMuestreador`)
-    - Backend: `admin.controller.js` (nuevos handlers)
-    - Backend: `admin.routes.js` (nuevas rutas)
-    - Frontend: `admin.service.ts` (nuevos métodos de API)
-    - Frontend: `MuestreadoresPage.tsx` (botón habilitar + modal de confirmación)
-    - Frontend: `MuestreadorModal.tsx` (validación de duplicados en formulario de creación)
-
-### 26. Gestión de Solicitudes y Resolución de Identidades (Marzo 2026) 📝👤
-Mejoras sustanciales en el módulo de "Gestión de Solicitudes" (`SolicitudesMaPage.tsx`) para optimizar la visualización de datos devueltos por la API aplicados a la lectura de jefaturas y administradores.
-
-- **Despliegue Exacto de Código y Nombre (Equipos)**:
-    - Modificada la columna `CÓDIGO/NOMBRE` para solicitudes de *ALTA* y *BAJA*.
-    - Impresión directa del código real del equipo ingresado (desde `datos_originales` o estructura interna), erradicando el texto fallback `N/A`.
-    - **Limpieza Visual**: Implementada una función regex de limpieza para evitar que el título del equipo reitere su código redundante entre paréntesis.
-
-- **Resolución de Identidad del Solicitante (Nombres y Alias)**:
-    - **Problema**: El campo "Solicitante" mostraba IDs numéricos asilados (ej. `394`) o alias de inicio de sesión genéricos (ej. `pflores`) dependiendo de qué proceso creaba u originaba la solicitud administrativa.
-    - **Solución**: Implementada una **Estrategia de Resolución en Cascada** para forzar la visualización del nombre humano real (`Pablo Flores`):
-        1. **Precarga Global**: Consumo y cacheo en memoria de `usuariosDB` (`/api/rbac/users`) y del catálogo de `muestreadores`.
-        2. **Mapeo de IDs (Números)**: Búsqueda inversa cruzando el ID entrante contra la tabla local, extrayendo el campo `nombre_real` / `usuario`.
-        3. **Mapeo de Alias (pflores)**: Normalización a `toUpperCase` y cruce del alias en minúsculas contra la BD. Si coincide, extrae forzosamente el valor formal alojado de forma cruzada en la BD (`nombre_real` vs `nombre_usuario`).
-        4. **Resguardo Seguro**: Recorrido iterativo por lista de propiedades secundarias (`nombre_solicitante`, `nombre_completo`, etc.) antes de pintar textualmente el ID/Alias como último recurso.
-
-- **Solución de Bugs Visuales Generales**:
-    - Corrección del bloqueo mortal (pantalla en blanco) provocado por un tag React mal cerrado (`<p/>`) dentro de los modales.
-    - Reparación de los "modales dobles" sobrepuestos al clickear "Ver Detalle" en la vista de Historial.
-    - Las tablas del historial ahora logran filtrar y procesar con precisión la fecha original y el último estado.
-
----
-
-### 27. Refinamiento de Notificaciones y Metadatos (Marzo 2026) 📧✨
-Mejoras profundas en el sistema de notificaciones para proporcionar información detallada y comparativa en procesos de reprogramación.
-
-- **Enriquecimiento de Metadatos (SQL)**:
-    - Se corrigió la consulta de metadatos para incluir el nombre del **Cliente** real (desde `mae_empresa`) y diferenciarlo de la **Empresa de Servicio**.
-    - Inclusión de nuevos placeholders: `{CLIENTE}`, `{PLANTA}` (alias de centro), `{CONTACTO_EMPRESA}`, `{CORREO_CONTACTO}`, `{MONITOREO}` y `{OBJETIVO}`.
-    - Alineación con el esquema legacy: corrección de nombres de columnas (`nombre_tabla_largo`, `ma_coordenadas`, `ma_punto_muestreo`, `fichaingresoservicio`).
-- **Filtrado Inteligente de Servicios**:
-    - En correos de **REPROGRAMACIÓN**, el sistema ahora filtra y muestra **solo los servicios que sufrieron cambios** (fecha o muestreador).
-    - Implementación de comparativa visual: ~~Valor Antiguo~~ ➔ **Valor Nuevo** para resaltar qué cambió exactamente.
-    - Prevención de correos vacíos si no se detectan cambios reales durante el guardado.
-- **Placeholders Flexibles**:
-    - Implementación de búsqueda insensible a mayúsculas para `{servicios_detalle}` y otros bloques dinámicos.
-
-### 28. Resolución de Errores Críticos de Backend (Marzo 2026) 🛠️🔒
-- **Fix Error 500 (batch-agenda)**: Resolución de errores de SQL causados por nombres de tablas (`mae_entidad` -> `mae_empresaservicios`) y columnas incorrectas.
-- **Integridad de Auditoría**: Aseguramiento de que el campo `correo_empresa` y otros datos de contacto se propaguen correctamente hacia el servicio de notificaciones.
-
----
-
-### 29. Finalización de Módulo de Fichas y Planificación (Marzo 2026) 🛠️📋
-Consolidación de reglas de negocio, validaciones y precisión operativa en el flujo de Fichas y Agenda.
-
-- **Flexibilidad en Facturación**: Implementación de lógica para diferenciar el **Cliente (empresa a facturar)** de la **Empresa de Servicio**, asegurando que la facturación y la ejecución sean independientes.
-- **Instrumento Ambiental**: Actualización del catálogo con nuevas opciones normativas: `- res sis` y `-dgtm`.
-- **Estandarización de Medidas Técnicas**: Selección dinámica de unidades (**Metros o Pies**) en campos de canal y dispositivo, con persistencia automática de símbolos.
-- **Validaciones de Integridad**: Nuevas reglas en el ingreso de análisis que exigen al menos **1 servicio** y **1 normativa** por cada registro.
-- **Selección de Laboratorio por Parámetro**: Capacidad de asignar laboratorios específicos para cada parámetro individual dentro de una ficha.
-- **Control de Visibilidad (Privacidad)**: Restricción de acceso a valores en **UF**, los cuales ahora solo son visibles para el **Área Comercial**.
-- **Optimización de Comunicación Interna**: En el Área de Coordinación, se renombró la acción de "Rechazo" por **"Solicitar Revisión"** para fomentar un flujo de trabajo iterativo.
-- **Precisión Cronológica en Planificación**:
-    - Corrección del cálculo de **Fechas Recomendadas** basado en periodos numéricos reales.
-    - Alineación: La **Fecha de Muestreo** se sincroniza ahora estrictamente con la **Fecha de Retiro**.
-- **Gestión Maestra de Cancelaciones**: Integración con la tabla `mae_estadomuestreo` para proporcionar una lista cerrada de motivos de cancelación validados.
-
----
-
----
-
-### 30. Dashboards Especializados y Analítica Avanzada (Marzo 2026) 📊📈
-Nueva suite de visualización de datos diseñada para proporcionar inteligencia de negocio accionable por área.
-- **Vistas Especializadas**: Implementación de dashboards dedicados para **Gestión Operativa**, **Servicios y Clientes**, y **Logística y Centros**.
-- **Visualizaciones Complejas**: Integración de gráficos de Recharts (**Radar**, **Treemap**, **Composed Charts**) para analizar KPIs de rendimiento y distribución.
-- **Interactividad**: Filtros dinámicos con capacidades de drill-down que permiten profundizar en la data temporal y geográfica de cada vista.
-
-### 31. Refuerzo de Auditoría Global (Marzo 2026) 🛡️🔍
-Mejoras en la capa de seguridad y trazabilidad para cumplir con estándares de auditoría técnica.
-- **Captura Extensa de Metadatos**: El sistema ahora registra automáticamente la `ip_address`, `trace_id` y `metadatos_extra` en la tabla `App_Audit_Log`.
-- **Middleware de Contexto**: Implementación de una utilidad global que propaga la identidad y el contexto del usuario a todas las capas del servicio (Backend).
-
-### 32. Validación Estricta y Auto-Completado de Equipos (Marzo 2026) 📋⚡
-Aseguramiento de la integridad de datos en el ingreso de inventario técnico.
-- **Selección Estricta (Select-Only)**: Los campos de nombre de equipo, parámetros de medición y unidades ahora funcionan exclusivamente como selectores, eliminando la entrada de texto libre propensa a errores.
-- **Sincronización Inteligente de Metadatos**: Al elegir un equipo, el formulario puebla automáticamente los campos "Qué Mide" y "Unidad de Medida" basándose en el registro maestro del catálogo.
-
-### 33. Módulo de Administración de Información y Exportador de Datos (Marzo 2026) 📊
-Nueva interfaz centralizada para la descarga y gestión de bases de datos maestras y resultados operativos.
-- **Exportador Multi-Área**: Herramienta integrada en `AdminInfoHub.tsx` que permite exportar tablas (Maestros, Fichas, Solicitudes, Equipos) y procedimientos almacenados (SP) directamente a archivos Excel (`.xlsx`).
-- **Descarga en Tiempo Real**: Visualización dinámica de recursos disponibles por área de negocio y generación de reportes personalizada.
-- **Seguridad**: Acceso restringido mediante permisos específicos (`AI_MA_ADMIN_ACCESO`) y para usuarios administradores.
-
-### 34. Rediseño Minimalista del Catálogo Maestro (Marzo 2026) ✨🛠️
-Refinamiento visual profundo del gestor de modelos de equipos para garantizar una experiencia de usuario premium y eficiente.
-- **Estética Premium**: Refactorización de `EquipoCatalogoView.tsx` utilizando una nueva arquitectura de clases CSS (`catalog-*-refined`) en `admin.css`.
-- **Optimización de Espacio**: Implementación de un límite de desplazamiento (scroll) automático tras **6 elementos** en la tabla principal, maximizando la visibilidad del contenido circundante.
-- **Mayor Detalle Técnico**: Inclusión de la columna **Sigla** en la vista de lista, permitiendo identificar abreviaturas de unidad de forma inmediata.
-- **Refinamiento de Usabilidad (UX)**: 
-    - Reducción de espacios en blanco (márgenes y rellenos) en la cabecera del Hub para "subir" el contenido principal.
-    - Rediseño de formularios en cuadrículas de 2 columnas para una entrada de datos más organizada y compacta.
-    - Micro-animaciones (fadeIn) y botones de acción estilizados con iconos minimalistas.
-
----
-
----
-
-### 35. Motor de Notificaciones Universal (UNS) y Sincronización (Marzo 2026) 🔔🔄
-Consolidación de las notificaciones como un servicio centralizado y reactivo a las preferencias del usuario.
-
-- **Motor UNS (Universal Notification Service)**:
-    - Implementación de un servicio unificado que gestiona tanto alertas en tiempo real (Socket.io) como correos electrónicos (Nodemailer).
-    - **Priorización de Reglas**: Sistema inteligente que decide el destinatario basándose en la especificidad: Usuario > Rol > Aplicación.
-    - **Soporte Transaccional**: Capacidad de manejar eventos complejos como comentarios en solicitudes y cambios de estado con placeholders dinámicos (`{{correlativo}}`, `{{usuario_accion}}`).
-
-- **Sincronización Total con el Hub**:
-    - Se eliminó la discrepancia entre la configuración visual y el motor interno.
-    - Los cambios en los canales (activar/desactivar Email/Web) en el Hub administrativo se propagan automáticamente a la tabla de reglas maestras (`mae_notificacion_regla`).
-
-- **Optimización de UX (Toast Shield)**:
-    - Implementación de un "escudo" de 5 segundos durante el arranque de la aplicación para evitar que notificaciones antiguas o de sesión previa aparezcan como nuevas para el usuario.
-    - Sincronización con el estado de carga del store de notificaciones (Zustand).
-
-- **Plantillas Corporativas Refinadas**:
-    - Diseño unificado de correos electrónicos con compatibilidad total para Outlook y dispositivos móviles.
-    - Reversión a la identificación de usuario solicitada para mantener la paridad con el sistema legacy.
-
-### 36. Resiliencia, Seguridad y Experiencia de Usuario (Marzo 2026) 🛡️✨
-Consolidación de la estabilidad del sistema y mejora de la interfaz de soporte y navegación.
-
-- **Gestión Avanzada de Contraseñas**:
-    - **Seguridad**: Ampliación de la columna `clave_usuario` a `VARCHAR(100)` para soportar contraseñas largas y seguras.
-    - **Feedback Visual**: Implementación de un indicador de fortaleza de contraseña en tiempo real con barra de progreso animada.
-    - **Validaciones**: Prevención de contraseñas idénticas a la actual y validación de coincidencia instantánea en el formulario de cambio.
-
-- **Navegación Inteligente y Contextual**:
-    - **Landing Page unificada**: Ahora, al seleccionar un módulo principal (ej: Medio Ambiente), el sistema muestra por defecto la **WelcomePage** (Inicio) con avisos y eventos relevantes.
-    - **Preservación de Contexto**: Al re-clickear una unidad ya activa, el sistema ya no resetea la vista, permitiendo que el usuario mantenga su trabajo en sub-páginas (como Fichas de Ingreso) sin interrupciones.
-
-- **Gestión de Errores Críticos (Crash Prevention)**:
-    - **ErrorBoundary Global**: Implementación de un "escudo" en `App.tsx` que captura fallos de renderizado y evita la pantalla en blanco.
-    - **ErrorPage Personalizada**: Nueva interfaz de error que utiliza la estética del login (glassmorphism) para informar códigos de error de forma clara y profesional.
-
-- **Centro de Ayuda y Soporte Integrado**:
-    - **HelpCenter Modal**: Nuevo componente accesible desde el menú de usuario con acceso directo a soporte técnico vía **WhatsApp** (+56 9 5721 8268) y **Email** (informatica@adldiagnostic.cl).
-    - **Base de Conocimientos (FAQ)**: Sistema de acordeones con respuestas a dudas frecuentes sobre el uso de la plataforma.
-
----
-
-### 37. Personalización y Perfil de Usuario (Marzo 2026) 👤✨
-Nueva interfaz dedicada para la gestión y visualización de la identidad del usuario en el sistema.
-- **Página de Mi Perfil**: Landing page personalizada que consolida la información del usuario con un diseño moderno y minimalista.
-- **Encabezado Premium**: Implementación de un header con degradados dinámicos que se adaptan al tema visual seleccionado.
-- **Organización por Módulos**: Información dividida en tarjetas claras de "Información Personal" (datos básicos) y "Seguridad y Rol" (identificación técnica).
-- **Atajos de Configuración**: Panel de preferencias integrado para cambios rápidos en la experiencia de usuario.
-.
-
-### 38. Módulo de Chat General (Tiempo Real) 💬⚡
-Sistema de comunicación instantánea integrado para fomentar la colaboración entre los usuarios de ADL One.
-- **Mensajería Omnicanal**: Soporte para chats directos (uno a uno) y creación de grupos de trabajo con múltiples integrantes.
-- **Comunicación en Tiempo Real**: Motor basado en **Socket.io** que garantiza la entrega inmediata de mensajes y avisos de "nueva conversación".
-- **Gestión de Multimedia**: Capacidad para adjuntar archivos y documentos directamente en el flujo de la conversación.
-- **Herramientas Administrativas**: Funciones para limpiar historial, eliminar mensajes específicos y gestionar miembros en conversaciones grupales.
-- **Integración con Perfiles**: Acceso rápido al perfil del contacto y posibilidad de marcar chats como favoritos para acceso prioritario.
-- **Deep-linking de Notificaciones**: Redirección automática desde las notificaciones del sistema hacia la conversación específica del chat.
-
----
-
-### 39. Consolidación de Validación Técnica y Segundo Laboratorio (Marzo 2026) 🧪🔬
-Optimización del flujo de validación técnica y ampliación de las capacidades analíticas en el formulario de ingreso.
-
-- **Integración de Segundo Laboratorio**:
-    - El `AnalysisForm.tsx` ahora permite asignar un **Laboratorio Secundario** opcional por cada parámetro, además del laboratorio derivado principal.
-    - Captura y persistencia de campos de **Error** (`llevaerror`, `error_min`, `error_max`) alineados con los requisitos de precisión del laboratorio.
-- **Flujo de Trabajo Simplificado**:
-    - Consolidación de las acciones de **Aprobar Ficha** y **Solicitar Revisión** dentro de la pestaña "Validación e Historial" en las vistas de detalle técnica y coordinación.
-    - Eliminación de redundancia visual: los botones de estado en la cabecera fueron removidos para evitar confusiones de flujo.
-- **Refactorización de UI (Mantine)**:
-    - Reconstrucción completa del motor de selección de análisis para mayor rendimiento y limpieza visual.
-    - Implementación de ScrollAreas independientes para búsqueda y configuración, mejorando la usabilidad en pantallas con muchos parámetros.
-- **Robustez en Notificaciones (UNS)**:
-    - Fusión de plantillas de notificación para soportar eventos de Ficha, GChat y Reporte de Problemas de Equipos de forma unificada en `uns.service.js`.
-
----
-
-### 40. Restauración de Gestión de Equipos y Solicitudes (Marzo 2026) 🔧📝
-Se restauraron y optimizaron funcionalidades críticas de inventario tras la integración de cambios.
-- **Alertas en Tabla de Equipos**: Re-implementación de la columna de alertas en la tabla principal, permitiendo identificar equipos con solicitudes pendientes visualmente.
-- **Acceso Rápido desde Edición**: Añadido un botón flotante (`Affix`) de **"Solicitudes"** en el formulario de edición de equipos, permitiendo ver el historial y estado de trámites sin cerrar el formulario.
-- **Gestión de Solicitudes Optimizada**: Rediseño de las acciones en el modal de solicitudes, reemplazando botones directos por un menú desplegable (`Mantine Menu`) para una interfaz más limpia y profesional.
-- **Lógica de Auditoría y Versiones**: Aseguramiento de la integridad de datos al aprobar o rechazar solicitudes de traspaso, baja o alta, manteniendo la trazabilidad en `mae_equipo_historial`.
-- **Limpieza de Código**: Eliminación de dependencias obsoletas y estandarización de componentes con Mantine UI v7.
-
-### 41. Visibilidad Genérica y Notificaciones de Acción (Marzo 2026) 🌐🔔
-Mejoras en la arquitectura de visibilidad de solicitudes y refinamiento de la comunicación transaccional.
-
-- **Visibilidad Dinámica Metadatos (`modulo_destino`)**:
-    - Implementación de un sistema basado en metadatos para decidir qué tipos de solicitud aparecen en cada módulo de la UI (ej. Equipos).
-    - Nueva columna `modulo_destino` en `mae_solicitud_tipo` y panel administrativo para su configuración, eliminando listas "hardcodeadas" en el frontend.
-- **Inbox Universal Inteligente (UX/Nav)**:
-    - **Auto-Tab Switching**: El buzón detecta automáticamente si una solicitud seleccionada es *Recibida* o *Enviada* y cambia de pestaña para asegurar su visibilidad.
-    - **Auto-Scroll**: Implementación de desplazamiento automático suave hacia la solicitud seleccionada, facilitando la ubicación de trámites antiguos.
-    - **Resolución de Bucles**: Optimización de hooks de React para evitar ciclos infinitos durante la sincronización de estados complejos.
-- **Refinamiento de Notificaciones de Acción**:
-    - **Detalle Completo en Emails**: Los correos de *Aceptar*, *Rechazar* y *Realizada* ahora inyectan dinámicamente el bloque de detalles (Equipo, Destino, Motivo), reparando la falta de contexto previa.
-    - **Formato Web Humano**: Las alertas web ahora muestran el nombre del autor de forma limpia (ej. `Manuel Sanchez: observaciones`) y utilizan estados legibles (ej. "Aceptada" en lugar de `ACEPTADA`).
-    - **Soporte de Identificadores**: El motor de plantillas ahora admite tanto `nombre_equipo` como `nombre_equipo_full` para máxima compatibilidad con solicitudes de traspaso.
-
-### 42. Gestión de Muestreadores y Reasignación Automática de Equipos (Marzo 2026) 👤🔄
-Implementación de un flujo unificado y robusto para la deshabilitación de muestreadores con reasignación obligatoria de equipos.
-
-- **Reasignación Atómica**:
-    - Centralización de la lógica de trasvase en `equipoService.executeEquipmentReassignment`.
-    - Soporta tres modalidades de reasignación: **Traspaso a Base**, **A un Compañero** o **Asignación Manual** (equipo por equipo).
-    - Manejo inteligente de abreviaturas de Sede (ej. "Base Puerto Montt" -> "PM") y mapeo de IDs para cumplir con restricciones de base de datos (`VARCHAR(2)`).
-
-- **Interfaz de Deshabilitación Guiada**:
-    - Nuevo modal `SamplerDeactivationModal.tsx` integrado en la vista de administración de muestreadores.
-    - El sistema exige definir el destino de todos los equipos del muestreador antes de proceder con el cambio de estado.
-    - Sincronización total con el flujo de solicitudes URS: el marcado de solicitudes como "Realizada" ahora utiliza el mismo motor compartido, automatizando la actualización del inventario.
-
-- **Mejoras en Auditoría e Integridad**:
-    - Registro de transacciones que aseguran la consistencia entre el estado del personal y la responsabilidad de los activos técnicos.
-    - Limpieza de UI: remoción de iconos redundantes y mejora en la visualización de solicitudes asociadas desde la tabla principal.
-
-- **Archivos Modificados**:
-    - Backend: `equipo.service.js`, `admin.service.js`, `urs.service.js`, `admin.controller.js`, `admin.routes.js`.
-    - Frontend: `SamplerDeactivationModal.tsx`, `MuestreadoresPage.tsx`, `admin.service.ts`.
-
----
-
----
-
-## 🏗️ Estructura Detallada del Proyecto (Frontend)
-
+### Variables de Entorno — Email (Desarrollo)
+Para evitar el envío a usuarios reales durante el desarrollo:
+```env
+EMAIL_TO_LIST=tu_correo_dev@adldiagnostic.cl
+EMAIL_TO_REJECT_LIST=tu_correo_dev@adldiagnostic.cl
+EMAIL_BCC_LIST=tu_correo_dev@adldiagnostic.cl
 ```
-frontend-adlone/
-├── src/
-│   ├── components/          # Componentes comunes (Layouts, UI, Timeline, Toasts)
-│   ├── features/            # Módulos por área de negocio
-│   │   ├── admin/           # Gestión de Usuarios, Roles, Hubs, Notificaciones Premium
-│   │   ├── medio-ambiente/  # Solicitudes, Equipos, Reportes y Vouchers
-│   │   ├── comercial/       # Fichas Comerciales y Análisis
-│   │   └── tecnica/         # Validaciones y Flujo Técnico
-│   ├── services/            # Servicios de comunicación con API (Axios)
-�### 44. Refactor Responsivo para Tablets y Gestión de Permisos (Marzo 2026) 📱💻
-Optimización integral de la interfaz administrativa para garantizar una experiencia fluida en tablets (iPad) y dispositivos móviles, estandarizando el modelo de navegación compacta.
 
-- **Estandarización de Navegación Compacta**:
-    - Se unificó el punto de quiebre (breakpoint) a **1200px (lg)** para la activación del menú tipo "burger" y la barra lateral colapsable en `MainLayout.tsx`.
-    - Garantiza que tanto tablets en modo portrait como teléfonos tengan una navegación coherente y táctil.
-- **Optimización del Calendario en Tablets**:
-    - Ajuste dinámico de alturas de celda (100px) y aumento de tamaño de fuentes en `EnProcesoCalendarView.tsx` para mejorar la legibilidad en iPads.
-    - **Vista Anual**: Implementación de una cuadrícula de 2 columnas en tablets para evitar el hacinamiento de meses.
-    - Mayor densidad de eventos visibles (hasta 4 badges por día) antes de agrupar.
-- **Gestión de Permisos Responsiva (RequestTypePermissions)**:
-    - **Motor de Visualización Adaptable**: La tabla de permisos de trámites ahora se transforma automáticamente en una **lista de tarjetas inteligentes** en pantallas menores a 1200px.
-    - **Cabecera Dinámica**: La información básica del trámite utiliza `SimpleGrid` para apilarse verticalmente en móviles, manteniendo la jerarquía visual.
-    - **Selectores de Añadir**: Los buscadores de roles y usuarios ahora ocupan el ancho total en móviles para facilitar la selección táctil en `RequestTypePermissionsPage.tsx`.
-- **Ajustes en Modales y Formularios**:
-    - El `RecipientModal` ahora fuerza el apilamiento de columnas a partir de los 1200px, asegurando que los formularios sean cómodos de completar en cualquier tablet.
-    - Mejoras en `WelcomePage.tsx` para adaptar las secciones de servicios destacados a dispositivos medianos.
-
-### 45. Módulo de Remuestreo y Permisos Comerciales (Abril 2026) 🔄🔐
-Implementación del flujo completo de creación de fichas de remuestreo y permisos granulares para el módulo comercial.
-
-- **Creación de Fichas de Remuestreo**:
-    - Nuevas columnas `es_remuestreo` e `id_ficha_original` en `App_Ma_FichaIngresoServicio_ENC` para rastrear el origen de cada remuestreo.
-    - Actualización de `solicitud.service.js` para persistir y validar los campos de remuestreo al crear una ficha.
-    - Hidratación determinista de formularios: carga libre de race conditions para todos los campos, incluyendo dropdowns dependientes.
-- **Notificaciones de Remuestreo**:
-    - Creación de la plantilla de evento `FICHA_REMUESTREO_CREADA` con corrección de capitalización ("Nueva ficha de remuestreo").
-    - Disparo automático de email y notificación web al crear una ficha de remuestreo.
-- **Permisos Granulares Comerciales**:
-    - Registro de códigos `MA_COMERCIAL_HISTORIAL_ACCESO` y `MA_COMERCIAL_HISTORIAL_DETALLE` en base de datos y UI de configuración de roles.
-    - Integración de `ProtectedContent` y hook `hasPermission` para condicionar acceso a módulos, historial y acciones de remuestreo.
-- **Mejoras de UI/UX**:
-    - Refactor de `Sidebar.tsx` con micro-animaciones y tipografía *Inter*.
-    - Actualizaciones visuales en `AssignmentDetailView`, `CommercialDetailView`, `CoordinacionDashboardView` y `EnProcesoCalendarView`.
-    - Refactor responsive de la gestión de usuarios con tarjetas móviles y diseño premium.
-    - Interceptor Axios en `axios.config.ts` para autorización centralizada y manejo de errores.
-- **Archivos Modificados**:
-    - Backend: `solicitud.service.js`, `ficha.service.js`, `equipo.controller.js`, `equipo.service.js`, `uns.service.js`, `catalogos.service.js`, `admin.routes.js`
-    - Frontend: `ProtectedContent.tsx`, `Sidebar.tsx`, `AuthContext.tsx`, `AssignmentDetailView.tsx`, `CommercialDetailView.tsx`, `ComercialPage.tsx`, `FichaDetailView.tsx`, `FichasIngresoPage.tsx`, `EnProcesoCalendarView.tsx`, `navStore.ts`, `admin.service.ts`
-    
----
-
-### 51. Optimización UI Responsiva y Estandarización de Navegación (Mayo 2026) 📱💻
-Consolidación de una experiencia de usuario (UX) coherente, profesional y altamente responsiva en toda la plataforma, estandarizando los elementos de navegación y el layout de los módulos de "Medio Ambiente".
-
-- **Rediseño de `PageHeader` (Sistema Global)**:
-    - Implementación de arquitectura de layout basada en Flexbox (`1-auto-1`) garantizando el centrado absoluto del título y subtítulo en todas las resoluciones.
-    - Soporte integrado para `breadcrumbItems` (navegación de migas de pan), facilitando el contexto y la orientación ("Fichas de Ingreso / Módulo Actual").
-    - Comportamiento responsivo fluido: botones de acción apilados dinámicamente debajo del título en móviles, manteniendo alineación a la derecha en escritorio.
-- **Estandarización UI en Módulos de Fichas**:
-    - Se inyectó la nueva estructura jerárquica de breadcrumbs en todas las vistas del submódulo Medio Ambiente: Explorador, Rutas, Dashboard Inteligente, Muestreos Completados, Creación, Asignación, Calendario y Vistas de Detalle.
-    - El Dashboard Inteligente (`KpiAnalystDashboardView.tsx`) fue refactorizado para adoptar la cabecera estándar `PageHeader`, reemplazando componentes personalizados para mantener simetría visual.
-- **Limpieza de Código y Estabilidad**:
-    - Resolución de advertencias de imports sin uso e iconos huérfanos a través de múltiples vistas, garantizando un entorno de compilación limpio.
-- **Archivos Modificados**:
-    - Frontend: `PageHeader.tsx`, `FichaUniversalView.tsx`, `EnProcesoListView.tsx`, `CoordinationListView.tsx`, `AssignmentListView.tsx`, `EnProcesoCalendarView.tsx`, `FichasExploradorView.tsx`, `KpiAnalystDashboardView.tsx`, `RutasListView.tsx`, `FichaCreateChoice.tsx`, `FichaCreateForm.tsx`, `RouteMapPlannerView.tsx`, `MuestreosEjecutadosListView.tsx`.
-
----
-
-### 46. Mejoras en Gestión de Equipos y UX de Solicitudes (Abril 2026) ⚙️✨
-Refinamiento integral del módulo de Gestión de Equipos y la experiencia de usuario al crear solicitudes, corrigiendo lógica de alertas, visibilidad condicional de formularios y rediseño de la pantalla de éxito.
-
-- **Corrección de Lógica de Alertas en Equipos**:
-    - El ícono de alerta (`IconAlertTriangle`) en la tabla de equipos ahora solo se muestra cuando existe al menos una solicitud con estado **`ACEPTADA`** asociada al equipo.
-    - Las solicitudes en estado `PENDIENTE` ya no disparan la visibilidad del ícono, evitando falsos positivos.
-    - Filtrado en `loadSolicitudes()` actualizado para consultar exclusivamente solicitudes con `estado = 'ACEPTADA'` desde ambos servicios (`adminService` y `ursService`).
-
-- **Formulario de Equipos — Ocultamiento de Revisión Masiva en Edición**:
-    - El paso de `Stepper` "Revisión Masiva" (para creación en lote) ahora se oculta condicionalmente cuando se está editando un equipo existente (`initialData?.id_equipo`).
-    - Solo se renderiza durante el flujo de creación de nuevos equipos, eliminando confusión visual en la edición.
-
-- **Rediseño de Pantalla de Éxito al Crear Solicitud**:
-    - **Overlay con Glassmorphism**: La pantalla de éxito ya no reemplaza el contenido de la página. Se muestra como un overlay fijo con `backdropFilter: blur(8px)` sobre el formulario.
-    - **Animaciones Premium**: Ícono de check con `bounceIn`, tarjeta con `scaleIn`, y barra de progreso animada que indica el tiempo de redirección.
-    - **Badge con ID de Solicitud**: Se muestra el número de la solicitud creada (ej. `Solicitud #123`) para confirmación visual inmediata.
-    - **Redirección Inteligente**: Al completar la animación (~2.8s), el sistema navega automáticamente a la bandeja de Solicitudes y abre directamente la solicitud recién creada en la pestaña "Enviadas".
-
-- **Mejora de Loading durante Envío de Solicitud**:
-    - Implementación de `LoadingOverlay` de Mantine con `blur: 3` durante el proceso de envío, difuminando el contenido del formulario para indicar actividad.
-
-- **Archivos Modificados**:
-    - Frontend: `EquiposPage.tsx`, `EquipoForm.tsx`, `NewRequestPage.tsx`.
-
-
-### 47. Fidelidad y Estandarización de Notificaciones URS (Abril 2026) 🔔📧
-Optimización integral del sistema de notificaciones del Unified Request System (URS), garantizando la resolución precisa de identidades, identificadores de negocio y remapeo automático de tipos para procesos de fondo.
-
-- **Resolución de Identidad y Atribución**:
-    - Eliminación de la atribución genérica "Sistema". Ahora se resuelve el nombre real del técnico solicitante o se utiliza el fallback estandarizado "Técnico en Terreno (App)".
-    - Sincronización de la lógica de identidad entre el API (`UrsService.js`) y el procesador de fondo (`scheduler.js`).
-- **Remapeo Automático (Arquitectura 3.1)**:
-    - Implementación de un motor de especialización en el servidor que detecta si una solicitud de Tipo 13 (General) contiene IDs de equipo o fichas para reclasificarla automáticamente a Tipo 14 (Equipo) o Tipo 15 (Servicio/Ficha).
-- **Correlativos de Negocio**:
-    - Las notificaciones (web y email) ahora priorizan y muestran identificadores de negocio (ej. `123-1-Pendiente-1835`) en lugar de IDs internos de base de datos, mejorando la trazabilidad para el usuario final.
-- **Estandarización de Plantillas Corporativas**:
-    - Actualización masiva de 7 plantillas URS en la base de datos para usar el nuevo diseño corporativo premium.
-    - Ubicación consistente de metadatos (Solicitante, Fecha, Hora) en la parte superior del cuerpo del correo.
-- **Refinamiento para Anulación de Servicio (Tipo 12)**:
-    - Soporte para detección de tipos acentuados ("Anulación") mediante normalización de strings (NFD).
-    - Etiquetas dinámicas basadas en contexto: cambio automático de "Equipo:" a "Servicio:" para anulaciones y consultas de fichas.
-- **Archivos Modificados**:
-    - Backend: `urs.service.js`, `uns.service.js`, `notification.service.js`, `scheduler.js`, `update_urs_templates.mjs`.
-
-### 48. Optimización de Flujos, Identidad y Experiencia Visual (Abril 2026) 🚀🎨
-Mejoras centradas en la resolución de datos móviles, automatización de la navegación y refinamiento estético de la interfaz.
-
-- **Resolución de Identidad Móvil (URS)**:
-    - Optimización del backend (`urs.service.js`) para cruzar el `id_tecnico` de las solicitudes JSON con la tabla maestros de usuarios.
-    - El sistema ahora identifica nombres reales (ej. "Angelo") para solicitudes móviles, eliminando el genérico "App".
-- **Navegación Inteligente y Auto-Ingreso**:
-    - **Auto-Jump por Rol**: Los usuarios con acceso único en "Fichas de Ingreso" son redirigidos automáticamente a su área de trabajo correspondiente (Comercial, Técnica o Coordinación).
-    - **Navegación de Salida**: Se reconfiguró el botón "Volver" para que el usuario salga completamente del módulo hacia su origen, evitando la pantalla intermedia de selección.
-- **Mejoras de UI/UX Premium**:
-    - **Confirmaciones Dinámicas**: `ConfirmModal` ahora utiliza colores verdes e iconos de éxito para aprobaciones técnicas, diferenciándolas visualmente de las alertas de riesgo.
-    - **Refinamiento de Sidebar**: Corrección de desbordes en líneas divisorias y optimización de espacio para nombres/correos largos mediante envoltura automática de texto y reducción de paddings.
-
-- **Archivos Modificados**:
-    - Backend: `urs.service.js`.
-    - Frontend: `FichasIngresoPage.tsx`, `TechnicalDetailView.tsx`, `ConfirmModal.tsx`, `Sidebar.tsx`, `Sidebar.module.css`.
-
----
-
-### 49. Consolidación de Módulo Medio Ambiente y Menús Dinámicos (Abril 2026) 🚀📋
-Estandarización de flujos de trabajo mediante la unificación de vistas y transición hacia una arquitectura de navegación basada en configuración (backend).
-
-- **Explorador de Fichas Universal**:
-    - Se consolidaron las páginas de Comercial, Técnica y Coordinación en un único componente: `FichasExploradorView.tsx`.
-    - Implementación de un buscador avanzado con filtros multi-criterio y tabla responsiva optimizada.
-    - Acceso centralizado a detalles y exportación de PDFs desde una sola interfaz.
-- **Sistema de Menús Dinámicos (Backend-Driven)**:
-    - Implementación de un motor de menús en el API (`menu.service.js`) que entrega la estructura de navegación según permisos de usuario.
-    - Nuevo flujo de siembra de menús (`seed_menu.js`) para facilitar la configuración de la barra lateral.
-- **Refactorización de Sidebar**:
-    - El Sidebar consume ahora el API de menús, permitiendo cambios de navegación sin desplegar el frontend.
-    - Soporte mejorado para iconos dinámicos y sub-módulos anidados.
-- **Documentación Técnica Pro**:
-    - Generación de documentación técnica detallada en formatos `.md` y `.docx` alojados en el repositorio.
-- **Optimización de FichaDetailView**:
-    - Refactor de la vista de detalle para soportar la visualización universal de fichas sin importar su origen.
-
-- **Archivos Modificados**:
-    - Backend: `menu.service.js`, `menu.routes.js`, `menu.controller.js`, `seed_menu.js`, `server.js`.
-    - Frontend: `Sidebar.tsx`, `FichasIngresoPage.tsx`, `FichaDetailView.tsx`, `FichasExploradorView.tsx` (Nuevo), `FichaUniversalView.tsx` (Nuevo).
-    - Docs: `Documentacion_Tecnica_ADL_One.md` (Nuevo).
-
----
-
-### 50. Planificación de Evolución del Ecosistema ADL Diagnostic (Abril 2026) 🏗️🚀
-Finalización del ciclo de desarrollo personalizado y transición hacia la arquitectura de ecosistema unificado.
-
-- **Análisis de Nueva Arquitectura**:
-    - Definición del paso a un **Monolito Modular** utilizando **NestJS** y **PostgreSQL**.
-    - Conceptualización del motor de **Backend-Driven UI** basado en JSON Schema para escalabilidad multi-área sin despliegues de código.
-- **Normalización de Datos**:
-    - Diseño del esquema de base de datos **"Zero"** con integridad referencial estricta, desacople de dominios (Core, Abastecimiento, Facturación) y soporte nativo para JSONB.
-- **Mejoras de Estabilidad Final**:
-    - Resolución de input lag en formularios extensos y refinamiento de la navegación por roles.
-    - Sincronización de identidades móviles para el sistema de notificaciones URS.
-
----
-
-### 51. Refinamiento del Planificador de Rutas (Route Planner) y UI (Abril 2026) 🗺️🚗
-Mejoras sustanciales en la interfaz del mapa de planificación y en la lógica de selección de correlativos para optimizar la creación de rutas de muestreo.
-
-- **Selección Precisa de Correlativos (Servicios)**:
-    - Transición de una asignación automática ciega a un sistema de selección manual asistido.
-    - Implementación de un selector desplegable (`Select`) directamente en la lista de rutas, permitiendo elegir exactamente cuál servicio disponible (ej. `Serv. 2 / 5`) se asociará a la ruta.
-- **Optimización de Interfaz de Mapa**:
-    - **Smart Zoom**: El mapa ahora auto-ajusta el encuadre (`FitBounds`) de manera más cercana e inteligente, maximizando a zoom 15 para grupos y a zoom 16 para marcadores individuales.
-    - Rediseño visual de las tarjetas de fichas, incluyendo alertas visuales (borde y fondo rojo tenue) para aquellas que carecen de coordenadas válidas.
-- **Lógica de Fechas en Backend (SQL Server)**:
-    - Corrección del bug "falso agendado" donde SQL Server devolvía la fecha "dummy" `1900-01-01` para campos no asignados. Se implementó una validación `getFullYear() > 1900` para discriminar correctamente los correlativos disponibles.
-- **Prevención de Errores de Strict Mode**:
-    - Refactorización de la gestión de estado (`setSelectedItems`) en el React Frontend para evitar duplicación de notificaciones de advertencia (Toast) provocadas por el ciclo doble del React Strict Mode.
-
----
-
-### 52. Dashboard Inteligente y Analítica de KPIs (Abril 2026) 📊🚀
-Implementación de una capa de inteligencia de datos para el análisis automático de la operación.
-- **KPI Analyst Dashboard**: Nueva vista `KpiAnalystDashboardView.tsx` que centraliza métricas de rendimiento.
-- **Detección de Riesgos**: Algoritmos que identifican automáticamente alertas operativas y desviaciones en los servicios.
-- **Insights Estratégicos**: Generación de narrativas automáticas basadas en la data para apoyar la toma de decisiones.
-- **Visualización Pro**: Uso extendido de Recharts para representar tendencias temporales, distribución por clientes y cobertura mensual.
-
-### 53. Planificador de Rutas y Logística Geográfica (Abril 2026) 🗺️🚗
-Integración de herramientas de geolocalización avanzada para la optimización de las operaciones en terreno.
-- **Route Map Planner**: Nueva interfaz `RouteMapPlannerView.tsx` basada en **Leaflet** que permite visualizar servicios en un mapa interactivo y agruparlos en rutas lógicas.
-- **Visualización de Rutas**: Componente `RutasListView.tsx` para el seguimiento detallado de las rutas planificadas, vehículos asignados y estados de ejecución.
-- **Backend de Rutas**: Implementación de `rutas-planificadas.service.js` y controladores dedicados para gestionar la persistencia de datos geográficos.
-- **Migraciones SQL**: Scripts para la creación de tablas de rutas (`migration_rutas_planificadas.sql`) y actualización de correlativos de detalle.
-
-### 54. Sistema de Carga Masiva (Bulk Ficha Creator) (Abril 2026) 📑⚡
-Optimización del ingreso de datos a gran escala mediante procesamiento por lotes.
-- **Carga Masiva**: Módulo `BulkFichaCreator.tsx` que permite el ingreso de múltiples servicios en un solo flujo de trabajo.
-- **Grilla de Revisión**: Componente `BulkReviewGrid.tsx` para la validación exhaustiva de datos antes del guardado definitivo en la base de datos.
-- **Servicios de Procesamiento**: Nuevo motor `bulk-ficha.service.js` en el backend capaz de procesar archivos complejos y parsear documentación técnica (integración con `pdf-parse`).
-- **Seguridad**: Rutas protegidas y controladores específicos para garantizar la integridad de las cargas masivas.
-
-### 55. Gestión de Maestros de Empresas de Servicio (Abril 2026) 🏢🛠️
-Consolidación del control de proveedores externos en el módulo administrativo.
-- **Maestro de Empresas**: Interfaz `EmpresaServicioFormView.tsx` para la gestión centralizada de empresas prestadoras de servicios de muestreo.
-- **Control de Habilitación**: Sistema de filtrado y estados para asegurar que solo proveedores activos sean seleccionables en la operación.
-- **Consistencia de Datos**: Alineación del servicio de catálogos para sincronizar datos de contacto y correos electrónicos de los proveedores.
-### 56. Estabilización de Carga Masiva y Navegación (Mayo 2026) 🛠️🚀
-Mejoras en la experiencia de carga de datos y corrección de errores críticos de sesión y validación.
-
-- **Soporte Excel en Carga Masiva**:
-    - Actualización de la interfaz `FichaCreateChoice.tsx` para reflejar el soporte nativo de archivos Excel junto a PDF en el módulo de carga masiva.
-- **Estabilización de Sesión en Sidebar**:
-    - Corrección del bug que eliminaba los permisos del sidebar al hacer clic en el logo para volver al inicio. Se refactorizó la limpieza de módulos dinámicos para que solo ocurra durante el cierre de sesión explícito.
-- **Corrección de Validación en Agenda Masiva**:
-    - Resolución del error `400 Bad Request` en el endpoint `/batch-agenda`. Se ajustó el esquema Joi en el backend para manejar correctamente el objeto de asignaciones masivas enviado desde el frontend, permitiendo la programación exitosa de muestreos.
-
-### 57. Mejoras en Chat Interno y Notificaciones de Fichas (Mayo 2026) 💬📧
-Refinamiento de la experiencia de comunicación interna y corrección en las plantillas de correo de fichas.
-
-- **Filtro de Usuario Propio en Búsqueda de Chat**:
-    - Corrección en `ChatSidebar.tsx` para excluir al usuario actualmente autenticado de los resultados de búsqueda de contactos.
-    - Mejora de UX que evita que el usuario se encuentre a sí mismo al iniciar una conversación directa, haciendo los resultados más relevantes y limpios.
-
-- **Corrección de Plantillas de Email en Aprobación/Rechazo de Fichas**:
-    - Actualización de `ficha.service.js` y `uns.service.js` para estandarizar el formato visual de los correos de aprobación y rechazo de fichas de ingreso.
-    - Implementación de estructura de tabla HTML consistente que alinea correctamente los pares etiqueta-valor (Correlativo, Fecha, **Hora**, Cliente, etc.), siguiendo el mismo estándar visual del template "Ficha Comercial Creada".
-    - Incorporación del campo **Hora** de aprobación/rechazo en las notificaciones por correo para mayor trazabilidad.
-
----
-
----
-
-### 58. Correcciones Críticas de Permisos y Seguridad (4 de Mayo 2026) 🔐🛡️
-Resolución de una cadena de bugs interconectados que impedían el acceso correcto del rol **Calidad** a los módulos de Gestión de Equipos y Muestreadores, junto con correcciones de validación en el módulo de Maestros.
-
-- **Fix Error 400 en GET `/api/admin/muestreadores`**:
-    - **Causa**: El esquema de validación Joi era demasiado restrictivo y rechazaba el parámetro `estado=ACTIVOS` con un 400.
-    - **Solución**: Se actualizó el schema `getMuestreadores` en `validate.middleware.js` para aceptar los valores `ACTIVOS`, `INACTIVOS` y `TODOS`, además de strings vacíos en `nombre`.
-
-- **Fix SQL Directo en Servicio de Muestreadores**:
-    - **Causa**: El Stored Procedure `MAM_Admin_Muestreadores_List` no manejaba correctamente el filtrado por estado textual enviado desde el frontend.
-    - **Solución**: Se reemplazó la llamada al SP por una **consulta SQL directa** en `admin.service.js` que mapea correctamente los valores `ACTIVOS → 'S'`, `INACTIVOS → 'N'` y `TODOS → sin filtro` en la tabla `mae_muestreador`.
-
-- **Fix Permisos Alternativos en Ruta de Muestreadores**:
-    - **Causa**: La ruta `GET /api/admin/muestreadores` solo aceptaba el permiso `MA_MUESTREADORES`, pero `EquiposPage` también necesita esa lista para su filtro de Responsable (rol Calidad accede via `MA_A_GEST_EQUIPO`).
-    - **Solución**: Se actualizó `admin.routes.js` para aceptar `verifyPermission(['MA_MUESTREADORES', 'MA_A_GEST_EQUIPO'])`, usando la capacidad de array ya existente en el middleware.
-
-- **Fix Crítico: Logout Automático por Error 403** _(Bug Principal)_:
-    - **Causa**: El interceptor global de Axios en `AuthContext.tsx` ejecutaba `logout()` ante **cualquier** error 403 (Forbidden). Cuando un usuario como msanchez recibía un 403 de algún endpoint sin permiso al cargar la página, el sistema lo expulsaba automáticamente al login.
-    - **Solución**: Se modificó el interceptor para que solo haga logout en errores **401** (token inválido/expirado). Los errores 403 (sin permiso para una acción específica) ahora se propagan normalmente sin cerrar la sesión.
-    - **Distinción clave**: `401 = sesión inválida (logout)` vs `403 = sin permiso para esa acción (no logout)`.
-
-- **Desacoplamiento de Permisos: Gestión de Calidad vs. Admin. Información**:
-    - **Causa**: Los submódulos `admin-equipos-gestion` y `admin-muestreadores` estaban en la lista `ADMIN_SUBMODULES` del Security Guard de `DashboardPage.tsx`, lo que exigía permisos de "Admin. Información" (`GC_ACCESO`, `AI_ACCESO`, etc.) para acceder a ellos, incluso si el usuario tenía permisos específicos del módulo.
-    - **Solución**: Se eliminaron esos dos submódulos del guard general y se les asignaron verificaciones independientes:
-        - `admin-equipos-gestion` → requiere `MA_A_GEST_EQUIPO` **OR** `GC_ACCESO` **OR** super admin.
-        - `admin-muestreadores` → requiere `MA_MUESTREADORES` **OR** `GC_ACCESO` **OR** super admin.
-    - **Resultado**: Un rol puede acceder a Equipos o Muestreadores configurando **solo** los permisos del módulo Gestión de Calidad, sin necesidad de tocar Admin. Información.
-
-- **Fix Bug idValue = 0 en Módulo de Maestros**:
-    - **Causa**: La validación `!idValue` en `catalogos.controller.js` rechazaba el valor `0` como ID inválido (ya que `!0 === true` en JavaScript), causando un error 400 al intentar activar/editar registros con ID = 0 (ej. "No aplica" en Formas de Canal).
-    - **Solución**: Se cambió la validación por `idValue === undefined || idValue === null` en los métodos `updateMaestro` y `toggleMaestroStatus`, permitiendo que `0` sea un ID de registro válido. El mismo fix se aplicó a `newStatus` para valores futuros tipo `false` o `0`.
-
-- **Archivos Modificados**:
-    - Backend: `api-backend-adlone/src/middlewares/validate.middleware.js` (schema getMuestreadores)
-    - Backend: `api-backend-adlone/src/services/admin.service.js` (SQL directo en lugar de SP)
-    - Backend: `api-backend-adlone/src/routes/admin.routes.js` (permisos alternativos)
-    - Backend: `api-backend-adlone/src/controllers/catalogos.controller.js` (validación idValue = 0)
-    - Frontend: `frontend-adlone/src/contexts/AuthContext.tsx` (interceptor 401-only logout)
-    - Frontend: `frontend-adlone/src/pages/DashboardPage.tsx` (desacoplamiento de Security Guard)
-
-### 59. Efectos Visuales y Estados Inactivos en el Dashboard (Mayo 2026) 🎨🔒
-Implementación de efectos visuales "glassmorphism" para denotar estados inactivos o privados en los componentes del Dashboard principal (`WelcomePage.tsx`).
-
-- **Overlay de Privacidad (Estado Inactivo)**:
-    - Se aplicó un filtro visual a las tarjetas de "Comunicado Oficial", "Próximos Eventos" y "Estado Sala de Reuniones" utilizando `backdrop-filter: grayscale(100%) blur(2px)` junto con un fondo translúcido (`rgba(220, 220, 220, 0.3)`).
-    - Esto logra un efecto de "tarjeta desactivada" o "privada" donde se puede apreciar levemente el contenido original pero en escala de grises y desenfocado.
-- **Bloqueo de Interacciones**:
-    - Se inhabilitaron completamente los eventos de puntero (`pointer-events: none`) en los contenedores principales de estas secciones.
-    - Esto previene cualquier interacción no deseada (clics, apertura de modales) y anula los efectos de hover (como la elevación de las tarjetas o cambios de cursor), reforzando la sensación de que el módulo está bloqueado o en desarrollo.
-- **Preservación de Multimedia**:
-    - En la tarjeta del "Comunicado Oficial", la capa de opacidad se aplicó estratégicamente solo sobre la sección de texto (`Box`), manteniendo la imagen principal de la izquierda (`fondoLogin`) completamente a color y sin alteraciones.
-
----
-
-### 60. Refinamiento en Asignación de Rutas y Prevención de Duplicidad (Mayo 2026) 🗺️🚫
-Mejoras en el Planificador de Rutas para evitar la asignación múltiple de servicios y asegurar la consistencia del estado.
-
-- **Validación Estricta de Correlativos**:
-    - Se implementó una verificación antes de guardar la ruta, asegurando que todos los ítems seleccionados posean un correlativo válido, mostrando notificaciones de error (`toast`) detalladas si es que faltan selecciones.
-- **Bloqueo Inteligente de Servicios Agendados/En Ruta**:
-    - Las fichas con correlativos en estado `AGENDADO` o que ya se encuentran en ruta (`en_ruta`) ahora se bloquean y ocultan correctamente en la interfaz gráfica de selección, previniendo duplicidad de asignación.
-    - Se actualizó el listado desplegable de los correlativos disponibles en el UI, filtrando explícitamente aquellos que ya están en ruta e indicando visualmente (con un *check* o flecha) el estado actual para ayudar en la lectura operativa.
-- **Optimización del Cálculo "En Ruta" (Backend)**:
-    - Se modificó la consulta SQL de `ficha.service.js` para evaluar el estado global de la ruta planificada mediante exclusión lógica (`NOT IN ('COMPLETADA', 'CANCELADA', 'ANULADA')`), en lugar de buscar únicamente la palabra clave `'PENDIENTE'`, abarcando correctamente cualquier estado de ejecución activa (como 'EN PROGRESO').
-
----
-
-### 61. Refinamiento de Permisos, Georeferenciación y Experiencia Visual (Mayo 2026) ✨🚀
-Un extenso abanico de mejoras focalizadas en la estabilidad del control de accesos, precisión geográfica para operaciones logísticas y estilización de componentes visuales clave.
-
-- **Sistema de Georeferenciación Robusto (Rutas y Planificación)**:
-    - **Resolución de Error 500**: Se corrigió el backend (`rutas-planificadas.service.js`) implementando un `LEFT JOIN` a la tabla maestra `mae_centro` para obtener coordenadas reales (`latitud`, `longitud`), solucionando fallos en rutas que carecían de coordenadas pre-ingresadas.
-    - **Algoritmo de Extracción Tri-Fase**: En el frontend (`RutasListView.tsx`), se integró una estrategia resiliente para extraer y mapear las coordenadas: 
-        1. Parsing nativo de URLs de Google Maps.
-        2. Procesamiento de enlaces acortados (`goo.gl`).
-        3. Fallback inteligente a las columnas legadas (`latitud`, `longitud`, `ma_coordenadas`).
-    - **Estilización y Conflictos CSS**: Resolución de advertencias de React al evitar conflictos entre atajos de CSS (`padding`) y propiedades explícitas (`paddingBottom`) durante los rerenders.
-
-- **Migración a RBAC Estricto (Rol: Realizado por GEM)**:
-    - **Seguridad Backend y Frontend**: Se reemplazó la vulnerable validación por nombre de rol explícito (`"GEM MAM PM"`) por una arquitectura basada en permisos atómicos (`GEM_REALIZADO`).
-    - **Integración Transparente**: Uso de `hasPermission('GEM_REALIZADO')` en `FichaDetailView.tsx` para condicionar la visibilidad del botón de completado, y protección a nivel de API (`ficha.controller.js`) que audita los permisos directamente desde el token JWT.
-
-- **Efectos Visuales e Interactividad (UI/UX)**:
-    - **Loader Inteligente para KPIs**: Se reemplazó el texto estático de carga en `KpiAnalystDashboardView.tsx` por una pantalla de transición con componentes nativos de Mantine (`Loader` tipo *bars*, `Center`), dotando al dashboard de una experiencia "Data Intelligence" profesional.
-    - **Bloqueo Visual de Características (WelcomePage)**: Aplicación de superposiciones grises (`grayscale`, `blur`) y la propiedad `pointer-events: none` para deshabilitar interacciones en secciones en desarrollo o bloqueadas ("Próximos Eventos", "Estado Sala de Reuniones").
-    - **Menús y Transiciones**: Reemplazo de transiciones bloqueantes de `Framer Motion` por animaciones CSS optimizadas, resolviendo problemas de renderizado ("pantalla en blanco") y alineación errática de sub-menús desplegables.
-
-- **Mejoras Generales y Soporte Administrativo**:
-    - **Corrección de TypeScript**: Solución del error de tipado en `ModernHeader.tsx` migrando a la sintaxis segura `window.location.hostname` para la configuración de cookies de idioma.
-    - **Estandarización de Correos**: Alineamiento visual del campo "Hora" y tablas de atributos en las notificaciones de Fichas (Aprobadas/Rechazadas) para prevenir distorsiones de layout.
-    - **Catálogo de Maestros**: Expansión del módulo Hub con configuraciones `MaestroConfig` para nuevas entidades corporativas ("Orígenes", "Tipos de Instalación", "Medio").
-    - **Entorno Local**: Diagnóstico y estabilización del entorno de ejecución de Python para módulos paralelos (`pic_to_df.py`).
-
----
-
-### 62. Sincronización de Equipo, UI Responsiva y Rutas de Ejecución (Mayo 2026) 🤝🚀
-Integración y consolidación de cambios del equipo de desarrollo, estandarización de UI e implementación de nuevos módulos operativos.
-
-- **Estandarización de Layout UI (Sincronización de Equipo)**:
-    - Implementación generalizada de cabeceras responsivas (`PageHeader`) y navegación por migas de pan (breadcrumbs) en todo el módulo de Medio Ambiente, mejorando la navegación del usuario.
-    - Sincronización de estados "en ruta" desde el backend al frontend en el planificador de mapas (RouteMapPlanner), con mejoras visuales para tarjetas de dashboard deshabilitadas.
-    - Corrección de cadena de permisos que bloqueaba el acceso del rol Calidad.
-
-- **Módulo de Ejecución de Rutas (Rutas-Ejecuciones)**:
-    - Nuevo submódulo `rutas-ejecuciones` para gestionar el ciclo de vida y los estados de los servicios en terreno.
-    - Implementación del componente UI `NuevaEjecucionModal.tsx` junto con controladores y servicios de backend dedicados para el seguimiento de la ejecución operativa.
-
-- **Rendimiento, Seguridad y Prevención de Bloqueos**:
-    - **KPI Analyst (Fix de CPU)**: Refactorización de cálculos de métricas pesadas (usando iteradores asíncronos y `setImmediate`) para prevenir que el análisis de datos bloquee el Event Loop de Node.js, manteniendo la API web receptiva.
-    - **Protección de Rutas**: Implementación del middleware de autenticación a rutas previamente desprotegidas (subidas de archivos, catálogos).
-    - **Seguridad y Accesos**: Reversión temporal del hashing de contraseñas (bcryptjs) a texto plano a petición del usuario por necesidades operativas legadas.
-
-- **Mejoras Logísticas (Rutas Planificadas)**:
-    - Corrección del targeting de correlativos en la lógica de asignación para usar la frecuencia guardada en vez de forzar el primer registro disponible.
-    - Implementación de un nuevo endpoint de **actualización atómica** (`PUT /:id`) para las rutas, que reemplaza registros de detalles dentro de una transacción segura, eliminando la posibilidad de pérdida de datos.
-
-### 63. Refinamiento de Estilos Globales y Alertas Logísticas en Equipos (Mayo 2026) 🎨📋
-Mejoras estéticas transversales y optimización en la experiencia de gestión de inventario para el módulo de equipos.
-
-- **Estética Global Premium (Clean White)**:
-    - Se reemplazó el fondo gris predeterminado (`#f4f4f5` / `var(--mantine-color-gray-0)`) por un fondo blanco puro (`#ffffff`) a través de `App.css`, `index.css` y `MainLayout.tsx`. Esto otorga a la plataforma una apariencia mucho más limpia, moderna y profesional.
-- **Gestión Inteligente de Equipos por Vencer**:
-    - **Alertas Accionables**: La alerta superior de "Equipos por Vencer" en `EquiposPage.tsx` ahora incluye un botón de acción rápida ("Ver equipos"). Al pulsarlo, el sistema aplica automáticamente los filtros pertinentes (Estado: Activo, Fecha Hasta: dentro de 30 días) para aislar instantáneamente los dispositivos críticos.
-    - **Ordenamiento Priorizado**: Se implementó un algoritmo de ordenamiento en memoria (`sortedEquipos`) que sitúa siempre en la parte superior de la tabla aquellos equipos que poseen **solicitudes pendientes**, seguidos inmediatamente por aquellos próximos a vencer, maximizando la visibilidad de los elementos que requieren atención operativa.
-
----
-
-### 64. Optimizaciones en Empresas de Servicio y Filtros Inteligentes en Catálogos Maestros (Mayo 2026) 🏢🔍
-Múltiples refinamientos de UX y ampliación técnica de columnas en el módulo de administración de Maestros y Empresas de Servicio.
-
-- **Diseño Premium y Scroll en Empresas de Servicio**:
-    - Optimización en el componente especializado `EmpresaServicioFormView.tsx` limitando la visualización a una cuadrícula con altura fija y desplazamiento inteligente (`ScrollArea offsetScrollbars h={678}`) tras 11 registros, permitiendo un acceso ergonómico y visualización limpia.
-- **Ampliación de Columnas y Compatibilidad en Catálogos**:
-    - **Tipos de Muestra (`mae_tipomuestra`)**: Integración total de los campos faltantes en base de datos (`modo_ingreso`, `aplicado_a`, `nombre_sernapesca`, `metodologia`, `realiza_screening`, `guia`) en el listado, formulario de edición e inserción.
-    - **Tipos de Muestreo (`mae_tipomuestreo`)**: Incorporación de la columna `aplicado_a` para coincidir de forma idéntica con el esquema de la base de datos SQL.
-- **Sistema de Filtros Inteligentes y Contextuales (Adaptativos)**:
-    - Implementación de lógica inteligente en `MaestroDataManager.tsx` que detecta relaciones (Claves Foráneas / Lookups) y jerarquías (`dependsOn`) de cada maestro, generando de forma autónoma selectores (`Select searchable clearable`) específicos en la barra superior.
-    - **Filtros Automáticos**: 
-        - En *Contactos*: permite filtrar instantáneamente por Cliente, Empresa de Servicio y Cargo.
-        - En *Usuarios*: permite filtrar por Cargo y Lugar de Análisis.
-        - En *Sub Áreas*: permite filtrar por Componente.
-        - En *Centros*: permite filtrar por Cliente.
-    - Sincronización transparente con el filtro global por texto y de estado (`activo` / `habilitado`).
+### Ejecución Local
+```bash
+# Backend
+cd api-backend-adlone
+npm install
+npm run dev       # Puerto 8002
+
+# Frontend
+cd frontend-adlone
+npm install
+npm run dev       # Puerto 5173
+```
 
 ---
 
@@ -1096,10 +473,18 @@ Múltiples refinamientos de UX y ampliación técnica de columnas en el módulo 
 
 ---
 
-## 📄 Estado Final del Proyecto
-✅ **Backend**: Node.js + Express (API RESTful, Auth, Email, UNS, Chat, Menús Dinámicos)
-✅ **Frontend**: React + TypeScript + Mantine UI (Explorador Universal, Responsive, Dashboards)
-✅ **Base de Datos**: SQL Server (Esquema Legacy estabilizado y documentado)
+## 📄 Estado del Proyecto
+
+| Componente | Tecnología | Estado |
+|---|---|---|
+| **Backend API** | Node.js + Express (RESTful, Auth, UNS, Chat) | ✅ Estable |
+| **Frontend** | React + TypeScript + Mantine UI | ✅ Estable |
+| **Base de Datos** | SQL Server (Esquema Legacy estabilizado) | ✅ Estable |
+| **Notificaciones** | Nodemailer + Socket.io + 73 plantillas HTML | ✅ Estable |
+| **Chat** | Socket.io (tiempo real, grupos y directos) | ✅ Estable |
+| **Rutas Logísticas** | Leaflet + Backend geoespacial | ✅ Estable |
+| **KPI Dashboard** | Recharts + Análisis automático | ✅ Estable |
 
 ---
-*Este proyecto concluye su fase de personalización aislada para evolucionar hacia la Plataforma Digital ADL Diagnostic.*
+
+*ADL One — Fase de personalización finalizada. En evolución hacia la Plataforma Digital Unificada ADL Diagnostic.*

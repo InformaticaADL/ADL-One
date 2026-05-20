@@ -468,7 +468,32 @@ async function main() {
                     `<td style="padding: 6px 0; color: #1e293b; font-weight: 500; font-size: 14px; font-family: Arial, sans-serif; vertical-align: middle;">`
                 );
                 
+                // Standardize metadata table (Solicitado por, Creado por, Modificado por, Acción por, Fecha, Hora) to tight premium two-column layout
+                // 1. Convert single-cell layout (label + span) to two separate cells
+                const singleCellRegex = /<td[^>]*>\s*({LABEL_SOLICITANTE}|Solicitado por|Creado por|Modificado por|Acción por|Accion por|Cancelado por|Asignado por|Aprobado por|Rechazado por|Revisado por|Accionado por|Fecha de solicitud|Fecha de re-agendamiento|Fecha de reasignación|Fecha de reasignacion|Fecha de creación|Fecha de creacion|Fecha|Hora de solicitud|Hora de re-agendamiento|Hora de reasignación|Hora de reasignacion|Hora de creación|Hora de creacion|Hora):?\s*<span[^>]*>([\s\S]*?)<\/span>\s*<\/td>/gi;
+                core = core.replace(singleCellRegex, (match, label, value) => {
+                    return `<td>${label.trim()}</td><td>${value.trim()}</td>`;
+                });
+
+                // 2. Format all two-cell metadata rows with premium styling
+                const twoCellRegex = /<td[^>]*>\s*({LABEL_SOLICITANTE}|Solicitado por|Creado por|Modificado por|Acción por|Accion por|Cancelado por|Asignado por|Aprobado por|Rechazado por|Revisado por|Accionado por|Fecha de solicitud|Fecha de re-agendamiento|Fecha de reasignación|Fecha de reasignacion|Fecha de creación|Fecha de creacion|Fecha|Hora de solicitud|Hora de re-agendamiento|Hora de reasignación|Hora de reasignacion|Hora de creación|Hora de creacion|Hora):?\s*<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>/gi;
+                core = core.replace(twoCellRegex, (match, label, value) => {
+                    let cleanLabel = label.trim();
+                    if (cleanLabel.toLowerCase().includes('fecha')) {
+                        cleanLabel = 'Fecha';
+                    } else if (cleanLabel.toLowerCase().includes('hora')) {
+                        cleanLabel = 'Hora';
+                    }
+                    if (!cleanLabel.endsWith(':')) {
+                        cleanLabel += ':';
+                    }
+                    let cleanValue = value.replace(/<[^>]*>/g, '').trim();
+                    return `<td style="width:1%; white-space:nowrap; padding:4px 16px 4px 0; color:#0062a8; font-weight:bold; font-size:14px; font-family:Arial,sans-serif;">${cleanLabel}</td>` +
+                           `<td style="padding:4px 0; color:#333333; font-size:14px; font-family:Arial,sans-serif;">${cleanValue}</td>`;
+                });
+
                 // 4. Style observations box
+
                 const oldObsMatch = core.match(/<div[^>]*border-left:[^>]*>[^]*?<\/div>/gi);
                 if (oldObsMatch) {
                     for (const box of oldObsMatch) {

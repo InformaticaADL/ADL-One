@@ -2126,7 +2126,27 @@ class FichaIngresoService {
                 const month = dateObj.getUTCMonth() + 1;
                 const year = dateObj.getUTCFullYear();
 
-                const retiroDateObj = fechaRetiro ? new Date(fechaRetiro) : null;
+                // Auto-calculate fechaRetiro when not provided:
+                // If the old record had both a fecha_muestreo and fecha_retiro, preserve the same
+                // interval (in days) between installation and removal when the user only changes the install date.
+                let retiroDateObj = fechaRetiro ? new Date(fechaRetiro) : null;
+                if (!retiroDateObj) {
+                    const hist = historicalData.get(String(id));
+                    if (hist && hist.fecha_muestreo && hist.fecha_retiro) {
+                        const oldInstall = new Date(hist.fecha_muestreo);
+                        const oldRetiro  = new Date(hist.fecha_retiro);
+                        // Only auto-calculate if the old retiro was valid (not 1900-01-01 or distant past)
+                        const oldRetiroYear = oldRetiro.getUTCFullYear();
+                        if (oldRetiroYear > 1900) {
+                            const intervalDays = Math.round((oldRetiro - oldInstall) / (1000 * 60 * 60 * 24));
+                            // Apply the same interval to the new install date
+                            retiroDateObj = new Date(dateObj.getTime());
+                            retiroDateObj.setUTCDate(retiroDateObj.getUTCDate() + intervalDays);
+                            logger.info(`[REAGENDA] Auto-calculated fechaRetiro: install ${dateObj.toISOString()} + ${intervalDays}d = ${retiroDateObj.toISOString()}`);
+                        }
+                    }
+                }
+
 
                 const updateRequest = new sql.Request(transaction);
                 updateRequest.input('fecha', sql.Date, dateObj);
@@ -2522,10 +2542,12 @@ class FichaIngresoService {
                         };
 
                         const fechaMuestreo = formatDate(row.fecha_muestreo);
+                        const fechaRetiro = formatDate(row.fecha_retiro);
 
                         // History comparison
                         const history = historicalData.get(String(row.id_agendamam));
                         let oldFecha = null;
+                        let oldFechaRetiro = null;
                         let oldInstalacion = null;
                         let oldRetiro = null;
                         let isModified = false;
@@ -2535,6 +2557,12 @@ class FichaIngresoService {
                             const oldF = formatDate(history.fecha_muestreo);
                             if (oldF !== fechaMuestreo) {
                                 oldFecha = oldF;
+                                isModified = true;
+                            }
+
+                            const oldFR = formatDate(history.fecha_retiro);
+                            if (oldFR !== fechaRetiro) {
+                                oldFechaRetiro = oldFR;
                                 isModified = true;
                             }
 
@@ -2553,7 +2581,9 @@ class FichaIngresoService {
                             muestreador_instalacion: row.muestreador_instalacion || 'No asignado',
                             muestreador_retiro: row.muestreador_retiro || 'No asignado',
                             fecha_muestreo: fechaMuestreo,
+                            fecha_retiro: fechaRetiro,
                             old_fecha: oldFecha,
+                            old_fecha_retiro: oldFechaRetiro,
                             old_muestreador_instalacion: oldInstalacion,
                             old_muestreador_retiro: oldRetiro,
                             isModified
@@ -2596,7 +2626,7 @@ class FichaIngresoService {
                     // Send enhanced notification
                     let eventCode = 'FICHA_ASIGNADA';
                     if (isReprogramacion) {
-                        const hasDateChange = serviciosFinal.some(s => s.old_fecha !== null);
+                        const hasDateChange = serviciosFinal.some(s => s.old_fecha !== null || s.old_fecha_retiro !== null);
                         const hasAssigneeChange = serviciosFinal.some(s => s.old_muestreador_instalacion !== null || s.old_muestreador_retiro !== null);
 
                         if (hasDateChange && hasAssigneeChange) {
@@ -2610,7 +2640,7 @@ class FichaIngresoService {
                         }
                     }
                     unsService.trigger(eventCode, {
-                        correlativo: meta.correlativo_txt || String(fid),
+                        correlativo: (meta.correlativo_txt || String(fid)).trim(),
                         id_usuario_accion: user ? (user.id || user.id_usuario || 0) : 0,
                         id_usuario_propietario: meta.id_usuario_propietario,
                         tipo_frecuencia: tipoFrecuencia,
@@ -2783,15 +2813,33 @@ class FichaIngresoService {
                         fechaMuestreoStr = new Date(info.fecha_muestreo).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
                     }
 
+                    // Robust user name resolution (matching batchUpdateAgenda pattern)
+                    let canceladoPor = user.usuario || user.nombre_usuario || user.nombre || user.name || user.username;
+                    if (!canceladoPor || canceladoPor === 'Sistema' || canceladoPor === 'undefined' || canceladoPor === 'Usuario') {
+                        if (user.id && user.id !== 0) {
+                            try {
+                                const uReq = poolNotif.request();
+                                uReq.input('uid', sql.Numeric(10, 0), user.id);
+                                const uRes = await uReq.query('SELECT usuario FROM mae_usuario WHERE id_usuario = @uid');
+                                if (uRes.recordset.length > 0) {
+                                    canceladoPor = uRes.recordset[0].usuario;
+                                }
+                            } catch (e) {
+                                logger.warn('Failed to fetch user name for cancel notification', e);
+                            }
+                        }
+                    }
+                    canceladoPor = canceladoPor || 'Usuario';
+
                     unsService.trigger('FICHA_MUESTREO_CANCELADO', {
-                        correlativo: info.fichaingresoservicio || String(idFicha),
+                        correlativo: (info.fichaingresoservicio || String(idFicha)).trim(),
                         id_usuario_accion: user ? (user.id || user.id_usuario || 0) : 0,
-                        muestreo_correlativo: info.frecuencia_correlativo,
+                        muestreo_correlativo: (info.frecuencia_correlativo || '').trim(),
                         fecha_muestreo: fechaMuestreoStr,
                         muestreador: info.nombre_muestreador || 'No asignado',
                         motivo: observations || 'No especificado',
-                        usuario_cancela: user.usuario || user.nombre_usuario || 'Usuario',
-                        usuario_accion: user.usuario || user.nombre_usuario || 'Usuario',
+                        usuario_cancela: canceladoPor,
+                        usuario_accion: canceladoPor,
                         fecha: notifFechaStr
                     }).catch(e => logger.warn('UNS trigger failed:', e));
                 }
