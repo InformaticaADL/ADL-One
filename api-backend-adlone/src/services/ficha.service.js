@@ -2594,7 +2594,21 @@ class FichaIngresoService {
                     asignadoPor = asignadoPor || 'Usuario Sistema';
 
                     // Send enhanced notification
-                    const eventCode = isReprogramacion ? 'FICHA_MUESTREO_REPROGRAMADO' : 'FICHA_ASIGNADA';
+                    let eventCode = 'FICHA_ASIGNADA';
+                    if (isReprogramacion) {
+                        const hasDateChange = serviciosFinal.some(s => s.old_fecha !== null);
+                        const hasAssigneeChange = serviciosFinal.some(s => s.old_muestreador_instalacion !== null || s.old_muestreador_retiro !== null);
+
+                        if (hasDateChange && hasAssigneeChange) {
+                            eventCode = 'FICHA_MUESTREO_REAGENDADO_REASIGNADO';
+                        } else if (hasDateChange) {
+                            eventCode = 'FICHA_MUESTREO_REAGENDADO';
+                        } else if (hasAssigneeChange) {
+                            eventCode = 'FICHA_MUESTREO_REASIGNADO';
+                        } else {
+                            eventCode = 'FICHA_MUESTREO_REPROGRAMADO'; // Fallback
+                        }
+                    }
                     unsService.trigger(eventCode, {
                         correlativo: meta.correlativo_txt || String(fid),
                         id_usuario_accion: user ? (user.id || user.id_usuario || 0) : 0,

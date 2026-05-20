@@ -283,6 +283,18 @@ class UnsService {
                     titulo: 'Muestreo Reprogramado: #{{correlativo}}',
                     mensaje: 'El muestreo de la ficha #{{correlativo}} ha sido reprogramado para una nueva fecha.'
                 },
+                'FICHA_MUESTREO_REAGENDADO': {
+                    titulo: 'Cambio de Fecha: #{{correlativo}}',
+                    mensaje: 'El muestreo de la ficha #{{correlativo}} ha sido reagendado para una nueva fecha.'
+                },
+                'FICHA_MUESTREO_REASIGNADO': {
+                    titulo: 'Reasignación: #{{correlativo}}',
+                    mensaje: 'El muestreo de la ficha #{{correlativo}} ha sido reasignado a un nuevo responsable.'
+                },
+                'FICHA_MUESTREO_REAGENDADO_REASIGNADO': {
+                    titulo: 'Cambio Integral: #{{correlativo}}',
+                    mensaje: 'El muestreo de la ficha #{{correlativo}} ha cambiado de fecha y de responsable.'
+                },
                 'GCHAT_NUEVO_MENSAJE': {
                     titulo: '{{titulo_notificacion}}',
                     mensaje: '{{mensaje_notificacion}}'
