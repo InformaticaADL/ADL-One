@@ -53,6 +53,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState<string>('active');
+    const [filterRole, setFilterRole] = useState<string>('all');
 
     // Modal states
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -276,7 +277,11 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
             (filterStatus === 'active' && user.habilitado === 'S') ||
             (filterStatus === 'inactive' && user.habilitado === 'N');
 
-        return matchesSearch && matchesStatus;
+        const matchesRole =
+            filterRole === 'all' ||
+            (user.roles && user.roles.includes(filterRole));
+
+        return matchesSearch && matchesStatus && matchesRole;
     });
 
     return (
@@ -310,7 +315,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                     <Group grow={!isMobile} align="flex-end">
                         <TextInput 
                             label="Búsqueda"
-                            placeholder="Nombre or email..."
+                            placeholder="Nombre o email..."
                             leftSection={<IconSearch size={16} />}
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.currentTarget.value)}
@@ -326,6 +331,19 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                                 { value: 'inactive', label: 'Solo Inactivos' }
                             ]}
                             radius="md"
+                        />
+                        <Select 
+                            label="Rol"
+                            placeholder="Filtrar por rol..."
+                            value={filterRole}
+                            onChange={(val) => setFilterRole(val || 'all')}
+                            data={[
+                                { value: 'all', label: 'Todos los roles' },
+                                ...roles.map(r => ({ value: r.nombre_rol, label: r.nombre_rol }))
+                            ]}
+                            radius="md"
+                            searchable
+                            clearable
                         />
                     </Group>
                 </Paper>
