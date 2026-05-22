@@ -569,18 +569,37 @@ class NotificationService {
             }
             
             const obs = context.OBSERVACION;
-            if (obs && obs.trim() !== '' && obs.trim().toLowerCase() !== 'sin observaciones' && obs.trim().toLowerCase() !== 'no especificado') {
-                if (!isHtml) return `${finalLabel}: ${obs}`;
+            
+            // If no observation at all (empty/null/blank) → hide block completely
+            if (!obs || obs.trim() === '' || obs.trim().toLowerCase() === 'no especificado') {
+                return '';
+            }
+            
+            const isSinObs = obs.trim().toLowerCase() === 'sin observaciones';
+            
+            if (!isHtml) return isSinObs ? `${finalLabel}: Sin observaciones` : `${finalLabel}: ${obs}`;
+            
+            if (isSinObs) {
+                // Show "Sin observaciones" with neutral gray styling
                 return `
-                <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="width: 100%; margin-top: 30px; font-family: Arial, sans-serif;">
+                <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="width: 100%; margin-top: 20px; font-family: Arial, sans-serif;">
+                    <tr>
+                        <td style="padding: 12px 20px; background-color: #f8fafc; border-left: 4px solid #cbd5e1; border-radius: 0 8px 8px 0; color: #64748b; font-size: 13px; font-family: Arial, sans-serif; line-height: 1.4;">
+                            <strong style="color:#64748b;">${finalLabel}:</strong> Sin observaciones
+                        </td>
+                    </tr>
+                </table>`;
+            }
+            
+            // Real observation → amber/yellow highlight style
+            return `
+                <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="width: 100%; margin-top: 20px; font-family: Arial, sans-serif;">
                     <tr>
                         <td style="padding: 16px 20px; background-color: #fffbeb; border-left: 4px solid #d97706; border-radius: 0 12px 12px 0; color: #7c2d12; font-size: 14px; font-family: Arial, sans-serif; line-height: 1.6;">
                             <strong>${finalLabel}:</strong><br>${obs}
                         </td>
                     </tr>
                 </table>`;
-            }
-            return '';
         });
 
         // 3. Replace all other placeholders

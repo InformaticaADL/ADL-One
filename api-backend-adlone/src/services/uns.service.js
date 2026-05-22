@@ -478,14 +478,27 @@ class UnsService {
                         HORA: now.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false }),
                         ETIQUETA_HORA: etiquetaHora,
                         TIPO_SOLICITUD: context.nombre_tipo || 'Notificación General',
-                        // For reasignado/reagendado events, `glosa` is the commercial service name (e.g. "1300P LVD - Autocontrol RILes"),
-                        // NOT a user observation. We must NOT show it as Observaciones in the email.
-                        // For CANCELADO: user's reason is passed as `motivo`, not `observaciones`.
-                        // For other events: fall back to glosa/mensaje as before.
-                        OBSERVACION: (['FICHA_MUESTREO_REASIGNADO', 'FICHA_MUESTREO_REAGENDADO', 'FICHA_MUESTREO_REAGENDADO_REASIGNADO', 'FICHA_MUESTREO_REPROGRAMADO'].includes(codigoEvento))
-                            ? (context.observaciones || '')
-                            : codigoEvento === 'FICHA_MUESTREO_CANCELADO'
-                                ? (context.observaciones || context.motivo || '')
+                        // OBSERVACION assignment rules:
+                        // ─ FICHA Muestreo events (Asignado, Reasignado, Reagendado, Reprogramado):
+                        //     glosa = commercial service name → NEVER shown as observation.
+                        //     Fallback: 'Sin observaciones'
+                        // ─ FICHA_MUESTREO_CANCELADO:
+                        //     motivo = user cancellation reason (not observaciones).
+                        //     Fallback: 'Sin observaciones'
+                        // ─ FICHA Ingreso events (Creada, Aprobada, Rechazada, Remuestreo):
+                        //     observaciones = typed by user in the form.
+                        //     Rechazada: motivo is the rejection reason (mandatory).
+                        //     Fallback: 'Sin observaciones'
+                        // ─ URS / SOL_EQUIPO / AVISO / SOLICITUD events:
+                        //     May use glosa or mensaje as informational context → keep fallback.
+                        OBSERVACION: (['FICHA_ASIGNADA', 'FICHA_MUESTREO_REASIGNADO', 'FICHA_MUESTREO_REAGENDADO', 'FICHA_MUESTREO_REAGENDADO_REASIGNADO', 'FICHA_MUESTREO_REPROGRAMADO',
+                                       'FICHA_CREADA', 'FICHA_REMUESTREO_CREADA',
+                                       'FICHA_APROBADA_TECNICA', 'FICHA_APROBADA_COORDINACION'].includes(codigoEvento))
+                            ? (context.observaciones && context.observaciones.trim() ? context.observaciones.trim() : 'Sin observaciones')
+                            : (['FICHA_MUESTREO_CANCELADO'].includes(codigoEvento))
+                                ? (context.observaciones || context.motivo || 'Sin observaciones')
+                            : (['FICHA_RECHAZADA_TECNICA', 'FICHA_RECHAZADA_COORDINACION'].includes(codigoEvento))
+                                ? (context.motivo || context.observaciones || 'Sin observaciones')
                                 : (context.observaciones || context.glosa || context.mensaje || 'Sin observaciones adicionales.'),
                         TITULO_CORREO: tituloCorreo,
                         ETIQUETA_OBSERVACION: context.etiqueta_observacion || etiquetaObs,
