@@ -180,7 +180,7 @@ export const ursValidationSchemas = {
 
     addComment: Joi.object({
         body: Joi.object({
-            mensaje: Joi.string().max(5000).required(),
+            mensaje: Joi.string().max(5000).allow('').optional(),
             es_privado: Joi.boolean().optional(),
         }).unknown(true).required(),
         query: Joi.object(),

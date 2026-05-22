@@ -69,11 +69,11 @@ export const NuevaEjecucionModal: React.FC<NuevaEjecucionModalProps> = ({
             setPlantillaData(result);
             if (muest) setMuestreadores(muest);
 
-            // Initialize per-ficha state: all selected, with suggested correlativo
+            // Initialize per-ficha state: auto-deselect fichas with 0 disponibles
             const initMap = new Map<number, { selected: boolean; correlativo: string; id_agendamam: number | null }>();
             result.fichas.forEach((f: FichaDisponible) => {
                 initMap.set(f.id_fichaingresoservicio, {
-                    selected: true,
+                    selected: f.disponibles > 0,
                     correlativo: f.suggested_correlativo || '',
                     id_agendamam: f.suggested_id_agendamam
                 });
@@ -237,6 +237,16 @@ export const NuevaEjecucionModal: React.FC<NuevaEjecucionModalProps> = ({
 
                     <Divider />
 
+                    {/* Banner fichas agotadas */}
+                    {(plantillaData?.fichas ?? []).some(f => f.disponibles === 0) && (
+                        <Alert icon={<IconAlertCircle size={16} />} color="orange" py="xs">
+                            <Text size="xs">
+                                <strong>{(plantillaData?.fichas ?? []).filter(f => f.disponibles === 0).length} ficha(s)</strong> no tienen correlativos disponibles y fueron deseleccionadas automáticamente.
+                                Puedes seleccionarlas manualmente si lo requieres, pero su correlativo sugerido puede estar ya ejecutado.
+                            </Text>
+                        </Alert>
+                    )}
+
                     {/* Fichas list */}
                     <Group justify="space-between" align="center">
                         <Text size="sm" fw={600}>
@@ -258,6 +268,11 @@ export const NuevaEjecucionModal: React.FC<NuevaEjecucionModalProps> = ({
                         <Alert icon={<IconAlertCircle size={16} />} color="orange">
                             Esta plantilla no tiene fichas. Edítala primero para agregar fichas.
                         </Alert>
+                    ) : selectedCount === 0 && (plantillaData?.fichas ?? []).every(f => f.disponibles === 0) ? (
+                        <Alert icon={<IconAlertCircle size={16} />} color="red" title="Sin fichas ejecutables">
+                            Todas las fichas de esta ruta tienen sus correlativos agotados (ejecutados o cancelados).
+                            No es posible crear una ejecución hasta que las fichas tengan nuevos servicios disponibles.
+                        </Alert>
                     ) : (
                         <ScrollArea mah={340} offsetScrollbars>
                             <Stack gap="xs">
@@ -265,6 +280,7 @@ export const NuevaEjecucionModal: React.FC<NuevaEjecucionModalProps> = ({
                                     const state = fichaState.get(f.id_fichaingresoservicio);
                                     const isSelected = state?.selected ?? false;
                                     const currentCorr = state?.correlativo ?? '';
+                                    const sinDisponibles = f.disponibles === 0;
                                     const corrOptions = f.correlativos.map((c: CorrelativoOption) => ({
                                         value: c.frecuencia_correlativo,
                                         label: `${c.frecuencia_correlativo} — ${STATUS_LABEL[c.status] ?? c.status}${c.fecha_muestreo ? ` (${new Date(c.fecha_muestreo).toLocaleDateString('es-CL')})` : ''}`
@@ -278,9 +294,12 @@ export const NuevaEjecucionModal: React.FC<NuevaEjecucionModalProps> = ({
                                             withBorder
                                             p="sm"
                                             radius="sm"
+                                            bg={sinDisponibles ? 'orange.0' : undefined}
                                             style={{
                                                 opacity: isSelected ? 1 : 0.5,
-                                                borderColor: isSelected ? 'var(--mantine-color-blue-3)' : undefined,
+                                                borderColor: sinDisponibles
+                                                    ? 'var(--mantine-color-orange-4)'
+                                                    : isSelected ? 'var(--mantine-color-blue-3)' : undefined,
                                                 transition: 'opacity 0.15s'
                                             }}
                                         >
@@ -298,6 +317,13 @@ export const NuevaEjecucionModal: React.FC<NuevaEjecucionModalProps> = ({
                                                         <Text size="xs" fw={700} c="blue.8">#{f.id_fichaingresoservicio}</Text>
                                                         {f.centro && <Text size="xs" c="dimmed" truncate>{f.centro}</Text>}
                                                         {f.empresa_servicio && <Text size="10px" c="dimmed" truncate>{f.empresa_servicio}</Text>}
+                                                        {sinDisponibles && (
+                                                            <Tooltip label="Todos los correlativos de esta ficha ya fueron ejecutados o cancelados">
+                                                                <Badge size="xs" color="orange" variant="filled" style={{ flexShrink: 0 }}>
+                                                                    Sin disponibles
+                                                                </Badge>
+                                                            </Tooltip>
+                                                        )}
                                                     </Group>
                                                     <Group gap="xs" align="center" wrap="nowrap">
                                                         <Select

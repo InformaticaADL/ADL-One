@@ -178,10 +178,16 @@ class UrsController {
     async addComment(req, res) {
         try {
             const { id } = req.params;
-            const { mensaje, es_privado } = req.body;
+            const { mensaje: rawMensaje, es_privado } = req.body;
             const idUsuario = req.user.id;
+            const files = req.files || [];
+            const mensaje = rawMensaje || (files.length > 0 ? 'Archivo adjunto' : '');
 
-            const comentario = await ursService.addComment(id, idUsuario, mensaje, es_privado, req.files);
+            if (!mensaje && files.length === 0) {
+                return res.status(400).json({ error: 'El mensaje no puede estar vacío' });
+            }
+
+            const comentario = await ursService.addComment(id, idUsuario, mensaje, es_privado, files);
             res.json(comentario);
         } catch (error) {
             res.status(500).json({ error: 'Error al agregar comentario' });

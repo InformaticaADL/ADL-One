@@ -13,9 +13,9 @@ const router = express.Router();
 router.use(authenticate);
 
 router.get('/types', ursController.getTypes);
-router.post('/types', verifyPermission('RBAC_MANAGE'), validateRequest(ursValidationSchemas.createUpdateType), ursController.createUpdateType);
-router.put('/types/:id', verifyPermission('RBAC_MANAGE'), validateRequest(ursValidationSchemas.createUpdateType), ursController.createUpdateType);
-router.patch('/types/:id/status', verifyPermission('RBAC_MANAGE'), validateRequest(ursValidationSchemas.toggleTypeStatus), ursController.toggleTypeStatus);
+router.post('/types', verifyPermission(['RBAC_MANAGE', 'INF_SOLICITUDES']), validateRequest(ursValidationSchemas.createUpdateType), ursController.createUpdateType);
+router.put('/types/:id', verifyPermission(['RBAC_MANAGE', 'INF_SOLICITUDES']), validateRequest(ursValidationSchemas.createUpdateType), ursController.createUpdateType);
+router.patch('/types/:id/status', verifyPermission(['RBAC_MANAGE', 'INF_SOLICITUDES']), validateRequest(ursValidationSchemas.toggleTypeStatus), ursController.toggleTypeStatus);
 
 router.get('/download/:idAdjunto', ursController.downloadAttachment);
 
@@ -29,10 +29,10 @@ router.post('/:id/derive', validateRequest(ursValidationSchemas.derive), ursCont
 
 // --- Granular Permissions & Notifications (Phase 22) ---
 router.get('/types/:id/permissions', ursController.getPermissions);
-router.post('/types/:id/permissions', verifyPermission('RBAC_MANAGE'), ursController.addPermission);
-router.delete('/permissions/:idRelacion', verifyPermission('RBAC_MANAGE'), ursController.removePermission);
+router.post('/types/:id/permissions', verifyPermission(['RBAC_MANAGE', 'INF_SOLICITUDES']), ursController.addPermission);
+router.delete('/permissions/:idRelacion', verifyPermission(['RBAC_MANAGE', 'INF_SOLICITUDES']), ursController.removePermission);
 router.get('/types/:id/derivation-targets', ursController.getDerivationTargets);
 router.get('/types/:id/notifications', ursController.getNotificationConfig);
-router.post('/types/:id/notifications', verifyPermission('RBAC_MANAGE'), ursController.saveNotificationConfig);
+router.post('/types/:id/notifications', verifyPermission(['RBAC_MANAGE', 'INF_SOLICITUDES']), ursController.saveNotificationConfig);
 
 export default router;

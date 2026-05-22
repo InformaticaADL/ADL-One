@@ -4,22 +4,20 @@ import rutasPlanificadasController from '../controllers/rutas-planificadas.contr
 
 const router = express.Router();
 
-// Obtener todas las rutas pendientes
+// ─── Grupos ────────────────────────────────────────────────────────────────────
+router.get('/grupos', checkAuth, rutasPlanificadasController.getGrupos);
+router.post('/grupos', checkAuth, rutasPlanificadasController.createGrupo);
+router.put('/grupos/:id', checkAuth, rutasPlanificadasController.updateGrupo);
+router.delete('/grupos/:id', checkAuth, rutasPlanificadasController.deleteGrupo);
+
+// ─── Rutas ─────────────────────────────────────────────────────────────────────
 router.get('/', checkAuth, rutasPlanificadasController.getAllRutas);
-
-// Obtener detalle de una ruta
-router.get('/:id', checkAuth, rutasPlanificadasController.getRutaDetalle);
-
-// Crear nueva ruta (Solo guardar, sin asignar)
 router.post('/', checkAuth, rutasPlanificadasController.createRuta);
-
-// Actualizar ruta (reemplaza fichas atómicamente, preserva el ID)
+router.get('/:id', checkAuth, rutasPlanificadasController.getRutaDetalle);
+router.patch('/:id/grupo', checkAuth, rutasPlanificadasController.updateRutaGrupo);
 router.put('/:id', checkAuth, rutasPlanificadasController.updateRuta);
-
-// Eliminar ruta
 router.delete('/:id', checkAuth, rutasPlanificadasController.deleteRuta);
-
-// Convertir ruta guardada en asignación oficial (Batch update)
+router.post('/:id/clone', checkAuth, rutasPlanificadasController.cloneRuta);
 router.post('/:id/asignar', checkAuth, rutasPlanificadasController.asignarRuta);
 
 export default router;

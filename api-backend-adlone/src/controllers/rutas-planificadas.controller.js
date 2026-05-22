@@ -3,7 +3,58 @@ import { successResponse, errorResponse } from '../utils/response.js';
 import logger from '../utils/logger.js';
 
 class RutasPlanificadasController {
-    async getAllRutas(req, res) {
+
+    // ─── GRUPOS ────────────────────────────────────────────────────────────────
+
+    async getGrupos(_req, res) {
+        try {
+            const grupos = await rutasPlanificadasService.getGrupos();
+            return successResponse(res, grupos, 'Grupos obtenidos correctamente');
+        } catch (error) {
+            logger.error('Error fetching grupos rutas:', error);
+            return errorResponse(res, 'Error al obtener los grupos', 500, error.message);
+        }
+    }
+
+    async createGrupo(req, res) {
+        try {
+            const { nombre_grupo, descripcion } = req.body;
+            if (!nombre_grupo) return errorResponse(res, 'El nombre del grupo es obligatorio', 400);
+            const grupo = await rutasPlanificadasService.createGrupo({ nombre_grupo, descripcion });
+            return successResponse(res, grupo, 'Grupo creado correctamente', 201);
+        } catch (error) {
+            logger.error('Error creando grupo:', error);
+            return errorResponse(res, 'Error al crear el grupo', 500, error.message);
+        }
+    }
+
+    async updateGrupo(req, res) {
+        try {
+            const { id } = req.params;
+            const { nombre_grupo, descripcion } = req.body;
+            if (!nombre_grupo) return errorResponse(res, 'El nombre del grupo es obligatorio', 400);
+            const grupo = await rutasPlanificadasService.updateGrupo(id, { nombre_grupo, descripcion });
+            return successResponse(res, grupo, 'Grupo actualizado correctamente');
+        } catch (error) {
+            logger.error('Error actualizando grupo:', error);
+            return errorResponse(res, 'Error al actualizar el grupo', 500, error.message);
+        }
+    }
+
+    async deleteGrupo(req, res) {
+        try {
+            const { id } = req.params;
+            await rutasPlanificadasService.deleteGrupo(id);
+            return successResponse(res, { deleted: true }, 'Grupo eliminado');
+        } catch (error) {
+            logger.error('Error eliminando grupo:', error);
+            return errorResponse(res, 'Error al eliminar el grupo', 500, error.message);
+        }
+    }
+
+    // ─── RUTAS ─────────────────────────────────────────────────────────────────
+
+    async getAllRutas(_req, res) {
         try {
             const rutas = await rutasPlanificadasService.getAll();
             return successResponse(res, rutas, 'Rutas obtenidas correctamente');
@@ -17,9 +68,7 @@ class RutasPlanificadasController {
         try {
             const { id } = req.params;
             const detalle = await rutasPlanificadasService.getById(id);
-            if (!detalle) {
-                return errorResponse(res, 'Ruta no encontrada', 404);
-            }
+            if (!detalle) return errorResponse(res, 'Ruta no encontrada', 404);
             return successResponse(res, detalle, 'Detalle de ruta obtenido');
         } catch (error) {
             logger.error(`Error fetching ruta ${req.params.id}:`, error);
@@ -31,11 +80,9 @@ class RutasPlanificadasController {
         try {
             const data = req.body;
             const user = req.user;
-            
             if (!data.nombre_ruta || !data.fichas || data.fichas.length === 0) {
                 return errorResponse(res, 'Faltan datos obligatorios (nombre_ruta, fichas)', 400);
             }
-
             const result = await rutasPlanificadasService.create(data, user);
             return successResponse(res, result, 'Ruta guardada correctamente', 201);
         } catch (error) {
@@ -44,21 +91,44 @@ class RutasPlanificadasController {
         }
     }
 
+    async updateRutaGrupo(req, res) {
+        try {
+            const { id } = req.params;
+            const { id_grupo } = req.body;
+            const result = await rutasPlanificadasService.updateGrupo(id, id_grupo ?? null);
+            return successResponse(res, result, 'Grupo actualizado correctamente');
+        } catch (error) {
+            logger.error('Error actualizando grupo de ruta:', error);
+            return errorResponse(res, 'Error al actualizar el grupo', 500, error.message);
+        }
+    }
+
     async updateRuta(req, res) {
         try {
             const { id } = req.params;
             const data = req.body;
             const user = req.user;
-
             if (!data.nombre_ruta || !data.fichas || data.fichas.length === 0) {
                 return errorResponse(res, 'Faltan datos obligatorios (nombre_ruta, fichas)', 400);
             }
-
             const result = await rutasPlanificadasService.update(id, data, user);
             return successResponse(res, result, 'Ruta actualizada correctamente');
         } catch (error) {
             logger.error('Error actualizando ruta:', error);
             return errorResponse(res, 'Error al actualizar la ruta', 500, error.message);
+        }
+    }
+
+    async cloneRuta(req, res) {
+        try {
+            const { id } = req.params;
+            const user = req.user;
+            const options = req.body || {};
+            const result = await rutasPlanificadasService.clone(id, user, options);
+            return successResponse(res, result, 'Ruta clonada correctamente', 201);
+        } catch (error) {
+            logger.error('Error clonando ruta:', error);
+            return errorResponse(res, 'Error al clonar la ruta', 500, error.message);
         }
     }
 
@@ -69,19 +139,15 @@ class RutasPlanificadasController {
             return successResponse(res, { deleted: true }, 'Ruta eliminada');
         } catch (error) {
             logger.error('Error deleting ruta:', error);
-            return errorResponse(res, 'Error al eliminar la ruta', 500, error.message);
+            return errorResponse(res, error.message || 'Error al eliminar la ruta', 500, error.message);
         }
     }
 
     async asignarRuta(req, res) {
         try {
-            // Este endpoint tomará el ID de la ruta planificada, y los parámetros de asignación
-            // (fecha, instalador, retirador) y usará ficha.service.js para agendarlos masivamente.
-            // Una vez asignada, la ruta cambiará a estado ASIGNADA.
             const { id } = req.params;
             const assignmentParams = req.body;
             const user = req.user;
-            
             const result = await rutasPlanificadasService.asignar(id, assignmentParams, user);
             return successResponse(res, result, 'Ruta asignada exitosamente');
         } catch (error) {

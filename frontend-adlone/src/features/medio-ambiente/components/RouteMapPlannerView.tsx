@@ -4,6 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { fichaService } from '../services/ficha.service';
 import { rutasPlanificadasService } from '../services/rutasPlanificadas.service';
+import type { GrupoRuta } from '../services/rutasPlanificadas.service';
 import { catalogosService } from '../services/catalogos.service';
 import { useCatalogos } from '../context/CatalogosContext';
 import { useToast } from '../../../contexts/ToastContext';
@@ -13,6 +14,7 @@ import {
     Stack,
     Paper,
     TextInput,
+    Textarea,
     Select,
     Button,
     Badge,
@@ -211,6 +213,9 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isSavingBase, setIsSavingBase] = useState(false);
     const [nombreRuta, setNombreRuta] = useState('');
+    const [descripcionRuta, setDescripcionRuta] = useState('');
+    const [selectedGrupo, setSelectedGrupo] = useState<string | null>(null);
+    const [grupos, setGrupos] = useState<GrupoRuta[]>([]);
     const [fichas, setFichas] = useState<FichaWithCoords[]>([]);
     const [muestreadores, setMuestreadores] = useState<any[]>([]);
     const [objetivosCat, setObjetivosCat] = useState<any[]>([]);
@@ -235,11 +240,13 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
         const loadData = async () => {
             setLoading(true);
             try {
-                const [fichasResponse, mData, oData] = await Promise.all([
+                const [fichasResponse, mData, oData, gruposData] = await Promise.all([
                     fichaService.getForAssignment(),
                     getCatalogo('muestreadores', () => catalogosService.getMuestreadores()),
-                    getCatalogo('objetivos-muestreo', () => catalogosService.getObjetivosMuestreo())
+                    getCatalogo('objetivos-muestreo', () => catalogosService.getObjetivosMuestreo()),
+                    rutasPlanificadasService.getGrupos()
                 ]);
+                setGrupos(gruposData || []);
 
                 let rawFichas: any[] = [];
                 if (Array.isArray(fichasResponse)) rawFichas = fichasResponse;
@@ -328,7 +335,6 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                         const ruta = await rutasPlanificadasService.getById(editRutaId);
                         if (ruta && ruta.fichas) {
                             const items: SelectedItem[] = ruta.fichas.map((rf: any) => {
-                                const ficha = parsedFichas.find(f => f.id === rf.id_fichaingresoservicio);
                                 const corrParts = (rf.frecuencia_correlativo || '').split('-');
                                 const numSvc = corrParts.length >= 2 ? parseInt(corrParts[1], 10) : 1;
                                 return {
@@ -339,6 +345,8 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                             });
                             setSelectedItems(items);
                             setNombreRuta(ruta.nombre_ruta || '');
+                            setDescripcionRuta(ruta.descripcion || '');
+                            if (ruta.id_grupo) setSelectedGrupo(String(ruta.id_grupo));
                             setIsSavingBase(true); // Pre-enter save mode for editing
                         }
                     } catch (e) {
@@ -370,6 +378,8 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
         try {
             const payload = {
                 nombre_ruta: nombreRuta,
+                descripcion: descripcionRuta || undefined,
+                id_grupo: selectedGrupo ? Number(selectedGrupo) : undefined,
                 fichas: selectedItems.map((item, index) => ({
                     id_fichaingresoservicio: item.fichaId,
                     orden: index + 1,
@@ -385,6 +395,8 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
             showToast({ type: 'success', message: 'Ruta Base guardada exitosamente' });
             setIsSavingBase(false);
             setNombreRuta('');
+            setDescripcionRuta('');
+            setSelectedGrupo(null);
             setSelectedItems([]);
             setTimeout(() => onBack(), 1500); // return to list view
         } catch (error) {
@@ -862,7 +874,7 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                                     </Group>
                                     {selectedCount > 0 && (
                                         <Group gap="xs">
-                                            <Button size="compact-xs" variant="subtle" color="red" leftSection={<IconTrash size={12} />} onClick={() => { setSelectedItems([]); setIsSavingBase(false); setNombreRuta(''); }}>
+                                            <Button size="compact-xs" variant="subtle" color="red" leftSection={<IconTrash size={12} />} onClick={() => { setSelectedItems([]); setIsSavingBase(false); setNombreRuta(''); setDescripcionRuta(''); setSelectedGrupo(null); }}>
                                                 Limpiar
                                             </Button>
                                         </Group>
@@ -927,6 +939,24 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                                             onChange={(e) => setNombreRuta(e.target.value)}
                                             required
                                             autoFocus
+                                        />
+                                        <Select
+                                            size="xs"
+                                            placeholder="Grupo (opcional)"
+                                            data={grupos.map(g => ({ value: String(g.id_grupo), label: g.nombre_grupo }))}
+                                            value={selectedGrupo}
+                                            onChange={setSelectedGrupo}
+                                            clearable
+                                            searchable
+                                        />
+                                        <Textarea
+                                            size="xs"
+                                            placeholder="Notas o descripción (opcional)"
+                                            value={descripcionRuta}
+                                            onChange={(e) => setDescripcionRuta(e.target.value)}
+                                            autosize
+                                            minRows={2}
+                                            maxRows={3}
                                         />
                                         <Group grow gap="xs">
                                             <Button size="xs" variant="default" onClick={() => setIsSavingBase(false)}>Cancelar</Button>

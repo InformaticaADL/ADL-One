@@ -309,6 +309,18 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
             return;
         }
 
+        if (duracionMuestreo >= 24) {
+            const sameDayRows = completedRows.filter(r => {
+                const inst = editableDates[r.id_agendamam];
+                const retiro = editableRetiroDates[r.id_agendamam] || inst;
+                return inst && retiro && inst === retiro;
+            });
+            if (sameDayRows.length > 0) {
+                showToast({ message: `Muestreo de ${duracionMuestreo}h: instalación y retiro no pueden ser el mismo día (${sameDayRows.length} fila${sameDayRows.length !== 1 ? 's' : ''})`, type: 'error' });
+                return;
+            }
+        }
+
         if (resamplingData) {
             const rowsMissingVersions = completedRows.filter(r =>
                 muestreadorInstalacion[r.id_agendamam] === resamplingData.idMuestreadorOriginal &&
@@ -692,6 +704,12 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                             onChange={(e) => {
                                                                 const val = e.currentTarget.value;
                                                                 setEditableRetiroDates(prev => ({ ...prev, [rowId]: val }));
+                                                                if (val) {
+                                                                    const dayOffset = Math.floor(duracionMuestreo / 24);
+                                                                    const instDate = new Date(val + 'T00:00:00');
+                                                                    instDate.setDate(instDate.getDate() - dayOffset);
+                                                                    setEditableDates(prev => ({ ...prev, [rowId]: instDate.toISOString().split('T')[0] }));
+                                                                }
                                                             }}
                                                         />
                                                     </Table.Td>

@@ -451,15 +451,27 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
 
                                                 <Table.Td ta="center">
                                                     <ProtectedContent permission="FI_GEST_ASIG">
-                                                        <Tooltip label="Gestionar Asignación">
-                                                            <ActionIcon
-                                                                color="grape"
-                                                                variant="filled"
-                                                                onClick={() => onViewAssignment(row.id_fichaingresoservicio || row.fichaingresoservicio)}
-                                                            >
-                                                                <IconCalendarStats size={18} />
-                                                            </ActionIcon>
-                                                        </Tooltip>
+                                                        {(() => {
+                                                            const status = (row.estado_ficha || row.nombre_estadomuestreo || '').toUpperCase();
+                                                            const isPendingCoordinacion = status.includes('COORDINAC');
+                                                            return isPendingCoordinacion ? (
+                                                                <Tooltip label="Pendiente de aprobación por Área de Coordinación. No es posible gestionar la asignación hasta que sea aprobado." multiline maw={240}>
+                                                                    <ActionIcon color="gray" variant="light" disabled>
+                                                                        <IconCalendarStats size={18} />
+                                                                    </ActionIcon>
+                                                                </Tooltip>
+                                                            ) : (
+                                                                <Tooltip label="Gestionar Asignación">
+                                                                    <ActionIcon
+                                                                        color="grape"
+                                                                        variant="filled"
+                                                                        onClick={() => onViewAssignment(row.id_fichaingresoservicio || row.fichaingresoservicio)}
+                                                                    >
+                                                                        <IconCalendarStats size={18} />
+                                                                    </ActionIcon>
+                                                                </Tooltip>
+                                                            );
+                                                        })()}
                                                     </ProtectedContent>
                                                 </Table.Td>
                                             </Table.Tr>

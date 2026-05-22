@@ -725,7 +725,7 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                                             title={
                                                 <Group gap="xs">
                                                     <Badge size="xs" variant="light" color={getActionColor(item.action)}>
-                                                        {item.action}
+                                                        {formatCodeValue(item.action)}
                                                     </Badge>
                                                     <Text size="xs" c="dimmed">
                                                         {new Date(item.date).toLocaleString('es-CL', {
