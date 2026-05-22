@@ -421,6 +421,11 @@ frontend-adlone/
 - **`{COLOR_PRINCIPAL}` resuelto en runtime**: Cualquier placeholder de color residual se reemplaza por `#0062a8` durante el render.
 - **Actualización masiva en BD**: 73 templates actualizados con el nuevo estilo compacto.
 
+### 60. Optimización de Correos, Permisos RBAC y Limpieza (Mayo 2026) 📧🔐
+- **Limpieza de Proyecto**: Eliminación de scripts de diagnóstico (`scratch/`) y optimización del repositorio.
+- **Armonización de Plantillas**: Unificación de notificaciones de reagendamiento, separación en plantillas específicas y solución del bloque de observaciones ('Sin observaciones').
+- **Permisos y RBAC**: Correcciones en la gestión y validación de permisos de roles (RBAC) en las rutas del backend y módulo URS.
+
 ---
 
 ## 🔧 Configuración para Desarrollo
