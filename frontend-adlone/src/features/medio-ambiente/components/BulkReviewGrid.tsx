@@ -17,7 +17,8 @@ import {
     Divider,
     Tabs,
     SimpleGrid,
-    Paper
+    Paper,
+    Loader
 } from '@mantine/core';
 import {
     IconCheck,
@@ -27,8 +28,10 @@ import {
     IconFlask,
     IconEye,
     IconClipboardList,
-    IconCodeDots
+    IconCodeDots,
+    IconMapPin
 } from '@tabler/icons-react';
+import apiClient from '../../../config/axios.config';
 
 interface Props {
     items: any[];
@@ -36,9 +39,40 @@ interface Props {
     onSelectChange: (indices: number[]) => void;
 }
 
+type LinkStatus = { status: 'loading' | 'ok' | 'warn' | 'invalid' | 'empty'; lat?: number; lon?: number };
+
 export const BulkReviewGrid: React.FC<Props> = ({ items, selectedIndices, onSelectChange }) => {
     const [previewItem, setPreviewItem] = React.useState<any>(null);
     const [previewIndex, setPreviewIndex] = React.useState<number>(-1);
+    const [linkStatuses, setLinkStatuses] = React.useState<Record<number, LinkStatus>>({});
+
+    // Auto-verify all Google Maps links when items load
+    React.useEffect(() => {
+        if (!items || items.length === 0) { setLinkStatuses({}); return; }
+
+        const initialStatuses: Record<number, LinkStatus> = {};
+        items.forEach((item, idx) => {
+            const link = item.antecedentes?.refGoogle?.trim();
+            initialStatuses[idx] = link ? { status: 'loading' } : { status: 'empty' };
+        });
+        setLinkStatuses(initialStatuses);
+
+        items.forEach((item, idx) => {
+            const link = item.antecedentes?.refGoogle?.trim();
+            if (!link) return;
+            apiClient.post('/api/fichas/verificar-link', { link })
+                .then(({ data }) => {
+                    const d = data?.data;
+                    setLinkStatuses(prev => ({
+                        ...prev,
+                        [idx]: d?.ok ? { status: 'ok', lat: d.lat, lon: d.lon } : { status: 'warn' }
+                    }));
+                })
+                .catch(() => {
+                    setLinkStatuses(prev => ({ ...prev, [idx]: { status: 'warn' } }));
+                });
+        });
+    }, [items]);
 
     const toggleAll = () => {
         if (selectedIndices.length === items.filter(i => i.status === 'READY' || i.status === 'WARNING').length) {
@@ -71,8 +105,37 @@ export const BulkReviewGrid: React.FC<Props> = ({ items, selectedIndices, onSele
     const hasIndeterminate = selectedIndices.length > 0 && !isAllSelected;
 
 
+    const linkSummary = React.useMemo(() => {
+        const vals = Object.values(linkStatuses);
+        return {
+            ok: vals.filter(v => v.status === 'ok').length,
+            warn: vals.filter(v => v.status === 'warn').length,
+            invalid: vals.filter(v => v.status === 'invalid').length,
+            loading: vals.filter(v => v.status === 'loading').length,
+            total: vals.filter(v => v.status !== 'empty').length,
+        };
+    }, [linkStatuses]);
+
     return (
         <>
+            {linkSummary.total > 0 && (
+                <Alert
+                    color={linkSummary.warn > 0 || linkSummary.invalid > 0 ? 'orange' : 'green'}
+                    icon={<IconMapPin size={16} />}
+                    p="xs"
+                    radius="md"
+                    mb="xs"
+                >
+                    <Group gap="lg" wrap="wrap">
+                        <Text size="xs" fw={600}>Ubicaciones Google Maps:</Text>
+                        {linkSummary.loading > 0 && <Text size="xs" c="dimmed">Verificando {linkSummary.loading}…</Text>}
+                        {linkSummary.ok > 0 && <Text size="xs" c="green.7">✓ {linkSummary.ok} detectada{linkSummary.ok !== 1 ? 's' : ''}</Text>}
+                        {linkSummary.warn > 0 && <Text size="xs" c="orange.7">⚠ {linkSummary.warn} sin coordenadas</Text>}
+                        {linkSummary.invalid > 0 && <Text size="xs" c="red.7">✗ {linkSummary.invalid} inválido{linkSummary.invalid !== 1 ? 's' : ''}</Text>}
+                        {linkSummary.warn > 0 && <Text size="xs" c="dimmed">(se guardarán sin coordenadas de ruta)</Text>}
+                    </Group>
+                </Alert>
+            )}
             <ScrollArea h={500} offsetScrollbars>
             <Table verticalSpacing="sm" highlightOnHover striped withTableBorder>
                 <Table.Thead bg="gray.1" style={{ position: 'sticky', top: 0, zIndex: 10 }}>
@@ -93,6 +156,7 @@ export const BulkReviewGrid: React.FC<Props> = ({ items, selectedIndices, onSele
                         <Table.Th w={130}>Objetivo</Table.Th>
                         <Table.Th>Análisis (#)</Table.Th>
                         <Table.Th w={90}>UF Total</Table.Th>
+                        <Table.Th w={70}>Ubicación</Table.Th>
                         <Table.Th w={80}>Problemas</Table.Th>
                     </Table.Tr>
                 </Table.Thead>
@@ -182,6 +246,35 @@ export const BulkReviewGrid: React.FC<Props> = ({ items, selectedIndices, onSele
                                         <Text size="xs" c={(item._ufTotal || 0) > 0 ? 'green.7' : 'dimmed'} fw={600}>
                                             {(item._ufTotal || 0) > 0 ? `${Number(item._ufTotal).toFixed(2)} UF` : '-'}
                                         </Text>
+                                    </Table.Td>
+
+                                    <Table.Td align="center">
+                                        {(() => {
+                                            const ls = linkStatuses[idx];
+                                            if (!ls || ls.status === 'empty') return <Text size="xs" c="dimmed">-</Text>;
+                                            if (ls.status === 'loading') return <Loader size={12} />;
+                                            if (ls.status === 'ok') return (
+                                                <Tooltip label={`Lat: ${ls.lat?.toFixed(5)} · Lon: ${ls.lon?.toFixed(5)}`}>
+                                                    <ThemeIcon color="green" size="sm" variant="light" style={{ cursor: 'default' }}>
+                                                        <IconCheck size={12} />
+                                                    </ThemeIcon>
+                                                </Tooltip>
+                                            );
+                                            if (ls.status === 'warn') return (
+                                                <Tooltip label="Link válido pero sin coordenadas extraíbles. Se guardará sin ubicación de ruta.">
+                                                    <ThemeIcon color="orange" size="sm" variant="light" style={{ cursor: 'default' }}>
+                                                        <IconAlertTriangle size={12} />
+                                                    </ThemeIcon>
+                                                </Tooltip>
+                                            );
+                                            return (
+                                                <Tooltip label="Link inválido.">
+                                                    <ThemeIcon color="red" size="sm" variant="light" style={{ cursor: 'default' }}>
+                                                        <IconX size={12} />
+                                                    </ThemeIcon>
+                                                </Tooltip>
+                                            );
+                                        })()}
                                     </Table.Td>
 
                                     <Table.Td align="center">
@@ -300,7 +393,14 @@ export const BulkReviewGrid: React.FC<Props> = ({ items, selectedIndices, onSele
 
                                             <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }}>
                                                 <StaticField label="Instrumento" value={ants.instrumentoFull || ants.selectedInstrumento || '-'} />
-                                                <StaticField label="Ref. Google Maps" value={ants.refGoogle ? '✓ Enlace detectado' : 'Sin enlace'} />
+                                                <StaticField label="Ref. Google Maps" value={(() => {
+                                                    const ls = linkStatuses[previewIndex];
+                                                    if (!ants.refGoogle) return 'Sin enlace';
+                                                    if (!ls || ls.status === 'loading') return '⏳ Verificando…';
+                                                    if (ls.status === 'ok') return `✓ Lat: ${ls.lat?.toFixed(6)}, Lon: ${ls.lon?.toFixed(6)}`;
+                                                    if (ls.status === 'warn') return '⚠ Sin coordenadas extraíbles';
+                                                    return '✗ Link inválido';
+                                                })()} />
                                                 <StaticField label="Zona UTM" value={ants.zona} />
                                                 <StaticField label="Coordenadas" value={ants.utmNorte && ants.utmEste ? `N ${ants.utmNorte} / E ${ants.utmEste}` : '-'} />
                                             </SimpleGrid>

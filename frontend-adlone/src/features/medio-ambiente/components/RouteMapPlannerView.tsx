@@ -629,9 +629,14 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                     return !estado.includes('EJECUTADO') && !estado.includes('CANCELADO') && !estado.includes('ANULADO');
                 }) || rows[0];
 
+                const dayOffset = Math.floor((Number(pendingRow.ma_duracion_muestreo) || 0) / 24);
+                const instDate = dayOffset > 0
+                    ? (() => { const d = new Date(assignDate + 'T00:00:00'); d.setDate(d.getDate() - dayOffset); return d.toISOString().split('T')[0]; })()
+                    : assignDate;
+
                 assignments.push({
                     id: pendingRow.id_agendamam,
-                    fecha: assignDate,
+                    fecha: instDate,
                     fechaRetiro: assignDate,
                     idMuestreadorInstalacion: Number(assignMuestreadorInst),
                     idMuestreadorRetiro: Number(assignMuestreadorRet || assignMuestreadorInst),

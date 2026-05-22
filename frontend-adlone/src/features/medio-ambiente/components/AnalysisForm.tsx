@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useToast } from '../../../contexts/ToastContext';
 import { useCachedCatalogos } from '../hooks/useCachedCatalogos';
 import { 
@@ -156,10 +156,12 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
     };
 
     // ===== FUNCIONES: Filtrado =====
-    const filteredAnalysis = analysisResults.filter(analysis =>
-        analysis.nombre_tecnica?.toLowerCase().includes(searchText.toLowerCase()) ||
-        analysis.id_referenciaanalisis?.toString().includes(searchText)
-    );
+    const filteredAnalysis = useMemo(() =>
+        analysisResults.filter(analysis =>
+            analysis.nombre_tecnica?.toLowerCase().includes(searchText.toLowerCase()) ||
+            analysis.id_referenciaanalisis?.toString().includes(searchText)
+        ),
+    [analysisResults, searchText]);
 
     // ===== FUNCIONES: Selección de Análisis =====
     const handleSelectAll = () => {

@@ -1,34 +1,61 @@
-import React, { useEffect, useState, useRef, useImperativeHandle, forwardRef, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useRef, useImperativeHandle, forwardRef, useMemo } from 'react';
 import { useCachedCatalogos } from '../hooks/useCachedCatalogos';
 import type { LugarAnalisis, EmpresaServicio, Cliente, Contacto, Centro } from '../services/catalogos.service';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
-import { 
-    Stack, 
-    SimpleGrid, 
-    TextInput as MantineTextInput, 
-    Select, 
-    Text, 
-    Paper, 
-    Divider, 
+import {
+    Stack,
+    SimpleGrid,
+    TextInput as MantineTextInput,
+    Select,
+    Text,
+    Paper,
+    Divider,
     Badge,
     Box,
     Group,
-    ActionIcon
+    ActionIcon,
+    Button,
+    Alert,
+    Loader,
+    Anchor
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import { 
-    IconInfoCircle, 
-    IconBuilding, 
-    IconMail, 
-    IconMapPin, 
-    IconFlask, 
-    IconCertificate, 
-    IconClock, 
+import {
+    IconInfoCircle,
+    IconBuilding,
+    IconMail,
+    IconMapPin,
+    IconFlask,
+    IconCertificate,
+    IconClock,
     IconAdjustmentsHorizontal,
-    IconPlus
+    IconPlus,
+    IconCheck,
+    IconAlertTriangle,
+    IconExternalLink
 } from '@tabler/icons-react';
 import { CreateEmpresaServicioModal } from './CreateEmpresaServicioModal';
+import apiClient from '../../../config/axios.config';
+
+// Validates a Google Maps reference string client-side before hitting the backend.
+// Defined outside the component so it is never recreated on re-renders.
+const validarRefGoogle = (valor: string): { valido: boolean; error?: string } => {
+    if (!valor || !valor.trim()) return { valido: true }; // optional field
+    const t = valor.trim().toLowerCase();
+    if (t.length < 10) return { valido: false, error: 'El link debe tener al menos 10 caracteres.' };
+    const basura = ['asd','aas','aaa','aasd','fdsg','fdsd','asds','ssdf','qwerty','noaplica','no aplica','maps','mapa','no hay','no tiene','n/a','na','null','undefined','pendiente','.','..','sin link','-'];
+    if (basura.includes(t)) return { valido: false, error: 'Ingresa un link válido de Google Maps o coordenadas reales.' };
+    if (!/[0-9.]/.test(t) && !t.includes('http') && !t.includes('goo.gl')) {
+        return { valido: false, error: 'No se reconoce como link de Google Maps ni coordenadas.' };
+    }
+    const esUrl = t.includes('google.') || t.includes('goo.gl') || t.includes('maps.app');
+    const esCoord = /^-?\d+\.\d+\s*,\s*-?\d+\.\d+$/.test(t);
+    if (!esUrl && !esCoord) {
+        return { valido: false, error: 'Debe ser una URL de Google Maps o coordenadas en formato: -41.45,-72.92' };
+    }
+    return { valido: true };
+};
 
 // Helper to dedup options
 const dedupOptions = (options: { value: string; label: string }[]) => {
@@ -41,7 +68,9 @@ const dedupOptions = (options: { value: string; label: string }[]) => {
     });
 };
 
-// Extremely Fast TextInput Wrapper to isolate typing updates
+// Extremely Fast TextInput Wrapper to isolate typing updates.
+// Uses startTransition for the parent callback so AntecedentesForm (30+ states)
+// only re-renders at low priority — the local input state updates immediately.
 const TextInput = React.memo(({ value: parentValue, onChange, ...props }: any) => {
     const [localValue, setLocalValue] = useState(parentValue || '');
 
@@ -55,7 +84,7 @@ const TextInput = React.memo(({ value: parentValue, onChange, ...props }: any) =
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const next = e.target.value;
         setLocalValue(next);
-        if (onChange) onChange({ target: { value: next } } as any);
+        if (onChange) React.startTransition(() => onChange({ target: { value: next } } as any));
     };
 
     return <MantineTextInput value={localValue} onChange={handleChange} {...props} />;
@@ -153,6 +182,9 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
     const [tiposDescarga, setTiposDescarga] = useState<any[]>([]);
     const [selectedTipoDescarga, setSelectedTipoDescarga] = useState<string | null>(null);
     const [refGoogle, setRefGoogle] = useState<string>('');
+    const [verifyStatus, setVerifyStatus] = useState<'idle' | 'loading' | 'ok' | 'warn' | 'invalid'>('idle');
+    const [verifiedCoords, setVerifiedCoords] = useState<{ lat: number; lon: number } | null>(null);
+    const [verifyError, setVerifyError] = useState<string>('');
     const [medicionCaudal, setMedicionCaudal] = useState<string | null>(null);
     const [modalidades, setModalidades] = useState<any[]>([]);
     const [selectedModalidad, setSelectedModalidad] = useState<string | null>(null);
@@ -281,6 +313,43 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
             hasHydrated.current = true;
         }
     }, [initialData]);
+
+    // Reset verification state when user edits the link
+    useEffect(() => {
+        if (verifyStatus !== 'idle') {
+            setVerifyStatus('idle');
+            setVerifiedCoords(null);
+            setVerifyError('');
+        }
+    }, [refGoogle]);
+
+    const handleVerifyLink = useCallback(async () => {
+        const link = refGoogle.trim();
+        if (!link) return;
+        const validacion = validarRefGoogle(link);
+        if (!validacion.valido) {
+            setVerifyStatus('invalid');
+            setVerifyError(validacion.error || 'Link inválido.');
+            setVerifiedCoords(null);
+            return;
+        }
+        setVerifyStatus('loading');
+        setVerifiedCoords(null);
+        setVerifyError('');
+        try {
+            const { data } = await apiClient.post('/api/fichas/verificar-link', { link });
+            if (data?.data?.ok) {
+                setVerifyStatus('ok');
+                setVerifiedCoords({ lat: data.data.lat, lon: data.data.lon });
+            } else {
+                setVerifyStatus('warn');
+                setVerifyError('No pudimos extraer coordenadas de este link. La ficha se guardará igual, pero no aparecerá en el cálculo de ruta.');
+            }
+        } catch {
+            setVerifyStatus('warn');
+            setVerifyError('No se pudo verificar el link ahora. Puedes guardar igual.');
+        }
+    }, [refGoogle]);
 
     // Handle Legacy Unit extraction from string
     useEffect(() => {
@@ -1049,14 +1118,73 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         />
                     </SimpleGrid>
 
-                    <TextInput 
-                        label="Referencia Google Maps" 
-                        placeholder="https://maps..." 
-                        value={refGoogle} 
-                        onChange={(e: any) => setRefGoogle(e.target.value)}
-                        size="sm"
-                        radius="md"
-                    />
+                    <Stack gap={6}>
+                        <Group align="flex-end" gap="xs">
+                            <Box style={{ flex: 1 }}>
+                                <TextInput
+                                    label="Referencia Google Maps"
+                                    placeholder="https://maps.app.goo.gl/... o -41.45,-72.92"
+                                    value={refGoogle}
+                                    onChange={(e: any) => setRefGoogle(e.target.value)}
+                                    onBlur={() => { if (refGoogle.trim() && verifyStatus === 'idle') handleVerifyLink(); }}
+                                    size="sm"
+                                    radius="md"
+                                    error={verifyStatus === 'invalid' ? verifyError : undefined}
+                                    rightSection={verifyStatus === 'loading' ? <Loader size={14} /> : undefined}
+                                />
+                            </Box>
+                            <Button
+                                size="sm"
+                                variant="light"
+                                color="blue"
+                                onClick={handleVerifyLink}
+                                loading={verifyStatus === 'loading'}
+                                disabled={!refGoogle.trim()}
+                                style={{ flexShrink: 0 }}
+                            >
+                                Verificar
+                            </Button>
+                        </Group>
+
+                        {verifyStatus === 'ok' && verifiedCoords && (
+                            <Stack gap={6}>
+                                <Alert color="green" icon={<IconCheck size={16} />} p="xs" radius="md">
+                                    <Group gap="xs" justify="space-between" wrap="nowrap">
+                                        <Text size="xs" fw={500}>
+                                            Ubicación detectada — Lat: {verifiedCoords.lat.toFixed(6)} · Lon: {verifiedCoords.lon.toFixed(6)}
+                                        </Text>
+                                        <Anchor
+                                            href={`https://www.google.com/maps?q=${verifiedCoords.lat},${verifiedCoords.lon}`}
+                                            target="_blank"
+                                            size="xs"
+                                            style={{ flexShrink: 0 }}
+                                        >
+                                            <Group gap={4} wrap="nowrap">
+                                                <IconExternalLink size={12} />
+                                                Abrir
+                                            </Group>
+                                        </Anchor>
+                                    </Group>
+                                </Alert>
+                                <Box style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid var(--mantine-color-green-3)', height: 200 }}>
+                                    <iframe
+                                        title="Ubicación en mapa"
+                                        src={`https://www.openstreetmap.org/export/embed.html?bbox=${verifiedCoords.lon - 0.01},${verifiedCoords.lat - 0.01},${verifiedCoords.lon + 0.01},${verifiedCoords.lat + 0.01}&layer=mapnik&marker=${verifiedCoords.lat},${verifiedCoords.lon}`}
+                                        width="100%"
+                                        height="200"
+                                        style={{ border: 'none', display: 'block' }}
+                                        loading="lazy"
+                                    />
+                                </Box>
+                            </Stack>
+                        )}
+
+                        {verifyStatus === 'warn' && (
+                            <Alert color="orange" icon={<IconAlertTriangle size={16} />} p="xs" radius="md">
+                                <Text size="xs">{verifyError}</Text>
+                            </Alert>
+                        )}
+                    </Stack>
 
                     <Divider label="Hidráulica y Caudal" labelPosition="center" />
 

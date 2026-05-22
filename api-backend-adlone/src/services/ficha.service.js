@@ -101,6 +101,8 @@ class FichaIngresoService {
             requestEnc.input('duracion', sql.VarChar(10), valStr(ant.duracion, 10));
 
             requestEnc.input('ref_google', sql.VarChar(200), valStr(ant.refGoogle, 200));
+            requestEnc.input('lat', sql.Decimal(10, 7), ant.ubicacion_lat ?? null);
+            requestEnc.input('lon', sql.Decimal(10, 7), ant.ubicacion_lon ?? null);
             requestEnc.input('medicion_caudal', sql.VarChar(10), valStr(ant.medicionCaudal, 10));
             requestEnc.input('id_modalidad', sql.Numeric(10, 0), valNum(ant.selectedModalidad));
             requestEnc.input('id_formacanal', sql.Numeric(10, 0), valNum(ant.formaCanal));
@@ -163,7 +165,8 @@ class FichaIngresoService {
                     observaciones_jefaturatecnica, observaciones_coordinador,
                     id_usuario, fecha_fichacomercial, hora_fichacomercial,
                     responsablemuestreo, id_cargo, observaciones_comercial, ubicacion,
-                    es_remuestreo, id_ficha_original
+                    es_remuestreo, id_ficha_original,
+                    ubicacion_lat, ubicacion_lon
                 ) VALUES (
                     @id, @tipo_ficha, @ficha_txt,
                     @id_lugaranalisis, @id_empresaservicio, @id_empresa, @id_centro, @id_tipoagua,
@@ -181,7 +184,8 @@ class FichaIngresoService {
                     @obs_jefatura, @obs_coordinador,
                     @id_usuario, @fecha, @hora,
                     @responsable, @id_cargo, @obs_comercial, @ubicacion,
-                    @es_remuestreo, @id_ficha_original
+                    @es_remuestreo, @id_ficha_original,
+                    @lat, @lon
                 )
             `;
             await requestEnc.query(queryEnc);
@@ -464,6 +468,8 @@ class FichaIngresoService {
             request.input('id_actividad', sql.Numeric(10, 0), valNum(ant.selectedActividad));
             request.input('duracion', sql.VarChar(10), valStr(ant.duracion, 10));
             request.input('ref_google', sql.VarChar(200), valStr(ant.refGoogle, 200));
+            request.input('lat', sql.Decimal(10, 7), ant.ubicacion_lat ?? null);
+            request.input('lon', sql.Decimal(10, 7), ant.ubicacion_lon ?? null);
             request.input('medicion_caudal', sql.VarChar(10), valStr(ant.medicionCaudal, 10));
             request.input('id_modalidad', sql.Numeric(10, 0), valNum(ant.selectedModalidad));
             request.input('id_formacanal', sql.Numeric(10, 0), valNum(ant.formaCanal));
@@ -519,7 +525,9 @@ class FichaIngresoService {
                     ubicacion = @ubicacion,
                     responsablemuestreo = @responsable,
                     observaciones_comercial = @obs_comercial,
-                    id_cargo = @id_cargo
+                    id_cargo = @id_cargo,
+                    ubicacion_lat = @lat,
+                    ubicacion_lon = @lon
                 WHERE id_fichaingresoservicio = @id
             `);
 
@@ -929,7 +937,9 @@ class FichaIngresoService {
                     a.realizado_por_gem,
                     f.id_validaciontecnica,
                     f.es_remuestreo,
-                    f.id_ficha_original
+                    f.id_ficha_original,
+                    red.id_ejecucion as id_ejecucion_ruta,
+                    red.orden as orden_ruta
                 FROM App_Ma_FichaIngresoServicio_ENC f
                 INNER JOIN App_Ma_Agenda_MUESTREOS a ON f.id_fichaingresoservicio = a.id_fichaingresoservicio
                 LEFT JOIN mae_muestreador m ON a.id_muestreador = m.id_muestreador
@@ -940,14 +950,18 @@ class FichaIngresoService {
                 LEFT JOIN mae_objetivomuestreo_ma om ON f.id_objetivomuestreo_ma = om.id_objetivomuestreo_ma
                 LEFT JOIN mae_subarea sa ON f.id_subarea = sa.id_subarea
                 LEFT JOIN mae_centro ce ON f.id_centro = ce.id_centro
+                LEFT JOIN mae_rutas_ejecuciones_detalle red ON red.id_agendamam = a.id_agendamam
                 ${whereClause}
-                ORDER BY 
-                    CASE 
+                ORDER BY
+                    CASE
                         WHEN a.fecha_muestreo IS NULL THEN 1
                         WHEN CAST(a.fecha_muestreo AS DATE) = '1900-01-01' THEN 1
-                        ELSE 0 
+                        ELSE 0
                     END ASC,
-                    a.fecha_muestreo ASC, 
+                    a.fecha_muestreo ASC,
+                    CASE WHEN red.id_ejecucion IS NULL THEN 1 ELSE 0 END ASC,
+                    red.id_ejecucion ASC,
+                    red.orden ASC,
                     f.id_fichaingresoservicio DESC
             `);
             return result.recordset;

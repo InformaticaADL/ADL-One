@@ -426,6 +426,12 @@ frontend-adlone/
 - **Armonización de Plantillas**: Unificación de notificaciones de reagendamiento, separación en plantillas específicas y solución del bloque de observaciones ('Sin observaciones').
 - **Permisos y RBAC**: Correcciones en la gestión y validación de permisos de roles (RBAC) en las rutas del backend y módulo URS.
 
+### 61. Sincronización y Refinamiento de Planificador de Rutas y Formularios (Mayo 2026) 🗺️📝
+- **Resolución de Enlaces de Google Maps**: Nueva utilidad `resolverGoogleMapsLink.js` para extraer coordenadas precisas a partir de URLs cortas y enriquecer la planificación.
+- **Refinamiento de Formularios**: Actualizaciones en componentes de Medio Ambiente (`AnalysisForm`, `AntecedentesForm`, `FichaCreateForm`, `BulkReviewGrid`) optimizando validación y experiencia de usuario.
+- **Gestión Avanzada de Rutas**: Ajustes en backend (`ficha`, `rutas-planificadas`, `rutas-ejecuciones`) para una ejecución y trazabilidad operativa más robusta.
+- **Integración de Cambios**: Sincronización transparente con el módulo de administración de usuarios remoto.
+
 ---
 
 ## 🔧 Configuración para Desarrollo

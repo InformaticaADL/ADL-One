@@ -137,6 +137,30 @@ class RutasEjecucionesService {
     async createEjecucion(data, user) {
         const { id_ruta_planificada, fecha_ejecucion, id_muestreador_inst, id_muestreador_ret, fichas, observaciones } = data;
 
+        // Batch-fetch ma_duracion_muestreo for all fichas upfront
+        const fichaIds = [...new Set(fichas.map(f => f.id_fichaingresoservicio))];
+        const duracionMap = new Map();
+        if (fichaIds.length > 0) {
+            try {
+                const pool = await getConnection();
+                const idList = fichaIds.join(',');
+                const durResult = await pool.request().query(
+                    `SELECT id_fichaingresoservicio, ma_duracion_muestreo FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio IN (${idList})`
+                );
+                durResult.recordset.forEach(r => duracionMap.set(Number(r.id_fichaingresoservicio), Number(r.ma_duracion_muestreo) || 0));
+            } catch (e) {
+                logger.warn('Could not fetch duracion muestreo, defaulting to same-day instalacion:', e.message);
+            }
+        }
+
+        const calcInstDate = (retiroDate, fichaId) => {
+            const dayOffset = Math.floor((duracionMap.get(Number(fichaId)) || 0) / 24);
+            if (dayOffset === 0) return retiroDate;
+            const d = new Date(retiroDate + 'T00:00:00');
+            d.setDate(d.getDate() - dayOffset);
+            return d.toISOString().split('T')[0];
+        };
+
         // Resolve id_agendamam for each selected ficha+correlativo
         const resolvedAssignments = await Promise.all(
             fichas.map(async (f) => {
@@ -144,7 +168,7 @@ class RutasEjecucionesService {
                 if (f.id_agendamam) {
                     return {
                         id: f.id_agendamam,
-                        fecha: fecha_ejecucion,
+                        fecha: calcInstDate(fecha_ejecucion, f.id_fichaingresoservicio),
                         fechaRetiro: fecha_ejecucion,
                         idMuestreadorInstalacion: Number(id_muestreador_inst),
                         idMuestreadorRetiro: Number(id_muestreador_ret || id_muestreador_inst),
@@ -169,7 +193,7 @@ class RutasEjecucionesService {
 
                 return {
                     id: row.id_agendamam,
-                    fecha: fecha_ejecucion,
+                    fecha: calcInstDate(fecha_ejecucion, f.id_fichaingresoservicio),
                     fechaRetiro: fecha_ejecucion,
                     idMuestreadorInstalacion: Number(id_muestreador_inst),
                     idMuestreadorRetiro: Number(id_muestreador_ret || id_muestreador_inst),

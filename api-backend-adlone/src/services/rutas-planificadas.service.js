@@ -2,6 +2,14 @@ import { getConnection } from '../config/database.js';
 import sql from 'mssql';
 import fichaService from './ficha.service.js';
 
+const calcInstDate = (retiroDate, duracionHoras) => {
+    const dayOffset = Math.floor((Number(duracionHoras) || 0) / 24);
+    if (dayOffset === 0) return retiroDate;
+    const d = new Date(retiroDate + 'T00:00:00');
+    d.setDate(d.getDate() - dayOffset);
+    return d.toISOString().split('T')[0];
+};
+
 class RutasPlanificadasService {
 
     // ─── GRUPOS ────────────────────────────────────────────────────────────────
@@ -290,7 +298,7 @@ class RutasPlanificadasService {
 
             assignments.push({
                 id: pendingRow.id_agendamam,
-                fecha: assignDate,
+                fecha: calcInstDate(assignDate, pendingRow.ma_duracion_muestreo),
                 fechaRetiro: assignDate,
                 idMuestreadorInstalacion: Number(assignMuestreadorInst),
                 idMuestreadorRetiro: Number(assignMuestreadorRet || assignMuestreadorInst),

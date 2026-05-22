@@ -151,7 +151,7 @@ export const FichaCreateForm = ({ onBackToMenu }: { onBackToMenu: () => void }) 
             const result = await fichaService.create(payload);
 
             if (result && (result.success || result.data?.success)) {
-                const idToUse = result.data?.id || result.id;
+                const idToUse = result.data?.id_fichaingresoservicio || result.data?.id || result.id;
                 if (idToUse) {
                     setCreatedFichaId(Number(idToUse));
                     setShowSuccessModal(true);

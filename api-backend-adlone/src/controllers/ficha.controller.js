@@ -1,6 +1,7 @@
 import fichaService from '../services/ficha.service.js';
 import logger from '../utils/logger.js';
 import { successResponse, errorResponse } from '../utils/response.js';
+import { resolverGoogleMapsLink } from '../utils/resolverGoogleMapsLink.js';
 
 // In-memory cache for resolved Google short URLs (goo.gl always resolves to the same destination)
 const resolvedUrlCache = new Map();
@@ -57,6 +58,23 @@ class FichaIngresoController {
         }
     }
 
+    async verificarLink(req, res) {
+        try {
+            const { link } = req.body;
+            if (!link || typeof link !== 'string' || link.trim().length < 5) {
+                return successResponse(res, { ok: false, motivo: 'invalido' });
+            }
+            const coords = await resolverGoogleMapsLink(link.trim());
+            if (!coords) {
+                return successResponse(res, { ok: false, motivo: 'no_extraible' });
+            }
+            return successResponse(res, { ok: true, lat: coords.lat, lon: coords.lon });
+        } catch (err) {
+            logger.error('Error in verificarLink:', err);
+            return successResponse(res, { ok: false, motivo: 'no_extraible' });
+        }
+    }
+
     async create(req, res) {
         try {
             // Basic validation
@@ -70,8 +88,26 @@ class FichaIngresoController {
                 data.user = req.user;
             }
 
+            // Resolve Google Maps coordinates before saving
+            const refGoogle = data.antecedentes?.refGoogle?.trim();
+            let ubicacion_lat = null, ubicacion_lon = null;
+            if (refGoogle) {
+                try {
+                    const coords = await resolverGoogleMapsLink(refGoogle);
+                    if (coords) {
+                        ubicacion_lat = coords.lat;
+                        ubicacion_lon = coords.lon;
+                    } else {
+                        logger.info(`[ficha-create] referencia="${refGoogle}" coords=null reason="no_pattern_matched"`);
+                    }
+                } catch (e) {
+                    logger.warn(`[ficha-create] Error resolving link: ${e.message}`);
+                }
+            }
+            data.antecedentes = { ...data.antecedentes, ubicacion_lat, ubicacion_lon };
+
             const result = await fichaService.createFicha(data);
-            return successResponse(res, result, 'Ficha creada exitosamente', 201);
+            return successResponse(res, { ...result, ubicacion_lat, ubicacion_lon }, 'Ficha creada exitosamente', 201);
         } catch (err) {
             logger.error('Error in create ficha controller:', err);
             return errorResponse(res, 'Error al crear la ficha de ingreso', 500, err.message);
@@ -230,10 +266,27 @@ class FichaIngresoController {
     async update(req, res) {
         try {
             const { id } = req.params;
-            const updateData = req.body;
+            const updateData = { ...req.body };
             const userData = req.user || { id: 0 };
 
-            // Call service update method
+            // Resolve Google Maps coordinates on every edit
+            const refGoogle = updateData.antecedentes?.refGoogle?.trim();
+            let ubicacion_lat = null, ubicacion_lon = null;
+            if (refGoogle) {
+                try {
+                    const coords = await resolverGoogleMapsLink(refGoogle);
+                    if (coords) {
+                        ubicacion_lat = coords.lat;
+                        ubicacion_lon = coords.lon;
+                    } else {
+                        logger.info(`[ficha-update] id=${id} referencia="${refGoogle}" coords=null reason="no_pattern_matched"`);
+                    }
+                } catch (e) {
+                    logger.warn(`[ficha-update] Error resolving link: ${e.message}`);
+                }
+            }
+            updateData.antecedentes = { ...updateData.antecedentes, ubicacion_lat, ubicacion_lon };
+
             const result = await fichaService.updateFicha(id, updateData, userData);
             return successResponse(res, result, 'Ficha actualizada exitosamente');
         } catch (err) {
