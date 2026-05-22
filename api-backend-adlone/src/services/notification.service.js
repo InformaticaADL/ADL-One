@@ -235,8 +235,16 @@ class NotificationService {
 
         // 2. Handle SERVICIOS_DETALLE (dynamic array processing)
         if (isHtml && context.servicios && Array.isArray(context.servicios)) {
+            // Helper to check if a formatted date string is valid (not the 1900 SQL default)
+            const isValidDate = (dateStr) => {
+                if (!dateStr || dateStr === 'No asignada') return false;
+                if (dateStr.includes('1900') || dateStr.includes('enero de 1900')) return false;
+                return true;
+            };
+
             const serviciosHtml = context.servicios.map((servicio) => {
                 const hasFechaChange = !!servicio.old_fecha;
+                const hasFechaRetiroChange = !!servicio.old_fecha_retiro;
                 const hasInstalacionChange = !!servicio.old_muestreador_instalacion;
                 const hasRetiroChange = !!servicio.old_muestreador_retiro;
 
@@ -245,27 +253,50 @@ class NotificationService {
                     ? `<span style="color: #e53e3e; text-decoration: line-through; margin-right: 8px;">${servicio.old_fecha}</span> <span style="color: #2b6cb0; font-weight: bold;">➔ ${servicio.fecha_muestreo}</span>`
                     : `<span>${servicio.fecha_muestreo}</span>`;
 
+                // Fecha Retiro: only show if valid (not 1900, not null)
+                const retiroValido = isValidDate(servicio.fecha_retiro);
+                const oldRetiroValido = isValidDate(servicio.old_fecha_retiro);
+                let fechaRetiroHtml = null;
+                if (hasFechaRetiroChange && oldRetiroValido) {
+                    fechaRetiroHtml = `<span style="color: #e53e3e; text-decoration: line-through; margin-right: 8px;">${servicio.old_fecha_retiro}</span> <span style="color: #2b6cb0; font-weight: bold;">➔ ${retiroValido ? servicio.fecha_retiro : 'No asignada'}</span>`;
+                } else if (retiroValido) {
+                    fechaRetiroHtml = `<span>${servicio.fecha_retiro}</span>`;
+                }
+                // If fechaRetiroHtml is null → omit the row entirely
+
                 const instalacionHtml = hasInstalacionChange
                     ? `<span style="color: #e53e3e; text-decoration: line-through; margin-right: 8px;">${servicio.old_muestreador_instalacion}</span> <span style="color: #2b6cb0; font-weight: bold;">➔ ${servicio.muestreador_instalacion}</span>`
                     : `<span>${servicio.muestreador_instalacion}</span>`;
 
-                const retiroHtml = hasRetiroChange
-                    ? `<span style="color: #e53e3e; text-decoration: line-through; margin-right: 8px;">${servicio.old_muestreador_retiro}</span> <span style="color: #2b6cb0; font-weight: bold;">➔ ${servicio.muestreador_retiro}</span>`
-                    : `<span>${servicio.muestreador_retiro}</span>`;
+                // Muestreador Retiro: omit row if "No asignado" and no change
+                const retiroMuestreador = servicio.muestreador_retiro;
+                const hasRetiroMuestreador = retiroMuestreador && retiroMuestreador !== 'No asignado';
+                let retiroHtml = null;
+                if (hasRetiroChange) {
+                    retiroHtml = `<span style="color: #e53e3e; text-decoration: line-through; margin-right: 8px;">${servicio.old_muestreador_retiro}</span> <span style="color: #2b6cb0; font-weight: bold;">➔ ${retiroMuestreador}</span>`;
+                } else if (hasRetiroMuestreador) {
+                    retiroHtml = `<span>${retiroMuestreador}</span>`;
+                }
 
                 return `
-                <div style="margin-bottom: 15px; padding: 12px; background: white; border-left: 4px solid #0062a8; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                    <strong style="color: #0062a8; font-size: 14px; font-family: Arial, sans-serif;">Servicio ${servicio.numero}:</strong><br>
-                    <div style="margin-top: 8px; color: #333; font-size: 13px; line-height: 1.6; font-family: Arial, sans-serif;">
-                        <div style="margin-bottom: 4px;">📥 <strong>Instalación:</strong> ${instalacionHtml}</div>
-                        <div style="margin-bottom: 4px;">📤 <strong>Retiro:</strong> ${retiroHtml}</div>
-                        <div>📅 <strong>Fecha muestreo:</strong> ${fechaHtml}</div>
-                    </div>
-                </div>
+                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="width: 100%; margin-bottom: 15px; font-family: Arial, sans-serif;">
+                    <tr>
+                        <td style="padding: 12px 16px; background-color: #ffffff; border-left: 4px solid #0062a8; border-top: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; border-radius: 0 8px 8px 0;">
+                            <strong style="color: #0062a8; font-size: 14px; font-family: Arial, sans-serif;">Servicio ${servicio.numero}:</strong>
+                            <div style="margin-top: 8px; color: #333; font-size: 13px; line-height: 1.6; font-family: Arial, sans-serif;">
+                                <div style="margin-bottom: 4px;">📥 <strong>Muestreador Inst.:</strong> ${instalacionHtml}</div>
+                                ${retiroHtml ? `<div style="margin-bottom: 4px;">📤 <strong>Muestreador Ret.:</strong> ${retiroHtml}</div>` : ''}
+                                <div style="margin-bottom: 4px;">📅 <strong>Fecha Instalación:</strong> ${fechaHtml}</div>
+                                ${fechaRetiroHtml ? `<div>📅 <strong>Fecha Retiro:</strong> ${fechaRetiroHtml}</div>` : ''}
+                            </div>
+                        </td>
+                    </tr>
+                </table>
                 `;
             }).join('');
 
             output = output.replace(/\{servicios_detalle\}/gi, serviciosHtml);
+
         }
 
         // Add alias for Planta if present
@@ -282,51 +313,59 @@ class NotificationService {
                 equiposHtml = context.equipos.map((equipo) => {
                     if (equipo.isTransfer) {
                         return `
-                            <div style="margin-bottom: 20px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
-                                <div style="background: white; color: #0062a8; padding: 10px 15px; font-weight: bold; font-family: Arial, sans-serif; font-size: 14px; border-bottom: 2px solid #0062a8;">
-                                    ${equipo.nombre} <span style="font-weight: normal; color: #555;">[${equipo.codigo}]</span>
-                                    <div style="font-size: 11px; margin-top: 2px; color: #666; font-weight: normal;">Tipo: ${equipo.tipo}</div>
-                                </div>
-                                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="width:100%; border-collapse: collapse;">
-                                    <tr>
-                                        <td width="50%" style="padding: 15px; border-right: 1px solid #e2e8f0; vertical-align: top; background-color: #f8fafc;">
-                                            <div style="color: #64748b; font-size: 11px; text-transform: uppercase; font-weight: bold; margin-bottom: 8px; font-family: Arial;">Datos Actuales (Origen)</div>
-                                            <div style="margin-bottom: 6px; font-family: Arial; font-size: 13px; color: #334155;">
-                                                <div style="color: #94a3b8; font-size: 10px;">Ubicación:</div>
-                                                <strong>${equipo.datos_antiguos?.ubicacion || '-'}</strong>
-                                            </div>
-                                            <div style="font-family: Arial; font-size: 13px; color: #334155;">
-                                                <div style="color: #94a3b8; font-size: 10px;">Responsable:</div>
-                                                <strong>${equipo.datos_antiguos?.responsable || '-'}</strong>
-                                            </div>
-                                        </td>
-                                        <td width="50%" style="padding: 15px; vertical-align: top; background-color: #fff;">
-                                            <div style="color: #0062a8; font-size: 11px; text-transform: uppercase; font-weight: bold; margin-bottom: 8px; font-family: Arial;">Nuevos Datos (Destino)</div>
-                                            <div style="margin-bottom: 6px; font-family: Arial; font-size: 13px; color: #0f172a;">
-                                                <div style="color: #94a3b8; font-size: 10px;">Nueva Ubicación:</div>
-                                                <strong style="color: #0062a8;">${equipo.datos_nuevos?.ubicacion || '-'}</strong>
-                                            </div>
-                                            <div style="font-family: Arial; font-size: 13px; color: #0f172a;">
-                                                <div style="color: #94a3b8; font-size: 10px;">Nuevo Responsable:</div>
-                                                <strong style="color: #0062a8;">${equipo.datos_nuevos?.responsable || '-'}</strong>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                </table>
-                            </div>
+                            <table width="100%" border="0" cellspacing="0" cellpadding="0" style="width: 100%; margin-bottom: 20px; font-family: Arial, sans-serif;">
+                                <tr>
+                                    <td style="padding: 0; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+                                        <div style="background: white; color: #0062a8; padding: 12px 20px; font-weight: bold; font-family: Arial, sans-serif; font-size: 14px; border-bottom: 2px solid #0062a8;">
+                                            ${equipo.nombre} <span style="font-weight: normal; color: #555;">[${equipo.codigo}]</span>
+                                            <div style="font-size: 11px; margin-top: 2px; color: #666; font-weight: normal;">Tipo: ${equipo.tipo}</div>
+                                        </div>
+                                        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="width:100%; border-collapse: collapse;">
+                                            <tr>
+                                                <td width="50%" style="padding: 15px; border-right: 1px solid #e2e8f0; vertical-align: top; background-color: #f8fafc;">
+                                                    <div style="color: #64748b; font-size: 11px; text-transform: uppercase; font-weight: bold; margin-bottom: 8px; font-family: Arial;">Datos Actuales (Origen)</div>
+                                                    <div style="margin-bottom: 6px; font-family: Arial; font-size: 13px; color: #334155;">
+                                                        <div style="color: #94a3b8; font-size: 10px;">Ubicación:</div>
+                                                        <strong>${equipo.datos_antiguos?.ubicacion || '-'}</strong>
+                                                    </div>
+                                                    <div style="font-family: Arial; font-size: 13px; color: #334155;">
+                                                        <div style="color: #94a3b8; font-size: 10px;">Responsable:</div>
+                                                        <strong>${equipo.datos_antiguos?.responsable || '-'}</strong>
+                                                    </div>
+                                                </td>
+                                                <td width="50%" style="padding: 15px; vertical-align: top; background-color: #fff;">
+                                                    <div style="color: #0062a8; font-size: 11px; text-transform: uppercase; font-weight: bold; margin-bottom: 8px; font-family: Arial;">Nuevos Datos (Destino)</div>
+                                                    <div style="margin-bottom: 6px; font-family: Arial; font-size: 13px; color: #0f172a;">
+                                                        <div style="color: #94a3b8; font-size: 10px;">Nueva Ubicación:</div>
+                                                        <strong style="color: #0062a8;">${equipo.datos_nuevos?.ubicacion || '-'}</strong>
+                                                    </div>
+                                                    <div style="font-family: Arial; font-size: 13px; color: #0f172a;">
+                                                        <div style="color: #94a3b8; font-size: 10px;">Nuevo Responsable:</div>
+                                                        <strong style="color: #0062a8;">${equipo.datos_nuevos?.responsable || '-'}</strong>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
                         `;
                     } else {
                         return `
-                            <div style="margin-bottom: 15px; padding: 12px; background: white; border-left: 4px solid #0062a8; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                                <strong style="color: #0062a8; font-size: 14px; font-family: Arial, sans-serif;">${equipo.nombre || 'Equipo'}</strong><br>
-                                <div style="margin-top: 8px; color: #333; font-size: 13px; line-height: 1.6; font-family: Arial, sans-serif;">
-                                    ${equipo.codigo ? `<div style="margin-bottom: 2px;">🏷️ <strong>Código:</strong> [${equipo.codigo}]</div>` : ''}
-                                    ${equipo.tipo ? `<div style="margin-bottom: 2px;">🔧 <strong>Tipo:</strong> ${equipo.tipo}</div>` : ''}
-                                    ${equipo.marca ? `<div style="margin-bottom: 2px;">🏢 <strong>Marca:</strong> ${equipo.marca} ${equipo.modelo ? `(${equipo.modelo})` : ''}</div>` : ''}
-                                    ${equipo.serie ? `<div style="margin-bottom: 2px;">🔢 <strong>Serie:</strong> ${equipo.serie}</div>` : ''}
-                                    ${equipo.ubicacion ? `<div style="margin-bottom: 2px;">📍 <strong>Ubicación Actual:</strong> ${equipo.ubicacion}</div>` : ''}
-                                </div>
-                            </div>
+                            <table width="100%" border="0" cellspacing="0" cellpadding="0" style="width: 100%; margin-bottom: 15px; font-family: Arial, sans-serif;">
+                                <tr>
+                                    <td style="padding: 12px 16px; background-color: #ffffff; border-left: 4px solid #0062a8; border-top: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; border-radius: 0 8px 8px 0;">
+                                        <strong style="color: #0062a8; font-size: 14px; font-family: Arial, sans-serif;">${equipo.nombre || 'Equipo'}</strong>
+                                        <div style="margin-top: 8px; color: #333; font-size: 13px; line-height: 1.6; font-family: Arial, sans-serif;">
+                                            ${equipo.codigo ? `<div style="margin-bottom: 2px;">🏷️ <strong>Código:</strong> [${equipo.codigo}]</div>` : ''}
+                                            ${equipo.tipo ? `<div style="margin-bottom: 2px;">🔧 <strong>Tipo:</strong> ${equipo.tipo}</div>` : ''}
+                                            ${equipo.marca ? `<div style="margin-bottom: 2px;">🏢 <strong>Marca:</strong> ${equipo.marca} ${equipo.modelo ? `(${equipo.modelo})` : ''}</div>` : ''}
+                                            ${equipo.serie ? `<div style="margin-bottom: 2px;">🔢 <strong>Serie:</strong> ${equipo.serie}</div>` : ''}
+                                            ${equipo.ubicacion ? `<div style="margin-bottom: 2px;">📍 <strong>Ubicación Actual:</strong> ${equipo.ubicacion}</div>` : ''}
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
                         `;
                     }
                 }).join('');
@@ -369,14 +408,18 @@ class NotificationService {
                     }
 
                     equiposHtml = `
-                        <div style="padding: 15px; margin-top: 15px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;">
-                            <h4 style="margin: 0 0 10px 0; color: #0062a8; font-size: 15px;">Detalle Solicitud:</h4>
-                            <div style="margin-bottom: 8px; font-size: 14px; color: #333;">
-                                <div><strong>Muestreador a deshabilitar:</strong> ${dj.muestreador_origen_nombre}</div>
-                                <div><strong>Tipo de traspaso de equipos:</strong> ${dj.tipo_traspaso}</div>
-                                ${transferDetail}
-                            </div>
-                        </div>
+                        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="width: 100%; margin-top: 20px; font-family: Arial, sans-serif;">
+                            <tr>
+                                <td style="padding: 16px 20px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px;">
+                                    <h4 style="margin: 0 0 12px 0; color: #0062a8; font-size: 15px; font-weight: bold; font-family: Arial, sans-serif;">Detalle Solicitud:</h4>
+                                    <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="width: 100%; border-collapse: collapse; font-family: Arial, sans-serif;">
+                                        <tr><td style="padding: 4px 0; font-size: 14px; color: #1e293b; font-family: Arial, sans-serif;"><strong>Muestreador a deshabilitar:</strong> ${dj.muestreador_origen_nombre}</td></tr>
+                                        <tr><td style="padding: 4px 0; font-size: 14px; color: #1e293b; font-family: Arial, sans-serif;"><strong>Tipo de traspaso de equipos:</strong> ${dj.tipo_traspaso}</td></tr>
+                                    </table>
+                                    ${transferDetail ? `<div style="margin-top: 8px; font-size: 14px; color: #1e293b; font-family: Arial, sans-serif;">${transferDetail}</div>` : ''}
+                                </td>
+                            </tr>
+                        </table>
                     `;
                 } else {
                     // Generic handling for other URS request types (Formulario dinámico)
@@ -409,6 +452,34 @@ class NotificationService {
                         if (dj.fecha_extravio === _fechaBaja) _datesToSkip.add('fecha_extravio');
                         if (dj.fecha_ocurrencia === _fechaBaja) _datesToSkip.add('fecha_ocurrencia');
                     }
+
+                    // Type-aware block title and styling (declared before mapping so we can apply blockBg to all rows and cells)
+                    const cleanTipo = (context.TIPO_SOLICITUD || context.nombre_tipo || '').toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                    const isFicha = cleanTipo.includes('FICHA') || cleanTipo.includes('CANCELACION') || cleanTipo.includes('ANULACION') ||
+                                    [12, 15].includes(Number(context.id_tipo)) ||
+                                    (dj.relacion_tipo || '').toUpperCase() === 'SERVICIO' || (dj.relacion_tipo || '').toUpperCase() === 'FICHA' ||
+                                    (context.relacion_tipo || '').toUpperCase() === 'SERVICIO';
+
+                    let blockTitle = 'Detalle de la Solicitud';
+                    let blockBg = '#f8fafc', blockBorder = '#e2e8f0', blockTitleColor = '#0062a8', eqColor = '#0062a8';
+                    if (cleanTipo.includes('BAJA') || cleanTipo.includes('DESVINCULACI')) {
+                        blockTitle = 'Plan de Desvinculación de Equipo';
+                        blockBg = '#fff5f5'; blockBorder = '#feb2b2'; blockTitleColor = '#dc3545'; eqColor = '#dc3545';
+                    } else if (cleanTipo.includes('TRASPASO')) {
+                        blockTitle = 'Detalle del Traspaso';
+                        blockBg = '#f0fff4'; blockBorder = '#9ae6b4'; blockTitleColor = '#276749'; eqColor = '#276749';
+                    } else if (cleanTipo.includes('ACTIVACI') || cleanTipo.includes('ALTA')) {
+                        blockTitle = 'Solicitud de Activación';
+                        blockBg = '#ebf8ff'; blockBorder = '#bee3f8'; blockTitleColor = '#2b6cb0'; eqColor = '#2b6cb0';
+                    } else if (cleanTipo.includes('DESHABILITAR') || cleanTipo.includes('MUESTREADOR')) {
+                        blockTitle = 'Solicitud de Deshabilitación';
+                        blockBg = '#fffaf0'; blockBorder = '#fbd38d'; blockTitleColor = '#c05621'; eqColor = '#c05621';
+                    }
+                    const labelHeader = isFicha ? 'Servicio' : 'Equipo';
+                    const eqName = isFicha
+                        ? (dj.id_ficha || dj.num_ficha || context.equipo_nombre || context.nombre_equipo_full || dj.id_muestreo || dj.correlativo || 'N/A')
+                        : (context.equipo_nombre || context.nombre_equipo_full || dj.nombre_equipo_full || dj.equipo_nombre || dj.nombre_equipo || 'N/A');
+                    const eqCode = context.codigo_equipo || context.codigo_equipo_db || dj.codigo_equipo || dj.codigo_equipo_db || '';
 
                     const details = Object.entries(dj)
                         .filter(([key]) => !keysToSkip.includes(key) && !_datesToSkip.has(key) && typeof dj[key] !== 'object' && dj[key] !== null && dj[key] !== '' && dj[key] !== 'N/A')
@@ -447,48 +518,25 @@ class NotificationService {
 
                             displayVal = formatDate(displayVal);
                             
-                            return `<div style="margin-bottom: 6px;"><strong>${label}:</strong> <span style="color: #475569;">${displayVal}</span></div>`;
+                            // Set background-color: ${blockBg} explicitly on all tr/td to prevent Outlook white lines
+                            return `<tr style="background-color: ${blockBg};"><td style="padding: 3px 0; font-size: 13px; color: #1e293b; background-color: ${blockBg}; font-family: Arial, sans-serif;"><strong>${label}:</strong> <span style="color: #475569;">${displayVal}</span></td></tr>`;
                         }).join('');
-
-                    // Type-aware block title and styling
-                    const cleanTipo = (context.TIPO_SOLICITUD || context.nombre_tipo || '').toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                    const isFicha = cleanTipo.includes('FICHA') || cleanTipo.includes('CANCELACION') || cleanTipo.includes('ANULACION') ||
-                                    [12, 15].includes(Number(context.id_tipo)) ||
-                                    (dj.relacion_tipo || '').toUpperCase() === 'SERVICIO' || (dj.relacion_tipo || '').toUpperCase() === 'FICHA' ||
-                                    (context.relacion_tipo || '').toUpperCase() === 'SERVICIO';
-
-                    let blockTitle = 'Detalle de la Solicitud';
-                    let blockBg = '#f8fafc', blockBorder = '#e2e8f0', blockTitleColor = '#0062a8', eqColor = '#0062a8';
-                    if (cleanTipo.includes('BAJA') || cleanTipo.includes('DESVINCULACI')) {
-                        blockTitle = 'Plan de Desvinculaci\u00f3n de Equipo';
-                        blockBg = '#fff5f5'; blockBorder = '#feb2b2'; blockTitleColor = '#dc3545'; eqColor = '#dc3545';
-                    } else if (cleanTipo.includes('TRASPASO')) {
-                        blockTitle = 'Detalle del Traspaso';
-                        blockBg = '#f0fff4'; blockBorder = '#9ae6b4'; blockTitleColor = '#276749'; eqColor = '#276749';
-                    } else if (cleanTipo.includes('ACTIVACI') || cleanTipo.includes('ALTA')) {
-                        blockTitle = 'Solicitud de Activaci\u00f3n';
-                        blockBg = '#ebf8ff'; blockBorder = '#bee3f8'; blockTitleColor = '#2b6cb0'; eqColor = '#2b6cb0';
-                    } else if (cleanTipo.includes('DESHABILITAR') || cleanTipo.includes('MUESTREADOR')) {
-                        blockTitle = 'Solicitud de Deshabilitaci\u00f3n';
-                        blockBg = '#fffaf0'; blockBorder = '#fbd38d'; blockTitleColor = '#c05621'; eqColor = '#c05621';
-                    }
-                    const labelHeader = isFicha ? 'Servicio' : 'Equipo';
-                    const eqName = isFicha
-                        ? (dj.id_ficha || dj.num_ficha || context.equipo_nombre || context.nombre_equipo_full || dj.id_muestreo || dj.correlativo || 'N/A')
-                        : (context.equipo_nombre || context.nombre_equipo_full || dj.nombre_equipo_full || dj.equipo_nombre || dj.nombre_equipo || 'N/A');
-                    const eqCode = context.codigo_equipo || context.codigo_equipo_db || dj.codigo_equipo || dj.codigo_equipo_db || '';
 
                     if (details.trim() || eqName !== 'N/A') {
                         const eqNameStr = String(eqName);
                         const displayTitle = eqNameStr.includes('[') ? eqNameStr : `${eqNameStr}${eqCode ? ` [${eqCode}]` : ''}`;
                         equiposHtml = `
-                            <div style="padding: 15px; background: ${blockBg}; border: 1px solid ${blockBorder}; border-radius: 8px;">
-                                <h4 style="margin: 0 0 10px 0; color: ${blockTitleColor}; font-size: 15px; border-bottom: 1px solid ${blockBorder}; padding-bottom: 8px;">${blockTitle}:</h4>
-                                <div style="font-size: 14px; color: #1e293b;">
-                                    ${eqName !== 'N/A' ? `<div style="margin-bottom: 8px; font-size: 15px;"><strong>${labelHeader}:</strong> <span style="color: ${eqColor}; font-weight: bold;">${displayTitle}</span></div>` : ''}
-                                    ${details}
-                                </div>
-                            </div>
+                            <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="width: 100%; margin-bottom: 24px; font-family: Arial, sans-serif;">
+                                <tr>
+                                    <td style="padding: 16px 20px; background-color: ${blockBg}; border: 1px solid ${blockBorder}; border-radius: 12px;">
+                                        <h4 style="margin: 0 0 12px 0; color: ${blockTitleColor}; font-size: 15px; border-bottom: 1px solid ${blockBorder}; padding-bottom: 8px; font-family: Arial, sans-serif; background-color: ${blockBg};">${blockTitle}:</h4>
+                                        <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="width: 100%; border-collapse: collapse; background-color: ${blockBg}; font-family: Arial, sans-serif;">
+                                            ${eqName !== 'N/A' ? `<tr style="background-color: ${blockBg};"><td style="padding: 4px 0 8px 0; font-size: 14px; color: #1e293b; background-color: ${blockBg}; font-family: Arial, sans-serif;"><strong>${labelHeader}:</strong> <span style="color: ${eqColor}; font-weight: bold;">${displayTitle}</span></td></tr>` : ''}
+                                            ${details}
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
                         `;
                     }
                 }
@@ -513,7 +561,7 @@ class NotificationService {
         }
 
         // 2.2 Handle Dynamic Observation Block {BLOQUE_OBSERVACION|Label}
-        output = output.replace(/\{BLOQUE_OBSERVACION\|(.*?)\}/g, (_match, label) => {
+        output = output.replace(/\{BLOQUE_OBSERVACION\|(.*?)\}(?:\})?/g, (_match, label) => {
             // Handle nested placeholder in label (e.g. {ETIQUETA_OBSERVACION})
             let finalLabel = label;
             if (label.includes('ETIQUETA_OBSERVACION')) {
@@ -521,11 +569,37 @@ class NotificationService {
             }
             
             const obs = context.OBSERVACION;
-            if (obs && obs.trim() !== '' && obs.trim().toLowerCase() !== 'sin observaciones' && obs.trim().toLowerCase() !== 'no especificado') {
-                if (!isHtml) return `${finalLabel}: ${obs}`;
-                return `<div style="margin-top:30px;padding:15px;background-color:#fffbf5;border-left:4px solid #0062a8;color:#666666;font-size:14px;font-family:Arial,sans-serif;"><strong>${finalLabel}:</strong><br>${obs}</div>`;
+            
+            // If no observation at all (empty/null/blank) → hide block completely
+            if (!obs || obs.trim() === '' || obs.trim().toLowerCase() === 'no especificado') {
+                return '';
             }
-            return '';
+            
+            const isSinObs = obs.trim().toLowerCase() === 'sin observaciones';
+            
+            if (!isHtml) return isSinObs ? `${finalLabel}: Sin observaciones` : `${finalLabel}: ${obs}`;
+            
+            if (isSinObs) {
+                // Show "Sin observaciones" with neutral gray styling
+                return `
+                <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="width: 100%; margin-top: 20px; font-family: Arial, sans-serif;">
+                    <tr>
+                        <td style="padding: 12px 20px; background-color: #f8fafc; border-left: 4px solid #cbd5e1; border-radius: 0 8px 8px 0; color: #64748b; font-size: 13px; font-family: Arial, sans-serif; line-height: 1.4;">
+                            <strong style="color:#64748b;">${finalLabel}:</strong> Sin observaciones
+                        </td>
+                    </tr>
+                </table>`;
+            }
+            
+            // Real observation → amber/yellow highlight style
+            return `
+                <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="width: 100%; margin-top: 20px; font-family: Arial, sans-serif;">
+                    <tr>
+                        <td style="padding: 16px 20px; background-color: #fffbeb; border-left: 4px solid #d97706; border-radius: 0 12px 12px 0; color: #7c2d12; font-size: 14px; font-family: Arial, sans-serif; line-height: 1.6;">
+                            <strong>${finalLabel}:</strong><br>${obs}
+                        </td>
+                    </tr>
+                </table>`;
         });
 
         // 3. Replace all other placeholders
@@ -556,6 +630,38 @@ class NotificationService {
         if (isHtml) {
             // Keep {LOGO_BASE64} if it hasn't been replaced yet (though it should be)
             output = output.replace(/\{(?!LOGO_BASE64)[A-Z0-9_\-| ]+\}/gi, '');
+        }
+
+        // 6. Post-render: clean up rows where the VALUE cell is empty after placeholder replacement
+        // Also normalize all detail table padding from 6px to 4px for visual harmony
+        if (isHtml) {
+            // 6a. Remove <tr> elements where the second <td> (value cell) is completely empty
+            // Pattern: <tr><td...>LABEL</td><td...></td></tr> — value cell has nothing or only whitespace
+            output = output.replace(
+                /<tr>\s*<td[^>]*>[^<]*<\/td>\s*<td[^>]*>\s*<\/td>\s*<\/tr>/gi,
+                ''
+            );
+            // Also handle: <tr><td...>LABEL</td><td style="..."></td></tr> with "No especificad" fallback values
+            output = output.replace(
+                /<tr>\s*(<td[^>]*>[^<]+<\/td>)\s*<td[^>]*>\s*(?:No especificad[ao]|No asignada?|Sin especificar)?\s*<\/td>\s*<\/tr>/gi,
+                ''
+            );
+
+            // 6b. Normalize detail table row padding: 6px → 3px (tight, matches metadata block)
+            output = output.replace(/padding:\s*6px\s+0\s*;/gi, 'padding:3px 0;');
+            output = output.replace(/padding:\s*6px\s+16px\s+6px\s+0\s*;/gi, 'padding:3px 16px 3px 0;');
+            output = output.replace(/padding:\s*6px\s+0/gi, 'padding:3px 0');
+
+            // 6c. Fix border-collapse: separate → collapse (prevents implicit row gaps in email clients)
+            output = output.replace(/border-collapse:\s*separate\s*;/gi, 'border-collapse: collapse;');
+
+            // 6d. Fix any remaining {COLOR_PRINCIPAL} placeholder in the rendered HTML → #0062a8
+            output = output.replace(/color:\s*\{COLOR_PRINCIPAL\}/gi, 'color:#0062a8');
+            output = output.replace(/border-bottom:\s*2px solid \{COLOR_PRINCIPAL\}/gi, 'border-bottom: 2px solid #0062a8');
+            output = output.replace(/border:\s*1px solid \{COLOR_PRINCIPAL\}/gi, 'border: 1px solid #0062a8');
+
+            // 6e. Fix line-height on parent div: 1.6 → 1.4 (reduces inherited spacing in table cells)
+            output = output.replace(/(font-size: 14px; line-height: )1\.6(; font-family)/gi, '$11.4$2');
         }
 
         return { html: output, attachments };

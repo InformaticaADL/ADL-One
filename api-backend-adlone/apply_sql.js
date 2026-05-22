@@ -1,5 +1,4 @@
-import dotenv from 'dotenv';
-dotenv.config();
+import 'dotenv/config';
 import { getConnection } from './src/config/database.js';
 import fs from 'fs';
 import path from 'path';
