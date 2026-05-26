@@ -457,6 +457,26 @@ frontend-adlone/
 - **Refinamiento de FichaUniversalView, AssignmentDetailView, EnProcesoCalendarView, RutasListView**: Mejoras de UI, manejo de estados y visualización de datos de ejecución en el frontend.
 - **notificationStore.ts**: Store Zustand dedicado para el centro de notificaciones con persistencia y conteo de no leídas.
 
+### 64. Hardening de Seguridad — RBAC Estricto y Protección de Sesión (Mayo 2026) 🔐🛡️
+- **RB-04 — Deshabilitación Instantánea**: `auth.middleware.js` verifica `habilitado` en cada request vía `getUserAuthState` (TTL cache 5s). Si el admin deshabilita un usuario, la sesión se corta en máx. 5 segundos con HTTP 401.
+- **RB-07 — permisos_version en cada request**: La validación de `permisos_version` se ejecuta siempre (antes solo en token con versión). Cambios de permisos fuerzan re-login inmediato.
+- **`permVersionCache.js` — Refactorización**: `getPermVersion` reemplazado por `getUserAuthState` que trae `habilitado` + `permisos_version` juntos con TTL reducido de 2 min → 5 seg. Compatible con código existente mediante alias.
+- **RB-08 — Eliminación de Bypass Super-Admin**: `solicitud.controller.js` y `AdminGcHub.tsx` eliminaron el bypass `isSuperAdmin` por nombre de rol; reemplazado por permisos atómicos (`GC_ACCESO`, `GC_EQUIPOS`).
+- **S-13 — Bloqueo de cuenta robusto**: `recordFailedLoginAttempt` reescrito con INSERT/UPDATE explícitos en lugar de MERGE (compatibilidad con todos los niveles de isolation). Logging detallado del conteo y timestamp de bloqueo.
+- **S-14/S-15 — Mensajes específicos en reset**: El negocio decidió dar feedback explícito (sistema interno). `auth.service.js` lanza errores con código (`EMAIL_NOT_FOUND`, `USER_DISABLED`, `EMAIL_MISSING`); `auth.controller.js` los mapea a 404/403/400 respectivamente; `LoginForm.tsx` actualizado para mostrar esos mensajes.
+- **AuthContext.tsx — Mensajes de logout diferenciados**: El interceptor Axios 401 muestra mensajes específicos según causa: cambio de permisos, cuenta deshabilitada, sesión inválida o token expirado. Rutas de reset-password excluidas del auto-logout.
+- **`solicitud.controller.js` — Refactorización RBAC completa**: Todos los métodos (`create`, `getAll`, `updateStatus`, `reviewTechnical`, `acceptForReview`, `getHistorial`, `getSolicitudesByEquipo`) eliminan el bypass por rol y usan permisos atómicos explícitos.
+- **`AdminGcHub.tsx` — Permiso correcto para Equipos GC**: Removido `AI_MA_ADMIN_ACCESO` del filtro; solo acepta `GC_ACCESO`, `GC_EQUIPOS`, `MA_A_GEST_EQUIPO`.
+
+### 65. Correcciones de Datos, Filtros y Globalización de UI (Mayo 2026) 🛠️🌐
+- **MA-05 — Filter defensivo global en Mantine**: `main.tsx` registra `filter` defensivo en `Select`, `MultiSelect` y `Autocomplete` que tolera `label`/`value` nulos desde BD. Previene crashes al buscar en selectores con opciones parcialmente nulas.
+- **F-01b — Enriquecimiento de detalles con normativas**: `ficha.service.js` hace JOIN adicional a `mae_normativa` y `mae_normativareferencia` al cargar detalles de ficha, resolviendo `nombre_normativa` y `nombre_normativareferencia` directamente en el backend.
+- **F-01f — Campo "Otro" en Instrumento Ambiental**: En `AntecedentesForm.tsx`, cuando se selecciona "Otro" como instrumento, el campo número acepta texto libre y el año se deshabilita (no obligatorio). El bloque `onKeyDown` bloquea teclas no numéricas solo para instrumentos convencionales.
+- **C-01 (revisado) — Filtro de calendario simplificado**: La consulta de fichas coordinadas filtra solo por `fecha_muestreo` (instalación), eliminando la condición doble de retiro que provocaba duplicados en el calendario.
+- **isNoAplicaValue helper en AntecedentesForm**: Nueva función que detecta correctamente valores "No Aplica" en selectores de Medición de Caudal, Modalidad, Forma Canal y Dispositivo Hidráulico, deshabilitando cascadas de forma semántica.
+- **Refinamientos de UI**: `AdminInfoHub.tsx`, `EquiposPage.tsx`, `MuestreadoresPage.tsx`, `UsersManagementPage.tsx`, `ChatWindow.tsx`, `DashboardPage.tsx`, `FichaUniversalView.tsx`, `EmpresaServicioFormView.tsx` — ajustes menores de layout, estados y manejo de datos.
+- **Scripts de pre-producción** (`db-migrations/pre-production-cleanup.sql`, `pre-production-cleanup.html`): Script SQL transaccional por bloques para limpiar datos de prueba antes de producción (fichas, rutas, solicitudes, chat, auditoría, tokens), preservando todos los maestros.
+
 ---
 
 ## 🔧 Configuración para Desarrollo

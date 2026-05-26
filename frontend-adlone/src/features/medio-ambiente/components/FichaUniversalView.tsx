@@ -551,18 +551,15 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
                                         <AnalysisForm savedAnalysis={analysisList} onSavedAnalysisChange={setAnalysisList} />
                                     ) : (
                                         <Stack gap="xl">
-                                            <Paper withBorder p="md" radius="md" bg="blue.0">
-                                                <SimpleGrid cols={{ base: 1, sm: 2 }}>
-                                                    <StaticField label="Normativa" value={det[0]?.nombre_normativa} />
-                                                    <StaticField label="Referencia" value={det[0]?.nombre_normativareferencia || det[0]?.nombre_referencia} />
-                                                </SimpleGrid>
-                                            </Paper>
-
+                                            {/* F-01b: encabezado eliminado — normativa/tabla ahora se muestra POR LÍNEA en la tabla.
+                                                Una misma ficha puede contener análisis de distintas normativas/tablas. */}
                                             <ScrollArea>
                                                 <Table striped highlightOnHover withTableBorder>
                                                     <Table.Thead bg="gray.1">
                                                         <Table.Tr>
                                                             <Table.Th>Análisis</Table.Th>
+                                                            <Table.Th>Normativa</Table.Th>
+                                                            <Table.Th>Tabla / Referencia</Table.Th>
                                                             <Table.Th>Tipo Muestra</Table.Th>
                                                             <Table.Th ta="right">Límite Min</Table.Th>
                                                             <Table.Th ta="right">Límite Max</Table.Th>
@@ -577,6 +574,8 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                         {det.map((row: any, i: number) => (
                                                             <Table.Tr key={i}>
                                                                 <Table.Td fw={600}>{row.nombre_tecnica || row.nombre_determinacion || '-'}</Table.Td>
+                                                                <Table.Td fz="xs">{row.nombre_normativa || '-'}</Table.Td>
+                                                                <Table.Td fz="xs">{row.nombre_normativareferencia || row.nombre_referencia || '-'}</Table.Td>
                                                                 <Table.Td>{row.tipo_analisis || row.nombre_tipomuestra || '-'}</Table.Td>
                                                                 <Table.Td ta="right">{row.limitemax_d}</Table.Td>
                                                                 <Table.Td ta="right">{row.limitemax_h}</Table.Td>

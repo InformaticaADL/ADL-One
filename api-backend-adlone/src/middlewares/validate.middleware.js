@@ -118,9 +118,11 @@ export const fichaValidationSchemas = {
             assignments: Joi.array().items(
                 Joi.object({
                     id: Joi.alternatives().try(Joi.number(), Joi.string()).required(),
-                    idMuestreadorInstalacion: Joi.alternatives().try(Joi.number().min(0), Joi.string()).optional(),
-                    idMuestreadorRetiro: Joi.alternatives().try(Joi.number().min(0), Joi.string()).optional(),
-                    fecha: Joi.alternatives().try(Joi.date(), Joi.string()).optional(),
+                    // A-05/A-06: aceptar null para permitir guardado parcial (solo fecha O solo muestreador)
+                    idMuestreadorInstalacion: Joi.alternatives().try(Joi.number().min(0), Joi.string()).allow(null).optional(),
+                    idMuestreadorRetiro: Joi.alternatives().try(Joi.number().min(0), Joi.string()).allow(null).optional(),
+                    fecha: Joi.alternatives().try(Joi.date(), Joi.string()).allow(null, '').optional(),
+                    fechaRetiro: Joi.alternatives().try(Joi.date(), Joi.string()).allow(null, '').optional(),
                 }).unknown(true)
             ).required(),
             user: Joi.object().optional(),

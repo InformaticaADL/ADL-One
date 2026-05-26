@@ -78,7 +78,7 @@ export const AdminInfoHub: React.FC<Props> = ({ onNavigate }) => {
     const areas = Array.from(new Set(TABLES_TO_EXPORT.map(t => t.area)));
     
     const visibleAreas = AREAS.filter(area => {
-        if (hasPermission('AI_MA_ADMIN_ACCESO')) return true;
+        // RB-08: AI_MA_ADMIN_ACCESO eliminado
         if (Array.isArray(area.permission)) {
             return area.permission.some(p => hasPermission(p));
         }
@@ -120,7 +120,8 @@ export const AdminInfoHub: React.FC<Props> = ({ onNavigate }) => {
                 onBack={currentView === 'export' ? () => setCurrentView('grid') : undefined}
                 rightSection={currentView === 'grid' ? (
                     <Group>
-                        {(isRdiaz || hasPermission('AI_MA_ADMIN_ACCESO')) && (
+                        {/* RB-08: AI_MA_ADMIN_ACCESO eliminado */}
+                        {isRdiaz && (
                             <Button 
                                 variant="light" 
                                 color="blue"

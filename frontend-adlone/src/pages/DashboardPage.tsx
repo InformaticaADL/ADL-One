@@ -40,8 +40,9 @@ const DashboardPage = () => {
     const { user, hasPermission } = useAuth();
 
     // Helper function to check if user has ANY admin info access
+    // RB-08: removido AI_MA_ADMIN_ACCESO
     const hasAdminAccess = () => {
-        return hasPermission('AI_MA_ADMIN_ACCESO') || hasPermission('AI_ACCESO') ||
+        return hasPermission('AI_ACCESO') ||
             [
                 'GEM_ACCESO', 'MA_ACCESO', 'INF_ACCESO', 'NEC_ACCESO',
                 'MIC_ACCESO', 'BM_ACCESO', 'CC_ACCESO', 'BAC_ACCESO',
@@ -64,15 +65,15 @@ const DashboardPage = () => {
             resetNavigation();
         }
 
-        // Guard independiente para Gestión de Equipos (solo requiere su propio permiso)
+        // Guard independiente para Gestión de Equipos (RB-08: removido AI_MA_ADMIN_ACCESO)
         if (activeSubmodule === 'admin-equipos-gestion' &&
-            !hasPermission(['MA_A_GEST_EQUIPO', 'AI_MA_ADMIN_ACCESO', 'GC_ACCESO'])) {
+            !hasPermission(['MA_A_GEST_EQUIPO', 'GC_ACCESO'])) {
             resetNavigation();
         }
 
-        // Guard independiente para Gestión de Muestreadores (solo requiere su propio permiso)
+        // Guard independiente para Gestión de Muestreadores (RB-08: removido AI_MA_ADMIN_ACCESO)
         if (activeSubmodule === 'admin-muestreadores' &&
-            !hasPermission(['MA_MUESTREADORES', 'AI_MA_ADMIN_ACCESO', 'GC_ACCESO'])) {
+            !hasPermission(['MA_MUESTREADORES', 'GC_ACCESO'])) {
             resetNavigation();
         }
     }, [activeModule, activeSubmodule, user, resetNavigation]);

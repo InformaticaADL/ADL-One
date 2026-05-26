@@ -157,9 +157,9 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
     const { hasPermission } = useAuth();
 
     // Permissions
-    const isSuper = hasPermission('AI_MA_ADMIN_ACCESO');
-    const canCreateEquipo = hasPermission('AI_MA_CREAR_EQUIPO') || isSuper;
-    const canEditEquipo = hasPermission('AI_MA_EDITAR_EQUIPO') || isSuper;
+    // RB-08: AI_MA_ADMIN_ACCESO eliminado (no existe en BD). Solo permisos reales.
+    const canCreateEquipo = hasPermission('AI_MA_CREAR_EQUIPO');
+    const canEditEquipo = hasPermission('AI_MA_EDITAR_EQUIPO');
 
     // --- Helpers ---
     const autoGenerateSigla = (text: string) => {

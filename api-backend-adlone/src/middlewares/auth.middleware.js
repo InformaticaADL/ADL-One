@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import { getPermVersion, invalidatePermVersionCache } from '../utils/permVersionCache.js';
+import { getUserAuthState, invalidatePermVersionCache } from '../utils/permVersionCache.js';
 import { errorResponse } from '../utils/response.js';
 import logger from '../utils/logger.js';
 
@@ -39,18 +39,28 @@ export const authenticate = async (req, res, next) => {
             throw verifyError;
         }
 
-        // Check permisos_version if the token carries one
-        if (decoded.permisos_version !== undefined) {
-            try {
-                const dbVersion = await getPermVersion(decoded.id);
-                if (dbVersion !== decoded.permisos_version) {
-                    invalidatePermVersionCache(decoded.id);
-                    return errorResponse(res, 'Sesión expirada por cambio de permisos', 401);
-                }
-            } catch (dbErr) {
-                // Non-fatal: if DB is temporarily unreachable, let the request through
-                logger.warn(`Auth Middleware: Could not verify permisos_version for user ${decoded.id}: ${dbErr.message}`);
+        // RB-04 / RB-07: Verificar permisos_version y estado habilitado en cada request (cache TTL=5s).
+        try {
+            const dbUser = await getUserAuthState(decoded.id);
+            if (!dbUser) {
+                return errorResponse(res, 'Sesión inválida: usuario no encontrado', 401);
             }
+
+            // RB-04: usuario deshabilitado → forzar logout
+            if (dbUser.habilitado === 'N' || dbUser.habilitado === false) {
+                invalidatePermVersionCache(decoded.id);
+                return errorResponse(res, 'Tu cuenta fue deshabilitada por un administrador', 401);
+            }
+
+            // RB-07: permisos cambiaron → forzar re-login para refrescar el JWT
+            const dbVersion = dbUser.permisos_version ?? 0;
+            if (decoded.permisos_version !== undefined && dbVersion !== decoded.permisos_version) {
+                invalidatePermVersionCache(decoded.id);
+                return errorResponse(res, 'Sesión expirada por cambio de permisos', 401);
+            }
+        } catch (dbErr) {
+            // No fatal: si BD no responde, dejar pasar (no romper el sistema entero)
+            logger.warn(`Auth Middleware: Could not verify habilitado/permisos_version for user ${decoded.id}: ${dbErr.message}`);
         }
 
         req.user = decoded;

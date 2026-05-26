@@ -200,7 +200,10 @@ class RutasPlanificadasService {
         }
     }
 
-    async updateGrupo(id, id_grupo) {
+    // R-05 fix: este método movía una ruta a otro grupo, pero su nombre chocaba con
+    // updateGrupo(id, data) que actualiza el nombre/descripción del propio grupo (declarado más arriba).
+    // Renombrado para que no se pisen.
+    async setGrupoOfRuta(id, id_grupo) {
         const pool = await getConnection();
         await pool.request()
             .input('id', sql.Int, id)

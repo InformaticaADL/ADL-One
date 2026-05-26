@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>ADL ONE — Limpieza pre-producción</title>
+<style>
+    * { box-sizing: border-box; }
+    body {
+        font-family: 'Inter', 'Segoe UI', Tahoma, sans-serif;
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 32px 28px;
+        color: #1f2937;
+        line-height: 1.55;
+        background: #f9fafb;
+    }
+    header {
+        background: linear-gradient(135deg, #1e3a8a 0%, #0062a8 100%);
+        color: white;
+        padding: 32px 36px;
+        border-radius: 14px;
+        margin-bottom: 28px;
+        box-shadow: 0 8px 20px rgba(30, 58, 138, 0.15);
+    }
+    header h1 { margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.02em; }
+    header .subtitle { margin-top: 8px; font-size: 15px; opacity: 0.9; }
+    header .badge {
+        display: inline-block;
+        background: rgba(255, 255, 255, 0.2);
+        padding: 4px 12px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 600;
+        margin-top: 12px;
+    }
+
+    section { margin-bottom: 28px; }
+    h2 {
+        font-size: 22px;
+        font-weight: 800;
+        color: #111827;
+        border-left: 4px solid #1e40af;
+        padding-left: 14px;
+        margin: 0 0 18px 0;
+    }
+    h3 { font-size: 17px; color: #1f2937; margin: 20px 0 12px 0; }
+
+    .alert {
+        padding: 16px 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        border-left: 5px solid;
+    }
+    .alert-warning {
+        background: #fef3c7;
+        border-color: #d97706;
+        color: #78350f;
+    }
+    .alert-danger {
+        background: #fee2e2;
+        border-color: #dc2626;
+        color: #7f1d1d;
+    }
+    .alert-info {
+        background: #dbeafe;
+        border-color: #1e40af;
+        color: #1e3a8a;
+    }
+    .alert strong { font-weight: 700; }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.04);
+        margin-bottom: 18px;
+    }
+    th {
+        background: #1e40af;
+        color: white;
+        text-align: left;
+        padding: 12px 14px;
+        font-size: 14px;
+        font-weight: 700;
+    }
+    td {
+        padding: 11px 14px;
+        border-top: 1px solid #e5e7eb;
+        font-size: 14px;
+        vertical-align: top;
+    }
+    tr:nth-child(even) td { background: #f9fafb; }
+    code {
+        background: #f3f4f6;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-size: 13px;
+        color: #be185d;
+    }
+    .tag {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .tag-delete { background: #fee2e2; color: #991b1b; }
+    .tag-keep { background: #d1fae5; color: #065f46; }
+    .tag-decision { background: #fef3c7; color: #92400e; }
+
+    .grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+    }
+    @media (max-width: 800px) { .grid-2 { grid-template-columns: 1fr; } }
+
+    .card {
+        background: white;
+        border-radius: 10px;
+        padding: 18px 22px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.04);
+        border-top: 4px solid;
+    }
+    .card-delete { border-color: #dc2626; }
+    .card-keep { border-color: #16a34a; }
+    .card-decision { border-color: #d97706; }
+    .card h4 {
+        margin: 0 0 10px 0;
+        font-size: 15px;
+        font-weight: 700;
+    }
+    .card ul { margin: 0; padding-left: 18px; font-size: 13px; }
+    .card ul li { margin-bottom: 4px; }
+
+    ol.steps {
+        background: white;
+        padding: 18px 22px 18px 44px;
+        border-radius: 10px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.04);
+    }
+    ol.steps li { margin-bottom: 10px; }
+
+    .file-path {
+        background: #1f2937;
+        color: #d1fae5;
+        padding: 10px 14px;
+        border-radius: 6px;
+        font-family: 'Consolas', monospace;
+        font-size: 13px;
+        display: inline-block;
+        margin-top: 8px;
+    }
+
+    .legend {
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+        margin-bottom: 14px;
+    }
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+    }
+    .legend-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 3px;
+    }
+
+    footer {
+        margin-top: 40px;
+        padding-top: 20px;
+        border-top: 1px solid #e5e7eb;
+        font-size: 12px;
+        color: #6b7280;
+        text-align: center;
+    }
+
+    @media print {
+        body { background: white; padding: 12px; }
+        header { box-shadow: none; }
+        table, .card, ol.steps { box-shadow: none; border: 1px solid #ddd; }
+        section { break-inside: avoid; }
+    }
+</style>
+</head>
+<body>
+
+<header>
+    <h1>🧹 Limpieza pre-producción — ADL ONE</h1>
+    <div class="subtitle">Guía de truncado de datos transaccionales antes del go-live</div>
+    <div class="badge">Base de datos: ADL_ONE_DB</div>
+</header>
+
+<section>
+    <div class="alert alert-danger">
+        <strong>⚠️ Antes de ejecutar:</strong> hacé <strong>backup completo</strong> de <code>ADL_ONE_DB</code>.
+        Este script borra datos transaccionales en forma irreversible.
+        El script está particionado en transacciones por bloque para que, si algo falla, solo ese bloque haga rollback.
+    </div>
+
+    <p><strong>Archivo SQL:</strong></p>
+    <div class="file-path">db-migrations/pre-production-cleanup.sql</div>
+</section>
+
+<section>
+    <h2>📊 Resumen general</h2>
+    <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#dc2626"></div> Se borran (transaccionales)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#16a34a"></div> Se conservan (maestros)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#d97706"></div> Decisión del negocio</div>
+    </div>
+    <p>
+        Se borra todo lo <strong>operativo</strong> creado durante el QA: fichas, agenda, equipos asignados a muestreos,
+        resultados, rutas, ejecuciones, solicitudes URS, chats, notificaciones, logs de login y tokens de reset de password,
+        y opcionalmente el log de auditoría.
+        Se conservan los <strong>maestros</strong>: usuarios, roles, permisos, catálogos de negocio (empresas, centros,
+        normativas, técnicas, laboratorios, muestreadores, equipos…) y la configuración del sistema (menú, eventos de
+        notificación, tipos de solicitud).
+    </p>
+</section>
+
+<!-- ───────────────────────────────────────────────────── -->
+<section>
+    <h2>🗑️ Tablas que se BORRAN <span class="tag tag-delete">Transaccional</span></h2>
+
+    <h3>Bloque 1 — Fichas y muestreos</h3>
+    <table>
+        <thead>
+            <tr><th>Tabla</th><th>Contenido</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><code>App_Ma_FichaIngresoServicio_ENC</code></td><td>Encabezado de fichas de ingreso (todas las fichas creadas)</td></tr>
+            <tr><td><code>App_Ma_FichaIngresoServicio_DET</code></td><td>Análisis grabados dentro de cada ficha</td></tr>
+            <tr><td><code>App_Ma_Agenda_MUESTREOS</code></td><td>Agenda de muestreos (correlativos, fechas, asignaciones)</td></tr>
+            <tr><td><code>App_Ma_Equipos_MUESTREOS</code></td><td>Equipos asignados a cada muestreo</td></tr>
+            <tr><td><code>App_Ma_Resultados</code></td><td>Resultados de muestreos ejecutados</td></tr>
+            <tr><td><code>mae_ficha_historial</code></td><td>Línea de tiempo de cada ficha (creación, aprobaciones, ediciones)</td></tr>
+        </tbody>
+    </table>
+
+    <h3>Bloque 2 — Rutas y ejecuciones</h3>
+    <table>
+        <thead>
+            <tr><th>Tabla</th><th>Contenido</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><code>mae_rutas_planificadas</code></td><td>Rutas armadas en el planificador</td></tr>
+            <tr><td><code>mae_rutas_planificadas_detalle</code></td><td>Fichas y correlativos que componen cada ruta</td></tr>
+            <tr><td><code>mae_rutas_ejecuciones</code></td><td>Ejecuciones registradas de cada ruta</td></tr>
+            <tr><td><code>mae_rutas_ejecuciones_detalle</code></td><td>Detalle por ficha de cada ejecución</td></tr>
+        </tbody>
+    </table>
+
+    <h3>Bloque 3 — Solicitudes URS</h3>
+    <table>
+        <thead>
+            <tr><th>Tabla</th><th>Contenido</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><code>mae_solicitud</code></td><td>Todas las solicitudes (URS) creadas</td></tr>
+            <tr><td><code>mae_solicitud_adjunto</code></td><td>Archivos adjuntos a solicitudes</td></tr>
+            <tr><td><code>mae_solicitud_comentario</code></td><td>Comentarios / chat dentro de solicitudes</td></tr>
+            <tr><td><code>mae_solicitud_derivacion</code></td><td>Derivaciones entre usuarios/áreas</td></tr>
+            <tr><td><code>mae_solicitud_equipo</code></td><td>Equipos asociados a solicitudes</td></tr>
+            <tr><td><code>mae_solicitud_historial</code></td><td>Trazabilidad de cambios de estado</td></tr>
+        </tbody>
+    </table>
+
+    <h3>Bloque 4 — Chats (1:1 y grupales)</h3>
+    <table>
+        <thead>
+            <tr><th>Tabla</th><th>Contenido</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><code>mae_chat_conversacion</code></td><td>Conversaciones (directas y grupos)</td></tr>
+            <tr><td><code>mae_chat_mensaje</code></td><td>Mensajes intercambiados</td></tr>
+            <tr><td><code>rel_chat_participante</code></td><td>Membresías de cada usuario en cada chat</td></tr>
+            <tr><td><code>rel_chat_lectura</code></td><td>Estado de lectura por mensaje</td></tr>
+            <tr><td><code>rel_chat_reaccion</code></td><td>Reacciones (emojis) sobre mensajes</td></tr>
+            <tr><td><code>rel_contacto_favorito</code></td><td>Contactos marcados como favoritos</td></tr>
+        </tbody>
+    </table>
+
+    <h3>Bloque 5 — Notificaciones operativas</h3>
+    <table>
+        <thead>
+            <tr><th>Tabla</th><th>Contenido</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><code>mae_notificacion</code></td><td>Notificaciones generadas por el sistema (badge, popover, email)</td></tr>
+        </tbody>
+    </table>
+
+    <h3>Bloque 6 — Seguridad (auth)</h3>
+    <table>
+        <thead>
+            <tr><th>Tabla</th><th>Contenido</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><code>mae_login_attempts</code></td><td>Contadores de intentos fallidos y bloqueos (S-13)</td></tr>
+            <tr><td><code>mae_password_reset_tokens</code></td><td>Tokens de recuperación de contraseña (S-14/17)</td></tr>
+            <tr><td><code>mae_usuario.permisos_version</code></td><td>Se resetea a 0 → todos los JWTs vigentes quedan inválidos</td></tr>
+        </tbody>
+    </table>
+
+    <h3>Bloque 7 — Auditoría histórica <span class="tag tag-decision">Decisión</span></h3>
+    <table>
+        <thead>
+            <tr><th>Tabla</th><th>Contenido</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><code>App_Audit_Log</code></td><td>Logs de auditoría inmutable (todas las acciones registradas)</td></tr>
+        </tbody>
+    </table>
+</section>
+
+<!-- ───────────────────────────────────────────────────── -->
+<section>
+    <h2>🛡️ Tablas que se CONSERVAN <span class="tag tag-keep">Maestro</span></h2>
+
+    <div class="grid-2">
+        <div class="card card-keep">
+            <h4>👤 Usuarios y permisos</h4>
+            <ul>
+                <li><code>mae_usuario</code></li>
+                <li><code>mae_rol</code></li>
+                <li><code>mae_permiso</code></li>
+                <li><code>rel_usuario_rol</code></li>
+                <li><code>rel_rol_permiso</code></li>
+            </ul>
+        </div>
+
+        <div class="card card-keep">
+            <h4>🏢 Catálogos de empresa</h4>
+            <ul>
+                <li><code>mae_empresa</code> (clientes)</li>
+                <li><code>mae_empresaservicios</code> (empresa de servicio)</li>
+                <li><code>mae_centro</code> (fuentes emisoras)</li>
+                <li><code>mae_contacto</code></li>
+                <li><code>mae_cargo</code></li>
+                <li><code>mae_coordinador</code></li>
+            </ul>
+        </div>
+
+        <div class="card card-keep">
+            <h4>👷 Personal y equipos</h4>
+            <ul>
+                <li><code>mae_muestreador</code></li>
+                <li><code>mae_inspectorambiental</code></li>
+                <li><code>mae_equipo</code> + <code>mae_equipo_catalogo</code></li>
+                <li><code>mae_equipo_historial</code> (versionado)</li>
+                <li><code>mae_grupos_rutas</code></li>
+            </ul>
+        </div>
+
+        <div class="card card-keep">
+            <h4>📋 Normativa y análisis</h4>
+            <ul>
+                <li><code>mae_normativa</code></li>
+                <li><code>mae_normativareferencia</code></li>
+                <li><code>mae_referenciaanalisis</code></li>
+                <li><code>mae_tecnica</code></li>
+                <li><code>mae_laboratorioensayo</code></li>
+                <li><code>mae_tipoentrega</code></li>
+                <li><code>mae_instrumentoambiental</code></li>
+            </ul>
+        </div>
+
+        <div class="card card-keep">
+            <h4>🌊 Atributos de muestreo</h4>
+            <ul>
+                <li><code>mae_tipoagua</code></li>
+                <li><code>mae_subarea</code></li>
+                <li><code>mae_modalidad</code></li>
+                <li><code>mae_objetivomuestreo_ma</code></li>
+                <li><code>mae_tipomuestra</code> / <code>mae_tipomuestra_ma</code></li>
+                <li><code>mae_actividadmuestreo</code></li>
+                <li><code>mae_tipomuestreo</code></li>
+                <li><code>mae_tipodescarga</code></li>
+                <li><code>mae_dispositivohidraulico</code></li>
+                <li><code>mae_formacanal</code></li>
+                <li><code>mae_umedida</code></li>
+                <li><code>mae_lugaranalisis</code></li>
+                <li><code>mae_frecuencia</code></li>
+            </ul>
+        </div>
+
+        <div class="card card-keep">
+            <h4>📍 Geografía y estados</h4>
+            <ul>
+                <li><code>mae_comuna</code></li>
+                <li><code>mae_region</code></li>
+                <li><code>mae_sector</code></li>
+                <li><code>mae_zonageografica</code></li>
+                <li><code>mae_zonautm</code></li>
+                <li><code>mae_fuenteemisora</code> / <code>_ma</code></li>
+                <li><code>mae_validaciontecnica</code> (estados ficha)</li>
+                <li><code>mae_estadomuestreo</code></li>
+            </ul>
+        </div>
+
+        <div class="card card-keep">
+            <h4>⚙️ Configuración del sistema</h4>
+            <ul>
+                <li><code>mae_menu_modulo</code></li>
+                <li><code>mae_menu_link</code></li>
+                <li><code>mae_notificacion_modulo</code></li>
+                <li><code>mae_notificacion_funcionalidad</code></li>
+                <li><code>mae_notificacion_regla</code></li>
+                <li><code>mae_evento_notificacion</code></li>
+                <li><code>rel_evento_destinatario</code></li>
+            </ul>
+        </div>
+
+        <div class="card card-keep">
+            <h4>📨 Tipos de solicitudes URS</h4>
+            <ul>
+                <li><code>mae_solicitud_tipo</code></li>
+                <li><code>rel_solicitud_tipo_permiso</code></li>
+                <li><code>rel_solicitud_tipo_notificacion</code></li>
+            </ul>
+        </div>
+    </div>
+</section>
+
+<!-- ───────────────────────────────────────────────────── -->
+<section>
+    <h2>🟠 Decisiones que debes tomar <span class="tag tag-decision">Antes de ejecutar</span></h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th style="width:5%">#</th>
+                <th style="width:25%">Decisión</th>
+                <th>Detalle</th>
+                <th style="width:15%">Comportamiento default</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>1</td>
+                <td><strong>¿Conservar logs de auditoría?</strong></td>
+                <td>El bloque 7 borra <code>App_Audit_Log</code>. Si querés mantener el registro de quién hizo qué durante QA (útil para demo o post-mortem), <strong>comentá el DELETE</strong> en ese bloque.</td>
+                <td><span class="tag tag-delete">Borrar</span></td>
+            </tr>
+            <tr>
+                <td>2</td>
+                <td><strong>¿Conservar grupos de rutas creados en QA?</strong></td>
+                <td>Por defecto NO se borra <code>mae_grupos_rutas</code>. Si creaste grupos solo para probar y no querés que aparezcan en prod, descomentá la línea correspondiente en el bloque 2.</td>
+                <td><span class="tag tag-keep">Conservar</span></td>
+            </tr>
+            <tr>
+                <td>3</td>
+                <td><strong>¿Equipos de prueba en el catálogo?</strong></td>
+                <td>NO se borra <code>mae_equipo</code> ni <code>mae_equipo_catalogo</code>. Si en QA se crearon equipos solo para probar mezclados con equipos reales, debes borrar manualmente uno por uno.</td>
+                <td><span class="tag tag-keep">Conservar</span></td>
+            </tr>
+            <tr>
+                <td>4</td>
+                <td><strong>¿Muestreadores de prueba?</strong></td>
+                <td>NO se borra <code>mae_muestreador</code>. Si hay muestreadores ficticios, eliminarlos manualmente.</td>
+                <td><span class="tag tag-keep">Conservar</span></td>
+            </tr>
+            <tr>
+                <td>5</td>
+                <td><strong>¿Fichas legítimas creadas durante QA?</strong></td>
+                <td><strong>El script borra TODAS las fichas.</strong> Si hay alguna ficha real de cliente creada durante QA, exportala antes o filtrá el WHERE en el bloque 1.</td>
+                <td><span class="tag tag-delete">Borrar todo</span></td>
+            </tr>
+            <tr>
+                <td>6</td>
+                <td><strong>¿Historial de versiones de equipos?</strong></td>
+                <td>NO se borra <code>mae_equipo_historial</code> por defecto. Si en QA hubo cambios de versión sobre equipos de prueba, descomentá esa línea en el bloque 7.</td>
+                <td><span class="tag tag-keep">Conservar</span></td>
+            </tr>
+        </tbody>
+    </table>
+</section>
+
+<!-- ───────────────────────────────────────────────────── -->
+<section>
+    <h2>🚀 Pasos para ejecutar</h2>
+    <ol class="steps">
+        <li><strong>Backup completo</strong> de <code>ADL_ONE_DB</code>. No negociable.</li>
+        <li><strong>Apagar el backend</strong> (<code>api-backend-adlone</code>) para que no inserte filas mientras corre el script.</li>
+        <li>Abrir <strong>SQL Server Management Studio</strong> o Azure Data Studio.</li>
+        <li>Revisar las <strong>decisiones</strong> de la sección anterior y descomentar / comentar las líneas opcionales.</li>
+        <li>Ejecutar <code>db-migrations/pre-production-cleanup.sql</code>. Cada bloque corre en su propia transacción.</li>
+        <li>Revisar los <strong>contadores</strong> que imprime al final — los transaccionales deben quedar todos en <strong>0</strong>.</li>
+        <li><strong>Reiniciar el backend</strong>.</li>
+        <li>Todos los usuarios deben volver a hacer <strong>login</strong> (sus JWTs vigentes quedaron inválidos porque <code>permisos_version</code> volvió a 0).</li>
+        <li>Hacer una prueba humo (login, crear ficha, ver detalle) para confirmar que la app responde.</li>
+        <li>✅ <strong>Listo para producción.</strong></li>
+    </ol>
+</section>
+
+<!-- ───────────────────────────────────────────────────── -->
+<section>
+    <h2>🧪 Verificación post-limpieza</h2>
+    <p>El script termina con dos consultas que imprimen contadores. Lo que deberías ver:</p>
+
+    <div class="alert alert-info">
+        <strong>Tablas transaccionales → todas con <code>filas = 0</code>:</strong><br>
+        App_Ma_FichaIngresoServicio_ENC / DET, App_Ma_Agenda_MUESTREOS, App_Ma_Equipos_MUESTREOS,
+        mae_ficha_historial, mae_rutas_*, mae_solicitud_*, mae_chat_*, mae_notificacion,
+        mae_login_attempts, mae_password_reset_tokens, App_Audit_Log.
+    </div>
+
+    <div class="alert alert-info">
+        <strong>Tablas maestras → conservan su contenido completo:</strong><br>
+        mae_usuario, mae_rol, mae_permiso, rel_usuario_rol, rel_rol_permiso,
+        mae_empresa, mae_empresaservicios, mae_centro, mae_contacto, mae_cargo,
+        mae_muestreador, mae_equipo, mae_normativa, mae_referenciaanalisis,
+        mae_laboratorioensayo, mae_grupos_rutas.
+    </div>
+</section>
+
+<footer>
+    Generado por el equipo de desarrollo ADL ONE · Documento de referencia interno · No distribuir fuera de la organización.
+</footer>
+
+</body>
+</html>

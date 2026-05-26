@@ -923,21 +923,15 @@ class FichaIngresoService {
             const request = pool.request();
             let whereClause = `WHERE f.id_validaciontecnica = 5`;
 
+            // C-01 (revisado): según QA, una ficha SIEMPRE debe tener fecha de instalación y de retiro juntas.
+            // Mantener el filtro solo por fecha_muestreo (instalación). Si una ficha aparece sin instalación es bug de datos.
             if (month && year) {
                 request.input('month', sql.Int, parseInt(month));
                 request.input('year', sql.Int, parseInt(year));
-                // C-01: incluir tanto fecha de instalación (fecha_muestreo) como de retiro (fecha_retiro / ma_muestreo_fechat),
-                // así una ficha con asignación parcial cuyo retiro caiga en el mes también aparece.
-                whereClause += ` AND (
-                    (MONTH(a.fecha_muestreo) = @month AND YEAR(a.fecha_muestreo) = @year)
-                 OR (MONTH(a.ma_muestreo_fechat) = @month AND YEAR(a.ma_muestreo_fechat) = @year AND a.ma_muestreo_fechat > '1900-01-01')
-                )`;
+                whereClause += ` AND MONTH(a.fecha_muestreo) = @month AND YEAR(a.fecha_muestreo) = @year`;
             } else if (year) {
                 request.input('year', sql.Int, parseInt(year));
-                whereClause += ` AND (
-                    YEAR(a.fecha_muestreo) = @year
-                 OR (YEAR(a.ma_muestreo_fechat) = @year AND a.ma_muestreo_fechat > '1900-01-01')
-                )`;
+                whereClause += ` AND YEAR(a.fecha_muestreo) = @year`;
             }
 
             const result = await request.query(`
@@ -1148,24 +1142,41 @@ class FichaIngresoService {
                 resultDet = await requestDet.execute('MAM_FichaComercial_ConsultaComercial_DET_unaficha');
                 ficha.detalles = resultDet.recordset || [];
 
-                // DATA ENRICHMENT: Fetch uf_individual for each detail row if not present
+                // DATA ENRICHMENT: F-01b — enriquecer detalles con nombre_normativa y nombre_normativareferencia POR ROW
+                // (el SP a veces devuelve solo el id sin los nombres unidos)
                 if (ficha.detalles.length > 0) {
-                    const detIds = ficha.detalles.map(d => d.id_referenciaanalisis).filter(id => id);
-                    if (detIds.length > 0) {
-                        const enrichmentRes = await pool.request()
-                            .input('fid', sql.Numeric(10, 0), id)
-                            .query(`SELECT id_referenciaanalisis, uf_individual FROM App_Ma_FichaIngresoServicio_DET WHERE id_fichaingresoservicio = @fid`);
-                        
-                        const ufMap = enrichmentRes.recordset.reduce((acc, row) => {
-                            acc[row.id_referenciaanalisis] = row.uf_individual;
-                            return acc;
-                        }, {});
+                    const enrichmentRes = await pool.request()
+                        .input('fid', sql.Numeric(10, 0), id)
+                        .query(`
+                            SELECT
+                                d.id_referenciaanalisis,
+                                d.id_normativa,
+                                d.id_normativareferencia,
+                                d.uf_individual,
+                                n.nombre_normativa,
+                                nr.nombre_normativareferencia
+                            FROM App_Ma_FichaIngresoServicio_DET d
+                            LEFT JOIN mae_normativa n ON d.id_normativa = n.id_normativa
+                            LEFT JOIN mae_normativareferencia nr ON d.id_normativareferencia = nr.id_normativareferencia
+                            WHERE d.id_fichaingresoservicio = @fid
+                        `);
 
-                        ficha.detalles = ficha.detalles.map(d => ({
+                    const enrichMap = enrichmentRes.recordset.reduce((acc, row) => {
+                        acc[row.id_referenciaanalisis] = row;
+                        return acc;
+                    }, {});
+
+                    ficha.detalles = ficha.detalles.map(d => {
+                        const extra = enrichMap[d.id_referenciaanalisis] || {};
+                        return {
                             ...d,
-                            uf_individual: d.uf_individual || ufMap[d.id_referenciaanalisis] || 0
-                        }));
-                    }
+                            uf_individual: d.uf_individual || extra.uf_individual || 0,
+                            id_normativa: d.id_normativa ?? extra.id_normativa,
+                            id_normativareferencia: d.id_normativareferencia ?? extra.id_normativareferencia,
+                            nombre_normativa: d.nombre_normativa || extra.nombre_normativa,
+                            nombre_normativareferencia: d.nombre_normativareferencia || extra.nombre_normativareferencia
+                        };
+                    });
                 }
             } catch (errDet) {
                 logger.warn('SP MAM_FichaComercial_ConsultaComercial_DET_unaficha failed, trying fallback', errDet);

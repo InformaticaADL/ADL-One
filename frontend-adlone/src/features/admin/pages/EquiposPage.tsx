@@ -102,11 +102,10 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const { hasPermission } = useAuth();
     const isMobile = useMediaQuery('(max-width: 768px)');
     
-    // Permissions
+    // Permissions — RB-08: AI_MA_ADMIN_ACCESO eliminado
     const isMAMan = hasPermission('AI_MA_SOLICITUDES') || hasPermission('MA_A_GEST_EQUIPO');
-    const isSuper = hasPermission('AI_MA_ADMIN_ACCESO');
-    const canCreateEquipo = hasPermission('AI_MA_CREAR_EQUIPO') || isSuper;
-    const canEditEquipo = hasPermission('AI_MA_EDITAR_EQUIPO') || isSuper;
+    const canCreateEquipo = hasPermission('AI_MA_CREAR_EQUIPO');
+    const canEditEquipo = hasPermission('AI_MA_EDITAR_EQUIPO');
 
     // --- Table & Filters State ---
     const [equipos, setEquipos] = useState<Equipo[]>([]);

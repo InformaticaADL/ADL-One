@@ -34,7 +34,7 @@ class SolicitudController {
 
             // Verify permission: needs to be Technical Area (or Admin)
             const isMAMan = perms.includes('AI_MA_SOLICITUDES') || perms.includes('AI_MA_EQUIPOS') || perms.includes('MA_SOLICITUDES') || perms.includes('MA_EQUIPOS');
-            const isSAMan = perms.includes('AI_MA_ADMIN_ACCESO') || perms.includes('MA_ADMIN_ACCESO');
+            const isSAMan = false; // RB-08: super-admin bypass eliminado (permisos antiguos no usados)
 
             if (!isMAMan && !isSAMan) {
                 return res.status(403).json({ message: 'No tiene permisos para revisión técnica' });
@@ -60,7 +60,7 @@ class SolicitudController {
         try {
             const user = req.user;
             const perms = user?.permissions || [];
-            const isSuperAdmin = perms.includes('AI_MA_ADMIN_ACCESO') || perms.includes('MA_ADMIN_ACCESO');
+            const isSuperAdmin = false; // RB-08: super-admin bypass eliminado
             const isGC = perms.includes('GC_ACCESO') || perms.includes('GC_EQUIPOS');
             const isMA = perms.includes('AI_MA_SOLICITUDES') || perms.includes('AI_MA_EQUIPOS') || perms.includes('MA_SOLICITUDES') || perms.includes('MA_EQUIPOS');
             const hasReportPermission = perms.includes('MA_A_REPORTES') || perms.includes('MA_A_REPORTES_DETALLE');
@@ -111,7 +111,7 @@ class SolicitudController {
             const perms = user?.permissions || [];
 
             // Check if user has ANY management permission
-            const isSAMan = perms.includes('AI_MA_ADMIN_ACCESO') || perms.includes('MA_ADMIN_ACCESO');
+            const isSAMan = false; // RB-08: super-admin bypass eliminado (permisos antiguos no usados)
             const isMAMan = perms.includes('AI_MA_SOLICITUDES') || perms.includes('AI_MA_EQUIPOS') || perms.includes('MA_SOLICITUDES') || perms.includes('MA_EQUIPOS') || perms.includes('MA_NOTIF_REC') || perms.includes('MA_NOTIF_ENV');
             const isGCMan = perms.includes('GC_ACCESO') || perms.includes('GC_EQUIPOS');
             const isINFMan = perms.includes('INF_NOTIF');
@@ -137,7 +137,7 @@ class SolicitudController {
             const user = req.user;
             const perms = user?.permissions || [];
 
-            const isSAMan = perms.includes('AI_MA_ADMIN_ACCESO') || perms.includes('MA_ADMIN_ACCESO');
+            const isSAMan = false; // RB-08: super-admin bypass eliminado (permisos antiguos no usados)
             const isMAMan = perms.includes('AI_MA_SOLICITUDES') || perms.includes('AI_MA_EQUIPOS') || perms.includes('MA_SOLICITUDES') || perms.includes('MA_EQUIPOS');
 
             if (!isSAMan && !isMAMan) {

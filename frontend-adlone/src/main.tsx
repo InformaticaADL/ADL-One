@@ -61,6 +61,46 @@ const theme = createTheme({
     Select: {
       defaultProps: {
         radius: 'md',
+        // MA-05: filter defensivo global. Mantine por defecto hace option.label.toLowerCase()
+        // sin null-check y crashea cuando algún registro de BD trae el campo display en null.
+        // Este wrapper tolera label/value null/undefined.
+        filter: ({ options, search }: any) => {
+          const term = String(search ?? '').toLowerCase().trim();
+          if (!term) return options;
+          return options.filter((option: any) => {
+            const label = String(option?.label ?? '').toLowerCase();
+            const value = String(option?.value ?? '').toLowerCase();
+            return label.includes(term) || value.includes(term);
+          });
+        },
+      },
+    },
+    MultiSelect: {
+      defaultProps: {
+        radius: 'md',
+        filter: ({ options, search }: any) => {
+          const term = String(search ?? '').toLowerCase().trim();
+          if (!term) return options;
+          return options.filter((option: any) => {
+            const label = String(option?.label ?? '').toLowerCase();
+            const value = String(option?.value ?? '').toLowerCase();
+            return label.includes(term) || value.includes(term);
+          });
+        },
+      },
+    },
+    Autocomplete: {
+      defaultProps: {
+        radius: 'md',
+        filter: ({ options, search }: any) => {
+          const term = String(search ?? '').toLowerCase().trim();
+          if (!term) return options;
+          return options.filter((option: any) => {
+            const label = String(option?.label ?? '').toLowerCase();
+            const value = String(option?.value ?? '').toLowerCase();
+            return label.includes(term) || value.includes(term);
+          });
+        },
       },
     },
     Title: {

@@ -40,18 +40,24 @@ class AuthController {
         }
     }
 
-    // S-14: solicitar reset (envío de email). Respuesta genérica siempre 200.
+    // S-14/S-15: solicitar reset (envío de email).
+    // Negocio prefirió mensajes específicos en sistema interno.
     async requestPasswordReset(req, res) {
         try {
             const { email } = req.body;
             if (!email) return errorResponse(res, 'Email requerido', 400);
             const ip = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '';
             await authService.requestPasswordReset(email, String(ip).split(',')[0].trim());
-            return successResponse(res, { sent: true }, 'Si el email está registrado, recibirá un correo con instrucciones.');
+            return successResponse(res, { sent: true }, 'Hemos enviado un correo con las instrucciones para restablecer tu contraseña.');
         } catch (err) {
             logger.error('Controller requestPasswordReset error:', err);
-            // Aun en error devolvemos mensaje genérico para no filtrar.
-            return successResponse(res, { sent: true }, 'Si el email está registrado, recibirá un correo con instrucciones.');
+            if (err.code === 'EMAIL_NOT_FOUND') {
+                return errorResponse(res, err.message, err.statusCode || 404);
+            }
+            if (err.code === 'USER_DISABLED') {
+                return errorResponse(res, err.message, err.statusCode || 403);
+            }
+            return errorResponse(res, err.message || 'No se pudo procesar la solicitud', err.statusCode || 500);
         }
     }
 

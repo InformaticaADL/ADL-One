@@ -203,7 +203,8 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
                 if (!uniqueUsersMap.has(login)) {
                     uniqueUsersMap.set(login, {
                         value: login,
-                        label: u.nombre_usuario || u.usuario
+                        // MA-05: garantizar que label nunca sea null (Mantine OptionsDropdown crashea)
+                        label: String(u.nombre_usuario || u.usuario || login || '(sin nombre)')
                     });
                 }
             });
@@ -222,11 +223,13 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
                 if (!uniqueComunasMap.has(id)) {
                     uniqueComunasMap.set(id, {
                         value: id,
-                        label: c.nombre_comuna
+                        // MA-05: label siempre string no nulo
+                        label: String(c.nombre_comuna || `Comuna #${id}`)
                     });
                 }
             });
-            setComunas(Array.from(uniqueComunasMap.values()));
+            // Filtrar registros sin id válido para evitar duplicados con "Comuna #undefined"
+            setComunas(Array.from(uniqueComunasMap.values()).filter(c => c.value && c.value !== 'undefined' && c.value !== 'null'));
         } catch (error) {
             console.error('Error fetching comunas:', error);
         }

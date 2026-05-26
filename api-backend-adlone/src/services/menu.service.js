@@ -8,8 +8,8 @@ class MenuService {
             const pool = await getConnection();
 
             // Permissions come in as an array of strings, e.g., ['MA_ACCESO', 'NEC_ACCESO']
-            // For Super Admin handling: AI_MA_ADMIN_ACCESO gives access to everything
-            const isSuperAdmin = userPermissions.includes('AI_MA_ADMIN_ACCESO');
+            // RB-08: super-admin bypass eliminado — todos los menús se filtran por permisos reales en BD.
+            const isSuperAdmin = false;
 
             // 1. Fetch Modules
             const modulesResult = await pool.request().query(`

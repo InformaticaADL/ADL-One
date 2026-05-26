@@ -142,6 +142,12 @@ class AuthService {
 
                 // Generate Token
                 const rolesArray = user.roles_list ? user.roles_list.split(',').filter(r => r.trim()) : [];
+                // S-07: duración del JWT. La seguridad real está en el middleware (auth.middleware.js)
+                // que valida en cada request contra BD (TTL 5s) si el usuario sigue habilitado
+                // y si permisos_version coincide. Así, aunque el token sea de larga duración,
+                // un admin puede deshabilitar al usuario y este queda fuera en máximo 5 segundos.
+                //  - Login normal: 12 horas (jornada laboral con margen)
+                //  - "Recordarme": 30 días
                 const token = jwt.sign(
                     {
                         id: user.id_usuario,
@@ -190,7 +196,8 @@ class AuthService {
         }
     }
 
-    // S-13: Bloqueo por intentos fallidos. Usa tabla mae_login_attempts (ver scripts entregados).
+    // S-13: Bloqueo por intentos fallidos. Usa tabla mae_login_attempts.
+    // Uso Date.now() en JS para evitar discrepancias de timezone entre SQL y Node.
     async checkLoginLockout(username) {
         try {
             const pool = await getConnection();
@@ -203,13 +210,17 @@ class AuthService {
                 `);
             if (result.recordset.length === 0) return { locked: false };
             const row = result.recordset[0];
-            if (row.locked_until && new Date(row.locked_until) > new Date()) {
-                const minutesRemaining = Math.ceil((new Date(row.locked_until) - new Date()) / 60000);
-                return { locked: true, minutesRemaining };
+            if (row.locked_until) {
+                const lockTs = new Date(row.locked_until).getTime();
+                const nowTs = Date.now();
+                if (lockTs > nowTs) {
+                    const minutesRemaining = Math.max(1, Math.ceil((lockTs - nowTs) / 60000));
+                    logger.info(`[S-13] Usuario ${username} BLOQUEADO hasta ${new Date(lockTs).toISOString()} (${minutesRemaining} min restantes)`);
+                    return { locked: true, minutesRemaining };
+                }
             }
             return { locked: false, failedCount: row.failed_count };
         } catch (err) {
-            // Si la tabla no existe aún, no romper el flujo de login
             logger.warn('checkLoginLockout failed (tabla mae_login_attempts ausente?):', err.message);
             return { locked: false };
         }
@@ -220,31 +231,55 @@ class AuthService {
             const pool = await getConnection();
             const MAX_ATTEMPTS = 5;
             const LOCK_MINUTES = 15;
-            await pool.request()
-                .input('username', sql.VarChar(150), String(username || '').trim())
-                .input('max', sql.Int, MAX_ATTEMPTS)
-                .input('lockMin', sql.Int, LOCK_MINUTES)
-                .input('reason', sql.VarChar(100), reason || '')
-                .query(`
-                    MERGE mae_login_attempts AS target
-                    USING (SELECT @username AS nombre_usuario) AS src
-                       ON LOWER(target.nombre_usuario) = LOWER(src.nombre_usuario)
-                    WHEN MATCHED THEN
-                        UPDATE SET
-                            failed_count = target.failed_count + 1,
-                            last_attempt_at = SYSDATETIME(),
+            const cleanUser = String(username || '').trim();
+            const now = new Date();
+
+            // Leer estado actual
+            const currentRes = await pool.request()
+                .input('u', sql.VarChar(150), cleanUser)
+                .query(`SELECT failed_count, locked_until FROM mae_login_attempts WHERE LOWER(nombre_usuario) = LOWER(@u)`);
+
+            const newCount = (currentRes.recordset[0]?.failed_count || 0) + 1;
+            const willLock = newCount >= MAX_ATTEMPTS;
+            const lockUntil = willLock ? new Date(now.getTime() + LOCK_MINUTES * 60 * 1000) : (currentRes.recordset[0]?.locked_until || null);
+
+            if (currentRes.recordset.length === 0) {
+                // INSERT inicial
+                await pool.request()
+                    .input('u', sql.VarChar(150), cleanUser)
+                    .input('cnt', sql.Int, newCount)
+                    .input('at', sql.DateTime2, now)
+                    .input('reason', sql.VarChar(100), reason || '')
+                    .input('lock', sql.DateTime2, lockUntil)
+                    .query(`
+                        INSERT INTO mae_login_attempts (nombre_usuario, failed_count, last_attempt_at, last_reason, locked_until)
+                        VALUES (@u, @cnt, @at, @reason, @lock)
+                    `);
+            } else {
+                // UPDATE incrementando
+                await pool.request()
+                    .input('u', sql.VarChar(150), cleanUser)
+                    .input('cnt', sql.Int, newCount)
+                    .input('at', sql.DateTime2, now)
+                    .input('reason', sql.VarChar(100), reason || '')
+                    .input('lock', sql.DateTime2, lockUntil)
+                    .query(`
+                        UPDATE mae_login_attempts
+                        SET failed_count = @cnt,
+                            last_attempt_at = @at,
                             last_reason = @reason,
-                            locked_until = CASE
-                                WHEN target.failed_count + 1 >= @max
-                                THEN DATEADD(MINUTE, @lockMin, SYSDATETIME())
-                                ELSE target.locked_until
-                            END
-                    WHEN NOT MATCHED THEN
-                        INSERT (nombre_usuario, failed_count, last_attempt_at, last_reason)
-                        VALUES (@username, 1, SYSDATETIME(), @reason);
-                `);
+                            locked_until = @lock
+                        WHERE LOWER(nombre_usuario) = LOWER(@u)
+                    `);
+            }
+
+            if (willLock) {
+                logger.info(`[S-13] Usuario ${cleanUser} BLOQUEADO tras ${newCount} intentos. Lock hasta ${lockUntil.toISOString()}`);
+            } else {
+                logger.info(`[S-13] Usuario ${cleanUser} failed_count = ${newCount}/${MAX_ATTEMPTS}`);
+            }
         } catch (err) {
-            logger.warn('recordFailedLoginAttempt failed:', err.message);
+            logger.error('recordFailedLoginAttempt failed:', err.message);
         }
     }
 
@@ -328,15 +363,19 @@ class AuthService {
     }
 
     /**
-     * S-14: solicitar reset enviando email.
-     * S-15: responde igual exista o no el email (no revelar enumeración).
+     * S-14 / S-15: solicitar reset enviando email.
+     * (Negocio decidió: SÍ devolver mensaje específico cuando el email no existe — el sistema es interno.)
      * S-17: al solicitar dos veces, invalida tokens previos del usuario (solo el último vale).
      */
     async requestPasswordReset(email, ipSolicitante) {
-        const result = { ok: true }; // siempre 200 para no filtrar existencia
         try {
             const cleanEmail = String(email || '').trim();
-            if (!cleanEmail) return result;
+            if (!cleanEmail) {
+                const err = new Error('Email requerido');
+                err.code = 'EMAIL_MISSING';
+                err.statusCode = 400;
+                throw err;
+            }
 
             const pool = await getConnection();
             const userRes = await pool.request()
@@ -348,13 +387,20 @@ class AuthService {
                 `);
 
             if (userRes.recordset.length === 0) {
-                logger.info(`[PWD-RESET] Email no registrado: ${cleanEmail} (respuesta genérica)`);
-                return result; // S-15: no revelar
+                logger.info(`[PWD-RESET] Email no registrado: ${cleanEmail}`);
+                // S-15: el negocio prefirió revelar para mejor UX (sistema interno, no público)
+                const err = new Error('No encontramos una cuenta asociada a ese email');
+                err.code = 'EMAIL_NOT_FOUND';
+                err.statusCode = 404;
+                throw err;
             }
             const user = userRes.recordset[0];
             if (user.habilitado === 'N') {
                 logger.info(`[PWD-RESET] Usuario ${user.nombre_usuario} deshabilitado — no se envía link`);
-                return result;
+                const err = new Error('El usuario está deshabilitado. Contacte al administrador.');
+                err.code = 'USER_DISABLED';
+                err.statusCode = 403;
+                throw err;
             }
 
             // S-17: invalidar tokens previos no usados (marcar como consumidos)
@@ -404,10 +450,12 @@ class AuthService {
                 severidad: 1
             });
 
-            return result;
+            return { ok: true, sent: true };
         } catch (error) {
+            // Re-lanzar errores con código (USER_NOT_FOUND, EMAIL_MISSING) para que el controller los maneje
+            if (error.code) throw error;
             logger.error('requestPasswordReset error:', error);
-            return result; // Igualmente devolvemos ok genérico
+            throw error;
         }
     }
 

@@ -159,14 +159,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 // Solo hacer logout en 401 (token inválido/expirado)
                 // El 403 (sin permiso para esa acción) NO debe cerrar sesión
                 const isLoginRequest = error.config?.url?.includes('/auth/login');
-                if (!isLoginRequest) {
+                const isResetRequest = error.config?.url?.includes('/auth/reset-password') || error.config?.url?.includes('/auth/forgot-password');
+                if (!isLoginRequest && !isResetRequest) {
                     const serverMessage = error.response?.data?.message ?? '';
-                    if (serverMessage === 'Sesión expirada por cambio de permisos') {
+                    // RB-04 / RB-07 / S-07: mensajes específicos de logout forzado
+                    if (serverMessage.toLowerCase().includes('cambio de permisos')) {
                         sessionStorage.setItem('auth_logout_reason', 'Tu sesión fue cerrada porque un administrador modificó tus permisos. Por favor ingresa nuevamente.');
+                    } else if (serverMessage.toLowerCase().includes('deshabilitada')) {
+                        sessionStorage.setItem('auth_logout_reason', 'Tu cuenta fue deshabilitada por un administrador. Contacta a Informática para más información.');
+                    } else if (serverMessage.toLowerCase().includes('usuario no encontrado')) {
+                        sessionStorage.setItem('auth_logout_reason', 'Tu sesión ya no es válida. Por favor ingresa nuevamente.');
+                    } else if (serverMessage.toLowerCase().includes('token expired') || serverMessage.toLowerCase().includes('expirado')) {
+                        sessionStorage.setItem('auth_logout_reason', 'Tu sesión expiró por inactividad. Por favor ingresa nuevamente.');
                     }
                     console.warn('[Auth] Session expired (401). Logging out...', {
                         status: error.response.status,
-                        url: error.config?.url
+                        url: error.config?.url,
+                        message: serverMessage
                     });
                     logout();
                 }

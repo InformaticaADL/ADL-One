@@ -51,7 +51,8 @@ export const AdminGcHub: React.FC<Props> = ({ onNavigate, onBack }) => {
 
     const visibleOptions = OPTIONS.filter(opt => {
         if (opt.id === 'admin-equipos-gestion') {
-            return hasPermission('GC_ACCESO') || hasPermission('AI_MA_ADMIN_ACCESO') || hasPermission('GC_EQUIPOS') || hasPermission('MA_A_GEST_EQUIPO');
+            // RB-08: removido AI_MA_ADMIN_ACCESO
+            return hasPermission('GC_ACCESO') || hasPermission('GC_EQUIPOS') || hasPermission('MA_A_GEST_EQUIPO');
         }
         return hasPermission(opt.permission);
     });

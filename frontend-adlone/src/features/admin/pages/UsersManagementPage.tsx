@@ -368,7 +368,11 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
 
                 {/* Content Section */}
                 <Box pos="relative">
-                    <LoadingOverlay visible={loading} overlayProps={{ blur: 2 }} />
+                    {/* RB-01: solo mostrar LoadingOverlay si NO hay ningún modal abierto (evita parpadeo residual) */}
+                    <LoadingOverlay
+                        visible={loading && !showCreateModal && !showEditModal && !showPasswordModal && !showConfirmModal}
+                        overlayProps={{ blur: 2 }}
+                    />
                     
                     {isMobile ? (
                         <Stack gap="sm">

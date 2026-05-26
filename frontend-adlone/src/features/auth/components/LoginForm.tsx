@@ -216,9 +216,11 @@ export const LoginForm = ({ onSubmit, isLoading = false }: LoginFormProps) => {
                                         try {
                                             await apiClient.post('/api/auth/forgot-password', { email: trimmed });
                                             setForgotSent(true);
-                                        } catch {
-                                            // S-15: respuesta genérica incluso en error
-                                            setForgotSent(true);
+                                        } catch (err: any) {
+                                            // S-15 (revisado): mensaje específico cuando el email no existe
+                                            const msg = err?.response?.data?.message
+                                                || 'No se pudo procesar la solicitud. Intenta nuevamente.';
+                                            setForgotError(msg);
                                         } finally {
                                             setForgotSending(false);
                                         }

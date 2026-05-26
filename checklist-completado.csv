@@ -1,0 +1,188 @@
+#,Fase,ID,Caso de prueba,Resultado esperado,Resultado obtenido,Estado,Severidad,Notas,,,,,,,,,,,,,,,,,
+1,1,MA-05,Entrar al maestro EMPRESA DE SERVICIO con 500+ registros,"No crashea con ""Cannot read properties of null (toLowerCase)""","ERROR AL INGRESAR AUN A UN MAESTRO CON MUCHOS DATOS
+
+react-dom_client.js?v=1d046a35:7001 TypeError: Cannot read properties of null (reading 'toLowerCase')
+    at defaultOptionsFilter (chunk-KYGESVNQ.js?v=1d046a35:15685:22)
+    at OptionsDropdown (chunk-KYGESVNQ.js?v=1d046a35:15809:71)
+    at Object.react_stack_bottom_frame (react-dom_client.js?v=1d046a35:18509:20)
+    at renderWithHooks (react-dom_client.js?v=1d046a35:5654:24)
+    at updateFunctionComponent (react-dom_client.js?v=1d046a35:7475:21)
+    at beginWork (react-dom_client.js?v=1d046a35:8525:20)
+    at runWithFiberInDEV (react-dom_client.js?v=1d046a35:997:72)
+    at performUnitOfWork (react-dom_client.js?v=1d046a35:12561:98)
+    at workLoopSync (react-dom_client.js?v=1d046a35:12424:43)
+    at renderRootSync (react-dom_client.js?v=1d046a35:12408:13)
+
+The above error occurred in the <OptionsDropdown> component.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary.
+
+defaultOnCaughtError @ react-dom_client.js?v=1d046a35:7001Understand this error
+ErrorBoundary.tsx:24 Uncaught error: TypeError: Cannot read properties of null (reading 'toLowerCase')
+    at defaultOptionsFilter (chunk-KYGESVNQ.js?v=1d046a35:15685:22)
+    at OptionsDropdown (chunk-KYGESVNQ.js?v=1d046a35:15809:71)
+    at Object.react_stack_bottom_frame (react-dom_client.js?v=1d046a35:18509:20)
+    at renderWithHooks (react-dom_client.js?v=1d046a35:5654:24)
+    at updateFunctionComponent (react-dom_client.js?v=1d046a35:7475:21)
+    at beginWork (react-dom_client.js?v=1d046a35:8525:20)
+    at runWithFiberInDEV (react-dom_client.js?v=1d046a35:997:72)
+    at performUnitOfWork (react-dom_client.js?v=1d046a35:12561:98)
+    at workLoopSync (react-dom_client.js?v=1d046a35:12424:43)
+    at renderRootSync (react-dom_client.js?v=1d046a35:12408:13) Object
+componentDidCatch @ ErrorBoundary.tsx:24Understand this error
+notificationStore.ts:124 [Socket] Disconnected: io client disconnect",FALLA,?? Crítico,,,,,,,,,,,,,,,,,,
+2,1,RB-03,Cambiar el rol de un usuario en Gestión de Usuarios,No crashea con error toLowerCase,"En caso de querer cambiar un rol de un usuario que el correo lo tienen mas de un usuario tira error, ESO ES DE ESPERARSE 
+
+En el caso de cambiar el rol de un usuario que su correo sea unico para el , si se puede cmabiar sin problemas",PASA,?? Crítico,ASIGNAR CORREOS CORRESPONDIENTES A CADA USUARIO,,,,,,,,,,,,,,,,,
+3,1,A-07,Asignar fecha de instalación posterior a fecha de retiro,Toast de error nombrando los correlativos. No guarda,El programa en si no deja agregar una fecha de retiro que sea antes de la  de la de instalacion y asi mismo no deja agregar una fecha de instalacion que sea posterior a la de instalacion  como corresponde,PASA,?? Crítico,,,,,,,,,,,,,,,,,,
+4,1,A-07 (UI),Input F. Instalación tiene max=retiro; F. Retiro tiene min=instalación,Navegador bloquea la combinación inválida,bloquea los dias del calendario que no pueden corresponder como el caso de querer poner la fecha de retiro dias antes de la fehca de instalacion },PASA,?? Alto,,,,,,,,,,,,,,,,,,
+5,1,A-02,Intentar elegir fecha anterior a hoy en asignación,Navegador bloquea; backend rechaza si manipulan DOM,No permite ingresar fecha  anterior a la de hoy en asignacion,PASA,?? Crítico,,,,,,,,,,,,,,,,,,
+6,1,C-07,Reagendar desde calendario con fecha pasada,Input min=hoy; no permite seleccionar,No deja reajendar con fecha anterior a la del dia actual,PASA,?? Alto,,,,,,,,,,,,,,,,,,
+7,1,A-01,Lista de asignación NO muestra fichas en PENDIENTE COORDINACIÓN,Solo aparecen id_validaciontecnica 5 o 6 con disponibles,Solo aparecen pendiente programacion y en proceso,PASA,?? Crítico,,,,,,,,,,,,,,,,,,
+8,1,A-01 (EN PROCESO),Fichas EN PROCESO sin servicios disponibles no aparecen,Filtradas por servicios_disponibles > 0,"No aparecen las fichas que no tengan servicios disponibles, ES DECIR QUE APARECEN SOLO LOS QUE TIENEN SERVICIO POR ASIGNAR ",PASA,?? Alto,,,,,,,,,,,,,,,,,,
+9,1,R-11,Planificador de rutas excluye fichas PENDIENTE COORDINACIÓN,Mismo filtro que A-01,Solo aparecen estado pendiente y activa,PASA,?? Crítico,,,,,,,,,,,,,,,,,,
+10,1,A-09 (servicio),Seleccionar Servicio 2 en planificador y guardar,"Se guarda el Servicio 2, no otro. No fallback silencioso",Funciona correctamente,PASA,?? Crítico,,,,,,,,,,,,,,,,,,
+11,1,A-09 (edge),Servicio elegido pasa a AGENDADO/EJECUTADO/CANCELADO antes de guardar,Se omite con toast en vez de guardar incorrecto,sin guardar no cambia el estado ,PASA,?? Alto,,,,,,,,,,,,,,,,,,
+12,1,A-09 (403),Usuario con FI_GEST_ASIG abre comparación de versiones de remuestreo,Permite abrir el modal (antes daba 403),Funciona correctamente,PASA,?? Alto,,,,,,,,,,,,,,,,,,
+13,1,C-04,Abrir ficha YA CANCELADA en calendario,Botón Cancelar Muestreo NO aparece,"Se puede abrir la ficha ya cancelada, y a la ves se puede entrar a ver detalle completo . Pero no se puede guardar cambios",PASA,?? Alto,,,,,,,,,,,,,,,,,,
+14,1,C-05,Abrir ficha YA EJECUTADA en calendario,Botón Cancelar Muestreo NO aparece + backend rechaza,"Lo mismo que al abrir los que fueron cancelados, pueder ver el detalle y ver detalle compelto pero no editar ni guardar cambios ",PASA,?? Crítico,,,,,,,,,,,,,,,,,,
+15,1,C-06 INICIO,"Cambiar muestreador en evento tipo INICIO, guardar, reabrir",Select muestra el muestreador nuevo (no el de retiro),Funciona correctamente,PASA,?? Alto,,,,,,,,,,,,,,,,,,
+16,1,C-06 RETIRO,Evento tipo RETIRO muestra muestreador correcto (id_muestreador2),Select muestra muestreador de retiro,Funciona correctamente,PASA,?? Alto,,,,,,,,,,,,,,,,,,
+17,2,F-01a,"Crear ficha y cerrar modal con ""Volver al Menú""","Lleva al Listado de Fichas, no al selector","Hay campos que no se valida la seleccion ""No aplica"" esa es una opcion mediante base de datos, deberias hacer consultas mediante consola para verificar, los campos que me refiero es medicion caudal y modalidad, no bloquea como lo teniamos antes forma canal y dispositivo Hidr.
+En cuanto a la funcionalidad de Volver al Menú, si funciona redirige orrectamente",PASA,?? Alto,,,,,,,,,,,,,,,,,,
+18,2,F-01a (ver),Botón Ver Ficha del modal éxito,Lleva al detalle de la ficha recién creada,Si funciona correctamente.,PASA,?? Medio,,,,,,,,,,,,,,,,,,
+19,2,F-01b,Grabar análisis con normativas/tablas distintas,Tabla muestra columnas Normativa y Tabla/Referencia por línea,"En el grabado si se refleja eso, pero al ver la ficha creada, no manejamos esa logica, solamente en el encabezado una normativa y una referencia.",FALLA,?? Crítico,,,,,,,,,,,,,,,,,,
+20,2,F-01b BD,Inspeccionar App_Ma_FichaIngresoServicio_DET,Cada fila tiene id_normativa y id_normativareferencia correctos,Funciona correctamente,PASA,?? Alto,,,,,,,,,,,,,,,,,,
+21,2,F-01c,Campo Número Instrumento (instrumento != Otro),"Solo permite dígitos. Placeholder ""Solo número (ej: 123)""","Permite cualquier elemento, esta mal. El placeholder esta bien",FALLA,?? Alto,,,,,,,,,,,,,,,,,,
+22,2,F-01c (Otro),Campo Número Instrumento (instrumento = Otro),"Permite texto libre. Placeholder ""Texto libre""","Si permite cualquier elemento, y el placeholder es el correcto.",PASA,?? Alto,,,,,,,,,,,,,,,,,,
+23,2,F-01d,Campo Año Instrumento,Solo dígitos máx 4. Error inline si fuera rango 1900-año+1,Funciona correctamente,PASA,?? Alto,,,,,,,,,,,,,,,,,,
+24,2,F-01e,Selects de cliente/empresa/fuente/objetivo/etc.,"No tienen ""No Aplica"" hardcoded como primera opción",Funciona correctamente,PASA,?? Medio,,,,,,,,,,,,,,,,,,
+25,2,F-01e (excepción),"Medición Caudal sigue teniendo ""No Aplica""",Conservado porque es opcional legítimo,Funciona correctamente,PASA,?? Medio,,,,,,,,,,,,,,,,,,
+26,2,F-01f (Otro),"Instrumento ""Otro"" + texto en Número","BD guarda solo el texto (no ""Otro Otro..."")","Los campos numero de instrumento y año de instrumento son obligatorio, por ende al seleccionar la opcion ""Otro""  hay que ingresar numero y año de instrumento.",FALLA,?? Crítico,,,,,,,,,,,,,,,,,,
+27,2,F-01f (vacío),Instrumento seleccionado sin número ni año,"BD guarda solo el nombre, sin ""/""",Explicado arriba,FALLA,?? Alto,,,,,,,,,,,,,,,,,,
+28,2,F-01f (normal),"Instrumento ""DS 90"" + 123 + 2024","BD guarda ""DS 90 123/2024""",Funciona correctamente,PASA,?? Alto,,,,,,,,,,,,,,,,,,
+29,2,F-01g,Crear ficha a una hora conocida (ej 15:30),Línea de tiempo muestra hora local correcta (no -4h),Funciona correctamente,PASA,?? Crítico,,,,,,,,,,,,,,,,,,
+30,2,F-01g BD,Inspeccionar mae_ficha_historial.fecha,Tiene hora local de Chile,Funciona correctamente,PASA,?? Alto,,,,,,,,,,,,,,,,,,
+31,2,F-11 (analisis),"Sin completar Antecedentes, click directo en tab Análisis","Toast de error, no cambia de tab","No cambia de tab, funciona correctamente",PASA,?? Alto,,,,,,,,,,,,,,,,,,
+32,2,F-11 (obs),"Sin grabar análisis, click directo en tab Observaciones","Toast de error, no cambia de tab","No cambia de tab, funciona correctamente",PASA,?? Alto,,,,,,,,,,,,,,,,,,
+33,2,F-15,"Cambiar Instrumento Ambiental a ""No aplica""",Campos Número y Año se vacían y deshabilitan,Funciona correctamente,PASA,?? Medio,,,,,,,,,,,,,,,,,,
+34,2,F-15 reverso,Cambiar a otro instrumento,Campos se habilitan nuevamente,Funciona correctamente,PASA,?? Medio,,,,,,,,,,,,,,,,,,
+35,2,F-16 (punto),En Duración escribir 1.5,Solo guarda 15 (filtra el punto),"No deja escribir puntos, por ende funciona correctamente",PASA,?? Medio,,,,,,,,,,,,,,,,,,
+36,2,F-16 (texto),"En Duración pegar ""horas""",No se acepta nada,Funciona correctamente,PASA,?? Medio,,,,,,,,,,,,,,,,,,
+37,2,F-35,Abrir edición de ficha existente con datos completos,"Todos los campos prellenados (incluye ubicación, comuna, región, código, ETFA)",Funciona correctamente,PASA,?? Crítico,,,,,,,,,,,,,,,,,,
+38,2,F-36,Tipear rápido en Nueva Observación (modo edición),Sin lag perceptible,Funciona correctamente,PASA,?? Alto,,,,,,,,,,,,,,,,,,
+39,2,F-36 (técnica),Tipear rápido en observaciones Técnica/Coordinación,Sin lag,Funciona correctamente,PASA,?? Alto,,,,,,,,,,,,,,,,,,
+40,2,F-37,Guardar edición sin cambios ni observación,"Guarda con texto por defecto, sin bloquear",Funciona correctamente,PASA,?? Alto,,,,,,,,,,,,,,,,,,
+41,2,F-24,Ficha con referencia Google Maps + coordenadas,"Sección ""Ubicación"" con link, botón, mapa OSM, coords",Funciona correctamente,PASA,?? Alto,,,,,,,,,,,,,,,,,,
+42,2,F-25,Ficha con link pero sin coordenadas resueltas,"Muestra link + mensaje ""Coordenadas no resueltas""",Funciona correctamente,PASA,?? Alto,,,,,,,,,,,,,,,,,,
+43,2,F-24/25 (sin nada),Ficha sin referencia ni coordenadas,La sección no aparece,Funciona correctamente,PASA,?? Medio,,,,,,,,,,,,,,,,,,
+44,2,F-34,Abrir ficha de remuestreo (es_remuestreo=S),"WorkflowAlert azul con referencia a ficha original + título incluye ""(REMUESTREO DE LA FICHA N° X)""",Funciona correctamente,PASA,?? Alto,,,,,,,,,,,,,,,,,,
+45,2,F-40 (creación),"Crear ficha nueva, ver historial",Aparece evento FICHA CREADA con hora correcta y usuario,Funciona correctamente,PASA,?? Alto,,,,,,,,,,,,,,,,,,
+46,2,F-40 (asignación),"Asignar fechas/muestreadores, ver historial","Aparece ""Asignación Masiva""",Funciona correctamente,PASA,?? Alto,,,,,,,,,,,,,,,,,,
+47,2,F-40 (aprobación),"Aprobar/Rechazar técnica, ver historial",Aparece evento correspondiente,Funciona correctamente,PASA,?? Medio,,,,,,,,,,,,,,,,,,
+48,3,R-05 crear,Crear grupo con nombre existente (mismo case),"Error 409 ""Ya existe un grupo con ese nombre""","Solo dice error al guardar el grupo, no dice por que. 
+Logs:
+2026-05-26 15:00:37 [error]: Error actualizando grupo: Validation failed for parameter 'grupo'. Invalid number. {""service"":""adl-one-api"",""code"":""EPARAM"",""originalError"":{""code"":""EPARAM""},""name"":""RequestError"",""number"":""EPARAM"",""precedingErrors"":[],""stack"":""RequestError: Validation failed for parameter 'grupo'. Invalid number.\n 
+   at C:\\Users\\vremolcoy\\Desktop\\ADL ONE\\api-backend-adlone\\node_modules\\mssql\\lib\\tedious\\request.js:449:19\n    at Array.forEach (<anonymous>)\n    at Request.userCallback (C:\\Users\\vremolcoy\\Desktop\\ADL 
+ONE\\api-backend-adlone\\node_modules\\mssql\\lib\\tedious\\request.js:446:46)\n    at Request.callback (C:\\Users\\vremolcoy\\Desktop\\ADL ONE\\api-backend-adlone\\node_modules\\tedious\\lib\\request.js:239:14)\n    at 
+C:\\Users\\vremolcoy\\Desktop\\ADL ONE\\api-backend-adlone\\node_modules\\tedious\\lib\\connection.js:1616:17\n    at process.processTicksAndRejections (node:internal/process/task_queues:77:11)""}
+2026-05-26 15:00:37 [error]: Error actualizando grupo: Validation failed for parameter 'grupo'. Invalid number. {""service"":""adl-one-api"",""code"":""EPARAM"",""originalError"":{""code"":""EPARAM""},""name"":""RequestError"",""number"":""EPARAM"",""precedingErrors"":[],""stack"":""RequestError: Validation failed for parameter 'grupo'. Invalid number.\n 
+   at C:\\Users\\vremolcoy\\Desktop\\ADL ONE\\api-backend-adlone\\node_modules\\mssql\\lib\\tedious\\request.js:449:19\n    at Array.forEach (<anonymous>)\n    at Request.userCallback (C:\\Users\\vremolcoy\\Desktop\\ADL 
+ONE\\api-backend-adlone\\node_modules\\mssql\\lib\\tedious\\request.js:446:46)\n    at Request.callback (C:\\Users\\vremolcoy\\Desktop\\ADL ONE\\api-backend-adlone\\node_modules\\tedious\\lib\\request.js:239:14)\n    at 
+C:\\Users\\vremolcoy\\Desktop\\ADL ONE\\api-backend-adlone\\node_modules\\tedious\\lib\\connection.js:1616:17\n    at process.processTicksAndRejections (node:internal/process/task_queues:77:11)""}
+2026-05-26 15:00:37 [info]: PUT /api/rutas-planificadas/grupos/4 500 6.087 ms - 125 {""service"":""adl-one-api""} 
+2026-05-26 15:00:37 [info]: PUT /api/rutas-planificadas/grupos/4 500 6.087 ms - 125 {""service"":""adl-one-api""} 
+",FALLA,?? Alto,,,,,,,,,,,,,,,,,,
+49,3,R-05 case,Crear grupo con nombre existente en distinto case (MANTENCIÓN vs Mantención),Error 409 (case-insensitive),mismo error no deja crear el grupo,FALLA,?? Alto,,,,,,,,,,,,,,,,,,
+50,3,R-05 editar,Renombrar grupo a uno que ya existe,Error 409,No deja da error.,FALLA,?? Alto,,,,,,,,,,,,,,,,,,
+51,3,R-08,"Eliminar grupo con rutas ? quedan en ""Sin grupo""","Header muestra botón ""Asignar a grupo"" o ""N sin grupo — asignar""",Funciona correctamente,PASA,?? Alto,,,,,,,,,,,,,,,,,,
+52,3,R-08 (1 ruta),Sin grupo con 1 ruta ? click en botón,Abre modal de Cambiar grupo para esa ruta,Funciona correctamente,PASA,?? Medio,,,,,,,,,,,,,,,,,,
+53,3,C-09,Placeholder del buscador de calendario,"Dice ""N° ficha, correlativo, empresa, muestreador...""",Funciona correctamente,PASA,?? Medio,,,,,,,,,,,,,,,,,,
+54,3,C-09 (buscar),Buscar por correlativo en calendario,Filtra correctamente,Funciona correctamente,PASA,?? Medio,,,,,,,,,,,,,,,,,,
+55,3,C-01,Ficha con solo fecha de retiro asignada (sin muestreo),Aparece en calendario en el mes del retiro,"Eso no es aceptable, si asignamos fechas debemos asignar instalacion y retiro, no vamos a encontrar fichas con solo retiro agendado",FALLA,?? Alto,,,,,,,,,,,,,,,,,,
+56,3,A-05,"En asignación, solo fecha (sin muestreador)",Permite guardar; muestreador conserva valor previo,"No permite realizar eso.
+Logs:
+2026-05-26 15:09:00 [info]: GET /api/fichas/98/assignment-detail 200 265.536 ms - - {""service"":""adl-one-api""}
+2026-05-26 15:09:00 [info]: GET /api/catalogos/muestreadores 200 10.965 ms - 770 {""service"":""adl-one-api""}
+2026-05-26 15:09:00 [info]: GET /api/catalogos/muestreadores 200 10.965 ms - 770 {""service"":""adl-one-api""}    
+2026-05-26 15:09:00 [info]: GET /api/fichas/98/assignment-detail 200 272.845 ms - - {""service"":""adl-one-api""}
+2026-05-26 15:09:00 [info]: GET /api/fichas/98/assignment-detail 200 272.845 ms - - {""service"":""adl-one-api""}
+2026-05-26 15:11:11 [warn]: Validation error on POST /batch-agenda: body.assignments.0.idMuestreadorInstalacion: ""body.assignments[0].idMuestreadorInstalacion"" must be one of [number, string], body.assignments.0.idMuestreadorRetiro: ""body.assignments[0].idMuestreadorRetiro"" must be one of [number, string] {""service"":""adl-one-api""}
+2026-05-26 15:11:11 [warn]: Validation error on POST /batch-agenda: body.assignments.0.idMuestreadorInstalacion: ""body.assignments[0].idMuestreadorInstalacion"" must be one of [number, string], body.assignments.0.idMuestreadorRetiro: ""body.assignments[0].idMuestreadorRetiro"" must be one of [number, string] {""service"":""adl-one-api""}
+2026-05-26 15:11:11 [info]: POST /api/fichas/batch-agenda 400 7.123 ms - 346 {""service"":""adl-one-api""}        
+2026-05-26 15:11:11 [info]: POST /api/fichas/batch-agenda 400 7.123 ms - 346 {""service"":""adl-one-api""}        
+2026-05-26 15:11:28 [warn]: Validation error on POST /batch-agenda: body.assignments.0.idMuestreadorInstalacion: ""body.assignments[0].idMuestreadorInstalacion"" must be one of [number, string], body.assignments.0.idMuestreadorRetiro: ""body.assignments[0].idMuestreadorRetiro"" must be one of [number, string] {""service"":""adl-one-api""}
+2026-05-26 15:11:28 [warn]: Validation error on POST /batch-agenda: body.assignments.0.idMuestreadorInstalacion: ""body.assignments[0].idMuestreadorInstalacion"" must be one of [number, string], body.assignments.0.idMuestreadorRetiro: ""body.assignments[0].idMuestreadorRetiro"" must be one of [number, string] {""service"":""adl-one-api""}
+2026-05-26 15:11:28 [info]: POST /api/fichas/batch-agenda 400 3.396 ms - 346 {""service"":""adl-one-api""}        
+2026-05-26 15:11:28 [info]: POST /api/fichas/batch-agenda 400 3.396 ms - 346 {""service"":""adl-one-api""}        
+",FALLA,?? Alto,,,,,,,,,,,,,,,,,,
+57,3,A-06,"En asignación, solo muestreador (sin fecha)",Permite guardar; fecha conserva valor previo,"Mismo error:
+Logs:
+2026-05-26 15:11:11 [info]: POST /api/fichas/batch-agenda 400 7.123 ms - 346 {""service"":""adl-one-api""}        
+2026-05-26 15:11:11 [info]: POST /api/fichas/batch-agenda 400 7.123 ms - 346 {""service"":""adl-one-api""}        
+2026-05-26 15:11:28 [warn]: Validation error on POST /batch-agenda: body.assignments.0.idMuestreadorInstalacion: ""body.assignments[0].idMuestreadorInstalacion"" must be one of [number, string], body.assignments.0.idMuestreadorRetiro: ""body.assignments[0].idMuestreadorRetiro"" must be one of [number, string] {""service"":""adl-one-api""}
+2026-05-26 15:11:28 [warn]: Validation error on POST /batch-agenda: body.assignments.0.idMuestreadorInstalacion: ""body.assignments[0].idMuestreadorInstalacion"" must be one of [number, string], body.assignments.0.idMuestreadorRetiro: ""body.assignments[0].idMuestreadorRetiro"" must be one of [number, string] {""service"":""adl-one-api""}
+2026-05-26 15:11:28 [info]: POST /api/fichas/batch-agenda 400 3.396 ms - 346 {""service"":""adl-one-api""}        
+2026-05-26 15:11:28 [info]: POST /api/fichas/batch-agenda 400 3.396 ms - 346 {""service"":""adl-one-api""}        
+2026-05-26 15:12:38 [warn]: Validation error on POST /batch-agenda: body.assignments.0.fecha: ""body.assignments[0].fecha"" must be one of [date, string] {""service"":""adl-one-api""}
+2026-05-26 15:12:38 [warn]: Validation error on POST /batch-agenda: body.assignments.0.fecha: ""body.assignments[0].fecha"" must be one of [date, string] {""service"":""adl-one-api""}
+2026-05-26 15:12:38 [info]: POST /api/fichas/batch-agenda 400 2.675 ms - 188 {""service"":""adl-one-api""}        
+2026-05-26 15:12:38 [info]: POST /api/fichas/batch-agenda 400 2.675 ms - 188 {""service"":""adl-one-api""}        
+",FALLA,?? Alto,,,,,,,,,,,,,,,,,,
+58,3,A-05/06 (vacío),Sin ningún dato en ninguna fila,"Toast ""Debe ingresar al menos una fecha o un muestreador...""",Funciona correctamente,PASA,?? Medio,,,,,,,,,,,,,,,,,,
+59,3,M-06,Descargar PDF de ficha con muestreo ejecutado,"PDF incluye sección ""Datos de Ejecución del Muestreo"" con totalizadores y fechas reales",Funciona correctamente,PASA,?? Crítico,,,,,,,,,,,,,,,,,,
+60,3,M-06 (sin ejec),PDF de ficha sin muestreos ejecutados,"No aparece la sección extra, solo la tabla de asignación",Funciona correctamente,PASA,?? Medio,,,,,,,,,,,,,,,,,,
+61,3,R-09,Ver historial de ejecuciones de una ruta,Modal abre con ejecuciones registradas,Funciona correctamente,PASA,?? Alto,,,,,,,,,,,,,,,,,,
+62,3,R-03,Seleccionar fichas en planificador de rutas,Polyline solo aparece DESPUÉS del cálculo OSRM (no línea recta intermedia),Funciona correctamente,PASA,?? Medio,,,,,,,,,,,,,,,,,,
+63,4,E-01 (step1),"En crear equipo, click ""Siguiente""",Pasa al step de Bulk Check,Funciona correctamente,PASA,?? Alto,,,,,,,,,,,,,,,,,,
+64,4,E-01 (guardar),"En step Bulk Check, click ""Guardar Todo""",Abre modal de confirmación y luego guarda,Funciona correctamente,PASA,?? Crítico,,,,,,,,,,,,,,,,,,
+65,4,E-01 (asociado),"Dropdown ""Equipo Asociado"" en formulario","Muestra ""CÓDIGO - Nombre"", no IDs crudos. Es searchable",Funciona correctamente,PASA,?? Alto,,,,,,,,,,,,,,,,,,
+66,4,MS-05 (label),Editar muestreador ? ver campo Clave,"Label ""Clave de Acceso (opcional)"", no required",Funciona correctamente,PASA,?? Alto,,,,,,,,,,,,,,,,,,
+67,4,MS-05 (vacío),Editar muestreador sin escribir clave,Conserva la clave actual (probar login),Funciona correctamente,PASA,?? Crítico,,,,,,,,,,,,,,,,,,
+68,4,MS-05 (cambio),Editar muestreador con clave nueva,Cambia la clave correctamente,Funciona correctamente,PASA,?? Alto,,,,,,,,,,,,,,,,,,
+69,4,MS-06,Intentar subir PDF como firma,"Toast error ""La firma debe ser una imagen PNG o JPG""",Funciona correctamente,PASA,?? Medio,,,,,,,,,,,,,,,,,,
+70,4,MS-07,Subir imagen > 2 MB como firma,Toast error con tamaño real y máximo,Funciona correctamente,PASA,?? Medio,,,,,,,,,,,,,,,,,,
+71,4,MS-04,Deshabilitar muestreador con asignaciones futuras,Alert rojo con conteo y hasta 5 ejemplos de muestreos pendientes,Funciona correctamente,PASA,?? Alto,,,,,,,,,,,,,,,,,,
+72,4,MS-04 (sin),Deshabilitar muestreador SIN asignaciones futuras,No aparece el Alert de advertencia,Funciona correctamente,PASA,?? Medio,,,,,,,,,,,,,,,,,,
+73,4,MS-01,Como admin con AI_MA_CREAR_NEW_MUESTREADOR,"Ve botón ""Nuevo Muestreador""","Ese no es el permiso de nuevo muestreador, es este: AI_MA_CREAR_NUEVO_MUESTREADOR",FALLA,?? Alto,,,,,,,,,,,,,,,,,,
+74,4,MS-02,Crear muestreador con nombre/correo existente,Advertencia de duplicado,Funciona correctamente,PASA,?? Medio,,,,,,,,,,,,,,,,,,
+75,5,S-01,Ver el formulario de login,"Label ""Usuario"" (no ""Usuario / Email""), placeholder ""ej: jperez""",Funciona correctamente,PASA,?? Medio,,,,,,,,,,,,,,,,,,
+76,5,S-11,Login con espacios al inicio/final del usuario y contraseña,Inicia sesión correctamente (trim),Funciona correctamente,PASA,?? Medio,,,,,,,,,,,,,,,,,,
+77,5,S-02,Login con clave en mayúsculas distintas a la guardada,"Falla con ""Credenciales inválidas""",Funciona correctamente,PASA,?? Crítico,,,,,,,,,,,,,,,,,,
+78,5,S-02 (usuario),Login con username en distinto case,Funciona (username sigue case-insensitive),Funciona correctamente,PASA,?? Medio,,,,,,,,,,,,,,,,,,
+79,5,S-03 (404),Login con usuario inexistente,"Mensaje ""Usuario inexistente"" (HTTP 404)",Funciona correctamente,PASA,?? Alto,,,,,,,,,,,,,,,,,,
+80,5,S-03 (401),Login con usuario válido + clave incorrecta,"Mensaje ""Credenciales inválidas"" (HTTP 401)",Funciona correctamente,PASA,?? Alto,,,,,,,,,,,,,,,,,,
+81,5,S-03 (403),Login con usuario deshabilitado,"Mensaje ""Usuario deshabilitado"" (HTTP 403)",Funciona correctamente,PASA,?? Alto,,,,,,,,,,,,,,,,,,
+82,5,S-13 bloqueo,Fallar login 5 veces seguidas,"Al 6to intento: ""Demasiados intentos fallidos. Inténtelo en N minutos"" (HTTP 423)","No funciona esa logica, siempre sale credenciales invalidas.",FALLA,?? Alto,,,,,,,,,,,,,,,,,,
+83,5,S-13 reset,Login exitoso después de fallar 2-3 veces,Contador se resetea,No funciona esa loigca,FALLA,?? Medio,,,,,,,,,,,,,,,,,,
+84,5,S-13 BD,Inspeccionar mae_login_attempts,Tiene failed_count y locked_until poblados,"si registra todo bien la tabla, pero no se bloquea la cuenta",FALLA,?? Medio,,,,,,,,,,,,,,,,,,
+85,5,S-07,Esperar expiración del JWT o forzar invalidación,"Próxima petición: logout automático con mensaje ""Tu sesión fue cerrada...""",Cuanto tiempo deberia de durar el token?,FALLA,?? Alto,,,,,,,,,,,,,,,,,,
+86,5,S-14 enviado,"Clic en ""¿Olvidaste tu contraseña?"" + email registrado","Mensaje genérico ""Si el email está registrado...""",Funciona correctamente,PASA,?? Crítico,,,,,,,,,,,,,,,,,,
+87,5,S-15 genérico,Solicitar reset con email NO registrado,Mismo mensaje genérico (no revela existencia),"Envia un mensaje de reset igual aun que el email no este registrado entre los usuarios, deberia decir no hemos encontrado tu cuenta..",FALLA,?? Alto,,,,,,,,,,,,,,,,,,
+88,5,S-14 email,Verificar inbox del email registrado,Llega el correo con link válido por 60 min,Funciona correctamente,PASA,?? Crítico,,,,,,,,,,,,,,,,,,
+89,5,S-16 link válido,Abrir el link del email,Muestra form de Reset con nombre de usuario,Funciona correctamente,PASA,?? Crítico,,,,,,,,,,,,,,,,,,
+90,5,S-16 manipulado,Modificar el token en la URL,"Muestra ""El link no es válido""",Funciona correctamente,PASA,?? Alto,,,,,,,,,,,,,,,,,,
+91,5,S-16 usado,Usar el link dos veces,"Segunda vez: ""El link ya fue utilizado""",Funciona correctamente,PASA,?? Alto,,,,,,,,,,,,,,,,,,
+92,5,S-16 expirado,Esperar > 60 min y abrir el link,"Muestra ""El link ha expirado""",Funciona correctamente,PASA,?? Medio,,,,,,,,,,,,,,,,,,
+93,5,S-17,Solicitar reset dos veces seguidas,Solo el último link funciona; el primero queda inválido,Funciona correctamente,PASA,?? Alto,,,,,,,,,,,,,,,,,,
+94,5,Reset aplicar,Aplicar nueva clave + intentar login,Login funciona con nueva clave,Funciona correctamente,PASA,?? Crítico,,,,,,,,,,,,,,,,,,
+95,5,Reset bloqueo,"Si el usuario estaba bloqueado por intentos, completar reset",Bloqueo se limpia automáticamente,Logica no funciona,FALLA,?? Medio,,,,,,,,,,,,,,,,,,
+96,5,RB-01 overlay,Abrir modal Crear Nuevo Usuario,NO se ve overlay blanco residual detrás del modal,Sigue apareciendo un milisegundo,FALLA,?? Alto,,,,,,,,,,,,,,,,,,
+97,5,RB-01 lag,Tipear en campos del modal de crear usuario,Sin lag perceptible,Funciona correctametne,PASA,?? Alto,,,,,,,,,,,,,,,,,,
+98,5,RB-04,"Usuario A logueado, admin lo deshabilita desde otra sesión",Próxima petición: A se desloguea automáticamente con mensaje,"No funciona, el usuario sigue logueado",FALLA,?? Crítico,,,,,,,,,,,,,,,,,,
+99,5,RB-07,Cambiar permisos de un usuario logueado,Próxima petición: se desloguea (mismo mecanismo permisos_version),No funciona el usuario sigue logueado,FALLA,?? Alto,,,,,,,,,,,,,,,,,,
+100,5,RB-08 BD,Verificar referencias a AI_MA_ADMIN_ACCESO,Backend verifyPermission y frontend AuthContext NO lo chequean,"Esos permisos ya no se usan si es que estan hardcodeados, todos los permisos que usamos estan mediante base de datos",FALLA,?? Crítico,,,,,,,,,,,,,,,,,,
+101,5,RB-09,Deshabilitar rol que tiene N usuarios,"Modal de confirmación dice ""N usuarios perderán sus permisos...""",Funciona correctamente,PASA,?? Alto,,,,,,,,,,,,,,,,,,
+102,6,MA-01 vacío,Crear registro de maestro con todos los campos vacíos,"Toast ""Debe completar al menos un campo para guardar""","No se puede crear un registro de un maestro con datos vacios, lo cual corresponde con la logica ",PASA,?? Alto,,,,,,,,,,,,,,,,,,
+103,6,MA-01 display,Crear registro sin el campo principal (display) lleno,"Toast ""Faltan campos obligatorios: <nombre>""","Si algun campo esta vacio, no permite completar el registro ",PASA,?? Alto,,,,,,,,,,,,,,,,,,
+104,6,MA-03,Deshabilitar registro maestro,Confirm() del browser con advertencia de uso en fichas activas,Funciona correctamente el proceso de deshabilitar y habilitar ,PASA,?? Alto,,,,,,,,,,,,,,,,,,
+105,6,MA-03 cancel,Cancelar el confirm,No se deshabilita el registro,Funciona correctamente  al apretar deshabilitar,PASA,?? Medio,,,,,,,,,,,,,,,,,,
+106,6,N-04,"Click en ""Marcar todas como leídas""",Badge baja a 0; notificaciones quedan sin fondo azul,Funciona y deja la bandeja vacia ,PASA,?? Alto,,,,,,,,,,,,,,,,,,
+107,6,CH-03 PDF,Enviar PDF como adjunto en chat,Aparece icono rojo PDF (no genérico),"Aparece el icono azul , deveria aparecer en ROJO",FALLA,?? Medio,,,,,,,,,,,,,,,,,,
+108,6,CH-03 Excel,Enviar XLSX como adjunto en chat,Aparece icono verde Excel,"aparece en azul , no en verde en el chat",FALLA,?? Medio,,,,,,,,,,,,,,,,,,
+109,6,CH-03 Word,Enviar DOCX como adjunto en chat,Aparece icono azul Word,Aparece en azul pero no como corresponde a word,FALLA,?? Medio,,,,,,,,,,,,,,,,,,
+110,6,CH-03 ZIP,Enviar ZIP/RAR como adjunto en chat,Aparece icono específico,No aparece el icono en el color correspondiente ni el icono correspondiente,FALLA,?? Medio,,,,,,,,,,,,,,,,,,
+111,6,CH-04,Intentar enviar archivo > 25 MB en chat,Mensaje de error con nombre y límite,AL sobrepasar el limite aparece mensaje en rojo ,PASA,?? Alto,,,,,,,,,,,,,,,,,,
+112,6,X-10,Parar el backend mientras se está logueado,"Aparece banner naranjo ""Sin conexión en tiempo real...""",Funciona correctamente,PASA,?? Alto,,,,,,,,,,,,,,,,,,
+113,6,X-10 recup,Reiniciar el backend,Banner desaparece cuando socket reconecta,Funciona correctamente,PASA,?? Medio,,,,,,,,,,,,,,,,,,
+114,6,X-08,Solicitar reset de password para usuario con nombre <script>,Email muestra el nombre como texto literal (no ejecuta),Funciona correctamente,PASA,?? Alto,,,,,,,,,,,,,,,,,,

@@ -466,8 +466,22 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                                                             onClick={() => handleFileClick(msg.id_mensaje)}
                                                         >
                                                             {(() => {
+                                                                // CH-03: icono SIEMPRE con su color específico (PDF rojo, Excel verde, etc.)
+                                                                // sobre un fondo blanco para contraste, incluso en mensajes propios.
                                                                 const { Icon, color } = getFileIconAndColor(msg.archivo_nombre);
-                                                                return <Icon size={22} style={{ color: isMine ? 'white' : color }} />;
+                                                                return (
+                                                                    <Box style={{
+                                                                        backgroundColor: 'white',
+                                                                        borderRadius: 6,
+                                                                        padding: 4,
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'center',
+                                                                        flexShrink: 0
+                                                                    }}>
+                                                                        <Icon size={22} color={color} stroke={1.5} />
+                                                                    </Box>
+                                                                );
                                                             })()}
                                                             <Box style={{ flex: 1, minWidth: 0 }}>
                                                                 <Text size="xs" fw={500} truncate style={{ color: isMine ? 'white' : 'var(--mantine-color-gray-8)' }}>
@@ -782,8 +796,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                                 ) : (
                                     <Group gap="xs">
                                         {(() => {
+                                            // CH-03: usar prop `color` de Tabler en vez de style.color para garantizar que se aplique
                                             const { Icon, color } = getFileIconAndColor(file.name);
-                                            return <Icon size={22} style={{ color }} />;
+                                            return <Icon size={22} color={color} stroke={1.5} />;
                                         })()}
                                         <Text size="xs" truncate fw={500} style={{ maxWidth: 150 }}>{file.name}</Text>
                                     </Group>

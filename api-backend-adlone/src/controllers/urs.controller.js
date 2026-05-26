@@ -6,12 +6,11 @@ import { getConnection } from '../config/database.js';
 import sql from 'mssql';
 
 // Returns true if user can act on a request:
-// - Admin (AI_MA_ADMIN_ACCESO)
 // - Creator of the request
 // - Has GESTION permission for the request type (explicit or via role)
 // - Is the current derivation target
+// RB-08: bypass de super-admin AI_MA_ADMIN_ACCESO eliminado (ese permiso ya no existe en BD).
 async function canActOnRequest(idSolicitud, reqUser) {
-    if (reqUser.permissions?.includes('AI_MA_ADMIN_ACCESO')) return true;
     try {
         const pool = await getConnection();
         const res = await pool.request()
@@ -47,7 +46,7 @@ class UrsController {
         try {
             const { all } = req.query;
             const userId = all === 'true' ? null : req.user.id;
-            const isAdmin = req.user.permissions?.includes('AI_MA_ADMIN_ACCESO');
+            const isAdmin = false; // RB-08: AI_MA_ADMIN_ACCESO eliminado
             const types = await ursService.getTypes(all !== 'true', userId, isAdmin);
             res.json(types);
         } catch (error) {
@@ -118,7 +117,7 @@ class UrsController {
                 filtros.id_solicitante = req.user.id;
             }
 
-            const isAdmin = req.user.permissions?.includes('AI_MA_ADMIN_ACCESO');
+            const isAdmin = false; // RB-08: AI_MA_ADMIN_ACCESO eliminado
             const solicitudes = await ursService.getRequests(filtros, req.user.id, isAdmin);
             res.json(solicitudes);
         } catch (error) {
@@ -143,7 +142,7 @@ class UrsController {
             const estado = req.body.status || req.body.estado;
             const observaciones = req.body.comment || req.body.observaciones || '';
             const idUsuario = req.user.id;
-            const isAdmin = req.user.permissions?.includes('AI_MA_ADMIN_ACCESO');
+            const isAdmin = false; // RB-08: AI_MA_ADMIN_ACCESO eliminado
 
             // CANCELADA: only the creator or admin can cancel, and only from PENDIENTE
             if (estado === 'CANCELADA') {
@@ -307,7 +306,7 @@ class UrsController {
 
     async getUnreadCount(req, res) {
         try {
-            const isAdmin = req.user.permissions?.includes('AI_MA_ADMIN_ACCESO');
+            const isAdmin = false; // RB-08: AI_MA_ADMIN_ACCESO eliminado
             const count = await ursService.getUnreadCount(req.user.id, isAdmin);
             res.json({ success: true, data: { count } });
         } catch (error) {

@@ -216,20 +216,40 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 puntoMuestreo, periodo, frecuencia, factor, totalServicios,
                 // Bloque 3
                 zona, utmNorte, utmEste,
-                selectedInstrumento, nroInstrumento, anioInstrumento,
+                selectedInstrumento,
                 selectedComponente, selectedSubArea, glosa,
                 // Bloque 4
                 selectedTipoMuestreo, selectedTipoMuestra, selectedActividad, duracion,
                 selectedTipoDescarga, medicionCaudal
             ];
 
+            // F-01f: Número/Año de instrumento solo son obligatorios cuando el instrumento NO es "Otro" ni "No aplica"
+            const instLow = (selectedInstrumento || '').toLowerCase();
+            if (instLow !== 'otro' && instLow !== 'no aplica' && selectedInstrumento) {
+                requiredFields.push(nroInstrumento, anioInstrumento);
+            } else if (instLow === 'otro') {
+                // Con "Otro" exigimos al menos el texto en Número
+                requiredFields.push(nroInstrumento);
+            }
+
             // Campos condicionales de Hidráulica (Bloque 5)
-            if (medicionCaudal && medicionCaudal !== 'No Aplica') {
+            // F-01a (regresión): detectar "No Aplica" case-insensitive y también vía label cuando el value es id de BD
+            const isNA = (val: string | null, list?: any[]) => {
+                if (!val) return true;
+                const s = String(val).trim().toLowerCase();
+                if (s === '' || s === 'no aplica' || s === 'noaplica' || s === 'n/a' || s === 'na') return true;
+                if (list) {
+                    const item = list.find(x => String(x.value) === String(val));
+                    if (item && /no\s*aplica/i.test(String(item.label || ''))) return true;
+                }
+                return false;
+            };
+            if (medicionCaudal && !isNA(medicionCaudal)) {
                 requiredFields.push(selectedModalidad);
-                if (selectedModalidad && selectedModalidad !== 'No Aplica') {
+                if (selectedModalidad && !isNA(selectedModalidad, modalidades)) {
                     requiredFields.push(formaCanal, dispositivo);
-                    if (formaCanal && formaCanal !== 'No Aplica') requiredFields.push(tipoMedidaCanal, detalleCanal);
-                    if (dispositivo && dispositivo !== 'No Aplica') requiredFields.push(tipoMedidaDispositivo, detalleDispositivo);
+                    if (formaCanal && !isNA(formaCanal, formasCanal)) requiredFields.push(tipoMedidaCanal, detalleCanal);
+                    if (dispositivo && !isNA(dispositivo, dispositivos)) requiredFields.push(tipoMedidaDispositivo, detalleDispositivo);
                 }
             }
 
@@ -686,6 +706,18 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
     // F-01e: opción "No Aplica" eliminada del hardcoding. Si un campo debe permitirla, debe
     // configurarse en el maestro correspondiente.
     const lugaresData = useMemo(() => lugares.map(l => ({ value: String(l.id), label: l.nombre })), [lugares]);
+    // F-01a (regresión): helper para detectar "No Aplica" robusto (por value vacío o por label del registro)
+    const isNoAplicaValue = (val: string | null | undefined, list?: any[]) => {
+        if (val === null || val === undefined) return true;
+        const s = String(val).trim().toLowerCase();
+        if (s === '' || s === 'no aplica' || s === 'noaplica' || s === 'n/a' || s === 'na' || s === 'null' || s === 'undefined') return true;
+        if (list && list.length) {
+            const item = list.find((x: any) => String(x.value ?? x.id) === String(val));
+            if (item && /no\s*aplica/i.test(String(item.label || item.nombre || ''))) return true;
+        }
+        return false;
+    };
+
     const clientesData = useMemo(() => clientes.filter(c => c.nombre && c.nombre.trim().toLowerCase() !== 'no aplica').map(c => ({ value: String(c.id), label: c.nombre })), [clientes]);
     const empresasData = useMemo(() => empresas.filter(e => e.nombre && e.nombre.trim().toLowerCase() !== 'no aplica').map(e => ({ value: String(e.id), label: e.nombre })), [empresas]);
     const fuentesData = useMemo(() => fuentesEmisoras.map(f => ({ value: String(f.id), label: f.nombre })), [fuentesEmisoras]);
@@ -1011,27 +1043,39 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             />
                         </Box>
                         <TextInput
-                            label="Número Instrumento *"
-                            placeholder={selectedInstrumento?.toLowerCase() === 'otro' ? 'Texto libre' : 'Solo número (ej: 123)'}
+                            // F-01f: con "Otro" el número/año NO son obligatorios (solo "Otro" + texto libre)
+                            label={selectedInstrumento?.toLowerCase() === 'otro' ? 'Número Instrumento' : 'Número Instrumento *'}
+                            placeholder={selectedInstrumento?.toLowerCase() === 'otro' ? 'Texto libre (ej: Resolución SISS 2122/2023)' : 'Solo número (ej: 123)'}
                             value={nroInstrumento}
                             disabled={selectedInstrumento === 'No aplica'}
+                            inputMode={selectedInstrumento?.toLowerCase() === 'otro' ? 'text' : 'numeric'}
                             onChange={(e: any) => {
-                                const val = e.target.value;
-                                // F-01c: si no es "Otro", solo permitir números
+                                const val = String(e.target.value || '');
+                                // F-01c: si no es "Otro", solo permitir números (filtro estricto en input)
                                 if (selectedInstrumento?.toLowerCase() === 'otro') {
                                     setNroInstrumento(val);
                                 } else {
                                     setNroInstrumento(val.replace(/[^0-9]/g, ''));
                                 }
                             }}
+                            onKeyDown={(e) => {
+                                // F-01c: bloquear teclas no numéricas si NO es "Otro"
+                                if (selectedInstrumento?.toLowerCase() !== 'otro' && selectedInstrumento !== 'No aplica') {
+                                    const allowedKeys = ['Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'Home', 'End'];
+                                    if (!allowedKeys.includes(e.key) && !/^[0-9]$/.test(e.key) && !e.ctrlKey && !e.metaKey) {
+                                        e.preventDefault();
+                                    }
+                                }
+                            }}
                             size="sm"
                             radius="md"
                         />
                         <TextInput
-                            label="Año Instrumento *"
+                            // F-01f: con "Otro" el año tampoco es obligatorio
+                            label={selectedInstrumento?.toLowerCase() === 'otro' ? 'Año Instrumento' : 'Año Instrumento *'}
                             placeholder="YYYY (ej: 2024)"
                             value={anioInstrumento}
-                            disabled={selectedInstrumento === 'No aplica'}
+                            disabled={selectedInstrumento === 'No aplica' || selectedInstrumento?.toLowerCase() === 'otro'}
                             onChange={(e: any) => {
                                 // F-01d: solo dígitos, máx 4
                                 const cleaned = e.target.value.replace(/[^0-9]/g, '').slice(0, 4);
@@ -1243,39 +1287,39 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             size="sm"
                             radius="md"
                         />
-                        <Select 
-                            label="Modalidad" 
+                        <Select
+                            label="Modalidad"
                             data={modalidadesData}
                             value={selectedModalidad}
                             onChange={(val) => setSelectedModalidad(val || '')}
-                            disabled={!medicionCaudal || medicionCaudal === 'No Aplica'}
+                            disabled={isNoAplicaValue(medicionCaudal)}
                             size="sm"
                             radius="md"
                         />
                         <Stack gap={4}>
-                            <Select 
-                                label="Forma Canal" 
+                            <Select
+                                label="Forma Canal"
                                 data={formasCanalData}
                                 value={formaCanal}
                                 onChange={(val) => setFormaCanal(val || '')}
-                                disabled={!selectedModalidad || selectedModalidad === 'No Aplica'}
+                                disabled={isNoAplicaValue(selectedModalidad, modalidades)}
                                 size="xs"
                                 radius="md"
                             />
                             <Group gap={4} grow>
-                                <Select 
-                                    placeholder="Unidad" 
-                                    data={unidadesMedida} 
-                                    value={tipoMedidaCanal} 
-                                    onChange={(val) => setTipoMedidaCanal(val || '')} 
-                                    disabled={!formaCanal || formaCanal === 'No Aplica'}
+                                <Select
+                                    placeholder="Unidad"
+                                    data={unidadesMedida}
+                                    value={tipoMedidaCanal}
+                                    onChange={(val) => setTipoMedidaCanal(val || '')}
+                                    disabled={isNoAplicaValue(formaCanal, formasCanal)}
                                     size="xs"
                                     radius="md"
                                 />
-                                <TextInput 
-                                    placeholder="Valor" 
-                                    value={detalleCanal} 
-                                    onChange={(e: any) => setDetalleCanal(e.target.value)} 
+                                <TextInput
+                                    placeholder="Valor"
+                                    value={detalleCanal}
+                                    onChange={(e: any) => setDetalleCanal(e.target.value)}
                                     disabled={!tipoMedidaCanal}
                                     size="xs"
                                     radius="md"
@@ -1283,22 +1327,22 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             </Group>
                         </Stack>
                         <Stack gap={4}>
-                            <Select 
-                                label="Dispositivo Hidr." 
+                            <Select
+                                label="Dispositivo Hidr."
                                 data={dispositivosData}
                                 value={dispositivo}
                                 onChange={(val) => setDispositivo(val || '')}
-                                disabled={!selectedModalidad || selectedModalidad === 'No Aplica'}
+                                disabled={isNoAplicaValue(selectedModalidad, modalidades)}
                                 size="xs"
                                 radius="md"
                             />
                             <Group gap={4} grow>
-                                <Select 
-                                    placeholder="Unidad" 
-                                    data={unidadesMedida} 
-                                    value={tipoMedidaDispositivo} 
-                                    onChange={(val) => setTipoMedidaDispositivo(val || '')} 
-                                    disabled={!dispositivo || dispositivo === 'No Aplica'}
+                                <Select
+                                    placeholder="Unidad"
+                                    data={unidadesMedida}
+                                    value={tipoMedidaDispositivo}
+                                    onChange={(val) => setTipoMedidaDispositivo(val || '')}
+                                    disabled={isNoAplicaValue(dispositivo, dispositivos)}
                                     size="xs"
                                     radius="md"
                                 />

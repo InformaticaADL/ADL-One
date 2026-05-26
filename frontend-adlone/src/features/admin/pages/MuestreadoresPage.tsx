@@ -250,8 +250,8 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                                 Exportar PDF
                             </Button>
                         </ProtectedContent>
-                        <ProtectedContent permission="AI_MA_CREAR_NEW_MUESTREADOR">
-                            <Button 
+                        <ProtectedContent permission="AI_MA_CREAR_NUEVO_MUESTREADOR">
+                            <Button
                                 leftSection={<IconPlus size={18} />} 
                                 onClick={handleCreate}
                                 radius="md"

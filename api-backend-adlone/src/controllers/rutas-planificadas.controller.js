@@ -96,7 +96,8 @@ class RutasPlanificadasController {
         try {
             const { id } = req.params;
             const { id_grupo } = req.body;
-            const result = await rutasPlanificadasService.updateGrupo(id, id_grupo ?? null);
+            // R-05 fix: usar setGrupoOfRuta (antes se llamaba updateGrupo y chocaba con updateGrupo de grupos)
+            const result = await rutasPlanificadasService.setGrupoOfRuta(id, id_grupo ?? null);
             return successResponse(res, result, 'Grupo actualizado correctamente');
         } catch (error) {
             logger.error('Error actualizando grupo de ruta:', error);
