@@ -84,12 +84,21 @@ export const adminService = {
     },
 
     updateMuestreador: async (id, data) => {
+        // MS-05: si la clave llega vacía o undefined, conservar la actual (leer y reenviar).
+        let claveToSend = data.clave;
+        if (claveToSend === undefined || claveToSend === null || String(claveToSend).trim() === '') {
+            const pool = await getConnection();
+            const cur = await pool.request()
+                .input('id', sql.Numeric(10, 0), Number(id))
+                .query('SELECT clave_usuario FROM mae_muestreador WHERE id_muestreador = @id');
+            claveToSend = cur.recordset[0]?.clave_usuario || '';
+        }
         // SP: MAM_Admin_Muestreador_Update @Id, @Nombre, @Correo, @Clave, @Firma
         await callSP('MAM_Admin_Muestreador_Update', {
             Id: id,
             Nombre: data.nombre,
             Correo: data.correo,
-            Clave: data.clave,
+            Clave: claveToSend,
             Firma: data.firma
         });
         const pool = await getConnection();
@@ -137,6 +146,35 @@ export const adminService = {
         request.input('id', sql.Numeric(10, 0), id);
         await request.query("UPDATE mae_muestreador SET habilitado = 'S' WHERE id_muestreador = @id");
         return { success: true };
+    },
+
+    // MS-04: contar asignaciones futuras (no canceladas, fecha_muestreo >= hoy) del muestreador
+    getMuestreadorFutureAssignments: async (id) => {
+        const pool = await getConnection();
+        const result = await pool.request()
+            .input('id', sql.Numeric(10, 0), Number(id))
+            .query(`
+                SELECT
+                    a.id_agendamam,
+                    a.frecuencia_correlativo,
+                    a.fecha_muestreo,
+                    a.ma_muestreo_fechat as fecha_retiro,
+                    a.id_fichaingresoservicio,
+                    a.estado_caso,
+                    CASE WHEN a.id_muestreador = @id THEN 'INSTALACION' ELSE 'RETIRO' END as rol
+                FROM App_Ma_Agenda_MUESTREOS a
+                WHERE (a.id_muestreador = @id OR a.id_muestreador2 = @id)
+                  AND (a.estado_caso IS NULL OR a.estado_caso NOT IN ('CANCELADO', 'ANULADO', 'REALIZADO'))
+                  AND (
+                      (a.fecha_muestreo IS NOT NULL AND a.fecha_muestreo >= CAST(GETDATE() AS DATE))
+                   OR (a.ma_muestreo_fechat IS NOT NULL AND a.ma_muestreo_fechat >= CAST(GETDATE() AS DATE) AND a.ma_muestreo_fechat > '1900-01-01')
+                  )
+                ORDER BY a.fecha_muestreo ASC
+            `);
+        return {
+            count: result.recordset.length,
+            assignments: result.recordset
+        };
     },
 
     checkDuplicateMuestreador: async (nombre, correo) => {

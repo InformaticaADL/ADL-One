@@ -619,15 +619,38 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                     continue;
                 }
 
-                // Find the specific correlativo row, or fallback to first pending
-                const targetRow = item.frecuencia_correlativo 
-                    ? rows.find((r: any) => r.frecuencia_correlativo === item.frecuencia_correlativo)
-                    : null;
-                
-                const pendingRow = targetRow || rows.find((r: any) => {
-                    const estado = (r.nombre_estadomuestreo || '').toUpperCase();
-                    return !estado.includes('EJECUTADO') && !estado.includes('CANCELADO') && !estado.includes('ANULADO');
-                }) || rows[0];
+                // A-09: si el usuario eligió un correlativo específico, DEBE coincidir exactamente.
+                // No usar fallback silencioso (eso causaba que se guarde el servicio incorrecto).
+                let pendingRow: any = null;
+                if (item.frecuencia_correlativo) {
+                    const normSel = String(item.frecuencia_correlativo).trim();
+                    pendingRow = rows.find((r: any) => String(r.frecuencia_correlativo || '').trim() === normSel);
+                    if (!pendingRow) {
+                        showToast({
+                            type: 'error',
+                            message: `Ficha #${item.fichaId}: no se encontró el correlativo "${item.frecuencia_correlativo}" en la agenda. Se omitirá.`
+                        });
+                        continue;
+                    }
+                    // Verificar que el servicio elegido siga DISPONIBLE (no agendado en otra parte).
+                    const estado = String(pendingRow.nombre_estadomuestreo || '').toUpperCase();
+                    if (estado.includes('EJECUTADO') || estado.includes('CANCELADO') || estado.includes('ANULADO')) {
+                        showToast({
+                            type: 'warning',
+                            message: `Ficha #${item.fichaId} (${item.frecuencia_correlativo}): el servicio ya no está disponible (${pendingRow.nombre_estadomuestreo}). Se omitirá.`
+                        });
+                        continue;
+                    }
+                } else {
+                    pendingRow = rows.find((r: any) => {
+                        const estado = (r.nombre_estadomuestreo || '').toUpperCase();
+                        return !estado.includes('EJECUTADO') && !estado.includes('CANCELADO') && !estado.includes('ANULADO');
+                    });
+                    if (!pendingRow) {
+                        showToast({ type: 'warning', message: `Ficha #${item.fichaId}: no hay servicios disponibles. Se omitirá.` });
+                        continue;
+                    }
+                }
 
                 const dayOffset = Math.floor((Number(pendingRow.ma_duracion_muestreo) || 0) / 24);
                 const instDate = dayOffset > 0
@@ -1053,15 +1076,15 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                                     );
                                 })}
 
-                                {/* Route polyline */}
-                                {routePositions.length >= 2 && (
+                                {/* R-03: solo renderizar polyline cuando OSRM ya entregó la ruta real,
+                                    para evitar el flash de línea recta entre puntos. */}
+                                {osrmRoute.length > 0 && (
                                     <Polyline
-                                        positions={osrmRoute.length > 0 ? osrmRoute : routePositions}
+                                        positions={osrmRoute}
                                         pathOptions={{
                                             color: '#228be6',
                                             weight: 4,
-                                            opacity: 0.8,
-                                            dashArray: osrmRoute.length > 0 ? undefined : '10, 6'
+                                            opacity: 0.8
                                         }}
                                     />
                                 )}

@@ -194,19 +194,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, [logout]);
 
     // RBAC Helper memoizado y más robusto
+    // RB-08: super-admin bypass eliminado — todos los permisos vienen de BD.
     const hasPermission = useCallback((permissionCode: string | string[]): boolean => {
         const currentUser = authState.user;
         if (!currentUser) return false;
-        
+
         const perms = currentUser.permissions || [];
-        
-        // Super Admin access
-        if (perms.includes('AI_MA_ADMIN_ACCESO')) return true;
-        
+
         if (Array.isArray(permissionCode)) {
             return permissionCode.some(p => perms.includes(p));
         }
-        
+
         return perms.includes(permissionCode);
     }, [authState.user]);
 

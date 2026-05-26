@@ -52,6 +52,8 @@ const SamplerDeactivationModal: React.FC<SamplerDeactivationModalProps> = ({
     const [loading, setLoading] = useState(false);
     const [loadingEquipos, setLoadingEquipos] = useState(false);
     const [equipmentCount, setEquipmentCount] = useState<number | null>(null);
+    // MS-04: asignaciones futuras de muestreo
+    const [futureAssignments, setFutureAssignments] = useState<{ count: number; assignments: any[] } | null>(null);
     const { showToast } = useToast();
     const isMobile = useMediaQuery('(max-width: 768px)');
 
@@ -73,6 +75,7 @@ const SamplerDeactivationModal: React.FC<SamplerDeactivationModalProps> = ({
         if (opened && sampler) {
             setLoadingEquipos(true);
             setEquipmentCount(null);
+            setFutureAssignments(null);
             apiClient.get(`/api/admin/equipos?id_muestreador=${sampler.id_muestreador}&limit=100`)
                 .then(res => {
                     const list = res.data.data || [];
@@ -81,6 +84,11 @@ const SamplerDeactivationModal: React.FC<SamplerDeactivationModalProps> = ({
                 })
                 .catch(console.error)
                 .finally(() => setLoadingEquipos(false));
+
+            // MS-04: chequear asignaciones futuras de muestreo
+            apiClient.get(`/api/admin/muestreadores/${sampler.id_muestreador}/future-assignments`)
+                .then(res => setFutureAssignments(res.data?.data || { count: 0, assignments: [] }))
+                .catch(() => setFutureAssignments({ count: 0, assignments: [] }));
         }
     }, [opened, sampler]);
 
@@ -156,9 +164,27 @@ const SamplerDeactivationModal: React.FC<SamplerDeactivationModalProps> = ({
         >
             <Stack gap="lg">
                 <Alert icon={<IconAlertTriangle size={18} />} color="orange" radius="md">
-                    Está a punto de deshabilitar a <b>{sampler?.nombre_muestreador}</b>. 
+                    Está a punto de deshabilitar a <b>{sampler?.nombre_muestreador}</b>.
                     Todos sus equipos deben ser reasignados para completar esta acción.
                 </Alert>
+
+                {/* MS-04: advertencia si hay muestreos futuros */}
+                {futureAssignments && futureAssignments.count > 0 && (
+                    <Alert icon={<IconAlertTriangle size={18} />} color="red" radius="md" title="Asignaciones de muestreo pendientes">
+                        Este muestreador tiene <b>{futureAssignments.count}</b> muestreo{futureAssignments.count !== 1 ? 's' : ''} programado{futureAssignments.count !== 1 ? 's' : ''} para fechas futuras.
+                        Tras deshabilitarlo, esos muestreos quedarán <b>huérfanos</b> y deberán ser reasignados manualmente desde Asignación o el Calendario.
+                        <Stack gap={2} mt="xs">
+                            {futureAssignments.assignments.slice(0, 5).map((a: any) => (
+                                <Text key={a.id_agendamam} size="xs" c="dimmed">
+                                    • Ficha #{a.id_fichaingresoservicio} — {a.frecuencia_correlativo} ({a.rol === 'INSTALACION' ? 'instalación' : 'retiro'}) — {a.fecha_muestreo ? new Date(a.fecha_muestreo).toLocaleDateString('es-CL') : '-'}
+                                </Text>
+                            ))}
+                            {futureAssignments.assignments.length > 5 && (
+                                <Text size="xs" c="dimmed" fs="italic">y {futureAssignments.assignments.length - 5} más...</Text>
+                            )}
+                        </Stack>
+                    </Alert>
+                )}
 
                 <Stack gap="xs">
                     <Text size="sm" fw={700}>¿Qué desea hacer con los equipos? ({equipmentCount ?? '...'})</Text>

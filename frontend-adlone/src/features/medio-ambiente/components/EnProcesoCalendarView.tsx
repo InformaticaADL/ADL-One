@@ -166,9 +166,15 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
             const currDateObj = currentEvDate ? new Date(currentEvDate) : new Date();
             const dateStr = `${currDateObj.getUTCFullYear()}-${String(currDateObj.getUTCMonth() + 1).padStart(2, '0')}-${String(currDateObj.getUTCDate()).padStart(2, '0')}`;
             setEditedDate(dateStr);
-            setEditedSamplerId(selectedEvent.id_muestreador2 || selectedEvent.id_muestreador || '');
+            // C-06: usar muestreador correcto según tipo de evento
+            const correctSamplerId = selectedEvent.tipo_evento === 'RETIRO'
+                ? (selectedEvent.id_muestreador2 || selectedEvent.id_muestreador)
+                : selectedEvent.id_muestreador;
+            setEditedSamplerId(correctSamplerId || '');
         }
     }, [selectedEvent]);
+
+    const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
 
     const loadData = useCallback(async () => {
         const month = currentMonth.getMonth() + 1;
@@ -471,10 +477,10 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                 {showFilters && (
                     <Paper withBorder p="md" radius="md" shadow="xs">
                         <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="sm">
-                            <TextInput 
-                                label="Buscar" 
-                                placeholder="Ficha, empresa, muestreador..." 
-                                value={searchTerm} 
+                            <TextInput
+                                label="Buscar"
+                                placeholder="N° ficha, correlativo, empresa, muestreador..."
+                                value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 leftSection={<IconSearch size={14} />}
                                 size="xs"
@@ -884,10 +890,11 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                         
                         <Grid align="flex-end">
                             <Grid.Col span={6}>
-                                {hasPermission('MA_CALENDARIO_REAGENDAR') ? (
-                                    <TextInput 
-                                        label="Fecha de Muestreo (Agenda)" 
+                                {hasPermission('MA_CALENDARIO_REAGENDAR') && !isExecutedEvent(selectedEvent!) && !isCancelledEvent(selectedEvent!) ? (
+                                    <TextInput
+                                        label="Fecha de Muestreo (Agenda)"
                                         type="date"
+                                        min={todayStr}
                                         value={editedDate}
                                         onChange={(e) => { setEditedDate(e.target.value); setIsEditingDate(true); }}
                                         size="sm"
@@ -897,7 +904,7 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                 )}
                             </Grid.Col>
                             <Grid.Col span={6}>
-                                {hasPermission('MA_CALENDARIO_REASIGNAR') ? (
+                                {hasPermission('MA_CALENDARIO_REASIGNAR') && !isExecutedEvent(selectedEvent!) && !isCancelledEvent(selectedEvent!) ? (
                                     <Select
                                         label="Re-Asignar Muestreador"
                                         placeholder="Seleccione..."
@@ -933,11 +940,14 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                             </ProtectedContent>
                             
                             <Group gap="sm">
-                                <ProtectedContent permission="MA_CALENDARIO_CANCELAR">
-                                    <Button variant="outline" color="red" onClick={() => setShowCancelConfirm(true)}>
-                                        Cancelar Muestreo
-                                    </Button>
-                                </ProtectedContent>
+                                {/* C-04 / C-05: ocultar botón si ya está cancelada o ejecutada */}
+                                {selectedEvent && !isCancelledEvent(selectedEvent) && !isExecutedEvent(selectedEvent) && (
+                                    <ProtectedContent permission="MA_CALENDARIO_CANCELAR">
+                                        <Button variant="outline" color="red" onClick={() => setShowCancelConfirm(true)}>
+                                            Cancelar Muestreo
+                                        </Button>
+                                    </ProtectedContent>
+                                )}
                                 <ProtectedContent permission={['MA_CALENDARIO_REAGENDAR', 'MA_CALENDARIO_REASIGNAR']}>
                                     <Button 
                                         leftSection={<IconDeviceFloppy size={18} />} 

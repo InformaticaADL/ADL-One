@@ -55,19 +55,20 @@ export const mapToAntecedentes = (enc: any, agenda: any) => {
     }
 
     return {
-        selectedEmpresa: enc.id_empresaservicios,
+        // F-35: probar variaciones de nombres de campo (con/sin 's') para mejorar hidratación
+        selectedEmpresa: enc.id_empresaservicios ?? enc.id_empresaservicio,
         selectedCliente: enc.id_empresa,
-        selectedFuente: enc.id_centro,
+        selectedFuente: enc.id_centro ?? enc.id_fuenteemisora,
         selectedContacto: (enc.id_contacto === 0 || !enc.id_contacto)
             ? (enc.nombre_contacto === 'No Aplica' ? 'No Aplica' : 'primary')
             : String(enc.id_contacto),
-        selectedObjetivo: enc.id_objetivomuestreo_ma,
+        selectedObjetivo: enc.id_objetivomuestreo_ma ?? enc.id_objetivomuestreo,
         selectedComponente: enc.id_tipomuestra,
         selectedSubArea: enc.id_subarea,
         selectedInstrumento: selInst || enc.ma_instrumento_ambiental || '',
         nroInstrumento: nroInst || enc.ma_nro_instrumento || '',
         anioInstrumento: anioInst || enc.ma_anio_instrumento || '',
-        selectedInspector: agenda.id_inspectorambiental || enc.id_inspectorambiental || '',
+        selectedInspector: agenda.id_inspectorambiental ?? enc.id_inspectorambiental ?? '',
         responsableMuestreo: enc.responsablemuestreo,
         cargoResponsable: enc.id_cargo,
         selectedTipoMuestreo: enc.id_tipomuestreo,
@@ -84,16 +85,24 @@ export const mapToAntecedentes = (enc: any, agenda: any) => {
         dispositivo: enc.id_dispositivohidraulico,
         tipoMedidaDispositivo: enc.id_um_dispositivohidraulico,
         detalleDispositivo: enc.dispositivohidraulico_medida,
-        frecuencia: agenda.frecuencia || enc.frecuencia || enc.ma_frecuencia,
-        totalServicios: agenda.total_servicios || enc.total_servicios || enc.total_servicios_ma,
-        factor: agenda.frecuencia_factor || enc.frecuencia_factor || 1,
-        periodo: agenda.periodo || enc.periodo || agenda.id_frecuencia || enc.id_frecuencia || '',
+        frecuencia: agenda.frecuencia ?? enc.frecuencia ?? enc.ma_frecuencia,
+        totalServicios: agenda.total_servicios ?? enc.total_servicios ?? enc.total_servicios_ma,
+        factor: agenda.frecuencia_factor ?? enc.frecuencia_factor ?? 1,
+        periodo: agenda.periodo ?? enc.periodo ?? agenda.id_frecuencia ?? enc.id_frecuencia ?? '',
         tipoMonitoreo: enc.tipo_fichaingresoservicio || '',
-        selectedLugar: enc.id_lugaranalisis || '',
+        selectedLugar: enc.id_lugaranalisis ?? '',
         puntoMuestreo: enc.ma_punto_muestreo || '',
         zona: zona || '',
         utmNorte: utmNorte || '',
         utmEste: utmEste || '',
-        glosa: enc.nombre_tabla || enc.nombre_tabla_largo || enc.glosa || enc.ma_nombre_tabla || ''
+        glosa: enc.nombre_tabla || enc.nombre_tabla_largo || enc.glosa || enc.ma_nombre_tabla || '',
+        // F-35: campos faltantes en mapping previo
+        ubicacion: enc.ubicacion || enc.direccion || enc.nombre_ubicacion || '',
+        comuna: enc.nombre_comuna || enc.comuna || '',
+        region: enc.nombre_region || enc.region || '',
+        tipoAgua: enc.nombre_tipoagua || enc.tipo_agua || '',
+        idTipoAgua: enc.id_tipoagua ?? null,
+        codigo: enc.codigo_centro || enc.codigo || '',
+        esETFA: enc.es_etfa || enc.esETFA || 'No'
     };
 };

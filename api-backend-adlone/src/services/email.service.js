@@ -4,6 +4,18 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// X-08: helper de escape HTML para prevenir inyección en plantillas de email.
+// Úsalo SIEMPRE que insertes contenido provisto por usuarios en plantillas HTML.
+export const escapeHtml = (str) => {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+};
+
 class EmailService {
     constructor() {
         this.transporter = nodemailer.createTransport({
@@ -17,13 +29,14 @@ class EmailService {
         });
     }
 
-    async sendEmail({ to, subject, text, bcc }) {
+    async sendEmail({ to, subject, text, html, bcc }) {
         const mailOptions = {
             from: process.env.EMAIL_FROM,
             to,
             bcc,
             subject,
-            text, // Plain text body
+            text,
+            ...(html ? { html } : {})
         };
 
         try {
@@ -35,6 +48,33 @@ class EmailService {
             // We log but don't throw to prevent blocking the main process if email fails
             return null;
         }
+    }
+
+    // S-14: enviar correo de recuperación de contraseña con enlace de un solo uso.
+    async sendPasswordReset({ to, nombreUsuario, resetUrl, expiresInMinutes }) {
+        const subject = 'ADL ONE — Recuperación de contraseña';
+        const text = `Hola ${nombreUsuario || ''},\n\n` +
+            `Recibimos una solicitud para restablecer tu contraseña de ADL ONE.\n\n` +
+            `Para crear una nueva clave, abre el siguiente enlace dentro de los próximos ${expiresInMinutes} minutos:\n\n` +
+            `${resetUrl}\n\n` +
+            `Si no fuiste tú quien solicitó este cambio, puedes ignorar este mensaje y tu clave actual seguirá siendo válida.\n\n` +
+            `Saludos,\nEquipo ADL ONE`;
+        const html = `
+            <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; background: #f8fafc;">
+                <div style="background: white; border-radius: 12px; padding: 28px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
+                    <h2 style="color: #1e3a8a; margin-top: 0;">Recuperación de contraseña</h2>
+                    <p>Hola <strong>${escapeHtml(nombreUsuario || 'usuario')}</strong>,</p>
+                    <p>Recibimos una solicitud para restablecer tu contraseña de <strong>ADL ONE</strong>.</p>
+                    <p>Haz clic en el botón para crear una nueva clave. El enlace caduca en <strong>${expiresInMinutes} minutos</strong> y solo puede usarse una vez.</p>
+                    <p style="text-align: center; margin: 32px 0;">
+                        <a href="${resetUrl}" style="display: inline-block; background: #1e40af; color: white; padding: 12px 28px; text-decoration: none; border-radius: 8px; font-weight: 600;">Restablecer contraseña</a>
+                    </p>
+                    <p style="color: #64748b; font-size: 13px;">Si el botón no funciona, copia y pega este enlace en tu navegador:<br><span style="color: #1e40af; word-break: break-all;">${resetUrl}</span></p>
+                    <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;">
+                    <p style="color: #64748b; font-size: 12px;">Si no fuiste tú quien hizo esta solicitud, ignora este correo: tu clave actual seguirá siendo válida.</p>
+                </div>
+            </div>`;
+        return this.sendEmail({ to, subject, text, html });
     }
 
     /**

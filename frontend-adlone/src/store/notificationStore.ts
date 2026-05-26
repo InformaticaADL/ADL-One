@@ -18,6 +18,8 @@ export interface Notification {
 interface NotificationState {
     notifications: Notification[];
     loading: boolean;
+    // X-10: estado de la conexión Socket.IO
+    socketStatus: 'idle' | 'connecting' | 'connected' | 'disconnected';
     fetchNotifications: () => Promise<void>;
     markAsRead: (id: number) => Promise<void>;
     markAsReadByRef: (idReferencia: number) => Promise<void>;
@@ -32,6 +34,7 @@ let socket: Socket | null = null;
 export const useNotificationStore = create<NotificationState>((set) => ({
     notifications: [],
     loading: false,
+    socketStatus: 'idle',
 
     fetchNotifications: async () => {
         set({ loading: true });
@@ -73,9 +76,17 @@ export const useNotificationStore = create<NotificationState>((set) => ({
     markAllAsRead: async () => {
         try {
             await notificationService.markAllAsRead();
+            // N-04: aplicar cambio local de inmediato + refetch para garantizar consistencia con BD.
             set((state) => ({
                 notifications: state.notifications.map((n) => ({ ...n, leido: true }))
             }));
+            // Refetch defensivo en background (por si quedaron notificaciones nuevas llegando en paralelo)
+            try {
+                const fresh = await notificationService.getMyNotifications();
+                set({ notifications: fresh || [] });
+            } catch {
+                // Ignorar — el cambio local ya está aplicado
+            }
         } catch (error) {
             console.error('Error marking all notifications as read:', error);
         }
@@ -93,6 +104,7 @@ export const useNotificationStore = create<NotificationState>((set) => ({
             socket = null;
         }
 
+        set({ socketStatus: 'connecting' });
         const baseUrl = API_CONFIG.getBaseURL();
         socket = io(baseUrl, {
             reconnection: true,
@@ -104,10 +116,26 @@ export const useNotificationStore = create<NotificationState>((set) => ({
 
         socket.on('connect', () => {
             socket?.emit('join', userId);
+            set({ socketStatus: 'connected' });
+        });
+
+        // X-10: detectar desconexión y reconexión
+        socket.on('disconnect', (reason) => {
+            console.warn('[Socket] Disconnected:', reason);
+            set({ socketStatus: 'disconnected' });
         });
 
         socket.on('connect_error', (err) => {
             console.warn('[Socket] Connection error:', err.message);
+            set({ socketStatus: 'disconnected' });
+        });
+
+        socket.on('reconnect', () => {
+            set({ socketStatus: 'connected' });
+        });
+
+        socket.on('reconnect_attempt', () => {
+            set({ socketStatus: 'connecting' });
         });
 
         socket.on('nuevaNotificacion', (notif) => {
@@ -127,5 +155,6 @@ export const useNotificationStore = create<NotificationState>((set) => ({
             socket.disconnect();
             socket = null;
         }
+        set({ socketStatus: 'idle' });
     }
 }));

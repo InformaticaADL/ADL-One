@@ -12,7 +12,6 @@ import {
     Text,
     Modal,
     Anchor,
-    ThemeIcon,
     Box,
     Center,
     Alert
@@ -20,12 +19,13 @@ import {
 import {
     IconLock,
     IconMail,
-    IconPhone,
     IconArrowLeft,
-    IconAlertCircle
+    IconAlertCircle,
+    IconCheck
 } from '@tabler/icons-react';
 import type { LoginCredentials } from '../types/index';
 import logoAdl from '../../../assets/images/logo-adlone.png';
+import apiClient from '../../../config/axios.config';
 
 interface LoginFormProps {
     onSubmit: (credentials: LoginCredentials) => void;
@@ -38,6 +38,11 @@ export const LoginForm = ({ onSubmit, isLoading = false }: LoginFormProps) => {
     const [rememberMe, setRememberMe] = useState(false);
     const [showForgotModal, setShowForgotModal] = useState(false);
     const [logoutReason, setLogoutReason] = useState<string | null>(null);
+    // S-14: estado del formulario de recuperación
+    const [forgotEmail, setForgotEmail] = useState('');
+    const [forgotSending, setForgotSending] = useState(false);
+    const [forgotSent, setForgotSent] = useState(false);
+    const [forgotError, setForgotError] = useState<string | null>(null);
 
     useEffect(() => {
         const reason = sessionStorage.getItem('auth_logout_reason');
@@ -49,8 +54,11 @@ export const LoginForm = ({ onSubmit, isLoading = false }: LoginFormProps) => {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (email && password) {
-            onSubmit({ email, password, rememberMe });
+        // S-11: trim espacios al inicio/final tanto del usuario como de la contraseña.
+        const trimmedUser = email.trim();
+        const trimmedPass = password.trim();
+        if (trimmedUser && trimmedPass) {
+            onSubmit({ email: trimmedUser, password: trimmedPass, rememberMe });
         }
     };
 
@@ -90,11 +98,12 @@ export const LoginForm = ({ onSubmit, isLoading = false }: LoginFormProps) => {
                 <form onSubmit={handleSubmit}>
                     <Stack gap="md">
                         <TextInput
-                            label="Usuario / Email"
-                            placeholder="nombre@empresa.com"
+                            label="Usuario"
+                            placeholder="ej: jperez"
                             leftSection={<IconMail size={18} />}
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
+                            autoComplete="username"
                             size="md"
                             radius="md"
                             required
@@ -149,72 +158,97 @@ export const LoginForm = ({ onSubmit, isLoading = false }: LoginFormProps) => {
 
             <Modal
                 opened={showForgotModal}
-                onClose={() => setShowForgotModal(false)}
+                onClose={() => {
+                    setShowForgotModal(false);
+                    setForgotEmail('');
+                    setForgotSent(false);
+                    setForgotError(null);
+                }}
                 title={<Text fw={700} size="lg">Recuperar Contraseña</Text>}
                 centered
                 radius="lg"
                 padding="xl"
-                styles={{
-                    header: { borderBottom: '1px solid var(--mantine-color-gray-2)', paddingBottom: 'lg' }
-                }}
             >
-                <Stack gap="xl">
-                    <Box bg="blue.0" p="md" style={{ borderRadius: 'var(--mantine-radius-md)', border: '1px solid var(--mantine-color-blue-1)' }}>
-                        <Text size="sm" c="blue.9" ta="center" fw={500}>
-                            Para recuperar su acceso, por favor contáctese con el área de informática:
-                        </Text>
-                    </Box>
+                <Stack gap="md">
+                    {!forgotSent ? (
+                        <>
+                            <Box bg="blue.0" p="md" style={{ borderRadius: 'var(--mantine-radius-md)' }}>
+                                <Text size="sm" c="blue.9">
+                                    Ingresa tu email registrado y te enviaremos un link para crear una nueva contraseña.
+                                </Text>
+                            </Box>
 
-                    <Stack gap="md">
-                        <Paper withBorder p="md" radius="md">
-                            <Group gap="md" wrap="nowrap">
-                                <ThemeIcon size="lg" radius="xl" color="orange.1" variant="light">
-                                    <IconMail size={20} color="var(--mantine-color-orange-7)" />
-                                </ThemeIcon>
-                                <Box>
-                                    <Text size="xs" c="dimmed" fw={600}>EMAIL</Text>
-                                    <Anchor 
-                                        href="mailto:informatica@adldiagnostic.cl" 
-                                        fw={700} 
-                                        size="sm"
-                                        c="blue.7"
-                                    >
-                                        informatica@adldiagnostic.cl
-                                    </Anchor>
-                                </Box>
+                            <TextInput
+                                label="Email"
+                                type="email"
+                                placeholder="tu.correo@adldiagnostic.cl"
+                                value={forgotEmail}
+                                onChange={(e) => setForgotEmail(e.currentTarget.value)}
+                                leftSection={<IconMail size={18} />}
+                                radius="md"
+                                required
+                                disabled={forgotSending}
+                            />
+
+                            {forgotError && (
+                                <Alert icon={<IconAlertCircle size={18} />} color="red" radius="md">
+                                    {forgotError}
+                                </Alert>
+                            )}
+
+                            <Group justify="space-between" mt="sm">
+                                <Button
+                                    variant="subtle"
+                                    color="gray"
+                                    leftSection={<IconArrowLeft size={16} />}
+                                    onClick={() => setShowForgotModal(false)}
+                                >
+                                    Cancelar
+                                </Button>
+                                <Button
+                                    color="blue.7"
+                                    loading={forgotSending}
+                                    onClick={async () => {
+                                        const trimmed = forgotEmail.trim();
+                                        if (!trimmed) { setForgotError('Ingresa tu email'); return; }
+                                        setForgotError(null);
+                                        setForgotSending(true);
+                                        try {
+                                            await apiClient.post('/api/auth/forgot-password', { email: trimmed });
+                                            setForgotSent(true);
+                                        } catch {
+                                            // S-15: respuesta genérica incluso en error
+                                            setForgotSent(true);
+                                        } finally {
+                                            setForgotSending(false);
+                                        }
+                                    }}
+                                >
+                                    Enviar link
+                                </Button>
                             </Group>
-                        </Paper>
-
-                        <Paper withBorder p="md" radius="md">
-                            <Group gap="md" wrap="nowrap">
-                                <ThemeIcon size="lg" radius="xl" color="orange.1" variant="light">
-                                    <IconPhone size={20} color="var(--mantine-color-orange-7)" />
-                                </ThemeIcon>
-                                <Box>
-                                    <Text size="xs" c="dimmed" fw={600}>TELÉFONO</Text>
-                                    <Anchor 
-                                        href="tel:+56957218268" 
-                                        fw={700} 
-                                        size="sm"
-                                        c="blue.7"
-                                    >
-                                        +56 9 5721 8268
-                                    </Anchor>
-                                </Box>
-                            </Group>
-                        </Paper>
-                    </Stack>
-
-                    <Button 
-                        variant="light" 
-                        color="gray" 
-                        fullWidth 
-                        onClick={() => setShowForgotModal(false)}
-                        leftSection={<IconArrowLeft size={16} />}
-                        radius="md"
-                    >
-                        Volver al Login
-                    </Button>
+                        </>
+                    ) : (
+                        <>
+                            <Alert icon={<IconCheck size={18} />} color="green" radius="md" title="Solicitud enviada">
+                                Si el email está registrado, recibirás un correo con un enlace para restablecer tu contraseña.
+                                El link es válido por 60 minutos.
+                            </Alert>
+                            <Button
+                                variant="light"
+                                color="gray"
+                                fullWidth
+                                leftSection={<IconArrowLeft size={16} />}
+                                onClick={() => {
+                                    setShowForgotModal(false);
+                                    setForgotEmail('');
+                                    setForgotSent(false);
+                                }}
+                            >
+                                Volver al Login
+                            </Button>
+                        </>
+                    )}
                 </Stack>
             </Modal>
         </Paper>

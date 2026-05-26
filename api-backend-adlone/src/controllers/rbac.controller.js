@@ -71,6 +71,18 @@ class RbacController {
         }
     }
 
+    // RB-09: contar usuarios asociados al rol
+    async getRoleUsersCount(req, res) {
+        try {
+            const { roleId } = req.params;
+            const data = await rbacService.getRoleUsersCount(roleId);
+            return successResponse(res, data);
+        } catch (err) {
+            logger.error('Error in getRoleUsersCount:', err);
+            return errorResponse(res, 'Error al consultar usuarios del rol', 500);
+        }
+    }
+
     async toggleRoleStatus(req, res) {
         try {
             const { roleId } = req.params;

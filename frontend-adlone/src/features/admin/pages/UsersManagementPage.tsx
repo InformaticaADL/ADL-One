@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
     Stack, 
     Group, 
@@ -50,7 +50,9 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
     const [users, setUsers] = useState<User[]>([]);
     const [roles, setRoles] = useState<Role[]>([]);
     const [cargos, setCargos] = useState<any[]>([]);
-    const [loading, setLoading] = useState(false);
+    // RB-01: separar loading de listado vs operaciones en modal (evita el overlay blanco residual)
+    const [loading, setLoading] = useState(false); // listado
+    const [savingUser, setSavingUser] = useState(false); // modal de crear/editar/cambiar pass
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState<string>('active');
     const [filterRole, setFilterRole] = useState<string>('all');
@@ -117,7 +119,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
         }
 
         try {
-            setLoading(true);
+            setSavingUser(true);
             const newUser = await rbacService.createUser(formData);
 
             if (selectedRoles.length > 0) {
@@ -132,7 +134,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
             const msg = error.response?.data?.message || 'Error al crear usuario';
             showToast({ type: 'error', message: msg });
         } finally {
-            setLoading(false);
+            setSavingUser(false);
         }
     };
 
@@ -147,7 +149,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
         };
 
         try {
-            setLoading(true);
+            setSavingUser(true);
             await rbacService.updateUser(selectedUser.id_usuario, updateData);
             await rbacService.assignRolesToUser(selectedUser.id_usuario, selectedRoles);
 
@@ -159,7 +161,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
             const msg = error.response?.data?.message || 'Error al actualizar usuario';
             showToast({ type: 'error', message: msg });
         } finally {
-            setLoading(false);
+            setSavingUser(false);
         }
     };
 
@@ -170,7 +172,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
         }
 
         try {
-            setLoading(true);
+            setSavingUser(true);
             await rbacService.updateUserPassword(selectedUser.id_usuario, newPassword);
             showToast({ type: 'success', message: 'Contraseña actualizada exitosamente' });
             setShowPasswordModal(false);
@@ -180,7 +182,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
         } catch (error) {
             showToast({ type: 'error', message: 'Error al actualizar contraseña' });
         } finally {
-            setLoading(false);
+            setSavingUser(false);
         }
     };
 
@@ -266,23 +268,37 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
         );
     };
 
-    const filteredUsers = users.filter(user => {
-        const matchesSearch =
-            user.nombre_usuario.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            user.nombre_real.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (user.correo_electronico && user.correo_electronico.toLowerCase().includes(searchTerm.toLowerCase()));
+    const filteredUsers = useMemo(() => {
+        const term = searchTerm.toLowerCase();
+        return users.filter(user => {
+            const matchesSearch =
+                (user.nombre_usuario ?? '').toLowerCase().includes(term) ||
+                (user.nombre_real ?? '').toLowerCase().includes(term) ||
+                (user.correo_electronico ?? '').toLowerCase().includes(term);
 
-        const matchesStatus =
-            filterStatus === 'all' ||
-            (filterStatus === 'active' && user.habilitado === 'S') ||
-            (filterStatus === 'inactive' && user.habilitado === 'N');
+            const matchesStatus =
+                filterStatus === 'all' ||
+                (filterStatus === 'active' && user.habilitado === 'S') ||
+                (filterStatus === 'inactive' && user.habilitado === 'N');
 
-        const matchesRole =
-            filterRole === 'all' ||
-            (user.roles && user.roles.includes(filterRole));
+            const matchesRole =
+                filterRole === 'all' ||
+                (user.roles && user.roles.includes(filterRole));
 
-        return matchesSearch && matchesStatus && matchesRole;
-    });
+            return matchesSearch && matchesStatus && matchesRole;
+        });
+    }, [users, searchTerm, filterStatus, filterRole]);
+
+    // RB-01: memoizar lista de roles filtrados para que no se recalcule en cada keystroke del form
+    const memoizedRoles = useMemo(() => {
+        const term = roleSearchTerm.toLowerCase();
+        return roles
+            .filter(r => r.estado && r.nombre_rol)
+            .filter(r =>
+                (r.nombre_rol ?? '').toLowerCase().includes(term) ||
+                (r.descripcion && r.descripcion.toLowerCase().includes(term))
+            );
+    }, [roles, roleSearchTerm]);
 
     return (
         <Box p={isMobile ? "xs" : "md"} style={{ width: '100%' }}>
@@ -339,7 +355,9 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                             onChange={(val) => setFilterRole(val || 'all')}
                             data={[
                                 { value: 'all', label: 'Todos los roles' },
-                                ...roles.map(r => ({ value: r.nombre_rol, label: r.nombre_rol }))
+                                ...roles
+                                    .filter(r => r.nombre_rol)
+                                    .map(r => ({ value: String(r.nombre_rol), label: String(r.nombre_rol) }))
                             ]}
                             radius="md"
                             searchable
@@ -600,13 +618,8 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                         <Paper withBorder p="xs" radius="sm" bg="gray.0">
                             <ScrollArea h={isMobile ? 250 : 180} scrollbarSize={6}>
                                 <Stack gap={4}>
-                                    {roles
-                                        .filter(r => r.estado)
-                                        .filter(r =>
-                                            r.nombre_rol.toLowerCase().includes(roleSearchTerm.toLowerCase()) ||
-                                            (r.descripcion && r.descripcion.toLowerCase().includes(roleSearchTerm.toLowerCase()))
-                                        )
-                                        .map((role) => (
+                                    {/* RB-01: lista filtrada memoizada (ver memoizedRoles arriba) */}
+                                    {memoizedRoles.map((role) => (
                                             <Paper 
                                                 key={role.id_rol} 
                                                 p="xs" 
@@ -643,9 +656,9 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                         <Button variant="subtle" color="gray" onClick={() => { setShowCreateModal(false); setShowEditModal(false); resetForm(); }}>
                             Cancelar
                         </Button>
-                        <Button 
+                        <Button
                             onClick={showCreateModal ? handleCreateUser : handleUpdateUser}
-                            loading={loading}
+                            loading={savingUser}
                             radius="md"
                             color="blue"
                             fullWidth={isMobile}
@@ -682,7 +695,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                         <Button variant="subtle" color="gray" onClick={() => setShowPasswordModal(false)}>
                             Cancelar
                         </Button>
-                        <Button color="orange" onClick={handleUpdatePassword} loading={loading} fullWidth={isMobile}>
+                        <Button color="orange" onClick={handleUpdatePassword} loading={savingUser} fullWidth={isMobile}>
                             Actualizar Contraseña
                         </Button>
                     </Group>

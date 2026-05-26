@@ -44,6 +44,24 @@ class RbacService {
         }
     }
 
+    // RB-09: contar usuarios asociados a un rol (para advertir antes de deshabilitar/eliminar)
+    async getRoleUsersCount(roleId) {
+        const pool = await getConnection();
+        const res = await pool.request()
+            .input('roleId', sql.Numeric(10, 0), roleId)
+            .query(`
+                SELECT u.id_usuario, u.nombre_usuario, u.usuario, u.habilitado
+                FROM rel_usuario_rol ur
+                INNER JOIN mae_usuario u ON u.id_usuario = ur.id_usuario
+                WHERE ur.id_rol = @roleId
+                ORDER BY u.nombre_usuario
+            `);
+        return {
+            count: res.recordset.length,
+            users: res.recordset
+        };
+    }
+
     async toggleRoleStatus(roleId, estado) {
         try {
             const pool = await getConnection();

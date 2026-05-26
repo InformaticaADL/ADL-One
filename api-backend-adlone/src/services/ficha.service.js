@@ -49,10 +49,24 @@ class FichaIngresoService {
                 const vres = val(v); return vres !== null ? Number(v) : null;
             };
 
-            // Construct Instrumento Ambiental string
+            // Construct Instrumento Ambiental string (F-01f)
             let instrumento = null;
             if (ant.selectedInstrumento && ant.selectedInstrumento !== 'No aplica') {
-                instrumento = `${ant.selectedInstrumento} ${ant.nroInstrumento || ''}/${ant.anioInstrumento || ''}`;
+                const sel = String(ant.selectedInstrumento).trim();
+                const nro = (ant.nroInstrumento || '').toString().trim();
+                const anio = (ant.anioInstrumento || '').toString().trim();
+                // Si el instrumento es "Otro", el usuario puso el texto completo en nroInstrumento → no prefijar.
+                if (sel.toLowerCase() === 'otro') {
+                    instrumento = nro || sel;
+                } else if (!nro && !anio) {
+                    instrumento = sel;
+                } else if (!anio) {
+                    instrumento = `${sel} ${nro}`;
+                } else if (!nro) {
+                    instrumento = `${sel} /${anio}`;
+                } else {
+                    instrumento = `${sel} ${nro}/${anio}`;
+                }
             } else if (ant.selectedInstrumento === 'No aplica') {
                 instrumento = 'No aplica';
             }
@@ -431,10 +445,23 @@ class FichaIngresoService {
                 const vres = val(v); return vres !== null ? Number(v) : null;
             };
 
-            // Construct Instrumento/Coordinates (Same logic as Create)
+            // Construct Instrumento/Coordinates (Same logic as Create - F-01f)
             let instrumento = null;
             if (ant.selectedInstrumento && ant.selectedInstrumento !== 'No aplica') {
-                instrumento = `${ant.selectedInstrumento} ${ant.nroInstrumento || ''}/${ant.anioInstrumento || ''}`;
+                const sel = String(ant.selectedInstrumento).trim();
+                const nro = (ant.nroInstrumento || '').toString().trim();
+                const anio = (ant.anioInstrumento || '').toString().trim();
+                if (sel.toLowerCase() === 'otro') {
+                    instrumento = nro || sel;
+                } else if (!nro && !anio) {
+                    instrumento = sel;
+                } else if (!anio) {
+                    instrumento = `${sel} ${nro}`;
+                } else if (!nro) {
+                    instrumento = `${sel} /${anio}`;
+                } else {
+                    instrumento = `${sel} ${nro}/${anio}`;
+                }
             } else if (ant.selectedInstrumento === 'No aplica') { instrumento = 'No aplica'; }
 
             let coordenadas = null;
@@ -899,10 +926,18 @@ class FichaIngresoService {
             if (month && year) {
                 request.input('month', sql.Int, parseInt(month));
                 request.input('year', sql.Int, parseInt(year));
-                whereClause += ` AND MONTH(a.fecha_muestreo) = @month AND YEAR(a.fecha_muestreo) = @year`;
+                // C-01: incluir tanto fecha de instalación (fecha_muestreo) como de retiro (fecha_retiro / ma_muestreo_fechat),
+                // así una ficha con asignación parcial cuyo retiro caiga en el mes también aparece.
+                whereClause += ` AND (
+                    (MONTH(a.fecha_muestreo) = @month AND YEAR(a.fecha_muestreo) = @year)
+                 OR (MONTH(a.ma_muestreo_fechat) = @month AND YEAR(a.ma_muestreo_fechat) = @year AND a.ma_muestreo_fechat > '1900-01-01')
+                )`;
             } else if (year) {
                 request.input('year', sql.Int, parseInt(year));
-                whereClause += ` AND YEAR(a.fecha_muestreo) = @year`;
+                whereClause += ` AND (
+                    YEAR(a.fecha_muestreo) = @year
+                 OR (YEAR(a.ma_muestreo_fechat) = @year AND a.ma_muestreo_fechat > '1900-01-01')
+                )`;
             }
 
             const result = await request.query(`
@@ -1412,10 +1447,17 @@ class FichaIngresoService {
             request.input('estado_new', sql.VarChar(50), estadoNuevo || '');
             request.input('obs', sql.VarChar(sql.MAX), observacion || '');
 
+            // F-01g: timestamp en hora local de Chile (Continental UTC-4 / UTC-3 con DST).
+            // El DEFAULT de la columna fecha en BD usa GETUTCDATE(), causando offset.
+            // Pasamos el datetime convertido a Santiago para que se guarde la hora local correcta.
+            const chileNowStr = new Date().toLocaleString('en-US', { timeZone: 'America/Santiago' });
+            const chileNow = new Date(chileNowStr);
+            request.input('fecha', sql.DateTime, chileNow);
+
             await request.query(`
-                INSERT INTO mae_ficha_historial(id_fichaingresoservicio, id_usuario, accion, estado_anterior, estado_nuevo, observacion)
-            VALUES(@id_ficha, @id_usuario, @accion, @estado_ant, @estado_new, @obs)
-                `);
+                INSERT INTO mae_ficha_historial(id_fichaingresoservicio, id_usuario, accion, estado_anterior, estado_nuevo, observacion, fecha)
+                VALUES(@id_ficha, @id_usuario, @accion, @estado_ant, @estado_new, @obs, @fecha)
+            `);
         } catch (error) {
             logger.error('Error logging history:', error);
             // Don't block main flow if history fails, but good to know
@@ -1829,7 +1871,8 @@ class FichaIngresoService {
                     .map(r => parseInt(r.id_fichaingresoservicio || r.fichaingresoservicio))
                     .filter(n => Number.isInteger(n) && n > 0);
                 const encQuery = ids.length
-                    ? `SELECT id_fichaingresoservicio, referencia_googlemaps, ma_coordenadas, id_objetivomuestreo_ma
+                    ? `SELECT id_fichaingresoservicio, referencia_googlemaps, ma_coordenadas, id_objetivomuestreo_ma,
+                              id_validaciontecnica, estado_ficha
                        FROM App_Ma_FichaIngresoServicio_ENC
                        WHERE id_fichaingresoservicio IN (${ids.join(',')})`
                     : null;
@@ -1837,7 +1880,7 @@ class FichaIngresoService {
                     if (!encQuery) throw new Error('no ids');
                     const encResult = await pool.request().query(encQuery);
                     const encMap = new Map(encResult.recordset.map(row => [row.id_fichaingresoservicio, row]));
-                    
+
                     result.recordset = result.recordset.map(row => {
                         const id = row.id_fichaingresoservicio || Number(row.fichaingresoservicio);
                         const encData = encMap.get(id);
@@ -1845,8 +1888,18 @@ class FichaIngresoService {
                             ...row,
                             id_objetivomuestreo_ma: encData?.id_objetivomuestreo_ma || null,
                             ref_google: encData?.referencia_googlemaps || null,
-                            ma_coordenadas: encData?.ma_coordenadas || null
+                            ma_coordenadas: encData?.ma_coordenadas || null,
+                            id_validaciontecnica: encData?.id_validaciontecnica ?? null,
+                            estado_ficha: encData?.estado_ficha || null
                         };
+                    });
+
+                    // A-01 / R-11: excluir fichas no listas para asignación/ruta.
+                    // Estados: 1 (Pend. Coord.), 2 (Rech. Téc.), 3 (Aprob. inicial), 4 (Rech. Coord.), 7 (Cancelado)
+                    // → excluir. 5 (EN PROCESO) y 6 (PEND. PROGRAMACIÓN) → conservar.
+                    result.recordset = result.recordset.filter(row => {
+                        const v = row.id_validaciontecnica;
+                        return v === 5 || v === 6 || v === null;
                     });
                 } catch (encError) {
                     logger.warn('Failed to fetch augment coordinates for assignment list:', encError);
@@ -1943,8 +1996,16 @@ class FichaIngresoService {
                 } catch (agendaError) {
                     logger.warn('Failed to augment agenda summary:', agendaError);
                 }
+
+                // A-01: para fichas EN PROCESO (estado 5), solo conservar las que aún tienen servicios disponibles.
+                // Las que ya tienen todos los servicios agendados/en_ruta no deben aparecer en la lista de asignación.
+                result.recordset = result.recordset.filter(row => {
+                    if (row.id_validaciontecnica !== 5) return true;
+                    const disponibles = Number(row.servicios_disponibles || 0);
+                    return disponibles > 0;
+                });
             }
-            
+
             return result.recordset;
         } catch (error) {
             logger.error('SP MAM_FichaComercial_ConsultaCoordinador failed', error);
@@ -2135,25 +2196,22 @@ class FichaIngresoService {
                 }
 
                 // 1. ACTUALIZAR App_Ma_Agenda_MUESTREOS
-                const dateObj = new Date(fecha);
-                const day = dateObj.getUTCDate();
-                const month = dateObj.getUTCMonth() + 1;
-                const year = dateObj.getUTCFullYear();
+                // A-05/A-06: fecha y muestreador son opcionales individualmente; si vienen null se conserva el valor previo.
+                const dateObj = fecha ? new Date(fecha) : null;
+                const day = dateObj ? dateObj.getUTCDate() : null;
+                const month = dateObj ? dateObj.getUTCMonth() + 1 : null;
+                const year = dateObj ? dateObj.getUTCFullYear() : null;
 
-                // Auto-calculate fechaRetiro when not provided:
-                // If the old record had both a fecha_muestreo and fecha_retiro, preserve the same
-                // interval (in days) between installation and removal when the user only changes the install date.
+                // Auto-calcular fechaRetiro cuando hay fecha de instalación pero no de retiro
                 let retiroDateObj = fechaRetiro ? new Date(fechaRetiro) : null;
-                if (!retiroDateObj) {
+                if (!retiroDateObj && dateObj) {
                     const hist = historicalData.get(String(id));
                     if (hist && hist.fecha_muestreo && hist.fecha_retiro) {
                         const oldInstall = new Date(hist.fecha_muestreo);
                         const oldRetiro  = new Date(hist.fecha_retiro);
-                        // Only auto-calculate if the old retiro was valid (not 1900-01-01 or distant past)
                         const oldRetiroYear = oldRetiro.getUTCFullYear();
                         if (oldRetiroYear > 1900) {
                             const intervalDays = Math.round((oldRetiro - oldInstall) / (1000 * 60 * 60 * 24));
-                            // Apply the same interval to the new install date
                             retiroDateObj = new Date(dateObj.getTime());
                             retiroDateObj.setUTCDate(retiroDateObj.getUTCDate() + intervalDays);
                             logger.info(`[REAGENDA] Auto-calculated fechaRetiro: install ${dateObj.toISOString()} + ${intervalDays}d = ${retiroDateObj.toISOString()}`);
@@ -2168,27 +2226,27 @@ class FichaIngresoService {
                 updateRequest.input('dia', sql.Int, day);
                 updateRequest.input('mes', sql.Int, month);
                 updateRequest.input('ano', sql.Int, year);
-                updateRequest.input('idMuestreadorInstalacion', sql.Numeric(10, 0), idMuestreadorInstalacion);
-                updateRequest.input('idMuestreadorRetiro', sql.Numeric(10, 0), idMuestreadorRetiro);
+                updateRequest.input('idMuestreadorInstalacion', sql.Numeric(10, 0), idMuestreadorInstalacion ?? null);
+                updateRequest.input('idMuestreadorRetiro', sql.Numeric(10, 0), idMuestreadorRetiro ?? null);
                 updateRequest.input('idEstadoMuestreo', sql.Int, 1); // Estado: Asignado
                 updateRequest.input('idCoordinador', sql.Numeric(10, 0), user.id || 0);
                 updateRequest.input('id_agenda', sql.Numeric(10, 0), id);
-                // FIX: Persist frecuencia_correlativo
                 updateRequest.input('frecuenciaCorrelativo', sql.VarChar(50), frecuenciaCorrelativo || 'PorAsignar');
 
+                // A-05/A-06: usar COALESCE para conservar valor previo cuando el parámetro es null.
                 await updateRequest.query(`
-                    UPDATE App_Ma_Agenda_MUESTREOS 
-                    SET fecha_muestreo = @fecha,
-                        ma_muestreo_fechat = @fechaRetiro,
-                        fecha_retiro = @fechaRetiro,
-                dia = @dia,
-                mes = @mes,
-                ano = @ano,
-                id_muestreador = @idMuestreadorInstalacion,
-                id_muestreador2 = @idMuestreadorRetiro,
-                id_estadomuestreo = @idEstadoMuestreo,
-                id_coordinador = @idCoordinador,
-                frecuencia_correlativo = @frecuenciaCorrelativo
+                    UPDATE App_Ma_Agenda_MUESTREOS
+                    SET fecha_muestreo = COALESCE(@fecha, fecha_muestreo),
+                        ma_muestreo_fechat = COALESCE(@fechaRetiro, ma_muestreo_fechat),
+                        fecha_retiro = COALESCE(@fechaRetiro, fecha_retiro),
+                        dia = COALESCE(@dia, dia),
+                        mes = COALESCE(@mes, mes),
+                        ano = COALESCE(@ano, ano),
+                        id_muestreador = COALESCE(@idMuestreadorInstalacion, id_muestreador),
+                        id_muestreador2 = COALESCE(@idMuestreadorRetiro, id_muestreador2),
+                        id_estadomuestreo = @idEstadoMuestreo,
+                        id_coordinador = @idCoordinador,
+                        frecuencia_correlativo = @frecuenciaCorrelativo
                     WHERE id_agendamam = @id_agenda
                       AND (estado_caso IS NULL OR estado_caso NOT IN ('CANCELADO', 'REALIZADO'))
                 `);
@@ -2748,13 +2806,37 @@ class FichaIngresoService {
             await transaction.begin();
             logger.info(`Iniciando cancelación de muestreo: Agenda ${idAgenda}, Ficha ${idFicha}`);
 
+            // 0. Validar estado actual: no permitir cancelar si ya está cancelado o ejecutado (C-04 / C-05)
+            const stateReq = new sql.Request(transaction);
+            stateReq.input('id_agenda_check', sql.Numeric(18, 0), idAgenda);
+            const stateResult = await stateReq.query(`
+                SELECT estado_caso, id_estadomuestreo, realizado_por_gem
+                FROM App_Ma_Agenda_MUESTREOS
+                WHERE id_agendamam = @id_agenda_check
+            `);
+            if (stateResult.recordset.length === 0) {
+                await transaction.rollback();
+                throw new Error('El muestreo no existe');
+            }
+            const currentState = stateResult.recordset[0];
+            const currentEstado = (currentState.estado_caso || '').toUpperCase();
+            if (currentEstado.includes('CANCELAD') || currentEstado.includes('ANULAD')) {
+                await transaction.rollback();
+                throw new Error('Este muestreo ya está cancelado');
+            }
+            // id_estadomuestreo = 3 → REALIZADO; realizado_por_gem indica ejecución
+            if (currentState.id_estadomuestreo === 3 || currentState.realizado_por_gem) {
+                await transaction.rollback();
+                throw new Error('No se puede cancelar un muestreo ya ejecutado');
+            }
+
             // 1. Cancelar Item de Agenda (Individual)
             const agendaReq = new sql.Request(transaction);
             agendaReq.input('id_agenda', sql.Numeric(18, 0), idAgenda);
             agendaReq.input('motivo', sql.VarChar(500), observations || '');
             agendaReq.input('id_estado', sql.Int, idEstadoMuestreo || 99); // Fallback to 99 if not provided
             await agendaReq.query(`
-                UPDATE App_Ma_Agenda_MUESTREOS 
+                UPDATE App_Ma_Agenda_MUESTREOS
                 SET estado_caso = 'CANCELADO',
                     id_estadomuestreo = @id_estado,
                     motivo_cancelacion = @motivo
@@ -2954,8 +3036,13 @@ class FichaIngresoService {
         const pool = await getConnection();
         const request = pool.request();
         request.input('id', sql.Numeric(10, 0), id);
+        // M-06: traer también datos de ejecución del muestreo (fechas reales, totalizadores, ejecutor GEM)
         const agendaRes = await request.query(`
             SELECT a.id_agendamam, a.frecuencia_correlativo, a.fecha_muestreo,
+                   a.ma_muestreo_fechai, a.ma_muestreo_fechat,
+                   a.muestreador_fechai, a.muestreador_fechat,
+                   a.totalizador_inicio, a.totalizador_final,
+                   a.realizado_por_gem, a.estado_caso,
                    m1.nombre_muestreador as instalacion,
                    m2.nombre_muestreador as retiro,
                    e.nombre_estadomuestreo
@@ -3185,6 +3272,48 @@ class FichaIngresoService {
                 prepareHeader: () => doc.font("Helvetica-Bold").fontSize(9).fillColor('black'),
                 prepareRow: () => doc.font("Helvetica").fontSize(8).fillColor('#374151')
             });
+
+            // M-06: sección con datos REALES de ejecución (cuando hay muestreos ejecutados)
+            const ejecutados = agenda.filter(a => {
+                const esEjecutado = (a.realizado_por_gem && String(a.realizado_por_gem).trim().length > 0)
+                    || (a.ma_muestreo_fechai && new Date(a.ma_muestreo_fechai).getFullYear() > 1900)
+                    || (a.totalizador_inicio && Number(a.totalizador_inicio) > 0)
+                    || (a.totalizador_final && Number(a.totalizador_final) > 0);
+                return esEjecutado;
+            });
+            if (ejecutados.length > 0) {
+                doc.moveDown(1);
+                addSectionTitle('Datos de Ejecución del Muestreo');
+                const formatDateTime = (d) => {
+                    if (!d) return '-';
+                    const dt = new Date(d);
+                    if (isNaN(dt.getTime()) || dt.getFullYear() < 1901) return '-';
+                    return dt.toLocaleString('es-CL', { timeZone: 'America/Santiago' });
+                };
+                const tableEjec = {
+                    headers: [
+                        { label: "Corr.", property: "corr", width: 80 },
+                        { label: "Inst. Real", property: "instReal", width: 95 },
+                        { label: "Retiro Real", property: "retReal", width: 95 },
+                        { label: "Totaliz. Inicio", property: "tIni", width: 70 },
+                        { label: "Totaliz. Final", property: "tFin", width: 70 },
+                        { label: "Ejecutado por", property: "porGem", width: 100 }
+                    ],
+                    rows: ejecutados.map(a => [
+                        a.frecuencia_correlativo || '',
+                        formatDateTime(a.ma_muestreo_fechai || a.muestreador_fechai),
+                        formatDateTime(a.ma_muestreo_fechat || a.muestreador_fechat),
+                        a.totalizador_inicio != null ? String(a.totalizador_inicio) : '-',
+                        a.totalizador_final != null ? String(a.totalizador_final) : '-',
+                        a.realizado_por_gem || '-'
+                    ])
+                };
+                doc.table(tableEjec, {
+                    width: 510,
+                    prepareHeader: () => doc.font("Helvetica-Bold").fontSize(9).fillColor('black'),
+                    prepareRow: () => doc.font("Helvetica").fontSize(8).fillColor('#374151')
+                });
+            }
         }
     }
 

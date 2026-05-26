@@ -269,20 +269,24 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
             }
         }
 
+        // F-01b: capturar normativa y tabla/referencia activas para guardarlas POR análisis
+        const normativaObj = normativas.find(n => String(n.id_normativa) === String(normativa));
+        const referenciaObj = referencias.find(r => String(r.id_normativareferencia) === String(referencia));
+
         const newSavedAnalysis = Array.from(selectedAnalysis).map((id, index) => {
             const analysis = analysisResults.find(a => String(a.id_referenciaanalisis) === id);
-            
+
             let specificDeliveryId = tempDeliveries[id];
             if (tipoMuestra === 'Terreno') {
                 const directaOption = tiposEntrega.find((t: any) => t.nombre_tipoentrega && t.nombre_tipoentrega.toUpperCase().includes('DIRECTA'));
                 specificDeliveryId = directaOption?.id_tipoentrega || '';
             }
-            
+
             const selectedTipoEntregaObj = tiposEntrega.find((t: any) => String(t.id_tipoentrega) === String(specificDeliveryId));
-            
+
             const specificLabId = tempLabs[id];
             const selectedLabObj = laboratorios.find((l: any) => String(l.id_laboratorioensayo) === String(specificLabId));
-            
+
             const specificLabId2 = tempLabs2[id];
             const selectedLabObj2 = laboratorios.find((l: any) => String(l.id_laboratorioensayo) === String(specificLabId2));
 
@@ -291,13 +295,18 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                 tipo_analisis: tipoMuestra,
                 nombre_tipoentrega: selectedTipoEntregaObj?.nombre_tipoentrega || '',
                 uf_individual: 0,
+                // Normativa y referencia por análisis (F-01b)
+                id_normativa: normativaObj?.id_normativa ?? Number(normativa),
+                nombre_normativa: normativaObj?.nombre_normativa || '',
+                id_normativareferencia: referenciaObj?.id_normativareferencia ?? Number(referencia),
+                nombre_normativareferencia: referenciaObj?.nombre_normativareferencia || '',
                 // Laboratorio 1
                 nombre_laboratorioensayo: tipoMuestra === 'Terreno' ? '' : (selectedLabObj?.nombre_laboratorioensayo || ''),
                 id_laboratorioensayo: tipoMuestra === 'Terreno' ? 0 : (selectedLabObj?.id_laboratorioensayo || 0),
                 // Laboratorio 2
                 nombre_laboratorioensayo_2: tipoMuestra === 'Terreno' ? '' : (selectedLabObj2?.nombre_laboratorioensayo || ''),
                 id_laboratorioensayo_2: tipoMuestra === 'Terreno' ? 0 : (selectedLabObj2?.id_laboratorioensayo || 0),
-                
+
                 item: savedAnalysis.length + index + 1,
                 id_tipoentrega: selectedTipoEntregaObj?.id_tipoentrega || specificDeliveryId,
                 id_transporte: 0,
@@ -640,6 +649,8 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                             <Table.Thead bg="gray.0" pos="sticky" top={0} style={{ zIndex: 1 }}>
                                 <Table.Tr>
                                     <Table.Th>Análisis</Table.Th>
+                                    <Table.Th>Normativa</Table.Th>
+                                    <Table.Th>Tabla / Referencia</Table.Th>
                                     <Table.Th>Muestra</Table.Th>
                                     <Table.Th ta="right">L. Min</Table.Th>
                                     <Table.Th ta="right">L. Max</Table.Th>
@@ -658,6 +669,8 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                                     savedAnalysis.map(analysis => (
                                         <Table.Tr key={analysis.savedId}>
                                             <Table.Td fz="sm" fw={500}>{analysis.nombre_tecnica}</Table.Td>
+                                            <Table.Td fz="xs">{analysis.nombre_normativa || '-'}</Table.Td>
+                                            <Table.Td fz="xs">{analysis.nombre_normativareferencia || '-'}</Table.Td>
                                             <Table.Td fz="xs">{analysis.tipo_analisis}</Table.Td>
                                             <Table.Td fz="xs" ta="right">{analysis.limitemax_d ?? '-'}</Table.Td>
                                             <Table.Td fz="xs" ta="right">{analysis.limitemax_h ?? '-'}</Table.Td>
@@ -691,13 +704,13 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                                         </Table.Tr>
                                     ))
                                 ) : (
-                                    <Table.Tr><Table.Td colSpan={12} ta="center" py="xl" c="dimmed">No hay análisis grabados</Table.Td></Table.Tr>
+                                    <Table.Tr><Table.Td colSpan={14} ta="center" py="xl" c="dimmed">No hay análisis grabados</Table.Td></Table.Tr>
                                 )}
                             </Table.Tbody>
                             {savedAnalysis.length > 0 && (
                                 <Table.Tfoot pos="sticky" bottom={0} style={{ zIndex: 1 }} bg="gray.1">
                                     <Table.Tr>
-                                        <Table.Td colSpan={8} ta="right" fw={700} c="indigo.9" fz="sm">
+                                        <Table.Td colSpan={10} ta="right" fw={700} c="indigo.9" fz="sm">
                                             UF TOTAL DE LA FICHA:
                                         </Table.Td>
                                         <Table.Td>

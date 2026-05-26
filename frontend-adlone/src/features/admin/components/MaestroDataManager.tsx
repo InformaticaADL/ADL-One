@@ -256,17 +256,47 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
     };
 
     const handleSave = async () => {
+        // MA-01: validar que al menos el campo display tenga valor, y que el formulario no esté vacío.
+        const displayCol = config.displayColumn;
+        const idCol = config.idName;
+        const missing: string[] = [];
+
+        // Validar campo principal (display)
+        if (displayCol) {
+            const val = formData[displayCol];
+            if (val === undefined || val === null || String(val).trim() === '') {
+                missing.push(formatHeader(displayCol));
+            }
+        }
+
+        // Validar que el form tenga algún valor en general (no todo vacío)
+        const hasAnyValue = Object.entries(formData).some(([k, v]) => {
+            if (k === idCol) return false;
+            if (v === undefined || v === null) return false;
+            if (typeof v === 'string' && v.trim() === '') return false;
+            return true;
+        });
+        if (!hasAnyValue) {
+            showToast({ type: 'error', message: 'Debe completar al menos un campo para guardar' });
+            return;
+        }
+
+        if (missing.length > 0) {
+            showToast({
+                type: 'error',
+                message: `Faltan campos obligatorios: ${missing.join(', ')}`
+            });
+            return;
+        }
+
         setSaving(true);
         try {
             if (editingItem) {
-                // Update
                 const idValue = editingItem[config.idName];
-                // Clean data (don't send ID in the update body if not needed, or send carefully)
                 const { [config.idName]: _, ...cleanData } = formData;
                 await catalogosService.updateMaestro(config.tableName, config.idName, idValue, cleanData);
                 showToast({ type: 'success', message: 'Registro actualizado correctamente' });
             } else {
-                // Create
                 await catalogosService.createMaestro(config.tableName, formData);
                 showToast({ type: 'success', message: 'Registro creado correctamente' });
             }
@@ -307,7 +337,6 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
         const currentStatus = item[statusCol];
         const idValue = item[config.idName];
 
-        // Detect value type and toggle accordingly
         let newStatus: any;
         let isNowActive: boolean;
         if (typeof currentStatus === 'boolean') {
@@ -317,9 +346,20 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
             newStatus = currentStatus === 1 ? 0 : 1;
             isNowActive = newStatus === 1;
         } else {
-            // String 'S'/'N' or similar
             newStatus = (currentStatus === 'S' || currentStatus === 'V' || currentStatus === 'A') ? 'N' : 'S';
             isNowActive = newStatus === 'S';
+        }
+
+        // MA-03: advertencia previa al deshabilitar (registros podrían estar en uso por fichas activas)
+        if (!isNowActive) {
+            const displayName = config.displayColumn ? item[config.displayColumn] : `#${idValue}`;
+            const ok = window.confirm(
+                `¿Deshabilitar "${displayName}"?\n\n` +
+                `Atención: si este registro está en uso por fichas activas, podría afectar su visualización. ` +
+                `Las fichas existentes mantendrán el valor pero ya no podrá seleccionarse para nuevas fichas.\n\n` +
+                `¿Desea continuar?`
+            );
+            if (!ok) return;
         }
 
         try {
@@ -690,9 +730,9 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
                                                 <Title order={5}>Cliente Asociado</Title>
                                             </Group>
                                             <Group align="flex-end" gap="sm">
-                                                <Select 
+                                                <Select
                                                     placeholder="Seleccione cliente..."
-                                                    data={dependencyData.map(c => ({ value: String(c.id || c.id_empresa), label: c.nombre || c.nombre_empresa }))}
+                                                    data={dependencyData.map(c => ({ value: String(c.id || c.id_empresa), label: String(c.nombre || c.nombre_empresa || '(sin nombre)') }))}
                                                     value={formData.id_empresa ? String(formData.id_empresa) : null}
                                                     onChange={(v) => setFormData({ ...formData, id_empresa: v })}
                                                     searchable
@@ -715,9 +755,9 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
                                                 <Title order={5}>Componente Asociado</Title>
                                             </Group>
                                             <Group align="flex-end" gap="sm">
-                                                <Select 
+                                                <Select
                                                     placeholder="Seleccione componente..."
-                                                    data={dependencyData.map(c => ({ value: String(c.id || c.id_tipomuestra), label: c.nombre || c.nombre_tipomuestra }))}
+                                                    data={dependencyData.map(c => ({ value: String(c.id || c.id_tipomuestra), label: String(c.nombre || c.nombre_tipomuestra || '(sin nombre)') }))}
                                                     value={formData.id_tipomuestra ? String(formData.id_tipomuestra) : null}
                                                     onChange={(v) => setFormData({ ...formData, id_tipomuestra: v })}
                                                     searchable

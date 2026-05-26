@@ -432,6 +432,31 @@ frontend-adlone/
 - **Gestión Avanzada de Rutas**: Ajustes en backend (`ficha`, `rutas-planificadas`, `rutas-ejecuciones`) para una ejecución y trazabilidad operativa más robusta.
 - **Integración de Cambios**: Sincronización transparente con el módulo de administración de usuarios remoto.
 
+### 62. Sistema Completo de Recuperación de Contraseña (Mayo 2026) 🔐📧
+- **S-14 a S-17 — Flujo de Reset por Email**: Implementación completa del ciclo de vida de recuperación de contraseña con token de un solo uso.
+  - `auth.service.js` — `requestPasswordReset`, `validateResetToken`, `consumeResetToken` con hashing SHA-256 y expiración configurable (60 min).
+  - `auth.controller.js` — Endpoints `POST /forgot-password`, `GET /validate-reset-token`, `POST /reset-password`; respuesta genérica siempre `200` para no filtrar existencia de emails (S-15).
+  - `auth.routes.js` — Rutas públicas sin autenticación.
+  - `email.service.js` — Método `sendPasswordReset` con plantilla HTML corporativa, botón de acción y versión de texto plano.
+  - `ResetPasswordPage.tsx` — Página frontend con flujo de 2 pasos: ingreso de nueva contraseña + confirmación visual.
+  - `App.tsx` — Detección de ruta `/reset-password` para renderizar la página antes del login.
+  - `LoginForm.tsx` — Modal de "Recuperar Contraseña" completamente rehecho: formulario de email funcional con `forgotSent` para feedback post-envío; reemplaza la pantalla estática de contacto informática.
+- **S-17**: Invalidación automática de tokens previos al solicitar uno nuevo.
+- **S-13 — Bloqueo de Cuenta**: `auth.service.js` incrementa intentos fallidos y bloquea tras N intentos; `clearFailedLoginAttempts` se llama tras reset exitoso; `auth.controller.js` retorna HTTP 423 con código `ACCOUNT_LOCKED`.
+- **Migración de Base de Datos** (`db-migrations/phase5-auth-tables.sql`):
+  - Tabla `mae_login_attempts` — Registra intentos fallidos con bloqueo temporal.
+  - Tabla `mae_password_reset_tokens` — Tokens hash SHA-256 con `expires_at`, `used_at` e IP del solicitante.
+  - Columna `permisos_version` en `mae_usuario` — Invalida JWTs al deshabilitar o cambiar permisos de un usuario (RB-04 / RB-07).
+
+### 63. Correcciones de Integridad en Asignación y Cancelación de Muestreos (Mayo 2026) 🛠️🔒
+- **A-05 / A-06 — COALESCE en UPDATE**: La asignación de muestreos ahora usa `COALESCE(@param, columna_actual)`, preservando el valor previo cuando el frontend envía `null` para un campo no modificado.
+- **C-04 / C-05 — Validación pre-cancelación**: El backend valida el estado actual antes de cancelar; lanza error descriptivo si el muestreo ya está `CANCELADO`, `ANULADO` o `REALIZADO` (id_estadomuestreo = 3).
+- **M-06 — Datos de ejecución en PDF**: La ficha PDF incluye una nueva sección "Datos de Ejecución del Muestreo" con fechas reales de instalación/retiro, totalizadores inicio/final y nombre del ejecutor GEM, visible solo cuando hay muestreos ejecutados.
+- **MS-04 — Asignaciones futuras del muestreador**: Nuevo endpoint y consulta SQL `getMuestreadorFutureAssignments` que retorna la lista de servicios futuros activos antes de desactivar un muestreador.
+- **MS-05 — Conservación de clave en edición**: Al actualizar un muestreador sin cambiar la clave, el servicio lee y reenvía la clave actual para no sobrescribirla con vacío.
+- **Refinamiento de FichaUniversalView, AssignmentDetailView, EnProcesoCalendarView, RutasListView**: Mejoras de UI, manejo de estados y visualización de datos de ejecución en el frontend.
+- **notificationStore.ts**: Store Zustand dedicado para el centro de notificaciones con persistencia y conteo de no leídas.
+
 ---
 
 ## 🔧 Configuración para Desarrollo
@@ -460,6 +485,12 @@ Para evitar el envío a usuarios reales durante el desarrollo:
 EMAIL_TO_LIST=tu_correo_dev@adldiagnostic.cl
 EMAIL_TO_REJECT_LIST=tu_correo_dev@adldiagnostic.cl
 EMAIL_BCC_LIST=tu_correo_dev@adldiagnostic.cl
+```
+
+### Variables de Entorno — Seguridad / Auth
+```env
+FRONTEND_URL=http://localhost:5173   # URL base del frontend (usada en links de reset de contraseña)
+EMAIL_FROM=no-reply@adldiagnostic.cl # Dirección remitente de correos del sistema
 ```
 
 ### Ejecución Local
@@ -495,6 +526,8 @@ npm run dev       # Puerto 5173
 | **Chat** | Socket.io (tiempo real, grupos y directos) | ✅ Estable |
 | **Rutas Logísticas** | Leaflet + Backend geoespacial | ✅ Estable |
 | **KPI Dashboard** | Recharts + Análisis automático | ✅ Estable |
+| **Recuperación de Contraseña** | Token SHA-256 + Nodemailer + ResetPasswordPage | ✅ Implementado |
+| **Seguridad de Cuenta (S-13)** | Bloqueo por intentos fallidos + permisos_version JWT | ✅ Implementado |
 
 ---
 

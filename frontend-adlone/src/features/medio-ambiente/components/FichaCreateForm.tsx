@@ -95,7 +95,7 @@ const SuccessModal = ({
     );
 };
 
-export const FichaCreateForm = ({ onBackToMenu }: { onBackToMenu: () => void }) => {
+export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () => void; onSuccess?: () => void }) => {
     const isMobile = useMediaQuery('(max-width: 550px)');
     const isVerySmall = useMediaQuery('(max-width: 450px)');
     const { user } = useAuth();
@@ -173,7 +173,12 @@ export const FichaCreateForm = ({ onBackToMenu }: { onBackToMenu: () => void }) 
     const handleCloseSuccess = () => {
         setShowSuccessModal(false);
         setCreatedFichaId(null);
-        onBackToMenu();
+        // F-01a: tras crear, ir al listado de fichas en lugar del selector
+        if (onSuccess) {
+            onSuccess();
+        } else {
+            onBackToMenu();
+        }
     };
 
     const handleViewFicha = () => {
@@ -205,14 +210,23 @@ export const FichaCreateForm = ({ onBackToMenu }: { onBackToMenu: () => void }) 
                 />
 
                 <Paper withBorder p={0} radius="lg" shadow="sm" style={{ width: '100% !important', maxWidth: '100% !important', overflow: 'hidden' }}>
-                    <Tabs 
-                        value={activeTab} 
+                    <Tabs
+                        value={activeTab}
                         onChange={(val) => {
+                            // F-11: bloquear salto de tabs sin haber completado las anteriores
+                            if (val === 'analisis' && !isAntecedentesValid) {
+                                showToast({ type: 'warning', message: 'Complete primero los antecedentes obligatorios' });
+                                return;
+                            }
+                            if (val === 'observaciones' && (!isAntecedentesValid || savedAnalysis.length === 0)) {
+                                showToast({ type: 'warning', message: 'Complete antecedentes y al menos un análisis primero' });
+                                return;
+                            }
                             setActiveTab(val);
                             scrollToTop();
-                        }} 
-                        variant="outline" 
-                        radius="md" 
+                        }}
+                        variant="outline"
+                        radius="md"
                         style={{ width: '100% !important' }}
                     >
                         <Tabs.List grow style={{ borderBottom: '1px solid #dee2e6' }}>

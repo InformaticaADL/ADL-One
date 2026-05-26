@@ -18,6 +18,8 @@ router.delete('/muestreadores/:id', verifyToken, verifyPermission('AI_MA_DESHABI
 router.post('/muestreadores/:id/disable-with-reassignment', verifyToken, verifyPermission('AI_MA_DESHABILITAR_MUESTREADOR'), validateRequest(adminValidationSchemas.disableMuestreadorWithReassignment), adminController.disableMuestreadorWithReassignment);
 router.put('/muestreadores/:id/enable', verifyToken, verifyPermission('AI_MA_DESHABILITAR_MUESTREADOR'), adminController.enableMuestreador);
 router.get('/muestreadores/check-duplicate', verifyToken, adminController.checkDuplicateMuestreador);
+// MS-04: contar muestreos futuros asignados al muestreador para advertir antes de deshabilitar
+router.get('/muestreadores/:id/future-assignments', verifyToken, verifyPermission(['MA_MUESTREADORES', 'AI_MA_DESHABILITAR_MUESTREADOR']), adminController.getMuestreadorFutureAssignments);
 router.get('/muestreadores/export-pdf', verifyToken, verifyPermission('MU_EXP'), adminController.downloadMuestreadoresPdf);
 
 // --- DASHBOARD ---
@@ -31,7 +33,8 @@ router.get('/export-table', verifyToken, validateRequest(adminValidationSchemas.
 router.get('/export-pdf', verifyToken, verifyPermission('MU_EXP'), adminController.downloadBulkPdf);
 
 // --- EQUIPOS ---
-router.get('/equipos/comparison-resampling', verifyToken, verifyPermission('MA_A_GEST_EQUIPO'), equipoController.getEquipmentComparison);
+// A-09: usado durante asignación de remuestreos — permitir a usuarios con FI_GEST_ASIG, además del admin de equipos
+router.get('/equipos/comparison-resampling', verifyToken, verifyPermission(['MA_A_GEST_EQUIPO', 'FI_GEST_ASIG']), equipoController.getEquipmentComparison);
 router.get('/equipos/catalogo', verifyToken, verifyPermission('MA_A_GEST_EQUIPO'), equipoController.getEquipoCatalogo);
 router.post('/equipos/catalogo', verifyToken, verifyPermission('AI_MA_CREAR_EQUIPO'), equipoController.createEquipoCatalogo);
 router.put('/equipos/catalogo/:id', verifyToken, verifyPermission('AI_MA_EDITAR_EQUIPO'), equipoController.updateEquipoCatalogo);

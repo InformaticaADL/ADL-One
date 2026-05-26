@@ -84,14 +84,26 @@ export const MuestreadorForm: React.FC<Props> = ({
     }, [initialData]);
 
     const handleFileChange = (file: File | null) => {
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                const base64 = reader.result as string;
-                setFormData(prev => ({ ...prev, firma_muestreador: base64 }));
-            };
-            reader.readAsDataURL(file);
+        if (!file) return;
+        // MS-06: validar tipo (solo imagen png/jpg/jpeg)
+        const validTypes = ['image/png', 'image/jpeg', 'image/jpg'];
+        if (!validTypes.includes(file.type)) {
+            showToast({ type: 'error', message: 'La firma debe ser una imagen PNG o JPG. Formato no permitido.' });
+            return;
         }
+        // MS-07: validar tamaño máximo 2 MB (suficiente para firmas)
+        const MAX_SIZE = 2 * 1024 * 1024;
+        if (file.size > MAX_SIZE) {
+            const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+            showToast({ type: 'error', message: `La firma supera el tamaño máximo (${sizeMb} MB). Máximo permitido: 2 MB.` });
+            return;
+        }
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            const base64 = reader.result as string;
+            setFormData(prev => ({ ...prev, firma_muestreador: base64 }));
+        };
+        reader.readAsDataURL(file);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -102,12 +114,16 @@ export const MuestreadorForm: React.FC<Props> = ({
 
         try {
             if (initialData?.id_muestreador) {
-                await adminService.updateMuestreador(initialData.id_muestreador, {
+                // MS-05: si el usuario no escribió clave nueva, no la enviamos (se conserva la actual).
+                const payload: any = {
                     nombre: formData.nombre_muestreador,
                     correo: formData.correo_electronico,
-                    clave: formData.clave_usuario,
                     firma: formData.firma_muestreador
-                });
+                };
+                if (formData.clave_usuario && formData.clave_usuario.trim()) {
+                    payload.clave = formData.clave_usuario;
+                }
+                await adminService.updateMuestreador(initialData.id_muestreador, payload);
                 showToast({ type: 'success', message: 'Muestreador actualizado correctamente' });
             } else {
                 // Check for duplicates
@@ -194,11 +210,13 @@ export const MuestreadorForm: React.FC<Props> = ({
 
                             <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
                                 <PasswordInput
-                                    label="Clave de Acceso"
-                                    placeholder="******"
-                                    required
+                                    label={initialData?.id_muestreador ? "Clave de Acceso (opcional)" : "Clave de Acceso"}
+                                    placeholder={initialData?.id_muestreador ? "Dejar vacío para conservar la actual" : "******"}
+                                    required={!initialData?.id_muestreador}
                                     maxLength={6}
-                                    description={`${claveLength} / 6 caracteres`}
+                                    description={initialData?.id_muestreador
+                                        ? `${claveLength} / 6 caracteres — solo escriba si desea cambiarla`
+                                        : `${claveLength} / 6 caracteres`}
                                     value={formData.clave_usuario ?? ''}
                                     onChange={(e) => setFormData({ ...formData, clave_usuario: e.target.value })}
                                     radius="md"

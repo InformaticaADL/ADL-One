@@ -24,7 +24,8 @@ class RutasPlanificadasController {
             return successResponse(res, grupo, 'Grupo creado correctamente', 201);
         } catch (error) {
             logger.error('Error creando grupo:', error);
-            return errorResponse(res, 'Error al crear el grupo', 500, error.message);
+            // R-05: propagar mensaje y statusCode (ej. 409 si duplicado)
+            return errorResponse(res, error.message || 'Error al crear el grupo', error.statusCode || 500);
         }
     }
 
@@ -37,7 +38,7 @@ class RutasPlanificadasController {
             return successResponse(res, grupo, 'Grupo actualizado correctamente');
         } catch (error) {
             logger.error('Error actualizando grupo:', error);
-            return errorResponse(res, 'Error al actualizar el grupo', 500, error.message);
+            return errorResponse(res, error.message || 'Error al actualizar el grupo', error.statusCode || 500);
         }
     }
 

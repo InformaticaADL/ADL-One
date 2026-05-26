@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Plan de Pruebas — ADL ONE</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+  :root {
+    --primary: #1a56db;
+    --primary-light: #ebf0ff;
+    --red: #e02424;
+    --red-light: #fef2f2;
+    --yellow: #d97706;
+    --yellow-light: #fffbeb;
+    --green: #057a55;
+    --green-light: #ecfdf5;
+    --gray: #6b7280;
+    --gray-light: #f9fafb;
+    --border: #e5e7eb;
+    --text: #111827;
+    --text-muted: #6b7280;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--text);
+    background: #fff;
+    padding: 40px 48px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  /* ── COVER ── */
+  .cover {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 56px 0 48px;
+    border-bottom: 3px solid var(--primary);
+    margin-bottom: 40px;
+  }
+  .cover-badge {
+    background: var(--primary-light);
+    color: var(--primary);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 999px;
+    margin-bottom: 20px;
+  }
+  .cover h1 {
+    font-size: 34px;
+    font-weight: 800;
+    color: var(--text);
+    line-height: 1.2;
+    margin-bottom: 8px;
+  }
+  .cover h1 span { color: var(--primary); }
+  .cover-sub {
+    font-size: 16px;
+    color: var(--text-muted);
+    margin-bottom: 28px;
+  }
+  .cover-meta {
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+  }
+  .cover-meta-item { display: flex; flex-direction: column; gap: 2px; }
+  .cover-meta-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted); }
+  .cover-meta-value { font-size: 13px; font-weight: 600; color: var(--text); }
+
+  /* ── LEGEND ── */
+  .legend {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 36px;
+    padding: 16px 20px;
+    background: var(--gray-light);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+  .legend-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted); width: 100%; margin-bottom: 4px; }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .badge-red    { background: var(--red-light);    color: var(--red);    border: 1px solid #fecaca; }
+  .badge-yellow { background: var(--yellow-light); color: var(--yellow); border: 1px solid #fde68a; }
+  .badge-green  { background: var(--green-light);  color: var(--green);  border: 1px solid #a7f3d0; }
+  .badge-gray   { background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; }
+  .legend-desc  { font-size: 11px; color: var(--text-muted); display: flex; align-items: center; }
+
+  /* ── SECTION ── */
+  .section { margin-bottom: 44px; page-break-inside: avoid; }
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--primary-light);
+  }
+  .section-number {
+    background: var(--primary);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .section h2 {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--primary);
+    letter-spacing: -.01em;
+  }
+  .subsection { margin-bottom: 24px; }
+  .subsection h3 {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+    padding-left: 2px;
+  }
+
+  /* ── TABLE ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    margin-bottom: 4px;
+  }
+  thead tr { background: #f1f5f9; }
+  thead th {
+    text-align: left;
+    padding: 8px 12px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  tbody tr { transition: background .1s; }
+  tbody tr:nth-child(even) { background: var(--gray-light); }
+  tbody td {
+    padding: 7px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  .col-id   { width: 58px; font-weight: 600; color: var(--primary); white-space: nowrap; }
+  .col-p    { width: 80px; text-align: center; }
+  .col-area { width: 110px; }
+  .col-risk { width: 200px; }
+
+  /* ── PRIORITY PILLS ── */
+  .p-critical { color: var(--red); font-weight: 700; font-size: 11px; }
+  .p-high     { color: var(--yellow); font-weight: 700; font-size: 11px; }
+  .p-medium   { color: var(--green); font-weight: 700; font-size: 11px; }
+  .p-low      { color: var(--gray); font-weight: 700; font-size: 11px; }
+
+  /* ── CRITERIA BLOCK ── */
+  .criteria {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-top: 8px;
+  }
+  .criteria-card {
+    padding: 14px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+  .criteria-card.red    { background: var(--red-light);    border-color: #fecaca; }
+  .criteria-card.yellow { background: var(--yellow-light); border-color: #fde68a; }
+  .criteria-card.green  { background: var(--green-light);  border-color: #a7f3d0; }
+  .criteria-card.gray   { background: #f9fafb;             border-color: #d1d5db; }
+  .criteria-card .title { font-size: 12px; font-weight: 700; margin-bottom: 4px; }
+  .criteria-card.red    .title { color: var(--red); }
+  .criteria-card.yellow .title { color: var(--yellow); }
+  .criteria-card.green  .title { color: var(--green); }
+  .criteria-card.gray   .title { color: #374151; }
+  .criteria-card p { font-size: 11px; color: var(--text-muted); line-height: 1.5; }
+
+  /* ── PRINT ── */
+  @media print {
+    body { padding: 20px 30px; font-size: 11px; }
+    .cover { padding: 24px 0 28px; }
+    .cover h1 { font-size: 26px; }
+    .section { page-break-inside: avoid; }
+    thead { display: table-header-group; }
+    tr { page-break-inside: avoid; }
+    .criteria { grid-template-columns: repeat(2, 1fr); }
+    @page { margin: 15mm 12mm; size: A4; }
+  }
+</style>
+</head>
+<body>
+
+<!-- COVER -->
+<div class="cover">
+  <div class="cover-badge">Aseguramiento de Calidad</div>
+  <h1>Plan de Pruebas<br/><span>ADL ONE</span></h1>
+  <p class="cover-sub">Plataforma de Gestión Ambiental y Operaciones</p>
+  <div class="cover-meta">
+    <div class="cover-meta-item">
+      <span class="cover-meta-label">Versión</span>
+      <span class="cover-meta-value">1.0</span>
+    </div>
+    <div class="cover-meta-item">
+      <span class="cover-meta-label">Fecha</span>
+      <span class="cover-meta-value">Mayo 2026</span>
+    </div>
+    <div class="cover-meta-item">
+      <span class="cover-meta-label">Tipo</span>
+      <span class="cover-meta-value">QA Funcional + Casos Borde</span>
+    </div>
+    <div class="cover-meta-item">
+      <span class="cover-meta-label">Módulos</span>
+      <span class="cover-meta-value">15 secciones · 190+ casos</span>
+    </div>
+  </div>
+</div>
+
+<!-- LEGEND -->
+<div class="legend">
+  <div class="legend-title">Escala de Prioridad</div>
+  <span class="badge badge-red">🔴 Crítico</span><span class="legend-desc">— Bloquea operación. Debe pasar antes de producción.</span>
+  <span class="badge badge-yellow">🟡 Alto</span><span class="legend-desc">— Impacta flujo principal. Alta probabilidad de ocurrir.</span>
+  <span class="badge badge-green">🟢 Medio</span><span class="legend-desc">— Caso borde realista. Puede ocurrir en uso normal.</span>
+  <span class="badge badge-gray">⚪ Bajo</span><span class="legend-desc">— Poco probable pero posible. No bloquea lanzamiento.</span>
+</div>
+
+<!-- 1. SESIONES -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-number">1</div>
+    <h2>Sesiones y Acceso</h2>
+  </div>
+
+  <div class="subsection">
+    <h3>1.1 Inicio de Sesión</h3>
+    <table>
+      <thead><tr><th class="col-id">#</th><th>Caso de prueba</th><th class="col-p">Prioridad</th><th>Resultado esperado</th></tr></thead>
+      <tbody>
+        <tr><td class="col-id">S-01</td><td>Login con credenciales correctas</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Redirige al dashboard según rol asignado</td></tr>
+        <tr><td class="col-id">S-02</td><td>Login con contraseña incorrecta</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Mensaje de error claro, no revela si el usuario existe</td></tr>
+        <tr><td class="col-id">S-03</td><td>Login con usuario inexistente</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Mismo mensaje genérico que contraseña incorrecta</td></tr>
+        <tr><td class="col-id">S-04</td><td>Login con usuario deshabilitado</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Mensaje específico: "Tu cuenta está deshabilitada"</td></tr>
+        <tr><td class="col-id">S-05</td><td>"Recuérdame" activo → cerrar browser → reabrir</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Sesión persiste, usuario logueado automáticamente</td></tr>
+        <tr><td class="col-id">S-06</td><td>Sin "Recuérdame" → cerrar tab → reabrir</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Sesión no persiste, redirige a login</td></tr>
+        <tr><td class="col-id">S-07</td><td>Token JWT expirado con sesión activa</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Logout automático o renovación silenciosa sin perder trabajo</td></tr>
+        <tr><td class="col-id">S-08</td><td>Mismo usuario logueado en dos tabs distintas</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Ambas sesiones funcionan correctamente</td></tr>
+        <tr><td class="col-id">S-09</td><td>Mismo usuario en dos navegadores distintos</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Ambas funcionan o se invalida la anterior según política</td></tr>
+        <tr><td class="col-id">S-10</td><td>Pegar URL de ruta interna estando deslogueado</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Redirige a login, luego vuelve a la ruta original</td></tr>
+        <tr><td class="col-id">S-11</td><td>Credenciales con espacios al inicio/final</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Se trimea correctamente o falla con mensaje claro</td></tr>
+        <tr><td class="col-id">S-12</td><td>Contraseña con caracteres especiales (!@#$%&'"&lt;&gt;)</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Login exitoso si son las credenciales correctas</td></tr>
+        <tr><td class="col-id">S-13</td><td>5+ intentos fallidos consecutivos</td><td class="col-p"><span class="p-low">⚪ Bajo</span></td><td>Verificar si hay bloqueo temporal o alerta de seguridad</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="subsection">
+    <h3>1.2 Olvidé mi Contraseña</h3>
+    <table>
+      <thead><tr><th class="col-id">#</th><th>Caso de prueba</th><th class="col-p">Prioridad</th><th>Resultado esperado</th></tr></thead>
+      <tbody>
+        <tr><td class="col-id">S-14</td><td>Reset con email registrado</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Email llega con link funcional</td></tr>
+        <tr><td class="col-id">S-15</td><td>Reset con email NO registrado</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Respuesta genérica (no revelar si el email existe)</td></tr>
+        <tr><td class="col-id">S-16</td><td>Link de reset ya usado o expirado</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>"El link ya fue utilizado o ha expirado"</td></tr>
+        <tr><td class="col-id">S-17</td><td>Solicitar reset dos veces con el mismo email</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Solo el último link es válido</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="subsection">
+    <h3>1.3 Cierre de Sesión</h3>
+    <table>
+      <thead><tr><th class="col-id">#</th><th>Caso de prueba</th><th class="col-p">Prioridad</th><th>Resultado esperado</th></tr></thead>
+      <tbody>
+        <tr><td class="col-id">S-18</td><td>Logout manual</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Token eliminado, redirige a login</td></tr>
+        <tr><td class="col-id">S-19</td><td>Presionar "Atrás" del browser después de logout</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>No muestra contenido protegido, redirige a login</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 2. FICHAS DE INGRESO -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-number">2</div>
+    <h2>Fichas de Ingreso</h2>
+  </div>
+
+  <div class="subsection">
+    <h3>2.1 Creación Manual</h3>
+    <table>
+      <thead><tr><th class="col-id">#</th><th>Caso de prueba</th><th class="col-p">Prioridad</th><th>Resultado esperado</th></tr></thead>
+      <tbody>
+        <tr><td class="col-id">F-01</td><td>Crear ficha con todos los campos obligatorios correctos</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Ficha creada, ID asignado, modal de éxito con el número correcto</td></tr>
+        <tr><td class="col-id">F-02</td><td>Intentar guardar con campos obligatorios vacíos</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Botón "Grabar" deshabilitado o errores visibles por campo</td></tr>
+        <tr><td class="col-id">F-03</td><td>Selects en cascada: cambiar empresa → fuente emisora se filtra</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Lista de fuentes actualizada según empresa seleccionada</td></tr>
+        <tr><td class="col-id">F-04</td><td>Duración 24h → fecha instalación debe ser 1 día antes del retiro</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Offset de 1 día respetado en asignación posterior</td></tr>
+        <tr><td class="col-id">F-05</td><td>Duración &lt; 24h → instalación y retiro el mismo día</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Sin offset, fechas iguales permitidas</td></tr>
+        <tr><td class="col-id">F-06</td><td>Referencia Google Maps con URL larga válida (!3d!4d)</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Coordenadas del lugar exacto extraídas, mapa preview visible</td></tr>
+        <tr><td class="col-id">F-07</td><td>Referencia con short link maps.app.goo.gl/…</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Redirect seguido, coordenadas extraídas correctamente</td></tr>
+        <tr><td class="col-id">F-08</td><td>Referencia con coordenadas puras: -41.45,-72.92</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Reconocido como válido, coordenadas guardadas</td></tr>
+        <tr><td class="col-id">F-09</td><td>Referencia con texto basura: "noaplica", "asd", "-"</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Error inline en el campo, no llama al backend</td></tr>
+        <tr><td class="col-id">F-10</td><td>Link de Maps con solo @lat,lon (sin !3d!4d)</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Advertencia: coordenadas aproximadas del viewport</td></tr>
+        <tr><td class="col-id">F-11</td><td>Tab "Análisis" sin análisis → botón "Siguiente" deshabilitado</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>No puede continuar sin al menos un análisis</td></tr>
+        <tr><td class="col-id">F-12</td><td>Tab "Observaciones" en blanco → "Grabar" deshabilitado</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Validación activa, no permite guardar</td></tr>
+        <tr><td class="col-id">F-13</td><td>Crear dos fichas seguidas sin recargar la página</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Segundo formulario inicia limpio, sin datos previos</td></tr>
+        <tr><td class="col-id">F-14</td><td>Escribir rápido en múltiples campos seguidos</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Sin lag, todos los valores guardados correctamente al final</td></tr>
+        <tr><td class="col-id">F-15</td><td>Seleccionar "No aplica" en Instrumento Ambiental</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Campos Nro/Año deshabilitados o no requeridos</td></tr>
+        <tr><td class="col-id">F-16</td><td>Campo Duración con valor no numérico ("horas", "1.5a")</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Error de validación claro</td></tr>
+        <tr><td class="col-id">F-17</td><td>Crear ficha como usuario sin permiso FI_CREAR</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Botón oculto o error 403 descriptivo</td></tr>
+        <tr><td class="col-id">F-18</td><td>Backend tarda 10+ segundos en responder</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Loader visible durante todo el proceso, sin doble submit</td></tr>
+        <tr><td class="col-id">F-19</td><td>Click en "Grabar" dos veces rápido</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Solo se crea una ficha (protección de doble envío)</td></tr>
+        <tr><td class="col-id">F-20</td><td>Campo "Glosa" con 150+ caracteres</td><td class="col-p"><span class="p-low">⚪ Bajo</span></td><td>Truncado al límite o error de validación con mensaje claro</td></tr>
+        <tr><td class="col-id">F-21</td><td>Formulario en pantalla móvil (&lt; 550px)</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Layout responsivo, todos los campos utilizables</td></tr>
+        <tr><td class="col-id">F-22</td><td>Pérdida de conexión durante el guardado</td><td class="col-p"><span class="p-low">⚪ Bajo</span></td><td>Error manejado, datos no perdidos (permanece en formulario)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="subsection">
+    <h3>2.2 Vista Detalle de Ficha</h3>
+    <table>
+      <thead><tr><th class="col-id">#</th><th>Caso de prueba</th><th class="col-p">Prioridad</th><th>Resultado esperado</th></tr></thead>
+      <tbody>
+        <tr><td class="col-id">F-23</td><td>Abrir ficha recién creada</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Todos los datos coinciden exactamente con lo ingresado</td></tr>
+        <tr><td class="col-id">F-24</td><td>Ficha con coordenadas guardadas</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Link/mapa visible que abre Google Maps en la ubicación correcta</td></tr>
+        <tr><td class="col-id">F-25</td><td>Ficha sin coordenadas (link inválido o ausente)</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Muestra texto del link sin mapa, sin errores en pantalla</td></tr>
+        <tr><td class="col-id">F-26</td><td>Descarga de PDF de la ficha</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>PDF descargado, información completa y bien formateada</td></tr>
+        <tr><td class="col-id">F-27</td><td>PDF de ficha con campos "No aplica"</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>"No aplica" visible en el PDF, sin campos vacíos sin texto</td></tr>
+        <tr><td class="col-id">F-28</td><td>Nombre de archivo PDF correcto</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Nombre incluye el ID de la ficha (ej: ficha_123.pdf)</td></tr>
+        <tr><td class="col-id">F-29</td><td>Aprobación técnica con permiso FI_APROBAR_TEC</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Estado cambia correctamente, notificación generada</td></tr>
+        <tr><td class="col-id">F-30</td><td>Intento de aprobación sin el permiso correspondiente</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Botón oculto o error 403 claro</td></tr>
+        <tr><td class="col-id">F-31</td><td>Rechazo con observaciones vacías</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Error de validación, no permite rechazar sin motivo</td></tr>
+        <tr><td class="col-id">F-32</td><td>Ficha en estado "PENDIENTE ÁREA COORDINACIÓN"</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Botón "Gestionar Asignación" deshabilitado con tooltip explicativo</td></tr>
+        <tr><td class="col-id">F-33</td><td>Ver historial de cambios de la ficha</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Usuario, fecha y acción de cada cambio visibles</td></tr>
+        <tr><td class="col-id">F-34</td><td>Ficha de remuestreo → referencia a ficha original</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Link o indicador visible hacia la ficha madre</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="subsection">
+    <h3>2.3 Edición de Fichas</h3>
+    <table>
+      <thead><tr><th class="col-id">#</th><th>Caso de prueba</th><th class="col-p">Prioridad</th><th>Resultado esperado</th></tr></thead>
+      <tbody>
+        <tr><td class="col-id">F-35</td><td>Abrir edición → todos los campos prellenados</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Sin campos vacíos inesperados</td></tr>
+        <tr><td class="col-id">F-36</td><td>Modificar link de Google Maps al editar</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Coordenadas re-resueltas y actualizadas en BD</td></tr>
+        <tr><td class="col-id">F-37</td><td>Guardar sin modificar nada</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Sin error, auditoría registrada igualmente</td></tr>
+        <tr><td class="col-id">F-38</td><td>Cambiar Duración de 48h a 0 → recalcular offset</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Asignaciones futuras sin offset de fecha</td></tr>
+        <tr><td class="col-id">F-39</td><td>Editar ficha que ya tiene muestreos asignados</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Advertencia o restricción según reglas del negocio</td></tr>
+        <tr><td class="col-id">F-40</td><td>Auditoría: registrar quién editó, qué campo y cuándo</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Historial completo visible en el detalle de la ficha</td></tr>
+        <tr><td class="col-id">F-41</td><td>Editar ficha sin permiso FI_EDITAR</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Opción de edición no disponible para ese usuario</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 3. ASIGNACIÓN TERRENO -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-number">3</div>
+    <h2>Asignación Terreno</h2>
+  </div>
+
+  <div class="subsection">
+    <h3>3.1 Asignación Manual</h3>
+    <table>
+      <thead><tr><th class="col-id">#</th><th>Caso de prueba</th><th class="col-p">Prioridad</th><th>Resultado esperado</th></tr></thead>
+      <tbody>
+        <tr><td class="col-id">A-01</td><td>Lista muestra solo fichas pendientes de asignación</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Sin fichas ejecutadas o canceladas mezcladas</td></tr>
+        <tr><td class="col-id">A-02</td><td>Ficha 24h → fecha instalación auto-calculada al ingresar retiro</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Campo instalación = retiro - 1 día, precargado automáticamente</td></tr>
+        <tr><td class="col-id">A-03</td><td>Ficha &lt;24h → instalación = retiro (mismo día)</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Sin offset, fechas iguales</td></tr>
+        <tr><td class="col-id">A-04</td><td>Guardar instalación = retiro en ficha de 24h</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Error de validación claro antes de guardar</td></tr>
+        <tr><td class="col-id">A-05</td><td>Asignar solo muestreador sin fechas</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Comportamiento permitido o error según regla de negocio</td></tr>
+        <tr><td class="col-id">A-06</td><td>Asignar solo fechas sin muestreador</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Comportamiento permitido o error según regla de negocio</td></tr>
+        <tr><td class="col-id">A-07</td><td>Fecha de retiro anterior a fecha de instalación</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Error de validación antes de guardar</td></tr>
+        <tr><td class="col-id">A-08</td><td>Muestreador instalación ≠ muestreador retiro</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Ambos guardados correctamente e independientemente</td></tr>
+        <tr><td class="col-id">A-09</td><td>Lo asignado desde Rutas reflejado en asignación manual</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Fechas y muestreadores precargados desde la ejecución de ruta</td></tr>
+        <tr><td class="col-id">A-10</td><td>Formato de fechas guardadas en BD</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Fecha correcta, sin desfase de zona horaria (no epoch, no +1 día)</td></tr>
+        <tr><td class="col-id">A-11</td><td>Asignar ficha que ya fue asignada previamente</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Sobreescribe o crea nuevo correlativo según lógica definida</td></tr>
+        <tr><td class="col-id">A-12</td><td>Dos usuarios asignan la misma ficha simultáneamente</td><td class="col-p"><span class="p-low">⚪ Bajo</span></td><td>No se genera asignación duplicada ni conflicto silencioso</td></tr>
+        <tr><td class="col-id">A-13</td><td>Filtros combinados (cliente, fuente, fecha)</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Resultados correctamente filtrados en todos los casos</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="subsection">
+    <h3>3.2 Rutas (Mapa y Planificación)</h3>
+    <table>
+      <thead><tr><th class="col-id">#</th><th>Caso de prueba</th><th class="col-p">Prioridad</th><th>Resultado esperado</th></tr></thead>
+      <tbody>
+        <tr><td class="col-id">R-01</td><td>Mapa carga fichas correctamente posicionadas</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Pins en ubicaciones reales, no en coordenadas del viewport</td></tr>
+        <tr><td class="col-id">R-02</td><td>Fichas sin coordenadas (ubicacion_lat null)</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Sin crash, indicador visual "sin coordenadas"</td></tr>
+        <tr><td class="col-id">R-03</td><td>Trazar ruta entre fichas → línea sigue calles</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Ruta por calles, no línea recta entre puntos</td></tr>
+        <tr><td class="col-id">R-04</td><td>Ruta con ficha de 24h → offset de fecha por ficha</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Fecha instalación = retiro - 1 día por cada ficha según su duración</td></tr>
+        <tr><td class="col-id">R-05</td><td>Crear grupo con nombre duplicado</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Error o advertencia de nombre duplicado</td></tr>
+        <tr><td class="col-id">R-06</td><td>Guardar ruta sin fichas</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Validación: no se puede guardar ruta vacía</td></tr>
+        <tr><td class="col-id">R-07</td><td>Grupo con 50+ rutas asignadas</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Sin degradación de rendimiento en la lista</td></tr>
+        <tr><td class="col-id">R-08</td><td>Eliminar grupo que tiene rutas asociadas</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Advertencia + desasociar rutas o bloquear eliminación</td></tr>
+        <tr><td class="col-id">R-09</td><td>Asignar ruta → registro en historial de ejecuciones</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Registro con fecha, muestreadores y lista de fichas</td></tr>
+        <tr><td class="col-id">R-10</td><td>Usuario con MA_RUTA_CREAR (sin FI_GEST_ASIG) puede asignar rutas</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Sin error 403 — ya corregido, verificar en producción</td></tr>
+        <tr><td class="col-id">R-11</td><td>Ficha de ruta en estado "PENDIENTE COORDINACIÓN"</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>No incluida en ejecución o advertencia clara visible</td></tr>
+        <tr><td class="col-id">R-12</td><td>App móvil respeta el orden de la ruta asignada</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Orden por orden_ruta de mae_rutas_ejecuciones_detalle</td></tr>
+        <tr><td class="col-id">R-13</td><td>Ruta con una sola ficha</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Funciona sin requerir mínimo 2 puntos</td></tr>
+        <tr><td class="col-id">R-14</td><td>Clonar ruta → hereda fichas y grupo correctamente</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Sin referencias cruzadas con la ruta original</td></tr>
+        <tr><td class="col-id">R-15</td><td>Filtros en listado de rutas (nombre, grupo, estado)</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Resultados correctos con filtros combinados</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 4. MUESTREOS COMPLETADOS -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-number">4</div>
+    <h2>Muestreos Completados</h2>
+  </div>
+  <table>
+    <thead><tr><th class="col-id">#</th><th>Caso de prueba</th><th class="col-p">Prioridad</th><th>Resultado esperado</th></tr></thead>
+    <tbody>
+      <tr><td class="col-id">M-01</td><td>Lista muestra solo fichas con muestreos ejecutados</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Sin mezcla con fichas pendientes</td></tr>
+      <tr><td class="col-id">M-02</td><td>Filtros combinados (fecha, cliente, muestreador)</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Resultados correctos y precisos</td></tr>
+      <tr><td class="col-id">M-03</td><td>Detalle de muestreo con fechas y muestreadores correctos</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Datos coinciden con lo registrado en BD</td></tr>
+      <tr><td class="col-id">M-04</td><td>Crear remuestreo desde ficha ejecutada</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Nueva ficha referenciando la original correctamente</td></tr>
+      <tr><td class="col-id">M-05</td><td>Remuestreo de ficha que ya tiene remuestreo previo</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Permitido o advertencia según regla de negocio</td></tr>
+      <tr><td class="col-id">M-06</td><td>Exportar ficha completada como PDF</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>PDF con datos del muestreo ejecutado (fechas reales)</td></tr>
+      <tr><td class="col-id">M-07</td><td>Abrir documento adjunto (informe, acta)</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Documento abre o descarga correctamente</td></tr>
+      <tr><td class="col-id">M-08</td><td>Reenviar documento seleccionando destinatario específico</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Email llega solo al destinatario seleccionado</td></tr>
+      <tr><td class="col-id">M-09</td><td>Marcar como "Realizado GEM" → registra fecha/hora y usuario</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Timestamp automático, sin posibilidad de modificación retroactiva</td></tr>
+      <tr><td class="col-id">M-10</td><td>Marcar como realizado una ficha ya marcada</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Error claro o botón deshabilitado</td></tr>
+      <tr><td class="col-id">M-11</td><td>Paginación con 200+ muestreos</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Sin degradación de rendimiento</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 5. CALENDARIO -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-number">5</div>
+    <h2>Calendario</h2>
+  </div>
+  <table>
+    <thead><tr><th class="col-id">#</th><th>Caso de prueba</th><th class="col-p">Prioridad</th><th>Resultado esperado</th></tr></thead>
+    <tbody>
+      <tr><td class="col-id">C-01</td><td>Vista mensual con fichas en fechas correctas</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Coincide con fechas de retiro en BD</td></tr>
+      <tr><td class="col-id">C-02</td><td>Cambio de vista (mes / semana / día / lista)</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Todas las vistas funcionan sin errores</td></tr>
+      <tr><td class="col-id">C-03</td><td>Responsividad en móvil</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Vista adaptada y usable en pantalla pequeña</td></tr>
+      <tr><td class="col-id">C-04</td><td>Cancelar ficha pendiente desde calendario</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Estado cambia, no aparece más en calendario activo</td></tr>
+      <tr><td class="col-id">C-05</td><td>Intentar cancelar ficha ya ejecutada</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Botón de cancelación ausente o deshabilitado</td></tr>
+      <tr><td class="col-id">C-06</td><td>Reasignar fecha a ficha desde calendario</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Nueva fecha guardada, muestreador mantiene o se puede cambiar</td></tr>
+      <tr><td class="col-id">C-07</td><td>Reasignar fecha a una pasada (ej: hace 3 días)</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Advertencia o restricción según regla de negocio</td></tr>
+      <tr><td class="col-id">C-08</td><td>Calendario con 50+ fichas en el mismo día</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Sin crash, paginación o scroll dentro del día</td></tr>
+      <tr><td class="col-id">C-09</td><td>Filtros combinados (muestreador, cliente, estado)</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Resultados correctos y actualizados</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 6. EQUIPOS -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-number">6</div>
+    <h2>Gestión de Equipos</h2>
+  </div>
+  <table>
+    <thead><tr><th class="col-id">#</th><th>Caso de prueba</th><th class="col-p">Prioridad</th><th>Resultado esperado</th></tr></thead>
+    <tbody>
+      <tr><td class="col-id">E-01</td><td>Crear equipo con todos los campos correctos</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Equipo creado, auditoría registrada con usuario y timestamp</td></tr>
+      <tr><td class="col-id">E-02</td><td>Crear equipo con número de serie duplicado</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Error de validación claro</td></tr>
+      <tr><td class="col-id">E-03</td><td>Editar equipo → campos prellenados correctamente</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Sin datos faltantes en el formulario de edición</td></tr>
+      <tr><td class="col-id">E-04</td><td>Crear nueva versión de equipo</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Versión anterior queda como histórico, nueva como activa</td></tr>
+      <tr><td class="col-id">E-05</td><td>Deshabilitar equipo asignado a muestreo futuro</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Advertencia: "Equipo asignado a muestreos programados"</td></tr>
+      <tr><td class="col-id">E-06</td><td>Notificación de equipo por vencer (N días antes)</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Notificación aparece con anticipación, desaparece al renovar</td></tr>
+      <tr><td class="col-id">E-07</td><td>Equipo vencido → indicador visual en listado</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Badge o color diferenciador claro en la lista</td></tr>
+      <tr><td class="col-id">E-08</td><td>Exportar lista de equipos con filtros aplicados</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Archivo refleja exactamente los datos filtrados</td></tr>
+      <tr><td class="col-id">E-09</td><td>Filtros combinados (tipo, estado, vencimiento)</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Resultados correctos al combinar múltiples filtros</td></tr>
+      <tr><td class="col-id">E-10</td><td>Flujo de solicitud pendiente de equipo</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Solicitud cambia estado correctamente en cada paso</td></tr>
+      <tr><td class="col-id">E-11</td><td>Crear equipo con fecha de vencimiento en el pasado</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Advertencia o error de validación</td></tr>
+      <tr><td class="col-id">E-12</td><td>Auditoría de creación, edición y deshabilitación</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Historial visible con usuario, acción y timestamp</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 7. MUESTREADORES -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-number">7</div>
+    <h2>Gestión de Muestreadores</h2>
+  </div>
+  <table>
+    <thead><tr><th class="col-id">#</th><th>Caso de prueba</th><th class="col-p">Prioridad</th><th>Resultado esperado</th></tr></thead>
+    <tbody>
+      <tr><td class="col-id">MS-01</td><td>Crear muestreador con datos completos</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Muestreador creado correctamente</td></tr>
+      <tr><td class="col-id">MS-02</td><td>Crear muestreador con RUT duplicado</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Error de validación claro</td></tr>
+      <tr><td class="col-id">MS-03</td><td>Editar muestreador → datos prellenados</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Sin campos vacíos en el formulario</td></tr>
+      <tr><td class="col-id">MS-04</td><td>Deshabilitar muestreador asignado a ruta o muestreo futuro</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Advertencia visible antes de confirmar</td></tr>
+      <tr><td class="col-id">MS-05</td><td>Cargar firma (imagen PNG/JPG)</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Preview de firma visible después de cargar</td></tr>
+      <tr><td class="col-id">MS-06</td><td>Cargar firma con formato no permitido (PDF, DOCX)</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Error de validación de formato</td></tr>
+      <tr><td class="col-id">MS-07</td><td>Cargar imagen de firma mayor a 5MB</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Error de tamaño máximo permitido</td></tr>
+      <tr><td class="col-id">MS-08</td><td>Firma aparece en PDF de ficha generada</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Imagen de firma visible en el PDF</td></tr>
+      <tr><td class="col-id">MS-09</td><td>Muestreador deshabilitado no aparece en selects de asignación</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>No listado en asignación manual ni en rutas</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 8. SOLICITUDES -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-number">8</div>
+    <h2>Solicitudes (URS)</h2>
+  </div>
+  <table>
+    <thead><tr><th class="col-id">#</th><th>Caso de prueba</th><th class="col-p">Prioridad</th><th>Resultado esperado</th></tr></thead>
+    <tbody>
+      <tr><td class="col-id">U-01</td><td>Solo usuarios con permiso pueden crear cada tipo de solicitud</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Opción no visible para los que no tienen permiso</td></tr>
+      <tr><td class="col-id">U-02</td><td>Crear solicitud con todos los campos correctos</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Solicitud creada en estado "Pendiente"</td></tr>
+      <tr><td class="col-id">U-03</td><td>Aceptar solicitud con permiso de aprobación</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Estado cambia, notificación enviada al creador</td></tr>
+      <tr><td class="col-id">U-04</td><td>Rechazar solicitud con observaciones vacías</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Error: observación obligatoria para rechazar</td></tr>
+      <tr><td class="col-id">U-05</td><td>Derivar a usuario sin rol para recibirla</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Error o lista de derivación filtrada por rol</td></tr>
+      <tr><td class="col-id">U-06</td><td>Flujo completo: crear → revisar → aceptar → notificar</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Cada paso registrado con usuario y timestamp</td></tr>
+      <tr><td class="col-id">U-07</td><td>Notificación web en tiempo real al cambiar estado</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Badge actualiza sin recargar la página</td></tr>
+      <tr><td class="col-id">U-08</td><td>Email de notificación con HTML correcto</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Email bien formateado, no en texto plano</td></tr>
+      <tr><td class="col-id">U-09</td><td>Bandeja con filtros por estado, tipo y fecha</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Resultados correctos al combinar filtros</td></tr>
+      <tr><td class="col-id">U-10</td><td>Chat de solicitud: mensaje y adjunto</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Mensaje visible para todos los participantes en tiempo real</td></tr>
+      <tr><td class="col-id">U-11</td><td>Derivar a usuario deshabilitado</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Error o usuario no aparece en la lista</td></tr>
+      <tr><td class="col-id">U-12</td><td>Crear solicitud duplicada (mismo tipo y período)</td><td class="col-p"><span class="p-low">⚪ Bajo</span></td><td>Advertencia o permisión según regla de negocio</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 9. CHAT -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-number">9</div>
+    <h2>Chat / Mensajes</h2>
+  </div>
+  <table>
+    <thead><tr><th class="col-id">#</th><th>Caso de prueba</th><th class="col-p">Prioridad</th><th>Resultado esperado</th></tr></thead>
+    <tbody>
+      <tr><td class="col-id">CH-01</td><td>Crear chat 1:1 y enviar mensaje</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Mensaje en tiempo real para ambos usuarios</td></tr>
+      <tr><td class="col-id">CH-02</td><td>Enviar emoji</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Emoji renderizado correctamente, no como código</td></tr>
+      <tr><td class="col-id">CH-03</td><td>Enviar archivo adjunto (PDF, imagen)</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Archivo descargable por el receptor</td></tr>
+      <tr><td class="col-id">CH-04</td><td>Enviar archivo mayor al límite</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Error claro con tamaño máximo permitido</td></tr>
+      <tr><td class="col-id">CH-05</td><td>Crear grupo de chat con múltiples usuarios</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Todos los miembros reciben mensajes en tiempo real</td></tr>
+      <tr><td class="col-id">CH-06</td><td>Añadir usuario a grupo existente</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Usuario incorporado y recibe mensajes desde ese momento</td></tr>
+      <tr><td class="col-id">CH-07</td><td>Quitar usuario de grupo</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Usuario deja de recibir nuevos mensajes</td></tr>
+      <tr><td class="col-id">CH-08</td><td>Notificación de nuevo mensaje (badge)</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Badge actualiza sin recargar página</td></tr>
+      <tr><td class="col-id">CH-09</td><td>Marcar chat como favorito</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Aparece en sección de favoritos</td></tr>
+      <tr><td class="col-id">CH-10</td><td>Eliminar chat → confirmación previa</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Modal de confirmación, eliminación irreversible</td></tr>
+      <tr><td class="col-id">CH-11</td><td>Abrir chat en dos tabs simultáneamente</td><td class="col-p"><span class="p-low">⚪ Bajo</span></td><td>Sin mensajes duplicados ni conflictos</td></tr>
+      <tr><td class="col-id">CH-12</td><td>Mensaje muy largo (1000+ caracteres)</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Muestra completo o con "Ver más", sin romper el layout</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 10. NOTIFICACIONES -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-number">10</div>
+    <h2>Notificaciones</h2>
+  </div>
+  <table>
+    <thead><tr><th class="col-id">#</th><th>Caso de prueba</th><th class="col-p">Prioridad</th><th>Resultado esperado</th></tr></thead>
+    <tbody>
+      <tr><td class="col-id">N-01</td><td>Notificación web en tiempo real vía Socket.IO</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Badge actualiza sin recargar la página</td></tr>
+      <tr><td class="col-id">N-02</td><td>Click en notificación → navega al recurso correcto</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Lleva a la ficha, solicitud o chat correspondiente</td></tr>
+      <tr><td class="col-id">N-03</td><td>Marcar notificación como leída</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Badge disminuye, marcada visualmente</td></tr>
+      <tr><td class="col-id">N-04</td><td>Marcar todas como leídas</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Badge desaparece por completo</td></tr>
+      <tr><td class="col-id">N-05</td><td>Email deshabilitado → solo llega notificación web</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>No se envía email, notificación web sí llega</td></tr>
+      <tr><td class="col-id">N-06</td><td>Usuario desconectado recibe notificación → la ve al volver</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Notificaciones persistidas en BD, visibles al reconectar</td></tr>
+      <tr><td class="col-id">N-07</td><td>25+ notificaciones no leídas</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Paginación o "Ver todas", sin corte arbitrario</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 11. USUARIOS Y ROLES -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-number">11</div>
+    <h2>Usuarios y Roles (RBAC)</h2>
+  </div>
+  <table>
+    <thead><tr><th class="col-id">#</th><th>Caso de prueba</th><th class="col-p">Prioridad</th><th>Resultado esperado</th></tr></thead>
+    <tbody>
+      <tr><td class="col-id">RB-01</td><td>Crear usuario con email duplicado</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Error de validación claro</td></tr>
+      <tr><td class="col-id">RB-02</td><td>Crear usuario y asignar rol</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Usuario inicia sesión con los permisos del rol asignado</td></tr>
+      <tr><td class="col-id">RB-03</td><td>Cambiar rol a usuario con sesión activa</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Nuevos permisos aplican en el próximo request o login</td></tr>
+      <tr><td class="col-id">RB-04</td><td>Deshabilitar usuario con sesión activa</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Próximo request devuelve 401/403, logout forzado</td></tr>
+      <tr><td class="col-id">RB-05</td><td>Editar nombre de rol</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Cambio sin afectar permisos asociados al rol</td></tr>
+      <tr><td class="col-id">RB-06</td><td>Agregar permiso a rol → usuarios obtienen acceso</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Acceso nuevo sin necesidad de re-login</td></tr>
+      <tr><td class="col-id">RB-07</td><td>Quitar permiso a rol → acceso denegado</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>403 limpio en el próximo request</td></tr>
+      <tr><td class="col-id">RB-08</td><td>Usuario con AI_MA_ADMIN_ACCESO (super-admin)</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Acceso total sin restricciones por permiso</td></tr>
+      <tr><td class="col-id">RB-09</td><td>Eliminar rol con usuarios asignados</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Advertencia, bloqueo o desasignación automática</td></tr>
+      <tr><td class="col-id">RB-10</td><td>Acceder a URL protegida pegándola sin permiso</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Sin contenido protegido visible, redirect o 403</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 12. MAESTROS -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-number">12</div>
+    <h2>Maestros (Catálogos)</h2>
+  </div>
+  <table>
+    <thead><tr><th class="col-id">#</th><th>Caso de prueba</th><th class="col-p">Prioridad</th><th>Resultado esperado</th></tr></thead>
+    <tbody>
+      <tr><td class="col-id">MA-01</td><td>Crear registro sin campos obligatorios</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Error de validación por campo específico</td></tr>
+      <tr><td class="col-id">MA-02</td><td>Editar registro maestro en uso en fichas activas</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Advertencia o cambio propagado a registros dependientes</td></tr>
+      <tr><td class="col-id">MA-03</td><td>Deshabilitar registro referenciado por ficha activa</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Advertencia: "Este registro está en uso"</td></tr>
+      <tr><td class="col-id">MA-04</td><td>Tabla dependiente → crear con FK inexistente</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Error de FK o validación previa en el frontend</td></tr>
+      <tr><td class="col-id">MA-05</td><td>Buscar en tabla con 500+ registros</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Búsqueda rápida, sin timeout</td></tr>
+      <tr><td class="col-id">MA-06</td><td>Paginación en tablas maestro</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Funciona correctamente al cambiar de página</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 13. DISEÑO -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-number">13</div>
+    <h2>Diseño y Experiencia de Usuario</h2>
+  </div>
+  <table>
+    <thead><tr><th class="col-id">#</th><th>Caso de prueba</th><th class="col-p">Prioridad</th><th>Resultado esperado</th></tr></thead>
+    <tbody>
+      <tr><td class="col-id">DX-01</td><td>Toda la web usa Mantine UI v8 y paleta corporativa</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Sin componentes de otras librerías visualmente mezclados</td></tr>
+      <tr><td class="col-id">DX-02</td><td>Componentes reutilizables consistentes entre módulos</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Cambiar de sección no produce cambio drástico de estilo</td></tr>
+      <tr><td class="col-id">DX-03</td><td>Estados vacíos en todas las tablas</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Mensaje "No hay datos" elegante, sin tablas en blanco</td></tr>
+      <tr><td class="col-id">DX-04</td><td>Estados de carga en todas las peticiones</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Skeleton o spinner visible, sin pantallas en blanco</td></tr>
+      <tr><td class="col-id">DX-05</td><td>Errores del backend legibles para el usuario</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Texto en español, sin stack traces ni mensajes técnicos</td></tr>
+      <tr><td class="col-id">DX-06</td><td>Toasts de éxito/error se cierran solos</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Desaparecen a los ~4-5 segundos</td></tr>
+      <tr><td class="col-id">DX-07</td><td>Confirmación antes de acciones destructivas</td><td class="col-p"><span class="p-critical">🔴 Crítico</span></td><td>Modal de confirmación en: eliminar, deshabilitar, cancelar</td></tr>
+      <tr><td class="col-id">DX-08</td><td>Responsividad en tablet (768px)</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Layout usable sin desbordamientos</td></tr>
+      <tr><td class="col-id">DX-09</td><td>Tablas largas con paginación o scroll infinito</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Sin congelarse con 200+ registros</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 14. ESCENARIOS TRANSVERSALES -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-number">14</div>
+    <h2>Escenarios Transversales de Riesgo</h2>
+  </div>
+  <p style="font-size:11px;color:var(--text-muted);margin-bottom:12px;">Casos poco probables pero con impacto crítico si ocurren en producción.</p>
+  <table>
+    <thead><tr><th class="col-id">#</th><th>Escenario</th><th class="col-area">Área</th><th class="col-p">Prioridad</th><th>Riesgo / Resultado esperado</th></tr></thead>
+    <tbody>
+      <tr><td class="col-id">X-01</td><td>Dos usuarios crean la misma ficha simultáneamente (race condition)</td><td class="col-area">Fichas</td><td class="col-p"><span class="p-low">⚪ Bajo</span></td><td>IDs duplicados o pérdida de datos — debe resolverse en BD</td></tr>
+      <tr><td class="col-id">X-02</td><td>Un usuario edita ficha mientras otro la aprueba al mismo tiempo</td><td class="col-area">Fichas</td><td class="col-p"><span class="p-low">⚪ Bajo</span></td><td>Estado inconsistente — el último en guardar no debe silenciar el conflicto</td></tr>
+      <tr><td class="col-id">X-03</td><td>Muestreador deshabilitado mientras su ruta se está procesando</td><td class="col-area">Rutas</td><td class="col-p"><span class="p-low">⚪ Bajo</span></td><td>Asignación huérfana o error visible al usuario</td></tr>
+      <tr><td class="col-id">X-04</td><td>Link de Maps válido pero de otro país (fuera de Chile)</td><td class="col-area">Fichas</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Coordenadas guardadas correctamente pero fuera del rango geográfico esperado</td></tr>
+      <tr><td class="col-id">X-05</td><td>BD con conexión caída durante guardado de ficha</td><td class="col-area">General</td><td class="col-p"><span class="p-low">⚪ Bajo</span></td><td>Rollback de transacción, datos no quedan a medias</td></tr>
+      <tr><td class="col-id">X-06</td><td>Usuario borra cookies/localStorage con sesión activa</td><td class="col-area">Sesiones</td><td class="col-p"><span class="p-low">⚪ Bajo</span></td><td>Próximo request sin token → 401 limpio, redirect a login</td></tr>
+      <tr><td class="col-id">X-07</td><td>Subir PDF corrupto como documento adjunto</td><td class="col-area">Solicitudes</td><td class="col-p"><span class="p-low">⚪ Bajo</span></td><td>Error manejado, sin crash del servidor</td></tr>
+      <tr><td class="col-id">X-08</td><td>Nombre de empresa con caracteres especiales (&amp;, &lt;, &gt;, ")</td><td class="col-area">Maestros</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Escapado correctamente en vistas y PDF, sin XSS</td></tr>
+      <tr><td class="col-id">X-09</td><td>Importación bulk de 100+ fichas simultáneamente</td><td class="col-area">Fichas</td><td class="col-p"><span class="p-low">⚪ Bajo</span></td><td>Sin timeout ni procesamiento parcial silencioso</td></tr>
+      <tr><td class="col-id">X-10</td><td>Socket.IO desconectado → notificaciones dejan de llegar</td><td class="col-area">Notificaciones</td><td class="col-p"><span class="p-medium">🟢 Medio</span></td><td>Reconexión automática o alerta visible al usuario</td></tr>
+      <tr><td class="col-id">X-11</td><td>Token JWT manipulado manualmente en localStorage</td><td class="col-area">Seguridad</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Backend rechaza con 401, no expone datos protegidos</td></tr>
+      <tr><td class="col-id">X-12</td><td>Email de notificación con HTML inyectado por usuario</td><td class="col-area">Notificaciones</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>HTML sanitizado, no ejecutado en el cliente de email</td></tr>
+      <tr><td class="col-id">X-13</td><td>401 recibido con sesión activa → logout sin perder contexto</td><td class="col-area">Sesiones</td><td class="col-p"><span class="p-high">🟡 Alto</span></td><td>Redirige a login con mensaje, no pantalla en blanco</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 15. CRITERIOS DE ACEPTACIÓN -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-number">15</div>
+    <h2>Criterios de Aceptación</h2>
+  </div>
+  <div class="criteria">
+    <div class="criteria-card red">
+      <div class="title">🔴 Crítico — 100% debe pasar</div>
+      <p>Ningún caso crítico puede fallar antes del lanzamiento a producción. Bloquea el release.</p>
+    </div>
+    <div class="criteria-card yellow">
+      <div class="title">🟡 Alto — 95% debe pasar</div>
+      <p>Los fallos restantes deben tener un workaround documentado y fecha de corrección comprometida.</p>
+    </div>
+    <div class="criteria-card green">
+      <div class="title">🟢 Medio — 80% debe pasar</div>
+      <p>Los casos que fallen entran al backlog priorizado para el siguiente sprint.</p>
+    </div>
+    <div class="criteria-card gray">
+      <div class="title">⚪ Bajo — Documentados</div>
+      <p>Se registran y atienden en iteraciones futuras. No bloquean el lanzamiento.</p>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

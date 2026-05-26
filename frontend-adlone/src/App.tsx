@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import DashboardPage from './pages/DashboardPage';
 import LoginPage from './pages/LoginPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 import './App.css';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
@@ -9,6 +11,11 @@ import logoAdl from './assets/images/logo-adlone.png';
 
 const AppContent = () => {
   const { isAuthenticated, loading } = useAuth();
+  // S-14/15/16/17: detectar URL de reset password
+  const [resetMode, setResetMode] = useState<boolean>(() => {
+    return window.location.pathname.startsWith('/reset-password')
+        || window.location.hash.startsWith('#/reset-password');
+  });
 
   if (loading) {
     return (
@@ -33,6 +40,10 @@ const AppContent = () => {
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
+  }
+
+  if (resetMode && !isAuthenticated) {
+    return <ResetPasswordPage onDone={() => setResetMode(false)} />;
   }
 
   return isAuthenticated ? <DashboardPage /> : <LoginPage />;

@@ -50,6 +50,30 @@ interface Props {
     onBack: () => void;
 }
 
+// F-36: Textarea con estado local — actualiza al padre via startTransition para evitar lag por re-render del componente grande.
+const DeferredTextarea = React.memo(({ value, onChange, placeholder, minRows }: {
+    value: string;
+    onChange: (val: string) => void;
+    placeholder?: string;
+    minRows?: number;
+}) => {
+    const [local, setLocal] = useState(value);
+    React.useEffect(() => { setLocal(value); }, [value]);
+    const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        const next = e.currentTarget.value;
+        setLocal(next);
+        React.startTransition(() => onChange(next));
+    };
+    return (
+        <Textarea
+            value={local}
+            onChange={handleChange}
+            placeholder={placeholder}
+            minRows={minRows}
+        />
+    );
+});
+
 const getStatusProps = (status: string) => {
     const s = (status || '').toUpperCase();
     if (s.includes('RECHAZADA') || s.includes('CANCELADO') || s.includes('REVISAR')) return { color: 'red', label: s };
@@ -167,16 +191,17 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
 
     const handleSaveChanges = async () => {
         if (!fichaId || !antecedentesRef.current) return;
-        if (!newObservation || !newObservation.trim()) {
-            showToast({ type: 'warning', message: 'Debe ingresar una observación para guardar los cambios.' });
-            setActiveTab('observaciones');
-            return;
-        }
+
+        // F-37: si el usuario no ingresó observación, se permite guardar igual con texto por defecto
+        // (la auditoría queda registrada con quién y cuándo).
+        const obsToSave = (newObservation && newObservation.trim())
+            ? newObservation.trim()
+            : 'Edición sin observaciones adicionales';
 
         const payload = {
             antecedentes: antecedentesRef.current.getData(),
             analisis: analysisList,
-            observaciones: newObservation
+            observaciones: obsToSave
         };
 
         try {
@@ -302,7 +327,7 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
         <Box p="md" style={{ width: '100% !important', maxWidth: '100% !important' }}>
             <Stack gap="lg">
                 <PageHeader 
-                    title={`Ficha N° ${data?.fichaingresoservicio || '-'}${data?.es_remuestreo === 'S' ? ` (REMUESTREO DE LA FICHA N° ${data?.id_ficha_original})` : ''}`}
+                    title={`Ficha N° ${data?.fichaingresoservicio || '-'}${(data?.es_remuestreo === 'S' || data?.es_remuestreo === true || data?.es_remuestreo === 1) ? ` (REMUESTREO DE LA FICHA N° ${data?.id_ficha_original})` : ''}`}
                     subtitle={isEditing ? 'Modo Edición' : 'Visor Universal de Ficha'}
                     onBack={onBack}
                     breadcrumbItems={[
@@ -353,6 +378,16 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
                     <Stack gap={0}>
                         {/* Unified Alerts */}
                         <Box p={isMobile ? 'md' : 'xl'} pb={0}>
+                            {/* F-34: banner de remuestreo bien visible */}
+                            {(data?.es_remuestreo === 'S' || data?.es_remuestreo === true || data?.es_remuestreo === 1) && data?.id_ficha_original && (
+                                <Box mb="md">
+                                    <WorkflowAlert
+                                        type="info"
+                                        title={`Ficha de Remuestreo — Original: N° ${data.id_ficha_original}`}
+                                        message="Esta ficha fue generada como remuestreo de la ficha referenciada. Verifique equipos y muestreador originales antes de ejecutar."
+                                    />
+                                </Box>
+                            )}
                             {[1, 2, 3, 4, 5, 6, 7].includes(Number(data?.id_validaciontecnica)) && (
                                 <Box mb="md">
                                     {data.id_validaciontecnica === 3 && <WorkflowAlert type="warning" title="Pendiente Técnica" message="Esta ficha requiere revisión por el Área Técnica." />}
@@ -459,6 +494,54 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                 <StaticField label="Tipo Muestreo" value={data.nombre_tipomuestreo} />
                                                 <StaticField label="Actividad" value={data.nombre_actividadmuestreo} />
                                             </SimpleGrid>
+
+                                            {/* F-24/F-25: Referencia Google Maps + mapa */}
+                                            {(data.referencia_googlemaps || (data.ubicacion_lat && data.ubicacion_lon)) && (
+                                                <>
+                                                    <Divider label="Ubicación" labelPosition="center" />
+                                                    <Stack gap="sm">
+                                                        {data.referencia_googlemaps && (
+                                                            <Paper withBorder p="xs" radius="md" bg="gray.0">
+                                                                <Group justify="space-between" wrap="nowrap">
+                                                                    <Text size="sm" fw={500} truncate title={data.referencia_googlemaps} style={{ flex: 1, minWidth: 0 }}>
+                                                                        {data.referencia_googlemaps}
+                                                                    </Text>
+                                                                    <Button
+                                                                        component="a"
+                                                                        href={data.referencia_googlemaps}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        size="xs"
+                                                                        variant="light"
+                                                                    >
+                                                                        Abrir en Google Maps
+                                                                    </Button>
+                                                                </Group>
+                                                            </Paper>
+                                                        )}
+                                                        {data.ubicacion_lat && data.ubicacion_lon ? (
+                                                            <Paper withBorder p={0} radius="md" style={{ overflow: 'hidden' }}>
+                                                                <iframe
+                                                                    title="Mapa de la ficha"
+                                                                    src={`https://www.openstreetmap.org/export/embed.html?bbox=${Number(data.ubicacion_lon) - 0.01},${Number(data.ubicacion_lat) - 0.01},${Number(data.ubicacion_lon) + 0.01},${Number(data.ubicacion_lat) + 0.01}&layer=mapnik&marker=${data.ubicacion_lat},${data.ubicacion_lon}`}
+                                                                    width="100%"
+                                                                    height="260"
+                                                                    style={{ border: 0 }}
+                                                                />
+                                                                <Box p="xs" bg="gray.0">
+                                                                    <Text size="xs" c="dimmed">
+                                                                        Coordenadas: {data.ubicacion_lat}, {data.ubicacion_lon}
+                                                                    </Text>
+                                                                </Box>
+                                                            </Paper>
+                                                        ) : data.referencia_googlemaps ? (
+                                                            <Text size="xs" c="dimmed" ta="center">
+                                                                Coordenadas no resueltas — verifique el link.
+                                                            </Text>
+                                                        ) : null}
+                                                    </Stack>
+                                                </>
+                                            )}
                                         </Stack>
                                     )}
                                 </Tabs.Panel>
@@ -523,9 +606,9 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                 <Stack gap="sm">
                                                     <Title order={5} c="green.9">Nueva Observación Comercial Requerida</Title>
                                                     <Text size="xs" c="green.7">Describa los motivos de los cambios realizados comercialmente.</Text>
-                                                    <Textarea
+                                                    <DeferredTextarea
                                                         value={newObservation}
-                                                        onChange={(e) => setNewObservation(e.currentTarget.value)}
+                                                        onChange={setNewObservation}
                                                         placeholder="Describa aquí los cambios..."
                                                         minRows={3}
                                                     />
@@ -542,12 +625,11 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                         <Title order={5} c="blue.9">Gestión Técnica: Validación</Title>
                                                     </Group>
                                                     <Text size="xs" c="blue.7">Ingrese sus observaciones técnicas antes de aprobar o solicitar revisión.</Text>
-                                                    <Textarea
+                                                    <DeferredTextarea
                                                         placeholder="Ingrese sus observaciones técnicas aquí..."
                                                         value={tecnicaObs}
-                                                        onChange={(e) => setTecnicaObs(e.currentTarget.value)}
+                                                        onChange={setTecnicaObs}
                                                         minRows={3}
-                                                        radius="md"
                                                     />
                                                     <Group justify="flex-end" mt="md">
                                                         <ProtectedContent permission="FI_APROBAR_TEC">
@@ -578,12 +660,11 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                         <Title order={5} c="grape.9">Gestión Coordinación: Aprobación Logística</Title>
                                                     </Group>
                                                     <Text size="xs" c="grape.7">Ingrese comentarios operativos finales antes de habilitar la Ficha para programación y asignación de terreno.</Text>
-                                                    <Textarea
+                                                    <DeferredTextarea
                                                         placeholder="Ingrese las observaciones de coordinación aquí..."
                                                         value={coordinacionObs}
-                                                        onChange={(e) => setCoordinacionObs(e.currentTarget.value)}
+                                                        onChange={setCoordinacionObs}
                                                         minRows={3}
-                                                        radius="md"
                                                     />
                                                     <Group justify="flex-end" mt="md">
                                                         <ProtectedContent permission="FI_APROBAR_COO">

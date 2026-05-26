@@ -1,7 +1,9 @@
 import { errorResponse } from '../utils/response.js';
 import logger from '../utils/logger.js';
 
-const SUPER_ADMIN_PERMISSION = 'AI_MA_ADMIN_ACCESO';
+// RB-08: super-admin bypass eliminado. Toda la autorización debe pasar por la
+// matriz de roles/permisos almacenada en BD (mae_permiso / rel_rol_permiso).
+// Si se necesita un "rol global", asignar todos los permisos a ese rol en BD.
 
 export const verifyPermission = (requiredPermission) => {
     return (req, res, next) => {
@@ -13,11 +15,6 @@ export const verifyPermission = (requiredPermission) => {
             }
 
             const userPermissions = user.permissions || [];
-
-            if (userPermissions.includes(SUPER_ADMIN_PERMISSION)) {
-                return next();
-            }
-
             const required = Array.isArray(requiredPermission) ? requiredPermission : [requiredPermission];
             const hasPermission = required.some(p => userPermissions.includes(p));
 

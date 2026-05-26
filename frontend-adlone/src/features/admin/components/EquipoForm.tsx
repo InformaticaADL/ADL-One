@@ -374,15 +374,21 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
 
     const handleNext = () => {
         setAttemptedSubmit(true);
-        if (isFormValid) {
-            if (!initialData?.id_equipo) {
-                generateBulkItems(bulkQuantity, formData);
-                setActiveStep(1);
-            } else {
-                setShowSaveConfirm(true);
-            }
-        } else {
+        if (!isFormValid) {
             showToast({ type: 'error', message: 'Por favor complete todos los campos obligatorios.' });
+            return;
+        }
+        // Edición → ir directo a confirmar guardado
+        if (initialData?.id_equipo) {
+            setShowSaveConfirm(true);
+            return;
+        }
+        // E-01: si estamos en step 0 → generar bulk y avanzar; si estamos en step 1 → guardar.
+        if (activeStep === 0) {
+            generateBulkItems(bulkQuantity, formData);
+            setActiveStep(1);
+        } else {
+            setShowSaveConfirm(true);
         }
     };
 
@@ -696,12 +702,24 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                         />
                                     </Grid.Col>
                                     <Grid.Col span={{ base: 12, md: 6 }}>
-                                        <MantineHybridSelect
+                                        {/* E-01: mostrar nombre + código para que el usuario pueda elegir, no IDs crudos */}
+                                        <Select
                                             label="Equipo Asociado"
+                                            placeholder={allEquipos.length === 0 ? 'No hay equipos para asociar' : 'Buscar equipo...'}
                                             value={String(formData.equipo_asociado)}
-                                            options={['No Aplica', ...allEquipos.map(e => String(e.id_equipo))]}
-                                            onChange={(val: any) => setFormData((p: any) => ({ ...p, equipo_asociado: val }))}
-                                            strict={false}
+                                            data={[
+                                                { value: 'No Aplica', label: 'No Aplica' },
+                                                ...allEquipos
+                                                    .filter(e => e && e.id_equipo)
+                                                    .map(e => ({
+                                                        value: String(e.id_equipo),
+                                                        label: `${e.codigo || ''} - ${e.nombre || 'Sin nombre'}`.trim()
+                                                    }))
+                                            ]}
+                                            onChange={(val) => setFormData((p: any) => ({ ...p, equipo_asociado: val || 'No Aplica' }))}
+                                            searchable
+                                            clearable
+                                            nothingFoundMessage="Sin coincidencias"
                                         />
                                     </Grid.Col>
                                 </Grid>

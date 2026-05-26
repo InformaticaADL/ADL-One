@@ -683,23 +683,25 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
         return cargos;
     }, [cargos, responsableMuestreo]);
 
-    const lugaresData = useMemo(() => [{ value: 'No Aplica', label: 'No Aplica' }, ...lugares.map(l => ({ value: String(l.id), label: l.nombre }))], [lugares]);
-    const clientesData = useMemo(() => [{ value: 'No Aplica', label: 'No Aplica' }, ...clientes.filter(c => c.nombre && c.nombre.trim().toLowerCase() !== 'no aplica').map(c => ({ value: String(c.id), label: c.nombre }))], [clientes]);
-    const empresasData = useMemo(() => [{ value: 'No Aplica', label: 'No Aplica' }, ...empresas.filter(e => e.nombre && e.nombre.trim().toLowerCase() !== 'no aplica').map(e => ({ value: String(e.id), label: e.nombre }))], [empresas]);
-    const fuentesData = useMemo(() => [{ value: 'No Aplica', label: 'No Aplica' }, ...fuentesEmisoras.map(f => ({ value: String(f.id), label: f.nombre }))], [fuentesEmisoras]);
-    const objetivosData = useMemo(() => [{ value: 'No Aplica', label: 'No Aplica' }, ...dedupOptions(objetivos.map(o => ({ value: String(o.id), label: o.nombre })))], [objetivos]);
-    const cargosData = useMemo(() => [{ value: 'No Aplica', label: 'No Aplica' }, ...dedupOptions(filteredCargosMemo.map(c => ({ value: String(c.id), label: c.nombre })))], [filteredCargosMemo]);
-    const frecuenciasData = useMemo(() => [{ value: 'No Aplica', label: 'No Aplica' }, ...dedupOptions(frecuenciasOptions.map(f => ({ value: String(f.id), label: f.nombre })))], [frecuenciasOptions]);
-    const componentesData = useMemo(() => [{ value: 'No Aplica', label: 'No Aplica' }, ...componentes], [componentes]);
-    const subAreasData = useMemo(() => [{ value: 'No Aplica', label: 'No Aplica' }, ...subAreas.map(s => ({ value: String(s.id), label: s.nombre }))], [subAreas]);
-    const inspectoresData = useMemo(() => [{ value: 'No Aplica', label: 'No Aplica' }, ...inspectores], [inspectores]);
-    const tiposMuestreoData = useMemo(() => [{ value: 'No Aplica', label: 'No Aplica' }, ...tiposMuestreo], [tiposMuestreo]);
-    const tiposMuestraData = useMemo(() => [{ value: 'No Aplica', label: 'No Aplica' }, ...tiposMuestra.map(t => ({ value: String(t.id_tipomuestra_ma), label: t.nombre_tipomuestra_ma }))], [tiposMuestra]);
-    const actividadesData = useMemo(() => [{ value: 'No Aplica', label: 'No Aplica' }, ...actividades.map(a => ({ value: String(a.id_actividadmuestreo), label: a.nombre_actividadmuestreo }))], [actividades]);
-    const tiposDescargaData = useMemo(() => [{ value: 'No Aplica', label: 'No Aplica' }, ...tiposDescarga], [tiposDescarga]);
-    const modalidadesData = useMemo(() => [{ value: 'No Aplica', label: 'No Aplica' }, ...modalidades], [modalidades]);
-    const formasCanalData = useMemo(() => [{ value: 'No Aplica', label: 'No Aplica' }, ...formasCanal], [formasCanal]);
-    const dispositivosData = useMemo(() => [{ value: 'No Aplica', label: 'No Aplica' }, ...dispositivos], [dispositivos]);
+    // F-01e: opción "No Aplica" eliminada del hardcoding. Si un campo debe permitirla, debe
+    // configurarse en el maestro correspondiente.
+    const lugaresData = useMemo(() => lugares.map(l => ({ value: String(l.id), label: l.nombre })), [lugares]);
+    const clientesData = useMemo(() => clientes.filter(c => c.nombre && c.nombre.trim().toLowerCase() !== 'no aplica').map(c => ({ value: String(c.id), label: c.nombre })), [clientes]);
+    const empresasData = useMemo(() => empresas.filter(e => e.nombre && e.nombre.trim().toLowerCase() !== 'no aplica').map(e => ({ value: String(e.id), label: e.nombre })), [empresas]);
+    const fuentesData = useMemo(() => fuentesEmisoras.map(f => ({ value: String(f.id), label: f.nombre })), [fuentesEmisoras]);
+    const objetivosData = useMemo(() => dedupOptions(objetivos.map(o => ({ value: String(o.id), label: o.nombre }))), [objetivos]);
+    const cargosData = useMemo(() => dedupOptions(filteredCargosMemo.map(c => ({ value: String(c.id), label: c.nombre }))), [filteredCargosMemo]);
+    const frecuenciasData = useMemo(() => dedupOptions(frecuenciasOptions.map(f => ({ value: String(f.id), label: f.nombre }))), [frecuenciasOptions]);
+    const componentesData = useMemo(() => componentes, [componentes]);
+    const subAreasData = useMemo(() => subAreas.map(s => ({ value: String(s.id), label: s.nombre })), [subAreas]);
+    const inspectoresData = useMemo(() => inspectores, [inspectores]);
+    const tiposMuestreoData = useMemo(() => tiposMuestreo, [tiposMuestreo]);
+    const tiposMuestraData = useMemo(() => tiposMuestra.map(t => ({ value: String(t.id_tipomuestra_ma), label: t.nombre_tipomuestra_ma })), [tiposMuestra]);
+    const actividadesData = useMemo(() => actividades.map(a => ({ value: String(a.id_actividadmuestreo), label: a.nombre_actividadmuestreo })), [actividades]);
+    const tiposDescargaData = useMemo(() => tiposDescarga, [tiposDescarga]);
+    const modalidadesData = useMemo(() => modalidades, [modalidades]);
+    const formasCanalData = useMemo(() => formasCanal, [formasCanal]);
+    const dispositivosData = useMemo(() => dispositivos, [dispositivos]);
     const zonasUTMData = useMemo(() => zonasUTMList, [zonasUTMList]);
 
     const handlePeriodoChange = (val: string | null) => {
@@ -839,7 +841,6 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             label="Contacto empresa *" 
                             placeholder="Seleccione..."
                             data={[
-                                { value: 'No Aplica', label: 'No Aplica' },
                                 ...(empresas.find(e => String(e.id) === selectedEmpresa)?.contacto ? [{ value: 'primary', label: empresas.find(e => String(e.id) === selectedEmpresa)?.contacto || '' }] : []),
                                 ...contactos.map(c => ({ value: String(c.id), label: c.nombre }))
                             ]}
@@ -881,7 +882,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         />
                         <Select 
                             label="Responsable Muestreo *" 
-                            data={['ADL', 'Cliente', 'No Aplica']}
+                            data={['ADL', 'Cliente']}
                             value={responsableMuestreo}
                             onChange={setResponsableMuestreo}
                             size="sm"
@@ -989,34 +990,65 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
                     <SimpleGrid cols={{ base: 1, xs: 2, md: 4 }} spacing="md">
                         <Box style={{ gridColumn: isVerySmall ? 'span 1' : 'span 2' }}>
-                            <Select 
-                                label="Instrumento Ambiental *" 
+                            <Select
+                                label="Instrumento Ambiental *"
                                 data={instrumentosAmbientales}
                                 value={selectedInstrumento}
                                 onChange={(val) => {
                                     setSelectedInstrumento(val || '');
-                                    if (val === 'No aplica') setEsETFA('No'); else setEsETFA('Si');
+                                    // F-15: limpiar campos dependientes al elegir "No aplica"
+                                    if (val === 'No aplica') {
+                                        setEsETFA('No');
+                                        setNroInstrumento('');
+                                        setAnioInstrumento('');
+                                    } else {
+                                        setEsETFA('Si');
+                                    }
                                 }}
                                 searchable
                                 size="sm"
                                 radius="md"
                             />
                         </Box>
-                        <TextInput 
-                            label={isVerySmall ? "Número Instrumento *" : "Número Instrumento *"} 
-                            placeholder="Ej: 123/2023"
-                            value={nroInstrumento} 
-                            onChange={(e: any) => setNroInstrumento(e.target.value)} 
-                            size="sm" 
-                            radius="md" 
+                        <TextInput
+                            label="Número Instrumento *"
+                            placeholder={selectedInstrumento?.toLowerCase() === 'otro' ? 'Texto libre' : 'Solo número (ej: 123)'}
+                            value={nroInstrumento}
+                            disabled={selectedInstrumento === 'No aplica'}
+                            onChange={(e: any) => {
+                                const val = e.target.value;
+                                // F-01c: si no es "Otro", solo permitir números
+                                if (selectedInstrumento?.toLowerCase() === 'otro') {
+                                    setNroInstrumento(val);
+                                } else {
+                                    setNroInstrumento(val.replace(/[^0-9]/g, ''));
+                                }
+                            }}
+                            size="sm"
+                            radius="md"
                         />
-                        <TextInput 
-                            label={isVerySmall ? "Año Instrumento *" : "Año Instrumento *"} 
-                            placeholder="YYYY"
-                            value={anioInstrumento} 
-                            onChange={(e: any) => setAnioInstrumento(e.target.value)} 
-                            size="sm" 
-                            radius="md" 
+                        <TextInput
+                            label="Año Instrumento *"
+                            placeholder="YYYY (ej: 2024)"
+                            value={anioInstrumento}
+                            disabled={selectedInstrumento === 'No aplica'}
+                            onChange={(e: any) => {
+                                // F-01d: solo dígitos, máx 4
+                                const cleaned = e.target.value.replace(/[^0-9]/g, '').slice(0, 4);
+                                setAnioInstrumento(cleaned);
+                            }}
+                            error={(() => {
+                                if (!anioInstrumento) return null;
+                                const n = Number(anioInstrumento);
+                                const currentYear = new Date().getFullYear();
+                                if (anioInstrumento.length !== 4 || n < 1900 || n > currentYear + 1) {
+                                    return `Año inválido (1900-${currentYear + 1})`;
+                                }
+                                return null;
+                            })()}
+                            maxLength={4}
+                            size="sm"
+                            radius="md"
                         />
                     </SimpleGrid>
 
@@ -1100,11 +1132,25 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             size="sm"
                             radius="md"
                         />
-                        <TextInput 
-                            label="Duración (Hrs) *" 
-                            type="number" 
-                            value={duracion} 
-                            onChange={(e: any) => setDuracion(e.target.value)} 
+                        <TextInput
+                            label="Duración (Hrs) *"
+                            type="number"
+                            inputMode="numeric"
+                            min={0}
+                            step={1}
+                            value={duracion}
+                            placeholder="Solo horas enteras"
+                            onChange={(e: any) => {
+                                // F-16: solo enteros, sin decimal ni letras
+                                const cleaned = String(e.target.value).replace(/[^0-9]/g, '');
+                                setDuracion(cleaned);
+                            }}
+                            onKeyDown={(e) => {
+                                // Bloquear punto, coma, e, +, -
+                                if (['.', ',', 'e', 'E', '+', '-'].includes(e.key)) {
+                                    e.preventDefault();
+                                }
+                            }}
                             size="sm"
                             radius="md"
                         />

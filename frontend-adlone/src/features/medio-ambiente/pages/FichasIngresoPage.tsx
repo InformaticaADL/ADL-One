@@ -95,7 +95,10 @@ export const FichasIngresoPage = () => {
             case 'create_manual':
                 return (
                     <ProtectedContent permission="FI_CREAR" fallback={<Text ta="center" mt="xl" c="red">No tiene permisos para crear fichas</Text>}>
-                        <FichaCreateForm onBackToMenu={() => setFichasMode('create_choice')} />
+                        <FichaCreateForm
+                            onBackToMenu={() => setFichasMode('create_choice')}
+                            onSuccess={() => setFichasMode('list_fichas')}
+                        />
                     </ProtectedContent>
                 );
             case 'create_bulk':

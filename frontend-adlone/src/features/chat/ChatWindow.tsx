@@ -6,8 +6,25 @@ import {
 import {
     IconSend, IconPaperclip, IconDotsVertical, IconTrash, IconClearAll,
     IconUsers, IconDownload, IconFile, IconUserCircle, IconSettings, IconArrowLeft, IconMoodSmile,
-    IconInfoCircle, IconSearch, IconX, IconCornerUpLeft, IconChevronUp, IconBan
+    IconInfoCircle, IconSearch, IconX, IconCornerUpLeft, IconChevronUp, IconBan,
+    IconFileTypePdf, IconFileTypeXls, IconFileTypeDoc, IconFileTypePpt, IconFileTypeZip,
+    IconFileTypeTxt, IconFileTypeCsv, IconFileTypeJpg, IconFileTypePng
 } from '@tabler/icons-react';
+
+// CH-03: devolver icono y color por extensión del archivo
+const getFileIconAndColor = (name: string | null | undefined): { Icon: any; color: string } => {
+    const fn = (name || '').toLowerCase();
+    if (/\.(pdf)$/.test(fn)) return { Icon: IconFileTypePdf, color: '#d92d20' };           // rojo PDF
+    if (/\.(xlsx?|xlsm)$/.test(fn)) return { Icon: IconFileTypeXls, color: '#1d6f42' };    // verde Excel
+    if (/\.(csv)$/.test(fn)) return { Icon: IconFileTypeCsv, color: '#1d6f42' };
+    if (/\.(docx?)$/.test(fn)) return { Icon: IconFileTypeDoc, color: '#2b579a' };         // azul Word
+    if (/\.(pptx?)$/.test(fn)) return { Icon: IconFileTypePpt, color: '#d24726' };         // naranjo PPT
+    if (/\.(zip|rar|7z|tar|gz)$/.test(fn)) return { Icon: IconFileTypeZip, color: '#9c6f1c' };
+    if (/\.(txt|log)$/.test(fn)) return { Icon: IconFileTypeTxt, color: '#475569' };
+    if (/\.(jpg|jpeg)$/.test(fn)) return { Icon: IconFileTypeJpg, color: '#6b7280' };
+    if (/\.(png)$/.test(fn)) return { Icon: IconFileTypePng, color: '#6b7280' };
+    return { Icon: IconFile, color: '#6b7280' };
+};
 import type { TypingUser } from '../../store/chatStore';
 import EmojiPicker, { Theme } from 'emoji-picker-react';
 import type { ChatConversation, ChatMessage } from '../../services/general-chat.service';
@@ -448,7 +465,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                                                             }}
                                                             onClick={() => handleFileClick(msg.id_mensaje)}
                                                         >
-                                                            <IconFile size={20} style={{ color: isMine ? 'white' : 'var(--mantine-color-gray-7)' }} />
+                                                            {(() => {
+                                                                const { Icon, color } = getFileIconAndColor(msg.archivo_nombre);
+                                                                return <Icon size={22} style={{ color: isMine ? 'white' : color }} />;
+                                                            })()}
                                                             <Box style={{ flex: 1, minWidth: 0 }}>
                                                                 <Text size="xs" fw={500} truncate style={{ color: isMine ? 'white' : 'var(--mantine-color-gray-8)' }}>
                                                                     {msg.archivo_nombre}
@@ -761,7 +781,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                                     <img src={URL.createObjectURL(file)} alt="preview" style={{ maxHeight: 60, borderRadius: 4 }} />
                                 ) : (
                                     <Group gap="xs">
-                                        <IconFile size={20} style={{ color: 'var(--mantine-color-gray-6)' }} />
+                                        {(() => {
+                                            const { Icon, color } = getFileIconAndColor(file.name);
+                                            return <Icon size={22} style={{ color }} />;
+                                        })()}
                                         <Text size="xs" truncate fw={500} style={{ maxWidth: 150 }}>{file.name}</Text>
                                     </Group>
                                 )}

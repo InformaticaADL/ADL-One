@@ -29,8 +29,23 @@ class RutasPlanificadasService {
     async createGrupo(data) {
         const { nombre_grupo, descripcion } = data;
         const pool = await getConnection();
+        const trimmed = String(nombre_grupo || '').trim();
+        if (!trimmed) {
+            const err = new Error('El nombre del grupo es obligatorio');
+            err.statusCode = 400;
+            throw err;
+        }
+        // R-05: bloquear nombre duplicado (case-insensitive, solo grupos activos)
+        const dup = await pool.request()
+            .input('n', sql.NVarChar(250), trimmed)
+            .query(`SELECT id_grupo FROM mae_grupos_rutas WHERE LOWER(LTRIM(RTRIM(nombre_grupo))) = LOWER(@n) AND (activo IS NULL OR activo = 1)`);
+        if (dup.recordset.length > 0) {
+            const err = new Error('Ya existe un grupo con ese nombre');
+            err.statusCode = 409;
+            throw err;
+        }
         const result = await pool.request()
-            .input('nombre', sql.NVarChar(250), nombre_grupo)
+            .input('nombre', sql.NVarChar(250), trimmed)
             .input('desc', sql.NVarChar(1000), descripcion || null)
             .query(`
                 INSERT INTO mae_grupos_rutas (nombre_grupo, descripcion)
@@ -43,12 +58,28 @@ class RutasPlanificadasService {
     async updateGrupo(id, data) {
         const { nombre_grupo, descripcion } = data;
         const pool = await getConnection();
+        const trimmed = String(nombre_grupo || '').trim();
+        if (!trimmed) {
+            const err = new Error('El nombre del grupo es obligatorio');
+            err.statusCode = 400;
+            throw err;
+        }
+        // R-05: validar duplicado excluyendo el propio registro
+        const dup = await pool.request()
+            .input('n', sql.NVarChar(250), trimmed)
+            .input('id', sql.Int, id)
+            .query(`SELECT id_grupo FROM mae_grupos_rutas WHERE LOWER(LTRIM(RTRIM(nombre_grupo))) = LOWER(@n) AND id_grupo <> @id AND (activo IS NULL OR activo = 1)`);
+        if (dup.recordset.length > 0) {
+            const err = new Error('Ya existe otro grupo con ese nombre');
+            err.statusCode = 409;
+            throw err;
+        }
         await pool.request()
             .input('id', sql.Int, id)
-            .input('nombre', sql.NVarChar(250), nombre_grupo)
+            .input('nombre', sql.NVarChar(250), trimmed)
             .input('desc', sql.NVarChar(1000), descripcion || null)
             .query(`UPDATE mae_grupos_rutas SET nombre_grupo = @nombre, descripcion = @desc WHERE id_grupo = @id`);
-        return { id_grupo: id, nombre_grupo, descripcion };
+        return { id_grupo: id, nombre_grupo: trimmed, descripcion };
     }
 
     async deleteGrupo(id) {

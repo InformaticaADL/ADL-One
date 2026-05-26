@@ -17,6 +17,8 @@ router.get('/roles', rbacController.getRoles);
 router.post('/roles', verifyPermission(['RBAC_MANAGE', 'INF_ROLES']), rbacController.createRole);
 router.put('/roles/:roleId', verifyPermission(['RBAC_MANAGE', 'INF_ROLES']), rbacController.updateRole);
 router.put('/roles/:roleId/status', verifyPermission(['RBAC_MANAGE', 'INF_ROLES']), rbacController.toggleRoleStatus);
+// RB-09: cantidad de usuarios asociados al rol (para confirmar deshabilitación/eliminación)
+router.get('/roles/:roleId/users-count', verifyPermission(['RBAC_MANAGE', 'INF_ROLES']), rbacController.getRoleUsersCount);
 
 // === Permissions ===
 router.get('/permissions', rbacController.getPermissions);

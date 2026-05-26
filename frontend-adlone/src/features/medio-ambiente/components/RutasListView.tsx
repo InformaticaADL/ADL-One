@@ -682,6 +682,32 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
                                             </Button>
                                         </Tooltip>
                                     )}
+                                    {/* R-08: para "Sin grupo", botón explícito para asignar todas las rutas a un grupo */}
+                                    {group.key === 'sin-grupo' && group.rutas.length > 0 && (
+                                        <Tooltip label="Asignar estas rutas a un grupo">
+                                            <Button
+                                                size="compact-xs"
+                                                color="teal"
+                                                variant="light"
+                                                leftSection={<IconFolder size={12} />}
+                                                ml="auto"
+                                                onClick={e => {
+                                                    e.stopPropagation();
+                                                    // Si hay una sola ruta, abrir directamente el modal de "cambiar grupo" para esa.
+                                                    if (group.rutas.length === 1) {
+                                                        handleOpenGrupo(group.rutas[0]);
+                                                    } else {
+                                                        showToast({
+                                                            type: 'info',
+                                                            message: 'Use el botón de carpeta en cada fila para asignar grupo a cada ruta individualmente.'
+                                                        });
+                                                    }
+                                                }}
+                                            >
+                                                {group.rutas.length === 1 ? 'Asignar a grupo' : `${group.rutas.length} sin grupo — asignar`}
+                                            </Button>
+                                        </Tooltip>
+                                    )}
                                 </Group>
 
                                 <Collapse in={expandedGroups.has(group.key)}>

@@ -300,12 +300,13 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
 
     const handleSaveAssignment = async () => {
         const activeRows = rows.filter(r => !['CANCELADO', 'ANULADO'].includes((r.nombre_estadomuestreo || '').toUpperCase()));
+        // A-05/A-06: ahora basta con tener fecha O muestreador (no ambos). El backend conserva el campo no provisto.
         const completedRows = activeRows.filter(r =>
-            editableDates[r.id_agendamam] && muestreadorInstalacion[r.id_agendamam]
+            editableDates[r.id_agendamam] || muestreadorInstalacion[r.id_agendamam]
         );
 
         if (completedRows.length === 0) {
-            showToast({ message: 'Debe completar al menos un registro con fecha y muestreador para guardar', type: 'warning' });
+            showToast({ message: 'Debe ingresar al menos una fecha o un muestreador en algún registro para guardar', type: 'warning' });
             return;
         }
 
@@ -319,6 +320,35 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                 showToast({ message: `Muestreo de ${duracionMuestreo}h: instalación y retiro no pueden ser el mismo día (${sameDayRows.length} fila${sameDayRows.length !== 1 ? 's' : ''})`, type: 'error' });
                 return;
             }
+        }
+
+        // A-07: fecha de instalación NUNCA debe ser posterior a fecha de retiro
+        const invertedRows = completedRows.filter(r => {
+            const inst = editableDates[r.id_agendamam];
+            const retiro = editableRetiroDates[r.id_agendamam];
+            return inst && retiro && inst > retiro;
+        });
+        if (invertedRows.length > 0) {
+            showToast({
+                message: `La fecha de instalación no puede ser posterior a la de retiro (${invertedRows.length} fila${invertedRows.length !== 1 ? 's' : ''}). Revise los correlativos: ${invertedRows.map(r => r.frecuencia_correlativo).join(', ')}`,
+                type: 'error'
+            });
+            return;
+        }
+
+        // A-02: bloquear fechas pasadas
+        const today = new Date().toISOString().split('T')[0];
+        const pastDateRows = completedRows.filter(r => {
+            const inst = editableDates[r.id_agendamam];
+            const retiro = editableRetiroDates[r.id_agendamam];
+            return (inst && inst < today) || (retiro && retiro < today);
+        });
+        if (pastDateRows.length > 0) {
+            showToast({
+                message: `No se permiten fechas anteriores a hoy (${pastDateRows.length} fila${pastDateRows.length !== 1 ? 's' : ''}). Revise los correlativos: ${pastDateRows.map(r => r.frecuencia_correlativo).join(', ')}`,
+                type: 'error'
+            });
+            return;
         }
 
         if (resamplingData) {
@@ -341,18 +371,26 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
         const executeSave = async () => {
             setSaving(true);
             try {
-                const assignments = completedRows.map((row: any) => ({
-                    id: row.id_agendamam,
-                    fecha: editableDates[row.id_agendamam],
-                    fechaRetiro: editableRetiroDates[row.id_agendamam] || editableDates[row.id_agendamam],
-                    idMuestreadorInstalacion: muestreadorInstalacion[row.id_agendamam],
-                    idMuestreadorRetiro: muestreadorRetiro[row.id_agendamam] || muestreadorInstalacion[row.id_agendamam],
-                    idFichaIngresoServicio: row.id_fichaingresoservicio,
-                    frecuenciaCorrelativo: row.frecuencia_correlativo,
-                    equipmentSelections: equipmentSelections[row.frecuencia_correlativo] || null,
-                    // Send full data of items for easier backend processing
-                    equipmentComparisonData: equipmentSelections[row.frecuencia_correlativo] ? comparisonData : null
-                }));
+                // A-05/A-06: enviar null cuando un campo no fue completado (el backend conserva el valor previo)
+                const assignments = completedRows.map((row: any) => {
+                    const hasDate = !!editableDates[row.id_agendamam];
+                    const hasMuestreador = !!muestreadorInstalacion[row.id_agendamam];
+                    return {
+                        id: row.id_agendamam,
+                        fecha: hasDate ? editableDates[row.id_agendamam] : null,
+                        fechaRetiro: hasDate
+                            ? (editableRetiroDates[row.id_agendamam] || editableDates[row.id_agendamam])
+                            : null,
+                        idMuestreadorInstalacion: hasMuestreador ? muestreadorInstalacion[row.id_agendamam] : null,
+                        idMuestreadorRetiro: hasMuestreador
+                            ? (muestreadorRetiro[row.id_agendamam] || muestreadorInstalacion[row.id_agendamam])
+                            : null,
+                        idFichaIngresoServicio: row.id_fichaingresoservicio,
+                        frecuenciaCorrelativo: row.frecuencia_correlativo,
+                        equipmentSelections: equipmentSelections[row.frecuencia_correlativo] || null,
+                        equipmentComparisonData: equipmentSelections[row.frecuencia_correlativo] ? comparisonData : null
+                    };
+                });
 
                 const response = await fichaService.batchUpdateAgenda({
                     assignments,
@@ -428,10 +466,12 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
         }
     };
 
-    const muestreadorOptions = useMemo(() => 
+    const muestreadorOptions = useMemo(() =>
         muestreadores.map(m => ({ value: String(m.id_muestreador), label: m.nombre_muestreador })),
         [muestreadores]
     );
+
+    const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
 
     return (
         <Box p="md" style={{ width: '100%' }}>
@@ -531,15 +571,16 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                         <Group align="flex-end" justify="center" gap="xl">
                             <ProtectedContent permission="FI_GEST_ASIG">
                                 <Group align="flex-end">
-                                    <TextInput 
+                                    <TextInput
                                         size="xs"
-                                        label="Fecha Referencia (Muestreo)" 
-                                        type="date" 
-                                        value={selectedDate} 
+                                        label="Fecha Referencia (Muestreo)"
+                                        type="date"
+                                        min={todayStr}
+                                        value={selectedDate}
                                         onChange={(e) => {
                                             const val = e.target.value;
                                             setSelectedDate(val);
-                                        }} 
+                                        }}
                                         leftSection={<IconCalendarEvent size={14} />}
                                     />
                                     <Button 
@@ -682,11 +723,13 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                         </Badge>
                                                     </Table.Td>
                                                     <Table.Td ta="center">
-                                                        <TextInput 
-                                                            type="date" 
-                                                            size="xs" 
+                                                        <TextInput
+                                                            type="date"
+                                                            size="xs"
                                                             style={{ width: 125, margin: '0 auto' }}
                                                             disabled={isCancelled}
+                                                            min={todayStr}
+                                                            max={editableRetiroDates[rowId] || undefined}
                                                             value={editableDates[rowId] || ''}
                                                             onChange={(e) => {
                                                                 const val = e.currentTarget.value;
@@ -700,6 +743,7 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                             size="xs"
                                                             style={{ width: 125, margin: '0 auto' }}
                                                             disabled={isCancelled}
+                                                            min={editableDates[rowId] || todayStr}
                                                             value={editableRetiroDates[rowId] || ''}
                                                             onChange={(e) => {
                                                                 const val = e.currentTarget.value;

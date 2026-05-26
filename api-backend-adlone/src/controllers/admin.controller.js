@@ -96,6 +96,18 @@ export const adminController = {
         }
     },
 
+    // MS-04: contar muestreos futuros asignados a este muestreador
+    getMuestreadorFutureAssignments: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const result = await adminService.getMuestreadorFutureAssignments(id);
+            res.json({ success: true, data: result });
+        } catch (error) {
+            logger.error('Controller getMuestreadorFutureAssignments error:', error);
+            res.status(500).json({ success: false, message: 'Error al consultar asignaciones futuras' });
+        }
+    },
+
     // --- DASHBOARD ---
     getDashboardStats: async (req, res) => {
         try {

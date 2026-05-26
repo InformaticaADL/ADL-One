@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { AppShell, Box, Burger, Group, Image } from '@mantine/core';
+import { AppShell, Box, Burger, Group, Image, Alert, Text } from '@mantine/core';
+import { IconWifiOff } from '@tabler/icons-react';
 import { useDisclosure, useMediaQuery } from '@mantine/hooks';
 import { useNavStore } from '../../store/navStore';
 import { Sidebar } from './Sidebar';
@@ -38,7 +39,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
 
     // Global Notifications listener (Toast logic)
     const { user, token } = useAuth();
-    const { fetchNotifications, initSocket, disconnectSocket } = useNotificationStore();
+    const { fetchNotifications, initSocket, disconnectSocket, socketStatus } = useNotificationStore();
     const { setUrsUnreadCount } = useNavStore();
 
     // Socket Initialization + global counters fetch
@@ -128,6 +129,20 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                 }}>
                     {activeModule && (
                         <ContextualNotificationPanel area={activeModule.toUpperCase()} />
+                    )}
+                    {/* X-10: aviso de conexión Socket.IO perdida */}
+                    {socketStatus === 'disconnected' && (
+                        <Alert
+                            color="orange"
+                            icon={<IconWifiOff size={16} />}
+                            radius={0}
+                            p="xs"
+                            styles={{ root: { borderBottom: '1px solid var(--mantine-color-orange-3)' } }}
+                        >
+                            <Text size="xs">
+                                Sin conexión en tiempo real — intentando reconectar. Las notificaciones nuevas pueden tardar en llegar.
+                            </Text>
+                        </Alert>
                     )}
                     <Box 
                         ref={viewportRef}
