@@ -1,7 +1,8 @@
 import React from 'react';
-import { Group, Stack, Title, Text, ActionIcon, Breadcrumbs, Anchor, rem, Box } from '@mantine/core';
+import { Group, Stack, Title, Text, ActionIcon, Breadcrumbs, Anchor, rem, Box, Button } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import { IconArrowLeft } from '@tabler/icons-react';
+import { IconArrowLeft, IconInfoCircle } from '@tabler/icons-react';
+import { useNavStore } from '../../store/navStore';
 
 interface PageHeaderProps {
     title: string;
@@ -19,6 +20,8 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
     rightSection
 }) => {
     const isMobile = useMediaQuery('(max-width: 768px)');
+    const { setHelpCenterOpen } = useNavStore();
+
     const items = breadcrumbItems?.map((item, index) => (
         <Anchor 
             key={index} 
@@ -31,6 +34,29 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
             {item.label}
         </Anchor>
     ));
+
+    const helpButton = (
+        <Button
+            variant="light"
+            color="adl-blue"
+            size="xs"
+            radius="md"
+            leftSection={<IconInfoCircle size={14} stroke={2} />}
+            onClick={() => setHelpCenterOpen(true)}
+            styles={{
+                root: {
+                    fontWeight: 600,
+                    border: '1px solid var(--mantine-color-adl-blue-2)',
+                    transition: 'all 0.15s ease',
+                    '&:hover': {
+                        backgroundColor: 'var(--mantine-color-adl-blue-1)',
+                    }
+                }
+            }}
+        >
+            Información
+        </Button>
+    );
 
     return (
             <Box mb="md" mt="sm">
@@ -81,17 +107,23 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
                         )}
                     </Stack>
 
-                    {/* Right Section: Actions (Desktop) */}
+                    {/* Right Section: Actions + Help Button (Desktop) */}
                     <Box style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', minWidth: 0 }}>
-                        {!isMobile && rightSection}
+                        {!isMobile && (
+                            <Group gap="xs" wrap="nowrap">
+                                {rightSection}
+                                {helpButton}
+                            </Group>
+                        )}
                     </Box>
 
                 </Group>
                 
-                {/* Actions (Mobile) */}
-                {isMobile && rightSection && (
-                    <Box mt="md" style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+                {/* Actions + Help Button (Mobile) */}
+                {isMobile && (
+                    <Box mt="md" style={{ width: '100%', display: 'flex', justifyContent: 'center', gap: rem(8), flexWrap: 'wrap' }}>
                         {rightSection}
+                        {helpButton}
                     </Box>
                 )}
             </Box>

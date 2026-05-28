@@ -160,6 +160,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
     // RB-08: AI_MA_ADMIN_ACCESO eliminado (no existe en BD). Solo permisos reales.
     const canCreateEquipo = hasPermission('AI_MA_CREAR_EQUIPO');
     const canEditEquipo = hasPermission('AI_MA_EDITAR_EQUIPO');
+    const isSuper = false;
 
     // --- Helpers ---
     const autoGenerateSigla = (text: string) => {

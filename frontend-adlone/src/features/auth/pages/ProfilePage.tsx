@@ -9,7 +9,7 @@ import {
     Flex
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { IconUser, IconMail, IconShieldCheck, IconId, IconUserCircle, IconCamera, IconBriefcase, IconLock, IconMessageCircle } from '@tabler/icons-react';
+import { IconUser, IconMail, IconShieldCheck, IconId, IconUserCircle, IconCamera, IconBriefcase, IconLock, IconMessageCircle, IconTrash } from '@tabler/icons-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { generalChatService } from '../../../services/general-chat.service';
 import type { UserProfile } from '../../../services/general-chat.service';
@@ -524,6 +524,19 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onStartChat })
                         </ThemeIcon>
                         <Text size="sm" fw={600} color="adl-blue">Subir propia foto</Text>
                     </UnstyledButton>
+
+                    {user.foto && (
+                        <Button 
+                            variant="light" 
+                            color="red" 
+                            fullWidth 
+                            mt="sm"
+                            leftSection={<IconTrash size={16} />}
+                            onClick={() => handleSelectPredefined(null as any)}
+                        >
+                            Eliminar foto actual
+                        </Button>
+                    )}
                 </Stack>
             </Modal>
             <Modal opened={passwordOpened} onClose={closePassword} title={<Text fw={700}>Cambiar Contraseña</Text>} centered size="sm">

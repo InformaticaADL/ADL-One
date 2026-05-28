@@ -44,7 +44,8 @@ import {
     IconChevronUp,
     IconRefresh,
     IconCheck,
-    IconMailForward
+    IconMailForward,
+    IconInfoCircle
 } from '@tabler/icons-react';
 import { useNavStore } from '../../../store/navStore';
 import apiClient from '../../../config/axios.config';
@@ -56,7 +57,8 @@ export const FichaDetailView = () => {
         selectedFichaId,
         selectedCorrelativo,
         setActiveSubmodule,
-        activeModule
+        activeModule,
+        setHelpCenterOpen,
     } = useNavStore();
     const { hasPermission, user } = useAuth();
     const isGemMamPm = hasPermission('GEM_REALIZADO');
@@ -307,6 +309,20 @@ export const FichaDetailView = () => {
 
                     <Grid.Col span={{ base: 12, md: 2 }}>
                         <Stack gap="xs" align="flex-end" justify="center" h="100%">
+                            {/* Botón Información — abre el HelpCenter */}
+                            <Button
+                                variant="light"
+                                color="adl-blue"
+                                size="xs"
+                                radius="md"
+                                fullWidth
+                                leftSection={<IconInfoCircle size={14} stroke={2} />}
+                                onClick={() => setHelpCenterOpen(true)}
+                                styles={{ root: { fontWeight: 600, border: '1px solid var(--mantine-color-adl-blue-2)' } }}
+                            >
+                                Información
+                            </Button>
+
                             {!(activeModule === 'gem' || activeModule === 'unidades-gem') && (
                                 <ProtectedContent permission="MA_COMERCIAL_REMUESTREAR">
                                     <Button

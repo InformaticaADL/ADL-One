@@ -20,7 +20,7 @@ import {
     IconClipboardList,
     IconBell,
     IconMessageCircle,
-    IconQuestionMark,
+    IconExclamationMark,
     IconLogout,
     IconLayoutSidebarLeftCollapse,
     IconLayoutSidebarRightCollapse,
@@ -35,7 +35,6 @@ import API_CONFIG from '../../config/api.config';
 import axios from 'axios';
 import { getIconComponent } from '../../config/iconRegistry';
 import classes from './Sidebar.module.css';
-import { HelpCenter } from '../common/HelpCenter';
 
 // Módulos con iconos de Tabler
 const FIXED_TOP_MODULES = [
@@ -186,7 +185,7 @@ export function LinksGroup({
     );
 }
 
-export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotCollapsed?: boolean, onNavigate?: () => void, hideLogo?: boolean }) {
+export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo, onHelpClick }: { forceNotCollapsed?: boolean, onNavigate?: () => void, hideLogo?: boolean, onHelpClick?: () => void }) {
     const { user, logout, hasPermission, token } = useAuth();
     const {
         activeModule,
@@ -207,7 +206,6 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotC
     const isFirstLoad = useRef(true);
     const prevUnreadCount = useRef<number>(0);
     const notificationsRef = useRef<HTMLDivElement>(null);
-    const [helpOpened, setHelpOpened] = useState(false);
 
     // Fetch dynamic menu only once per session (cached in Zustand store)
     useEffect(() => {
@@ -594,9 +592,9 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotC
                                 Mi Perfil
                             </Menu.Item>
                             <Menu.Item
-                                leftSection={<IconQuestionMark size={14} />}
+                                leftSection={<IconExclamationMark size={14} />}
                                 onClick={() => {
-                                    setHelpOpened(true);
+                                    onHelpClick?.();
                                     onNavigate?.();
                                 }}
                             >
@@ -629,7 +627,6 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotC
                 </Portal>
             )}
 
-            <HelpCenter opened={helpOpened} onClose={() => setHelpOpened(false)} />
         </nav>
     );
 }

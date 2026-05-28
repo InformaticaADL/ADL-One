@@ -477,6 +477,20 @@ frontend-adlone/
 - **Refinamientos de UI**: `AdminInfoHub.tsx`, `EquiposPage.tsx`, `MuestreadoresPage.tsx`, `UsersManagementPage.tsx`, `ChatWindow.tsx`, `DashboardPage.tsx`, `FichaUniversalView.tsx`, `EmpresaServicioFormView.tsx` — ajustes menores de layout, estados y manejo de datos.
 - **Scripts de pre-producción** (`db-migrations/pre-production-cleanup.sql`, `pre-production-cleanup.html`): Script SQL transaccional por bloques para limpiar datos de prueba antes de producción (fichas, rutas, solicitudes, chat, auditoría, tokens), preservando todos los maestros.
 
+### 66. Ayuda Contextual, Control de Avatares y Mejoras de Usabilidad (Mayo 2026) ℹ️👤
+- **Centro de Ayuda Contextual (HelpCenter & FieldHelp)**:
+  - Implementación del nuevo componente `FieldLabel` (`FieldHelp.tsx`) para proveer ayuda en tiempo real (tooltips) en los campos de formulario más críticos de `AntecedentesForm.tsx`.
+  - Rediseño y enriquecimiento de `HelpCenter.tsx` agregando acordeones de consejos útiles y tarjetas directas de soporte TI (Correo e integración directa con WhatsApp) habilitadas en el flujo global.
+  - Integración global del modal de ayuda mediante el estado `helpCenterOpen` y la acción `setHelpCenterOpen` definidos centralizadamente en `navStore.ts`.
+  - Botón "Información" incorporado en las cabeceras principales (`PageHeader.tsx`) y en la vista de detalles (`FichaDetailView.tsx`) para invocar el centro de ayuda.
+  - Actualización de navegación y estilo del icono del menú de ayuda en `Sidebar.tsx`.
+- **Gestión de Avatar de Usuario**:
+  - Backend habilitado en `user.controller.js` para permitir la eliminación de fotos de perfil (seteando el avatar a `null`).
+  - Botón "Eliminar foto actual" añadido en la vista de perfil de usuario (`ProfilePage.tsx`).
+- **Mejoras Generales y Corrección de Token**:
+  - `analysis.service.ts`: Añadido interceptor de requests para asegurar que el token de autenticación del usuario se incluya correctamente en las peticiones al microservicio de análisis.
+  - `KpiAnalystDashboardView.tsx`: Optimización de responsive en el encabezado de KPIs, ocultamiento inteligente del timestamp de actualización en móviles y ajuste estético de botones.
+
 ---
 
 ## 🔧 Configuración para Desarrollo
@@ -548,6 +562,7 @@ npm run dev       # Puerto 5173
 | **KPI Dashboard** | Recharts + Análisis automático | ✅ Estable |
 | **Recuperación de Contraseña** | Token SHA-256 + Nodemailer + ResetPasswordPage | ✅ Implementado |
 | **Seguridad de Cuenta (S-13)** | Bloqueo por intentos fallidos + permisos_version JWT | ✅ Implementado |
+| **Ayuda Contextual** | Componente Tooltip + Modal Global de Soporte (WhatsApp/Email) | ✅ Implementado |
 
 ---
 

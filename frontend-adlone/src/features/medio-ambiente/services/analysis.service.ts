@@ -9,6 +9,18 @@ const axiosInstance = axios.create({
     }
 });
 
+// Copy interceptors from apiClient to ensure auth token is sent
+axiosInstance.interceptors.request.use(
+    config => {
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+    },
+    error => Promise.reject(error)
+);
+
 export const analysisService = {
     /**
      * Get all normativas

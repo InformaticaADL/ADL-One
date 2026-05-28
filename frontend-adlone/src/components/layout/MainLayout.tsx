@@ -4,6 +4,7 @@ import { IconWifiOff } from '@tabler/icons-react';
 import { useDisclosure, useMediaQuery } from '@mantine/hooks';
 import { useNavStore } from '../../store/navStore';
 import { Sidebar } from './Sidebar';
+import { HelpCenter } from '../common/HelpCenter';
 
 import logoAdl from '../../assets/images/logo-adlone.png';
 import { useNotificationStore } from '../../store/notificationStore';
@@ -22,7 +23,9 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
         activeModule, 
         activeSubmodule,
         sidebarCollapsed,
-        resetNavigation
+        resetNavigation,
+        helpCenterOpen,
+        setHelpCenterOpen,
     } = useNavStore();
     const [opened, { toggle, close }] = useDisclosure();
     const viewportRef = useRef<HTMLDivElement>(null);
@@ -115,6 +118,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                         forceNotCollapsed={isCompact} 
                         hideLogo={isCompact}
                         onNavigate={close}
+                        onHelpClick={() => setHelpCenterOpen(true, true)}
                     />
                 </Box>
             </AppShell.Navbar>
@@ -159,6 +163,8 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                         {children}
                     </Box>
                     <ScrollButtons viewportRef={viewportRef} />
+
+                    <HelpCenter opened={helpCenterOpen} onClose={() => setHelpCenterOpen(false)} />
                 </Box>
             </AppShell.Main>
         </AppShell>

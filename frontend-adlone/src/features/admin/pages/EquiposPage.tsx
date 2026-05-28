@@ -106,6 +106,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const isMAMan = hasPermission('AI_MA_SOLICITUDES') || hasPermission('MA_A_GEST_EQUIPO');
     const canCreateEquipo = hasPermission('AI_MA_CREAR_EQUIPO');
     const canEditEquipo = hasPermission('AI_MA_EDITAR_EQUIPO');
+    const isSuper = false;
 
     // --- Table & Filters State ---
     const [equipos, setEquipos] = useState<Equipo[]>([]);

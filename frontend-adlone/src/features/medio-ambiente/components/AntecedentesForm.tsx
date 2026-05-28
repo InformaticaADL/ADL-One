@@ -37,6 +37,7 @@ import {
 } from '@tabler/icons-react';
 import { CreateEmpresaServicioModal } from './CreateEmpresaServicioModal';
 import apiClient from '../../../config/axios.config';
+import { FieldLabel } from '../../../components/common/FieldHelp';
 
 // Validates a Google Maps reference string client-side before hitting the backend.
 // Defined outside the component so it is never recreated on re-renders.
@@ -786,7 +787,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                     
                     <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
                         <Select 
-                            label="Monitoreo agua/RIL *" 
+                            label={<FieldLabel label="Monitoreo agua/RIL *" help="Tipo de toma de muestra: Puntual es una sola extracción en un momento dado; Compuesta mezcla varias extracciones a lo largo del tiempo para obtener un promedio." />}
                             placeholder="Seleccione..."
                             data={['Compuesta', 'Puntual']}
                             value={tipoMonitoreo}
@@ -795,7 +796,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             radius="md"
                         />
                         <Select 
-                            label="Base de operaciones *" 
+                            label={<FieldLabel label="Base de operaciones *" help="Laboratorio o sede de ADL desde la cual partirá el equipo de muestreo. Determina la logística del viaje." />}
                             placeholder="Cargando..."
                             data={lugaresData}
                             value={selectedLugar}
@@ -806,7 +807,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             radius="md"
                         />
                         <Select 
-                            label="Empresa a Facturar *" 
+                            label={<FieldLabel label="Empresa a Facturar *" help="Empresa o cliente al que se emitirá la factura por el servicio de análisis. Puede ser diferente de la empresa de servicio." />}
                             placeholder="Buscar cliente..."
                             data={clientesData}
                             value={selectedCliente}
@@ -817,7 +818,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         />
                         <Box style={{ position: 'relative' }}>
                             <Select 
-                                label="Empresa de servicio *" 
+                                label={<FieldLabel label="Empresa de servicio *" help="Empresa que opera el establecimiento a muestrear (ej. salmonicultura, industria). Al seleccionarla se cargarán automáticamente sus centros, contactos y objetivos." />}
                                 placeholder="Buscar empresa..."
                                 data={empresasData}
                                 value={selectedEmpresa}
@@ -844,7 +845,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                     <SimpleGrid cols={{ base: 1, sm: 2, md: 5 }} spacing="md">
                         <Box style={{ gridColumn: 'span 2' }}>
                             <Select 
-                                label="Fuente emisora *" 
+                                label={<FieldLabel label="Fuente emisora *" help="Centro de cultivo o instalación específica donde se tomará la muestra. Al seleccionarlo se autocompletan Tipo de Agua, Comuna y Región." />}
                                 placeholder="Seleccione empresa primero"
                                 data={fuentesData}
                                 value={selectedFuente}
@@ -862,7 +863,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
                     <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
                         <TextInput 
-                            label="Ubicación / Dirección" 
+                            label={<FieldLabel label="Ubicación / Dirección" help="Dirección física del centro de cultivo o fuente emisora. Se completa automáticamente al seleccionar la fuente emisora, pero puede editarse." />}
                             value={ubicacion} 
                             onChange={(e: any) => setUbicacion(e.target.value)}
                             size="sm"
@@ -870,7 +871,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         />
                         <StaticField label="Código Centro" value={codigo} icon={IconInfoCircle} />
                         <Select 
-                            label="Contacto empresa *" 
+                            label={<FieldLabel label="Contacto empresa *" help="Persona de contacto de la empresa de servicio que coordinará el acceso al centro para el día del muestreo." />}
                             placeholder="Seleccione..."
                             data={[
                                 ...(empresas.find(e => String(e.id) === selectedEmpresa)?.contacto ? [{ value: 'primary', label: empresas.find(e => String(e.id) === selectedEmpresa)?.contacto || '' }] : []),
@@ -902,7 +903,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
                     <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
                         <Select 
-                            label="Objetivo del Muestreo *" 
+                            label={<FieldLabel label="Objetivo del Muestreo *" help="Propósito regulatorio o técnico del muestreo. Ejemplos: Autocontrol (obligación legal), Patología (diagnóstico de enfermedad), Fisicoquímica (análisis de parámetros físicos)." />}
                             placeholder="Seleccione..."
                             data={objetivosData}
                             value={selectedObjetivo}
@@ -913,7 +914,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             radius="md"
                         />
                         <Select 
-                            label="Responsable Muestreo *" 
+                            label={<FieldLabel label="Responsable Muestreo *" help="Quién tomará físicamente las muestras en terreno. ADL: el muestreador es personal de ADL. Cliente: el propio cliente toma la muestra y la envía al laboratorio." />}
                             data={['ADL', 'Cliente']}
                             value={responsableMuestreo}
                             onChange={setResponsableMuestreo}
@@ -921,7 +922,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             radius="md"
                         />
                         <Select 
-                            label="Cargo *" 
+                            label={<FieldLabel label="Cargo *" help="Cargo profesional del responsable del muestreo. Si el responsable es ADL, se asigna automáticamente el cargo de Muestreador." />}
                             placeholder="Seleccione..."
                             data={cargosData}
                             value={cargoResponsable}
@@ -936,14 +937,14 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
                     <SimpleGrid cols={{ base: 1, sm: 2, md: 5 }} spacing="sm">
                         <TextInput 
-                            label="Punto de Muestreo *" 
+                            label={<FieldLabel label="Punto de Muestreo *" help="Nombre o código que identifica el punto exacto donde se tomará la muestra dentro del centro. Ejemplos: Efluente Final, Punto 1, PM-01." />}
                             value={puntoMuestreo} 
                             onChange={(e: any) => setPuntoMuestreo(e.target.value)}
                             size="sm"
                             radius="md"
                         />
                         <Select 
-                            label="Frecuencia Periodo *" 
+                            label={<FieldLabel label="Frecuencia Periodo *" help="Período de tiempo con que se repite el muestreo. Ejemplos: Mensual, Trimestral, Semestral. Al seleccionarlo se autocompletan los campos de Cantidad y Factor." />}
                             data={frecuenciasData}
                             value={periodo}
                             onChange={handlePeriodoChange}
@@ -954,14 +955,14 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             radius="md"
                         />
                         <TextInput 
-                            label="Cant. Frecuencia" 
+                            label={<FieldLabel label="Cant. Frecuencia" help="Número de veces que se realiza el muestreo dentro del período seleccionado. Se completa automáticamente según la frecuencia, pero puede ajustarse." />}
                             value={frecuencia}
                             onChange={(e: any) => setFrecuencia(e.target.value)}
                             size="sm"
                             radius="md"
                         />
                         <TextInput 
-                            label="Factor" 
+                            label={<FieldLabel label="Factor" help="Multiplicador que ajusta el número total de servicios. Útil cuando hay más de una ubicación o muestra por visita. Total = Cantidad × Factor." />}
                             value={factor} 
                             onChange={(e: any) => setFactor(e.target.value)}
                             size="sm"
@@ -993,7 +994,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
                     <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
                         <Select 
-                            label="Zona UTM *" 
+                            label={<FieldLabel label="Zona UTM *" help="Huso o banda de la cuadrícula UTM donde se ubica el punto de muestreo. En Chile continental se usa mayoritariamente la Zona 19S. Selecciónela según la ubicación geográfica del centro." />}
                             data={zonasUTMData}
                             value={zona}
                             onChange={(v) => setZona(v || '')}
@@ -1001,7 +1002,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             radius="md"
                         />
                         <TextInput 
-                            label="UTM Norte *" 
+                            label={<FieldLabel label="UTM Norte *" help="Coordenada Norte en sistema de coordenadas UTM. Es el valor de latitud expresado en metros. Ejemplo: 5837000. Debe ser un número de 7 dígitos aproximadamente." />}
                             value={utmNorte} 
                             onChange={(e: any) => setUtmNorte(e.target.value)} 
                             disabled={!zona || zona === 'No aplica'}
@@ -1009,7 +1010,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             radius="md"
                         />
                         <TextInput 
-                            label="UTM Este *" 
+                            label={<FieldLabel label="UTM Este *" help="Coordenada Este en sistema UTM. Es el valor de longitud expresado en metros. Ejemplo: 672000. Debe ser un número de 6 dígitos aproximadamente." />}
                             value={utmEste} 
                             onChange={(e: any) => setUtmEste(e.target.value)} 
                             disabled={!zona || zona === 'No aplica'}
@@ -1023,7 +1024,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                     <SimpleGrid cols={{ base: 1, xs: 2, md: 4 }} spacing="md">
                         <Box style={{ gridColumn: isVerySmall ? 'span 1' : 'span 2' }}>
                             <Select
-                                label="Instrumento Ambiental *"
+                                label={<FieldLabel label="Instrumento Ambiental *" help="Marco regulatorio o norma legal que obliga a realizar este muestreo. Ejemplos: RCA (Resolución de Calificación Ambiental), DS90, D.S. 46. Seleccione 'No aplica' si no existe obligación regulatoria." />}
                                 data={instrumentosAmbientales}
                                 value={selectedInstrumento}
                                 onChange={(val) => {
@@ -1044,7 +1045,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         </Box>
                         <TextInput
                             // F-01f: con "Otro" el número/año NO son obligatorios (solo "Otro" + texto libre)
-                            label={selectedInstrumento?.toLowerCase() === 'otro' ? 'Número Instrumento' : 'Número Instrumento *'}
+                            label={<FieldLabel label={selectedInstrumento?.toLowerCase() === 'otro' ? 'Número Instrumento' : 'Número Instrumento *'} help="Número o código identificador del instrumento ambiental (ej: número de RCA, decreto o resolución). Solo se aceptan números salvo cuando el instrumento es 'Otro'." />}
                             placeholder={selectedInstrumento?.toLowerCase() === 'otro' ? 'Texto libre (ej: Resolución SISS 2122/2023)' : 'Solo número (ej: 123)'}
                             value={nroInstrumento}
                             disabled={selectedInstrumento === 'No aplica'}
@@ -1072,7 +1073,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         />
                         <TextInput
                             // F-01f: con "Otro" el año tampoco es obligatorio
-                            label={selectedInstrumento?.toLowerCase() === 'otro' ? 'Año Instrumento' : 'Año Instrumento *'}
+                            label={<FieldLabel label={selectedInstrumento?.toLowerCase() === 'otro' ? 'Año Instrumento' : 'Año Instrumento *'} help="Año de emisión o vigencia del instrumento ambiental. Debe ser un año de 4 dígitos entre 1900 y el año actual." />}
                             placeholder="YYYY (ej: 2024)"
                             value={anioInstrumento}
                             disabled={selectedInstrumento === 'No aplica' || selectedInstrumento?.toLowerCase() === 'otro'}
@@ -1098,7 +1099,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
                     <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
                         <Select 
-                            label="Componente Ambiental *" 
+                            label={<FieldLabel label="Componente Ambiental *" help="Componente del medio ambiente al que corresponde la muestra. Ejemplos: Agua Superficial, Agua Marina, Sedimento, Atmósfera. Al seleccionarlo se cargarán las Sub Áreas disponibles." />}
                             data={componentesData}
                             value={selectedComponente}
                             onChange={handleComponenteChange}
@@ -1106,7 +1107,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             radius="md"
                         />
                         <Select 
-                            label="Sub Área *" 
+                            label={<FieldLabel label="Sub Área *" help="Clasificación más específica dentro del componente ambiental seleccionado. Depende del Componente elegido anteriormente." />}
                             data={subAreasData}
                             value={selectedSubArea}
                             onChange={(v) => setSelectedSubArea(v || '')}
@@ -1117,7 +1118,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                     </SimpleGrid>
 
                     <TextInput 
-                        label="Nombre de la Tabla (Glosa) *" 
+                        label={<FieldLabel label="Nombre de la Tabla (Glosa) *" help="Nombre descriptivo que identificará la tabla de resultados en el informe final. Se autocompleta como: 'Nombre del Centro - Objetivo del Muestreo'. Puede editarse libremente. Máximo 100 caracteres." />}
                         value={glosa} 
                         onChange={(e: any) => setGlosa(e.target.value)} 
                         maxLength={100}
@@ -1127,9 +1128,9 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                     />
 
                     <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-                        <Select label="¿Es ETFA?" data={['Si', 'No']} value={esETFA} onChange={(val) => setEsETFA(val || 'No')} size="sm" radius="md" />
+                        <Select label={<FieldLabel label="¿Es ETFA?" help="Indica si el establecimiento es una Empresa de Tratamiento de Fangs y Aguas (ETFA). Se activa automáticamente al seleccionar un instrumento ambiental válido. Puede modificarse manualmente." />} data={['Si', 'No']} value={esETFA} onChange={(val) => setEsETFA(val || 'No')} size="sm" radius="md" />
                         <Select 
-                            label="Inspector Ambiental" 
+                            label={<FieldLabel label="Inspector Ambiental" help="Profesional inspector de ADL designado para supervisar este muestreo. Campo opcional disponible solo cuando el responsable es ADL." />}
                             data={inspectoresData}
                             value={selectedInspector}
                             onChange={(val) => setSelectedInspector(val || '')}
@@ -1151,7 +1152,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
                     <SimpleGrid cols={{ base: 1, sm: 3, md: 5 }} spacing="sm">
                         <Select 
-                            label="Tipo Muestreo *" 
+                            label={<FieldLabel label="Tipo Muestreo *" help="Metodología general de recolección de la muestra. Ejemplos: Simple (grab), Integrado, Compuesto. Al seleccionarlo se cargarán los Tipos de Muestra disponibles." />}
                             data={tiposMuestreoData}
                             value={selectedTipoMuestreo}
                             onChange={handleTipoMuestreoChange}
@@ -1159,7 +1160,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             radius="md"
                         />
                         <Select 
-                            label="Tipo Muestra *" 
+                            label={<FieldLabel label="Tipo Muestra *" help="Material físico que se recolectará. Ejemplos: Agua Superficial, Sedimento, Biota, Efluente. Depende del Tipo de Muestreo seleccionado." />}
                             data={tiposMuestraData}
                             value={selectedTipoMuestra}
                             onChange={handleTipoMuestraChange}
@@ -1168,7 +1169,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             radius="md"
                         />
                         <Select 
-                            label="Actividad *" 
+                            label={<FieldLabel label="Actividad *" help="Técnica o procedimiento específico para obtener la muestra. Ejemplos: Tomada con balde, Bomba peristáltica, Red de arrastre. Depende del Tipo de Muestra." />}
                             data={actividadesData}
                             value={selectedActividad}
                             onChange={(val) => setSelectedActividad(val || '')}
@@ -1177,7 +1178,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             radius="md"
                         />
                         <TextInput
-                            label="Duración (Hrs) *"
+                            label={<FieldLabel label="Duración (Hrs) *" help="Tiempo estimado en horas enteras que tomará el muestreo completo en el centro. No incluir el tiempo de traslado. Solo se aceptan números enteros." />}
                             type="number"
                             inputMode="numeric"
                             min={0}
@@ -1199,7 +1200,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             radius="md"
                         />
                         <Select 
-                            label="Tipo Descarga" 
+                            label={<FieldLabel label="Tipo Descarga *" help="Clasificación del tipo de descarga del establecimiento según la normativa ambiental. Ejemplos: Punto de Descarga, Cuerpo Receptor. Requerido para la clasificación del informe." />}
                             data={tiposDescargaData}
                             value={selectedTipoDescarga}
                             onChange={(val) => setSelectedTipoDescarga(val || '')}
@@ -1212,7 +1213,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         <Group align="flex-end" gap="xs">
                             <Box style={{ flex: 1 }}>
                                 <TextInput
-                                    label="Referencia Google Maps"
+                                    label={<FieldLabel label="Referencia Google Maps" help="Enlace de Google Maps o coordenadas geográficas (latitud,longitud) del punto de muestreo. Permite geolocalizar el centro en el planificador de rutas. Ejemplo: https://maps.app.goo.gl/XYZ o -41.45,-72.92" />}
                                     placeholder="https://maps.app.goo.gl/... o -41.45,-72.92"
                                     value={refGoogle}
                                     onChange={(e: any) => setRefGoogle(e.target.value)}
@@ -1280,7 +1281,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
                     <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
                         <Select 
-                            label="Medición Caudal" 
+                            label={<FieldLabel label="Medición Caudal" help="Indica si se medirá el caudal de la descarga y cómo. Manual: se mide en terreno por el muestreador. Automático: existe un caudalímetro instalado. No Aplica: no se mide caudal." />}
                             data={['Manual', 'Automático', 'No Aplica']} 
                             value={medicionCaudal} 
                             onChange={(val) => setMedicionCaudal(val || '')}
@@ -1288,7 +1289,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             radius="md"
                         />
                         <Select
-                            label="Modalidad"
+                            label={<FieldLabel label="Modalidad" help="Método hidráulico para medir el caudal. Se activa solo si la Medición de Caudal no es 'No Aplica'. Determina qué campos de canal y dispositivo se requieren." />}
                             data={modalidadesData}
                             value={selectedModalidad}
                             onChange={(val) => setSelectedModalidad(val || '')}
@@ -1298,7 +1299,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         />
                         <Stack gap={4}>
                             <Select
-                                label="Forma Canal"
+                                label={<FieldLabel label="Forma Canal" help="Geometría del canal o sección de descarga donde se medirá el caudal. Ejemplos: Rectangular, Trapezoidal, Circular. Determina la fórmula hidráulica que se aplicará." />}
                                 data={formasCanalData}
                                 value={formaCanal}
                                 onChange={(val) => setFormaCanal(val || '')}
@@ -1328,7 +1329,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         </Stack>
                         <Stack gap={4}>
                             <Select
-                                label="Dispositivo Hidr."
+                                label={<FieldLabel label="Dispositivo Hidr." help="Instrumento o equipo utilizado para medir el caudal del dispositivo de descarga. Ejemplos: Caudalímetro electromagnético, Aforador Parshall, Vertedero. Seleccione 'No Aplica' si no existe dispositivo." />}
                                 data={dispositivosData}
                                 value={dispositivo}
                                 onChange={(val) => setDispositivo(val || '')}

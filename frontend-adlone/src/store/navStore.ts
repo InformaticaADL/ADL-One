@@ -15,6 +15,9 @@ interface NavState {
     hiddenNotifications: string[]; // Persistent dismissed notifications
     maArea: 'comercial' | 'tecnica' | 'coordinacion' | null; // Deprecated, will be removed fully in Phase 2
     fichasMode: 'menu' | 'create_ficha' | 'create_choice' | 'create_manual' | 'create_bulk' | 'list_fichas' | 'detail_ficha' | 'list_assign' | 'detail_assign' | 'calendar' | 'list_ejecutados' | 'dashboard' | 'kpi_dashboard' | 'route_planner' | 'route_planner_map' | 'manage_empresas';
+    helpCenterOpen: boolean; // Global HelpCenter modal state
+    helpCenterIsGlobal: boolean;
+    setHelpCenterOpen: (open: boolean, isGlobal?: boolean) => void;
     setActiveModule: (moduleId: string) => void;
     setActiveSubmodule: (submoduleId: string) => void;
     setDrawerOpen: (isOpen: boolean) => void;
@@ -57,6 +60,9 @@ export const useNavStore = create<NavState>()(
             hiddenNotifications: [],
             maArea: null,
             fichasMode: 'menu',
+            helpCenterOpen: false,
+            helpCenterIsGlobal: false,
+            setHelpCenterOpen: (open, isGlobal = false) => set({ helpCenterOpen: open, helpCenterIsGlobal: isGlobal }),
             setActiveModule: (moduleId) => set({ activeModule: moduleId }),
             setActiveSubmodule: (submoduleId) => set((state) => ({
                 previousSubmodule: state.activeSubmodule !== submoduleId ? state.activeSubmodule : state.previousSubmodule,

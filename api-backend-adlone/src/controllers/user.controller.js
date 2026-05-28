@@ -48,14 +48,14 @@ class UserController {
             const { avatarPath } = req.body;
             const userId = req.user.id;
 
-            if (!avatarPath) {
+            if (avatarPath === undefined) {
                 return errorResponse(res, 'No se proporcionó la ruta del avatar', 400);
             }
 
-            // Update user in DB using rbacService
-            await rbacService.updateUserProfilePicture(userId, avatarPath);
+            // Update user in DB using rbacService (null means removing avatar)
+            await rbacService.updateUserProfilePicture(userId, avatarPath || null);
 
-            return successResponse(res, { foto: avatarPath }, 'Avatar actualizado correctamente');
+            return successResponse(res, { foto: avatarPath || null }, 'Avatar actualizado correctamente');
         } catch (err) {
             logger.error('Error in setPredefinedAvatar controller:', err);
             return errorResponse(res, 'Error al actualizar el avatar', 500, err.message);

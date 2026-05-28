@@ -1,5 +1,4 @@
-import dotenv from 'dotenv';
-dotenv.config();
+import './src/config/env.js';
 import { getConnection } from './src/config/database.js';
 
 const findUsers = async (pattern) => {

@@ -305,8 +305,8 @@ export const KpiAnalystDashboardView = ({ onBack }: Props) => {
                     { label: 'Dashboard Inteligente' }
                 ]}
                 rightSection={
-                    <Group align="center" justify="flex-end" wrap="wrap">
-                        <Text size="xs" c="dimmed" display={{ base: 'none', md: 'block' }}>
+                    <Group align="center" justify="flex-end" gap="xs" wrap="nowrap">
+                        <Text size="xs" c="dimmed" visibleFrom="lg">
                             Actualizado {new Date(payload.generatedAt).toLocaleString('es-CL')}
                         </Text>
                         <Button 
@@ -314,6 +314,7 @@ export const KpiAnalystDashboardView = ({ onBack }: Props) => {
                             loading={refreshing} 
                             onClick={() => loadDashboard(true)}
                             radius="md"
+                            size="sm"
                         >
                             Recalcular
                         </Button>
