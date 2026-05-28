@@ -1214,6 +1214,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             <Box style={{ flex: 1 }}>
                                 <TextInput
                                     label={<FieldLabel label="Referencia Google Maps" help="Enlace de Google Maps o coordenadas geográficas (latitud,longitud) del punto de muestreo. Permite geolocalizar el centro en el planificador de rutas. Ejemplo: https://maps.app.goo.gl/XYZ o -41.45,-72.92" />}
+                                    description="Si no es ingresada, esta ficha quedará inhabilitada para generación de rutas."
                                     placeholder="https://maps.app.goo.gl/... o -41.45,-72.92"
                                     value={refGoogle}
                                     onChange={(e: any) => setRefGoogle(e.target.value)}

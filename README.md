@@ -137,6 +137,11 @@ frontend-adlone/
 - Botón "Limpiar Todo" global y limpieza individual por filtro (X).
 - Ordenamiento inteligente por urgencia en módulo de Asignación.
 
+### 6.8 Refactorización Módulo Medio Ambiente (Mayo 2026) 🗺️
+- Simplificación de Fichas de Ingreso (removidas tarjetas y dependencias innecesarias de "Empresas de Servicio").
+- Campo de "Referencia Google Maps" modificado como opcional en Fichas. Si no se ingresa, la ficha se excluye de generación de rutas.
+- Actualización de importaciones dinámicas para componentes ligeros.
+
 ### 7. Mejoras de UI/UX y Responsividad Móvil (Enero 2026) 📱
 - Eliminación de flickers con estados de carga full-screen.
 - Layouts adaptables en vistas de detalle para móviles y tablets.

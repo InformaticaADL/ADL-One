@@ -33,7 +33,6 @@ const CoordinacionDashboardView = lazy(() => import('../components/CoordinacionD
 const RouteMapPlannerView = lazy(() => import('../components/RouteMapPlannerView').then(m => ({ default: m.RouteMapPlannerView })));
 const RutasListView = lazy(() => import('../components/RutasListView').then(m => ({ default: m.RutasListView })));
 const KpiAnalystDashboardView = lazy(() => import('../components/KpiAnalystDashboardView').then(m => ({ default: m.KpiAnalystDashboardView })));
-const EmpresaServicioFormView = lazy(() => import('../components/EmpresaServicioFormView').then(m => ({ default: m.EmpresaServicioFormView })));
 
 const LazyFallback = () => (
     <Center h={300}><Loader size="md" /></Center>
@@ -46,8 +45,7 @@ import {
     IconCalendar, 
     IconHistory, 
     IconChartBar,
-    IconRoute,
-    IconBuilding 
+    IconRoute
 } from '@tabler/icons-react';
 
 export const FichasIngresoPage = () => {
@@ -205,14 +203,7 @@ export const FichasIngresoPage = () => {
                     </Suspense>
                 </ProtectedContent>
             );
-        case 'manage_empresas':
-            return (
-                <ProtectedContent permission="FI_CREAR_EMPRESA" fallback={<Text ta="center" mt="xl" c="red">No tiene permisos</Text>}>
-                    <Suspense fallback={<LazyFallback />}>
-                        <EmpresaServicioFormView onBack={() => setFichasMode('menu')} />
-                    </Suspense>
-                </ProtectedContent>
-            );
+
         case 'menu':
         default:
             return (
@@ -301,16 +292,6 @@ export const FichasIngresoPage = () => {
                                     />
                                 </ProtectedContent>
 
-
-                                <ProtectedContent permission="FI_CREAR_EMPRESA">
-                                    <SelectionCard
-                                        title="Empresas de Servicio"
-                                        description="Gestionar el maestro de empresas prestadoras de servicios de muestreo y terreno."
-                                        icon={<IconBuilding size={32} />}
-                                        color="#0ca678"
-                                        onClick={() => setFichasMode('manage_empresas')}
-                                    />
-                                </ProtectedContent>
                             </SimpleGrid>
                         </Stack>
                     </Paper>
