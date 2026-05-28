@@ -105,6 +105,7 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
     // Edit States
     const [isEditing, setIsEditing] = useState(false);
     const [analysisList, setAnalysisList] = useState<any[]>([]);
+    const [costoOperativo, setCostoOperativo] = useState<{ enabled: boolean; uf: number | string }>({ enabled: true, uf: '' });
     const antecedentesRef = useRef<AntecedentesFormHandle>(null);
     const mappedInitialDataRef = useRef<any>(null);
     const [showCancelModal, setShowCancelModal] = useState(false);
@@ -173,7 +174,12 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
     // Comercial Edit Logic
     const handleEditStart = () => {
         if (!data) return;
-        const mappedAnalysis = (data.detalles || []).map((row: any, index: number) => ({
+        const allRows = data.detalles || [];
+        // Separar la fila sentinela "CostoOperativo"
+        const costoRow = allRows.find((r: any) => r.tipo_analisis === 'CostoOperativo');
+        const regularRows = allRows.filter((r: any) => r.tipo_analisis !== 'CostoOperativo');
+
+        const mappedAnalysis = regularRows.map((row: any, index: number) => ({
             ...row,
             savedId: `edit-${index}-${Date.now()}`,
             nombre_tecnica: row.nombre_tecnica || row.nombre_determinacion || row.nombre_examen,
@@ -181,6 +187,10 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
             nombre_laboratorioensayo_2: getLabName(row.id_laboratorioensayo_2 || row.id_laboratorioensayo2),
             item: index + 1
         }));
+
+        // Costo Operativo siempre marcado por defecto; el usuario lo desactiva manualmente.
+        const costoUF = Number(costoRow?.uf_individual || 0);
+        setCostoOperativo({ enabled: true, uf: costoUF > 0 ? costoUF : '' });
 
         mappedInitialDataRef.current = mapToAntecedentes(data, data.agenda);
         setAnalysisList(mappedAnalysis);
@@ -201,6 +211,10 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
         const payload = {
             antecedentes: antecedentesRef.current.getData(),
             analisis: analysisList,
+            costoOperativo: {
+                activo: !!costoOperativo.enabled,
+                uf: costoOperativo.enabled ? Number(costoOperativo.uf || 0) : 0
+            },
             observaciones: obsToSave
         };
 
@@ -548,7 +562,12 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
 
                                 <Tabs.Panel value="analisis" p={isMobile ? 'md' : 50} pt="xl" style={{ width: '100% !important' }}>
                                     {isEditing ? (
-                                        <AnalysisForm savedAnalysis={analysisList} onSavedAnalysisChange={setAnalysisList} />
+                                        <AnalysisForm
+                                            savedAnalysis={analysisList}
+                                            onSavedAnalysisChange={setAnalysisList}
+                                            costoOperativo={costoOperativo}
+                                            onCostoOperativoChange={setCostoOperativo}
+                                        />
                                     ) : (
                                         <Stack gap="xl">
                                             {/* F-01b: encabezado eliminado — normativa/tabla ahora se muestra POR LÍNEA en la tabla.
@@ -571,7 +590,7 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                         </Table.Tr>
                                                     </Table.Thead>
                                                     <Table.Tbody>
-                                                        {det.map((row: any, i: number) => (
+                                                        {det.filter((row: any) => row.tipo_analisis !== 'CostoOperativo').map((row: any, i: number) => (
                                                             <Table.Tr key={i}>
                                                                 <Table.Td fw={600}>{row.nombre_tecnica || row.nombre_determinacion || '-'}</Table.Td>
                                                                 <Table.Td fz="xs">{row.nombre_normativa || '-'}</Table.Td>
@@ -590,6 +609,25 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                                 )}
                                                             </Table.Tr>
                                                         ))}
+                                                        {/* Costo Operativo: SIEMPRE visible (UF o "No aplica") */}
+                                                        {(() => {
+                                                            const coRow = det.find((r: any) => r.tipo_analisis === 'CostoOperativo');
+                                                            const coUF = Number(coRow?.uf_individual || 0);
+                                                            const colSpan = hasPermission('FI_EXP_VER_UF') ? 10 : 10;
+                                                            return (
+                                                                <Table.Tr bg={coUF > 0 ? 'yellow.0' : 'gray.0'}>
+                                                                    <Table.Td fw={700} c={coUF > 0 ? 'yellow.9' : 'dimmed'}>Costo Operativo</Table.Td>
+                                                                    <Table.Td colSpan={colSpan - 1} c="dimmed" fz="xs">{coUF > 0 ? 'Opcional — incluido en esta ficha' : 'Opcional — no aplica para esta ficha'}</Table.Td>
+                                                                    {hasPermission('FI_EXP_VER_UF') && (
+                                                                        <Table.Td ta="center">
+                                                                            <Text size="sm" fw={700} c={coUF > 0 ? 'yellow.9' : 'dimmed'}>
+                                                                                {coUF > 0 ? Number(coUF).toFixed(2) : 'No aplica'}
+                                                                            </Text>
+                                                                        </Table.Td>
+                                                                    )}
+                                                                </Table.Tr>
+                                                            );
+                                                        })()}
                                                     </Table.Tbody>
                                                 </Table>
                                             </ScrollArea>

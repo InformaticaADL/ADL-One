@@ -641,7 +641,7 @@ export const FichaDetailView = () => {
                                                             </Table.Tr>
                                                         </Table.Thead>
                                                         <Table.Tbody>
-                                                            {analisis?.filter((item: any) => item.tipo_analisis !== 'Laboratorio').map((item: any, i: number) => (
+                                                            {analisis?.filter((item: any) => item.tipo_analisis !== 'Laboratorio' && item.tipo_analisis !== 'CostoOperativo').map((item: any, i: number) => (
                                                                 <Table.Tr key={i}>
                                                                     <Table.Td fw={500}>{item.parametro}</Table.Td>
                                                                     <Table.Td ta="center">
@@ -654,7 +654,7 @@ export const FichaDetailView = () => {
                                                                     )}
                                                                 </Table.Tr>
                                                             ))}
-                                                            {analisis?.filter((item: any) => item.tipo_analisis !== 'Laboratorio').length === 0 && (
+                                                            {analisis?.filter((item: any) => item.tipo_analisis !== 'Laboratorio' && item.tipo_analisis !== 'CostoOperativo').length === 0 && (
                                                                 <Table.Tr>
                                                                     <Table.Td colSpan={2} style={{ textAlign: 'center' }} p="md">
                                                                         <Text fs="italic" c="dimmed" size="sm">No hay parámetros de terreno registrados.</Text>

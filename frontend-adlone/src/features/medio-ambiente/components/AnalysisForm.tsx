@@ -32,12 +32,25 @@ import {
 } from '@tabler/icons-react';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 
+export interface CostoOperativoState {
+    enabled: boolean;
+    uf: number | string;
+}
+
 interface AnalysisFormProps {
     savedAnalysis: any[];
     onSavedAnalysisChange: (newAnalysis: any[]) => void;
+    costoOperativo?: CostoOperativoState;
+    onCostoOperativoChange?: (next: CostoOperativoState) => void;
 }
 
-export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSavedAnalysisChange }) => {
+const DEFAULT_COSTO: CostoOperativoState = { enabled: true, uf: '' };
+
+export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSavedAnalysisChange, costoOperativo, onCostoOperativoChange }) => {
+    const costo = costoOperativo || DEFAULT_COSTO;
+    const updateCosto = (next: Partial<CostoOperativoState>) => {
+        onCostoOperativoChange && onCostoOperativoChange({ ...costo, ...next });
+    };
     const { showToast } = useToast();
     const catalogos = useCachedCatalogos();
     const isMobile = useMediaQuery('(max-width: 768px)');
@@ -70,10 +83,12 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
     // ===== ESTADO: UF Total de Ficha =====
     const [totalRealUF, setTotalRealUF] = useState<number | string>('');
 
-    // Sincronizar estado inicial si se cargan datos
+    // Sincronizar estado inicial si se cargan datos (incluye Costo Operativo si está activo)
     useEffect(() => {
-        if (savedAnalysis.length > 0) {
-            const sum = savedAnalysis.reduce((acc, curr) => acc + Number(curr.uf_individual || 0), 0);
+        const analysisSum = savedAnalysis.reduce((acc, curr) => acc + Number(curr.uf_individual || 0), 0);
+        const costoSum = costo.enabled ? Number(costo.uf || 0) : 0;
+        const sum = analysisSum + costoSum;
+        if (savedAnalysis.length > 0 || costoSum > 0) {
             if (sum > 0) {
                 setTotalRealUF(sum.toFixed(2));
             } else if (totalRealUF !== '') {
@@ -82,7 +97,7 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
         } else if (totalRealUF !== '') {
             setTotalRealUF('');
         }
-    }, [savedAnalysis]);
+    }, [savedAnalysis, costo.enabled, costo.uf]);
 
     // ===== FUNCIONES: Carga de Catálogos =====
     useEffect(() => {
@@ -343,10 +358,13 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
     const handleTotalUfChange = (val: number | string) => {
         setTotalRealUF(val);
         if (!val || isNaN(Number(val))) return;
-        
+
         const total = Number(val);
+        // El Costo Operativo (si está activo) NO se redistribuye: conserva su UF
+        const costoUF = costo.enabled ? Number(costo.uf || 0) : 0;
+        const remaining = Math.max(0, total - costoUF);
         if (savedAnalysis.length > 0) {
-            const divide = +(total / savedAnalysis.length).toFixed(2);
+            const divide = +(remaining / savedAnalysis.length).toFixed(2);
             const updated = savedAnalysis.map((a: any) => ({ ...a, uf_individual: divide }));
             onSavedAnalysisChange(updated);
         }
@@ -665,6 +683,47 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                                 </Table.Tr>
                             </Table.Thead>
                             <Table.Tbody>
+                                {/* Fila SIEMPRE presente: Costo Operativo (opcional, marcable) */}
+                                <Table.Tr bg={costo.enabled ? 'yellow.0' : undefined}>
+                                    <Table.Td fz="sm" fw={600}>
+                                        <Group gap="xs" wrap="nowrap">
+                                            <Checkbox
+                                                checked={costo.enabled}
+                                                onChange={(e) => updateCosto({ enabled: e.currentTarget.checked })}
+                                                size="xs"
+                                            />
+                                            <Text fz="sm" fw={700} c={costo.enabled ? 'yellow.9' : 'dimmed'}>Costo Operativo</Text>
+                                        </Group>
+                                    </Table.Td>
+                                    <Table.Td fz="xs" c="dimmed">—</Table.Td>
+                                    <Table.Td fz="xs" c="dimmed">—</Table.Td>
+                                    <Table.Td fz="xs" c="dimmed">—</Table.Td>
+                                    <Table.Td fz="xs" ta="right" c="dimmed">—</Table.Td>
+                                    <Table.Td fz="xs" ta="right" c="dimmed">—</Table.Td>
+                                    <Table.Td fz="xs" ta="center" c="dimmed">—</Table.Td>
+                                    <Table.Td fz="xs" ta="right" c="dimmed">—</Table.Td>
+                                    <Table.Td fz="xs" ta="right" c="dimmed">—</Table.Td>
+                                    <Table.Td fz="xs" c="dimmed">—</Table.Td>
+                                    <Table.Td>
+                                        <NumberInput
+                                            size="xs" radius="xs"
+                                            value={costo.uf}
+                                            onChange={(val) => updateCosto({ uf: val })}
+                                            onFocus={(e) => {
+                                                if (String(costo.uf) === '0') updateCosto({ uf: '' });
+                                                e.currentTarget.select();
+                                            }}
+                                            decimalScale={2}
+                                            hideControls
+                                            ta="right"
+                                            disabled={!costo.enabled}
+                                            placeholder="0.00"
+                                        />
+                                    </Table.Td>
+                                    <Table.Td fz="xs" c="dimmed">—</Table.Td>
+                                    <Table.Td fz="xs" c="dimmed">—</Table.Td>
+                                    <Table.Td ta="center"></Table.Td>
+                                </Table.Tr>
                                 {savedAnalysis.length > 0 ? (
                                     savedAnalysis.map(analysis => (
                                         <Table.Tr key={analysis.savedId}>
@@ -704,10 +763,10 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                                         </Table.Tr>
                                     ))
                                 ) : (
-                                    <Table.Tr><Table.Td colSpan={14} ta="center" py="xl" c="dimmed">No hay análisis grabados</Table.Td></Table.Tr>
+                                    <Table.Tr><Table.Td colSpan={14} ta="center" py="xl" c="dimmed">Aún no hay análisis grabados (agregue al menos uno)</Table.Td></Table.Tr>
                                 )}
                             </Table.Tbody>
-                            {savedAnalysis.length > 0 && (
+                            {(savedAnalysis.length > 0 || costo.enabled) && (
                                 <Table.Tfoot pos="sticky" bottom={0} style={{ zIndex: 1 }} bg="gray.1">
                                     <Table.Tr>
                                         <Table.Td colSpan={10} ta="right" fw={700} c="indigo.9" fz="sm">

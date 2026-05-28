@@ -45,6 +45,7 @@ const RemuestreoPageContent: React.FC = () => {
     const [activeTab, setActiveTab] = useState<string>('antecedentes');
     const [originalFicha, setOriginalFicha] = useState<any>(null);
     const [analysisList, setAnalysisList] = useState<any[]>([]);
+    const [costoOperativo, setCostoOperativo] = useState<{ enabled: boolean; uf: number | string }>({ enabled: true, uf: '' });
     const [observaciones, setObservaciones] = useState<string>('');
     
     const antecedentesRef = useRef<AntecedentesFormHandle>(null);
@@ -77,7 +78,10 @@ const RemuestreoPageContent: React.FC = () => {
                     return lab ? lab.nombre_laboratorioensayo : null;
                 };
 
-                const mappedAnalysis = (data.detalles || []).map((row: any, index: number) => ({
+                const allRows = data.detalles || [];
+                const costoRow = allRows.find((r: any) => r.tipo_analisis === 'CostoOperativo');
+                const regularRows = allRows.filter((r: any) => r.tipo_analisis !== 'CostoOperativo');
+                const mappedAnalysis = regularRows.map((row: any, index: number) => ({
                     ...row,
                     savedId: `remuestreo-${index}-${Date.now()}`,
                     nombre_tecnica: row.nombre_tecnica || row.nombre_determinacion || row.nombre_examen,
@@ -86,6 +90,9 @@ const RemuestreoPageContent: React.FC = () => {
                     item: index + 1
                 }));
                 setAnalysisList(mappedAnalysis);
+                // Costo Operativo siempre marcado por defecto; el usuario lo desactiva manualmente.
+                const coUF = Number(costoRow?.uf_individual || 0);
+                setCostoOperativo({ enabled: true, uf: coUF > 0 ? coUF : '' });
                 setObservaciones('');
 
             } else {
@@ -119,6 +126,10 @@ const RemuestreoPageContent: React.FC = () => {
         const payload = {
             antecedentes: antecedentesData,
             analisis: analysisList,
+            costoOperativo: {
+                activo: !!costoOperativo.enabled,
+                uf: costoOperativo.enabled ? Number(costoOperativo.uf || 0) : 0
+            },
             observaciones: observaciones,
             user: auth?.user,
             isRemuestreo: true,
@@ -200,7 +211,12 @@ const RemuestreoPageContent: React.FC = () => {
 
                         <Tabs.Panel value="analisis" p={isMobile ? 'md' : 'xl'} pt="xl">
                             <Stack gap="lg">
-                                <AnalysisForm savedAnalysis={analysisList} onSavedAnalysisChange={setAnalysisList} />
+                                <AnalysisForm
+                                    savedAnalysis={analysisList}
+                                    onSavedAnalysisChange={setAnalysisList}
+                                    costoOperativo={costoOperativo}
+                                    onCostoOperativoChange={setCostoOperativo}
+                                />
                                 <Group justify="flex-end">
                                     <Button 
                                         rightSection={<IconArrowRight size={18} />} 

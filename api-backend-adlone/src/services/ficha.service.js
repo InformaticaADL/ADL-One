@@ -36,6 +36,10 @@ class FichaIngresoService {
             // Map antecedente fields
             const ant = data.antecedentes || {};
             const obs = data.observaciones || '';
+            // Costo Operativo: SIEMPRE se persiste como una fila adicional en DET
+            // con tipo_analisis = 'CostoOperativo'. Si no aplica, uf_individual = 0
+            // (el frontend lo mostrará como "No aplica").
+            const co = data.costoOperativo || { activo: false, uf: 0 };
             const userId = data.user ? (data.user.id_usuario || data.user.id || 1) : 1;
 
             // Helper for empty strings/nulls
@@ -207,8 +211,9 @@ class FichaIngresoService {
 
             // 3. Insertar Detalle (DET)
             const analisisList = data.analisis || [];
+            const costoUF = co && co.activo ? Number(co.uf || 0) : 0;
             let itemCounter = 1;
-            logger.info(`Insertando ${analisisList.length} items de detalle...`);
+            logger.info(`Insertando ${analisisList.length} items de detalle + fila Costo Operativo (UF=${costoUF})...`);
 
             if (analisisList.length > 0) {
                 // --- BATCH INSERT FOR ANALYSES ---
@@ -256,6 +261,30 @@ class FichaIngresoService {
                 `);
                 itemCounter += analisisList.length;
             }
+
+            // 3.b INSERT FILA "COSTO OPERATIVO" (siempre presente; UF=0 si no aplica)
+            const reqCo = new sql.Request(transaction);
+            reqCo.input('id_ficha', sql.Numeric(10, 0), newId);
+            reqCo.input('uf', sql.Numeric(18, 5), costoUF);
+            reqCo.input('item', sql.Numeric(10, 0), itemCounter);
+            await reqCo.query(`
+                INSERT INTO App_Ma_FichaIngresoServicio_DET(
+                    id_fichaingresoservicio, id_tecnica, id_normativa, id_normativareferencia, id_referenciaanalisis,
+                    limitemax_d, limitemax_h, llevaerror, error_min, error_max,
+                    tipo_analisis, uf_individual, item, id_laboratorioensayo, id_laboratorioensayo_2, id_tipoentrega,
+                    id_transporte, transporte_orden, resultado_fecha, resultado_hora,
+                    llevatraduccion, traduccion_0, traduccion_1,
+                    estado, cumplimiento, cumplimiento_app, activo
+                ) VALUES(
+                    @id_ficha, NULL, NULL, NULL, NULL,
+                    NULL, NULL, 'N', NULL, NULL,
+                    'CostoOperativo', @uf, @item, 0, 0, 0,
+                    0, '', '1900-01-01', '',
+                    'N', '', '',
+                    '', '', '', 1
+                )
+            `);
+            itemCounter++;
 
             // 4. Crear Agenda (MUESTREOS)
             logger.info('Generando Agenda (Muestreos)...');
@@ -685,7 +714,8 @@ class FichaIngresoService {
 
             // 3.2 SOFT DELETE Missing items
             // Update activo = 0 for items that were present but now removed from list
-            const idsToDelete = [...existingMap].filter(x => !processedIds.has(x));
+            // Excluimos null (fila Costo Operativo) — se maneja aparte
+            const idsToDelete = [...existingMap].filter(x => x !== null && x !== 0 && !processedIds.has(x));
             if (idsToDelete.length > 0) {
                 logger.info(`Soft Deleting ${idsToDelete.length} removed analysis items.`);
                 // Loop delete
@@ -695,6 +725,43 @@ class FichaIngresoService {
                     reqDelete.input('id_ref', sql.Numeric(10, 0), delId);
                     await reqDelete.query('UPDATE App_Ma_FichaIngresoServicio_DET SET activo = 0 WHERE id_fichaingresoservicio = @id_ficha AND id_referenciaanalisis = @id_ref');
                 }
+            }
+
+            // 3.3 Costo Operativo: UPSERT como fila DET con tipo_analisis='CostoOperativo'
+            // SIEMPRE existe una fila (UF=0 cuando no aplica).
+            const coUpd = data.costoOperativo || { activo: false, uf: 0 };
+            const coUF = coUpd.activo ? Number(coUpd.uf || 0) : 0;
+            const reqCoCheck = new sql.Request(transaction);
+            reqCoCheck.input('id_ficha', sql.Numeric(10, 0), id);
+            const coExists = await reqCoCheck.query(
+                "SELECT TOP 1 1 AS x FROM App_Ma_FichaIngresoServicio_DET WHERE id_fichaingresoservicio = @id_ficha AND tipo_analisis = 'CostoOperativo'"
+            );
+            const reqCo = new sql.Request(transaction);
+            reqCo.input('id_ficha', sql.Numeric(10, 0), id);
+            reqCo.input('uf', sql.Numeric(18, 5), coUF);
+            reqCo.input('item', sql.Numeric(10, 0), itemCounter);
+            if (coExists.recordset.length > 0) {
+                await reqCo.query(
+                    "UPDATE App_Ma_FichaIngresoServicio_DET SET uf_individual = @uf, activo = 1, item = @item WHERE id_fichaingresoservicio = @id_ficha AND tipo_analisis = 'CostoOperativo'"
+                );
+            } else {
+                await reqCo.query(`
+                    INSERT INTO App_Ma_FichaIngresoServicio_DET(
+                        id_fichaingresoservicio, id_tecnica, id_normativa, id_normativareferencia, id_referenciaanalisis,
+                        limitemax_d, limitemax_h, llevaerror, error_min, error_max,
+                        tipo_analisis, uf_individual, item, id_laboratorioensayo, id_laboratorioensayo_2, id_tipoentrega,
+                        id_transporte, transporte_orden, resultado_fecha, resultado_hora,
+                        llevatraduccion, traduccion_0, traduccion_1,
+                        estado, cumplimiento, cumplimiento_app, activo
+                    ) VALUES(
+                        @id_ficha, NULL, NULL, NULL, NULL,
+                        NULL, NULL, 'N', NULL, NULL,
+                        'CostoOperativo', @uf, @item, 0, 0, 0,
+                        0, '', '1900-01-01', '',
+                        'N', '', '',
+                        '', '', '', 1
+                    )
+                `);
             }
 
 
@@ -3862,21 +3929,25 @@ class FichaIngresoService {
             // Override to and cc based on requirement
             const finalTo = 'vremolcoy@adldiagnostic.cl';
 
-            // Get Ficha data
+            // Get Ficha data — también traemos frecuencia_correlativo para usarlo en el template
             const fichaResult = await pool.request()
                 .input('id', sql.Int, idFicha)
                 .input('correlativo', sql.VarChar, correlativo)
                 .query(`
-                    SELECT 
-                        a.caso_adlab
+                    SELECT
+                        a.caso_adlab,
+                        a.frecuencia_correlativo
                     FROM App_Ma_FichaIngresoServicio_ENC f
                     INNER JOIN App_Ma_Agenda_MUESTREOS a ON f.id_fichaingresoservicio = a.id_fichaingresoservicio
                     WHERE f.id_fichaingresoservicio = @id AND a.frecuencia_correlativo = @correlativo
                 `);
-            
+
             let casoAdlab = 'Sin Caso';
+            // ✅ FIX: usar frecuencia_correlativo como identificador principal (igual que la app móvil)
+            let correlativoValor = correlativo;
             if (fichaResult.recordset.length > 0) {
                 casoAdlab = fichaResult.recordset[0].caso_adlab || 'Sin Caso';
+                correlativoValor = fichaResult.recordset[0].frecuencia_correlativo || correlativo;
             }
 
             // Get Event Template (73 = FoMa, 74 = Cadena)
@@ -3897,10 +3968,15 @@ class FichaIngresoService {
 
             const labName = documento.label || 'Laboratorio';
 
-            asunto = asunto.replace(/{CASO_ADLAB}/g, casoAdlab)
+            // ✅ FIX: reemplazar {CORRELATIVO} y {CASO_ADLAB} con frecuencia_correlativo
+            // Los templates ya tienen {CORRELATIVO} como placeholder (actualizado en BD 2026-05-28).
+            // Se mantiene {CASO_ADLAB} como fallback de compatibilidad.
+            asunto = asunto.replace(/{CORRELATIVO}/g, correlativoValor)
+                           .replace(/{CASO_ADLAB}/g, correlativoValor)
                            .replace(/{LABORATORIO_ASIGNADO}/g, labName);
-            
-            html = html.replace(/{CASO_ADLAB}/g, casoAdlab)
+
+            html = html.replace(/{CORRELATIVO}/g, correlativoValor)
+                       .replace(/{CASO_ADLAB}/g, correlativoValor)
                        .replace(/{LABORATORIO_ASIGNADO}/g, labName)
                        .replace(/{LOGO_URL}/g, 'cid:logo_adl')
                        .replace(/{ANIO_ACTUAL}/g, new Date().getFullYear().toString());

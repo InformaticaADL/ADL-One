@@ -112,6 +112,7 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
     const observacionesRef = useRef<ObservacionesFormHandle>(null);
     const topRef = useRef<HTMLDivElement>(null);
     const [savedAnalysis, setSavedAnalysis] = useState<any[]>([]);
+    const [costoOperativo, setCostoOperativo] = useState<{ enabled: boolean; uf: number | string }>({ enabled: true, uf: '' });
 
     const handleValidationChange = useCallback((isValid: boolean) => {
         startTransition(() => {
@@ -144,6 +145,10 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
             const payload = {
                 antecedentes: antData,
                 analisis: savedAnalysis,
+                costoOperativo: {
+                    activo: !!costoOperativo.enabled,
+                    uf: costoOperativo.enabled ? Number(costoOperativo.uf || 0) : 0
+                },
                 observaciones: observacionesRef.current?.getData() || 'No Aplica',
                 user: { id: user?.id || 0 }
             };
@@ -270,6 +275,8 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
                             <AnalysisForm
                                 savedAnalysis={savedAnalysis}
                                 onSavedAnalysisChange={setSavedAnalysis}
+                                costoOperativo={costoOperativo}
+                                onCostoOperativoChange={setCostoOperativo}
                             />
                         </Tabs.Panel>
 

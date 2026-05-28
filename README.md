@@ -491,6 +491,21 @@ frontend-adlone/
   - `analysis.service.ts`: Añadido interceptor de requests para asegurar que el token de autenticación del usuario se incluya correctamente en las peticiones al microservicio de análisis.
   - `KpiAnalystDashboardView.tsx`: Optimización de responsive en el encabezado de KPIs, ocultamiento inteligente del timestamp de actualización en móviles y ajuste estético de botones.
 
+### 67. Costo Operativo y Corrección de Correlativo en Documentos (Mayo 2026) 💰📄
+- **Fila Costo Operativo (`tipo_analisis='CostoOperativo'`)**:
+  - `ficha.service.js` — Al crear una ficha, se inserta automáticamente una fila de Costo Operativo en `App_Ma_FichaIngresoServicio_DET` (UF=0 cuando no aplica).
+  - `ficha.service.js` — Al editar, se realiza un **UPSERT** de la fila Costo Operativo: UPDATE si ya existe, INSERT si no, preservando integridad sin duplicados.
+  - `bulk-ficha.service.js` / `bulk-excel.service.js` — Misma lógica de inserción de Costo Operativo integrada en el flujo de carga masiva.
+  - `AnalysisForm.tsx` — Nuevo control toggle/input para habilitar el Costo Operativo y definir su valor en UF, disponible en modo edición y remuestreo.
+  - `FichaCreateForm.tsx` — Integración del estado `costoOperativo` en el payload de creación de ficha.
+  - `FichaUniversalView.tsx` — Vista de detalle: la fila Costo Operativo se muestra siempre al fondo de la tabla de análisis (fondo amarillo si tiene UF, gris si no aplica); se filtra de las filas regulares en modo lectura.
+  - `FichaDetailView.tsx` — Filtros de tabla actualizados para excluir `tipo_analisis='CostoOperativo'` de las vistas de parámetros de terreno.
+  - `RemuestreoPage.tsx` — Al cargar un remuestreo, se recupera y pre-rellena el Costo Operativo de la ficha original; el estado se propaga al payload de guardado.
+  - `AssignmentDetailView.tsx` — Exclusión defensiva de la fila Costo Operativo en listas de análisis de asignación.
+- **Fix Correlativo en Documentos PDF (FoMa / Cadena de Custodia)**:
+  - `ficha.service.js` — El asunto y cuerpo del correo de documentos ahora usan `frecuencia_correlativo` como identificador principal en lugar de `caso_adlab`, alineando la referencia del PDF con el correlativo que ve el usuario en la app móvil.
+  - Soporte para placeholder `{CORRELATIVO}` en templates de BD, manteniendo `{CASO_ADLAB}` como alias de compatibilidad.
+
 ---
 
 ## 🔧 Configuración para Desarrollo

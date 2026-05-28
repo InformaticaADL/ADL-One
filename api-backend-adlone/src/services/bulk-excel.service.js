@@ -163,8 +163,17 @@ class BulkExcelService {
                 warnings: [],
                 antecedentes: {},
                 analisis: [],
-                observaciones: ''
+                observaciones: '',
+                costoOperativo: { activo: true, uf: 0 }
             };
+
+            // Costo Operativo: SIEMPRE activo por defecto. La columna trae el UF asociado (puede ser 0).
+            // El usuario puede desmarcarlo manualmente en la revisión antes del commit.
+            const rawCosto = getCellF(row, 'COSTO OPERATIVO', 'COSTO OP');
+            const costoNum = parseFloat(rawCosto);
+            if (!isNaN(costoNum) && costoNum > 0) {
+                result.costoOperativo = { activo: true, uf: costoNum };
+            }
 
             const fields = result.antecedentes;
             const errs = result.errors;
@@ -393,8 +402,10 @@ class BulkExcelService {
                 
                 result.analysisErrors = analysisErrs;
                 
-                // Compute total UF for this ficha (sum of all uf_individual)
-                result._ufTotal = (result.analisis || []).reduce((sum, a) => sum + (parseFloat(a.uf_individual) || 0), 0);
+                // Compute total UF for this ficha (sum de uf_individual + Costo Operativo si está activo)
+                const ufAnalisis = (result.analisis || []).reduce((sum, a) => sum + (parseFloat(a.uf_individual) || 0), 0);
+                const ufCosto = result.costoOperativo?.activo ? Number(result.costoOperativo.uf || 0) : 0;
+                result._ufTotal = ufAnalisis + ufCosto;
 
 
                 if (normativaId) fields.selectedNormativa = String(normativaId);
@@ -667,6 +678,39 @@ class BulkExcelService {
             // Keep col 41 hidden (old UF TOTAL REAL remnant)
             wsFichas.getColumn(41).hidden = true;
 
+            // ── COSTO OPERATIVO (UF) column (opcional, col 42) ─────────────
+            // Si la celda viene vacía -> la ficha NO lleva Costo Operativo.
+            // Si trae un número > 0 -> la ficha lleva Costo Operativo activo con ese UF.
+            const costoCol   = 42;
+            const costoColLt = colLetter(costoCol);
+            const costoHdr = wsFichas.getRow(3).getCell(costoCol);
+            costoHdr.value     = '✏️ COSTO OPERATIVO\n(UF, opcional)';
+            costoHdr.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF92D050' } };
+            costoHdr.font      = { bold: true, color: { argb: 'FF000000' }, name: 'Calibri', size: 10 };
+            costoHdr.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+            costoHdr.border    = THIN_BORDER;
+
+            for (let r = DATA_START; r <= DATA_END; r++) {
+                const cell = wsFichas.getCell(`${costoColLt}${r}`);
+                cell.value     = null;
+                cell.numFmt    = '#,##0.00';
+                cell.alignment = { horizontal: 'right', vertical: 'middle' };
+                cell.border    = THIN_BORDER;
+                cell.protection = { locked: false };
+            }
+            wsFichas.getColumn(costoCol).width  = 18;
+            wsFichas.getColumn(costoCol).hidden = false;
+
+            // Re-escribir fórmula de UF TOTAL para incluir Costo Operativo
+            for (let r = DATA_START; r <= DATA_END; r++) {
+                const idCol = colLetter(1);
+                const cell  = wsFichas.getCell(`${ufTotalColLt}${r}`);
+                cell.value  = {
+                    formula: `IF(${idCol}${r}="","",SUMIF(ANALISIS!$A:$A,${idCol}${r},ANALISIS!$I:$I)+IF(ISNUMBER(${costoColLt}${r}),${costoColLt}${r},0))`,
+                    result: 0
+                };
+            }
+
             // ── Sheet protection: col 40 read-only, cols 1-39 editable ──────
             // column.style = { protection: { locked: false } } unlocks ALL cells
             // in that column (including empty ones the user will type into).
@@ -676,7 +720,9 @@ class BulkExcelService {
                     protection: { locked: false }
                 };
             }
-            // Col 40 stays locked (default locked: true) — no need to set explicitly.
+            // Col 40 stays locked (UF TOTAL AUTO) — Col 41 hidden remnant.
+            // Col 42 (Costo Operativo) editable:
+            wsFichas.getColumn(42).style = { protection: { locked: false } };
 
             // Protect the sheet — locked cells become read-only, unlocked stay editable.
             // No password so the user can unprotect via Excel if needed.

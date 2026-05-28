@@ -395,6 +395,22 @@ class BulkFichaService {
     }
 
     // =========================================================
+    // 3b. EXTRACT COSTO OPERATIVO FROM TEXT (Opcional)
+    // =========================================================
+    extractCostoOperativo(text) {
+        // Costo Operativo SIEMPRE activo por defecto; UF=0 si no se detecta en el PDF.
+        if (!text) return { activo: true, uf: 0 };
+        const norm = text.replace(/\s+/g, ' ');
+        const re = /COSTO\s+OPERATIVO[^0-9]{0,40}(\d+(?:[.,]\d+)?)/i;
+        const m = norm.match(re);
+        if (m) {
+            const uf = parseFloat(String(m[1]).replace(',', '.'));
+            if (!isNaN(uf) && uf > 0) return { activo: true, uf };
+        }
+        return { activo: true, uf: 0 };
+    }
+
+    // =========================================================
     // 4. EXTRACT OBSERVATIONS FROM TEXT
     // =========================================================
     extractObservations(text) {
@@ -1241,6 +1257,9 @@ class BulkFichaService {
                 // Extract observations
                 result.observaciones = this.extractObservations(text);
 
+                // Extract Costo Operativo (opcional). Solo se incluye si aparece con UF asociada.
+                result.costoOperativo = this.extractCostoOperativo(text);
+
                 // Store normativa info for UI display
                 result._normativa = normativaNombre;
                 result._normativaRef = normativaRefNombre;
@@ -1321,6 +1340,7 @@ class BulkFichaService {
                             id_transporte: a.id_transporte || 0
                         })),
                     observaciones: item.observaciones || 'Carga masiva PDF',
+                    costoOperativo: item.costoOperativo || { activo: false, uf: 0 },
                     user: { id: userId }
                 };
 

@@ -26,16 +26,17 @@ import {
     Radio
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
-import { 
+import {
     IconCalendarEvent,
-    IconUserPlus, 
-    IconDeviceFloppy, 
+    IconUserPlus,
+    IconDeviceFloppy,
     IconBolt,
     IconInfoCircle,
     IconBuilding,
     IconTarget,
     IconMapPin,
-    IconUser
+    IconUser,
+    IconPencil
 } from '@tabler/icons-react';
 
 interface Props {
@@ -65,6 +66,13 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
     const [duracionMuestreo, setDuracionMuestreo] = useState<number>(0);
     const [editableDates, setEditableDates] = useState<Record<number, string>>({});
     const [editableRetiroDates, setEditableRetiroDates] = useState<Record<number, string>>({});
+    // Snapshot of data as loaded from DB — used to identify rows already saved
+    const [savedDates, setSavedDates] = useState<Record<number, string>>({});
+    const [savedRetiroDates, setSavedRetiroDates] = useState<Record<number, string>>({});
+    const [savedInstalacion, setSavedInstalacion] = useState<Record<number, number>>({});
+    const [savedRetiro, setSavedRetiro] = useState<Record<number, number>>({});
+    // Rows the user explicitly unlocked for editing this session
+    const [editingRows, setEditingRows] = useState<Set<number>>(new Set());
 
     // New State for Versions Comparison
     const [versionModalOpen, setVersionModalOpen] = useState(false);
@@ -220,8 +228,13 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
 
                     setEditableDates(existingDates);
                     setEditableRetiroDates(existingRetiroDates);
+                    setSavedDates({ ...existingDates });
+                    setSavedRetiroDates({ ...existingRetiroDates });
                     setMuestreadorInstalacion(existingInstalacion);
                     setMuestreadorRetiro(existingRetiro);
+                    setSavedInstalacion({ ...existingInstalacion });
+                    setSavedRetiro({ ...existingRetiro });
+                    setEditingRows(new Set());
                     if (firstRowDate && !selectedDate) setSelectedDate(firstRowDate);
                 }
             }
@@ -298,12 +311,23 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
         showToast({ message: 'Fechas calculadas según programación', type: 'success' });
     };
 
+    const isSavedRow = (rowId: number) =>
+        !!(savedDates[rowId] || savedRetiroDates[rowId] || savedInstalacion[rowId] || savedRetiro[rowId]);
+
+    const isLockedRow = (rowId: number) => isSavedRow(rowId) && !editingRows.has(rowId);
+
+    const unlockRow = (rowId: number) => {
+        setEditingRows(prev => new Set(prev).add(rowId));
+    };
+
     const handleSaveAssignment = async () => {
         const activeRows = rows.filter(r => !['CANCELADO', 'ANULADO'].includes((r.nombre_estadomuestreo || '').toUpperCase()));
+        // Excluir filas bloqueadas (ya guardadas y no editadas esta sesión) — no se re-envían al backend
         // A-05/A-06: ahora basta con tener fecha O muestreador (no ambos). El backend conserva el campo no provisto.
-        const completedRows = activeRows.filter(r =>
-            editableDates[r.id_agendamam] || muestreadorInstalacion[r.id_agendamam]
-        );
+        const completedRows = activeRows.filter(r => {
+            if (isLockedRow(r.id_agendamam)) return false;
+            return editableDates[r.id_agendamam] || muestreadorInstalacion[r.id_agendamam];
+        });
 
         if (completedRows.length === 0) {
             showToast({ message: 'Debe ingresar al menos una fecha o un muestreador en algún registro para guardar', type: 'warning' });
@@ -313,7 +337,8 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
         if (duracionMuestreo >= 24) {
             const sameDayRows = completedRows.filter(r => {
                 const inst = editableDates[r.id_agendamam];
-                const retiro = editableRetiroDates[r.id_agendamam] || inst;
+                const retiro = editableRetiroDates[r.id_agendamam];
+                // Only validate when both dates are explicitly set — skip rows with only fecha or only retiro
                 return inst && retiro && inst === retiro;
             });
             if (sameDayRows.length > 0) {
@@ -336,12 +361,18 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
             return;
         }
 
-        // A-02: bloquear fechas pasadas
+        // A-02: bloquear fechas pasadas.
+        // Para filas en edición (desbloqueadas): solo valida fechas que cambiaron respecto a BD.
+        // Para filas nuevas: valida todas las fechas.
         const today = new Date().toISOString().split('T')[0];
         const pastDateRows = completedRows.filter(r => {
-            const inst = editableDates[r.id_agendamam];
-            const retiro = editableRetiroDates[r.id_agendamam];
-            return (inst && inst < today) || (retiro && retiro < today);
+            const id = r.id_agendamam;
+            const inst = editableDates[id];
+            const retiro = editableRetiroDates[id];
+            const isEditing = editingRows.has(id);
+            const instToCheck = isEditing ? (inst !== savedDates[id] ? inst : null) : inst;
+            const retiroToCheck = isEditing ? (retiro !== savedRetiroDates[id] ? retiro : null) : retiro;
+            return (instToCheck && instToCheck < today) || (retiroToCheck && retiroToCheck < today);
         });
         if (pastDateRows.length > 0) {
             showToast({
@@ -703,14 +734,23 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                         {rows.map((row) => {
                                             const isCancelled = ['CANCELADO', 'ANULADO'].includes((row.nombre_estadomuestreo || '').toUpperCase());
                                             const rowId = row.id_agendamam;
-                                            
+                                            const locked = !isCancelled && isLockedRow(rowId);
+                                            const instName = muestreadorOptions.find(o => o.value === String(muestreadorInstalacion[rowId] || ''))?.label || '-';
+                                            const retiroName = muestreadorOptions.find(o => o.value === String(muestreadorRetiro[rowId] || ''))?.label || '-';
+
                                             return (
-                                                <Table.Tr key={rowId} style={{ opacity: isCancelled ? 0.5 : 1 }}>
+                                                <Table.Tr
+                                                    key={rowId}
+                                                    style={{
+                                                        opacity: isCancelled ? 0.5 : 1,
+                                                        background: locked ? 'var(--mantine-color-gray-0)' : undefined,
+                                                    }}
+                                                >
                                                     <Table.Td ta="center">{row.num_ficha}</Table.Td>
                                                     <Table.Td ta="center" fw={700}>{row.frecuencia_correlativo}</Table.Td>
                                                     <Table.Td ta="center">
-                                                        <Badge 
-                                                            variant="light" 
+                                                        <Badge
+                                                            variant="light"
                                                             h="auto"
                                                             py={4}
                                                             color={isCancelled ? 'red' : (row.nombre_estadomuestreo?.includes('POR') ? 'orange' : 'green')}
@@ -723,86 +763,116 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                         </Badge>
                                                     </Table.Td>
                                                     <Table.Td ta="center">
-                                                        <TextInput
-                                                            type="date"
-                                                            size="xs"
-                                                            style={{ width: 125, margin: '0 auto' }}
-                                                            disabled={isCancelled}
-                                                            min={todayStr}
-                                                            max={editableRetiroDates[rowId] || undefined}
-                                                            value={editableDates[rowId] || ''}
-                                                            onChange={(e) => {
-                                                                const val = e.currentTarget.value;
-                                                                setEditableDates(prev => ({ ...prev, [rowId]: val }));
-                                                            }}
-                                                        />
+                                                        {locked ? (
+                                                            <Text size="xs" c="dimmed" td="line-through" ta="center">
+                                                                {editableDates[rowId] || '-'}
+                                                            </Text>
+                                                        ) : (
+                                                            <TextInput
+                                                                type="date"
+                                                                size="xs"
+                                                                style={{ width: 125, margin: '0 auto' }}
+                                                                disabled={isCancelled}
+                                                                min={editingRows.has(rowId) ? undefined : todayStr}
+                                                                max={editableRetiroDates[rowId] || undefined}
+                                                                value={editableDates[rowId] || ''}
+                                                                onChange={(e) => {
+                                                                    const val = e.currentTarget.value;
+                                                                    setEditableDates(prev => ({ ...prev, [rowId]: val }));
+                                                                }}
+                                                            />
+                                                        )}
                                                     </Table.Td>
                                                     <Table.Td ta="center">
-                                                        <TextInput
-                                                            type="date"
-                                                            size="xs"
-                                                            style={{ width: 125, margin: '0 auto' }}
-                                                            disabled={isCancelled}
-                                                            min={editableDates[rowId] || todayStr}
-                                                            value={editableRetiroDates[rowId] || ''}
-                                                            onChange={(e) => {
-                                                                const val = e.currentTarget.value;
-                                                                setEditableRetiroDates(prev => ({ ...prev, [rowId]: val }));
-                                                                if (val) {
-                                                                    const dayOffset = Math.floor(duracionMuestreo / 24);
-                                                                    const instDate = new Date(val + 'T00:00:00');
-                                                                    instDate.setDate(instDate.getDate() - dayOffset);
-                                                                    setEditableDates(prev => ({ ...prev, [rowId]: instDate.toISOString().split('T')[0] }));
-                                                                }
-                                                            }}
-                                                        />
+                                                        {locked ? (
+                                                            <Text size="xs" c="dimmed" td="line-through" ta="center">
+                                                                {editableRetiroDates[rowId] || '-'}
+                                                            </Text>
+                                                        ) : (
+                                                            <TextInput
+                                                                type="date"
+                                                                size="xs"
+                                                                style={{ width: 125, margin: '0 auto' }}
+                                                                disabled={isCancelled}
+                                                                min={editableDates[rowId] || (editingRows.has(rowId) ? undefined : todayStr)}
+                                                                value={editableRetiroDates[rowId] || ''}
+                                                                onChange={(e) => {
+                                                                    const val = e.currentTarget.value;
+                                                                    setEditableRetiroDates(prev => ({ ...prev, [rowId]: val }));
+                                                                    if (val) {
+                                                                        const dayOffset = Math.floor(duracionMuestreo / 24);
+                                                                        const instDate = new Date(val + 'T00:00:00');
+                                                                        instDate.setDate(instDate.getDate() - dayOffset);
+                                                                        setEditableDates(prev => ({ ...prev, [rowId]: instDate.toISOString().split('T')[0] }));
+                                                                    }
+                                                                }}
+                                                            />
+                                                        )}
                                                     </Table.Td>
                                                     <Table.Td ta="center">
                                                         <Text size="xs" fw={500}>{row.nombre_coordinador}</Text>
                                                     </Table.Td>
                                                     <Table.Td>
-                                                        <Group gap={4} align="center" wrap="nowrap" justify="center">
-                                                            <Select 
-                                                                size="xs" 
-                                                                disabled={isCancelled}
-                                                                style={{ width: 140 }}
-                                                                data={muestreadorOptions}
-                                                                value={String(muestreadorInstalacion[rowId] || '')}
-                                                                onChange={(v) => handleTechnicianChange(rowId, Number(v), 'instalacion')}
-                                                                searchable
-                                                                placeholder="Seleccionar..."
-                                                                leftSection={<IconUser size={14} />}
-                                                                error={resamplingData && muestreadorInstalacion[rowId] && resamplingData.idMuestreadorOriginal && muestreadorInstalacion[rowId] !== resamplingData.idMuestreadorOriginal}
-                                                            />
-                                                            {resamplingData && muestreadorInstalacion[rowId] === resamplingData.idMuestreadorOriginal && (
-                                                                <Text size="10px" c="blue" fw={700} style={{ whiteSpace: 'nowrap' }}>H. ✓</Text>
-                                                            )}
-                                                        </Group>
+                                                        {locked ? (
+                                                            <Text size="xs" c="dimmed" td="line-through" ta="center">{instName}</Text>
+                                                        ) : (
+                                                            <Group gap={4} align="center" wrap="nowrap" justify="center">
+                                                                <Select
+                                                                    size="xs"
+                                                                    disabled={isCancelled}
+                                                                    style={{ width: 140 }}
+                                                                    data={muestreadorOptions}
+                                                                    value={String(muestreadorInstalacion[rowId] || '')}
+                                                                    onChange={(v) => handleTechnicianChange(rowId, Number(v), 'instalacion')}
+                                                                    searchable
+                                                                    placeholder="Seleccionar..."
+                                                                    leftSection={<IconUser size={14} />}
+                                                                    error={resamplingData && muestreadorInstalacion[rowId] && resamplingData.idMuestreadorOriginal && muestreadorInstalacion[rowId] !== resamplingData.idMuestreadorOriginal}
+                                                                />
+                                                                {resamplingData && muestreadorInstalacion[rowId] === resamplingData.idMuestreadorOriginal && (
+                                                                    <Text size="10px" c="blue" fw={700} style={{ whiteSpace: 'nowrap' }}>H. ✓</Text>
+                                                                )}
+                                                            </Group>
+                                                        )}
                                                     </Table.Td>
                                                     <Table.Td>
-                                                        <Group gap={4} align="center" wrap="nowrap" justify="center">
-                                                            <Select 
-                                                                size="xs" 
-                                                                disabled={isCancelled}
-                                                                style={{ width: 140 }}
-                                                                data={muestreadorOptions}
-                                                                value={String(muestreadorRetiro[rowId] || '')}
-                                                                onChange={(v) => handleTechnicianChange(rowId, Number(v), 'retiro')}
-                                                                searchable
-                                                                placeholder="Seleccionar..."
-                                                                leftSection={<IconUser size={14} />}
-                                                                error={resamplingData && muestreadorRetiro[rowId] && resamplingData.idMuestreadorOriginal && muestreadorRetiro[rowId] !== resamplingData.idMuestreadorOriginal}
-                                                            />
-                                                            {resamplingData && muestreadorRetiro[rowId] === resamplingData.idMuestreadorOriginal && (
-                                                                <Text size="10px" c="blue" fw={700} style={{ whiteSpace: 'nowrap' }}>H. ✓</Text>
-                                                            )}
-                                                        </Group>
+                                                        {locked ? (
+                                                            <Text size="xs" c="dimmed" td="line-through" ta="center">{retiroName}</Text>
+                                                        ) : (
+                                                            <Group gap={4} align="center" wrap="nowrap" justify="center">
+                                                                <Select
+                                                                    size="xs"
+                                                                    disabled={isCancelled}
+                                                                    style={{ width: 140 }}
+                                                                    data={muestreadorOptions}
+                                                                    value={String(muestreadorRetiro[rowId] || '')}
+                                                                    onChange={(v) => handleTechnicianChange(rowId, Number(v), 'retiro')}
+                                                                    searchable
+                                                                    placeholder="Seleccionar..."
+                                                                    leftSection={<IconUser size={14} />}
+                                                                    error={resamplingData && muestreadorRetiro[rowId] && resamplingData.idMuestreadorOriginal && muestreadorRetiro[rowId] !== resamplingData.idMuestreadorOriginal}
+                                                                />
+                                                                {resamplingData && muestreadorRetiro[rowId] === resamplingData.idMuestreadorOriginal && (
+                                                                    <Text size="10px" c="blue" fw={700} style={{ whiteSpace: 'nowrap' }}>H. ✓</Text>
+                                                                )}
+                                                            </Group>
+                                                        )}
                                                     </Table.Td>
                                                     <Table.Td style={{ borderLeft: 'none' }} ta="center">
-                                                        {resamplingData && (muestreadorInstalacion[rowId] === resamplingData.idMuestreadorOriginal || muestreadorRetiro[rowId] === resamplingData.idMuestreadorOriginal) && (
-                                                                <Button 
-                                                                    variant="light" 
-                                                                    size="compact-xs" 
+                                                        {locked ? (
+                                                            <Button
+                                                                variant="light"
+                                                                size="compact-xs"
+                                                                color="orange"
+                                                                leftSection={<IconPencil size={12} />}
+                                                                onClick={() => unlockRow(rowId)}
+                                                            >
+                                                                Editar
+                                                            </Button>
+                                                        ) : resamplingData && (muestreadorInstalacion[rowId] === resamplingData.idMuestreadorOriginal || muestreadorRetiro[rowId] === resamplingData.idMuestreadorOriginal) && (
+                                                                <Button
+                                                                    variant="light"
+                                                                    size="compact-xs"
                                                                     h="auto"
                                                                     py={4}
                                                                     color={equipmentSelections[row.frecuencia_correlativo] ? "green" : "blue"}
