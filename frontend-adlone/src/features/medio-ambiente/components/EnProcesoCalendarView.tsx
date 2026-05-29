@@ -1242,7 +1242,9 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                 <Stack gap="xs" mt="xs">
                                     <Group justify="space-between">
                                         <Text size="sm">Fecha:</Text>
-                                        <Text size="sm" fw={700}>{editedDate}</Text>
+                                        <Text size="sm" fw={700}>
+                                            {editedDate ? new Date(editedDate).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-'}
+                                        </Text>
                                     </Group>
                                     <Group justify="space-between">
                                         <Text size="sm">Muestreador:</Text>
