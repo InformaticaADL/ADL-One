@@ -892,7 +892,7 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                         
                         <Grid align="flex-end">
                             <Grid.Col span={6}>
-                                {hasPermission('MA_CALENDARIO_REAGENDAR') && !isExecutedEvent(selectedEvent!) && !isCancelledEvent(selectedEvent!) ? (
+                                {hasPermission('MA_CALENDARIO_REAGENDAR') && !isExecutedEvent(selectedEvent!) ? (
                                     <TextInput
                                         label="Fecha de Muestreo (Agenda)"
                                         type="date"
@@ -906,7 +906,7 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                 )}
                             </Grid.Col>
                             <Grid.Col span={6}>
-                                {hasPermission('MA_CALENDARIO_REASIGNAR') && !isExecutedEvent(selectedEvent!) && !isCancelledEvent(selectedEvent!) ? (
+                                {hasPermission('MA_CALENDARIO_REASIGNAR') && !isExecutedEvent(selectedEvent!) ? (
                                     <Select
                                         label="Re-Asignar Muestreador"
                                         placeholder="Seleccione..."
@@ -917,9 +917,9 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                         searchable
                                     />
                                 ) : (
-                                    <StaticField 
-                                        label="Muestreador Asignado" 
-                                        value={globalMuestreadores.find(m => m.id_muestreador === Number(editedSamplerId))?.nombre_muestreador || 'Sin Asignar'} 
+                                    <StaticField
+                                        label="Muestreador Asignado"
+                                        value={globalMuestreadores.find(m => m.id_muestreador === Number(editedSamplerId))?.nombre_muestreador || 'Sin Asignar'}
                                     />
                                 )}
                             </Grid.Col>
