@@ -244,7 +244,14 @@ class FichaIngresoController {
     async batchUpdateAgenda(req, res) {
         try {
             const userData = req.user || { id: 0 };
-            const result = await fichaService.batchUpdateAgenda(req.body, userData);
+            // Extract reactivating flag from payload; default to false if not present
+            const { reactivating = false } = req.body;
+
+            // Pass the flag along with the request body to the service
+            const result = await fichaService.batchUpdateAgenda({
+                ...req.body,
+                reactivating
+            }, userData);
             return successResponse(res, result, 'Asignaciones actualizadas exitosamente');
         } catch (err) {
             logger.error('Error in batchUpdateAgenda controller:', err);

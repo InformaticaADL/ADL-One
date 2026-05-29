@@ -2228,7 +2228,7 @@ class FichaIngresoService {
         }
     }
     async batchUpdateAgenda(data) {
-        const { assignments, user, observaciones } = data;
+        const { assignments, user, observaciones, reactivating = false } = data;
 
         if (!assignments || !Array.isArray(assignments) || assignments.length === 0) {
             throw new Error('No se proporcionaron asignaciones');
@@ -2252,8 +2252,14 @@ class FichaIngresoService {
                     idMuestreadorRetiro,
                     idFichaIngresoServicio,
                     frecuenciaCorrelativo,
-                    actualizarVersiones         // flag para refrescar equipos desde maestro
+                    actualizarVersiones,        // flag para refrescar equipos desde maestro
+                    reactivating: assignmentReactivating = false  // per-assignment reactivating flag
                 } = assignment;
+
+                // Use per-assignment reactivating flag if present, otherwise use batch-level flag
+                const shouldReactivate = assignmentReactivating || reactivating;
+
+                logger.info(`[batchUpdateAgenda] Processing assignment ${id}: reactivating=${shouldReactivate}`);
 
                 // 0. CAPTURAR ESTADO PREVIO (Para notificaciones de reprogramación)
                 const histRequest = new sql.Request(transaction);
@@ -2310,8 +2316,10 @@ class FichaIngresoService {
                 updateRequest.input('idCoordinador', sql.Numeric(10, 0), user.id || 0);
                 updateRequest.input('id_agenda', sql.Numeric(10, 0), id);
                 updateRequest.input('frecuenciaCorrelativo', sql.VarChar(50), frecuenciaCorrelativo || 'PorAsignar');
+                updateRequest.input('reactivating', sql.Bit, shouldReactivate ? 1 : 0);
 
                 // A-05/A-06: usar COALESCE para conservar valor previo cuando el parámetro es null.
+                // When reactivating=1, allow updating CANCELADO records and clear estado_caso
                 await updateRequest.query(`
                     UPDATE App_Ma_Agenda_MUESTREOS
                     SET fecha_muestreo = COALESCE(@fecha, fecha_muestreo),
@@ -2324,9 +2332,13 @@ class FichaIngresoService {
                         id_muestreador2 = COALESCE(@idMuestreadorRetiro, id_muestreador2),
                         id_estadomuestreo = @idEstadoMuestreo,
                         id_coordinador = @idCoordinador,
-                        frecuencia_correlativo = @frecuenciaCorrelativo
+                        frecuencia_correlativo = @frecuenciaCorrelativo,
+                        estado_caso = CASE WHEN @reactivating = 1 THEN NULL ELSE estado_caso END
                     WHERE id_agendamam = @id_agenda
-                      AND (estado_caso IS NULL OR estado_caso NOT IN ('CANCELADO', 'REALIZADO'))
+                      AND (
+                        (@reactivating = 1 AND estado_caso = 'CANCELADO')
+                        OR (estado_caso IS NULL OR estado_caso NOT IN ('CANCELADO', 'REALIZADO'))
+                      )
                 `);
 
 
