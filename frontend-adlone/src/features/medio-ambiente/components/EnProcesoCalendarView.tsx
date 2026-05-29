@@ -114,6 +114,8 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
     const [isSavingEvent, setIsSavingEvent] = useState(false);
     const [showVersionPrompt, setShowVersionPrompt] = useState(false);
     const [pendingPayload, setPendingPayload] = useState<any>(null);
+    const [showReactivateConfirm, setShowReactivateConfirm] = useState(false);
+    const [isReactivating, setIsReactivating] = useState(false);
 
     const [selectedDay, setSelectedDay] = useState<number | null>(null);
     const filterPanelRef = useRef<HTMLDivElement>(null);
