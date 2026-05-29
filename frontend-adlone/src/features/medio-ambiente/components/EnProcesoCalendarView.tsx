@@ -87,6 +87,19 @@ interface CalendarEvent extends FichaEvento {
     event_ano: number;
 }
 
+interface UpdateAgendaPayload {
+    assignments: Array<{
+        id: number;
+        fecha: string;
+        fechaRetiro: string;
+        idMuestreadorInstalacion: number;
+        idMuestreadorRetiro: number;
+        idFichaIngresoServicio: number;
+        frecuenciaCorrelativo: string;
+    }>;
+    user: { id: number; usuario: string };
+}
+
 export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
     const { showToast } = useToast();
     const { user, hasPermission } = useAuth();
@@ -113,7 +126,7 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
     const [selectedReasonId, setSelectedReasonId] = useState<number | ''>('');
     const [isSavingEvent, setIsSavingEvent] = useState(false);
     const [showVersionPrompt, setShowVersionPrompt] = useState(false);
-    const [pendingPayload, setPendingPayload] = useState<any>(null);
+    const [pendingPayload, setPendingPayload] = useState<UpdateAgendaPayload | null>(null);
     const [showReactivateConfirm, setShowReactivateConfirm] = useState(false);
     const [isReactivating, setIsReactivating] = useState(false);
 
@@ -329,6 +342,72 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
         if (isExecutedEvent(ev)) return 'green';
         return 'orange';
     }, [isCancelledEvent, isExecutedEvent]);
+
+    // Helper function to build the update payload with validation and date calculation
+    const buildUpdatePayload = useCallback((): UpdateAgendaPayload | null => {
+        if (!selectedEvent) return null;
+
+        // Validation
+        if (isEditingSampler && !editedSamplerId) {
+            showToast({ type: 'warning', message: 'Debe seleccionar un muestreador válido' });
+            return null;
+        }
+
+        if (isEditingDate && !editedDate) {
+            showToast({ type: 'warning', message: 'Debe ingresar una fecha válida' });
+            return null;
+        }
+
+        // Date calculation
+        let finalFecha = selectedEvent.fecha;
+        let finalFechaRetiro = selectedEvent.fecha_retiro;
+
+        if (selectedEvent.tipo_evento === 'INICIO' && isEditingDate) {
+            finalFecha = editedDate;
+            if (selectedEvent.fecha && selectedEvent.fecha_retiro) {
+                try {
+                    const start = new Date(selectedEvent.fecha);
+                    const end = new Date(selectedEvent.fecha_retiro);
+                    const gapMs = end.getTime() - start.getTime();
+                    if (gapMs >= 0) {
+                        const newStart = new Date(editedDate + 'T00:00:00');
+                        const newEnd = new Date(newStart.getTime() + gapMs);
+                        const year = newEnd.getFullYear();
+                        const month = String(newEnd.getMonth() + 1).padStart(2, '0');
+                        const day = String(newEnd.getDate()).padStart(2, '0');
+                        finalFechaRetiro = `${year}-${month}-${day}`;
+                    }
+                } catch (err) {
+                    console.error('Error calculating retiro date:', err);
+                }
+            }
+        } else if (selectedEvent.tipo_evento === 'RETIRO' && isEditingDate) {
+            finalFechaRetiro = editedDate;
+        }
+
+        // Sampler ID extraction
+        const currentSamplerId = isEditingSampler
+            ? Number(editedSamplerId)
+            : (selectedEvent.tipo_evento === 'INICIO'
+                ? Number(selectedEvent.id_muestreador) || 0
+                : Number(selectedEvent.id_muestreador2 || selectedEvent.id_muestreador) || 0);
+
+        // Payload construction
+        const payload: UpdateAgendaPayload = {
+            assignments: [{
+                id: selectedEvent.id_agenda,
+                fecha: finalFecha || '',
+                fechaRetiro: finalFechaRetiro || '',
+                idMuestreadorInstalacion: selectedEvent.tipo_evento === 'INICIO' ? currentSamplerId : (Number(selectedEvent.id_muestreador) || 0),
+                idMuestreadorRetiro: selectedEvent.tipo_evento === 'RETIRO' ? currentSamplerId : (Number(selectedEvent.id_muestreador2 || selectedEvent.id_muestreador) || 0),
+                idFichaIngresoServicio: selectedEvent.id,
+                frecuenciaCorrelativo: selectedEvent.correlativo
+            }],
+            user: { id: user?.id || 0, usuario: user?.name || 'Sistema' }
+        };
+
+        return payload;
+    }, [selectedEvent, isEditingSampler, editedSamplerId, isEditingDate, editedDate, user, showToast]);
 
     const StaticField = ({ label, value }: { label: string, value: any }) => (
         <Stack gap={2}>
@@ -951,136 +1030,29 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                     </ProtectedContent>
                                 )}
                                 <ProtectedContent permission={['MA_CALENDARIO_REAGENDAR', 'MA_CALENDARIO_REASIGNAR']}>
-                                    <Button 
-                                        leftSection={<IconDeviceFloppy size={18} />} 
+                                    <Button
+                                        leftSection={<IconDeviceFloppy size={18} />}
                                         disabled={(!isEditingDate && !isEditingSampler) || isSavingEvent}
                                         loading={isSavingEvent}
                                         onClick={async () => {
                                             if (!selectedEvent) return;
 
-                                            // Si el evento está CANCELADO, mostrar modal de reactivación
-                                            if (isCancelledEvent(selectedEvent!) && (isEditingDate || isEditingSampler)) {
-                                                if (isEditingSampler && !editedSamplerId) {
-                                                    showToast({ type: 'warning', message: 'Debe seleccionar un muestreador válido' });
-                                                    return;
-                                                }
+                                            const payload = buildUpdatePayload();
+                                            if (!payload) return;
 
-                                                if (isEditingDate && !editedDate) {
-                                                    showToast({ type: 'warning', message: 'Debe ingresar una fecha válida' });
-                                                    return;
-                                                }
-
-                                                let finalFecha = selectedEvent.fecha;
-                                                let finalFechaRetiro = selectedEvent.fecha_retiro;
-
-                                                if (selectedEvent.tipo_evento === 'INICIO' && isEditingDate) {
-                                                    finalFecha = editedDate;
-                                                    if (selectedEvent.fecha && selectedEvent.fecha_retiro) {
-                                                        try {
-                                                            const start = new Date(selectedEvent.fecha);
-                                                            const end = new Date(selectedEvent.fecha_retiro);
-                                                            const gapMs = end.getTime() - start.getTime();
-                                                            if (gapMs >= 0) {
-                                                                const newStart = new Date(editedDate + 'T00:00:00');
-                                                                const newEnd = new Date(newStart.getTime() + gapMs);
-                                                                const year = newEnd.getFullYear();
-                                                                const month = String(newEnd.getMonth() + 1).padStart(2, '0');
-                                                                const day = String(newEnd.getDate()).padStart(2, '0');
-                                                                finalFechaRetiro = `${year}-${month}-${day}`;
-                                                            }
-                                                        } catch (err) {
-                                                            console.error('Error calculating retiro date:', err);
-                                                        }
-                                                    }
-                                                } else if (selectedEvent.tipo_evento === 'RETIRO' && isEditingDate) {
-                                                    finalFechaRetiro = editedDate;
-                                                }
-
-                                                const currentSamplerId = isEditingSampler
-                                                    ? Number(editedSamplerId)
-                                                    : (selectedEvent.tipo_evento === 'INICIO'
-                                                        ? Number(selectedEvent.id_muestreador) || 0
-                                                        : Number(selectedEvent.id_muestreador2 || selectedEvent.id_muestreador) || 0);
-
-                                                const payload = {
-                                                    assignments: [{
-                                                        id: selectedEvent.id_agenda,
-                                                        fecha: finalFecha,
-                                                        fechaRetiro: finalFechaRetiro,
-                                                        idMuestreadorInstalacion: selectedEvent.tipo_evento === 'INICIO' ? currentSamplerId : (Number(selectedEvent.id_muestreador) || 0),
-                                                        idMuestreadorRetiro: selectedEvent.tipo_evento === 'RETIRO' ? currentSamplerId : (Number(selectedEvent.id_muestreador2 || selectedEvent.id_muestreador) || 0),
-                                                        idFichaIngresoServicio: selectedEvent.id,
-                                                        frecuenciaCorrelativo: selectedEvent.correlativo
-                                                    }],
-                                                    user: { id: user?.id || 0, usuario: user?.name || 'Sistema' }
-                                                };
-
+                                            // Cancelled services show reactivation modal
+                                            if (isCancelledEvent(selectedEvent!)) {
                                                 setPendingPayload(payload);
                                                 setShowReactivateConfirm(true);
                                                 return;
                                             }
 
-                                            if (isEditingSampler && !editedSamplerId) {
-                                                showToast({ type: 'warning', message: 'Debe seleccionar un muestreador válido' });
-                                                return;
-                                            }
-
-                                            if (isEditingDate && !editedDate) {
-                                                showToast({ type: 'warning', message: 'Debe ingresar una fecha válida' });
-                                                return;
-                                            }
-
-                                            let finalFecha = selectedEvent.fecha;
-                                            let finalFechaRetiro = selectedEvent.fecha_retiro;
-
-                                            if (selectedEvent.tipo_evento === 'INICIO' && isEditingDate) {
-                                                finalFecha = editedDate;
-                                                if (selectedEvent.fecha && selectedEvent.fecha_retiro) {
-                                                    try {
-                                                        const start = new Date(selectedEvent.fecha);
-                                                        const end = new Date(selectedEvent.fecha_retiro);
-                                                        const gapMs = end.getTime() - start.getTime();
-                                                        if (gapMs >= 0) {
-                                                            const newStart = new Date(editedDate + 'T00:00:00');
-                                                            const newEnd = new Date(newStart.getTime() + gapMs);
-                                                            const year = newEnd.getFullYear();
-                                                            const month = String(newEnd.getMonth() + 1).padStart(2, '0');
-                                                            const day = String(newEnd.getDate()).padStart(2, '0');
-                                                            finalFechaRetiro = `${year}-${month}-${day}`;
-                                                        }
-                                                    } catch (err) {
-                                                        console.error('Error calculating retiro date:', err);
-                                                    }
-                                                }
-                                            } else if (selectedEvent.tipo_evento === 'RETIRO' && isEditingDate) {
-                                                finalFechaRetiro = editedDate;
-                                            }
-
-                                            const currentSamplerId = isEditingSampler
-                                                ? Number(editedSamplerId)
-                                                : (selectedEvent.tipo_evento === 'INICIO'
-                                                    ? Number(selectedEvent.id_muestreador) || 0
-                                                    : Number(selectedEvent.id_muestreador2 || selectedEvent.id_muestreador) || 0);
-
-                                            const payload = {
-                                                assignments: [{
-                                                    id: selectedEvent.id_agenda,
-                                                    fecha: finalFecha,
-                                                    fechaRetiro: finalFechaRetiro,
-                                                    idMuestreadorInstalacion: selectedEvent.tipo_evento === 'INICIO' ? currentSamplerId : (Number(selectedEvent.id_muestreador) || 0),
-                                                    idMuestreadorRetiro: selectedEvent.tipo_evento === 'RETIRO' ? currentSamplerId : (Number(selectedEvent.id_muestreador2 || selectedEvent.id_muestreador) || 0),
-                                                    idFichaIngresoServicio: selectedEvent.id,
-                                                    frecuenciaCorrelativo: selectedEvent.correlativo
-                                                }],
-                                                user: { id: user?.id || 0, usuario: user?.name || 'Sistema' }
-                                            };
-
-                                            // Solo preguntar por versiones si se cambió la fecha (tiene impacto en equipos)
+                                            // Pending services: check if date changed for version prompt
                                             if (isEditingDate) {
                                                 setPendingPayload(payload);
                                                 setShowVersionPrompt(true);
                                             } else {
-                                                // Solo re-asignación: guardar directamente sin preguntar versiones
+                                                // Only sampler changed: save directly
                                                 setIsSavingEvent(true);
                                                 fichaService.batchUpdateAgenda(payload)
                                                     .then(() => {
@@ -1179,9 +1151,10 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                 <Stack>
                     <Text size="sm">¿Desea mantener la versión de equipos registrada al momento de la asignación original o actualizar con la versión actual de los equipos maestros?</Text>
                     <Group justify="flex-end" grow>
-                        <Button 
+                        <Button
                             variant="light"
                             onClick={async () => {
+                                if (!pendingPayload) return;
                                 setShowVersionPrompt(false);
                                 setIsSavingEvent(true);
                                 try {
@@ -1201,13 +1174,14 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                         >
                             Mantener original
                         </Button>
-                        <Button 
+                        <Button
                             onClick={async () => {
+                                if (!pendingPayload) return;
                                 setShowVersionPrompt(false);
                                 setIsSavingEvent(true);
                                 try {
                                     const updatedPayload = { ...pendingPayload };
-                                    updatedPayload.assignments = updatedPayload.assignments.map((a: any) => ({
+                                    updatedPayload.assignments = updatedPayload.assignments.map((a) => ({
                                         ...a,
                                         actualizarVersiones: true
                                     }));
