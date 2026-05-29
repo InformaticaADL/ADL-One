@@ -250,8 +250,9 @@ class FichaIngresoController {
             // Pass the flag along with the request body to the service
             const result = await fichaService.batchUpdateAgenda({
                 ...req.body,
+                user: userData,
                 reactivating
-            }, userData);
+            });
             return successResponse(res, result, 'Asignaciones actualizadas exitosamente');
         } catch (err) {
             logger.error('Error in batchUpdateAgenda controller:', err);
