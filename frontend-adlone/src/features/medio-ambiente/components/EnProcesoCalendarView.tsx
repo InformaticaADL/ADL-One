@@ -958,6 +958,68 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                         onClick={async () => {
                                             if (!selectedEvent) return;
 
+                                            // Si el evento está CANCELADO, mostrar modal de reactivación
+                                            if (isCancelledEvent(selectedEvent!) && (isEditingDate || isEditingSampler)) {
+                                                if (isEditingSampler && !editedSamplerId) {
+                                                    showToast({ type: 'warning', message: 'Debe seleccionar un muestreador válido' });
+                                                    return;
+                                                }
+
+                                                if (isEditingDate && !editedDate) {
+                                                    showToast({ type: 'warning', message: 'Debe ingresar una fecha válida' });
+                                                    return;
+                                                }
+
+                                                let finalFecha = selectedEvent.fecha;
+                                                let finalFechaRetiro = selectedEvent.fecha_retiro;
+
+                                                if (selectedEvent.tipo_evento === 'INICIO' && isEditingDate) {
+                                                    finalFecha = editedDate;
+                                                    if (selectedEvent.fecha && selectedEvent.fecha_retiro) {
+                                                        try {
+                                                            const start = new Date(selectedEvent.fecha);
+                                                            const end = new Date(selectedEvent.fecha_retiro);
+                                                            const gapMs = end.getTime() - start.getTime();
+                                                            if (gapMs >= 0) {
+                                                                const newStart = new Date(editedDate + 'T00:00:00');
+                                                                const newEnd = new Date(newStart.getTime() + gapMs);
+                                                                const year = newEnd.getFullYear();
+                                                                const month = String(newEnd.getMonth() + 1).padStart(2, '0');
+                                                                const day = String(newEnd.getDate()).padStart(2, '0');
+                                                                finalFechaRetiro = `${year}-${month}-${day}`;
+                                                            }
+                                                        } catch (err) {
+                                                            console.error('Error calculating retiro date:', err);
+                                                        }
+                                                    }
+                                                } else if (selectedEvent.tipo_evento === 'RETIRO' && isEditingDate) {
+                                                    finalFechaRetiro = editedDate;
+                                                }
+
+                                                const currentSamplerId = isEditingSampler
+                                                    ? Number(editedSamplerId)
+                                                    : (selectedEvent.tipo_evento === 'INICIO'
+                                                        ? Number(selectedEvent.id_muestreador) || 0
+                                                        : Number(selectedEvent.id_muestreador2 || selectedEvent.id_muestreador) || 0);
+
+                                                const payload = {
+                                                    assignments: [{
+                                                        id: selectedEvent.id_agenda,
+                                                        fecha: finalFecha,
+                                                        fechaRetiro: finalFechaRetiro,
+                                                        idMuestreadorInstalacion: selectedEvent.tipo_evento === 'INICIO' ? currentSamplerId : (Number(selectedEvent.id_muestreador) || 0),
+                                                        idMuestreadorRetiro: selectedEvent.tipo_evento === 'RETIRO' ? currentSamplerId : (Number(selectedEvent.id_muestreador2 || selectedEvent.id_muestreador) || 0),
+                                                        idFichaIngresoServicio: selectedEvent.id,
+                                                        frecuenciaCorrelativo: selectedEvent.correlativo
+                                                    }],
+                                                    user: { id: user?.id || 0, usuario: user?.name || 'Sistema' }
+                                                };
+
+                                                setPendingPayload(payload);
+                                                setShowReactivateConfirm(true);
+                                                return;
+                                            }
+
                                             if (isEditingSampler && !editedSamplerId) {
                                                 showToast({ type: 'warning', message: 'Debe seleccionar un muestreador válido' });
                                                 return;
