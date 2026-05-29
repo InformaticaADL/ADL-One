@@ -96,7 +96,8 @@ export const fichaService = {
         }[],
 
         user?: FichaUser,
-        observaciones?: string
+        observaciones?: string,
+        reactivating?: boolean
     }) => {
         const response = await apiClient.post('/api/fichas/batch-agenda', data);
         return response.data.data; // Access nested data from successResponse wrapper

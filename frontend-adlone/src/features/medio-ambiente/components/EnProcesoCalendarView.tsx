@@ -1204,6 +1204,96 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                     </Group>
                 </Stack>
             </Modal>
+
+            <Modal
+                opened={showReactivateConfirm}
+                onClose={() => setShowReactivateConfirm(false)}
+                title="Reactivar y Reagendar Muestreo"
+                centered
+            >
+                <Stack gap="md">
+                    {selectedEvent && (
+                        <>
+                            <Paper withBorder p="sm" radius="md" bg="red.0">
+                                <Group gap="xs">
+                                    <IconAlertCircle size={18} />
+                                    <Text size="sm" fw={700}>
+                                        Este muestreo fue cancelado anteriormente
+                                    </Text>
+                                </Group>
+                            </Paper>
+
+                            <Box>
+                                <Text size="xs" fw={700} c="dimmed" tt="uppercase">Motivo de cancelación</Text>
+                                <Text size="sm">{selectedEvent.motivo_cancelacion || 'No especificado'}</Text>
+                            </Box>
+
+                            {cancelReason && (
+                                <Box>
+                                    <Text size="xs" fw={700} c="dimmed" tt="uppercase">Observaciones</Text>
+                                    <Text size="sm">{cancelReason}</Text>
+                                </Box>
+                            )}
+
+                            <Divider />
+
+                            <Box>
+                                <Text size="xs" fw={700} c="dimmed" tt="uppercase">Nuevos datos</Text>
+                                <Stack gap="xs" mt="xs">
+                                    <Group justify="space-between">
+                                        <Text size="sm">Fecha:</Text>
+                                        <Text size="sm" fw={700}>{editedDate}</Text>
+                                    </Group>
+                                    <Group justify="space-between">
+                                        <Text size="sm">Muestreador:</Text>
+                                        <Text size="sm" fw={700}>
+                                            {globalMuestreadores.find(m => m.id_muestreador === Number(editedSamplerId))?.nombre_muestreador || 'Sin Asignar'}
+                                        </Text>
+                                    </Group>
+                                </Stack>
+                            </Box>
+
+                            <Text size="sm" c="dimmed">
+                                ¿Desea reactivar este muestreo y aplicar los cambios?
+                            </Text>
+
+                            <Group justify="flex-end" mt="md">
+                                <Button variant="outline" onClick={() => setShowReactivateConfirm(false)}>
+                                    No, Volver
+                                </Button>
+                                <Button
+                                    color="blue"
+                                    loading={isReactivating}
+                                    onClick={async () => {
+                                        setIsReactivating(true);
+                                        try {
+                                            if (!pendingPayload) return;
+                                            const reactivatePayload = {
+                                                ...pendingPayload,
+                                                reactivating: true
+                                            };
+
+                                            await fichaService.batchUpdateAgenda(reactivatePayload);
+                                            showToast({ type: 'success', message: 'Muestreo reactivado y reprogramado.' });
+                                            lastFetchRef.current = '';
+                                            setSelectedEvent(null);
+                                            setShowReactivateConfirm(false);
+                                            loadData();
+                                        } catch (error) {
+                                            console.error('Error reactivating:', error);
+                                            showToast({ type: 'error', message: 'Error al reactivar el muestreo.' });
+                                        } finally {
+                                            setIsReactivating(false);
+                                        }
+                                    }}
+                                >
+                                    Sí, Reactivar
+                                </Button>
+                            </Group>
+                        </>
+                    )}
+                </Stack>
+            </Modal>
         </Box>
     );
 };
