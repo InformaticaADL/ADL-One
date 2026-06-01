@@ -3576,11 +3576,12 @@ class FichaIngresoService {
         const request = pool.request();
 
         const query = `
-            SELECT 
+            SELECT
                 a.id_agendamam,
                 a.caso_adlab,
                 a.frecuencia_correlativo,
                 a.fecha_muestreo,
+                a.ma_muestreo_fechat as fecha_retiro,
                 a.id_estadomuestreo,
                 e.nombre_estadomuestreo as estado_muestreo,
                 f.id_fichaingresoservicio,
