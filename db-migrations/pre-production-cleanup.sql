@@ -327,7 +327,13 @@ GO
 -- BLOQUE 7 — AUDITORÍA HISTÓRICA
 -- ✅ ACTIVO: este bloque BORRA el contenido de App_Audit_Log (logs de QA/pruebas)
 --    para entrar a producción 100% limpio. Solo se elimina el CONTENIDO; la
---    tabla y sus columnas permanecen intactas.
+--    tabla, sus columnas y su trigger de inmutabilidad permanecen intactos.
+--
+--    La tabla tiene un trigger (TR_App_Audit_Log_Immutable) que BLOQUEA cualquier
+--    DELETE/UPDATE en producción. Para esta limpieza única lo deshabilitamos
+--    temporalmente, borramos, y lo VOLVEMOS A HABILITAR — la protección sigue
+--    vigente después de correr el script.
+--
 --    Si en el futuro quisieras CONSERVAR los logs, comentá el bloque DELETE de abajo.
 -- =============================================================================
 BEGIN TRANSACTION;
@@ -337,11 +343,19 @@ BEGIN TRY
 
     IF OBJECT_ID('App_Audit_Log', 'U') IS NOT NULL
     BEGIN
+        -- Deshabilitar el trigger de inmutabilidad solo para esta operación
+        IF OBJECT_ID('TR_App_Audit_Log_Immutable', 'TR') IS NOT NULL
+            DISABLE TRIGGER TR_App_Audit_Log_Immutable ON App_Audit_Log;
+
         DELETE FROM App_Audit_Log;
         PRINT '   App_Audit_Log:                   ' + CAST(@@ROWCOUNT AS VARCHAR) + ' filas eliminadas';
 
         IF OBJECTPROPERTY(OBJECT_ID('App_Audit_Log'), 'TableHasIdentity') = 1
             DBCC CHECKIDENT ('App_Audit_Log', RESEED, 0) WITH NO_INFOMSGS;
+
+        -- Re-habilitar la protección de inmutabilidad
+        IF OBJECT_ID('TR_App_Audit_Log_Immutable', 'TR') IS NOT NULL
+            ENABLE TRIGGER TR_App_Audit_Log_Immutable ON App_Audit_Log;
     END
 
     -- Historial de versiones de equipos (versionado interno, no es transaccional)
@@ -410,7 +424,7 @@ UNION ALL SELECT 'mae_cargo',                   COUNT(*) FROM mae_cargo
 UNION ALL SELECT 'mae_muestreador',             COUNT(*) FROM mae_muestreador
 UNION ALL SELECT 'mae_equipo',                  COUNT(*) FROM mae_equipo
 UNION ALL SELECT 'mae_normativa',               COUNT(*) FROM mae_normativa
-UNION ALL SELECT 'mae_referenciaanalisis',      COUNT(*) FROM mae_referenciaanalisis
+UNION ALL SELECT 'App_Ma_ReferenciaAnalisis',   COUNT(*) FROM App_Ma_ReferenciaAnalisis
 UNION ALL SELECT 'mae_laboratorioensayo',       COUNT(*) FROM mae_laboratorioensayo
 UNION ALL SELECT 'mae_grupos_rutas',            COUNT(*) FROM mae_grupos_rutas
 ORDER BY maestro;
