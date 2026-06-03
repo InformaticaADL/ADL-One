@@ -24,3 +24,9 @@ Thumbs.db
 # Build
 dist/
 build/
+
+# Uploads de usuarios (NO versionar archivos subidos en runtime)
+# Se conservan los avatares del sistema (uploads/avatars/) y se ignora el resto.
+uploads/*
+!uploads/avatars/
+!uploads/.gitkeep
