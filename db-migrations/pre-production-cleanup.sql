@@ -65,10 +65,18 @@ BEGIN TRY
     PRINT '   App_Ma_FichaIngresoServicio_ENC: ' + CAST(@@ROWCOUNT AS VARCHAR) + ' filas eliminadas';
 
     -- Reset de identidades (los IDs vuelven a empezar en 1)
+    -- NOTA: DBCC CHECKIDENT solo reinicia el CONTADOR de identidad; NO altera la
+    --       estructura de la tabla ni sus columnas. El contenido ya fue borrado arriba.
     IF OBJECT_ID('App_Ma_FichaIngresoServicio_ENC', 'U') IS NOT NULL AND OBJECTPROPERTY(OBJECT_ID('App_Ma_FichaIngresoServicio_ENC'), 'TableHasIdentity') = 1
         DBCC CHECKIDENT ('App_Ma_FichaIngresoServicio_ENC', RESEED, 0) WITH NO_INFOMSGS;
+    IF OBJECT_ID('App_Ma_FichaIngresoServicio_DET', 'U') IS NOT NULL AND OBJECTPROPERTY(OBJECT_ID('App_Ma_FichaIngresoServicio_DET'), 'TableHasIdentity') = 1
+        DBCC CHECKIDENT ('App_Ma_FichaIngresoServicio_DET', RESEED, 0) WITH NO_INFOMSGS;
     IF OBJECT_ID('App_Ma_Agenda_MUESTREOS', 'U') IS NOT NULL AND OBJECTPROPERTY(OBJECT_ID('App_Ma_Agenda_MUESTREOS'), 'TableHasIdentity') = 1
         DBCC CHECKIDENT ('App_Ma_Agenda_MUESTREOS', RESEED, 0) WITH NO_INFOMSGS;
+    IF OBJECT_ID('App_Ma_Equipos_MUESTREOS', 'U') IS NOT NULL AND OBJECTPROPERTY(OBJECT_ID('App_Ma_Equipos_MUESTREOS'), 'TableHasIdentity') = 1
+        DBCC CHECKIDENT ('App_Ma_Equipos_MUESTREOS', RESEED, 0) WITH NO_INFOMSGS;
+    IF OBJECT_ID('App_Ma_Resultados', 'U') IS NOT NULL AND OBJECTPROPERTY(OBJECT_ID('App_Ma_Resultados'), 'TableHasIdentity') = 1
+        DBCC CHECKIDENT ('App_Ma_Resultados', RESEED, 0) WITH NO_INFOMSGS;
     IF OBJECT_ID('mae_ficha_historial', 'U') IS NOT NULL AND OBJECTPROPERTY(OBJECT_ID('mae_ficha_historial'), 'TableHasIdentity') = 1
         DBCC CHECKIDENT ('mae_ficha_historial', RESEED, 0) WITH NO_INFOMSGS;
 
@@ -112,11 +120,15 @@ BEGIN TRY
     --     DELETE FROM mae_grupos_rutas;
     -- PRINT '   mae_grupos_rutas:                ' + CAST(@@ROWCOUNT AS VARCHAR) + ' filas eliminadas';
 
-    -- Reset identidades
+    -- Reset identidades (solo el contador; la estructura de las tablas no se toca)
     IF OBJECT_ID('mae_rutas_planificadas', 'U') IS NOT NULL AND OBJECTPROPERTY(OBJECT_ID('mae_rutas_planificadas'), 'TableHasIdentity') = 1
         DBCC CHECKIDENT ('mae_rutas_planificadas', RESEED, 0) WITH NO_INFOMSGS;
+    IF OBJECT_ID('mae_rutas_planificadas_detalle', 'U') IS NOT NULL AND OBJECTPROPERTY(OBJECT_ID('mae_rutas_planificadas_detalle'), 'TableHasIdentity') = 1
+        DBCC CHECKIDENT ('mae_rutas_planificadas_detalle', RESEED, 0) WITH NO_INFOMSGS;
     IF OBJECT_ID('mae_rutas_ejecuciones', 'U') IS NOT NULL AND OBJECTPROPERTY(OBJECT_ID('mae_rutas_ejecuciones'), 'TableHasIdentity') = 1
         DBCC CHECKIDENT ('mae_rutas_ejecuciones', RESEED, 0) WITH NO_INFOMSGS;
+    IF OBJECT_ID('mae_rutas_ejecuciones_detalle', 'U') IS NOT NULL AND OBJECTPROPERTY(OBJECT_ID('mae_rutas_ejecuciones_detalle'), 'TableHasIdentity') = 1
+        DBCC CHECKIDENT ('mae_rutas_ejecuciones_detalle', RESEED, 0) WITH NO_INFOMSGS;
 
     COMMIT;
     PRINT '✅ Bloque 2 OK';
@@ -161,8 +173,19 @@ BEGIN TRY
         DELETE FROM mae_solicitud;
     PRINT '   mae_solicitud:                   ' + CAST(@@ROWCOUNT AS VARCHAR) + ' filas eliminadas';
 
+    -- Reset identidades de solicitud y sus tablas hijas (solo el contador, no la estructura)
     IF OBJECT_ID('mae_solicitud', 'U') IS NOT NULL AND OBJECTPROPERTY(OBJECT_ID('mae_solicitud'), 'TableHasIdentity') = 1
         DBCC CHECKIDENT ('mae_solicitud', RESEED, 0) WITH NO_INFOMSGS;
+    IF OBJECT_ID('mae_solicitud_adjunto', 'U') IS NOT NULL AND OBJECTPROPERTY(OBJECT_ID('mae_solicitud_adjunto'), 'TableHasIdentity') = 1
+        DBCC CHECKIDENT ('mae_solicitud_adjunto', RESEED, 0) WITH NO_INFOMSGS;
+    IF OBJECT_ID('mae_solicitud_comentario', 'U') IS NOT NULL AND OBJECTPROPERTY(OBJECT_ID('mae_solicitud_comentario'), 'TableHasIdentity') = 1
+        DBCC CHECKIDENT ('mae_solicitud_comentario', RESEED, 0) WITH NO_INFOMSGS;
+    IF OBJECT_ID('mae_solicitud_derivacion', 'U') IS NOT NULL AND OBJECTPROPERTY(OBJECT_ID('mae_solicitud_derivacion'), 'TableHasIdentity') = 1
+        DBCC CHECKIDENT ('mae_solicitud_derivacion', RESEED, 0) WITH NO_INFOMSGS;
+    IF OBJECT_ID('mae_solicitud_equipo', 'U') IS NOT NULL AND OBJECTPROPERTY(OBJECT_ID('mae_solicitud_equipo'), 'TableHasIdentity') = 1
+        DBCC CHECKIDENT ('mae_solicitud_equipo', RESEED, 0) WITH NO_INFOMSGS;
+    IF OBJECT_ID('mae_solicitud_historial', 'U') IS NOT NULL AND OBJECTPROPERTY(OBJECT_ID('mae_solicitud_historial'), 'TableHasIdentity') = 1
+        DBCC CHECKIDENT ('mae_solicitud_historial', RESEED, 0) WITH NO_INFOMSGS;
 
     COMMIT;
     PRINT '✅ Bloque 3 OK';
@@ -211,10 +234,17 @@ BEGIN TRY
         DELETE FROM rel_contacto_favorito;
     PRINT '   rel_contacto_favorito:           ' + CAST(@@ROWCOUNT AS VARCHAR) + ' filas eliminadas';
 
+    -- Reset identidades de chat y sus tablas de relación (solo el contador, no la estructura)
     IF OBJECT_ID('mae_chat_conversacion', 'U') IS NOT NULL AND OBJECTPROPERTY(OBJECT_ID('mae_chat_conversacion'), 'TableHasIdentity') = 1
         DBCC CHECKIDENT ('mae_chat_conversacion', RESEED, 0) WITH NO_INFOMSGS;
     IF OBJECT_ID('mae_chat_mensaje', 'U') IS NOT NULL AND OBJECTPROPERTY(OBJECT_ID('mae_chat_mensaje'), 'TableHasIdentity') = 1
         DBCC CHECKIDENT ('mae_chat_mensaje', RESEED, 0) WITH NO_INFOMSGS;
+    IF OBJECT_ID('rel_chat_participante', 'U') IS NOT NULL AND OBJECTPROPERTY(OBJECT_ID('rel_chat_participante'), 'TableHasIdentity') = 1
+        DBCC CHECKIDENT ('rel_chat_participante', RESEED, 0) WITH NO_INFOMSGS;
+    IF OBJECT_ID('rel_chat_lectura', 'U') IS NOT NULL AND OBJECTPROPERTY(OBJECT_ID('rel_chat_lectura'), 'TableHasIdentity') = 1
+        DBCC CHECKIDENT ('rel_chat_lectura', RESEED, 0) WITH NO_INFOMSGS;
+    IF OBJECT_ID('rel_chat_reaccion', 'U') IS NOT NULL AND OBJECTPROPERTY(OBJECT_ID('rel_chat_reaccion'), 'TableHasIdentity') = 1
+        DBCC CHECKIDENT ('rel_chat_reaccion', RESEED, 0) WITH NO_INFOMSGS;
 
     COMMIT;
     PRINT '✅ Bloque 4 OK';
@@ -295,8 +325,10 @@ GO
 
 -- =============================================================================
 -- BLOQUE 7 — AUDITORÍA HISTÓRICA
--- ⚠️ DECISIÓN: si quieres mantener los logs de QA como referencia, COMENTÁ esto.
---    Si quieres entrar a prod 100% limpio, descomentá las líneas.
+-- ✅ ACTIVO: este bloque BORRA el contenido de App_Audit_Log (logs de QA/pruebas)
+--    para entrar a producción 100% limpio. Solo se elimina el CONTENIDO; la
+--    tabla y sus columnas permanecen intactas.
+--    Si en el futuro quisieras CONSERVAR los logs, comentá el bloque DELETE de abajo.
 -- =============================================================================
 BEGIN TRANSACTION;
 BEGIN TRY
@@ -391,7 +423,46 @@ PRINT '════════════════════════�
 PRINT '';
 PRINT 'PRÓXIMOS PASOS:';
 PRINT '  1. Verificar contadores arriba — los transaccionales deben quedar en 0';
-PRINT '  2. Reiniciar el backend';
-PRINT '  3. Todos los usuarios deben volver a hacer login (sus JWTs viejos quedaron inválidos)';
-PRINT '  4. Listo para producción.';
+PRINT '  2. Limpiar archivos físicos huérfanos en disco (ver sección al pie de este script)';
+PRINT '  3. Reiniciar el backend';
+PRINT '  4. Todos los usuarios deben volver a hacer login (sus JWTs viejos quedaron inválidos)';
+PRINT '  5. Listo para producción.';
 GO
+
+-- =============================================================================
+-- ANEXO A — LIMPIEZA DE ARCHIVOS FÍSICOS EN DISCO (no es SQL)
+-- -----------------------------------------------------------------------------
+-- El borrado de filas de adjuntos (chat, solicitudes, fichas) NO elimina los
+-- archivos del disco. Quedan huérfanos y hay que limpiarlos aparte.
+--
+-- ⚠️ BORRAR el CONTENIDO de estas carpetas, NO las carpetas en sí.
+-- ✅ NO tocar: uploads/avatars  (avatares del sistema, viven en el repo)
+--
+-- PowerShell (ajustar las rutas a las del .env del equipo):
+--
+--   # Adjuntos de usuarios (UPLOAD_PATH)
+--   Get-ChildItem 'C:\Users\vremolcoy\Documents\uploads\chat'         -File -Recurse | Remove-Item -Force
+--   Get-ChildItem 'C:\Users\vremolcoy\Documents\uploads\solicitudes'  -File -Recurse | Remove-Item -Force
+--   Get-ChildItem 'C:\Users\vremolcoy\Documents\uploads\muestreadores'-File -Recurse | Remove-Item -Force
+--
+--   # Fotos de terreno (RUTA_FOTOS) — borra subcarpetas por frecuencia, deja la raíz
+--   Get-ChildItem 'C:\Users\vremolcoy\Documents\FOTOS APP' -Directory | Remove-Item -Recurse -Force
+--
+--   # Archivos de prueba sueltos dentro del repo (NO borrar la subcarpeta avatars/)
+--   Get-ChildItem 'api-backend-adlone\uploads' -File | Where-Object { $_.Name -like 'archivo-*' } | Remove-Item -Force
+--
+-- =============================================================================
+-- ANEXO B — CARPETAS EXTERNAS A RECREAR AL MIGRAR A OTRO EQUIPO
+-- -----------------------------------------------------------------------------
+-- Estas carpetas viven FUERA del repo y se configuran por .env. En el equipo
+-- nuevo hay que crearlas y apuntar el .env del backend a ellas. El backend crea
+-- solo las subcarpetas (chat, solicitudes, muestreadores) la primera vez.
+--
+--   UPLOAD_PATH         → archivos subidos por usuarios   (URL /uploads)
+--                         subcarpetas: chat/ , solicitudes/ , muestreadores/
+--   RUTA_FOTOS          → fotos de terreno por frecuencia  (URL /fotos)
+--   PROFILE_PICS_PATH   → fotos de perfil (recomendado setearla; URL /uploads/profile_pics)
+--
+-- Los AVATARES del sistema (uploads/avatars/avatar1-6.png) viajan con el repo
+-- en git y se sirven desde ahí → NO requieren copia manual ni configuración.
+-- =============================================================================

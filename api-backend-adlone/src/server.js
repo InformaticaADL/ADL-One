@@ -217,7 +217,13 @@ app.use('/api/menu', menuRoutes);
 app.use('/api/rutas-planificadas', rutasPlanificadasRoutes);
 app.use('/api/rutas-ejecuciones', rutasEjecucionesRoutes);
 
-// Serve uploads directory as static
+// Avatares predefinidos del sistema: viven en el repo (van versionados en git),
+// por lo que SIEMPRE están disponibles y viajan solos al migrar de equipo —
+// no dependen de UPLOAD_PATH ni hay que copiarlos manualmente.
+// Se registra ANTES del static general de /uploads para que tenga prioridad.
+app.use('/uploads/avatars', express.static(path.join(__dirname, '../uploads/avatars')));
+
+// Serve uploads directory as static (archivos subidos por usuarios)
 const uploadPath = process.env.UPLOAD_PATH || path.join(__dirname, '../uploads');
 app.use('/uploads', express.static(uploadPath));
 
@@ -229,11 +235,11 @@ if (fotosPath) {
     logger.warn('RUTA_FOTOS no configurada — /fotos no disponible');
 }
 
-// Serve profile pictures and avatars from custom path if defined
+// Serve profile pictures from custom path if defined
+// (los avatares del sistema ya se sirven arriba desde el repo)
 const profilePicsPath = process.env.PROFILE_PICS_PATH;
 if (profilePicsPath) {
     app.use('/uploads/profile_pics', express.static(profilePicsPath));
-    app.use('/uploads/avatars', express.static(profilePicsPath));
 }
 
 // Root endpoint
