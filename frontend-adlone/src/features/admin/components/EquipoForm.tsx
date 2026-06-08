@@ -276,7 +276,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                         error0: Number(baseData.error0) || 0,
                         error15: Number(baseData.error15) || 0,
                         error30: Number(baseData.error30) || 0,
-                        equipo_asociado: (!baseData.equipo_asociado || baseData.equipo_asociado === 0) ? 'No Aplica' : baseData.equipo_asociado,
+                        equipo_asociado: (!baseData.equipo_asociado || baseData.equipo_asociado === 0 || baseData.equipo_asociado === '0') ? 'No Aplica' : baseData.equipo_asociado,
                         correlativo: Number(baseData.correlativo) || 0,
                         version: baseData.version || 'v1',
                         // Campos nuevos: formatear fechas si vienen como ISO
@@ -342,6 +342,16 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
             setFormData((prev: any) => ({ ...prev, vigencia: formData.siguiente_verificacion || '' }));
         }
     }, [formData.siguiente_verificacion]);
+
+    // Sincronizar equipo_asociado si viene como ID numérico heredado
+    useEffect(() => {
+        if (allEquipos.length > 0 && formData.equipo_asociado && !isNaN(Number(formData.equipo_asociado)) && Number(formData.equipo_asociado) !== 0) {
+            const found = allEquipos.find(e => Number(e.id_equipo) === Number(formData.equipo_asociado));
+            if (found && found.codigo) {
+                setFormData((p: any) => ({ ...p, equipo_asociado: found.codigo }));
+            }
+        }
+    }, [allEquipos, formData.equipo_asociado]);
 
     // --- Handlers ---
     const handleRestore = async (h: any) => {
@@ -417,7 +427,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         try {
             const isEdit = !!initialData?.id_equipo;
             if (isEdit) {
-                const data = { ...formData, equipo_asociado: formData.equipo_asociado === 'No Aplica' ? 0 : Number(formData.equipo_asociado) };
+                const data = { ...formData, equipo_asociado: (formData.equipo_asociado === 'No Aplica' || !formData.equipo_asociado) ? '0' : String(formData.equipo_asociado) };
                 await equipoService.updateEquipo(initialData!.id_equipo, data);
                 if (initialData.requestId) {
                     const isTech = initialData.requestStatus === 'PENDIENTE_TECNICA';
@@ -426,7 +436,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                 }
                 showToast({ type: 'success', message: 'Equipo actualizado correctamente' });
             } else {
-                const items = bulkItems.map(it => ({ ...it, equipo_asociado: it.equipo_asociado === 'No Aplica' ? 0 : Number(it.equipo_asociado) }));
+                const items = bulkItems.map(it => ({ ...it, equipo_asociado: (it.equipo_asociado === 'No Aplica' || !it.equipo_asociado) ? '0' : String(it.equipo_asociado) }));
                 if (items.length > 1) await equipoService.createEquiposBulk(items);
                 else await equipoService.createEquipo(items[0]);
                 
@@ -735,9 +745,9 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                             data={[
                                                 { value: 'No Aplica', label: 'No Aplica' },
                                                 ...allEquipos
-                                                    .filter(e => e && e.id_equipo)
+                                                    .filter(e => e && e.codigo)
                                                     .map(e => ({
-                                                        value: String(e.id_equipo),
+                                                        value: e.codigo,
                                                         label: `${e.codigo || ''} - ${e.nombre || 'Sin nombre'}`.trim()
                                                     }))
                                             ]}

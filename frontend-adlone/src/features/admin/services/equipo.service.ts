@@ -17,7 +17,7 @@ export interface Equipo {
     correlativo?: number;
     tiene_fc?: string;
 
-    equipo_asociado?: number;
+    equipo_asociado?: string | number;
     observacion?: string;
     visible_muestreador?: string;
     que_mide?: string;
