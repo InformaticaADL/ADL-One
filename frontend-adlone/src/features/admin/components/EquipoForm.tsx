@@ -47,6 +47,7 @@ import { useNavStore } from '../../../store/navStore';
 import { useAuth } from '../../../contexts/AuthContext';
 import { EquipmentRequestsModal } from './EquipmentRequestsModal';
 import { ProtectedContent } from '../../../components/auth/ProtectedContent';
+import { FieldLabel } from '../../../components/common/FieldHelp';
 
 // Using a local HybridSelect replacement with Mantine components.
 // If strict=true, it uses Select (must be in list).
@@ -119,7 +120,12 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         error0: 0,
         error15: 0,
         error30: 0,
-        version: initialData?.version || 'v1'
+        version: initialData?.version || 'v1',
+        // Campos nuevos
+        ultima_verificacion: '',
+        siguiente_verificacion: '',
+        plazo_vigencia: '',
+        estado_equipo: ''
     });
 
     const [loading, setLoading] = useState(false);
@@ -195,7 +201,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         const fetchInitialData = async () => {
             try {
                 const [mRes, eRes, allERes] = await Promise.all([
-                    adminService.getMuestreadores('', 'ACTIVOS'),
+                    adminService.getMuestreadores('', ''),   // todos: activos e inactivos
                     equipoService.getEquipos({ limit: 1 }),
                     equipoService.getEquipos({ limit: 2000 })
                 ]);
@@ -272,7 +278,12 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                         error30: Number(baseData.error30) || 0,
                         equipo_asociado: (!baseData.equipo_asociado || baseData.equipo_asociado === 0) ? 'No Aplica' : baseData.equipo_asociado,
                         correlativo: Number(baseData.correlativo) || 0,
-                        version: baseData.version || 'v1'
+                        version: baseData.version || 'v1',
+                        // Campos nuevos: formatear fechas si vienen como ISO
+                        ultima_verificacion: baseData.ultima_verificacion ? baseData.ultima_verificacion.split('T')[0] : '',
+                        siguiente_verificacion: baseData.siguiente_verificacion ? baseData.siguiente_verificacion.split('T')[0] : '',
+                        plazo_vigencia: baseData.plazo_vigencia || '',
+                        estado_equipo: baseData.estado_equipo || ''
                     });
 
                     if (hasId) {
@@ -324,6 +335,13 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
             }
         }
     }, [formData.tipo, formData.ubicacion, formData.nombre, formData.sigla, formData.correlativo]);
+
+    // Sincronizar vigencia (fecha_vigencia) con siguiente_verificacion en tiempo real
+    useEffect(() => {
+        if (formData.vigencia !== formData.siguiente_verificacion) {
+            setFormData((prev: any) => ({ ...prev, vigencia: formData.siguiente_verificacion || '' }));
+        }
+    }, [formData.siguiente_verificacion]);
 
     // --- Handlers ---
     const handleRestore = async (h: any) => {
@@ -598,7 +616,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                 <Grid>
                                     <Grid.Col span={{ base: 12, md: 4 }}>
                                         <MantineHybridSelect
-                                            label="Tipo de Equipo"
+                                            label={<FieldLabel label="Tipo de Equipo *" help="Categoría del equipo (ej: Multiparámetro, pH-metro, Termómetro) para agrupar equipos con características similares." />}
                                             placeholder="Seleccione..."
                                             value={formData.tipo}
                                             options={tipoOptions}
@@ -611,7 +629,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                     </Grid.Col>
                                     <Grid.Col span={{ base: 12, md: 4 }}>
                                         <MantineHybridSelect
-                                            label="Ubicación (Sede)"
+                                            label={<FieldLabel label="Ubicación (Sede) *" help="Sede física de ADL donde se almacena y opera el equipo (ej: PM para Puerto Montt, CO para Coyhaique)." />}
                                             placeholder="Seleccione..."
                                             value={formData.ubicacion}
                                             options={sedeOptions}
@@ -623,7 +641,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                     </Grid.Col>
                                     <Grid.Col span={{ base: 12, md: 4 }}>
                                         <MantineHybridSelect
-                                            label="Estado"
+                                            label={<FieldLabel label="Estado *" help="Estado de habilitación del equipo (ej: Habilitado) para su uso general en el sistema." />}
                                             placeholder="Seleccione..."
                                             value={formData.estado}
                                             options={estadoOptions}
@@ -635,7 +653,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                     </Grid.Col>
                                     <Grid.Col span={{ base: 12, md: 6 }}>
                                         <MantineHybridSelect
-                                            label="Nombre del Equipo"
+                                            label={<FieldLabel label="Nombre del Equipo *" help="Modelo o nombre específico del equipo (ej: HI98194, YSI ProDSS) según catálogo." />}
                                             placeholder="Seleccione o escriba..."
                                             value={formData.nombre}
                                             options={namesOptions}
@@ -648,14 +666,14 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                                     unidad_medida_sigla: m?.unidad_medida_sigla || p.unidad_medida_sigla
                                                 }));
                                             }}
-                                            strict={!isSuper}
+                                            strict={!isSuper && !initialData?.id_equipo}
                                             required
                                             error={attemptedSubmit && !formData.nombre && "Obligatorio"}
                                         />
                                     </Grid.Col>
                                     <Grid.Col span={{ base: 6, md: 3 }}>
                                         <TextInput
-                                            label="Sigla"
+                                            label={<FieldLabel label="Sigla" help="Sigla identificadora que forma parte del código de barra del equipo (ej: MULTI, PH, TERM)." />}
                                             placeholder="Ej: PH"
                                             value={formData.sigla}
                                             onChange={(e) => setFormData((p: any) => ({ ...p, sigla: e.target.value }))}
@@ -664,14 +682,14 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                     </Grid.Col>
                                     <Grid.Col span={{ base: 6, md: 3 }}>
                                         <NumberInput
-                                            label="Correlativo"
+                                            label={<FieldLabel label="Correlativo" help="Número correlativo único de la unidad del equipo para diferenciarlo de otros del mismo tipo y sede." />}
                                             value={formData.correlativo}
                                             onChange={(val) => setFormData((p: any) => ({ ...p, correlativo: val }))}
                                         />
                                     </Grid.Col>
                                     <Grid.Col span={{ base: 12, md: 8 }}>
                                         <TextInput
-                                            label="Código Final"
+                                            label={<FieldLabel label="Código Final *" help="Código único de barra generado de forma automática para la identificación del equipo en terreno." />}
                                             value={formData.codigo}
                                             readOnly={!isSuper}
                                             required
@@ -682,19 +700,25 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                     </Grid.Col>
                                     <Grid.Col span={{ base: 12, md: 4 }}>
                                         <TextInput
-                                            label="Vigencia"
+                                            label={<FieldLabel label="Vigencia *" help="Fecha límite de vigencia de la última calibración o certificación del equipo." />}
                                             type="date"
                                             value={formData.vigencia}
-                                            onChange={(e) => setFormData((p: any) => ({ ...p, vigencia: e.target.value }))}
+                                            readOnly
                                             required
+                                            description="Sincronizada con Siguiente Verificación"
                                             error={attemptedSubmit && !formData.vigencia && "Obligatorio"}
                                         />
                                     </Grid.Col>
                                     <Grid.Col span={{ base: 12, md: 6 }}>
                                         <Select
-                                            label="Responsable (Muestreador)"
+                                            label={<FieldLabel label="Responsable (Muestreador) *" help="Muestreador responsable del cuidado y traslado del equipo en terreno." />}
                                             placeholder="Seleccione..."
-                                            data={muestreadores.map(m => ({ value: String(m.id_muestreador), label: m.nombre_muestreador }))}
+                                            data={muestreadores.map(m => ({
+                                                value: String(m.id_muestreador),
+                                                label: m.habilitado === 'N' || m.habilitado === false
+                                                    ? `${m.nombre_muestreador} (Inactivo)`
+                                                    : m.nombre_muestreador
+                                            }))}
                                             value={String(formData.id_muestreador)}
                                             onChange={(val) => setFormData((p: any) => ({ ...p, id_muestreador: val }))}
                                             required
@@ -705,7 +729,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                     <Grid.Col span={{ base: 12, md: 6 }}>
                                         {/* E-01: mostrar nombre + código para que el usuario pueda elegir, no IDs crudos */}
                                         <Select
-                                            label="Equipo Asociado"
+                                            label={<FieldLabel label="Equipo Asociado" help="Equipo complementario asignado a esta unidad (ej: sonda de repuesto, electrodo asociado)." />}
                                             placeholder={allEquipos.length === 0 ? 'No hay equipos para asociar' : 'Buscar equipo...'}
                                             value={String(formData.equipo_asociado)}
                                             data={[
@@ -728,7 +752,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                 <Grid>
                                     <Grid.Col span={{ base: 12, md: 4 }}>
                                         <MantineHybridSelect
-                                            label="¿Qué Mide?"
+                                            label={<FieldLabel label="¿Qué Mide? *" help="Parámetro o variable física/química que mide el equipo (ej: pH, Conductividad, Oxígeno Disuelto, Temperatura)." />}
                                             value={formData.que_mide}
                                             options={queMideOptions}
                                             onChange={(val: any) => {
@@ -745,7 +769,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                     </Grid.Col>
                                     <Grid.Col span={{ base: 12, md: 4 }}>
                                         <MantineHybridSelect
-                                            label="Unidad de Medida"
+                                            label={<FieldLabel label="Unidad de Medida" help="Nombre completo de la unidad de medida utilizada para registrar los datos (ej: Miligramos por Litro, Grados Celsius)." />}
                                             value={formData.unidad_medida_textual}
                                             options={unidadesOptions}
                                             onChange={(val: any) => {
@@ -756,7 +780,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                     </Grid.Col>
                                     <Grid.Col span={{ base: 12, md: 4 }}>
                                         <TextInput
-                                            label="Sigla Unidad"
+                                            label={<FieldLabel label="Sigla Unidad" help="Abreviación técnica de la unidad de medida (ej: mg/L, °C, µS/cm)." />}
                                             value={formData.unidad_medida_sigla}
                                             onChange={(e) => setFormData((p: any) => ({ ...p, unidad_medida_sigla: e.target.value }))}
                                             placeholder="mg/L, %"
@@ -765,34 +789,34 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                     <Grid.Col span={12}>
                                         <Group gap="xl" p="md" bg="gray.0">
                                             <Checkbox 
-                                                label="Tiene Factor de Corrección" 
+                                                label={<FieldLabel label="Tiene Factor de Corrección" help="Indica si se debe aplicar una constante de corrección a los valores medidos por el equipo." />} 
                                                 checked={formData.tiene_fc === 'SI'} 
                                                 onChange={(e) => setFormData((p: any) => ({ ...p, tiene_fc: e.target.checked ? 'SI' : 'NO' }))} 
                                             />
                                             <Checkbox 
-                                                label="Visible para Muestreadores" 
+                                                label={<FieldLabel label="Visible para Muestreadores" help="Determina si el equipo estará visible y seleccionable para los muestreadores en la aplicación móvil." />} 
                                                 checked={formData.visible_muestreador === 'SI'} 
                                                 onChange={(e) => setFormData((p: any) => ({ ...p, visible_muestreador: e.target.checked ? 'SI' : 'NO' }))} 
                                             />
                                             <Checkbox 
-                                                label="Incluir en Informe" 
+                                                label={<FieldLabel label="Incluir en Informe" help="Indica si el equipo y sus mediciones asociadas deben ser impresos en el informe final de resultados." />} 
                                                 checked={formData.informe === 'SI'} 
                                                 onChange={(e) => setFormData((p: any) => ({ ...p, informe: e.target.checked ? 'SI' : 'NO' }))} 
                                             />
                                         </Group>
                                     </Grid.Col>
                                     <Grid.Col span={{ base: 12, sm: 4, md: 4 }}>
-                                        <NumberInput label="Error 0" value={formData.error0} onChange={(v) => setFormData((p: any) => ({ ...p, error0: v }))} step={0.01} />
+                                        <NumberInput label={<FieldLabel label="Error 0" help="Desviación o error detectado en la medición del punto de calibración cero." />} value={formData.error0} onChange={(v) => setFormData((p: any) => ({ ...p, error0: v }))} step={0.01} />
                                     </Grid.Col>
                                     <Grid.Col span={{ base: 12, sm: 4, md: 4 }}>
-                                        <NumberInput label="Error 15" value={formData.error15} onChange={(v) => setFormData((p: any) => ({ ...p, error15: v }))} step={0.01} />
+                                        <NumberInput label={<FieldLabel label="Error 15" help="Desviación o error detectado en la medición del punto de calibración intermedio (ej: 15°C o patrón intermedio)." />} value={formData.error15} onChange={(v) => setFormData((p: any) => ({ ...p, error15: v }))} step={0.01} />
                                     </Grid.Col>
                                     <Grid.Col span={{ base: 12, sm: 4, md: 4 }}>
-                                        <NumberInput label="Error 30" value={formData.error30} onChange={(v) => setFormData((p: any) => ({ ...p, error30: v }))} step={0.01} />
+                                        <NumberInput label={<FieldLabel label="Error 30" help="Desviación o error detectado en la medición del punto de calibración alto (ej: 30°C o patrón alto)." />} value={formData.error30} onChange={(v) => setFormData((p: any) => ({ ...p, error30: v }))} step={0.01} />
                                     </Grid.Col>
                                     <Grid.Col span={12}>
                                         <Textarea
-                                            label="Observaciones"
+                                            label={<FieldLabel label="Observaciones *" help="Comentarios adicionales, historial de fallas, reparaciones o detalles relevantes del equipo." />}
                                             placeholder="Detalles sobre el equipo..."
                                             value={formData.observacion}
                                             onChange={(e) => setFormData((p: any) => ({ ...p, observacion: e.target.value }))}
@@ -802,6 +826,65 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                         />
                                     </Grid.Col>
                                 </Grid>
+
+                                <Divider label="Verificación y Estado" labelPosition="center" />
+                                <Grid align="flex-end">
+                                    <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+                                        <TextInput
+                                            label={<FieldLabel label="Última Verificación" help="Fecha en que se realizó la última verificación técnica de calibración del equipo." />}
+                                            type="date"
+                                            value={formData.ultima_verificacion}
+                                            onChange={(e) => {
+                                                const newDate = e.target.value;
+                                                let sigVerif = formData.siguiente_verificacion;
+                                                if (newDate) {
+                                                    const d = new Date(newDate);
+                                                    d.setDate(d.getDate() + 90);
+                                                    sigVerif = d.toISOString().split('T')[0];
+                                                }
+                                                setFormData((p: any) => ({ ...p, ultima_verificacion: newDate, siguiente_verificacion: sigVerif }));
+                                            }}
+                                        />
+                                    </Grid.Col>
+                                    <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+                                        <TextInput
+                                            label={<FieldLabel label="Siguiente Verificación *" help="Fecha programada para la próxima verificación técnica (por defecto 90 días después de la última). Corresponde también a la fecha de vigencia." />}
+                                            type="date"
+                                            value={formData.siguiente_verificacion}
+                                            description="Auto: Última + 90 días (editable)"
+                                            onChange={(e) => setFormData((p: any) => ({ ...p, siguiente_verificacion: e.target.value }))}
+                                            required
+                                            error={attemptedSubmit && !formData.siguiente_verificacion && "Obligatorio"}
+                                        />
+                                    </Grid.Col>
+                                    <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+                                        <Select
+                                            label={<FieldLabel label="Estado del Equipo" help="Estado operativo actual del equipo (ej: Operativo, En Mantención, En Calibración, Fuera de Servicio)." />}
+                                            placeholder="Seleccione..."
+                                            data={[
+                                                'Operativo',
+                                                'Dado de Baja',
+                                                'En Mantención',
+                                                'En Calibración',
+                                                'Fuera de Servicio',
+                                            ]}
+                                            value={formData.estado_equipo}
+                                            onChange={(val) => setFormData((p: any) => ({ ...p, estado_equipo: val || '' }))}
+                                            clearable
+                                        />
+                                    </Grid.Col>
+                                    <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+                                        <Textarea
+                                            label={<FieldLabel label="Plazo Vigencia" help="Comentarios o aclaraciones sobre el plazo de vigencia de la calibración del equipo (ej: Hasta el día 30 del mes...)." />}
+                                            placeholder="Ej: Hasta el día 30 del mes..."
+                                            value={formData.plazo_vigencia}
+                                            onChange={(e) => setFormData((p: any) => ({ ...p, plazo_vigencia: e.target.value }))}
+                                            minRows={2}
+                                            autosize
+                                        />
+                                    </Grid.Col>
+                                </Grid>
+
                                 {!initialData?.id_equipo && (
                                     <Paper withBorder p="md" bg="blue.0" radius="md">
                                         <Group justify="space-between">
@@ -876,6 +959,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                                                     onChange={(e) => {
                                                                         const n = [...bulkItems];
                                                                         n[idx].vigencia = e.target.value;
+                                                                        n[idx].siguiente_verificacion = e.target.value;
                                                                         setBulkItems(n);
                                                                     }}
                                                                 />

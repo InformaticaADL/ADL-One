@@ -205,7 +205,11 @@ export const equipoService = {
                     e.unidad_medida_textual,
                     e.unidad_medida_sigla,
                     e.informe,
-                    e.version
+                    e.version,
+                    CONVERT(VARCHAR(10), e.Ultima_verificacion, 23) as ultima_verificacion,
+                    CONVERT(VARCHAR(10), e.Siguiente_verificacion, 23) as siguiente_verificacion,
+                    e.Plazo_Vigencia as plazo_vigencia,
+                    e.Estado as estado_equipo
                 FROM mae_equipo e
                 LEFT JOIN mae_muestreador m ON e.id_muestreador = m.id_muestreador
                 ${whereClause}
@@ -286,8 +290,8 @@ export const equipoService = {
                     FROM mae_equipo
                     WHERE habilitado = 'S'
                       AND fecha_vigencia IS NOT NULL
-                      AND CAST(fecha_vigencia AS DATE) <= CAST(DATEADD(day, 30, GETDATE()) AS DATE)
-                      AND CAST(fecha_vigencia AS DATE) >= CAST(GETDATE() AS DATE)
+                      AND CAST(EOMONTH(fecha_vigencia) AS DATE) <= CAST(DATEADD(day, 30, GETDATE()) AS DATE)
+                      AND CAST(EOMONTH(fecha_vigencia) AS DATE) >= CAST(GETDATE() AS DATE)
                 `)
             ]);
 
@@ -447,7 +451,11 @@ export const equipoService = {
                     e.unidad_medida_textual,
                     e.unidad_medida_sigla,
                     e.informe,
-                    e.version
+                    e.version,
+                    CONVERT(VARCHAR(10), e.Ultima_verificacion, 23) as ultima_verificacion,
+                    CONVERT(VARCHAR(10), e.Siguiente_verificacion, 23) as siguiente_verificacion,
+                    e.Plazo_Vigencia as plazo_vigencia,
+                    e.Estado as estado_equipo
                 FROM mae_equipo e
                 LEFT JOIN mae_muestreador m ON e.id_muestreador = m.id_muestreador
                 WHERE e.id_equipo = @id
@@ -557,16 +565,29 @@ export const equipoService = {
             request.input('unidad_medida_textual', sql.VarChar, data.unidad_medida_textual || '');
             request.input('unidad_medida_sigla', sql.VarChar, data.unidad_medida_sigla || '');
             request.input('informe', sql.VarChar(1), (data.informe === 'SI' || data.informe === 'S') ? 'S' : 'N');
+            request.input('ultima_verificacion', sql.Date, parseSqlDate(data.ultima_verificacion) || null);
+            request.input('siguiente_verificacion', sql.Date, parseSqlDate(data.siguiente_verificacion) || null);
+            request.input('plazo_vigencia', sql.VarChar(500), data.plazo_vigencia || null);
+            // Estado sincroniza con habilitado: Dado de Baja → 'N', Operativo → 'S'
+            const estadoEquipoCreate = data.estado_equipo || null;
+            if (estadoEquipoCreate) {
+                const eL = estadoEquipoCreate.toLowerCase();
+                if (eL.includes('baja')) request.input('habilitado', sql.VarChar(1), 'N');
+                // Si es Operativo u otro valor, habilitado ya se seteo arriba — no sobreescribir
+            }
+            request.input('estado_equipo', sql.VarChar(100), estadoEquipoCreate);
 
             const queryMain = `
                 INSERT INTO mae_equipo (
                     id_equipo, codigo, nombre, tipoequipo, sede, fecha_vigencia, id_muestreador, habilitado,
                     sigla, correlativo, tienefc, error0, error15, error30, equipo_asociado,
-                    observacion, visible_muestreador, que_mide, unidad_medida_textual, unidad_medida_sigla, informe, version
+                    observacion, visible_muestreador, que_mide, unidad_medida_textual, unidad_medida_sigla, informe, version,
+                    Ultima_verificacion, Siguiente_verificacion, Plazo_Vigencia, Estado
                 ) VALUES (
                     @id_equipo, @codigo, @nombre, @tipoequipo, @sede, @fecha_vigencia, @id_muestreador, @habilitado,
                     @sigla, @correlativo, @tienefc, @error0, @error15, @error30, @equipo_asociado,
-                    @observacion, @visible_muestreador, @que_mide, @unidad_medida_textual, @unidad_medida_sigla, @informe, 'v1'
+                    @observacion, @visible_muestreador, @que_mide, @unidad_medida_textual, @unidad_medida_sigla, @informe, 'v1',
+                    @ultima_verificacion, @siguiente_verificacion, @plazo_vigencia, @estado_equipo
                 );
             `;
 
@@ -624,16 +645,22 @@ export const equipoService = {
                 request.input('unidad_medida_textual', sql.VarChar, data.unidad_medida_textual || '');
                 request.input('unidad_medida_sigla', sql.VarChar, data.unidad_medida_sigla || '');
                 request.input('informe', sql.VarChar(1), (data.informe === 'SI' || data.informe === 'S') ? 'S' : 'N');
+                request.input('ultima_verificacion', sql.Date, parseSqlDate(data.ultima_verificacion) || null);
+                request.input('siguiente_verificacion', sql.Date, parseSqlDate(data.siguiente_verificacion) || null);
+                request.input('plazo_vigencia', sql.VarChar(500), data.plazo_vigencia || null);
+                request.input('estado_equipo', sql.VarChar(100), data.estado_equipo || null);
 
                 const queryMain = `
                     INSERT INTO mae_equipo (
                         id_equipo, codigo, nombre, tipoequipo, sede, fecha_vigencia, id_muestreador, habilitado,
                         sigla, correlativo, tienefc, error0, error15, error30, equipo_asociado,
-                        observacion, visible_muestreador, que_mide, unidad_medida_textual, unidad_medida_sigla, informe, version
+                        observacion, visible_muestreador, que_mide, unidad_medida_textual, unidad_medida_sigla, informe, version,
+                        Ultima_verificacion, Siguiente_verificacion, Plazo_Vigencia, Estado
                     ) VALUES (
                         @id_equipo, @codigo, @nombre, @tipoequipo, @sede, @fecha_vigencia, @id_muestreador, @habilitado,
                         @sigla, @correlativo, @tienefc, @error0, @error15, @error30, @equipo_asociado,
-                        @observacion, @visible_muestreador, @que_mide, @unidad_medida_textual, @unidad_medida_sigla, @informe, 'v1'
+                        @observacion, @visible_muestreador, @que_mide, @unidad_medida_textual, @unidad_medida_sigla, @informe, 'v1',
+                        @ultima_verificacion, @siguiente_verificacion, @plazo_vigencia, @estado_equipo
                     );
                 `;
 
@@ -750,17 +777,23 @@ export const equipoService = {
                 requestHist.input('unidad_medida_textual', sql.VarChar, current.unidad_medida_textual || '');
                 requestHist.input('unidad_medida_sigla', sql.VarChar, current.unidad_medida_sigla || '');
                 requestHist.input('informe', sql.VarChar(1), current.informe || 'N');
+                requestHist.input('ultima_verificacion', sql.Date, parseSqlDate(current.Ultima_verificacion) || null);
+                requestHist.input('siguiente_verificacion', sql.Date, parseSqlDate(current.Siguiente_verificacion) || null);
+                requestHist.input('plazo_vigencia', sql.VarChar(500), current.Plazo_Vigencia || null);
+                requestHist.input('estado_equipo_h', sql.VarChar(100), current.Estado || null);
 
                 const queryHist = `
                     INSERT INTO mae_equipo_historial (
                         id_equipo, codigo, nombre, tipoequipo, sede, fecha_vigencia, id_muestreador, habilitado,
                         sigla, correlativo, tienefc, error0, error15, error30, equipo_asociado,
                         observacion, visible_muestreador, que_mide, unidad_medida_textual, unidad_medida_sigla, informe, 
+                        Ultima_verificacion, Siguiente_verificacion, Plazo_Vigencia, Estado,
                         usuario_cambio, version, fecha_cambio
                     ) VALUES (
                         @id_equipo, @codigo, @nombre, @tipoequipo, @sede, @fecha_vigencia, @id_muestreador, @habilitado,
                         @sigla, @correlativo, @tienefc, @error0, @error15, @error30, @equipo_asociado,
                         @observacion, @visible_muestreador, @que_mide, @unidad_medida_textual, @unidad_medida_sigla, @informe, 
+                        @ultima_verificacion, @siguiente_verificacion, @plazo_vigencia, @estado_equipo_h,
                         @usuario_cambio, @version, GETDATE()
                     );
                 `;
@@ -811,6 +844,24 @@ export const equipoService = {
             const inf = data.hasOwnProperty('informe') ? data.informe : current.informe;
             requestMain.input('informe', sql.VarChar(1), (inf === 'SI' || inf === 'S') ? 'S' : 'N');
 
+            // Campos nuevos
+            const ultVerif = data.hasOwnProperty('ultima_verificacion') ? data.ultima_verificacion : current.Ultima_verificacion;
+            requestMain.input('ultima_verificacion', sql.Date, parseSqlDate(ultVerif) || null);
+
+            const sigVerif = data.hasOwnProperty('siguiente_verificacion') ? data.siguiente_verificacion : current.Siguiente_verificacion;
+            requestMain.input('siguiente_verificacion', sql.Date, parseSqlDate(sigVerif) || null);
+
+            requestMain.input('plazo_vigencia', sql.VarChar(500), data.hasOwnProperty('plazo_vigencia') ? (data.plazo_vigencia || null) : (current.Plazo_Vigencia || null));
+
+            const estadoEq = data.hasOwnProperty('estado_equipo') ? data.estado_equipo : current.Estado;
+            requestMain.input('estado_equipo', sql.VarChar(100), estadoEq || null);
+            // Sincronizar habilitado con Estado si Estado fue modificado explícitamente
+            if (data.hasOwnProperty('estado_equipo') && estadoEq) {
+                const eL = estadoEq.toLowerCase();
+                if (eL.includes('baja')) requestMain.input('habilitado_override', sql.VarChar(1), 'N');
+                else if (eL.includes('operativo')) requestMain.input('habilitado_override', sql.VarChar(1), 'S');
+            }
+
             // Increment version based on current OR reuse if matches history
             let nextVersionLabel;
             const matchingVersion = await equipoService.findMatchingVersion(id, data);
@@ -846,6 +897,10 @@ export const equipoService = {
                     unidad_medida_textual = @unidad_medida_textual,
                     unidad_medida_sigla = @unidad_medida_sigla,
                     informe = @informe,
+                    Ultima_verificacion = @ultima_verificacion,
+                    Siguiente_verificacion = @siguiente_verificacion,
+                    Plazo_Vigencia = @plazo_vigencia,
+                    Estado = @estado_equipo,
                     version = @version
                 WHERE id_equipo = @id
             `;
@@ -954,16 +1009,24 @@ export const equipoService = {
             requestHist.input('unidad_medida_textual', sql.VarChar, current.unidad_medida_textual);
             requestHist.input('unidad_medida_sigla', sql.VarChar, current.unidad_medida_sigla);
             requestHist.input('informe', sql.VarChar(1), current.informe);
+            requestHist.input('ultima_verificacion', sql.Date, parseSqlDate(current.Ultima_verificacion) || null);
+            requestHist.input('siguiente_verificacion', sql.Date, parseSqlDate(current.Siguiente_verificacion) || null);
+            requestHist.input('plazo_vigencia', sql.VarChar(500), current.Plazo_Vigencia || null);
+            requestHist.input('estado_equipo_del', sql.VarChar(100), current.Estado || null);
 
             const queryHist = `
                 INSERT INTO mae_equipo_historial (
                     id_equipo, codigo, nombre, tipoequipo, sede, fecha_vigencia, id_muestreador, habilitado,
                     sigla, correlativo, tienefc, error0, error15, error30, equipo_asociado,
-                    observacion, visible_muestreador, que_mide, unidad_medida_textual, unidad_medida_sigla, informe, usuario_cambio, version
+                    observacion, visible_muestreador, que_mide, unidad_medida_textual, unidad_medida_sigla, informe,
+                    Ultima_verificacion, Siguiente_verificacion, Plazo_Vigencia, Estado,
+                    usuario_cambio, version
                 ) VALUES (
                     @id_equipo, @codigo, @nombre, @tipoequipo, @sede, @fecha_vigencia, @id_muestreador, @habilitado,
                     @sigla, @correlativo, @tienefc, @error0, @error15, @error30, @equipo_asociado,
-                    @observacion, @visible_muestreador, @que_mide, @unidad_medida_textual, @unidad_medida_sigla, @informe, @usuario_cambio, @version
+                    @observacion, @visible_muestreador, @que_mide, @unidad_medida_textual, @unidad_medida_sigla, @informe,
+                    @ultima_verificacion, @siguiente_verificacion, @plazo_vigencia, @estado_equipo_del,
+                    @usuario_cambio, @version
                 );
             `;
             await requestHist.query(queryHist);
@@ -1039,17 +1102,23 @@ export const equipoService = {
                 snapReq.input('unidad_medida_textual', sql.VarChar, current.unidad_medida_textual || '');
                 snapReq.input('unidad_medida_sigla', sql.VarChar, current.unidad_medida_sigla || '');
                 snapReq.input('informe', sql.VarChar(1), current.informe || 'N');
+                snapReq.input('ultima_verificacion', sql.Date, parseSqlDate(current.Ultima_verificacion) || null);
+                snapReq.input('siguiente_verificacion', sql.Date, parseSqlDate(current.Siguiente_verificacion) || null);
+                snapReq.input('plazo_vigencia', sql.VarChar(500), current.Plazo_Vigencia || null);
+                snapReq.input('estado_equipo_snap', sql.VarChar(100), current.Estado || null);
 
                 await snapReq.query(`
                     INSERT INTO mae_equipo_historial (
                         id_equipo, codigo, nombre, tipoequipo, sede, fecha_vigencia, id_muestreador, habilitado,
                         sigla, correlativo, tienefc, error0, error15, error30, equipo_asociado,
                         observacion, visible_muestreador, que_mide, unidad_medida_textual, unidad_medida_sigla, informe, 
+                        Ultima_verificacion, Siguiente_verificacion, Plazo_Vigencia, Estado,
                         usuario_cambio, version, fecha_cambio
                     ) VALUES (
                         @id_equipo, @codigo, @nombre, @tipoequipo, @sede, @fecha_vigencia, @id_muestreador, @habilitado,
                         @sigla, @correlativo, @tienefc, @error0, @error15, @error30, @equipo_asociado,
                         @observacion, @visible_muestreador, @que_mide, @unidad_medida_textual, @unidad_medida_sigla, @informe, 
+                        @ultima_verificacion, @siguiente_verificacion, @plazo_vigencia, @estado_equipo_snap,
                         @usuario_cambio, @version, GETDATE()
                     )
                 `);
@@ -1078,6 +1147,10 @@ export const equipoService = {
             updReq.input('unidad_medida_textual', sql.VarChar, target.unidad_medida_textual || '');
             updReq.input('unidad_medida_sigla', sql.VarChar, target.unidad_medida_sigla || '');
             updReq.input('informe', sql.VarChar(1), target.informe || 'N');
+            updReq.input('ultima_verificacion_r', sql.Date, parseSqlDate(target.Ultima_verificacion) || null);
+            updReq.input('siguiente_verificacion_r', sql.Date, parseSqlDate(target.Siguiente_verificacion) || null);
+            updReq.input('plazo_vigencia_r', sql.VarChar(500), target.Plazo_Vigencia || null);
+            updReq.input('estado_equipo_r', sql.VarChar(100), target.Estado || null);
             updReq.input('version', sql.VarChar(10), nextVersionLabel);
 
             await updReq.query(`
@@ -1088,7 +1161,10 @@ export const equipoService = {
                     error15=@error15, error30=@error30, equipo_asociado=@equipo_asociado,
                     observacion=@observacion, visible_muestreador=@visible_muestreador, 
                     que_mide=@que_mide, unidad_medida_textual=@unidad_medida_textual, 
-                    unidad_medida_sigla=@unidad_medida_sigla, informe=@informe, version=@version
+                    unidad_medida_sigla=@unidad_medida_sigla, informe=@informe,
+                    Ultima_verificacion=@ultima_verificacion_r, Siguiente_verificacion=@siguiente_verificacion_r,
+                    Plazo_Vigencia=@plazo_vigencia_r, Estado=@estado_equipo_r,
+                    version=@version
                 WHERE id_equipo = @id
             `);
 
@@ -1120,7 +1196,7 @@ export const equipoService = {
                 SELECT id_equipo, nombre, codigo 
                 FROM mae_equipo 
                 WHERE habilitado = 'S' 
-                AND fecha_vigencia < CAST(GETDATE() AS DATE)
+                AND EOMONTH(fecha_vigencia) <= CAST(GETDATE() AS DATE)
             `;
             const findRes = await findReq.query(findQuery);
             const expiredEquipos = findRes.recordset;
@@ -1173,17 +1249,23 @@ export const equipoService = {
                 histReq.input('unidad_medida_textual', sql.VarChar, current.unidad_medida_textual || '');
                 histReq.input('unidad_medida_sigla', sql.VarChar, current.unidad_medida_sigla || '');
                 histReq.input('informe', sql.VarChar(1), current.informe || 'N');
+                histReq.input('ultima_verificacion', sql.Date, parseSqlDate(current.Ultima_verificacion) || null);
+                histReq.input('siguiente_verificacion', sql.Date, parseSqlDate(current.Siguiente_verificacion) || null);
+                histReq.input('plazo_vigencia', sql.VarChar(500), current.Plazo_Vigencia || null);
+                histReq.input('estado_equipo_exp', sql.VarChar(100), current.Estado || null);
 
                 await histReq.query(`
                     INSERT INTO mae_equipo_historial (
                         id_equipo, codigo, nombre, tipoequipo, sede, fecha_vigencia, id_muestreador, habilitado,
                         sigla, correlativo, tienefc, error0, error15, error30, equipo_asociado,
                         observacion, visible_muestreador, que_mide, unidad_medida_textual, unidad_medida_sigla, informe, 
+                        Ultima_verificacion, Siguiente_verificacion, Plazo_Vigencia, Estado,
                         usuario_cambio, version, fecha_cambio
                     ) VALUES (
                         @id_equipo, @codigo, @nombre, @tipoequipo, @sede, @fecha_vigencia, @id_muestreador, @habilitado,
                         @sigla, @correlativo, @tienefc, @error0, @error15, @error30, @equipo_asociado,
                         @observacion, @visible_muestreador, @que_mide, @unidad_medida_textual, @unidad_medida_sigla, @informe, 
+                        @ultima_verificacion, @siguiente_verificacion, @plazo_vigencia, @estado_equipo_exp,
                         @usuario_cambio, @version, GETDATE()
                     );
                 `);

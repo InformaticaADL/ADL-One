@@ -30,6 +30,11 @@ export interface Equipo {
     version?: string;
     requestId?: number;
     requestStatus?: string;
+    // Campos nuevos del Excel
+    ultima_verificacion?: string;      // DATE - fecha de última verificación
+    siguiente_verificacion?: string;   // DATE - calculada (ultima + 90 días) pero editable
+    plazo_vigencia?: string;           // VARCHAR(500) - texto con el plazo
+    estado_equipo?: string;            // VARCHAR(100) - Estado textual (Operativo, Dado de Baja, etc.)
 }
 
 export interface EquipoHistorial extends Equipo {

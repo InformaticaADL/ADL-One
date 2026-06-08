@@ -511,6 +511,18 @@ frontend-adlone/
   - `ficha.service.js` — El asunto y cuerpo del correo de documentos ahora usan `frecuencia_correlativo` como identificador principal en lugar de `caso_adlab`, alineando la referencia del PDF con el correlativo que ve el usuario en la app móvil.
   - Soporte para placeholder `{CORRELATIVO}` en templates de BD, manteniendo `{CASO_ADLAB}` como alias de compatibilidad.
 
+### 68. Mapeo de Muestreadores Inactivos, Ayuda Contextual en Equipos y Regla de Expiración a Fin de Mes (Junio 2026) 🛠️ℹ️📅
+- **Visualización de Muestreadores Inactivos**:
+  - `EquipoForm.tsx` — Carga todos los muestreadores (activos e inactivos) del backend, etiquetando los inactivos con `(Inactivo)` para permitir visualizar y mantener asignaciones previas sin perder datos.
+  - `validate.middleware.js` — Ajuste al validador Joi para permitir un valor de `estado: ''` (vacío = sin filtro), evitando errores 400 (Bad Request).
+- **Ayuda Contextual en Equipos**:
+  - `EquipoForm.tsx` — Integración del componente `FieldLabel` para mostrar tooltips descriptivos de ayuda contextual en tiempo real en los campos del formulario de equipos.
+- **Sincronización de Vigencia (`fecha_vigencia`)**:
+  - `EquipoForm.tsx` — Sincronización automática mediante `useEffect` del campo `vigencia` con `siguiente_verificacion`. El campo `Vigencia` se configuró como de solo lectura (`readOnly`) y `Siguiente Verificación` como obligatorio (`required`).
+  - Sincronización integrada en el editor masivo (bulk creation) y script de migración SQL para equiparar los registros existentes en la base de datos `PruebasInformatica`.
+- **Regla de Vencimiento a Fin de Mes**:
+  - `equipo.service.js` / `admin.service.js` — Modificación de las consultas del contador por vencer, indicador de dashboard y tarea automática de inactivación (`inactivateExpiredEquipos`) utilizando `EOMONTH(fecha_vigencia)` de SQL Server, de modo que el equipo solo pase a estado inactivo al expirar el último día del mes correspondiente.
+
 ---
 
 ## 🔧 Configuración para Desarrollo

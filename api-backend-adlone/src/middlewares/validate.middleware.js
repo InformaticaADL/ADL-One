@@ -295,7 +295,7 @@ export const adminValidationSchemas = {
         body: Joi.object(),
         query: Joi.object({
             nombre: Joi.string().allow('').max(255).optional(),
-            estado: Joi.string().valid('ACTIVO', 'INACTIVO', 'ACTIVOS', 'INACTIVOS', 'TODOS').optional(),
+            estado: Joi.string().allow('').valid('', 'ACTIVO', 'INACTIVO', 'ACTIVOS', 'INACTIVOS', 'TODOS').optional(),
         }),
         params: Joi.object(),
     }),
