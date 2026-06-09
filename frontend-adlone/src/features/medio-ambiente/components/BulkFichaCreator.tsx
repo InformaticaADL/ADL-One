@@ -48,6 +48,7 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
     const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
     const [commitResults, setCommitResults] = useState<any>(null);
     const [isDownloading, setIsDownloading] = useState(false);
+    const [parseMeta, setParseMeta] = useState<{ truncated?: boolean; maxFichas?: number; total?: number } | null>(null);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -92,7 +93,8 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
             if (result.success && result.data?.items) {
                 const data = result.data;
                 setParsedItems(data.items);
-            
+                setParseMeta({ truncated: data.truncated, maxFichas: data.maxFichas, total: data.total });
+
                 // Auto-select all READY items
                 setSelectedIndices(data.items.map((it: any, i: number) => (it.status === 'READY' || it.status === 'WARNING' ? i : -1)).filter((i: number) => i !== -1));
                 setProgress(100);
@@ -238,6 +240,9 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
                         <Text size="sm" c="dimmed">
                             Verifique que el sistema haya mapeado correctamente los catálogos antes de crear las fichas.
                         </Text>
+                        <Text size="sm" fw={600} c="blue.7" mt={4}>
+                            {parsedItems.length} fichas detectadas en el Excel.
+                        </Text>
                     </Box>
                     <Group gap="xs">
                         <Button variant="default" onClick={() => { setStep(1); setFiles([]); setParsedItems([]); }}>
@@ -254,6 +259,15 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
                         </Button>
                     </Group>
                 </Group>
+
+                {parseMeta?.truncated && (
+                    <Alert color="orange" icon={<IconAlertCircle size={16} />} title="Lote truncado">
+                        <Text size="sm">
+                            El Excel contiene más de {parseMeta.maxFichas} fichas. Solo se procesaron las primeras {parseMeta.maxFichas}.
+                            Divida el archivo en lotes más pequeños para cargar el resto.
+                        </Text>
+                    </Alert>
+                )}
 
                 <Group gap="md">
                     <Alert variant="light" color="green" p="xs" style={{ flex: 1 }}>

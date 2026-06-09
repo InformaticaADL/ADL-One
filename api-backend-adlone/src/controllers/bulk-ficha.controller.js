@@ -3,6 +3,11 @@ import bulkExcelService from '../services/bulk-excel.service.js';
 import logger from '../utils/logger.js';
 import { successResponse, errorResponse } from '../utils/response.js';
 import multer from 'multer';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Configure multer for memory storage (we process buffers directly)
 const storage = multer.memoryStorage();
@@ -111,13 +116,20 @@ class BulkFichaController {
     }
     /**
      * GET /api/fichas/bulk-template
-     * Generates and downloads an Excel template with master sheets
-     * populated from the current DB data (clientes, empresas, centros).
+     * Downloads a clean Excel template (static file, no DB data)
      */
     async downloadTemplate(req, res) {
         try {
-            logger.info('[BulkFicha] Generating Excel template with DB masters...');
-            const buffer = await bulkExcelService.generateTemplate();
+            // Servir archivo estático limpio (sin datos de ejemplo)
+            const templatePath = path.join(__dirname, '../../Formato_Carga_Masiva_ADL_test_oficial.xlsx');
+
+            if (!fs.existsSync(templatePath)) {
+                logger.error('[BulkFicha] Template file not found at:', templatePath);
+                return errorResponse(res, 'Plantilla no encontrada', 404);
+            }
+
+            logger.info('[BulkFicha] Downloading template from:', templatePath);
+            const buffer = fs.readFileSync(templatePath);
 
             const filename = `Formato_Carga_Masiva_ADL_${new Date().toISOString().slice(0, 10)}.xlsx`;
             res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -125,8 +137,8 @@ class BulkFichaController {
             res.setHeader('Content-Length', buffer.length);
             res.send(buffer);
         } catch (err) {
-            logger.error('[BulkFicha] Error generating template:', err);
-            return errorResponse(res, 'Error al generar la plantilla Excel', 500, err.message);
+            logger.error('[BulkFicha] Error downloading template:', err);
+            return errorResponse(res, 'Error al descargar la plantilla', 500, err.message);
         }
     }
 }

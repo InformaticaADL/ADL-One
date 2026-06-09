@@ -250,6 +250,15 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
         } else {
             const defaults: any = {};
             if (config.statusColumn) defaults[config.statusColumn] = 'S';
+            // Auto-siguiente "orden" si la tabla maneja esa columna
+            const hasOrden = (config.summaryColumns?.includes('orden')) || data.some((d: any) => 'orden' in d);
+            if (hasOrden) {
+                const maxOrden = data.reduce((mx: number, d: any) => {
+                    const n = Number(d.orden);
+                    return Number.isFinite(n) && n > mx ? n : mx;
+                }, 0);
+                defaults['orden'] = String(maxOrden + 1);
+            }
             setFormData(defaults);
         }
         setView('form');
@@ -1162,7 +1171,7 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
                                 ]}
                                 value={statusFilter}
                                 onChange={(v) => setStatusFilter(v || 'all')}
-                                style={{ width: 150 }}
+                                style={{ width: 190 }}
                                 radius="md"
                             />
 
@@ -1280,8 +1289,9 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
                                                     const boolNamePatterns = ['envia_', 'es_', 'oculto', 'visible', 'activo', 'active', 'enabled', 'is_', 'tiene_', 'permite_', 'transaccional'];
                                                     const isBoolCol = typeof raw === 'boolean' || boolNamePatterns.some(p => col.toLowerCase().includes(p));
                                                     const isNullValue = raw === null || raw === undefined || raw === '';
+                                                    const isDescCol = /descrip|observ/i.test(col);
                                                     let displayValue: React.ReactNode = isNullValue
-                                                        ? <Text size="xs" c="dimmed" fs="italic">null</Text>
+                                                        ? <Text size="xs" c="dimmed" fs="italic">{isDescCol ? 'Sin observaciones' : 'null'}</Text>
                                                         : String(raw);
                                                     
                                                     if (isBoolCol && raw !== null && raw !== undefined) {
@@ -1307,9 +1317,17 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
                                                         if (found) displayValue = String(found.nombre || found.nombre_tipomuestra);
                                                     }
 
+                                                    const isNameCol = col === config.displayColumn;
                                                     return (
-                                                        <Table.Td key={col}>
-                                                            <Text component="div" size="sm" fw={col === config.displayColumn ? 600 : 400} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 250 }}>
+                                                        <Table.Td key={col} style={isNameCol ? { minWidth: 220 } : undefined}>
+                                                            <Text
+                                                                component="div"
+                                                                size="sm"
+                                                                fw={isNameCol ? 600 : 400}
+                                                                style={isNameCol
+                                                                    ? { whiteSpace: 'normal', wordBreak: 'break-word' }
+                                                                    : { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 250 }}
+                                                            >
                                                                 {displayValue}
                                                             </Text>
                                                         </Table.Td>

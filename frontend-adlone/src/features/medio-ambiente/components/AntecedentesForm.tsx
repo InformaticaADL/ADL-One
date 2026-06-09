@@ -220,9 +220,14 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 selectedInstrumento,
                 selectedComponente, selectedSubArea, glosa,
                 // Bloque 4
-                selectedTipoMuestreo, selectedTipoMuestra, selectedActividad, duracion,
+                selectedTipoMuestreo, selectedTipoMuestra, selectedActividad,
                 selectedTipoDescarga, medicionCaudal
             ];
+
+            // ✅ PUNTUAL: la duración no aplica (muestreo instantáneo de un solo día). Solo se exige en Compuesta.
+            if (tipoMonitoreo !== 'Puntual') {
+                requiredFields.push(duracion);
+            }
 
             // F-01f: Número/Año de instrumento solo son obligatorios cuando el instrumento NO es "Otro" ni "No aplica"
             const instLow = (selectedInstrumento || '').toLowerCase();
@@ -495,6 +500,8 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
     useEffect(() => {
         if (isHydrating.current) return;
         if (!tipoMonitoreo) setSelectedLugar(null);
+        // ✅ PUNTUAL: muestreo instantáneo (un solo día) → la duración no aplica, se fija en 0.
+        if (tipoMonitoreo === 'Puntual') setDuracion('0');
     }, [tipoMonitoreo]);
 
     // 2. EMPRESA CASCADE
@@ -870,6 +877,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             radius="md"
                         />
                         <StaticField label="Código Centro" value={codigo} icon={IconInfoCircle} />
+                        <StaticField label="ID Centro" value={selectedFuente || ''} icon={IconInfoCircle} />
                         <Select 
                             label={<FieldLabel label="Contacto empresa *" help="Persona de contacto de la empresa de servicio que coordinará el acceso al centro para el día del muestreo." />}
                             placeholder="Seleccione..."
@@ -1059,7 +1067,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                                     setNroInstrumento(val.replace(/[^0-9]/g, ''));
                                 }
                             }}
-                            onKeyDown={(e) => {
+                            onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
                                 // F-01c: bloquear teclas no numéricas si NO es "Otro"
                                 if (selectedInstrumento?.toLowerCase() !== 'otro' && selectedInstrumento !== 'No aplica') {
                                     const allowedKeys = ['Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'Home', 'End'];
@@ -1177,28 +1185,31 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             size="sm"
                             radius="md"
                         />
-                        <TextInput
-                            label={<FieldLabel label="Duración (Hrs) *" help="Tiempo estimado en horas enteras que tomará el muestreo completo en el centro. No incluir el tiempo de traslado. Solo se aceptan números enteros." />}
-                            type="number"
-                            inputMode="numeric"
-                            min={0}
-                            step={1}
-                            value={duracion}
-                            placeholder="Solo horas enteras"
-                            onChange={(e: any) => {
-                                // F-16: solo enteros, sin decimal ni letras
-                                const cleaned = String(e.target.value).replace(/[^0-9]/g, '');
-                                setDuracion(cleaned);
-                            }}
-                            onKeyDown={(e) => {
-                                // Bloquear punto, coma, e, +, -
-                                if (['.', ',', 'e', 'E', '+', '-'].includes(e.key)) {
-                                    e.preventDefault();
-                                }
-                            }}
-                            size="sm"
-                            radius="md"
-                        />
+                        {/* ✅ PUNTUAL: muestreo de un solo día → no se pide duración. Solo aplica en Compuesta. */}
+                        {tipoMonitoreo !== 'Puntual' && (
+                            <TextInput
+                                label={<FieldLabel label="Duración (Hrs) *" help="Tiempo estimado en horas enteras que tomará el muestreo completo en el centro. No incluir el tiempo de traslado. Solo se aceptan números enteros." />}
+                                type="number"
+                                inputMode="numeric"
+                                min={0}
+                                step={1}
+                                value={duracion}
+                                placeholder="Solo horas enteras"
+                                onChange={(e: any) => {
+                                    // F-16: solo enteros, sin decimal ni letras
+                                    const cleaned = String(e.target.value).replace(/[^0-9]/g, '');
+                                    setDuracion(cleaned);
+                                }}
+                                onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                                    // Bloquear punto, coma, e, +, -
+                                    if (['.', ',', 'e', 'E', '+', '-'].includes(e.key)) {
+                                        e.preventDefault();
+                                    }
+                                }}
+                                size="sm"
+                                radius="md"
+                            />
+                        )}
                         <Select 
                             label={<FieldLabel label="Tipo Descarga *" help="Clasificación del tipo de descarga del establecimiento según la normativa ambiental. Ejemplos: Punto de Descarga, Cuerpo Receptor. Requerido para la clasificación del informe." />}
                             data={tiposDescargaData}

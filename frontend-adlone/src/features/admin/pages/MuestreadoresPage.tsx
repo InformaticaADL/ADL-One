@@ -28,7 +28,8 @@ import {
     IconFileDescription,
     IconCheck,
     IconX,
-    IconBell
+    IconBell,
+    IconSchool
 } from '@tabler/icons-react';
 import { adminService } from '../../../services/admin.service';
 import { ursService } from '../../../services/urs.service';
@@ -196,6 +197,41 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
         }
     };
 
+    const handleToggleEntrenamiento = async (m: any) => {
+        const nuevo = m.en_entrenamiento === 'S' ? 'N' : 'S';
+        try {
+            await adminService.setEntrenamiento(m.id_muestreador, nuevo);
+            showToast({ type: 'success', message: nuevo === 'N' ? 'Marcado como Operativo' : 'Marcado En entrenamiento' });
+            fetchData();
+        } catch {
+            showToast({ type: 'error', message: 'Error al actualizar estado de entrenamiento' });
+        }
+    };
+
+    // Parsea las competencias asignadas (FOR JSON desde el backend) → badges
+    const parseCompetencias = (m: any): { nombre: string; activo: string }[] => {
+        try { return JSON.parse(m.competencias_json || '[]'); } catch { return []; }
+    };
+    const renderCompetencias = (m: any, maxWidth = 300) => {
+        const comps = parseCompetencias(m);
+        if (comps.length === 0) return <Text size="xs" c="dimmed">Sin competencias</Text>;
+        return (
+            <Group gap={4} wrap="wrap" style={{ maxWidth }}>
+                {comps.map((c, i) => (
+                    <Badge
+                        key={i}
+                        size="xs"
+                        variant="light"
+                        color={c.activo === 'S' ? 'grape' : 'gray'}
+                        title={c.activo === 'S' ? c.nombre : `${c.nombre} (inactiva)`}
+                    >
+                        {c.nombre}
+                    </Badge>
+                ))}
+            </Group>
+        );
+    };
+
     const handleExportPdf = async () => {
         setIsExporting(true);
         try {
@@ -252,7 +288,7 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                         </ProtectedContent>
                         <ProtectedContent permission="AI_MA_CREAR_NUEVO_MUESTREADOR">
                             <Button
-                                leftSection={<IconPlus size={18} />} 
+                                leftSection={<IconPlus size={18} />}
                                 onClick={handleCreate}
                                 radius="md"
                                 size={isMobile ? "xs" : "sm"}
@@ -301,6 +337,8 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                                     <Table.Th>Muestreador</Table.Th>
                                     <Table.Th>Contacto</Table.Th>
                                     <Table.Th>Estado</Table.Th>
+                                    <Table.Th>Entrenamiento</Table.Th>
+                                    <Table.Th>Competencias</Table.Th>
                                     <Table.Th>Firma Digital</Table.Th>
                                     <Table.Th ta="center">Acciones</Table.Th>
                                 </Table.Tr>
@@ -308,7 +346,7 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                             <Table.Tbody>
                                 {muestreadores.length === 0 && !loading ? (
                                     <Table.Tr>
-                                        <Table.Td colSpan={5} ta="center" py="xl">
+                                        <Table.Td colSpan={7} ta="center" py="xl">
                                             <Text c="dimmed">No se encontraron muestreadores con los filtros aplicados.</Text>
                                         </Table.Td>
                                     </Table.Tr>
@@ -329,13 +367,29 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                                                     <Text size="sm">{m.correo_electronico || '---'}</Text>
                                                 </Table.Td>
                                                 <Table.Td>
-                                                    <Badge 
-                                                        color={m.habilitado === 'S' ? 'green' : 'red'} 
+                                                    <Badge
+                                                        color={m.habilitado === 'S' ? 'green' : 'red'}
                                                         variant="light"
                                                         leftSection={m.habilitado === 'S' ? <IconCheck size={10} /> : <IconX size={10} />}
                                                     >
                                                         {m.habilitado === 'S' ? 'Activo' : 'Inactivo'}
                                                     </Badge>
+                                                </Table.Td>
+                                                <Table.Td>
+                                                    <Tooltip label={m.en_entrenamiento === 'S' ? 'En entrenamiento — clic para marcar Operativo' : 'Operativo — clic para marcar En entrenamiento'}>
+                                                        <Badge
+                                                            color={m.en_entrenamiento === 'S' ? 'yellow' : 'green'}
+                                                            variant="light"
+                                                            leftSection={<IconSchool size={10} />}
+                                                            style={{ cursor: 'pointer' }}
+                                                            onClick={() => handleToggleEntrenamiento(m)}
+                                                        >
+                                                            {m.en_entrenamiento === 'S' ? 'En entrenamiento' : 'Operativo'}
+                                                        </Badge>
+                                                    </Tooltip>
+                                                </Table.Td>
+                                                <Table.Td>
+                                                    {renderCompetencias(m, 320)}
                                                 </Table.Td>
                                                 <Table.Td>
                                                     {m.firma_muestreador ? (
@@ -420,13 +474,25 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                                                     <Text fw={800} size="md" c="blue.8">{m.nombre_muestreador}</Text>
                                                     <Text size="xs" c="dimmed" fw={600}>ID: {m.id_muestreador}</Text>
                                                 </Box>
-                                                <Badge 
-                                                    color={m.habilitado === 'S' ? 'green' : 'red'} 
-                                                    variant="light"
-                                                    size="sm"
-                                                >
-                                                    {m.habilitado === 'S' ? 'Activo' : 'Inactivo'}
-                                                </Badge>
+                                                <Group gap={4}>
+                                                    <Badge
+                                                        color={m.habilitado === 'S' ? 'green' : 'red'}
+                                                        variant="light"
+                                                        size="sm"
+                                                    >
+                                                        {m.habilitado === 'S' ? 'Activo' : 'Inactivo'}
+                                                    </Badge>
+                                                    <Badge
+                                                        color={m.en_entrenamiento === 'S' ? 'yellow' : 'green'}
+                                                        variant="light"
+                                                        size="sm"
+                                                        leftSection={<IconSchool size={10} />}
+                                                        style={{ cursor: 'pointer' }}
+                                                        onClick={() => handleToggleEntrenamiento(m)}
+                                                    >
+                                                        {m.en_entrenamiento === 'S' ? 'En entren.' : 'Operativo'}
+                                                    </Badge>
+                                                </Group>
                                             </Group>
 
                                             <Divider variant="dashed" />
@@ -439,7 +505,7 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                                             <Box>
                                                 <Text size="xs" fw={700} c="dimmed" mb={4}>FIRMA DIGITAL:</Text>
                                                 {m.firma_muestreador ? (
-                                                    <Paper 
+                                                    <Paper
                                                         withBorder p={4} radius="md" bg="gray.0" w={110} h={48}
                                                         onClick={() => setZoomedImage(m.firma_muestreador)}
                                                         style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
@@ -449,6 +515,11 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                                                 ) : (
                                                     <Text size="xs" c="dimmed" fs="italic">Sin firma registrada</Text>
                                                 )}
+                                            </Box>
+
+                                            <Box>
+                                                <Text size="xs" fw={700} c="dimmed" mb={4}>COMPETENCIAS:</Text>
+                                                {renderCompetencias(m, 9999)}
                                             </Box>
 
                                             <Divider variant="dashed" />

@@ -137,7 +137,7 @@ class BulkFichaService {
             tiposDescargaRes, modalidadesRes, cargosRes,
             frecuenciasRes, formasCanalRes, dispositivosRes,
             instrumentosRes, laboratoriosRes, tiposEntregaRes,
-            normativasRes, contactosRes, subAreasRes
+            normativasRes, contactosRes, subAreasRes, zonasUTMRes
         ] = await Promise.all([
             pool.request().execute('maestro_lugaranalisis'),
             pool.request().query("SELECT id_empresaservicio, nombre_empresaservicios FROM mae_empresaservicios WHERE habilitado = 'S'"),
@@ -159,10 +159,15 @@ class BulkFichaService {
             pool.request().execute('Maestro_Tipoentrega').catch(() => ({ recordset: [] })),
             pool.request().execute('Consulta_App_Ma_Normativa').catch(() => ({ recordset: [] })),
             pool.request().query("SELECT id_contacto, nombre_contacto, email_contacto, id_empresa, id_empresaservicio FROM mae_contacto WHERE habilitado = 'S'"),
-            pool.request().query("SELECT id_subarea, nombre_subarea FROM mae_subarea WHERE activo = 'S'").catch(() => ({ recordset: [] }))
+            pool.request().query("SELECT id_subarea, nombre_subarea FROM mae_subarea WHERE activo = 'S'").catch(() => ({ recordset: [] })),
+            pool.request().query("SELECT id_zonautm, nombre_zonautm FROM mae_zonautm WHERE habilitado = 'S'").catch(() => ({ recordset: [] }))
         ]);
 
         // Also load centros (fuentes emisoras) - we load ALL since we need to match by name
+        // Solo centros VIGENTES: evita asignar muestreos a centros retirados y
+        // mantiene la coincidencia consistente con el maestro del Excel (que
+        // también lista solo vigentes). Crucial cuando varios centros comparten
+        // nombre/código entre empresas o entre versiones vigente/retirado.
         const centrosRes = await pool.request().query(`
             SELECT c.id_centro, c.nombre_centro, c.id_empresa, c.ubicacion,
                    com.nombre_comuna, reg.nombre_region, ta.nombre_tipoagua as tipo_agua,
@@ -171,6 +176,7 @@ class BulkFichaService {
             LEFT JOIN mae_comuna com ON c.id_comuna = com.id_comuna
             LEFT JOIN mae_region reg ON c.id_region = reg.id_region
             LEFT JOIN mae_tipoagua ta ON c.id_tipoagua = ta.id_tipoagua
+            WHERE c.vigente = 'S'
         `).catch(() => ({ recordset: [] }));
 
         // Load ALL referencia analysis for matching analysis names
@@ -324,6 +330,10 @@ class BulkFichaService {
                 email: (r.email_contacto || '').trim(),
                 id_empresa: r.id_empresa,
                 id_empresaservicio: r.id_empresaservicio
+            })),
+            zonasUTM: zonasUTMRes.recordset.map(r => ({
+                id: r.id_zonautm,
+                nombre: (r.nombre_zonautm || '').trim()
             }))
         };
 
@@ -800,7 +810,10 @@ class BulkFichaService {
                 if (!foundDuration) foundDuration = durLines[i].trim();
             }
         }
-        fields.duracion = foundDuration || '24'; // Default 24hrs for compuesto
+        // ✅ PUNTUAL: muestreo de un solo día; en carga masiva suelen ingresar 1 hr.
+        //    Compuesta: por defecto 24 hrs. Si el documento trae un valor, se respeta.
+        const defaultDuracion = fields.tipoMonitoreo === 'Puntual' ? '1' : '24';
+        fields.duracion = foundDuration || defaultDuracion;
 
         // Factor / Frecuencia
         const factorMatch = text.match(/\b(\d{1,3})\b/g);
@@ -1065,17 +1078,20 @@ class BulkFichaService {
             errors.push({ field: 'Normativa', message: 'No se encontró la normativa en los catálogos' });
         }
 
-        // LOAD ANALYSIS FROM SP FOR THIS NORM/REF
-        let analysisCatalog = [];
-        if (normRefId) {
+        // Cache de catálogos de análisis POR par (normId, refId) — cada análisis puede tener su propia normativa/tabla
+        const analysisCatalogByRef = new Map(); // key = String(normRefId) → catalog rows
+        const loadAnalysisCatalogForRef = async (refId) => {
+            if (!refId) return [];
+            const key = String(refId);
+            if (analysisCatalogByRef.has(key)) return analysisCatalogByRef.get(key);
             try {
                 const pool = await getConnection();
                 const spRes = await pool.request()
-                    .input('xid_normativareferencia', normRefId)
+                    .input('xid_normativareferencia', refId)
                     .execute('Consulta_App_Ma_ReferenciaAnalisis');
-                analysisCatalog = spRes.recordset.map(r => ({
+                const list = spRes.recordset.map(r => ({
                     id: r.id_referenciaanalisis,
-                    nombre: r.nombre_tecnica, // In this SP, tecnica name acts as analysis name
+                    nombre: r.nombre_tecnica,
                     id_tecnica: r.id_tecnica,
                     nombre_tecnica: r.nombre_tecnica,
                     limitemax_d: r.limitemax_d,
@@ -1084,15 +1100,62 @@ class BulkFichaService {
                     error_min: r.error_min,
                     error_max: r.error_max
                 }));
+                analysisCatalogByRef.set(key, list);
+                return list;
             } catch (e) {
-                logger.warn(`[BulkFicha] Failed to fetch Analysis SP for ref ${normRefId}: ${e.message}`);
+                logger.warn(`[BulkFicha] Failed to fetch Analysis SP for ref ${refId}: ${e.message}`);
+                analysisCatalogByRef.set(key, []);
+                return [];
             }
-        }
+        };
+
+        // Cache de resolución (normativa-texto, referencia-texto) → { normId, normRefId, nombres }
+        const normRefCache = new Map();
+        const resolvePerRowNormRef = (rowNormText, rowRefText) => {
+            const cacheKey = `${rowNormText || ''}||${rowRefText || ''}`;
+            if (normRefCache.has(cacheKey)) return normRefCache.get(cacheKey);
+
+            let rId = normId;
+            let rRefId = normRefId;
+            let rNorm = normNombre;
+            let rRef = normRefNombre;
+
+            if (rowNormText) {
+                const m = findBestMatch(rowNormText, catalogs.normativas, 'nombre', 'id', 50);
+                if (m) { rId = m.id; rNorm = m.nombre; }
+            }
+            if (rId) {
+                const refs = catalogs.normativaReferencias.filter(r => r.id_normativa === rId);
+                if (refs.length > 0) {
+                    if (rowRefText) {
+                        const m = findBestMatch(rowRefText, refs, 'nombre', 'id', 50);
+                        if (m) { rRefId = m.id; rRef = m.nombre; }
+                        else { rRefId = refs[0].id; rRef = refs[0].nombre; }
+                    } else if (!rRefId || !refs.some(r => r.id === rRefId)) {
+                        const tabla1 = refs.find(r => r.nombre && r.nombre.toLowerCase().includes('tabla 1'));
+                        if (tabla1) { rRefId = tabla1.id; rRef = tabla1.nombre; }
+                        else { rRefId = refs[0].id; rRef = refs[0].nombre; }
+                    }
+                }
+            }
+
+            const out = { normId: rId, normRefId: rRefId, normNombre: rNorm, normRefNombre: rRef };
+            normRefCache.set(cacheKey, out);
+            return out;
+        };
+
+        // Catálogo global (fallback) precargado para ahorrar lookups por fila
+        const globalCatalog = catalogs.referenciaAnalisis || [];
+        // Si toda la ficha viene sin normativa por fila, conservamos comportamiento previo: catálogo único de la normativa global
+        const fallbackGlobalAnalysisCatalog = normRefId ? await loadAnalysisCatalogForRef(normRefId) : [];
 
         for (const row of analysisRows) {
             const rowErrors = [];
 
-            // Match analysis name against specific REF catalog!
+            // Resolver normativa/tabla a nivel de fila (cada análisis puede tener su propia)
+            const perRow = resolvePerRowNormRef(row.normativa, row.referencia);
+
+            // Match analysis name against the catalog of THIS row's referencia
             let id_referenciaanalisis = null;
             let id_tecnica = null;
             let limitemax_d = null;
@@ -1101,12 +1164,18 @@ class BulkFichaService {
             let row_error_min = null;
             let row_error_max = null;
             let refMatch = null;
+            let rowAnalysisCatalog = [];
 
-            if (analysisCatalog.length > 0) {
-                refMatch = findBestMatch(row.nombre, analysisCatalog, 'nombre', 'id', 40);
+            if (perRow.normRefId) {
+                rowAnalysisCatalog = perRow.normRefId === normRefId
+                    ? fallbackGlobalAnalysisCatalog
+                    : await loadAnalysisCatalogForRef(perRow.normRefId);
+            }
+
+            if (rowAnalysisCatalog.length > 0) {
+                refMatch = findBestMatch(row.nombre, rowAnalysisCatalog, 'nombre', 'id', 40);
                 if (refMatch) {
-                    id_referenciaanalisis = refMatch.id;
-                    const fullRef = analysisCatalog.find(r => r.id === refMatch.id);
+                    const fullRef = rowAnalysisCatalog.find(r => r.id === refMatch.id);
                     if (fullRef) {
                         id_tecnica = fullRef.id_tecnica;
                         id_referenciaanalisis = fullRef.id;
@@ -1115,17 +1184,19 @@ class BulkFichaService {
                         row_llevaerror = fullRef.llevaerror || 'N';
                         row_error_min = fullRef.error_min;
                         row_error_max = fullRef.error_max;
+                    } else {
+                        id_referenciaanalisis = refMatch.id;
                     }
                 }
-            } 
-            
-            // FALLBACK BUSQUEDA GLOBAL
-            if (!refMatch && catalogs.referenciaAnalisis && catalogs.referenciaAnalisis.length > 0) {
-                const globalMatch = findBestMatch(row.nombre, catalogs.referenciaAnalisis, 'nombre', 'id', 40);
+            }
+
+            // FALLBACK BÚSQUEDA GLOBAL
+            if (!refMatch && globalCatalog.length > 0) {
+                const globalMatch = findBestMatch(row.nombre, globalCatalog, 'nombre', 'id', 40);
                 if (globalMatch) {
                     refMatch = globalMatch;
                     id_referenciaanalisis = globalMatch.id;
-                    const fullRef = catalogs.referenciaAnalisis.find(r => r.id === globalMatch.id);
+                    const fullRef = globalCatalog.find(r => r.id === globalMatch.id);
                     if (fullRef) {
                         id_tecnica = fullRef.id_tecnica;
                         id_referenciaanalisis = fullRef.id;
@@ -1137,10 +1208,10 @@ class BulkFichaService {
                     }
                     rowErrors.push(`Obtenido mediante Fallback desde otra Normativa`);
                 } else {
-                    rowErrors.push(`Análisis "${row.nombre}" no encontrado en la Normativa ni en el Catálogo Global`);
+                    rowErrors.push(`Análisis "${row.nombre}" no encontrado en la Normativa "${perRow.normNombre || '-'}" ni en el Catálogo Global`);
                 }
             } else if (!refMatch) {
-                rowErrors.push(`Análisis "${row.nombre}" omitido (Tabla de Referencia vacía o SP falló)`);
+                rowErrors.push(`Análisis "${row.nombre}" omitido (Tabla "${perRow.normRefNombre || '-'}" vacía o SP falló)`);
             }
 
             // Match laboratorio
@@ -1161,13 +1232,16 @@ class BulkFichaService {
                 tipo_entrega_texto: row.tipo_entrega_texto,
                 id_referenciaanalisis,
                 id_tecnica,
-                id_normativa: normId,
-                id_normativareferencia: normRefId,
+                // Normativa/referencia POR FILA (cada análisis puede tener la suya)
+                id_normativa: perRow.normId,
+                id_normativareferencia: perRow.normRefId,
+                nombre_normativa: perRow.normNombre,
+                nombre_normativareferencia: perRow.normRefNombre,
                 id_laboratorioensayo: row.tipo_analisis === 'Terreno' ? 0 : id_laboratorio,
                 id_laboratorioensayo_2: null,
                 id_tipoentrega,
                 id_transporte: null,
-                uf_individual: 0, 
+                uf_individual: 0,
                 limitemax_d,
                 limitemax_h,
                 llevaerror: row_llevaerror,

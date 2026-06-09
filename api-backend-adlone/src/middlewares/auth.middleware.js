@@ -9,14 +9,15 @@ import logger from '../utils/logger.js';
  */
 export const authenticate = async (req, res, next) => {
     try {
-        // Get token from header or query string (for direct downloads)
+        // Solo se acepta el token por el header Authorization. NO por query string:
+        // un token en la URL queda registrado en logs de nginx, historial y Referer.
+        // Para descargas iniciadas por el navegador (que no pueden enviar headers),
+        // usar authenticateDownload en esa ruta puntual.
         let token = null;
         const authHeader = req.headers.authorization;
 
         if (authHeader && authHeader.startsWith('Bearer ')) {
             token = authHeader.substring(7);
-        } else if (req.query.token) {
-            token = req.query.token;
         }
 
         if (!token) {
@@ -59,14 +60,53 @@ export const authenticate = async (req, res, next) => {
                 return errorResponse(res, 'Sesión expirada por cambio de permisos', 401);
             }
         } catch (dbErr) {
-            // No fatal: si BD no responde, dejar pasar (no romper el sistema entero)
-            logger.warn(`Auth Middleware: Could not verify habilitado/permisos_version for user ${decoded.id}: ${dbErr.message}`);
+            // Fail-closed: si no podemos verificar el estado del usuario contra BD,
+            // denegamos en vez de dejar pasar. Evita que un usuario recién deshabilitado
+            // o con permisos revocados siga operando durante un fallo transitorio de BD.
+            // (Si la BD está caída, el resto del API tampoco funciona, así que no perdemos nada.)
+            logger.error(`Auth Middleware: no se pudo verificar estado de usuario ${decoded.id}, denegando: ${dbErr.message}`);
+            return errorResponse(res, 'No se pudo validar la sesión, intente nuevamente', 503);
         }
 
         req.user = decoded;
         next();
     } catch (error) {
         logger.error('Auth Middleware: General error:', error);
+        return errorResponse(res, 'Authentication failed', 401);
+    }
+};
+
+/**
+ * Authentication middleware para descargas iniciadas por el navegador
+ * (window.open / <a href>), que NO pueden enviar el header Authorization.
+ * Acepta el token por query string como excepción acotada a estas rutas,
+ * y exige una firma JWT válida (cierra el acceso anónimo a los archivos).
+ */
+export const authenticateDownload = (req, res, next) => {
+    try {
+        let token = null;
+        const authHeader = req.headers.authorization;
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            token = authHeader.substring(7);
+        } else if (req.query.token) {
+            token = req.query.token;
+        }
+
+        if (!token) {
+            return errorResponse(res, 'No token provided', 401);
+        }
+
+        try {
+            req.user = jwt.verify(token, process.env.JWT_SECRET);
+            return next();
+        } catch (verifyError) {
+            if (verifyError.name === 'TokenExpiredError') {
+                return errorResponse(res, 'Token expired', 401);
+            }
+            return errorResponse(res, 'Invalid token', 401);
+        }
+    } catch (error) {
+        logger.error('authenticateDownload error:', error);
         return errorResponse(res, 'Authentication failed', 401);
     }
 };

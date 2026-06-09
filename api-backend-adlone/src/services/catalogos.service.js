@@ -11,7 +11,8 @@ const ALLOWED_TABLES = new Set([
   'mae_modalidad', 'mae_frecuencia', 'mae_estadomuestreo', 'mae_equipo',
   'mae_instrumentoambiental', 'mae_umedida', 'mae_lugaranalisis', 'mae_formacanal',
   'mae_dispositivohidraulico', 'mae_solicitud_tipo', 'mae_permiso',
-  'mae_notificacion_regla', 'mae_evento_notificacion', 'mae_comuna', 'mae_zonautm'
+  'mae_notificacion_regla', 'mae_evento_notificacion', 'mae_comuna', 'mae_zonautm',
+  'mae_competencia'
 ]);
 
 // Columns that must never be returned by the generic getMaestroData endpoint

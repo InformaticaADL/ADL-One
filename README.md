@@ -535,6 +535,46 @@ frontend-adlone/
 - **Notificaciones Dinámicas de Advertencia en Edición**:
   - `EquipoForm.tsx` — Implementación de un panel unificado de advertencias (`warningsAlert`) en la parte superior que alerta si la vigencia del equipo está vencida (indicando si debe estar inactivo), próxima a vencer, o si el responsable asignado se encuentra inactivo.
 
+### 70. Reactivación de Servicios Cancelados en Calendario (Junio 2026) 🔄📅
+- **Detección de Servicios Cancelados en "Guardar Cambios"**:
+  - `EnProcesoCalendarView.tsx` — El botón "Guardar Cambios" detecta automáticamente si algún servicio del día tiene estado `CANCELADO`, bloqueando el guardado directo y derivando al flujo de confirmación de reactivación.
+- **Modal de Confirmación de Reactivación**:
+  - `EnProcesoCalendarView.tsx` — Modal dedicado con listado de servicios cancelados, requiriendo confirmación explícita del usuario antes de reactivar. Soporta reactivación masiva y selectiva.
+- **Flag `reactivating` en `batchUpdateAgenda`**:
+  - `rutas-ejecuciones.service.js` / backend — El endpoint `batchUpdateAgenda` acepta el flag `reactivating: true` para omitir la validación de estado cancelado, permitiendo reactivaciones autorizadas.
+- **Corrección del método de servicio (Task 5)**:
+  - `ficha.service.js` — Fix en la firma del método de llamada: `userData` se pasa correctamente como parte del objeto `data`, resolviendo error de tipo en la reactivación.
+- **Mejoras de Legibilidad y Seguridad de Tipos**:
+  - `EnProcesoCalendarView.tsx` — Extracción de lógica de construcción de payload a función separada y tipado más estricto para evitar errores en runtime.
+
+### 71. Gestión de Competencias y Documentos de Muestreadores (Junio 2026) 👤📋📄
+- **Módulo de Competencias (Maestro)**:
+  - `admin.service.js` — CRUD completo para `mae_competencia`: crear, editar, soft-delete (inactivar), reactivar y listar. Validación de duplicados por nombre (case-insensitive). La eliminación conserva asignaciones previas para auditoría.
+  - `admin.controller.js` / `admin.routes.js` — Nuevos endpoints `GET/POST /api/admin/competencias`, `PUT/DELETE /api/admin/competencias/:id`, `PUT /api/admin/competencias/:id/reactivar`.
+- **Asignación de Competencias a Muestreadores**:
+  - `admin.service.js` — `getCompetenciasMuestreador` y `setCompetenciasMuestreador` con transacción SQL Server: reemplaza solo las competencias activas asignadas, preservando siempre las inactivas para trazabilidad histórica.
+  - `admin.controller.js` / `admin.routes.js` — Endpoints `GET/PUT /api/admin/muestreadores/:id/competencias`.
+  - `MuestreadorForm.tsx` — Selector multi-opción de competencias integrado en el formulario de creación y edición. Muestra chips de competencias activas del muestreador.
+  - `MuestreadoresPage.tsx` — Columna y sección "Competencias" en vista de lista y detalle, con renderizado de chips coloreados.
+  - `admin.service.ts` (frontend) — Métodos `getCompetencias`, `createCompetencia`, `updateCompetencia`, `deleteCompetencia`, `reactivateCompetencia`, `getCompetenciasMuestreador`, `setCompetenciasMuestreador`.
+- **Documentos Adjuntos por Muestreador**:
+  - `admin.service.js` — `getDocumentosMuestreador`, `addDocumentoMuestreador`, `deleteDocumentoMuestreador` con limpieza física del archivo del servidor al eliminar.
+  - `admin.controller.js` / `admin.routes.js` — Endpoints `GET/POST /api/admin/muestreadores/:id/documentos`, `DELETE /api/admin/muestreadores/documentos/:idDoc`. Soporte para subida de archivos (`multipart/form-data`).
+  - `admin.service.ts` (frontend) — Métodos `getDocumentosMuestreador`, `uploadDocumentoMuestreador`, `deleteDocumentoMuestreador`.
+- **Estado de Entrenamiento de Muestreadores**:
+  - `admin.service.js` — `setEntrenamiento`: toggle `en_entrenamiento` ('S'/'N') en `mae_muestreador` vía `PATCH`.
+  - `admin.controller.js` / `admin.routes.js` — Endpoint `PATCH /api/admin/muestreadores/:id/entrenamiento`.
+  - `MuestreadoresPage.tsx` — Badge interactivo "En entrenamiento / Operativo" con ícono 🎓 en lista y tarjeta de detalle. Click directo cambia el estado con confirmación inmediata.
+  - `admin.service.ts` (frontend) — Método `setEntrenamiento`.
+- **Mejoras de Carga Masiva y Servicios**:
+  - `bulk-excel.service.js` / `bulk-ficha.service.js` — Refactorización significativa del parsing y validación de plantillas Excel para robustez en casos borde.
+  - `MuestreosEjecutadosListView.tsx` / `RutasListView.tsx` / `RouteMapPlannerView.tsx` — Mejoras de UI, manejo de estados y visualización de datos de ejecución y rutas.
+- **Mejoras de Infraestructura**:
+  - `database.js` / `env.js` — Ajustes de configuración de conexión y variables de entorno.
+  - `auth.middleware.js` / `rbac.service.js` — Correcciones menores de seguridad y autorización.
+  - `MaestroDataManager.tsx` / `MaestrosHub.tsx` — Integración de la gestión de competencias en el hub administrativo de maestros.
+  - `chatStore.ts` / `notificationStore.ts` / `AuthContext.tsx` / `main.tsx` — Mejoras de estado y estabilidad global de la aplicación.
+
 ---
 
 ## 🔧 Configuración para Desarrollo
@@ -607,6 +647,10 @@ npm run dev       # Puerto 5173
 | **Recuperación de Contraseña** | Token SHA-256 + Nodemailer + ResetPasswordPage | ✅ Implementado |
 | **Seguridad de Cuenta (S-13)** | Bloqueo por intentos fallidos + permisos_version JWT | ✅ Implementado |
 | **Ayuda Contextual** | Componente Tooltip + Modal Global de Soporte (WhatsApp/Email) | ✅ Implementado |
+| **Reactivación de Cancelados** | EnProcesoCalendarView + flag reactivating en batchUpdateAgenda | ✅ Implementado |
+| **Competencias de Muestreadores** | CRUD mae_competencia + asignación transaccional + UI chips | ✅ Implementado |
+| **Documentos de Muestreadores** | Subida multipart + gestión física de archivos en servidor | ✅ Implementado |
+| **Estado de Entrenamiento** | Toggle en_entrenamiento + badge interactivo en listado | ✅ Implementado |
 
 ---
 

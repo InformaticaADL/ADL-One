@@ -268,7 +268,10 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                 event_ano: Number(f.ano)
             });
 
-            if (f.fecha_retiro && f.fecha_retiro !== '01/01/1900') {
+            // ✅ PUNTUAL: un solo día/proceso (instalación = retiro). No se genera evento RETIRO
+            // separado para no duplicar la ficha en el calendario. Solo las compuestas lo tienen.
+            const esPuntual = (f.tipo_ficha || '').toString().trim().toLowerCase() === 'puntual';
+            if (!esPuntual && f.fecha_retiro && f.fecha_retiro !== '01/01/1900') {
                 const dRetiro = new Date(f.fecha_retiro);
                 events.push({
                     ...f,
@@ -328,6 +331,11 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
     const isCancelledEvent = useCallback((ev: CalendarEvent) => {
         const s = (ev.estado_caso || ev.motivo_cancelacion || '').toUpperCase();
         return s.includes('CANCELAD') || s.includes('ANULAD');
+    }, []);
+
+    // ✅ PUNTUAL: muestreo de un solo día (sin instalación/retiro separados)
+    const isPuntualEvent = useCallback((ev: CalendarEvent) => {
+        return (ev.tipo_ficha || '').toString().trim().toLowerCase() === 'puntual';
     }, []);
 
     const isExecutedEvent = useCallback((ev: CalendarEvent) => {
@@ -694,7 +702,7 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                                                     >
                                                                         <Group justify="space-between" mb={4} wrap="nowrap" gap="xs">
                                                                             <Text size="10px" fw={900} c={statusColor} truncate style={{ textDecoration: cancelled ? 'line-through' : 'none' }}>{ev.correlativo}</Text>
-                                                                            <Badge size="10px" color={statusColor} radius="xs" style={{ flexShrink: 0 }}>{cancelled ? 'CANCEL.' : ev.tipo_evento}</Badge>
+                                                                            <Badge size="10px" color={statusColor} radius="xs" style={{ flexShrink: 0 }}>{cancelled ? 'CANCEL.' : (isPuntualEvent(ev) ? 'PUNT.' : ev.tipo_evento)}</Badge>
                                                                         </Group>
                                                                         <Text size="xs" fw={700} truncate title={ev.empresa_servicio}>{ev.empresa_servicio}</Text>
                                                                         <Text size="10px" c="dimmed" truncate>{ev.centro}</Text>
@@ -857,7 +865,7 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                                                     >
                                                                         <Group justify="space-between" mb={2} wrap="nowrap" gap="xs">
                                                                             <Text size="10px" fw={900} c={statusColor} truncate style={{ textDecoration: cancelled ? 'line-through' : 'none' }}>{ev.correlativo}</Text>
-                                                                            <Badge size="8px" variant="filled" color={statusColor} style={{ flexShrink: 0 }}>{cancelled ? 'C' : ev.tipo_evento.charAt(0)}</Badge>
+                                                                            <Badge size="8px" variant="filled" color={statusColor} style={{ flexShrink: 0 }}>{cancelled ? 'C' : (isPuntualEvent(ev) ? 'P' : ev.tipo_evento.charAt(0))}</Badge>
                                                                         </Group>
                                                                         <Text size="xs" fw={700} truncate lh={1}>{ev.empresa_servicio}</Text>
                                                                         <Text size="9px" c="dimmed" truncate>{ev.muestreador || 'Sin Asignar'}</Text>

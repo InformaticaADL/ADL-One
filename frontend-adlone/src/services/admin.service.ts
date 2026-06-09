@@ -41,6 +41,60 @@ export const adminService = {
         return response.data;
     },
 
+    // --- ENTRENAMIENTO & DOCUMENTOS ---
+    setEntrenamiento: async (id: number, en_entrenamiento: 'S' | 'N') => {
+        const response = await apiClient.patch(`/api/admin/muestreadores/${id}/entrenamiento`, { en_entrenamiento });
+        return response.data;
+    },
+    getDocumentosMuestreador: async (id: number) => {
+        const response = await apiClient.get(`/api/admin/muestreadores/${id}/documentos`);
+        return response.data.data;
+    },
+    uploadDocumentoMuestreador: async (id: number, file: File, nombre_documento: string, descripcion?: string) => {
+        const form = new FormData();
+        form.append('archivo', file);
+        form.append('nombre_documento', nombre_documento);
+        if (descripcion) form.append('descripcion', descripcion);
+        const response = await apiClient.post(`/api/admin/muestreadores/${id}/documentos`, form, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        return response.data.data;
+    },
+    deleteDocumentoMuestreador: async (idDoc: number) => {
+        const response = await apiClient.delete(`/api/admin/muestreadores/documentos/${idDoc}`);
+        return response.data;
+    },
+
+    // --- COMPETENCIAS ---
+    getCompetencias: async (incluirInactivas = false) => {
+        const response = await apiClient.get('/api/admin/competencias', { params: incluirInactivas ? { incluirInactivas: 1 } : {} });
+        return response.data.data;
+    },
+    createCompetencia: async (data: { nombre_competencia: string; descripcion?: string; orden?: number }) => {
+        const response = await apiClient.post('/api/admin/competencias', data);
+        return response.data;
+    },
+    updateCompetencia: async (id: number, data: { nombre_competencia: string; descripcion?: string; orden?: number }) => {
+        const response = await apiClient.put(`/api/admin/competencias/${id}`, data);
+        return response.data;
+    },
+    deleteCompetencia: async (id: number) => {
+        const response = await apiClient.delete(`/api/admin/competencias/${id}`);
+        return response.data;
+    },
+    reactivateCompetencia: async (id: number) => {
+        const response = await apiClient.put(`/api/admin/competencias/${id}/reactivar`);
+        return response.data;
+    },
+    getCompetenciasMuestreador: async (id: number) => {
+        const response = await apiClient.get(`/api/admin/muestreadores/${id}/competencias`);
+        return response.data.data;
+    },
+    setCompetenciasMuestreador: async (id: number, ids: number[]) => {
+        const response = await apiClient.put(`/api/admin/muestreadores/${id}/competencias`, { ids });
+        return response.data;
+    },
+
     checkDuplicateMuestreador: async (nombre: string, correo: string) => {
         const response = await apiClient.get('/api/admin/muestreadores/check-duplicate', {
             params: { nombre, correo }

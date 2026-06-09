@@ -34,12 +34,19 @@ export const adminService = {
             const request = pool.request();
 
             let query = `
-                SELECT 
+                SELECT
                     id_muestreador,
                     nombre_muestreador,
                     correo_electronico,
                     habilitado,
-                    firma_muestreador
+                    en_entrenamiento,
+                    firma_muestreador,
+                    (SELECT c.nombre_competencia AS nombre, c.activo AS activo
+                     FROM mae_muestreador_competencia mc
+                     JOIN mae_competencia c ON c.id_competencia = mc.id_competencia
+                     WHERE mc.id_muestreador = mae_muestreador.id_muestreador
+                     ORDER BY c.orden, c.nombre_competencia
+                     FOR JSON PATH) AS competencias_json
                 FROM mae_muestreador
                 WHERE 1=1
             `;
@@ -146,6 +153,159 @@ export const adminService = {
         request.input('id', sql.Numeric(10, 0), id);
         await request.query("UPDATE mae_muestreador SET habilitado = 'S' WHERE id_muestreador = @id");
         return { success: true };
+    },
+
+    // --- ENTRENAMIENTO ---
+    setEntrenamiento: async (id, enEntrenamiento) => {
+        const pool = await getConnection();
+        const val = enEntrenamiento === 'S' ? 'S' : 'N';
+        await pool.request()
+            .input('id', sql.Numeric(10, 0), Number(id))
+            .input('val', sql.Char(1), val)
+            .query('UPDATE mae_muestreador SET en_entrenamiento = @val WHERE id_muestreador = @id');
+        return { id_muestreador: Number(id), en_entrenamiento: val };
+    },
+
+    // --- DOCUMENTOS DE MUESTREADOR ---
+    getDocumentosMuestreador: async (id) => {
+        const pool = await getConnection();
+        const r = await pool.request()
+            .input('id', sql.Numeric(10, 0), Number(id))
+            .query(`SELECT id_documento, id_muestreador, nombre_documento, descripcion, ruta_archivo, fecha_subida, id_usuario_subida
+                    FROM mae_muestreador_documento WHERE id_muestreador = @id ORDER BY fecha_subida DESC`);
+        return r.recordset;
+    },
+
+    addDocumentoMuestreador: async (id, { nombre_documento, descripcion, ruta_archivo, id_usuario_subida }) => {
+        const pool = await getConnection();
+        const r = await pool.request()
+            .input('id', sql.Numeric(10, 0), Number(id))
+            .input('nombre', sql.NVarChar(200), nombre_documento)
+            .input('desc', sql.NVarChar(500), descripcion || null)
+            .input('ruta', sql.NVarChar(500), ruta_archivo)
+            .input('uid', sql.Numeric(10, 0), id_usuario_subida || null)
+            .query(`INSERT INTO mae_muestreador_documento (id_muestreador, nombre_documento, descripcion, ruta_archivo, id_usuario_subida)
+                    OUTPUT INSERTED.id_documento
+                    VALUES (@id, @nombre, @desc, @ruta, @uid)`);
+        return { id_documento: r.recordset[0].id_documento };
+    },
+
+    deleteDocumentoMuestreador: async (idDoc) => {
+        const pool = await getConnection();
+        const sel = await pool.request()
+            .input('id', sql.Int, Number(idDoc))
+            .query('SELECT ruta_archivo FROM mae_muestreador_documento WHERE id_documento = @id');
+        await pool.request()
+            .input('id', sql.Int, Number(idDoc))
+            .query('DELETE FROM mae_muestreador_documento WHERE id_documento = @id');
+        const ruta = sel.recordset[0]?.ruta_archivo;
+        if (ruta) {
+            try {
+                const uploadRoot = process.env.UPLOAD_PATH || path.join(process.cwd(), 'uploads');
+                const abs = path.join(uploadRoot, ruta.replace(/^\/uploads\//, ''));
+                if (fs.existsSync(abs)) fs.unlinkSync(abs);
+            } catch (e) { logger.warn('No se pudo borrar archivo físico del documento:', e.message); }
+        }
+        return { success: true };
+    },
+
+    // --- COMPETENCIAS (maestro) ---
+    getCompetencias: async (incluirInactivas = false) => {
+        const pool = await getConnection();
+        const where = incluirInactivas ? '' : "WHERE activo = 'S'";
+        const r = await pool.request().query(`
+            SELECT id_competencia, nombre_competencia, descripcion, activo, orden
+            FROM mae_competencia ${where}
+            ORDER BY CASE WHEN orden IS NULL THEN 1 ELSE 0 END, orden, nombre_competencia
+        `);
+        return r.recordset;
+    },
+
+    createCompetencia: async ({ nombre_competencia, descripcion, orden }) => {
+        const pool = await getConnection();
+        const dup = await pool.request()
+            .input('n', sql.NVarChar(200), nombre_competencia)
+            .query("SELECT COUNT(*) c FROM mae_competencia WHERE activo='S' AND LOWER(LTRIM(RTRIM(nombre_competencia))) = LOWER(LTRIM(RTRIM(@n)))");
+        if (dup.recordset[0].c > 0) { const e = new Error('Ya existe una competencia activa con ese nombre'); e.statusCode = 409; throw e; }
+        const r = await pool.request()
+            .input('n', sql.NVarChar(200), nombre_competencia)
+            .input('d', sql.NVarChar(500), descripcion || null)
+            .input('o', sql.Int, orden ?? null)
+            .query(`INSERT INTO mae_competencia (nombre_competencia, descripcion, orden)
+                    OUTPUT INSERTED.id_competencia VALUES (@n, @d, @o)`);
+        return { id_competencia: r.recordset[0].id_competencia };
+    },
+
+    updateCompetencia: async (id, { nombre_competencia, descripcion, orden }) => {
+        const pool = await getConnection();
+        await pool.request()
+            .input('id', sql.Int, Number(id))
+            .input('n', sql.NVarChar(200), nombre_competencia)
+            .input('d', sql.NVarChar(500), descripcion || null)
+            .input('o', sql.Int, orden ?? null)
+            .query(`UPDATE mae_competencia SET nombre_competencia=@n, descripcion=@d, orden=@o WHERE id_competencia=@id`);
+        return { success: true };
+    },
+
+    // SOFT DELETE: marca inactiva, conserva asignaciones existentes
+    deactivateCompetencia: async (id) => {
+        const pool = await getConnection();
+        const cnt = await pool.request()
+            .input('id', sql.Int, Number(id))
+            .query('SELECT COUNT(*) c FROM mae_muestreador_competencia WHERE id_competencia = @id');
+        await pool.request()
+            .input('id', sql.Int, Number(id))
+            .query("UPDATE mae_competencia SET activo='N' WHERE id_competencia=@id");
+        return { success: true, asignados: cnt.recordset[0].c };
+    },
+
+    reactivateCompetencia: async (id) => {
+        const pool = await getConnection();
+        await pool.request().input('id', sql.Int, Number(id))
+            .query("UPDATE mae_competencia SET activo='S' WHERE id_competencia=@id");
+        return { success: true };
+    },
+
+    // --- COMPETENCIAS por muestreador ---
+    getCompetenciasMuestreador: async (id) => {
+        const pool = await getConnection();
+        const r = await pool.request()
+            .input('id', sql.Numeric(10, 0), Number(id))
+            .query(`SELECT c.id_competencia, c.nombre_competencia, c.activo, mc.fecha_asignacion
+                    FROM mae_muestreador_competencia mc
+                    JOIN mae_competencia c ON c.id_competencia = mc.id_competencia
+                    WHERE mc.id_muestreador = @id
+                    ORDER BY c.orden, c.nombre_competencia`);
+        return r.recordset;
+    },
+
+    // Reemplaza SOLO las competencias ACTIVAS asignadas; nunca toca las inactivas ya asignadas
+    setCompetenciasMuestreador: async (id, ids) => {
+        const pool = await getConnection();
+        const transaction = new sql.Transaction(pool);
+        const wanted = (ids || []).map(Number).filter(Boolean);
+        try {
+            await transaction.begin();
+            await new sql.Request(transaction)
+                .input('id', sql.Numeric(10, 0), Number(id))
+                .query(`DELETE mc FROM mae_muestreador_competencia mc
+                        JOIN mae_competencia c ON c.id_competencia = mc.id_competencia
+                        WHERE mc.id_muestreador = @id AND c.activo = 'S'`);
+            for (const cid of wanted) {
+                await new sql.Request(transaction)
+                    .input('id', sql.Numeric(10, 0), Number(id))
+                    .input('c', sql.Int, cid)
+                    .query(`INSERT INTO mae_muestreador_competencia (id_muestreador, id_competencia)
+                            SELECT @id, @c
+                            WHERE EXISTS (SELECT 1 FROM mae_competencia WHERE id_competencia=@c AND activo='S')
+                              AND NOT EXISTS (SELECT 1 FROM mae_muestreador_competencia WHERE id_muestreador=@id AND id_competencia=@c)`);
+            }
+            await transaction.commit();
+            return { success: true };
+        } catch (e) {
+            await transaction.rollback();
+            throw e;
+        }
     },
 
     // MS-04: contar asignaciones futuras (no canceladas, fecha_muestreo >= hoy) del muestreador

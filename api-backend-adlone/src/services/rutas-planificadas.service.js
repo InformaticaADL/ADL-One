@@ -100,7 +100,7 @@ class RutasPlanificadasService {
         const result = await pool.request().query(`
             SELECT
                 r.*,
-                u.nombre_usuario as creador,
+                u.usuario as creador,
                 g.nombre_grupo,
                 g.descripcion as grupo_descripcion,
                 (SELECT COUNT(*) FROM mae_rutas_planificadas_detalle WHERE id_ruta_planificada = r.id_ruta_planificada) as cantidad_fichas,
@@ -120,7 +120,7 @@ class RutasPlanificadasService {
         const cabeceraResult = await pool.request()
             .input('id', sql.Int, id)
             .query(`
-                SELECT r.*, u.nombre_usuario as creador, g.nombre_grupo
+                SELECT r.*, u.usuario as creador, g.nombre_grupo
                 FROM mae_rutas_planificadas r
                 LEFT JOIN mae_usuario u ON r.id_usuario_creador = u.id_usuario
                 LEFT JOIN mae_grupos_rutas g ON r.id_grupo = g.id_grupo
@@ -156,7 +156,7 @@ class RutasPlanificadasService {
     }
 
     async create(data, user) {
-        const { nombre_ruta, fichas, id_grupo, descripcion } = data;
+        const { nombre_ruta, fichas, id_grupo, descripcion, distancia_metros, duracion_segundos } = data;
         const pool = await getConnection();
         const transaction = new sql.Transaction(pool);
 
@@ -168,11 +168,13 @@ class RutasPlanificadasService {
             reqCabecera.input('creador', sql.Int, user ? user.id : null);
             reqCabecera.input('grupo', sql.Int, id_grupo || null);
             reqCabecera.input('desc', sql.NVarChar(1000), descripcion || null);
+            reqCabecera.input('dist', sql.Int, (distancia_metros ?? null));
+            reqCabecera.input('dur', sql.Int, (duracion_segundos ?? null));
 
             const insertResult = await reqCabecera.query(`
-                INSERT INTO mae_rutas_planificadas (nombre_ruta, id_usuario_creador, estado, id_grupo, descripcion)
+                INSERT INTO mae_rutas_planificadas (nombre_ruta, id_usuario_creador, estado, id_grupo, descripcion, distancia_metros, duracion_segundos)
                 OUTPUT INSERTED.id_ruta_planificada
-                VALUES (@nombre, @creador, 'PENDIENTE', @grupo, @desc)
+                VALUES (@nombre, @creador, 'PENDIENTE', @grupo, @desc, @dist, @dur)
             `);
 
             const idRuta = insertResult.recordset[0].id_ruta_planificada;
@@ -213,7 +215,7 @@ class RutasPlanificadasService {
     }
 
     async update(id, data, user) {
-        const { nombre_ruta, fichas, id_grupo, descripcion } = data;
+        const { nombre_ruta, fichas, id_grupo, descripcion, distancia_metros, duracion_segundos } = data;
         const pool = await getConnection();
         const transaction = new sql.Transaction(pool);
 
@@ -226,11 +228,15 @@ class RutasPlanificadasService {
                 .input('nombre', sql.NVarChar(250), nombre_ruta)
                 .input('grupo', sql.Int, id_grupo !== undefined ? (id_grupo || null) : undefined)
                 .input('desc', sql.NVarChar(1000), descripcion !== undefined ? (descripcion || null) : undefined)
+                .input('dist', sql.Int, (distancia_metros ?? null))
+                .input('dur', sql.Int, (duracion_segundos ?? null))
                 .query(`
                     UPDATE mae_rutas_planificadas
                     SET nombre_ruta = @nombre,
                         id_grupo = @grupo,
-                        descripcion = @desc
+                        descripcion = @desc,
+                        distancia_metros = @dist,
+                        duracion_segundos = @dur
                     WHERE id_ruta_planificada = @id
                 `);
 

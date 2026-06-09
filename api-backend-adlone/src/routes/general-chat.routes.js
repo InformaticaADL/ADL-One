@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import dotenv from 'dotenv';
 import generalChatController from '../controllers/general-chat.controller.js';
-import { authenticate } from '../middlewares/auth.middleware.js';
+import { authenticate, authenticateDownload } from '../middlewares/auth.middleware.js';
 
 dotenv.config();
 
@@ -64,6 +64,6 @@ router.get('/conversations/:conversationId/members', authenticate, generalChatCo
 router.get('/users/:userId/profile', authenticate, generalChatController.getUserProfile);
 
 // ─── Descargas ─────────────────────────────────────────────
-router.get('/download/:messageId', authenticate, generalChatController.downloadAttachment);
+router.get('/download/:messageId', authenticateDownload, generalChatController.downloadAttachment);
 
 export default router;

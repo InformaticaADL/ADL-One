@@ -82,7 +82,7 @@ class RutasEjecucionesService {
                 SELECT e.*,
                        mi.nombre_muestreador as muestreador_inst,
                        mr.nombre_muestreador as muestreador_ret,
-                       u.nombre_usuario as creador,
+                       u.usuario as creador,
                        (SELECT COUNT(*) FROM mae_rutas_ejecuciones_detalle WHERE id_ejecucion = e.id_ejecucion) as cantidad_fichas
                 FROM mae_rutas_ejecuciones e
                 LEFT JOIN mae_muestreador mi ON e.id_muestreador_inst = mi.id_muestreador
@@ -103,7 +103,7 @@ class RutasEjecucionesService {
                 SELECT e.*,
                        mi.nombre_muestreador as muestreador_inst,
                        mr.nombre_muestreador as muestreador_ret,
-                       u.nombre_usuario as creador,
+                       u.usuario as creador,
                        r.nombre_ruta
                 FROM mae_rutas_ejecuciones e
                 LEFT JOIN mae_muestreador mi ON e.id_muestreador_inst = mi.id_muestreador
@@ -137,23 +137,31 @@ class RutasEjecucionesService {
     async createEjecucion(data, user) {
         const { id_ruta_planificada, fecha_ejecucion, id_muestreador_inst, id_muestreador_ret, fichas, observaciones } = data;
 
-        // Batch-fetch ma_duracion_muestreo for all fichas upfront
+        // Batch-fetch ma_duracion_muestreo + tipo for all fichas upfront
         const fichaIds = [...new Set(fichas.map(f => f.id_fichaingresoservicio))];
         const duracionMap = new Map();
+        const puntualSet = new Set(); // ✅ PUNTUAL: muestreo de un solo día → instalación = retiro
         if (fichaIds.length > 0) {
             try {
                 const pool = await getConnection();
                 const idList = fichaIds.join(',');
                 const durResult = await pool.request().query(
-                    `SELECT id_fichaingresoservicio, ma_duracion_muestreo FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio IN (${idList})`
+                    `SELECT id_fichaingresoservicio, ma_duracion_muestreo, tipo_fichaingresoservicio FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio IN (${idList})`
                 );
-                durResult.recordset.forEach(r => duracionMap.set(Number(r.id_fichaingresoservicio), Number(r.ma_duracion_muestreo) || 0));
+                durResult.recordset.forEach(r => {
+                    duracionMap.set(Number(r.id_fichaingresoservicio), Number(r.ma_duracion_muestreo) || 0);
+                    if ((r.tipo_fichaingresoservicio || '').toString().trim().toLowerCase() === 'puntual') {
+                        puntualSet.add(Number(r.id_fichaingresoservicio));
+                    }
+                });
             } catch (e) {
                 logger.warn('Could not fetch duracion muestreo, defaulting to same-day instalacion:', e.message);
             }
         }
 
         const calcInstDate = (retiroDate, fichaId) => {
+            // ✅ PUNTUAL: siempre un solo día (ignora duración obsoleta) → instalación = retiro
+            if (puntualSet.has(Number(fichaId))) return retiroDate;
             const dayOffset = Math.floor((duracionMap.get(Number(fichaId)) || 0) / 24);
             if (dayOffset === 0) return retiroDate;
             const d = new Date(retiroDate + 'T00:00:00');

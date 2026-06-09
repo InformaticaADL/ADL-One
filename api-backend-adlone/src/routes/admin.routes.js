@@ -6,8 +6,25 @@ import { authenticate as verifyToken } from '../middlewares/auth.middleware.js';
 import { verifyPermission } from '../middlewares/verifyPermission.js';
 import { validateRequest, adminValidationSchemas } from '../middlewares/validate.middleware.js';
 // Note: Middleware path usually plural 'middlewares' or 'middleware'. Checking file list earlier showed 'middlewares' dir.
+import multer from 'multer';
+import fs from 'fs';
+import path from 'path';
 
 const router = express.Router();
+
+// Multer para documentos de muestreador → <UPLOAD_PATH>/muestreadores/ (servido en /uploads/muestreadores/)
+const muestreadorDocsDir = path.join(process.env.UPLOAD_PATH || path.join(process.cwd(), 'uploads'), 'muestreadores');
+const docStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        fs.mkdirSync(muestreadorDocsDir, { recursive: true });
+        cb(null, muestreadorDocsDir);
+    },
+    filename: (req, file, cb) => {
+        const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
+        cb(null, `doc-${unique}${path.extname(file.originalname)}`);
+    }
+});
+const uploadDoc = multer({ storage: docStorage, limits: { fileSize: 20 * 1024 * 1024 } });
 
 // --- MUESTREADORES ---
 router.get('/muestreadores', verifyToken, verifyPermission(['MA_MUESTREADORES', 'MA_A_GEST_EQUIPO']), validateRequest(adminValidationSchemas.getMuestreadores), adminController.getMuestreadores);
@@ -21,6 +38,23 @@ router.get('/muestreadores/check-duplicate', verifyToken, adminController.checkD
 // MS-04: contar muestreos futuros asignados al muestreador para advertir antes de deshabilitar
 router.get('/muestreadores/:id/future-assignments', verifyToken, verifyPermission(['MA_MUESTREADORES', 'AI_MA_DESHABILITAR_MUESTREADOR']), adminController.getMuestreadorFutureAssignments);
 router.get('/muestreadores/export-pdf', verifyToken, verifyPermission('MU_EXP'), adminController.downloadMuestreadoresPdf);
+
+// --- ENTRENAMIENTO & DOCUMENTOS ---
+router.patch('/muestreadores/:id/entrenamiento', verifyToken, verifyPermission('AI_MA_EDITAR_MUESTREADOR'), adminController.setEntrenamiento);
+router.get('/muestreadores/:id/documentos', verifyToken, verifyPermission(['MA_MUESTREADORES', 'MA_A_GEST_EQUIPO']), adminController.getDocumentosMuestreador);
+router.post('/muestreadores/:id/documentos', verifyToken, verifyPermission('AI_MA_EDITAR_MUESTREADOR'), uploadDoc.single('archivo'), adminController.addDocumentoMuestreador);
+router.delete('/muestreadores/documentos/:idDoc', verifyToken, verifyPermission('AI_MA_EDITAR_MUESTREADOR'), adminController.deleteDocumentoMuestreador);
+
+// --- COMPETENCIAS (maestro) ---
+router.get('/competencias', verifyToken, verifyPermission(['MA_MUESTREADORES', 'MA_A_GEST_EQUIPO']), adminController.getCompetencias);
+router.post('/competencias', verifyToken, verifyPermission('AI_MA_EDITAR_MUESTREADOR'), adminController.createCompetencia);
+router.put('/competencias/:id', verifyToken, verifyPermission('AI_MA_EDITAR_MUESTREADOR'), adminController.updateCompetencia);
+router.delete('/competencias/:id', verifyToken, verifyPermission('AI_MA_EDITAR_MUESTREADOR'), adminController.deleteCompetencia);
+router.put('/competencias/:id/reactivar', verifyToken, verifyPermission('AI_MA_EDITAR_MUESTREADOR'), adminController.reactivateCompetencia);
+
+// --- COMPETENCIAS por muestreador ---
+router.get('/muestreadores/:id/competencias', verifyToken, verifyPermission(['MA_MUESTREADORES', 'MA_A_GEST_EQUIPO']), adminController.getCompetenciasMuestreador);
+router.put('/muestreadores/:id/competencias', verifyToken, verifyPermission('AI_MA_EDITAR_MUESTREADOR'), adminController.setCompetenciasMuestreador);
 
 // --- DASHBOARD ---
 router.get('/dashboard/stats', verifyToken, verifyPermission('MA_A_GEST_EQUIPO'), adminController.getDashboardStats);

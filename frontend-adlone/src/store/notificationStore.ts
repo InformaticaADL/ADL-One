@@ -27,6 +27,7 @@ interface NotificationState {
     addLocalNotification: (notification: any) => void;
     initSocket: (userId: number, token: string) => void;
     disconnectSocket: () => void;
+    reset: () => void;
 }
 
 let socket: Socket | null = null;
@@ -156,5 +157,15 @@ export const useNotificationStore = create<NotificationState>((set) => ({
             socket = null;
         }
         set({ socketStatus: 'idle' });
+    },
+
+    // Limpia notificaciones y cierra el socket. Se llama en logout para que el
+    // siguiente usuario no vea notificaciones del anterior.
+    reset: () => {
+        if (socket) {
+            socket.disconnect();
+            socket = null;
+        }
+        set({ notifications: [], loading: false, socketStatus: 'idle' });
     }
 }));

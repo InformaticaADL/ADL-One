@@ -18,7 +18,8 @@ import {
     Tabs,
     SimpleGrid,
     Paper,
-    Loader
+    Loader,
+    Indicator
 } from '@mantine/core';
 import {
     IconCheck,
@@ -46,19 +47,25 @@ export const BulkReviewGrid: React.FC<Props> = ({ items, selectedIndices, onSele
     const [previewIndex, setPreviewIndex] = React.useState<number>(-1);
     const [linkStatuses, setLinkStatuses] = React.useState<Record<number, LinkStatus>>({});
 
+    // "-" o vacío se consideran SIN enlace (no se validan en Google Maps)
+    const cleanLink = (l?: string): string => {
+        const t = (l || '').trim();
+        return (t === '' || t === '-') ? '' : t;
+    };
+
     // Auto-verify all Google Maps links when items load
     React.useEffect(() => {
         if (!items || items.length === 0) { setLinkStatuses({}); return; }
 
         const initialStatuses: Record<number, LinkStatus> = {};
         items.forEach((item, idx) => {
-            const link = item.antecedentes?.refGoogle?.trim();
+            const link = cleanLink(item.antecedentes?.refGoogle);
             initialStatuses[idx] = link ? { status: 'loading' } : { status: 'empty' };
         });
         setLinkStatuses(initialStatuses);
 
         items.forEach((item, idx) => {
-            const link = item.antecedentes?.refGoogle?.trim();
+            const link = cleanLink(item.antecedentes?.refGoogle);
             if (!link) return;
             apiClient.post('/api/fichas/verificar-link', { link })
                 .then(({ data }) => {
@@ -149,7 +156,7 @@ export const BulkReviewGrid: React.FC<Props> = ({ items, selectedIndices, onSele
                             />
                         </Table.Th>
                         <Table.Th w={60}>Estado</Table.Th>
-                        <Table.Th w={200}>Archivo</Table.Th>
+                        <Table.Th w={200}>ID Muestra / Archivo</Table.Th>
                         <Table.Th w={160}>Cliente</Table.Th>
                         <Table.Th w={160}>Empresa Srv.</Table.Th>
                         <Table.Th w={150}>Fuente Emisora</Table.Th>
@@ -197,9 +204,14 @@ export const BulkReviewGrid: React.FC<Props> = ({ items, selectedIndices, onSele
                                             <ActionIcon variant="subtle" color="blue" onClick={() => { setPreviewItem(item); setPreviewIndex(idx); }} title="Ver detalles extraídos">
                                                 <IconEye size={16} />
                                             </ActionIcon>
-                                            <Text size="sm" fw={500} truncate maw={180} title={item.filename}>
-                                                {item.filename}
-                                            </Text>
+                                            <Stack gap={0}>
+                                                <Text size="sm" fw={600} truncate maw={180} title={item.idMuestra || item.filename}>
+                                                    {item.idMuestra || item.filename}
+                                                </Text>
+                                                {item.excelRow && (
+                                                    <Text size="10px" c="dimmed">fila Excel {item.excelRow}</Text>
+                                                )}
+                                            </Stack>
                                         </Group>
                                     </Table.Td>
                                     <Table.Td>
@@ -281,9 +293,17 @@ export const BulkReviewGrid: React.FC<Props> = ({ items, selectedIndices, onSele
                                         {(hasErrors || hasWarnings) ? (
                                             <Popover width={350} position="left" withArrow shadow="md">
                                                 <Popover.Target>
-                                                    <ActionIcon color={hasErrors ? 'red' : 'yellow'} variant="subtle">
-                                                        <IconInfoCircle size={20} />
-                                                    </ActionIcon>
+                                                    <Indicator
+                                                        inline
+                                                        label={(item.errors?.length || 0) + (item.analysisErrors?.length || 0) + (item.warnings?.length || 0)}
+                                                        size={18}
+                                                        color={hasErrors ? 'red' : 'yellow'}
+                                                        offset={4}
+                                                    >
+                                                        <ActionIcon color={hasErrors ? 'red' : 'yellow'} variant="subtle">
+                                                            <IconInfoCircle size={20} />
+                                                        </ActionIcon>
+                                                    </Indicator>
                                                 </Popover.Target>
                                                 <Popover.Dropdown>
                                                     <Stack gap="xs">
@@ -292,11 +312,15 @@ export const BulkReviewGrid: React.FC<Props> = ({ items, selectedIndices, onSele
                                                                 <Text size="xs">{err.message}</Text>
                                                             </Alert>
                                                         ))}
-                                                        {item.analysisErrors?.map((errStr: string, i: number) => (
-                                                            <Alert key={`aerr-${i}`} variant="light" color="orange" title="Análisis" icon={<IconAlertTriangle size={16} />}>
-                                                                <Text size="xs">{errStr}</Text>
-                                                            </Alert>
-                                                        ))}
+                                                        {item.analysisErrors?.map((err: any, i: number) => {
+                                                            const msg = typeof err === 'string' ? err : (err?.message || JSON.stringify(err));
+                                                            const title = (err && typeof err === 'object' && err.field) ? err.field : 'Análisis';
+                                                            return (
+                                                                <Alert key={`aerr-${i}`} variant="light" color="orange" title={title} icon={<IconAlertTriangle size={16} />}>
+                                                                    <Text size="xs">{msg}</Text>
+                                                                </Alert>
+                                                            );
+                                                        })}
                                                         {item.warnings?.map((warn: any, i: number) => (
                                                             <Alert key={`warn-${i}`} variant="light" color="yellow" title={warn.field} icon={<IconAlertTriangle size={16} />}>
                                                                 <Text size="xs">{warn.message}</Text>
@@ -323,7 +347,7 @@ export const BulkReviewGrid: React.FC<Props> = ({ items, selectedIndices, onSele
             title={
                 <Group>
                     <IconEye size={20} color="var(--mantine-color-blue-6)" />
-                    <Text fw={600}>Vista Previa: {previewItem?.filename}</Text>
+                    <Text fw={600}>Vista Previa: {previewItem?.idMuestra || previewItem?.filename}</Text>
                 </Group>
             }
             size="75%"
@@ -370,9 +394,14 @@ export const BulkReviewGrid: React.FC<Props> = ({ items, selectedIndices, onSele
 
                                             <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }}>
                                                 <StaticField label="Fuente Emisora" value={ants._fuenteNombre} />
+                                                <StaticField label="Código Centro" value={ants.codigoCentro} />
+                                                <StaticField label="ID Centro" value={ants.idCentro || ants.selectedFuente} />
+                                                <StaticField label="Tipo Agua" value={ants.tipoAgua} />
+                                            </SimpleGrid>
+
+                                            <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }}>
                                                 <StaticField label="Comuna" value={ants.comuna} />
                                                 <StaticField label="Región" value={ants.region} />
-                                                <StaticField label="Tipo Agua" value={ants.tipoAgua} />
                                             </SimpleGrid>
 
                                             <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }}>
@@ -395,7 +424,7 @@ export const BulkReviewGrid: React.FC<Props> = ({ items, selectedIndices, onSele
                                                 <StaticField label="Instrumento" value={ants.instrumentoFull || ants.selectedInstrumento || '-'} />
                                                 <StaticField label="Ref. Google Maps" value={(() => {
                                                     const ls = linkStatuses[previewIndex];
-                                                    if (!ants.refGoogle) return 'Sin enlace';
+                                                    if (!cleanLink(ants.refGoogle)) return 'Sin enlace';
                                                     if (!ls || ls.status === 'loading') return '⏳ Verificando…';
                                                     if (ls.status === 'ok') return `✓ Lat: ${ls.lat?.toFixed(6)}, Lon: ${ls.lon?.toFixed(6)}`;
                                                     if (ls.status === 'warn') return '⚠ Sin coordenadas extraíbles';
@@ -442,18 +471,40 @@ export const BulkReviewGrid: React.FC<Props> = ({ items, selectedIndices, onSele
 
                         <Tabs.Panel value="analisis" p="xl" bg="gray.0">
                             <Stack gap="xl">
-                                <Paper withBorder p="md" radius="md" bg="blue.0">
-                                    <SimpleGrid cols={{ base: 1, sm: 2 }}>
-                                        <Group gap={4}>
-                                            <Text size="xs" fw={700} c="dimmed" tt="uppercase">Normativa:</Text>
-                                            <Text size="sm" fw={600}>{previewItem._normativa || '-'}</Text>
-                                        </Group>
-                                        <Group gap={4}>
-                                            <Text size="xs" fw={700} c="dimmed" tt="uppercase">Referencia:</Text>
-                                            <Text size="sm" fw={600}>{previewItem._normativaRef || '-'}</Text>
-                                        </Group>
-                                    </SimpleGrid>
-                                </Paper>
+                                {(() => {
+                                    // Normativa/Tabla a nivel de ficha (informativo). Cada análisis trae además su propia normativa/tabla.
+                                    const co = previewItem.costoOperativo || { activo: false, uf: 0 };
+                                    const sumAnal = (previewItem.analisis || []).reduce((s: number, a: any) => s + (parseFloat(a.uf_individual) || 0), 0);
+                                    const costoUF = co.activo ? Number(co.uf || 0) : 0;
+                                    const ufTotal = sumAnal + costoUF;
+                                    return (
+                                        <Paper withBorder p="md" radius="md" bg="blue.0">
+                                            <SimpleGrid cols={{ base: 1, sm: 4 }}>
+                                                <Group gap={4}>
+                                                    <Text size="xs" fw={700} c="dimmed" tt="uppercase">Normativa (ficha):</Text>
+                                                    <Text size="sm" fw={600}>{previewItem._normativa || '-'}</Text>
+                                                </Group>
+                                                <Group gap={4}>
+                                                    <Text size="xs" fw={700} c="dimmed" tt="uppercase">Referencia (ficha):</Text>
+                                                    <Text size="sm" fw={600}>{previewItem._normativaRef || '-'}</Text>
+                                                </Group>
+                                                <Group gap={4}>
+                                                    <Text size="xs" fw={700} c="dimmed" tt="uppercase">Costo Operativo:</Text>
+                                                    <Badge color={co.activo && costoUF > 0 ? 'yellow' : 'gray'} variant={co.activo && costoUF > 0 ? 'filled' : 'light'}>
+                                                        {co.activo && costoUF > 0 ? `${costoUF.toFixed(2)} UF` : 'No aplica'}
+                                                    </Badge>
+                                                </Group>
+                                                <Group gap={4}>
+                                                    <Text size="xs" fw={700} c="dimmed" tt="uppercase">UF Total:</Text>
+                                                    <Text size="sm" fw={700} c="green.7">{ufTotal.toFixed(2)} UF</Text>
+                                                </Group>
+                                            </SimpleGrid>
+                                            <Text size="xs" c="dimmed" mt="xs" fs="italic">
+                                                Cada análisis puede pertenecer a una normativa/tabla distinta. La normativa de la ficha es la dominante para la cabecera.
+                                            </Text>
+                                        </Paper>
+                                    );
+                                })()}
 
                                 <ScrollArea>
                                     <Table striped highlightOnHover withTableBorder>
@@ -461,6 +512,8 @@ export const BulkReviewGrid: React.FC<Props> = ({ items, selectedIndices, onSele
                                             <Table.Tr>
                                                 <Table.Th>Estado Match</Table.Th>
                                                 <Table.Th>Análisis</Table.Th>
+                                                <Table.Th>Normativa</Table.Th>
+                                                <Table.Th>Tabla / Referencia</Table.Th>
                                                 <Table.Th>Tipo Muestra</Table.Th>
                                                 <Table.Th ta="right">Límite Min</Table.Th>
                                                 <Table.Th ta="right">Límite Max</Table.Th>
@@ -471,6 +524,9 @@ export const BulkReviewGrid: React.FC<Props> = ({ items, selectedIndices, onSele
                                         </Table.Thead>
                                         <Table.Tbody>
                                             {previewItem.analisis?.map((row: any, i: number) => {
+                                                // F-01b: cada análisis lleva su propia normativa/tabla.
+                                                const rowNorm = row.nombre_normativa || row._normativaNombre || previewItem._normativa || '-';
+                                                const rowRef = row.nombre_normativareferencia || row._normativaRefNombre || previewItem._normativaRef || '-';
                                                 return (
                                                 <Table.Tr key={i} bg={!row._matched ? 'orange.0' : undefined}>
                                                     <Table.Td>
@@ -488,6 +544,8 @@ export const BulkReviewGrid: React.FC<Props> = ({ items, selectedIndices, onSele
                                                     <Table.Td fw={600} title={row.nombre_original}>
                                                         {row._matched ? row.nombre_original : <Text c="red" span>{row.nombre_original}</Text>}
                                                     </Table.Td>
+                                                    <Table.Td fz="xs" title={rowNorm}>{rowNorm}</Table.Td>
+                                                    <Table.Td fz="xs" title={rowRef}>{rowRef}</Table.Td>
                                                     <Table.Td>{row.tipo_analisis}</Table.Td>
                                                     <Table.Td ta="right">{row.limitemax_d}</Table.Td>
                                                     <Table.Td ta="right">{row.limitemax_h}</Table.Td>
@@ -499,6 +557,31 @@ export const BulkReviewGrid: React.FC<Props> = ({ items, selectedIndices, onSele
                                                 </Table.Tr>
                                                 );
                                             })}
+                                            {/* Fila Costo Operativo SIEMPRE visible (UF o "No aplica") */}
+                                            {(() => {
+                                                const co = previewItem.costoOperativo || { activo: false, uf: 0 };
+                                                const costoUF = co.activo ? Number(co.uf || 0) : 0;
+                                                return (
+                                                    <Table.Tr bg={costoUF > 0 ? 'yellow.0' : 'gray.0'}>
+                                                        <Table.Td>
+                                                            <Badge color={costoUF > 0 ? 'yellow' : 'gray'} size="xs">
+                                                                {costoUF > 0 ? 'Activo' : 'Inactivo'}
+                                                            </Badge>
+                                                        </Table.Td>
+                                                        <Table.Td fw={700} c={costoUF > 0 ? 'yellow.9' : 'dimmed'}>Costo Operativo</Table.Td>
+                                                        <Table.Td fz="xs" c="dimmed">—</Table.Td>
+                                                        <Table.Td fz="xs" c="dimmed">—</Table.Td>
+                                                        <Table.Td c="dimmed">—</Table.Td>
+                                                        <Table.Td ta="right" c="dimmed">—</Table.Td>
+                                                        <Table.Td ta="right" c="dimmed">—</Table.Td>
+                                                        <Table.Td c="dimmed">—</Table.Td>
+                                                        <Table.Td c="dimmed">—</Table.Td>
+                                                        <Table.Td ta="right" fw={700} c={costoUF > 0 ? 'yellow.9' : 'dimmed'}>
+                                                            {costoUF > 0 ? costoUF.toFixed(2) : 'No aplica'}
+                                                        </Table.Td>
+                                                    </Table.Tr>
+                                                );
+                                            })()}
                                         </Table.Tbody>
                                     </Table>
                                 </ScrollArea>

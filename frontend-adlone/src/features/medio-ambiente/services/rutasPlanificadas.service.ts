@@ -19,6 +19,8 @@ export interface RutaPlanificada {
     ultima_ejecucion?: string;
     id_grupo?: number;
     nombre_grupo?: string;
+    distancia_metros?: number | null;
+    duracion_segundos?: number | null;
 }
 
 export const rutasPlanificadasService = {
@@ -48,11 +50,11 @@ export const rutasPlanificadasService = {
         const response = await apiClient.get(`/api/rutas-planificadas/${id}`);
         return response.data.data;
     },
-    create: async (data: { nombre_ruta: string; descripcion?: string; id_grupo?: number; fichas: { id_fichaingresoservicio: number; orden: number; frecuencia_correlativo?: string }[] }) => {
+    create: async (data: { nombre_ruta: string; descripcion?: string; id_grupo?: number; distancia_metros?: number | null; duracion_segundos?: number | null; fichas: { id_fichaingresoservicio: number; orden: number; frecuencia_correlativo?: string }[] }) => {
         const response = await apiClient.post('/api/rutas-planificadas', data);
         return response.data.data;
     },
-    update: async (id: number, data: { nombre_ruta: string; descripcion?: string; id_grupo?: number; fichas: { id_fichaingresoservicio: number; orden: number; frecuencia_correlativo?: string }[] }) => {
+    update: async (id: number, data: { nombre_ruta: string; descripcion?: string; id_grupo?: number; distancia_metros?: number | null; duracion_segundos?: number | null; fichas: { id_fichaingresoservicio: number; orden: number; frecuencia_correlativo?: string }[] }) => {
         const response = await apiClient.put(`/api/rutas-planificadas/${id}`, data);
         return response.data.data;
     },

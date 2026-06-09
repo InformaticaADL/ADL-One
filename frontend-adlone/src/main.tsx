@@ -1,6 +1,8 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import '@mantine/core/styles.css'
+import '@mantine/dates/styles.css'
+import 'dayjs/locale/es'
 import './index.css'
 import App from './App.tsx'
 import { MantineProvider, createTheme } from '@mantine/core'

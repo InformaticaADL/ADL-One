@@ -173,9 +173,17 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
             if (!map.has(key)) map.set(key, { label: r.nombre_grupo || 'Sin grupo', rutas: [] });
             map.get(key)!.rutas.push(r);
         });
-        // Remove empty groups (except 'sin-grupo' if it has rutas)
+        // Mantener un grupo si tiene rutas, o si es un grupo real existente (aunque esté vacío).
+        // 'sin-grupo' solo se muestra cuando tiene rutas. Al filtrar por un grupo puntual,
+        // no se muestran los demás grupos reales vacíos.
+        const realGroupKeys = new Set(grupos.map(g => String(g.id_grupo)));
         const result: { key: string; label: string; rutas: RutaPlanificada[] }[] = [];
-        map.forEach((v, k) => { if (v.rutas.length > 0) result.push({ key: k, label: v.label, rutas: v.rutas }); });
+        map.forEach((v, k) => {
+            const isRealGroup = k !== 'sin-grupo' && realGroupKeys.has(k);
+            const keep = v.rutas.length > 0 ||
+                (isRealGroup && (!filterGrupo || filterGrupo === k));
+            if (keep) result.push({ key: k, label: v.label, rutas: v.rutas });
+        });
         // Sort: named groups first alphabetically, sin-grupo last
         result.sort((a, b) => {
             if (a.key === 'sin-grupo') return 1;
@@ -183,7 +191,7 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
             return a.label.localeCompare(b.label);
         });
         return result;
-    }, [filteredRutas, grupos]);
+    }, [filteredRutas, grupos, filterGrupo]);
 
     const getEstadoDinamico = (r: RutaPlanificada) => {
         if (r.estado === 'CANCELADA') return 'CANCELADA';
@@ -210,6 +218,18 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
         try {
             return new Date(dateStr).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' });
         } catch { return dateStr; }
+    };
+
+    const formatDistancia = (m?: number | null) => {
+        if (m === null || m === undefined) return '—';
+        if (m < 1000) return `${Math.round(m)} m`;
+        return `${(m / 1000).toFixed(1)} km`;
+    };
+    const formatDuracion = (s?: number | null) => {
+        if (s === null || s === undefined) return '—';
+        const h = Math.floor(s / 3600);
+        const min = Math.round((s % 3600) / 60);
+        return h > 0 ? `${h} h ${min} min` : `${min} min`;
     };
 
     const toggleGroup = (key: string) => {
@@ -264,6 +284,10 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
     };
 
     const handleOpenEjecucionGrupo = async (grupo: { id: number; nombre: string; rutas: RutaPlanificada[] }) => {
+        if (!grupo.rutas || grupo.rutas.length === 0) {
+            showToast({ type: 'info', message: 'Este grupo no tiene rutas asociadas para ejecutar' });
+            return;
+        }
         setEjecucionGrupoTarget(grupo);
         setGrupoExecFase('setup');
         setGrupoExecFecha('');
@@ -508,6 +532,14 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
                     </Stack>
                 </Table.Td>
                 <Table.Td>
+                    {(r.distancia_metros != null || r.duracion_segundos != null) ? (
+                        <Stack gap={0}>
+                            <Text size="xs" fw={600}>{formatDistancia(r.distancia_metros)}</Text>
+                            <Text size="10px" c="dimmed">{formatDuracion(r.duracion_segundos)}</Text>
+                        </Stack>
+                    ) : <Text size="xs" c="dimmed">—</Text>}
+                </Table.Td>
+                <Table.Td>
                     <Badge color={getEstadoColor(estadoDinamico)} variant="light" size="sm">
                         {estadoDinamico}
                     </Badge>
@@ -665,13 +697,16 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
                                     <Text fw={700} size="sm">{group.label}</Text>
                                     <Badge size="xs" variant="light" color="gray">{group.rutas.length} ruta{group.rutas.length !== 1 ? 's' : ''}</Badge>
                                     {group.key !== 'sin-grupo' && (
-                                        <Tooltip label={`Ejecutar todas las rutas de "${group.label}"`}>
+                                        <Tooltip label={group.rutas.length === 0
+                                            ? 'Este grupo no tiene rutas asociadas'
+                                            : `Ejecutar todas las rutas de "${group.label}"`}>
                                             <Button
                                                 size="compact-xs"
                                                 color="green"
                                                 variant="subtle"
                                                 leftSection={<IconPlayerPlay size={12} />}
                                                 ml="auto"
+                                                disabled={group.rutas.length === 0}
                                                 onClick={e => {
                                                     e.stopPropagation();
                                                     const grupoObj = grupos.find(g => String(g.id_grupo) === group.key);
@@ -711,24 +746,31 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
                                 </Group>
 
                                 <Collapse in={expandedGroups.has(group.key)}>
-                                    <MantineScrollArea offsetScrollbars>
-                                        <Table striped highlightOnHover verticalSpacing="xs" style={{ minWidth: 800 }} mt={4}>
-                                            <Table.Thead>
-                                                <Table.Tr>
-                                                    <Table.Th w={50}>ID</Table.Th>
-                                                    <Table.Th>Nombre</Table.Th>
-                                                    <Table.Th>Creador</Table.Th>
-                                                    <Table.Th ta="center" w={70}>Fichas</Table.Th>
-                                                    <Table.Th>Ejecuciones</Table.Th>
-                                                    <Table.Th w={100}>Estado</Table.Th>
-                                                    <Table.Th ta="right">Acciones</Table.Th>
-                                                </Table.Tr>
-                                            </Table.Thead>
-                                            <Table.Tbody>
-                                                {group.rutas.map(renderRutaRow)}
-                                            </Table.Tbody>
-                                        </Table>
-                                    </MantineScrollArea>
+                                    {group.rutas.length === 0 ? (
+                                        <Text size="sm" c="dimmed" ta="center" py="md" fs="italic">
+                                            No hay rutas asociadas
+                                        </Text>
+                                    ) : (
+                                        <MantineScrollArea offsetScrollbars>
+                                            <Table striped highlightOnHover verticalSpacing="xs" style={{ minWidth: 800 }} mt={4}>
+                                                <Table.Thead>
+                                                    <Table.Tr>
+                                                        <Table.Th w={50}>ID</Table.Th>
+                                                        <Table.Th>Nombre</Table.Th>
+                                                        <Table.Th>Creador</Table.Th>
+                                                        <Table.Th ta="center" w={70}>Fichas</Table.Th>
+                                                        <Table.Th>Ejecuciones</Table.Th>
+                                                        <Table.Th w={110}>Vehículo</Table.Th>
+                                                        <Table.Th w={100}>Estado</Table.Th>
+                                                        <Table.Th ta="right">Acciones</Table.Th>
+                                                    </Table.Tr>
+                                                </Table.Thead>
+                                                <Table.Tbody>
+                                                    {group.rutas.map(renderRutaRow)}
+                                                </Table.Tbody>
+                                            </Table>
+                                        </MantineScrollArea>
+                                    )}
                                 </Collapse>
 
                                 <Divider mt="xs" />
@@ -764,6 +806,9 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
                             <Text size="xs" c="dimmed">
                                 Creado por: <strong>{viewTarget.creador || 'Sistema'}</strong> ·
                                 {' '}<strong>{viewTarget.fichas?.filter((f: any) => f.lat !== null).length ?? 0}</strong> de <strong>{viewTarget.fichas?.length ?? viewTarget.cantidad_fichas ?? 0}</strong> fichas con ubicación
+                                {(viewTarget.distancia_metros != null || viewTarget.duracion_segundos != null) && (
+                                    <> · 🚗 <strong>{formatDistancia(viewTarget.distancia_metros)}</strong> · ⏱ <strong>{formatDuracion(viewTarget.duracion_segundos)}</strong></>
+                                )}
                                 {viewTarget.descripcion && <> · <em>{viewTarget.descripcion}</em></>}
                             </Text>
                             <SegmentedControl
@@ -1047,6 +1092,7 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
                                                 />
                                                 <Select
                                                     label="Muestreador Retiro"
+                                                    description="Solo compuestas. Si se omite, se usa el de instalación (en puntuales no aplica)."
                                                     data={muestOptions}
                                                     value={grupoExecMuestRet}
                                                     onChange={setGrupoExecMuestRet}

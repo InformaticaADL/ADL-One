@@ -14,17 +14,26 @@ class BulkExcelService {
             .trim();
     }
 
+    // Normalizar campos opcionales: "-" o vac\u00edo \u2192 "No Aplica"
+    normalizeOptionalField(value) {
+        if (!value) return 'No Aplica';
+        const str = String(value).trim();
+        if (str === '-' || str === '' || this.normalize(str) === 'N/A') return 'No Aplica';
+        return str;
+    }
+
     // Attempt to match an Excel cell string to a catalog
     matchCatalog(value, catalog, nameKey = 'nombre', idKey = 'id', minScore = 80) {
         if (!value) return null;
         const normVal = this.normalize(value);
-        if (!normVal || normVal === 'NO APLICA' || normVal === 'N/A') return null;
-
-        const valWords = normVal.split(/\s+/).filter(w => w.length > 1);
-        if (valWords.length === 0 && normVal.length > 0) valWords.push(normVal); // Handle single short words
+        if (!normVal) return null;
+        // Permitir "NO APLICA" y "N/A" — intentar buscar en el catálogo en caso de existir
 
         let bestMatch = null;
         let bestScore = 0;
+        
+        const valWords = normVal.split(/\s+/).filter(w => w.length > 1);
+        if (valWords.length === 0 && normVal.length > 0) valWords.push(normVal); // Fallback
 
         for (const item of catalog) {
             const itemNameOrig = item[nameKey] || '';
@@ -35,7 +44,7 @@ class BulkExcelService {
                 return { id: item[idKey], nombre: itemNameOrig, score: 100, extra: item };
             }
             
-            // 2. Word Intersection Match (Handles "Pisc. Lago Verde" vs "Piscicultura Lago Verde")
+            // 2. Word Intersection Match
             const itemWords = itemName.split(/\s+/).filter(w => w.length > 1);
             if (itemWords.length === 0 && itemName.length > 0) itemWords.push(itemName);
             
@@ -49,9 +58,28 @@ class BulkExcelService {
             
             const score = (matches / Math.max(valWords.length, itemWords.length)) * 100;
             
-            if (score > bestScore && score >= minScore) {
-                bestScore = score;
-                bestMatch = { id: item[idKey], nombre: itemNameOrig, score, extra: item };
+            // 3. Fallback Substring Match (Handles "Centro Pilpilehue" vs "Pilpilehue")
+            let finalScore = score;
+            if (normVal.length > 4 && itemName.length > 4) {
+                if (itemName.includes(normVal) || normVal.includes(itemName)) {
+                    const shorter = normVal.length < itemName.length ? normVal : itemName;
+                    const longer = normVal.length > itemName.length ? normVal : itemName;
+                    
+                    // Check if the difference is just generic words
+                    const diff = longer.replace(shorter, '').trim();
+                    const isNoiseOnly = diff.split(/\s+/).every(w => ['CENTRO', 'PISCICULTURA', 'PISC', 'PLANTA', 'ESTERO', 'RIO', 'LAGO', 'CULTIVO', 'MAR', 'SECTOR', 'DE', 'LA', 'EL', 'LOS', 'LAS'].includes(w));
+                    
+                    if (isNoiseOnly || diff === '') {
+                        finalScore = Math.max(score, 95); // High confidence if only noise separates them
+                    } else {
+                        finalScore = Math.max(score, 85); // Partial substring match
+                    }
+                }
+            }
+
+            if (finalScore > bestScore && finalScore >= minScore) {
+                bestScore = finalScore;
+                bestMatch = { id: item[idKey], nombre: itemNameOrig, score: finalScore, extra: item };
             }
         }
         
@@ -79,12 +107,20 @@ class BulkExcelService {
             if (h) cmF[h] = i;
         });
 
+        const parseCellValue = (val) => {
+            if (!val) return null;
+            if (val.result !== undefined) return val.result;
+            if (val.richText) return val.richText.map(rt => rt.text).join('');
+            if (val.text && val.hyperlink) return val.text;
+            return val;
+        };
+
         const getCellF = (row, ...headers) => {
             for (const h of headers) {
                 const colMatches = Object.keys(cmF).filter(k => k.includes(h.toUpperCase()));
                 if (colMatches.length > 0) {
                     const cell = row.getCell(cmF[colMatches[0]]);
-                    return cell.value?.result !== undefined ? cell.value.result : cell.value;
+                    return parseCellValue(cell.value);
                 }
             }
             return null;
@@ -102,30 +138,34 @@ class BulkExcelService {
                 const colMatches = Object.keys(cmA).filter(k => k.includes(h.toUpperCase()));
                 if (colMatches.length > 0) {
                     const cell = row.getCell(cmA[colMatches[0]]);
-                    return cell.value?.result !== undefined ? cell.value.result : cell.value;
+                    return parseCellValue(cell.value);
                 }
             }
             return null;
         };
 
         // Read all analysis rows and group by ID_MUESTRA
+        // Recorremos hasta la última fila con contenido y SALTAMOS las vacías
+        // (tolera huecos en medio en vez de cortar en la primera fila vacía).
         const analysisRowsMap = {}; // id_muestra -> rows[]
-        let rowCount = 4;
-        let hasMore = true;
-        
-        while (hasMore) {
+        const lastRowA = wsAnalisis.actualRowCount || wsAnalisis.rowCount;
+
+        for (let rowCount = 4; rowCount <= lastRowA; rowCount++) {
             const row = wsAnalisis.getRow(rowCount);
             const idMuestra = getCellA(row, 'ID MUESTRA');
-            
-            if (!idMuestra) {
-                if (rowCount > 10) hasMore = false; // Stop if empty rows
-                rowCount++;
-                continue;
-            }
-            
+
+            if (!idMuestra) continue; // fila sin ID MUESTRA → se ignora
+
             const rawId = String(idMuestra).trim();
             if (!analysisRowsMap[rawId]) analysisRowsMap[rawId] = [];
             
+            // Normalizar UF: "No Aplica", "-" o vacío → 0
+            let ufVal = getCellA(row, 'UF', 'UF MANUAL', 'UF INDIVIDUAL');
+            let ufIndividual = 0;
+            if (ufVal !== 'No Aplica' && ufVal !== 'No aplica' && ufVal !== '-' && ufVal !== null && ufVal !== '') {
+                ufIndividual = parseFloat(ufVal) || 0;
+            }
+
             analysisRowsMap[rawId].push({
                 nombre: getCellA(row, 'NOMBRE ANÁLISIS'),
                 tipo_analisis: getCellA(row, 'TIPO ANÁLISIS') || 'Terreno',
@@ -133,31 +173,30 @@ class BulkExcelService {
                 tipo_entrega_texto: getCellA(row, 'TIPO ENTREGA'),
                 normativa: getCellA(row, 'NORMATIVA'),
                 referencia: getCellA(row, 'REFERENCIA NORMATIVA'),
-                // UF INDIVIDUAL is now directly entered by user per analysis row (no auto-distribution)
-                uf_individual: parseFloat(getCellA(row, 'UF INDIVIDUAL') || 0) || 0
+                // UF: usuario escribe directamente en la columna (antes era UF INDIVIDUAL AUTO, ahora es UF editable)
+                uf_individual: ufIndividual
             });
-            
-            rowCount++;
         }
 
         // Process FICHAS
+        // Igual que ANALISIS: recorremos todas las filas con contenido y
+        // saltamos las vacías. Tope de seguridad MAX_FICHAS para el lote.
         const results = [];
-        rowCount = 4;
-        hasMore = true;
+        const MAX_FICHAS = 1000;
+        let truncated = false;
+        const lastRowF = wsFichas.actualRowCount || wsFichas.rowCount;
 
-        while (hasMore) {
+        for (let rowCount = 4; rowCount <= lastRowF; rowCount++) {
             const row = wsFichas.getRow(rowCount);
             const idMuestra = getCellF(row, 'ID MUESTRA');
-            
-            if (!idMuestra) {
-                if (rowCount > 10) hasMore = false;
-                rowCount++;
-                continue;
-            }
+
+            if (!idMuestra) continue; // fila sin ID MUESTRA → se ignora
 
             const rawId = String(idMuestra).trim();
             const result = {
-                filename: `Excel_Ficha_${rawId}`,
+                idMuestra: rawId,            // ID MUESTRA tal cual en el Excel (ej. M-001)
+                excelRow: rowCount,          // fila del Excel donde está esta ficha
+                filename: rawId,             // se muestra como "Archivo" en el grid
                 status: 'READY',
                 errors: [],
                 warnings: [],
@@ -167,13 +206,8 @@ class BulkExcelService {
                 costoOperativo: { activo: true, uf: 0 }
             };
 
-            // Costo Operativo: SIEMPRE activo por defecto. La columna trae el UF asociado (puede ser 0).
-            // El usuario puede desmarcarlo manualmente en la revisión antes del commit.
-            const rawCosto = getCellF(row, 'COSTO OPERATIVO', 'COSTO OP');
-            const costoNum = parseFloat(rawCosto);
-            if (!isNaN(costoNum) && costoNum > 0) {
-                result.costoOperativo = { activo: true, uf: costoNum };
-            }
+            // Costo Operativo ahora viene como una FILA en ANALISIS (tipo_analisis = 'CostoOperativo')
+            // Se extrae tras resolver los análisis (ver más abajo)
 
             const fields = result.antecedentes;
             const errs = result.errors;
@@ -206,20 +240,38 @@ class BulkExcelService {
                 errs.push({ field: 'Empresa de servicio', message: `No se encontró: ${empServVal}` });
             }
 
-            // 3. Fuente Emisora (Centro)
-            const centroVal = getCellF(row, 'CENTRO', 'FUENTE EMISORA');
+            // 3. Fuente Emisora (Centro) — por CÓDIGO CENTRO (exacto) o por NOMBRE (similitud)
+            // IMPORTANTE: usar el header exacto "CENTRO / FUENTE EMISORA" para no leer
+            // por error la columna "CODIGO CENTRO" (ambas contienen "CENTRO").
+            const codigoCentroVal = getCellF(row, 'CODIGO CENTRO');
+            const centroVal = getCellF(row, 'CENTRO / FUENTE EMISORA', 'FUENTE EMISORA');
             let centrosToSearch = catalogs.centros;
             if (clienteMatch) {
                 centrosToSearch = catalogs.centros.filter(c => String(c.id_empresa) === String(clienteMatch.id));
             }
-            
-            const centroMatch = this.matchCatalog(centroVal, centrosToSearch);
+
+            // Preferir coincidencia exacta por código de centro cuando viene informado
+            let centroMatch = null;
+            const codigoNorm = this.normalize(codigoCentroVal);
+            if (codigoNorm && codigoNorm !== 'NO APLICA') {
+                const byCodigo = centrosToSearch.find(c => c.codigo && this.normalize(c.codigo) === codigoNorm);
+                if (byCodigo) {
+                    centroMatch = { id: byCodigo.id, nombre: byCodigo.nombre, score: 100, extra: byCodigo };
+                }
+            }
+            // Fallback: coincidencia por nombre (similitud)
+            if (!centroMatch) {
+                centroMatch = this.matchCatalog(centroVal, centrosToSearch);
+            }
 
             if (centroMatch) {
                 fields.selectedFuente = String(centroMatch.id);
                 fields._fuenteNombre = centroMatch.nombre;
                 fields._fuenteMatch_method = centroMatch.score === 100 ? 'exact' : 'fuzzy';
                 const c = centroMatch.extra;
+                // Exponer código e id del centro para verificar la selección en la revisión
+                fields.idCentro = centroMatch.id;
+                fields.codigoCentro = (c.codigo || '').trim();
                 fields.tipoAgua = (c.tipo_agua || '').trim();
                 fields.idTipoAgua = c.id_tipoagua || null;
                 // Correct field name from catalog item (it was dir || ubi)
@@ -285,45 +337,66 @@ class BulkExcelService {
             const etfaVal = String(getCellF(row, 'ETFA') || '').toUpperCase();
             fields.esETFA = (etfaVal.startsWith('S') || etfaVal.includes('SI')) ? 'Si' : 'No';
             fields.puntoMuestreo = getCellF(row, 'PUNTO DE MUESTREO') || 'Sin determinar';
-            fields.duracion = String(getCellF(row, 'DURACIÓN', 'DURACION') || '24');
+            // ✅ PUNTUAL: muestreo de un solo día; en carga masiva suelen ingresar 1 hr.
+            //    Compuesta: por defecto 24 hrs. Si la celda trae un valor, se respeta.
+            fields.duracion = String(getCellF(row, 'DURACIÓN', 'DURACION') || (fields.tipoMonitoreo === 'Puntual' ? '1' : '24'));
             fields.medicionCaudal = getCellF(row, 'MEDICION CAUDAL') || 'No Aplica';
             fields.responsableMuestreo = getCellF(row, 'RESPONSABLE') || 'ADL Diagnostic';
-            fields.glosa = getCellF(row, 'NOMBRE TABLA') || (fields._fuenteNombre && fields._objetivoNombre ? `${fields._fuenteNombre} - ${fields._objetivoNombre}` : 'Carga Masiva Excel');
+
+            // NOMBRE TABLA: construida automáticamente desde CENTRO + OBJETIVO
+            fields.glosa = (fields._fuenteNombre && fields._objetivoNombre) ? `${fields._fuenteNombre} - ${fields._objetivoNombre}` : 'Sin glosa';
             
-            // Instrumento
-            const instVal = getCellF(row, 'INSTRUMENTO AMBIENTAL');
-            if (instVal) {
-                fields.instrumentoFull = instVal;
-                // Try to match or just use as is
-                const instMatch = this.matchCatalog(instVal, catalogs.instrumentos);
-                if (instMatch) {
-                    fields.selectedInstrumento = instMatch.nombre;
-                } else {
-                    fields.selectedInstrumento = instVal;
-                }
+            // Instrumento (opcional, puede ser "No Aplica")
+            const instVal = this.normalizeOptionalField(getCellF(row, 'INSTRUMENTO AMBIENTAL'));
+            fields.instrumentoFull = instVal;
+            // Try to match or just use as is
+            const instMatch = this.matchCatalog(instVal, catalogs.instrumentos);
+            if (instMatch) {
+                fields.selectedInstrumento = instMatch.nombre;
+            } else {
+                fields.selectedInstrumento = instVal;
             }
             
-            // Coords
-            const utmZ = String(getCellF(row, 'ZONA UTM') || '18H');
-            fields.zona = utmZ.endsWith('H') || utmZ.endsWith('G') ? utmZ : utmZ.replace(/[^0-9]/g, '') + 'H';
+            // Coords - ZONA UTM es REQUERIDA (no puede estar vacía)
+            const utmZRaw = getCellF(row, 'ZONA UTM');
+            const utmZ = String(utmZRaw || '').trim();
+            const utmZNoAplica = /^no\s*aplica$/i.test(utmZ);
+            if (!utmZ || utmZ === '-') {
+                errs.push({ field: 'Zona UTM', message: 'La Zona UTM es requerida' });
+            }
+            if (!utmZ || utmZ === '-' || utmZNoAplica) {
+                fields.zona = null;
+            } else if (/[FGH]$/i.test(utmZ)) {
+                fields.zona = utmZ.toUpperCase();               // 18F, 18G, 18H, 19F, 19G, 19H
+            } else {
+                fields.zona = utmZ.replace(/[^0-9]/g, '') + 'H'; // número simple → huso H por defecto
+            }
             fields.utmNorte = getCellF(row, 'UTM NORTE') || '';
             fields.utmEste = getCellF(row, 'UTM ESTE') || '';
-            fields.refGoogle = getCellF(row, 'REF. GOOGLE') || '';
+            // Ref. Google Maps: "-" / vacío se tratan como SIN enlace (no se valida)
+            const refG = String(getCellF(row, 'REF. GOOGLE') || '').trim();
+            fields.refGoogle = (refG === '' || refG === '-') ? '' : refG;
 
-            // Componente
-            const compVal = getCellF(row, 'COMPONENTE AMBIENTAL');
+            // Componente (opcional: fallback a "No Aplica")
+            const compVal = this.normalizeOptionalField(getCellF(row, 'COMPONENTE AMBIENTAL'));
             const compMatch = this.matchCatalog(compVal, catalogs.componentes);
             if (compMatch) {
                 fields.selectedComponente = String(compMatch.id);
                 fields._componenteNombre = compMatch.nombre;
+            } else if (compVal === 'No Aplica') {
+                fields.selectedComponente = 'No Aplica';
+                fields._componenteNombre = 'No Aplica';
             }
 
-            // Sub Area
-            const subVal = getCellF(row, 'SUB ÁREA', 'SUB AREA');
+            // Sub Area (opcional: fallback a "No Aplica")
+            const subVal = this.normalizeOptionalField(getCellF(row, 'SUB ÁREA', 'SUB AREA'));
             const subMatch = this.matchCatalog(subVal, catalogs.subAreas);
             if (subMatch) {
                 fields.selectedSubArea = String(subMatch.id);
                 fields._subAreaNombre = subMatch.nombre;
+            } else if (subVal === 'No Aplica') {
+                fields.selectedSubArea = 'No Aplica';
+                fields._subAreaNombre = 'No Aplica';
             }
 
             // Inspector
@@ -368,12 +441,45 @@ class BulkExcelService {
                 fields._actividadNombre = actMatch.nombre;
             }
 
-            // Resolve Analysis
-            const excelAnalysisRows = analysisRowsMap[rawId] || [];
-            if (excelAnalysisRows.length === 0) {
-                errs.push({ field: 'Análisis', message: `No se encontraron análisis en la Hoja 2 para el ID ${rawId}` });
+            // Resolve Analysis (separar Costo Operativo como fila especial)
+            let allExcelRows = analysisRowsMap[rawId] || [];
+
+            // Validar que si el nombre contiene "COSTO OPERATIVO", el tipo DEBE ser "CostoOperativo"
+            for (const row of allExcelRows) {
+                const nombreUpper = String(row.nombre || '').toUpperCase();
+                if (nombreUpper.includes('COSTO') && nombreUpper.includes('OPERATIVO')) {
+                    if (row.tipo_analisis !== 'CostoOperativo') {
+                        errs.push({
+                            field: 'Análisis',
+                            message: `La fila "${row.nombre}" contiene "Costo Operativo" pero tipo_analisis es "${row.tipo_analisis}". Debe ser "CostoOperativo"`
+                        });
+                    }
+                }
             }
 
+            const costoOperativoRow = allExcelRows.find(r => r.tipo_analisis === 'CostoOperativo');
+            const excelAnalysisRows = allExcelRows.filter(r => r.tipo_analisis !== 'CostoOperativo');
+
+            // Extraer UF de Costo Operativo si existe
+            if (costoOperativoRow) {
+                let costoUF = costoOperativoRow.uf_individual;
+                // Normalizar "No Aplica" o "-" a 0
+                if (costoUF === 'No Aplica' || costoUF === 'No aplica' || costoUF === '-' || !costoUF) {
+                    costoUF = 0;
+                } else {
+                    costoUF = Number(costoUF) || 0;
+                }
+                result.costoOperativo = { activo: true, uf: costoUF };
+            }
+
+            result.analysisErrors = [];
+
+            if (excelAnalysisRows.length === 0) {
+                // Sin análisis: mensaje claro y NO intentamos resolver (evita errores espurios de normativa)
+                errs.push({ field: 'Análisis', message: `No existen análisis asociados al número de muestra "${rawId}" en la hoja ANALISIS. Agregue al menos una fila de análisis con ese ID MUESTRA.` });
+                result.analisis = [];
+                result._ufTotal = result.costoOperativo?.activo ? Number(result.costoOperativo.uf || 0) : 0;
+            } else
             // Reuse existing resolve logic from BulkFichaService for analysis
             try {
                 // Combine all unique normativa/referencia names to help the resolver find the correct one
@@ -382,26 +488,31 @@ class BulkExcelService {
                     ...excelAnalysisRows.map(r => r.referencia)
                 ])).filter(Boolean).join(' ');
 
-                const { 
-                    resolved, 
-                    errors: analysisErrs, 
-                    normativaId, 
-                    normativaNombre, 
-                    normativaRefId, 
-                    normativaRefNombre 
+                const {
+                    resolved,
+                    errors: analysisErrs,
+                    normativaId,
+                    normativaNombre,
+                    normativaRefId,
+                    normativaRefNombre
                 } = await bulkFichaService.resolveAnalysisRows(excelAnalysisRows, catalogs, contextText);
-                
+
                 result.analisis = resolved;
-                
-                // Override individual UFs with Excel values
+
+                // Override individual UFs with Excel values (normalizar "No Aplica" a 0)
                 for (let i = 0; i < resolved.length; i++) {
                     if (resolved[i]._matched) {
-                        resolved[i].uf_individual = excelAnalysisRows[i]?.uf_individual || 0;
+                        let ufVal = excelAnalysisRows[i]?.uf_individual;
+                        if (ufVal === 'No Aplica' || ufVal === 'No aplica' || ufVal === '-' || !ufVal) {
+                            resolved[i].uf_individual = 0;
+                        } else {
+                            resolved[i].uf_individual = parseFloat(ufVal) || 0;
+                        }
                     }
                 }
-                
+
                 result.analysisErrors = analysisErrs;
-                
+
                 // Compute total UF for this ficha (sum de uf_individual + Costo Operativo si está activo)
                 const ufAnalisis = (result.analisis || []).reduce((sum, a) => sum + (parseFloat(a.uf_individual) || 0), 0);
                 const ufCosto = result.costoOperativo?.activo ? Number(result.costoOperativo.uf || 0) : 0;
@@ -425,6 +536,16 @@ class BulkExcelService {
             );
             const unmatchedAnalysis = (result.analisis || []).filter(r => !r._matched);
 
+            // Mensaje CLARO por cada análisis no encontrado en su normativa/tabla.
+            // Estos análisis NO se incluyen al crear la ficha (commit los filtra).
+            for (const a of unmatchedAnalysis) {
+                const tabla = a.nombre_normativareferencia || a.nombre_normativa || result._normativaRef || result._normativa || '-';
+                warns.push({
+                    field: 'Análisis no encontrado',
+                    message: `"${a.nombre_original}" no se encontró en la normativa/tabla "${tabla}". No se incluirá en la ficha.`
+                });
+            }
+
             if (criticalErrors.length > 0 || result.errors.length > 0) {
                 result.status = 'ERROR';
             } else if (unmatchedAnalysis.length > 0 || result.warnings.length > 0) {
@@ -434,23 +555,25 @@ class BulkExcelService {
             }
 
             results.push(result);
-            if (results.length >= 100) {
-                logger.warn(`[BulkExcel] Reached max batch limit of 100 fichas — truncating.`);
-                hasMore = false;
+            if (results.length >= MAX_FICHAS) {
+                logger.warn(`[BulkExcel] Reached max batch limit of ${MAX_FICHAS} fichas — truncating.`);
+                truncated = true;
+                break;
             }
-            rowCount++;
         }
 
         const ready = results.filter(r => r.status === 'READY').length;
         const warn = results.filter(r => r.status === 'WARNING').length;
         const err = results.filter(r => r.status === 'ERROR').length;
-        logger.info(`[BulkExcel] Batch complete: ${ready} ready, ${warn} warnings, ${err} errors`);
+        logger.info(`[BulkExcel] Batch complete: ${ready} ready, ${warn} warnings, ${err} errors (truncated=${truncated})`);
 
         return {
             total: results.length,
             ready,
             warnings: warn,
             errors: err,
+            truncated,
+            maxFichas: MAX_FICHAS,
             items: results
         };
     }
@@ -584,6 +707,18 @@ class BulkExcelService {
             [50, 40, 25, 20]
         );
 
+        // ── 4. MAESTRO_ZONAS_UTM ───────────────────────────────────────────
+        const zonasUTMRows = [
+            ['Nombre Zona UTM'],
+            ...(catalogs.zonasUTM || []).map(z => [z.nombre])
+        ];
+        const wsZ = rebuildMasterSheet(
+            'MAESTRO_ZONAS_UTM',
+            'MAESTRO: Zonas UTM',
+            zonasUTMRows,
+            [25]
+        );
+
         // ── Update data validations in FICHAS to point to new master ranges ─
         const wsFichas = wb.getWorksheet('FICHAS');
         if (wsFichas) {
@@ -614,7 +749,11 @@ class BulkExcelService {
             const empresaServIdx  = cmF['EMPRESA DE SERVICIO'];
             const empresaFactIdx  = cmF['EMPRESA A FACTURAR'];
             const centroIdx       = cmF['CENTRO / FUENTE EMISORA'];
+            const zonaUTMIdx      = cmF['ZONA UTM'];
 
+            // NOTA: Empresas y Centro/Fuente Emisora son EDITABLES (sin dropdown).
+            // El sistema de matching por similitud en backend maneja la búsqueda automática.
+            // Solo ZONA UTM tiene dropdown como validación auxiliar.
             const setDropdown = (colIdx, formula, title, prompt) => {
                 if (!colIdx) return;
                 const col = colLetter(colIdx);
@@ -634,15 +773,34 @@ class BulkExcelService {
                 }
             };
 
-            if (empresaFactIdx) setDropdown(empresaFactIdx, `MAESTRO_EMP_FACTURAR!$A$4:$A$${3 + efCount}`, 'Empresa a Facturar', 'Seleccione o escriba el nombre de la empresa a facturar.');
-            if (empresaServIdx) setDropdown(empresaServIdx, `MAESTRO_EMP_SERVICIO!$A$4:$A$${3 + esCount}`,  'Empresa de Servicio',  'Seleccione o escriba la empresa de servicio.');
-            if (centroIdx)      setDropdown(centroIdx,      `MAESTRO_CENTROS!$A$4:$A$${3 + ctCount}`,       'Centro / Fuente Emisora', 'Seleccione o escriba el centro/fuente emisora.');
+            // Solo ZONA UTM con dropdown
+            if (zonaUTMIdx)     setDropdown(zonaUTMIdx,     `MAESTRO_ZONAS_UTM!$A$4:$A$${3 + zonasUTMRows.length - 1}`, 'Zona UTM', 'Seleccione la Zona UTM.');
+
+            // ── NOMBRE TABLA (AUTO) column ─────────────────────────────────
+            const nombreTablaIdx = cmF['NOMBRE TABLA (AUTOMATICO)'] || cmF['NOMBRE TABLA'];
+            const centroColLt = colLetter(centroIdx || 6);
+            const objetivoColLt = colLetter(cmF['OBJETIVO MUESTREO'] || 9);
+
+            const AUTO_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF2CC' } }; // light yellow-orange
+
+            if (nombreTablaIdx) {
+                const ntColLt = colLetter(nombreTablaIdx);
+                for (let r = DATA_START; r <= DATA_END; r++) {
+                    const cell = wsFichas.getCell(`${ntColLt}${r}`);
+                    cell.value = {
+                        formula: `IF(AND(${centroColLt}${r}<>"",${objetivoColLt}${r}<>""), CONCATENATE(${centroColLt}${r}," - ",${objetivoColLt}${r}), "Sin glosa")`,
+                        result: 'Sin glosa'
+                    };
+                    cell.fill = AUTO_FILL;
+                    cell.font = { name: 'Calibri', size: 10, color: { argb: 'FF7B5900' } };
+                    cell.protection = { locked: true };
+                }
+            }
 
             // ── UF TOTAL (AUTO) column ─────────────────────────────────────
-            // Place it right after OBSERVACIONES (col 39), at col 40.
             // Formula: =IF(A4="","",SUMIF(ANALISIS!$A:$A, A4, ANALISIS!$I:$I))
             // Col I in ANALISIS = UF INDIVIDUAL (col 9)
-            const ufTotalCol   = 40;
+            const ufTotalCol   = cmF['UF TOTAL REAL (AUTO)'] || cmF['UF TOTAL (AUTO)'] || 42;
             const ufTotalColLt = colLetter(ufTotalCol);
 
             // Header (row 3)
@@ -655,12 +813,12 @@ class BulkExcelService {
             ufHdrCell.protection = { locked: true };
 
             // Data rows: SUMIF formula + orange read-only style
-            const AUTO_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF2CC' } }; // light yellow-orange
+            // Ahora suma desde ANALISIS!UF MANUAL (col J/10, no col I/9)
             for (let r = DATA_START; r <= DATA_END; r++) {
                 const idCol = colLetter(1); // Column A = ID MUESTRA
                 const cell  = wsFichas.getCell(`${ufTotalColLt}${r}`);
                 cell.value  = {
-                    formula: `IF(${idCol}${r}="","",SUMIF(ANALISIS!$A:$A,${idCol}${r},ANALISIS!$I:$I))`,
+                    formula: `IF(${idCol}${r}="","",SUMIF(ANALISIS!$A:$A,${idCol}${r},ANALISIS!$J:$J))`,
                     result: 0
                 };
                 cell.numFmt     = '#,##0.00';
@@ -675,67 +833,102 @@ class BulkExcelService {
             wsFichas.getColumn(ufTotalCol).width  = 14;
             wsFichas.getColumn(ufTotalCol).hidden = false;
 
-            // Keep col 41 hidden (old UF TOTAL REAL remnant)
-            wsFichas.getColumn(41).hidden = true;
-
-            // ── COSTO OPERATIVO (UF) column (opcional, col 42) ─────────────
-            // Si la celda viene vacía -> la ficha NO lleva Costo Operativo.
-            // Si trae un número > 0 -> la ficha lleva Costo Operativo activo con ese UF.
-            const costoCol   = 42;
-            const costoColLt = colLetter(costoCol);
-            const costoHdr = wsFichas.getRow(3).getCell(costoCol);
-            costoHdr.value     = '✏️ COSTO OPERATIVO\n(UF, opcional)';
-            costoHdr.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF92D050' } };
-            costoHdr.font      = { bold: true, color: { argb: 'FF000000' }, name: 'Calibri', size: 10 };
-            costoHdr.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-            costoHdr.border    = THIN_BORDER;
-
-            for (let r = DATA_START; r <= DATA_END; r++) {
-                const cell = wsFichas.getCell(`${costoColLt}${r}`);
-                cell.value     = null;
-                cell.numFmt    = '#,##0.00';
-                cell.alignment = { horizontal: 'right', vertical: 'middle' };
-                cell.border    = THIN_BORDER;
-                cell.protection = { locked: false };
+            // ── Sheet protection: MINIMAL — solo NOMBRE TABLA y UF TOTAL bloqueados ──────
+            // Todas las demás columnas totalmente editables (sin protección)
+            for (let c = 1; c <= ufTotalCol; c++) {
+                wsFichas.getColumn(c).style = { protection: { locked: false } };
             }
-            wsFichas.getColumn(costoCol).width  = 18;
-            wsFichas.getColumn(costoCol).hidden = false;
-
-            // Re-escribir fórmula de UF TOTAL para incluir Costo Operativo
-            for (let r = DATA_START; r <= DATA_END; r++) {
-                const idCol = colLetter(1);
-                const cell  = wsFichas.getCell(`${ufTotalColLt}${r}`);
-                cell.value  = {
-                    formula: `IF(${idCol}${r}="","",SUMIF(ANALISIS!$A:$A,${idCol}${r},ANALISIS!$I:$I)+IF(ISNUMBER(${costoColLt}${r}),${costoColLt}${r},0))`,
-                    result: 0
-                };
+            // Bloquear SOLO NOMBRE TABLA y UF TOTAL
+            if (nombreTablaIdx) {
+                for (let r = DATA_START; r <= DATA_END; r++) {
+                    wsFichas.getCell(`${colLetter(nombreTablaIdx)}${r}`).protection = { locked: true };
+                }
+                wsFichas.getColumn(nombreTablaIdx).style = { protection: { locked: true } };
             }
+            wsFichas.getColumn(ufTotalCol).style = { protection: { locked: true } };
 
-            // ── Sheet protection: col 40 read-only, cols 1-39 editable ──────
-            // column.style = { protection: { locked: false } } unlocks ALL cells
-            // in that column (including empty ones the user will type into).
-            // This is the only reliable approach in ExcelJS.
-            for (let c = 1; c <= 39; c++) {
-                wsFichas.getColumn(c).style = {
-                    protection: { locked: false }
-                };
-            }
-            // Col 40 stays locked (UF TOTAL AUTO) — Col 41 hidden remnant.
-            // Col 42 (Costo Operativo) editable:
-            wsFichas.getColumn(42).style = { protection: { locked: false } };
-
-            // Protect the sheet — locked cells become read-only, unlocked stay editable.
-            // No password so the user can unprotect via Excel if needed.
+            // Protect sheet — MÁS PERMISIVO
             wsFichas.protect('', {
-                selectLockedCells:   true,   // can click on UF TOTAL to see value
-                selectUnlockedCells: true,   // can click and edit all other cells
-                formatCells:         true,
-                formatColumns:       true,
-                formatRows:          true,
-                insertRows:          true,
-                deleteRows:          true,
+                selectLockedCells:   true,
+                selectUnlockedCells: true,
+                formatCells:         false,   // permite cambiar formato
+                formatColumns:       false,   // permite redimensionar columnas
+                formatRows:          false,   // permite redimensionar filas
+                insertRows:          true,    // permite agregar filas
+                deleteRows:          true,    // permite eliminar filas
                 sort:                true,
                 autoFilter:          true,
+            });
+        }
+
+        // ── ANALISIS sheet: bloquear UF INDIVIDUAL (AUTO) y _CNT, dejar el resto editable ─────
+        const wsAnalisis = wb.getWorksheet('ANALISIS');
+        if (wsAnalisis) {
+            const colLetterA = (n) => {
+                let s = '';
+                while (n > 0) {
+                    const rem = (n - 1) % 26;
+                    s = String.fromCharCode(65 + rem) + s;
+                    n = Math.floor((n - 1) / 26);
+                }
+                return s;
+            };
+
+            const cmA = {};
+            wsAnalisis.getRow(3).eachCell({ includeEmpty: false }, (c, i) => {
+                const h = String(c.value || '').replace(/[\r\n🔁✏️\*]/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase();
+                if (h) cmA[h] = i;
+            });
+
+            const ufManualIdx = cmA['UF MANUAL (ESCRIBA AQUÍ)'] || cmA['UF MANUAL'] || 10;
+
+            const DATA_START_A = 4;
+            const DATA_END_A   = 2003;
+
+            const ufManualColLt = colLetterA(ufManualIdx);
+
+            const THIN_BORDER_A = {
+                top:    { style: 'thin', color: { argb: 'FFBFBFBF' } },
+                left:   { style: 'thin', color: { argb: 'FFBFBFBF' } },
+                bottom: { style: 'thin', color: { argb: 'FFBFBFBF' } },
+                right:  { style: 'thin', color: { argb: 'FFBFBFBF' } }
+            };
+
+            // Estilizar encabezado UF MANUAL
+            const ufManualHdr = wsAnalisis.getRow(3).getCell(ufManualIdx);
+            ufManualHdr.value = '✏️ UF\n(Escriba Aquí)';
+            ufManualHdr.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF92D050' } };
+            ufManualHdr.font = { bold: true, color: { argb: 'FF000000' }, name: 'Calibri', size: 10 };
+            ufManualHdr.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+            ufManualHdr.border = THIN_BORDER_A;
+
+            // UF MANUAL: solo editable, sin fórmulas
+            for (let r = DATA_START_A; r <= DATA_END_A; r++) {
+                const cellMan = wsAnalisis.getCell(`${ufManualColLt}${r}`);
+                cellMan.numFmt = '#,##0.00';
+                cellMan.alignment = { horizontal: 'right', vertical: 'middle' };
+                cellMan.border = THIN_BORDER_A;
+                cellMan.protection = { locked: false };
+            }
+
+            wsAnalisis.getColumn(ufManualIdx).width = 14;
+
+            // Todo lo demás editable (sin protecciones)
+            for (let c = 1; c <= wsAnalisis.columnCount; c++) {
+                wsAnalisis.getColumn(c).style = { protection: { locked: false } };
+            }
+
+            // Proteger hoja ANALISIS — MÁS PERMISIVO
+            wsAnalisis.protect('', {
+                selectLockedCells: true,
+                selectUnlockedCells: true,
+                formatCells: false,
+                formatColumns: false,
+                formatRows: false,
+                insertRows: true,
+                deleteRows: true,
+                sort: true,
+                autoFilter: true,
             });
         }
 

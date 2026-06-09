@@ -3,6 +3,8 @@ import axios from 'axios';
 import apiClient from '../config/axios.config';
 import API_CONFIG from '../config/api.config';
 import { useNavStore } from '../store/navStore';
+import { useChatStore } from '../store/chatStore';
+import { useNotificationStore } from '../store/notificationStore';
 
 interface User {
     id: number;
@@ -150,6 +152,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const navStore = useNavStore.getState();
         navStore.resetNavigation();
         navStore.setDynamicModules([]);
+
+        // Limpiar el chat para que el siguiente usuario no vea datos del anterior
+        // (conversaciones, mensajes, borradores). El chatStore es un singleton que
+        // sobrevive al cambio de sesión en la SPA.
+        useChatStore.getState().reset();
+
+        // Igual para notificaciones: vaciar lista y cerrar el socket del usuario saliente.
+        useNotificationStore.getState().reset();
     }, []);
 
     // Interceptor para manejar errores 401 (No autorizado) globalmente

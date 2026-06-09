@@ -233,6 +233,8 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
     const [assignMuestreadorInst, setAssignMuestreadorInst] = useState<string | null>(null);
     const [assignMuestreadorRet, setAssignMuestreadorRet] = useState<string | null>(null);
     const [osrmRoute, setOsrmRoute] = useState<[number, number][]>([]);
+    const [routeDistance, setRouteDistance] = useState<number | null>(null); // metros
+    const [routeDuration, setRouteDuration] = useState<number | null>(null); // segundos
     const [optimizing, setOptimizing] = useState(false);
 
     // Load data
@@ -380,6 +382,8 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                 nombre_ruta: nombreRuta,
                 descripcion: descripcionRuta || undefined,
                 id_grupo: selectedGrupo ? Number(selectedGrupo) : undefined,
+                distancia_metros: routeDistance,
+                duracion_segundos: routeDuration,
                 fichas: selectedItems.map((item, index) => ({
                     id_fichaingresoservicio: item.fichaId,
                     orden: index + 1,
@@ -486,6 +490,8 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
     useEffect(() => {
         if (routePositions.length < 2) {
             setOsrmRoute([]);
+            setRouteDistance(null);
+            setRouteDuration(null);
             return;
         }
         const controller = new AbortController();
@@ -495,15 +501,21 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                 const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${coordsStr}?overview=full&geometries=geojson`, { signal: controller.signal });
                 const data = await res.json();
                 if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
-                    const geometry = data.routes[0].geometry;
-                    setOsrmRoute(geometry.coordinates.map((c: any) => [c[1], c[0]] as [number, number]));
+                    const route = data.routes[0];
+                    setOsrmRoute(route.geometry.coordinates.map((c: any) => [c[1], c[0]] as [number, number]));
+                    setRouteDistance(typeof route.distance === 'number' ? Math.round(route.distance) : null);
+                    setRouteDuration(typeof route.duration === 'number' ? Math.round(route.duration) : null);
                 } else {
                     setOsrmRoute([]);
+                    setRouteDistance(null);
+                    setRouteDuration(null);
                 }
             } catch (err: any) {
                 if (err.name !== 'AbortError') {
                     console.warn('OSRM routing fallback failed:', err);
                     setOsrmRoute([]);
+                    setRouteDistance(null);
+                    setRouteDuration(null);
                 }
             }
         };
@@ -741,11 +753,12 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                     />
                     <Select
                         label="Muestreador Retiro"
+                        description="Solo compuestas. Si se omite, se usa el de instalación (en puntuales no aplica)."
                         data={muestreadorOptions}
                         value={assignMuestreadorRet}
                         onChange={setAssignMuestreadorRet}
                         searchable
-                        placeholder="Igual al instalación"
+                        placeholder="Igual al de instalación"
                         leftSection={<IconUserPlus size={16} />}
                         comboboxProps={{ zIndex: 10001 }}
                     />

@@ -30,3 +30,20 @@ build/
 uploads/*
 !uploads/avatars/
 !uploads/.gitkeep
+
+# Diagnostic / one-off scripts (root level)
+check-cols.js
+create-clean-template.js
+debug-uf.js
+deep-clean.js
+fix-template.js
+fix-uf-formula-v2.js
+fix-uf-formula.js
+fix-uf-numbers.js
+fix-uf-type.js
+recalc.js
+remove-nombre-tabla.js
+simple-fix.js
+verify-clean.js
+verify.js
+Formato_Carga_Masiva_ADL_test_oficial.xlsx

@@ -1,13 +1,18 @@
 import express from 'express';
 import multer from 'multer';
 import ursController from '../controllers/urs.controller.js';
-import { authenticate } from '../middlewares/auth.middleware.js';
+import { authenticate, authenticateDownload } from '../middlewares/auth.middleware.js';
 import { verifyPermission } from '../middlewares/verifyPermission.js';
 import { validateRequest, ursValidationSchemas } from '../middlewares/validate.middleware.js';
 
 const upload = multer();
 
 const router = express.Router();
+
+// Descarga de adjuntos: iniciada por el navegador (<a href>), no puede enviar
+// el header Authorization → usa authenticateDownload (acepta token por query).
+// Debe ir ANTES del router.use(authenticate) global, que es solo-header.
+router.get('/download/:idAdjunto', authenticateDownload, ursController.downloadAttachment);
 
 // All URS routes require authentication
 router.use(authenticate);
@@ -16,8 +21,6 @@ router.get('/types', ursController.getTypes);
 router.post('/types', verifyPermission(['RBAC_MANAGE', 'INF_SOLICITUDES']), validateRequest(ursValidationSchemas.createUpdateType), ursController.createUpdateType);
 router.put('/types/:id', verifyPermission(['RBAC_MANAGE', 'INF_SOLICITUDES']), validateRequest(ursValidationSchemas.createUpdateType), ursController.createUpdateType);
 router.patch('/types/:id/status', verifyPermission(['RBAC_MANAGE', 'INF_SOLICITUDES']), validateRequest(ursValidationSchemas.toggleTypeStatus), ursController.toggleTypeStatus);
-
-router.get('/download/:idAdjunto', ursController.downloadAttachment);
 
 router.get('/unread-count', ursController.getUnreadCount);
 router.get('/', validateRequest(ursValidationSchemas.getRequests), ursController.getRequests);

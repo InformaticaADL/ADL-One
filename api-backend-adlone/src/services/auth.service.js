@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import logger from '../utils/logger.js';
 import auditService from './audit.service.js';
+import { verifyPassword, hashPassword } from '../utils/password.js';
 import dotenv from 'dotenv';
 
 // Ensure environment variables are loaded
@@ -80,8 +81,10 @@ class AuthService {
 
             const candidate = result.recordset[0];
 
-            // S-02: comparar clave en JS exigiendo coincidencia exacta de mayúsculas.
-            if (String(candidate.clave_usuario ?? '') !== String(password ?? '')) {
+            // S-02: verificar clave. Soporta hash bcrypt y, transitoriamente, claves
+            // legacy en texto plano (que se migran a bcrypt en este mismo login).
+            const { match, needsRehash } = await verifyPassword(password, candidate.clave_usuario);
+            if (!match) {
                 await this.recordFailedLoginAttempt(username, 'BAD_PASSWORD');
                 auditService.log({
                     usuario_id: candidate.id_usuario,
@@ -99,6 +102,22 @@ class AuthService {
 
             // Credenciales válidas → limpiar contadores de intentos fallidos (S-13)
             await this.clearFailedLoginAttempts(username);
+
+            // Migración transparente: si la clave estaba en texto plano (legacy),
+            // re-hashearla a bcrypt ahora que conocemos el valor correcto.
+            if (needsRehash) {
+                try {
+                    const newHash = await hashPassword(password);
+                    await pool.request()
+                        .input('userId', sql.Numeric(10, 0), candidate.id_usuario)
+                        .input('hash', sql.VarChar(255), newHash)
+                        .query(`UPDATE mae_usuario SET clave_usuario = @hash WHERE id_usuario = @userId`);
+                    logger.info(`[PWD-MIGRATE] Clave de '${username}' migrada a bcrypt`);
+                } catch (rehashErr) {
+                    // No bloquear el login si falla el re-hash; se reintentará en el próximo login.
+                    logger.warn(`[PWD-MIGRATE] No se pudo migrar la clave de '${username}': ${rehashErr.message}`);
+                }
+            }
 
             const user = candidate;
             {
@@ -302,17 +321,21 @@ class AuthService {
         try {
             const pool = await getConnection();
 
-            // Verify current password
+            // Verify current password (soporta hash bcrypt y legacy texto plano)
             const userResult = await pool.request()
                 .input('userId', sql.Numeric(10, 0), userId)
-                .input('currentPassword', sql.VarChar, currentPassword)
                 .query(`
-                    SELECT id_usuario
+                    SELECT clave_usuario
                     FROM mae_usuario
-                    WHERE id_usuario = @userId AND clave_usuario = @currentPassword
+                    WHERE id_usuario = @userId
                 `);
 
             if (userResult.recordset.length === 0) {
+                throw new Error('La contraseña actual es incorrecta');
+            }
+
+            const { match } = await verifyPassword(currentPassword, userResult.recordset[0].clave_usuario);
+            if (!match) {
                 throw new Error('La contraseña actual es incorrecta');
             }
 
@@ -320,10 +343,11 @@ class AuthService {
                 throw new Error('La nueva contraseña no puede ser igual a la actual');
             }
 
-            // Update password
+            // Update password (siempre se guarda hasheada)
+            const newHash = await hashPassword(newPassword);
             await pool.request()
                 .input('userId', sql.Numeric(10, 0), userId)
-                .input('newPassword', sql.VarChar, newPassword)
+                .input('newPassword', sql.VarChar(255), newHash)
                 .query(`
                     UPDATE mae_usuario
                     SET clave_usuario = @newPassword
@@ -503,13 +527,14 @@ class AuthService {
             throw err;
         }
         const hash = this._hashToken(token);
+        const pwdHash = await hashPassword(cleanPwd);
         const pool = await getConnection();
         const tx = new sql.Transaction(pool);
         await tx.begin();
         try {
             await new sql.Request(tx)
                 .input('uid', sql.Numeric(10, 0), validation.idUsuario)
-                .input('pwd', sql.VarChar(255), cleanPwd)
+                .input('pwd', sql.VarChar(255), pwdHash)
                 .query(`
                     UPDATE mae_usuario
                     SET clave_usuario = @pwd,

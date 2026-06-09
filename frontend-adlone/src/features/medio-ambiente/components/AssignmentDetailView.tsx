@@ -99,6 +99,12 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
         return rows.filter(r => !['CANCELADO', 'ANULADO'].includes((r.nombre_estadomuestreo || '').toUpperCase())).length;
     }, [rows]);
 
+    // ✅ PUNTUAL = un solo proceso, una sola fecha. No se divide en instalación/retiro.
+    // Para estas fichas se muestra y guarda únicamente la "Fecha Muestreo" (y un único muestreador).
+    const isPuntual = useMemo(() => {
+        return (rows[0]?.tipo_fichaingresoservicio || '').toString().trim().toLowerCase() === 'puntual';
+    }, [rows]);
+
     const handleTechnicianChange = (rowId: number, newId: number, type: 'instalacion' | 'retiro') => {
         const applyChange = () => {
             if (type === 'instalacion') {
@@ -324,17 +330,19 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
         const activeRows = rows.filter(r => !['CANCELADO', 'ANULADO'].includes((r.nombre_estadomuestreo || '').toUpperCase()));
         // Excluir filas bloqueadas (ya guardadas y no editadas esta sesión) — no se re-envían al backend
         // A-05/A-06: ahora basta con tener fecha O muestreador (no ambos). El backend conserva el campo no provisto.
-        const completedRows = activeRows.filter(r => {
-            if (isLockedRow(r.id_agendamam)) return false;
-            return editableDates[r.id_agendamam] || muestreadorInstalacion[r.id_agendamam];
-        });
+        // Filas candidatas a guardar en esta sesión: activas y NO bloqueadas.
+        // Las bloqueadas ya están guardadas, así que no cuentan como "sin asignar".
+        const editableRows = activeRows.filter(r => !isLockedRow(r.id_agendamam));
+        const completedRows = editableRows.filter(r =>
+            editableDates[r.id_agendamam] || muestreadorInstalacion[r.id_agendamam]
+        );
 
         if (completedRows.length === 0) {
             showToast({ message: 'Debe ingresar al menos una fecha o un muestreador en algún registro para guardar', type: 'warning' });
             return;
         }
 
-        if (duracionMuestreo >= 24) {
+        if (!isPuntual && duracionMuestreo >= 24) {
             const sameDayRows = completedRows.filter(r => {
                 const inst = editableDates[r.id_agendamam];
                 const retiro = editableRetiroDates[r.id_agendamam];
@@ -397,7 +405,7 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
             }
         }
 
-        const skippedCount = activeRows.length - completedRows.length;
+        const skippedCount = editableRows.length - completedRows.length;
 
         const executeSave = async () => {
             setSaving(true);
@@ -409,12 +417,13 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                     return {
                         id: row.id_agendamam,
                         fecha: hasDate ? editableDates[row.id_agendamam] : null,
+                        // ✅ PUNTUAL: retiro = muestreo (misma fecha, mismo muestreador) → un solo día/proceso
                         fechaRetiro: hasDate
-                            ? (editableRetiroDates[row.id_agendamam] || editableDates[row.id_agendamam])
+                            ? (isPuntual ? editableDates[row.id_agendamam] : (editableRetiroDates[row.id_agendamam] || editableDates[row.id_agendamam]))
                             : null,
                         idMuestreadorInstalacion: hasMuestreador ? muestreadorInstalacion[row.id_agendamam] : null,
                         idMuestreadorRetiro: hasMuestreador
-                            ? (muestreadorRetiro[row.id_agendamam] || muestreadorInstalacion[row.id_agendamam])
+                            ? (isPuntual ? muestreadorInstalacion[row.id_agendamam] : (muestreadorRetiro[row.id_agendamam] || muestreadorInstalacion[row.id_agendamam]))
                             : null,
                         idFichaIngresoServicio: row.id_fichaingresoservicio,
                         frecuenciaCorrelativo: row.frecuencia_correlativo,
@@ -455,7 +464,7 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                     children: (
                         <Stack gap="sm">
                             <Text size="sm">
-                                Se guardarán <b>{completedRows.length}</b> de <b>{activeRows.length}</b> correlativos.
+                                Se guardarán <b>{completedRows.length}</b> de <b>{editableRows.length}</b> correlativos.
                                 Los <b>{skippedCount}</b> restantes quedan sin asignar.
                             </Text>
                             <Text size="sm">¿Desea continuar?</Text>
@@ -560,11 +569,24 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                         <Text size="xs" fw={700} c="dimmed" tt="uppercase">Servicios</Text>
                                         <Badge color="blue" variant="filled">{activeServicesCount}</Badge>
                                     </Stack>
-                                    <Divider orientation="vertical" />
-                                    <Stack gap={0} align="center">
-                                        <Text size="xs" fw={700} c="dimmed" tt="uppercase">Duración</Text>
-                                        <Text fw={700} size="sm">{duracionMuestreo} hrs</Text>
-                                    </Stack>
+                                    {!isPuntual && (
+                                        <>
+                                            <Divider orientation="vertical" />
+                                            <Stack gap={0} align="center">
+                                                <Text size="xs" fw={700} c="dimmed" tt="uppercase">Duración</Text>
+                                                <Text fw={700} size="sm">{duracionMuestreo} hrs</Text>
+                                            </Stack>
+                                        </>
+                                    )}
+                                    {isPuntual && (
+                                        <>
+                                            <Divider orientation="vertical" />
+                                            <Stack gap={0} align="center">
+                                                <Text size="xs" fw={700} c="dimmed" tt="uppercase">Tipo</Text>
+                                                <Badge color="grape" variant="light">Puntual</Badge>
+                                            </Stack>
+                                        </>
+                                    )}
                                 </Group>
 
                                 {/* Right Side: Ficha Metadata */}
@@ -631,10 +653,10 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
 
                             <ProtectedContent permission="FI_GEST_ASIG">
                                 <Group align="flex-end">
-                                    <Select 
+                                    <Select
                                         size="xs"
-                                        label="M. Instalación (Todos)" 
-                                        placeholder="Seleccionar..." 
+                                        label={isPuntual ? "Muestreador (Todos)" : "M. Instalación (Todos)"}
+                                        placeholder="Seleccionar..."
                                         data={muestreadorOptions}
                                         onChange={(val) => {
                                             if (val) {
@@ -662,10 +684,10 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                         searchable
                                         leftSection={<IconUserPlus size={14} />}
                                     />
-                                    <Select 
+                                    {!isPuntual && <Select
                                         size="xs"
-                                        label="M. Retiro (Todos)" 
-                                        placeholder="Seleccionar..." 
+                                        label="M. Retiro (Todos)"
+                                        placeholder="Seleccionar..."
                                         data={muestreadorOptions}
                                         onChange={(val) => {
                                             if (val) {
@@ -687,7 +709,7 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                         }}
                                         searchable
                                         leftSection={<IconUserPlus size={14} />}
-                                    />
+                                    />}
                                 </Group>
                             </ProtectedContent>
                         </Group>
@@ -712,21 +734,21 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                             <Table.Th w={50} ta="center">Ficha</Table.Th>
                                             <Table.Th w={160} ta="center">Correlativo</Table.Th>
                                             <Table.Th w={90} ta="center">Estado</Table.Th>
-                                            <Table.Th w={135} ta="center">F. Instalación</Table.Th>
-                                            <Table.Th w={135} ta="center">F. Muestreo</Table.Th>
+                                            <Table.Th w={135} ta="center">{isPuntual ? 'Fecha Muestreo' : 'F. Instalación'}</Table.Th>
+                                            {!isPuntual && <Table.Th w={135} ta="center">F. Muestreo</Table.Th>}
                                             <Table.Th w={130} ta="center">Coordinador</Table.Th>
                                             <Table.Th w={145} ta="center">
                                                 <Group gap={4} wrap="nowrap" justify="center">
-                                                    M. Instalación
+                                                    {isPuntual ? 'Muestreador' : 'M. Instalación'}
                                                     <Text size="9px" c="blue" fw={700}>(Orig.)</Text>
                                                 </Group>
                                             </Table.Th>
-                                            <Table.Th w={145} ta="center">
+                                            {!isPuntual && <Table.Th w={145} ta="center">
                                                 <Group gap={4} wrap="nowrap" justify="center">
                                                     M. Retiro
                                                     <Text size="9px" c="blue" fw={700}>(Orig.)</Text>
                                                 </Group>
-                                            </Table.Th>
+                                            </Table.Th>}
                                             <Table.Th w={135} ta="center"></Table.Th>
                                         </Table.Tr>
                                     </Table.Thead>
@@ -783,7 +805,7 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                             />
                                                         )}
                                                     </Table.Td>
-                                                    <Table.Td ta="center">
+                                                    {!isPuntual && <Table.Td ta="center">
                                                         {locked ? (
                                                             <Text size="xs" c="dimmed" td="line-through" ta="center">
                                                                 {editableRetiroDates[rowId] || '-'}
@@ -808,7 +830,7 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                                 }}
                                                             />
                                                         )}
-                                                    </Table.Td>
+                                                    </Table.Td>}
                                                     <Table.Td ta="center">
                                                         <Text size="xs" fw={500}>{row.nombre_coordinador}</Text>
                                                     </Table.Td>
@@ -835,7 +857,7 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                             </Group>
                                                         )}
                                                     </Table.Td>
-                                                    <Table.Td>
+                                                    {!isPuntual && <Table.Td>
                                                         {locked ? (
                                                             <Text size="xs" c="dimmed" td="line-through" ta="center">{retiroName}</Text>
                                                         ) : (
@@ -857,7 +879,7 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                                 )}
                                                             </Group>
                                                         )}
-                                                    </Table.Td>
+                                                    </Table.Td>}
                                                     <Table.Td style={{ borderLeft: 'none' }} ta="center">
                                                         {locked ? (
                                                             <Button

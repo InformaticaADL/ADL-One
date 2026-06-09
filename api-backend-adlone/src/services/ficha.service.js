@@ -2159,6 +2159,7 @@ class FichaIngresoService {
                     m.nombre_muestreador,
                     m2.nombre_muestreador as nombre_muestreador2,
                     e.id_fichaingresoservicio as num_ficha,
+                    e.tipo_fichaingresoservicio,
                     e.ma_duracion_muestreo,
                     e.es_remuestreo,
                     e.id_ficha_original,
@@ -2166,7 +2167,7 @@ class FichaIngresoService {
                     cen.nombre_centro as centro,
                     obj.nombre_objetivomuestreo_ma as nombre_objetivomuestreo,
                     sub.nombre_subarea,
-                    ISNULL(coord.nombre_coordinador, u_coord.nombre_usuario) as nombre_coordinador,
+                    u_coord.usuario as nombre_coordinador,
                     (SELECT TOP 1 m_orig.nombre_muestreador 
                      FROM App_Ma_Agenda_MUESTREOS a_orig 
                      JOIN mae_muestreador m_orig ON a_orig.id_muestreador = m_orig.id_muestreador 
@@ -2184,8 +2185,7 @@ class FichaIngresoService {
                 LEFT JOIN mae_centro cen ON e.id_centro = cen.id_centro
                 LEFT JOIN mae_objetivomuestreo_ma obj ON e.id_objetivomuestreo_ma = obj.id_objetivomuestreo_ma
                 LEFT JOIN mae_subarea sub ON e.id_subarea = sub.id_subarea
-                LEFT JOIN mae_coordinador coord ON a.id_coordinador = coord.id_coordinador
-                LEFT JOIN mae_usuario u_coord ON e.id_usuario = u_coord.id_usuario
+                LEFT JOIN mae_usuario u_coord ON a.id_coordinador = u_coord.id_usuario
                 WHERE a.id_fichaingresoservicio = @xid_fichaingresoservicio
             `);
 
@@ -2203,6 +2203,7 @@ class FichaIngresoService {
                     total_servicios: em.total_servicios || row.total_servicios || 1,
                     frecuencia_factor: em.frecuencia_factor || row.frecuencia_factor || 1,
                     num_ficha: em.num_ficha || row.num_ficha,
+                    tipo_fichaingresoservicio: em.tipo_fichaingresoservicio || row.tipo_fichaingresoservicio || null,
                     empresa_servicio: em.empresa_servicio || row.empresa_servicio,
                     centro: em.centro || row.centro,
                     nombre_objetivomuestreo: em.nombre_objetivomuestreo || row.nombre_objetivomuestreo,

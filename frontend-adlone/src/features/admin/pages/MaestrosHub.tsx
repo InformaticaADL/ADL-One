@@ -43,7 +43,8 @@ import {
     IconSearch,
     IconShield,
     IconBell,
-    IconBolt
+    IconBolt,
+    IconAward
 } from '@tabler/icons-react';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { MaestroDataManager } from '../components';
@@ -304,10 +305,10 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
                 id_supervisor: { tableName: 'mae_muestreador', idColumn: 'id_muestreador', displayColumn: 'nombre_muestreador', noCreate: true }
             }
         },
-        { 
-            id: 'coordinadores', 
-            label: 'Coordinadores', 
-            icon: <IconUserStar size={24} />, 
+        {
+            id: 'coordinadores',
+            label: 'Coordinadores',
+            icon: <IconUserStar size={24} />,
             color: 'yellow',
             description: 'Responsables de la coordinación de terreno.',
             tableName: 'mae_coordinador',
@@ -316,6 +317,19 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             displayColumn: 'nombre_coordinador',
             statusColumn: 'habilitado',
             summaryColumns: ['nombre_coordinador']
+        },
+        {
+            id: 'competencias',
+            label: 'Competencias',
+            icon: <IconAward size={24} />,
+            color: 'grape',
+            description: 'Competencias técnicas que pueden tener los muestreadores.',
+            tableName: 'mae_competencia',
+            idName: 'id_competencia',
+            area: 'logistica',
+            displayColumn: 'nombre_competencia',
+            statusColumn: 'activo',
+            summaryColumns: ['nombre_competencia', 'descripcion', 'orden']
         },
         { 
             id: 'centros', 

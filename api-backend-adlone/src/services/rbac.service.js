@@ -2,6 +2,7 @@ import { getConnection } from '../config/database.js';
 import sql from 'mssql';
 import logger from '../utils/logger.js';
 import { invalidatePermVersionCache } from '../utils/permVersionCache.js';
+import { hashPassword } from '../utils/password.js';
 
 class RbacService {
     // === Roles Management ===
@@ -373,12 +374,13 @@ class RbacService {
                 .query('SELECT ISNULL(MAX(id_usuario), 0) + 1 AS newId FROM mae_usuario WITH (UPDLOCK, HOLDLOCK)');
             const newId = idResult.recordset[0].newId;
 
+            const claveHash = await hashPassword(userData.clave_usuario);
             const result = await new sql.Request(transaction)
                 .input('id', sql.Numeric(10, 0), newId)
                 .input('nombreUsuario', sql.VarChar(50), userData.nombre_usuario)
                 .input('nombreReal', sql.VarChar(100), userData.nombre_real)
                 .input('correo', sql.VarChar(100), userData.correo_electronico || null)
-                .input('clave', sql.VarChar(50), userData.clave_usuario)
+                .input('clave', sql.VarChar(255), claveHash)
                 .input('idCargo', sql.Numeric(10, 0), userData.id_cargo || null)
                 .input('habilitado', sql.Char(1), 'S')
                 .query(`
@@ -450,9 +452,10 @@ class RbacService {
     async updateUserPassword(userId, newPassword) {
         try {
             const pool = await getConnection();
+            const newHash = await hashPassword(newPassword);
             const result = await pool.request()
                 .input('userId', sql.Numeric(10, 0), userId)
-                .input('newPassword', sql.VarChar(50), newPassword)
+                .input('newPassword', sql.VarChar(255), newHash)
                 .query(`
                     UPDATE mae_usuario
                     SET clave_usuario = @newPassword

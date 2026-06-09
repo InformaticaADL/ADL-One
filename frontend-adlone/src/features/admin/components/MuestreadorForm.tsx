@@ -12,6 +12,11 @@ import {
     LoadingOverlay, 
     Alert,
     FileButton,
+    FileInput,
+    Anchor,
+    Checkbox,
+    Badge,
+    ActionIcon,
     Affix,
     Transition,
     SimpleGrid,
@@ -70,6 +75,17 @@ export const MuestreadorForm: React.FC<Props> = ({
     const { showToast } = useToast();
     const isMobile = useMediaQuery('(max-width: 768px)');
 
+    // --- Documentos ---
+    const [documentos, setDocumentos] = useState<any[]>([]);
+    const [docFile, setDocFile] = useState<File | null>(null);
+    const [docNombre, setDocNombre] = useState('');
+    const [docUploading, setDocUploading] = useState(false);
+
+    // --- Competencias ---
+    const [allCompetencias, setAllCompetencias] = useState<any[]>([]);      // activas (asignables)
+    const [compAsignadas, setCompAsignadas] = useState<any[]>([]);          // asignadas (incluye inactivas)
+    const [compSeleccionadas, setCompSeleccionadas] = useState<number[]>([]); // ids activas marcadas
+
     useEffect(() => {
         if (initialData) {
             setFormData({ ...initialData, clave_usuario: initialData.clave_usuario ?? '' });
@@ -82,6 +98,45 @@ export const MuestreadorForm: React.FC<Props> = ({
             });
         }
     }, [initialData]);
+
+    useEffect(() => {
+        adminService.getCompetencias(false).then(setAllCompetencias).catch(() => {});
+        const id = initialData?.id_muestreador;
+        if (id) {
+            adminService.getDocumentosMuestreador(id).then(setDocumentos).catch(() => {});
+            adminService.getCompetenciasMuestreador(id).then((rows: any[]) => {
+                setCompAsignadas(rows);
+                setCompSeleccionadas(rows.filter(r => r.activo === 'S').map(r => r.id_competencia));
+            }).catch(() => {});
+        } else {
+            setDocumentos([]); setCompAsignadas([]); setCompSeleccionadas([]);
+        }
+    }, [initialData]);
+
+    const handleUploadDoc = async () => {
+        const id = initialData?.id_muestreador;
+        if (!id || !docFile) return;
+        setDocUploading(true);
+        try {
+            await adminService.uploadDocumentoMuestreador(id, docFile, docNombre || docFile.name);
+            const list = await adminService.getDocumentosMuestreador(id);
+            setDocumentos(list);
+            setDocFile(null); setDocNombre('');
+            showToast({ type: 'success', message: 'Documento agregado' });
+        } catch {
+            showToast({ type: 'error', message: 'Error al subir documento' });
+        } finally { setDocUploading(false); }
+    };
+
+    const handleDeleteDoc = async (idDoc: number) => {
+        try {
+            await adminService.deleteDocumentoMuestreador(idDoc);
+            setDocumentos(prev => prev.filter(d => d.id_documento !== idDoc));
+            showToast({ type: 'success', message: 'Documento eliminado' });
+        } catch {
+            showToast({ type: 'error', message: 'Error al eliminar documento' });
+        }
+    };
 
     const handleFileChange = (file: File | null) => {
         if (!file) return;
@@ -124,6 +179,7 @@ export const MuestreadorForm: React.FC<Props> = ({
                     payload.clave = formData.clave_usuario;
                 }
                 await adminService.updateMuestreador(initialData.id_muestreador, payload);
+                await adminService.setCompetenciasMuestreador(initialData.id_muestreador, compSeleccionadas);
                 showToast({ type: 'success', message: 'Muestreador actualizado correctamente' });
             } else {
                 // Check for duplicates
@@ -142,12 +198,16 @@ export const MuestreadorForm: React.FC<Props> = ({
                     return;
                 }
 
-                await adminService.createMuestreador({
+                const created = await adminService.createMuestreador({
                     nombre: formData.nombre_muestreador,
                     correo: formData.correo_electronico,
                     clave: formData.clave_usuario,
                     firma: formData.firma_muestreador
                 });
+                const newId = created?.data?.id_muestreador;
+                if (newId && compSeleccionadas.length > 0) {
+                    try { await adminService.setCompetenciasMuestreador(newId, compSeleccionadas); } catch { /* no bloquear creación */ }
+                }
                 showToast({ type: 'success', message: 'Muestreador creado correctamente' });
             }
             onSave();
@@ -290,6 +350,61 @@ export const MuestreadorForm: React.FC<Props> = ({
                             </Box>
                         </Stack>
                     </Paper>
+
+                    {/* --- Competencias --- */}
+                    <Paper withBorder p={isMobile ? "md" : "xl"} radius="md" shadow="sm">
+                        <Stack gap="md">
+                            <Text fw={700} size="lg" c="blue.7" ta={isMobile ? "center" : "left"}>Competencias</Text>
+                            <Text size="sm" c="dimmed">Marque las competencias del muestreador. Se pueden agregar y quitar libremente.</Text>
+                            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing={4}>
+                                {allCompetencias.map(c => (
+                                    <Checkbox
+                                        key={c.id_competencia}
+                                        label={c.nombre_competencia}
+                                        checked={compSeleccionadas.includes(c.id_competencia)}
+                                        onChange={(e) => {
+                                            const on = e.currentTarget.checked;
+                                            setCompSeleccionadas(prev => on ? [...prev, c.id_competencia] : prev.filter(x => x !== c.id_competencia));
+                                        }}
+                                    />
+                                ))}
+                            </SimpleGrid>
+                            {compAsignadas.filter(c => c.activo !== 'S').length > 0 && (
+                                <Box>
+                                    <Text size="xs" fw={600} c="dimmed" mt="sm">Competencias inactivas (conservadas):</Text>
+                                    <Group gap={4} mt={4}>
+                                        {compAsignadas.filter(c => c.activo !== 'S').map(c => (
+                                            <Badge key={c.id_competencia} color="gray" variant="light">{c.nombre_competencia}</Badge>
+                                        ))}
+                                    </Group>
+                                </Box>
+                            )}
+                        </Stack>
+                    </Paper>
+
+                    {/* --- Documentos / Certificados (solo en edición) --- */}
+                    {initialData?.id_muestreador && (
+                        <Paper withBorder p={isMobile ? "md" : "xl"} radius="md" shadow="sm">
+                            <Stack gap="md">
+                                <Text fw={700} size="lg" c="blue.7" ta={isMobile ? "center" : "left"}>Documentos / Certificados</Text>
+                                <Text size="sm" c="dimmed">Adjunte respaldos de cursos o capacitaciones (disponible para cualquier muestreador).</Text>
+                                <Stack gap="xs">
+                                    {documentos.length === 0 && <Text size="xs" c="dimmed">Sin documentos.</Text>}
+                                    {documentos.map(d => (
+                                        <Group key={d.id_documento} justify="space-between" wrap="nowrap">
+                                            <Anchor href={d.ruta_archivo} target="_blank" size="sm" truncate>{d.nombre_documento}</Anchor>
+                                            <ActionIcon color="red" variant="subtle" onClick={() => handleDeleteDoc(d.id_documento)}><IconTrash size={16} /></ActionIcon>
+                                        </Group>
+                                    ))}
+                                </Stack>
+                                <Group align="flex-end" gap="xs">
+                                    <FileInput placeholder="Seleccionar archivo" value={docFile} onChange={setDocFile} accept="application/pdf,image/*" style={{ flex: 1 }} clearable />
+                                    <TextInput placeholder="Nombre/Título (opcional)" value={docNombre} onChange={e => setDocNombre(e.currentTarget.value)} style={{ flex: 1 }} />
+                                    <Button onClick={handleUploadDoc} loading={docUploading} disabled={!docFile} leftSection={<IconUpload size={16} />}>Subir</Button>
+                                </Group>
+                            </Stack>
+                        </Paper>
+                    )}
 
                     <Group justify="flex-end" mt="xl" grow={isMobile}>
                         <Button variant="subtle" color="gray" onClick={onCancel} radius="md" size={isMobile ? "md" : "sm"}>

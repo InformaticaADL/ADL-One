@@ -35,19 +35,25 @@ interface ChatState {
     clearDraft: (conversationId: number) => void;
     setTypingUser: (conversationId: number, userId: number, name: string) => void;
     removeTypingUser: (conversationId: number, userId: number) => void;
+    reset: () => void;
 }
 
-export const useChatStore = create<ChatState>((set, get) => ({
-    conversations: [],
-    activeConversation: null,
-    messages: [],
-    favorites: [],
+// Estado inicial reutilizable: se aplica al crear el store y al hacer reset (logout).
+const initialState = {
+    conversations: [] as ChatConversation[],
+    activeConversation: null as ChatConversation | null,
+    messages: [] as ChatMessage[],
+    favorites: [] as ChatContact[],
     loading: false,
     messagesLoading: false,
     messagesPage: 1,
     hasMoreMessages: true,
-    drafts: {},
-    typingUsers: {},
+    drafts: {} as Record<number, { text: string; files: File[] }>,
+    typingUsers: {} as Record<number, TypingUser[]>,
+};
+
+export const useChatStore = create<ChatState>((set, get) => ({
+    ...initialState,
 
     fetchConversations: async () => {
         set({ loading: true });
@@ -211,4 +217,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
             return { typingUsers: { ...state.typingUsers, [conversationId]: prev.filter(t => t.userId !== userId) } };
         });
     },
+
+    // Limpia todo el estado del chat. Se llama en logout para que el siguiente
+    // usuario que inicie sesión no vea conversaciones, mensajes ni borradores ajenos.
+    reset: () => set({ ...initialState }),
 }));
