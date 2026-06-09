@@ -27,8 +27,9 @@ const ObservacionesFormComponent = forwardRef<ObservacionesFormHandle, Observaci
     placeholder = "Ingrese observaciones...",
     children
 }, ref) => {
-    const [text, setText] = useState(initialValue);
-    const lastValidRef = React.useRef(initialValue.trim().length > 0);
+    const safeInitial = initialValue || '';
+    const [text, setText] = useState(safeInitial);
+    const lastValidRef = React.useRef(safeInitial.trim().length > 0);
 
     useImperativeHandle(ref, () => ({
         getData: () => text

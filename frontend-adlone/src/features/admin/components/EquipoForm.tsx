@@ -53,7 +53,7 @@ import { FieldLabel } from '../../../components/common/FieldHelp';
 // If strict=true, it uses Select (must be in list).
 // If strict=false, it uses Autocomplete (can type any value).
 const MantineHybridSelect: React.FC<any> = ({ label, value, options, onChange, placeholder, strict, required, disabled, leftSection, ...others }) => {
-    const data = options.map((o: any) => typeof o === 'string' ? o : (o.label || o.value));
+    const data = Array.from(new Set(options.map((o: any) => typeof o === 'string' ? o : (o.label || o.value))));
     
     if (strict) {
         return (
@@ -353,6 +353,54 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         }
     }, [allEquipos, formData.equipo_asociado]);
 
+    const warningsAlert = useMemo(() => {
+        if (!initialData?.id_equipo) return null;
+        
+        const warnings: string[] = [];
+        
+        // 1. Check calibration dates
+        if (formData.vigencia) {
+            const now = new Date();
+            now.setHours(0, 0, 0, 0);
+            
+            const vigDate = new Date(formData.vigencia + 'T00:00:00');
+            if (!isNaN(vigDate.getTime())) {
+                vigDate.setHours(0, 0, 0, 0);
+                const diffTime = vigDate.getTime() - now.getTime();
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                
+                const isExpired = diffDays < 0;
+                const isExpiringSoon = diffDays >= 0 && diffDays <= 30;
+                const isCurrentlyActive = String(formData.estado).toLowerCase() === 'activo';
+                
+                if (isExpired) {
+                    warnings.push(`La fecha de vigencia de este equipo (${formData.vigencia}) ya ha expirado.`);
+                    if (isCurrentlyActive) {
+                        warnings.push(`El estado actual del equipo es "Activo", pero ya debería estar inactivo debido a su vigencia vencida.`);
+                    }
+                } else if (isExpiringSoon) {
+                    warnings.push(`La fecha de vigencia de este equipo (${formData.vigencia}) está por vencer en ${diffDays} día(s).`);
+                }
+            }
+        }
+        
+        // 2. Check manager status
+        if (formData.id_muestreador && muestreadores.length > 0) {
+            const assignedMuestreador = muestreadores.find(m => String(m.id_muestreador) === String(formData.id_muestreador));
+            if (assignedMuestreador && (assignedMuestreador.habilitado === 'N' || assignedMuestreador.habilitado === false)) {
+                warnings.push(`El responsable asignado (${assignedMuestreador.nombre_muestreador}) se encuentra inactivo/deshabilitado.`);
+            }
+        }
+        
+        if (warnings.length === 0) return null;
+        
+        return {
+            title: "Advertencias del Equipo",
+            color: "orange",
+            messages: warnings
+        };
+    }, [initialData?.id_equipo, formData.vigencia, formData.estado, formData.id_muestreador, muestreadores]);
+
     // --- Handlers ---
     const handleRestore = async (h: any) => {
         if (!initialData?.id_equipo) return;
@@ -537,6 +585,22 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                         </Badge>
                     )}
 
+                    {warningsAlert && (
+                        <Alert 
+                            icon={<IconAlertTriangle size={20} />} 
+                            title={warningsAlert.title} 
+                            color={warningsAlert.color} 
+                            variant="light" 
+                            radius="md"
+                        >
+                            <Stack gap="xs">
+                                {warningsAlert.messages.map((msg, idx) => (
+                                    <Text key={idx} size="sm" style={{ margin: 0 }}>{msg}</Text>
+                                ))}
+                            </Stack>
+                        </Alert>
+                    )}
+
                     {/* Pending Requests Section Removed */}
 
 
@@ -695,6 +759,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                             label={<FieldLabel label="Correlativo" help="Número correlativo único de la unidad del equipo para diferenciarlo de otros del mismo tipo y sede." />}
                                             value={formData.correlativo}
                                             onChange={(val) => setFormData((p: any) => ({ ...p, correlativo: val }))}
+                                            disabled={!isSuper}
                                         />
                                     </Grid.Col>
                                     <Grid.Col span={{ base: 12, md: 8 }}>
@@ -723,12 +788,19 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                         <Select
                                             label={<FieldLabel label="Responsable (Muestreador) *" help="Muestreador responsable del cuidado y traslado del equipo en terreno." />}
                                             placeholder="Seleccione..."
-                                            data={muestreadores.map(m => ({
-                                                value: String(m.id_muestreador),
-                                                label: m.habilitado === 'N' || m.habilitado === false
-                                                    ? `${m.nombre_muestreador} (Inactivo)`
-                                                    : m.nombre_muestreador
-                                            }))}
+                                            data={muestreadores
+                                                .filter(m => {
+                                                    const isEditing = !!initialData?.id_equipo;
+                                                    const isActive = !(m.habilitado === 'N' || m.habilitado === false);
+                                                    const isCurrentlySelected = String(m.id_muestreador) === String(formData.id_muestreador);
+                                                    return isEditing ? (isActive || isCurrentlySelected) : isActive;
+                                                })
+                                                .map(m => ({
+                                                    value: String(m.id_muestreador),
+                                                    label: m.habilitado === 'N' || m.habilitado === false
+                                                        ? `${m.nombre_muestreador} (Inactivo)`
+                                                        : m.nombre_muestreador
+                                                }))}
                                             value={String(formData.id_muestreador)}
                                             onChange={(val) => setFormData((p: any) => ({ ...p, id_muestreador: val }))}
                                             required
@@ -742,15 +814,23 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                             label={<FieldLabel label="Equipo Asociado" help="Equipo complementario asignado a esta unidad (ej: sonda de repuesto, electrodo asociado)." />}
                                             placeholder={allEquipos.length === 0 ? 'No hay equipos para asociar' : 'Buscar equipo...'}
                                             value={String(formData.equipo_asociado)}
-                                            data={[
-                                                { value: 'No Aplica', label: 'No Aplica' },
-                                                ...allEquipos
-                                                    .filter(e => e && e.codigo)
-                                                    .map(e => ({
-                                                        value: e.codigo,
-                                                        label: `${e.codigo || ''} - ${e.nombre || 'Sin nombre'}`.trim()
-                                                    }))
-                                            ]}
+                                            data={(() => {
+                                                const seen = new Set();
+                                                const optionsList = [
+                                                    { value: 'No Aplica', label: 'No Aplica' },
+                                                    ...allEquipos
+                                                        .filter(e => e && e.codigo)
+                                                        .map(e => ({
+                                                            value: e.codigo,
+                                                            label: `${e.codigo || ''} - ${e.nombre || 'Sin nombre'}`.trim()
+                                                        }))
+                                                ];
+                                                return optionsList.filter(opt => {
+                                                    if (seen.has(opt.value)) return false;
+                                                    seen.add(opt.value);
+                                                    return true;
+                                                });
+                                            })()}
                                             onChange={(val) => setFormData((p: any) => ({ ...p, equipo_asociado: val || 'No Aplica' }))}
                                             searchable
                                             clearable
@@ -828,7 +908,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                         <Textarea
                                             label={<FieldLabel label="Observaciones *" help="Comentarios adicionales, historial de fallas, reparaciones o detalles relevantes del equipo." />}
                                             placeholder="Detalles sobre el equipo..."
-                                            value={formData.observacion}
+                                            value={formData.observacion || ''}
                                             onChange={(e) => setFormData((p: any) => ({ ...p, observacion: e.target.value }))}
                                             required
                                             minRows={3}
@@ -887,7 +967,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                         <Textarea
                                             label={<FieldLabel label="Plazo Vigencia" help="Comentarios o aclaraciones sobre el plazo de vigencia de la calibración del equipo (ej: Hasta el día 30 del mes...)." />}
                                             placeholder="Ej: Hasta el día 30 del mes..."
-                                            value={formData.plazo_vigencia}
+                                            value={formData.plazo_vigencia || ''}
                                             onChange={(e) => setFormData((p: any) => ({ ...p, plazo_vigencia: e.target.value }))}
                                             minRows={2}
                                             autosize

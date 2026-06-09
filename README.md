@@ -523,6 +523,18 @@ frontend-adlone/
 - **Regla de Vencimiento a Fin de Mes**:
   - `equipo.service.js` / `admin.service.js` — Modificación de las consultas del contador por vencer, indicador de dashboard y tarea automática de inactivación (`inactivateExpiredEquipos`) utilizando `EOMONTH(fecha_vigencia)` de SQL Server, de modo que el equipo solo pase a estado inactivo al expirar el último día del mes correspondiente.
 
+### 69. Refinamiento de la Gestión de Equipos y Control de Errores (Junio 2026) 🛠️🔒⚠️
+- **Prevención de Errores por Opciones Duplicadas en Mantine**:
+  - `EquipoForm.tsx` — Implementación de lógica de deduplicación de opciones en el selector de **Equipo Asociado** y el helper **MantineHybridSelect** para evitar el error de renderizado crítico de Mantine Core al encontrar llaves duplicadas.
+- **Prevención de Warnings por Campos Textarea Nulos**:
+  - `EquipoForm.tsx` / `ObservacionesForm.tsx` — Se añadieron valores de respaldo (fallback) vacíos (`|| ''`) en los atributos `value` de los componentes `<Textarea>` (como `observacion` y `plazo_vigencia`) para evitar advertencias de React al procesar campos nulos provenientes de la base de datos.
+- **Filtrado Inteligente de Responsables (Muestreadores)**:
+  - `EquipoForm.tsx` — Al crear un equipo nuevo, el selector de responsables solo muestra muestreadores activos. Al editar un equipo existente, muestra los activos más el responsable actual (incluso si está inactivo), agregando la etiqueta `(Inactivo)`.
+- **Bloqueo del Correlativo de Equipos**:
+  - `EquipoForm.tsx` — El campo **Correlativo** se configuró como deshabilitado (`disabled`) para impedir que los usuarios lo alteren manualmente, manteniéndolo coherente con la auto-generación del código.
+- **Notificaciones Dinámicas de Advertencia en Edición**:
+  - `EquipoForm.tsx` — Implementación de un panel unificado de advertencias (`warningsAlert`) en la parte superior que alerta si la vigencia del equipo está vencida (indicando si debe estar inactivo), próxima a vencer, o si el responsable asignado se encuentra inactivo.
+
 ---
 
 ## 🔧 Configuración para Desarrollo
