@@ -7,6 +7,7 @@ import fs from 'fs';
 import path from 'path';
 
 import { fileURLToPath } from 'url';
+import { renderEmail } from '../notifications/renderer.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -109,10 +110,55 @@ class NotificationService {
             }
 
             // 4. Compilar Asunto y Cuerpo
-            // Phase 28: Use CID for logo embedding
-            const compileResult = this._compileTemplate(event.cuerpo_template_html || '<p>Notificación del Sistema ADL One</p>', context, true);
-            const htmlBody = compileResult.html;
-            const subject = this._compileTemplate(event.asunto_template, context, false).html;
+            // Fase 1: motor declarativo nuevo (Notion-style). Si el evento no
+            // tiene configuración migrada, renderEmail() devuelve null y se
+            // usa el motor legado (HTML desde mae_evento_notificacion).
+            const rendered = renderEmail(eventCode, context);
+
+            let subject;
+            let htmlBody;
+            let attachments;
+
+            if (rendered) {
+                subject = rendered.asunto;
+                htmlBody = rendered.html;
+                attachments = this.logoBuffer
+                    ? [{ filename: 'logo-adlone.png', content: this.logoBuffer, cid: 'logo_adlone' }]
+                    : [];
+            } else {
+                let baseTemplate = '';
+                try {
+                    baseTemplate = fs.readFileSync(path.resolve(__dirname, '../templates/base_email.html'), 'utf8');
+                } catch (e) {
+                    logger.warn('No se pudo cargar base_email.html, usando fallback');
+                }
+
+                let rawHtml = event.cuerpo_template_html || '<p>Notificación del Sistema ADL One</p>';
+
+                // Determine theme color
+                context.THEME_COLOR = eventCode.includes('RECH') || eventCode.includes('CANCEL') ? '#e11d48' : (eventCode.includes('APR') ? '#0d9488' : '#0062a8');
+                context.THEME_BG = eventCode.includes('RECH') || eventCode.includes('CANCEL') ? '#ffe4e6' : (eventCode.includes('APR') ? '#f0fdf4' : '#f0f9ff');
+                context.THEME_BORDER = eventCode.includes('RECH') || eventCode.includes('CANCEL') ? '#fda4af' : (eventCode.includes('APR') ? '#bbf7d0' : '#bae6fd');
+                context.TITLE = this._compileTemplate(event.asunto_template, context, false).html;
+
+                // If it's a modern standard template (no <html> tag), wrap it
+                if (baseTemplate && !rawHtml.includes('<!DOCTYPE html>')) {
+                    // Pre-compile the inner content first
+                    const innerHtmlResult = this._compileTemplate(rawHtml, context, true);
+                    context.EMAIL_CONTENT = innerHtmlResult.html;
+                    // Then compile the outer template
+                    const compileResultOuter = this._compileTemplate(baseTemplate, context, true);
+                    htmlBody = compileResultOuter.html;
+                    attachments = [...innerHtmlResult.attachments, ...compileResultOuter.attachments];
+                } else {
+                    // Legacy
+                    const compileResultLegacy = this._compileTemplate(rawHtml, context, true);
+                    htmlBody = compileResultLegacy.html;
+                    attachments = compileResultLegacy.attachments;
+                }
+
+                subject = context.TITLE;
+            }
 
             // 5. Enviar Correo
             const to = Array.from(emailList.to).join(', ');
@@ -131,7 +177,7 @@ class NotificationService {
                 bcc: bcc,
                 subject: subject,
                 html: htmlBody,
-                attachments: compileResult.attachments || [] 
+                attachments: attachments || [] 
             };
 
             // Non-blocking email send
@@ -308,61 +354,70 @@ class NotificationService {
         if (isHtml && (context.equipos || context.datos_json)) {
             let equiposHtml = '';
             
-            // Legacy handling for arrays
+            // Handling for arrays of items (equipos)
             if (Array.isArray(context.equipos)) {
                 equiposHtml = context.equipos.map((equipo) => {
+                    const keysToSkip = ['id', 'isTransfer', 'status', 'datos_antiguos', 'datos_nuevos'];
+                    
                     if (equipo.isTransfer) {
                         return `
-                            <table width="100%" border="0" cellspacing="0" cellpadding="0" style="width: 100%; margin-bottom: 20px; font-family: Arial, sans-serif;">
+                            <table width="100%" border="0" cellspacing="0" cellpadding="0" style="width: 100%; margin-bottom: 24px; font-family: Arial, sans-serif;">
                                 <tr>
-                                    <td style="padding: 0; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
-                                        <div style="background: white; color: #0062a8; padding: 12px 20px; font-weight: bold; font-family: Arial, sans-serif; font-size: 14px; border-bottom: 2px solid #0062a8;">
-                                            ${equipo.nombre} <span style="font-weight: normal; color: #555;">[${equipo.codigo}]</span>
-                                            <div style="font-size: 11px; margin-top: 2px; color: #666; font-weight: normal;">Tipo: ${equipo.tipo}</div>
+                                    <td style="padding: 16px 20px; background-color: #f0f9ff; border: 1px solid #bae6fd; border-radius: 12px;">
+                                        <h4 style="margin: 0 0 12px 0; color: #0369a1; font-size: 15px; border-bottom: 1px solid #bae6fd; padding-bottom: 8px; font-family: Arial, sans-serif; background-color: #f0f9ff;">Detalle del Traspaso:</h4>
+                                        <div style="background-color: #f0f9ff; font-family: Arial, sans-serif;">
+                                            <div style="margin-bottom: 12px;">
+                                                <strong>Equipo:</strong> <span style="color: #0369a1; font-weight: bold;">${equipo.nombre} ${equipo.codigo ? `[${equipo.codigo}]` : ''}</span><br>
+                                                <span style="font-size: 12px; color: #475569;">Tipo: ${equipo.tipo || 'N/A'}</span>
+                                            </div>
+                                            <table width="100%" border="0" cellspacing="0" cellpadding="0" style="width:100%; border-collapse: collapse; background-color: #f0f9ff;">
+                                                <tr>
+                                                    <td width="50%" style="padding: 12px; border: 1px solid #bae6fd; border-radius: 8px 0 0 8px; vertical-align: top; background-color: #ffffff;">
+                                                        <div style="color: #64748b; font-size: 11px; text-transform: uppercase; font-weight: bold; margin-bottom: 8px; font-family: Arial;">Datos Origen</div>
+                                                        <div style="margin-bottom: 6px; font-family: Arial; font-size: 13px; color: #334155;">
+                                                            <div style="color: #94a3b8; font-size: 10px;">Ubicación:</div>
+                                                            <strong>${equipo.datos_antiguos?.ubicacion || '-'}</strong>
+                                                        </div>
+                                                        <div style="font-family: Arial; font-size: 13px; color: #334155;">
+                                                            <div style="color: #94a3b8; font-size: 10px;">Responsable:</div>
+                                                            <strong>${equipo.datos_antiguos?.responsable || '-'}</strong>
+                                                        </div>
+                                                    </td>
+                                                    <td width="50%" style="padding: 12px; border: 1px solid #bae6fd; border-left: none; border-radius: 0 8px 8px 0; vertical-align: top; background-color: #f0fdf4;">
+                                                        <div style="color: #166534; font-size: 11px; text-transform: uppercase; font-weight: bold; margin-bottom: 8px; font-family: Arial;">Nuevos Datos (Destino)</div>
+                                                        <div style="margin-bottom: 6px; font-family: Arial; font-size: 13px; color: #0f172a;">
+                                                            <div style="color: #94a3b8; font-size: 10px;">Nueva Ubicación:</div>
+                                                            <strong style="color: #15803d;">${equipo.datos_nuevos?.ubicacion || '-'}</strong>
+                                                        </div>
+                                                        <div style="font-family: Arial; font-size: 13px; color: #0f172a;">
+                                                            <div style="color: #94a3b8; font-size: 10px;">Nuevo Responsable:</div>
+                                                            <strong style="color: #15803d;">${equipo.datos_nuevos?.responsable || '-'}</strong>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            </table>
                                         </div>
-                                        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="width:100%; border-collapse: collapse;">
-                                            <tr>
-                                                <td width="50%" style="padding: 15px; border-right: 1px solid #e2e8f0; vertical-align: top; background-color: #f8fafc;">
-                                                    <div style="color: #64748b; font-size: 11px; text-transform: uppercase; font-weight: bold; margin-bottom: 8px; font-family: Arial;">Datos Actuales (Origen)</div>
-                                                    <div style="margin-bottom: 6px; font-family: Arial; font-size: 13px; color: #334155;">
-                                                        <div style="color: #94a3b8; font-size: 10px;">Ubicación:</div>
-                                                        <strong>${equipo.datos_antiguos?.ubicacion || '-'}</strong>
-                                                    </div>
-                                                    <div style="font-family: Arial; font-size: 13px; color: #334155;">
-                                                        <div style="color: #94a3b8; font-size: 10px;">Responsable:</div>
-                                                        <strong>${equipo.datos_antiguos?.responsable || '-'}</strong>
-                                                    </div>
-                                                </td>
-                                                <td width="50%" style="padding: 15px; vertical-align: top; background-color: #fff;">
-                                                    <div style="color: #0062a8; font-size: 11px; text-transform: uppercase; font-weight: bold; margin-bottom: 8px; font-family: Arial;">Nuevos Datos (Destino)</div>
-                                                    <div style="margin-bottom: 6px; font-family: Arial; font-size: 13px; color: #0f172a;">
-                                                        <div style="color: #94a3b8; font-size: 10px;">Nueva Ubicación:</div>
-                                                        <strong style="color: #0062a8;">${equipo.datos_nuevos?.ubicacion || '-'}</strong>
-                                                    </div>
-                                                    <div style="font-family: Arial; font-size: 13px; color: #0f172a;">
-                                                        <div style="color: #94a3b8; font-size: 10px;">Nuevo Responsable:</div>
-                                                        <strong style="color: #0062a8;">${equipo.datos_nuevos?.responsable || '-'}</strong>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        </table>
                                     </td>
                                 </tr>
                             </table>
                         `;
                     } else {
+                        const eqDetails = Object.entries(equipo)
+                            .filter(([key, val]) => !keysToSkip.includes(key) && key !== 'nombre' && key !== 'codigo' && val !== null && val !== '' && val !== 'N/A')
+                            .map(([key, val]) => {
+                                const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                                return `<tr style="background-color: #f8fafc;"><td style="padding: 4px 0; font-size: 13px; color: #1e293b; background-color: #f8fafc; font-family: Arial, sans-serif;"><strong>${label}:</strong> <span style="color: #475569;">${val}</span></td></tr>`;
+                            }).join('');
+
                         return `
-                            <table width="100%" border="0" cellspacing="0" cellpadding="0" style="width: 100%; margin-bottom: 15px; font-family: Arial, sans-serif;">
+                            <table width="100%" border="0" cellspacing="0" cellpadding="0" style="width: 100%; margin-bottom: 24px; font-family: Arial, sans-serif;">
                                 <tr>
-                                    <td style="padding: 12px 16px; background-color: #ffffff; border-left: 4px solid #0062a8; border-top: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; border-radius: 0 8px 8px 0;">
-                                        <strong style="color: #0062a8; font-size: 14px; font-family: Arial, sans-serif;">${equipo.nombre || 'Equipo'}</strong>
-                                        <div style="margin-top: 8px; color: #333; font-size: 13px; line-height: 1.6; font-family: Arial, sans-serif;">
-                                            ${equipo.codigo ? `<div style="margin-bottom: 2px;">🏷️ <strong>Código:</strong> [${equipo.codigo}]</div>` : ''}
-                                            ${equipo.tipo ? `<div style="margin-bottom: 2px;">🔧 <strong>Tipo:</strong> ${equipo.tipo}</div>` : ''}
-                                            ${equipo.marca ? `<div style="margin-bottom: 2px;">🏢 <strong>Marca:</strong> ${equipo.marca} ${equipo.modelo ? `(${equipo.modelo})` : ''}</div>` : ''}
-                                            ${equipo.serie ? `<div style="margin-bottom: 2px;">🔢 <strong>Serie:</strong> ${equipo.serie}</div>` : ''}
-                                            ${equipo.ubicacion ? `<div style="margin-bottom: 2px;">📍 <strong>Ubicación Actual:</strong> ${equipo.ubicacion}</div>` : ''}
-                                        </div>
+                                    <td style="padding: 16px 20px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px;">
+                                        <h4 style="margin: 0 0 12px 0; color: #0f172a; font-size: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; font-family: Arial, sans-serif; background-color: #f8fafc;">Detalle de Equipo:</h4>
+                                        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="width: 100%; border-collapse: collapse; background-color: #f8fafc; font-family: Arial, sans-serif;">
+                                            <tr style="background-color: #f8fafc;"><td style="padding: 4px 0 8px 0; font-size: 14px; color: #1e293b; background-color: #f8fafc; font-family: Arial, sans-serif;"><strong>Equipo:</strong> <span style="color: #0f172a; font-weight: bold;">${equipo.nombre} ${equipo.codigo ? `[${equipo.codigo}]` : ''}</span></td></tr>
+                                            ${eqDetails}
+                                        </table>
                                     </td>
                                 </tr>
                             </table>
