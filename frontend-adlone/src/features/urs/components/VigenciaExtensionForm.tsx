@@ -10,7 +10,8 @@ interface VigenciaExtensionFormProps {
 const VigenciaExtensionForm: React.FC<VigenciaExtensionFormProps> = ({ onDataChange }) => {
     const { showToast } = useToast();
     const [equipoId, setEquipoId] = useState<string | null>(null);
-    const [nuevaVigencia, setNuevaVigencia] = useState('');
+    const [fechaRevision, setFechaRevision] = useState('');
+    const [siguienteVerif, setSiguienteVerif] = useState('');
     const [justificacion, setJustificacion] = useState('');
     
     const [equipos, setEquipos] = useState<{ value: string; label: string }[]>([]);
@@ -34,15 +35,29 @@ const VigenciaExtensionForm: React.FC<VigenciaExtensionFormProps> = ({ onDataCha
             .finally(() => setLoadingEquipos(false));
     }, []);
 
+    // Calcular fecha de siguiente verificación (+90 días) al ingresar fecha de revisión
+    useEffect(() => {
+        if (fechaRevision) {
+            const d = new Date(fechaRevision);
+            d.setDate(d.getDate() + 90);
+            setSiguienteVerif(d.toISOString().split('T')[0]);
+        } else {
+            setSiguienteVerif('');
+        }
+    }, [fechaRevision]);
+
     useEffect(() => {
         onDataChange({
             id_equipo: equipoId,
             nombre_equipo_full: selectedEquipoRaw ? `${selectedEquipoRaw.nombre} [${selectedEquipoRaw.codigo}]` : '',
-            nueva_vigencia: nuevaVigencia,
+            fecha_revision: fechaRevision,
+            nueva_vigencia: siguienteVerif,
+            nueva_vigencia_solicitada: siguienteVerif,
+            siguiente_verificacion: siguienteVerif,
             justificacion: justificacion,
             _form_type: 'EXTENSION_VIGENCIA'
         });
-    }, [equipoId, nuevaVigencia, justificacion, selectedEquipoRaw]);
+    }, [equipoId, fechaRevision, siguienteVerif, justificacion, selectedEquipoRaw]);
 
     return (
         <Paper withBorder p="md" radius="md" bg="violet.0">
@@ -75,18 +90,28 @@ const VigenciaExtensionForm: React.FC<VigenciaExtensionFormProps> = ({ onDataCha
                     </Box>
                 )}
 
-                <Group grow>
+                <Group grow align="flex-end">
                     <TextInput
-                        label="Nueva Fecha de Vigencia"
+                        label="Fecha de Revisión / Verificación"
                         type="date"
-                        value={nuevaVigencia}
-                        onChange={(e) => setNuevaVigencia(e.currentTarget.value)}
+                        value={fechaRevision}
+                        onChange={(e) => setFechaRevision(e.currentTarget.value)}
                         required
                         radius="md"
                     />
-                    <Box style={{ visibility: 'hidden' }}>
-                        <TextInput label="-" />
-                    </Box>
+                    {siguienteVerif ? (
+                        <Box p="xs" style={{ background: 'var(--mantine-color-teal-0)', border: '1px solid var(--mantine-color-teal-2)', borderRadius: 'var(--mantine-radius-md)' }}>
+                            <Text size="xs" c="teal.8" fw={700} tt="uppercase">Nueva Vigencia Autocalculada</Text>
+                            <Text size="sm" fw={700} c="teal.9">
+                                {new Date(siguienteVerif + 'T12:00:00').toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' })}
+                            </Text>
+                            <Text size="xs" c="teal.6">(Auto: Revisión + 90 días)</Text>
+                        </Box>
+                    ) : (
+                        <Box style={{ visibility: 'hidden' }}>
+                            <TextInput label="-" />
+                        </Box>
+                    )}
                 </Group>
 
                 <Textarea

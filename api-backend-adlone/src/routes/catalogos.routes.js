@@ -31,6 +31,7 @@ router.get('/coordinadores', authenticate, catalogosController.getCoordinadores)
 router.get('/instrumentos-ambientales', authenticate, catalogosController.getInstrumentosAmbientales);
 router.get('/unidades-medida', authenticate, catalogosController.getUnidadesMedida);
 router.get('/estados-muestreo', authenticate, catalogosController.getEstadosMuestreo);
+router.get('/estados-equipo', authenticate, catalogosController.getEstadosEquipo);
 
 // Maestros CRUD — require INF_ACCESO (Informática module permission) for writes
 router.get('/maestros/:tableName', authenticate, catalogosController.getMaestroData);

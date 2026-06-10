@@ -12,7 +12,7 @@ const ALLOWED_TABLES = new Set([
   'mae_instrumentoambiental', 'mae_umedida', 'mae_lugaranalisis', 'mae_formacanal',
   'mae_dispositivohidraulico', 'mae_solicitud_tipo', 'mae_permiso',
   'mae_notificacion_regla', 'mae_evento_notificacion', 'mae_comuna', 'mae_zonautm',
-  'mae_competencia'
+  'mae_competencia', 'mae_estado_equipo', 'mae_equipo_catalogo'
 ]);
 
 // Columns that must never be returned by the generic getMaestroData endpoint
@@ -407,6 +407,17 @@ export const catalogosService = {
       return result.recordset;
     } catch (error) {
       logger.error('Error in getEstadosMuestreo service:', error);
+      throw error;
+    }
+  },
+
+  getEstadosEquipo: async () => {
+    try {
+      const pool = await getConnection();
+      const result = await pool.request().query("SELECT id_estado_equipo, nombre, activo FROM mae_estado_equipo WHERE activo = 1 ORDER BY nombre");
+      return result.recordset;
+    } catch (error) {
+      logger.error('Error in getEstadosEquipo service:', error);
       throw error;
     }
   },

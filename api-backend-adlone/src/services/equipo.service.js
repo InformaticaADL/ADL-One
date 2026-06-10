@@ -362,10 +362,13 @@ export const equipoService = {
                     'Cámara': 'CAM',
                     'Centrífuga': 'CEN',
                     'GPS': 'GPS',
+                    'Sistema de Posicionamiento Global': 'GPS',
+                    'Molinete': 'MOL',
                     'Instrumento': 'INS',
                     'Medidor': 'MED',
                     'Multiparámetro': 'MPA',
                     'Phmetro': 'PHM',
+                    'Sonda Caudal': 'MCA',
                     'Sonda': 'SON'
                 };
 

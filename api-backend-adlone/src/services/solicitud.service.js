@@ -705,16 +705,20 @@ class SolicitudService {
                     const currentSolDatos = datos_json || solDatos; // Use newest data if available
 
                     if (type === 'VIGENCIA_PROXIMA') {
-                        // Logic: Update equipment 'fecha_vigencia'
+                        // Logic: Update equipment 'fecha_vigencia', 'Ultima_verificacion', 'Siguiente_verificacion'
                         const idEquipo = currentSolDatos.id_equipo;
-                        const nuevaVigencia = currentSolDatos.nueva_vigencia_solicitada;
+                        const nuevaVigencia = currentSolDatos.nueva_vigencia || currentSolDatos.nueva_vigencia_solicitada;
+                        const ultimaVerificacion = currentSolDatos.fecha_revision;
+                        const siguienteVerificacion = currentSolDatos.siguiente_verificacion || nuevaVigencia;
 
                         if (idEquipo && nuevaVigencia) {
                             await equipoService.updateEquipo(idEquipo, {
                                 vigencia: nuevaVigencia,
-                                observacion: `Vigencia actualizada por solicitud ${id}. ${feedback || ''}`
+                                ultima_verificacion: ultimaVerificacion || null,
+                                siguiente_verificacion: siguienteVerificacion || null,
+                                observacion: `Vigencia y verificación técnica actualizadas por solicitud ${id}. ${feedback || ''}`
                             }, adminId);
-                            logger.info(`VIGENCIA_PROXIMA approved: Updated equipo ${idEquipo} vigencia to ${nuevaVigencia}`);
+                            logger.info(`VIGENCIA_PROXIMA approved: Updated equipo ${idEquipo} - vigencia: ${nuevaVigencia}, ultima_verif: ${ultimaVerificacion}, siguiente_verif: ${siguienteVerificacion}`);
                         }
                     } else if (type === 'TRASPASO') {
                         // Logic: Update location and responsible

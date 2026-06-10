@@ -459,12 +459,55 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
                         style={{ flex: 1 }}
                         label={formatHeader(col)}
                         placeholder={`Seleccione ${formatHeader(col)}...`}
-                        data={options.map(opt => ({ 
-                            value: String(opt[lookup.idColumn]), 
-                            label: String(opt[lookup.displayColumn]) 
-                        }))}
+                        data={(() => {
+                            const seen = new Set();
+                            return options
+                                .map(opt => ({ 
+                                    value: String(opt[lookup.idColumn]), 
+                                    label: String(opt[lookup.displayColumn]) 
+                                }))
+                                .filter(opt => {
+                                    if (!opt.value || opt.value === 'undefined' || opt.value === 'null') return false;
+                                    if (seen.has(opt.value)) return false;
+                                    seen.add(opt.value);
+                                    return true;
+                                });
+                        })()}
                         value={formData[col] === null || formData[col] === undefined ? '' : String(formData[col])}
-                        onChange={(v) => setFormData({ ...formData, [col]: v })}
+                        onChange={(v) => {
+                            let updatedForm = { ...formData, [col]: v };
+                            if (v) {
+                                const selectedOpt = options.find(opt => String(opt[lookup.idColumn]) === String(v));
+                                if (selectedOpt) {
+                                    // Autofill other matching or similar fields in the form
+                                    Object.keys(formData).forEach(formKey => {
+                                        if (formKey === col) return; // don't overwrite the selected id column itself
+                                        
+                                        // Try exact match or fuzzy match (e.g. tipoequipo vs tipo_equipo)
+                                        const cleanFormKey = formKey.toLowerCase().replace(/_/g, '');
+                                        
+                                        const matchingKey = Object.keys(selectedOpt).find(optKey => {
+                                            const cleanOptKey = optKey.toLowerCase().replace(/_/g, '');
+                                            return cleanOptKey === cleanFormKey && optKey !== lookup.idColumn;
+                                        });
+                                        
+                                        if (matchingKey) {
+                                            updatedForm[formKey] = String(selectedOpt[matchingKey]);
+                                        }
+                                    });
+                                }
+                            }
+                            
+                            // Check if we need to auto-set es_fijo based on the new name
+                            const currentName = updatedForm.nombre || '';
+                            const fijos = ['MUESTREADOR AUTOMÁTICO', 'SONDA CAUDAL', 'SONDA PH/TEMPERATURA', 'BATERIA', 'POWER PACK', 'FILTRO', 'Pedestal'];
+                            const isFijoName = fijos.some(f => currentName.trim().toUpperCase() === f.toUpperCase());
+                            if ('es_fijo' in updatedForm) {
+                                updatedForm.es_fijo = isFijoName;
+                            }
+                            
+                            setFormData(updatedForm);
+                        }}
                         searchable
                         nothingFoundMessage="Sin opciones disponibles"
                         size="md"
@@ -553,8 +596,8 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
         }
 
         // Precise boolean detection: exact names, or specific prefixes (no false positives on 'nombre_estadomuestreo')
-        const boolExact    = ['habilitado','activo','active','enabled','vigente','estado','visible','oculto','transaccional','inspector','guia','realiza_screening'];
-        const boolPrefix   = ['envia_','es_','is_','tiene_','permite_','perfil_'];
+        const boolExact    = ['habilitado','activo','active','enabled','vigente','estado','visible','oculto','transaccional','inspector','guia','realiza_screening','tienefc','visible_muestreador','informe'];
+        const boolPrefix   = ['envia_','es_','is_','tiene_','permite_','perfil_','esta_'];
         const boolSuffix   = ['_habilitado','_activo','_estado','_vigente','_oculto'];
         const isBoolField  =
             boolExact.includes(col.toLowerCase()) ||
@@ -564,7 +607,7 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
         if (isBoolField) {
             const raw = formData[col];
             // Normalize current value to string 'true'/'false' for the Select
-            const isCurrentlyTrue = raw === true || raw === 1 || raw === 'true' || raw === 'S' || raw === '1';
+            const isCurrentlyTrue = raw === true || raw === 1 || raw === 'true' || raw === 'S' || raw === '1' || raw === 'SI' || raw === 'Si' || raw === 'si' || raw === 'SÍ' || raw === 'sí';
             return (
                 <Select
                     key={col}
@@ -575,11 +618,24 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
                     ]}
                     value={isCurrentlyTrue ? 'true' : 'false'}
                     onChange={(v) => {
-                        // Convert back to the original DB type
+                        const isTrue = v === 'true';
                         const originalRaw = formData[col];
-                        let newVal: any = v === 'true';
-                        if (originalRaw === 1 || originalRaw === 0) newVal = v === 'true' ? 1 : 0;
-                        else if (originalRaw === 'S' || originalRaw === 'N') newVal = v === 'true' ? 'S' : 'N';
+                        const c = col.toLowerCase();
+                        let newVal: any = isTrue;
+                        if (originalRaw === 'S' || originalRaw === 'N' || 
+                            ['habilitado', 'visible_muestreador', 'informe', 'activo', 'vigente', 'tienefc', 'tiene_fc'].includes(c)) {
+                            newVal = isTrue ? 'S' : 'N';
+                        } else if (originalRaw === 'Si' || originalRaw === 'No' || originalRaw === 'si' || originalRaw === 'no') {
+                            newVal = isTrue ? 'Si' : 'No';
+                        } else if (originalRaw === 1 || originalRaw === 0 || typeof originalRaw === 'number') {
+                            newVal = isTrue ? 1 : 0;
+                        } else {
+                            if (['habilitado', 'visible_muestreador', 'informe', 'activo', 'vigente', 'tienefc', 'tiene_fc'].includes(c)) {
+                                newVal = isTrue ? 'S' : 'N';
+                            } else {
+                                newVal = isTrue;
+                            }
+                        }
                         setFormData({ ...formData, [col]: newVal });
                     }}
                     size="md"
@@ -588,6 +644,45 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
                         label: { color: 'var(--mantine-color-blue-filled)', fontWeight: 600 },
                         input: { borderLeft: '3px solid var(--mantine-color-blue-5)' }
                     }}
+                />
+            );
+        }
+
+        const isDateField = ['fecha', 'date', 'verificacion'].some(p => col.toLowerCase().includes(p));
+
+        if (isDateField) {
+            let val = '';
+            if (formData[col]) {
+                const dateStr = String(formData[col]);
+                if (dateStr.includes('T')) {
+                    val = dateStr.split('T')[0];
+                } else if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+                    val = dateStr.substring(0, 10);
+                } else {
+                    try {
+                        const d = new Date(dateStr);
+                        if (!isNaN(d.getTime())) {
+                            const y = d.getFullYear();
+                            const m = String(d.getMonth() + 1).padStart(2, '0');
+                            const day = String(d.getDate()).padStart(2, '0');
+                            val = `${y}-${m}-${day}`;
+                        }
+                    } catch {
+                        val = dateStr;
+                    }
+                }
+            }
+            return (
+                <TextInput 
+                    key={col}
+                    label={formatHeader(col)}
+                    placeholder={col}
+                    type="date"
+                    size="md"
+                    radius="md"
+                    leftSection={icon}
+                    value={val}
+                    onChange={(e) => setFormData({ ...formData, [col]: e.currentTarget.value })}
                 />
             );
         }
@@ -601,7 +696,15 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
                 radius="md"
                 leftSection={icon}
                 value={formData[col] === null || formData[col] === undefined ? '' : String(formData[col])}
-                onChange={(e) => setFormData({ ...formData, [col]: e.currentTarget.value })}
+                onChange={(e) => {
+                    const newVal = e.currentTarget.value;
+                    let updatedForm = { ...formData, [col]: newVal };
+                    if (col === 'nombre' && 'es_fijo' in updatedForm) {
+                        const fijos = ['MUESTREADOR AUTOMÁTICO', 'SONDA CAUDAL', 'SONDA PH/TEMPERATURA', 'BATERIA', 'POWER PACK', 'FILTRO', 'Pedestal'];
+                        updatedForm.es_fijo = fijos.some(f => newVal.trim().toUpperCase() === f.toUpperCase());
+                    }
+                    setFormData(updatedForm);
+                }}
             />
         );
     };
@@ -1183,10 +1286,20 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
                                     <Select
                                         key={`filter-${field}`}
                                         placeholder={`Filtrar por ${formatHeader(field)}`}
-                                        data={options.map(opt => ({
-                                            value: String(opt[lookup.idColumn]),
-                                            label: String(opt[lookup.displayColumn])
-                                        }))}
+                                        data={(() => {
+                                            const seen = new Set();
+                                            return options
+                                                .map(opt => ({
+                                                    value: String(opt[lookup.idColumn]),
+                                                    label: String(opt[lookup.displayColumn])
+                                                }))
+                                                .filter(opt => {
+                                                    if (!opt.value || opt.value === 'undefined' || opt.value === 'null') return false;
+                                                    if (seen.has(opt.value)) return false;
+                                                    seen.add(opt.value);
+                                                    return true;
+                                                });
+                                        })()}
                                         value={dynamicFilters[field] || null}
                                         onChange={(v) => setDynamicFilters(prev => ({ ...prev, [field]: v || '' }))}
                                         clearable

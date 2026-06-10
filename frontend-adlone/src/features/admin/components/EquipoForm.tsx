@@ -42,6 +42,7 @@ import {
 
 import { equipoService, type Equipo, type EquipoHistorial } from '../services/equipo.service';
 import { adminService } from '../../../services/admin.service';
+import { catalogosService } from '../../medio-ambiente/services/catalogos.service';
 import { useToast } from '../../../contexts/ToastContext';
 import { useNavStore } from '../../../store/navStore';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -145,6 +146,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
     const [unidadesOptions, setUnidadesOptions] = useState<string[]>([]);
     const [sedeOptions, setSedeOptions] = useState<string[]>([]);
     const [estadoOptions, setEstadoOptions] = useState<string[]>([]);
+    const [estadoEquipoOptions, setEstadoEquipoOptions] = useState<string[]>([]);
     const [fullCatalogItems, setFullCatalogItems] = useState<any[]>([]);
     const [nameToMetadata, setNameToMetadata] = useState<Record<string, any>>({});
     const [rejectingSolicitud, setRejectingSolicitud] = useState<any>(null);
@@ -200,14 +202,25 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
     useEffect(() => {
         const fetchInitialData = async () => {
             try {
-                const [mRes, eRes, allERes] = await Promise.all([
+                const [mRes, eRes, allERes, estadoEquipoRes] = await Promise.all([
                     adminService.getMuestreadores('', ''),   // todos: activos e inactivos
                     equipoService.getEquipos({ limit: 1 }),
-                    equipoService.getEquipos({ limit: 2000 })
+                    equipoService.getEquipos({ limit: 2000 }),
+                    catalogosService.getEstadosEquipo().catch(err => {
+                        console.error('Error loading dynamic estados equipo, using fallback', err);
+                        return [];
+                    })
                 ]);
 
                 setMuestreadores(mRes.data || []);
                 setAllEquipos(allERes.data || []);
+
+                if (estadoEquipoRes && estadoEquipoRes.length > 0) {
+                    const activeNames = estadoEquipoRes
+                        .filter((item: any) => item.activo === true || item.activo === 1 || item.activo === 'S')
+                        .map((item: any) => item.nombre);
+                    setEstadoEquipoOptions(activeNames);
+                }
 
                 if (eRes.catalogs) {
                     setFullCatalogItems(eRes.catalogs.nombres || []);
@@ -279,6 +292,9 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                         equipo_asociado: (!baseData.equipo_asociado || baseData.equipo_asociado === 0 || baseData.equipo_asociado === '0') ? 'No Aplica' : baseData.equipo_asociado,
                         correlativo: Number(baseData.correlativo) || 0,
                         version: baseData.version || 'v1',
+                        tiene_fc: (baseData.tiene_fc === 'S' || baseData.tiene_fc === 'SI') ? 'SI' : 'NO',
+                        visible_muestreador: (baseData.visible_muestreador === 'S' || baseData.visible_muestreador === 'SI') ? 'SI' : 'NO',
+                        informe: (baseData.informe === 'S' || baseData.informe === 'SI') ? 'SI' : 'NO',
                         // Campos nuevos: formatear fechas si vienen como ISO
                         ultima_verificacion: baseData.ultima_verificacion ? baseData.ultima_verificacion.split('T')[0] : '',
                         siguiente_verificacion: baseData.siguiente_verificacion ? baseData.siguiente_verificacion.split('T')[0] : '',
@@ -420,7 +436,14 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                             try { fd = new Date(b.vigencia).toISOString().split('T')[0]; } catch { fd = ''; }
                         }
                     }
-                    setFormData({ ...b, vigencia: fd, version: b.version || 'v1' });
+                    setFormData({
+                        ...b,
+                        vigencia: fd,
+                        version: b.version || 'v1',
+                        tiene_fc: (b.tiene_fc === 'S' || b.tiene_fc === 'SI') ? 'SI' : 'NO',
+                        visible_muestreador: (b.visible_muestreador === 'S' || b.visible_muestreador === 'SI') ? 'SI' : 'NO',
+                        informe: (b.informe === 'S' || b.informe === 'SI') ? 'SI' : 'NO',
+                    });
                 }
                 const histRes = await equipoService.getEquipoHistorial(initialData.id_equipo);
                 if (histRes.success) setHistory(histRes.data || []);
@@ -918,8 +941,8 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                 </Grid>
 
                                 <Divider label="Verificación y Estado" labelPosition="center" />
-                                <Grid align="flex-end">
-                                    <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+                                <Grid>
+                                    <Grid.Col span={{ base: 12, sm: 4, md: 4 }}>
                                         <TextInput
                                             label={<FieldLabel label="Última Verificación" help="Fecha en que se realizó la última verificación técnica de calibración del equipo." />}
                                             type="date"
@@ -936,22 +959,29 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                             }}
                                         />
                                     </Grid.Col>
-                                    <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+                                    <Grid.Col span={{ base: 12, sm: 4, md: 4 }}>
                                         <TextInput
-                                            label={<FieldLabel label="Siguiente Verificación *" help="Fecha programada para la próxima verificación técnica (por defecto 90 días después de la última). Corresponde también a la fecha de vigencia." />}
+                                            label={
+                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                                    <FieldLabel label="Siguiente Verificación *" help="Fecha programada para la próxima verificación técnica (por defecto 90 días después de la última). Corresponde también a la fecha de vigencia." />
+                                                    <span style={{ fontSize: 12, color: '#868e96', fontWeight: 400 }}>
+                                                        (Auto: Última + 90 días, editable)
+                                                    </span>
+                                                </span>
+                                            }
                                             type="date"
                                             value={formData.siguiente_verificacion}
-                                            description="Auto: Última + 90 días (editable)"
                                             onChange={(e) => setFormData((p: any) => ({ ...p, siguiente_verificacion: e.target.value }))}
                                             required
+                                            withAsterisk={false}
                                             error={attemptedSubmit && !formData.siguiente_verificacion && "Obligatorio"}
                                         />
                                     </Grid.Col>
-                                    <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+                                    <Grid.Col span={{ base: 12, sm: 4, md: 4 }}>
                                         <Select
                                             label={<FieldLabel label="Estado del Equipo" help="Estado operativo actual del equipo (ej: Operativo, En Mantención, En Calibración, Fuera de Servicio)." />}
                                             placeholder="Seleccione..."
-                                            data={[
+                                            data={estadoEquipoOptions.length > 0 ? estadoEquipoOptions : [
                                                 'Operativo',
                                                 'Dado de Baja',
                                                 'En Mantención',
@@ -963,7 +993,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                             clearable
                                         />
                                     </Grid.Col>
-                                    <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+                                    <Grid.Col span={12}>
                                         <Textarea
                                             label={<FieldLabel label="Plazo Vigencia" help="Comentarios o aclaraciones sobre el plazo de vigencia de la calibración del equipo (ej: Hasta el día 30 del mes...)." />}
                                             placeholder="Ej: Hasta el día 30 del mes..."

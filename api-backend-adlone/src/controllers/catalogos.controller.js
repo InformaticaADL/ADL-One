@@ -211,6 +211,15 @@ export const catalogosController = {
         }
   },
     
+    getEstadosEquipo: async (req, res) => {
+        try {
+            const data = await catalogosService.getEstadosEquipo();
+            return successResponse(res, data, 'Estados de equipo retrieved successfully');
+        } catch (error) {
+            return errorResponse(res, error.message, 500);
+        }
+    },
+    
     getMaestroData: async (req, res) => {
         try {
             const { tableName } = req.params;

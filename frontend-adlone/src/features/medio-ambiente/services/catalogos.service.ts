@@ -290,6 +290,12 @@ export const catalogosService = {
             return response.data.data;
         });
     },
+    getEstadosEquipo: async (): Promise<any[]> => {
+        return deduplicatedRequest('estados-equipo', async () => {
+            const response = await axiosInstance.get('/estados-equipo');
+            return response.data.data;
+        });
+    },
 
     getRoles: async (): Promise<any[]> => {
         return deduplicatedRequest('roles', async () => {

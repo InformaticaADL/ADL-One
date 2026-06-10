@@ -399,7 +399,12 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             statusColumn: 'habilitado',
             summaryColumns: ['codigo', 'nombre', 'tipoequipo', 'sede', 'id_muestreador'],
             lookups: {
-                id_muestreador: { tableName: 'mae_muestreador', idColumn: 'id_muestreador', displayColumn: 'nombre_muestreador' }
+                id_muestreador: { tableName: 'mae_muestreador', idColumn: 'id_muestreador', displayColumn: 'nombre_muestreador' },
+                id_equipocatalogo: { tableName: 'mae_equipo_catalogo', idColumn: 'id_equipocatalogo', displayColumn: 'nombre' },
+                tipoequipo: { tableName: 'mae_equipo_catalogo', idColumn: 'tipo_equipo', displayColumn: 'tipo_equipo' },
+                nombre: { tableName: 'mae_equipo_catalogo', idColumn: 'nombre', displayColumn: 'nombre' },
+                sede: { tableName: 'mae_lugaranalisis', idColumn: 'sigla', displayColumn: 'sigla' },
+                Estado: { tableName: 'mae_estado_equipo', idColumn: 'nombre', displayColumn: 'nombre' }
             }
         },
         { 
@@ -426,6 +431,31 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             area: 'tecnica',
             displayColumn: 'nombre_umedida',
             summaryColumns: ['nombre_umedida']
+        },
+        { 
+            id: 'estado-equipo', 
+            label: 'Estados de Equipo', 
+            icon: <IconSettings size={24} />, 
+            color: 'blue',
+            description: 'Estados operativos que pueden tener los equipos.',
+            tableName: 'mae_estado_equipo',
+            idName: 'id_estado_equipo',
+            area: 'tecnica',
+            displayColumn: 'nombre',
+            statusColumn: 'activo',
+            summaryColumns: ['nombre', 'activo']
+        },
+        { 
+            id: 'equipo-catalogo', 
+            label: 'Catálogo de Modelos (Equipos)', 
+            icon: <IconDeviceAnalytics size={24} />, 
+            color: 'teal',
+            description: 'Catálogo de modelos de equipos, variables de medición y unidades de medida.',
+            tableName: 'mae_equipo_catalogo',
+            idName: 'id_equipocatalogo',
+            area: 'tecnica',
+            displayColumn: 'nombre',
+            summaryColumns: ['nombre', 'tipo_equipo', 'que_mide', 'unidad_medida_textual', 'unidad_medida_sigla']
         },
         { 
             id: 'lugares-analisis', 

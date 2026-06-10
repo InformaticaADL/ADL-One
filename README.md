@@ -575,6 +575,18 @@ frontend-adlone/
   - `MaestroDataManager.tsx` / `MaestrosHub.tsx` — Integración de la gestión de competencias en el hub administrativo de maestros.
   - `chatStore.ts` / `notificationStore.ts` / `AuthContext.tsx` / `main.tsx` — Mejoras de estado y estabilidad global de la aplicación.
 
+### 72. Importación Masiva, Normalización y Control de Vigencia de Equipos (Junio 2026) 🏗️⚙️📅
+- **Importación Limpia e Integridad de Datos**:
+  - `import_all_equipos.js` — Script de vaciado (`TRUNCATE`) y repoblación controlada para cargar los 666 equipos definitivos desde el archivo Excel.
+  - Mapeo estático de respaldo para los 32 equipos que presentaban la columna `id_muestreador` vacía en el Excel, previniendo campos nulos en BD.
+  - `generate_insert_sql.js` — Generador del script SQL definitivo con todos los mapeos y normalizaciones aplicados.
+  - `insert_all_equipos.sql` (en proyecto y Escritorio) — Script SQL autogenerado para recrear y poblar la tabla `mae_equipo` desde cero.
+- **Normalización de Sede**:
+  - Implementación de reglas de limpieza para abreviaturas con punto en `sede`: `.A` / `.a` ➔ `AY`, `.P` / `.p` ➔ `PM`, y `.V` / `.v` ➔ `VI`, tanto en los scripts de migración en lote como en las importaciones en tiempo de ejecución.
+- **Flujo de Extensión de Vigencia (Calidad)**:
+  - `VigenciaExtensionForm.tsx` — Rediseño del formulario frontend: reemplazo del campo manual de fecha de vigencia por un DatePicker interactivo de "Fecha de Revisión / Verificación" con autocalculo instantáneo (+90 días) y despliegue estético de la nueva vigencia en tarjeta Teal.
+  - `solicitud.service.js` — Actualización dual al aprobar solicitudes `VIGENCIA_PROXIMA`: guarda `ultima_verificacion` (fecha de revisión) y calcula/sincroniza `siguiente_verificacion` y `fecha_vigencia`.
+
 ---
 
 ## 🔧 Configuración para Desarrollo
@@ -651,6 +663,8 @@ npm run dev       # Puerto 5173
 | **Competencias de Muestreadores** | CRUD mae_competencia + asignación transaccional + UI chips | ✅ Implementado |
 | **Documentos de Muestreadores** | Subida multipart + gestión física de archivos en servidor | ✅ Implementado |
 | **Estado de Entrenamiento** | Toggle en_entrenamiento + badge interactivo en listado | ✅ Implementado |
+| **Importación e Integridad de Equipos** | Importación limpia de 666 equipos + mapeo de muestreadores de respaldo + normalización de sedes | ✅ Implementado |
+| **Control de Vigencia de Equipos** | Flujo de revisión con autocalculo (+90 días) + sincronización dual de fecha de verificación | ✅ Implementado |
 
 ---
 

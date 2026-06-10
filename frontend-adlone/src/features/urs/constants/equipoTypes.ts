@@ -3,7 +3,9 @@ export const TIPOS_EQUIPO = [
     'Muestreador Isotérmico',
     'Muestreador Automático',
     'Sonda Nivel',
-    'GPS',
+    'Sistema de Posicionamiento Global',
+    'Molinete',
+    'Sonda Caudal',
     'Centrifuga',
     'Termo / Incubadora',
     'Otro'
