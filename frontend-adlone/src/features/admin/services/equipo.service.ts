@@ -52,6 +52,8 @@ export interface EquiposResponse {
     limit: number;
     totalPages: number;
     expiringCount?: number;
+    expiredCount?: number;
+    inactiveSamplerCount?: number;
     catalogs?: {
         tipos: string[];
         estados: string[];

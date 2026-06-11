@@ -117,7 +117,7 @@ export const equipoService = {
      */
     getEquipos: async (params = {}) => {
         try {
-            const { search, tipo, sede, estado, fechaDesde, fechaHasta, id_muestreador, sortBy, page = 1, limit = 10 } = params;
+            const { search, tipo, sede, estado, fechaDesde, fechaHasta, id_muestreador, expiredOnly, inactiveSamplerOnly, sortBy, page = 1, limit = 10 } = params;
             const pool = await getConnection();
 
             // Filters logic for both count and data
@@ -164,6 +164,14 @@ export const equipoService = {
             if (fechaHasta) {
                 request.input('fechaHasta', sql.Date, new Date(fechaHasta));
                 whereClause += ` AND CAST(e.fecha_vigencia AS DATE) <= @fechaHasta`;
+            }
+
+            if (expiredOnly === 'true' || expiredOnly === true) {
+                whereClause += ` AND e.habilitado = 'S' AND e.fecha_vigencia IS NOT NULL AND CAST(e.fecha_vigencia AS DATE) < CAST(GETDATE() AS DATE)`;
+            }
+
+            if (inactiveSamplerOnly === 'true' || inactiveSamplerOnly === true) {
+                whereClause += ` AND e.habilitado = 'S' AND m.habilitado = 'N'`;
             }
 
             // 1. Get total for pagination
@@ -298,7 +306,7 @@ export const equipoService = {
 
             };
 
-            const [catalogs, expiringResult] = await Promise.all([
+            const [catalogs, expiringResult, expiredResult, inactiveSamplerResult] = await Promise.all([
                 getCatalogs(sede),
                 pool.request().query(`
                     SELECT COUNT(*) as cnt
@@ -307,6 +315,20 @@ export const equipoService = {
                       AND fecha_vigencia IS NOT NULL
                       AND CAST(fecha_vigencia AS DATE) <= CAST(DATEADD(day, 30, GETDATE()) AS DATE)
                       AND CAST(fecha_vigencia AS DATE) >= CAST(GETDATE() AS DATE)
+                `),
+                pool.request().query(`
+                    SELECT COUNT(*) as cnt
+                    FROM mae_equipo
+                    WHERE habilitado = 'S'
+                      AND fecha_vigencia IS NOT NULL
+                      AND CAST(fecha_vigencia AS DATE) < CAST(GETDATE() AS DATE)
+                `),
+                pool.request().query(`
+                    SELECT COUNT(*) as cnt
+                    FROM mae_equipo e
+                    INNER JOIN mae_muestreador m ON e.id_muestreador = m.id_muestreador
+                    WHERE e.habilitado = 'S'
+                      AND m.habilitado = 'N'
                 `)
             ]);
 
@@ -317,6 +339,8 @@ export const equipoService = {
                 limit: Number(limit),
                 totalPages: Math.ceil(total / limit),
                 expiringCount: expiringResult.recordset[0].cnt,
+                expiredCount: expiredResult.recordset[0].cnt,
+                inactiveSamplerCount: inactiveSamplerResult.recordset[0].cnt,
                 catalogs
             };
         } catch (error) {

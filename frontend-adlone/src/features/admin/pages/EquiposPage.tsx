@@ -33,7 +33,9 @@ import {
     IconInfoCircle,
     IconTrash,
     IconCheck,
-    IconX
+    IconX,
+    IconCalendarOff,
+    IconUserOff
 } from '@tabler/icons-react';
 
 import { equipoService, type Equipo } from '../services/equipo.service';
@@ -141,6 +143,10 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const [totalPages, setTotalPages] = useState(1);
     const [totalItems, setTotalItems] = useState(0);
     const [expiringCount, setExpiringCount] = useState(0);
+    const [expiredCount, setExpiredCount] = useState(0);
+    const [inactiveSamplerCount, setInactiveSamplerCount] = useState(0);
+    const [filterExpired, setFilterExpired] = useState(false);
+    const [filterInactiveSampler, setFilterInactiveSampler] = useState(false);
     const [expiringAlertDismissed, setExpiringAlertDismissed] = useState(false);
     const [muestreadorList, setMuestreadorList] = useState<any[]>([]);
     
@@ -170,14 +176,14 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
 
     useEffect(() => {
         setPage(1);
-    }, [searchTerm, filterTipo, filterSede, filterEstado, filterMuestreador, filterFechaDesde, filterFechaHasta]);
+    }, [searchTerm, filterTipo, filterSede, filterEstado, filterMuestreador, filterFechaDesde, filterFechaHasta, filterExpired, filterInactiveSampler]);
 
     useEffect(() => {
         const delayDebounceFn = setTimeout(() => {
             fetchData();
         }, 300);
         return () => clearTimeout(delayDebounceFn);
-    }, [page, filterTipo, filterSede, filterEstado, searchTerm, filterFechaDesde, filterFechaHasta, filterMuestreador]);
+    }, [page, filterTipo, filterSede, filterEstado, searchTerm, filterFechaDesde, filterFechaHasta, filterMuestreador, filterExpired, filterInactiveSampler]);
 
     // Notification handling from NavStore
     useEffect(() => {
@@ -240,6 +246,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 fechaDesde: filterFechaDesde,
                 fechaHasta: filterFechaHasta,
                 id_muestreador: filterMuestreador || '',
+                expiredOnly: filterExpired,
+                inactiveSamplerOnly: filterInactiveSampler,
                 sortBy: 'vigencia'
             };
             const response = await equipoService.getEquipos(params);
@@ -248,6 +256,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 setTotalPages(response.totalPages || 1);
                 setTotalItems(response.total || 0);
                 setExpiringCount(response.expiringCount ?? 0);
+                setExpiredCount(response.expiredCount ?? 0);
+                setInactiveSamplerCount(response.inactiveSamplerCount ?? 0);
                 setExpiringAlertDismissed(false);
                 if (response.catalogs) {
                     setCatalogs(response.catalogs);
@@ -784,6 +794,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         setFilterMuestreador(null);
         setFilterFechaDesde('');
         setFilterFechaHasta('');
+        setFilterExpired(false);
+        setFilterInactiveSampler(false);
         setPage(1);
     };
 
@@ -829,8 +841,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     };
 
     const hasActiveFilters = useMemo(() =>
-        searchTerm !== '' || filterTipo || filterSede || filterEstado || filterMuestreador || filterFechaDesde || filterFechaHasta,
-    [searchTerm, filterTipo, filterSede, filterEstado, filterMuestreador, filterFechaDesde, filterFechaHasta]);
+        searchTerm !== '' || filterTipo || filterSede || filterEstado || filterMuestreador || filterFechaDesde || filterFechaHasta || filterExpired || filterInactiveSampler,
+    [searchTerm, filterTipo, filterSede, filterEstado, filterMuestreador, filterFechaDesde, filterFechaHasta, filterExpired, filterInactiveSampler]);
 
     // Equipos con solicitudes pendientes aparecen primero; luego los que vencen pronto (más cercano primero)
     const sortedEquipos = useMemo(() => {
@@ -933,6 +945,153 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                         </Group>
                     }
                 />
+
+                <Grid gutter="md">
+                    <Grid.Col span={{ base: 12, md: 4 }}>
+                        <Paper 
+                            withBorder 
+                            p="md" 
+                            radius="md" 
+                            style={{ 
+                                cursor: 'pointer', 
+                                borderLeft: '4px solid var(--mantine-color-orange-6)',
+                                backgroundColor: filterFechaHasta !== '' ? 'var(--mantine-color-orange-0)' : 'white',
+                                transition: 'all 0.2s ease',
+                                transform: filterFechaHasta !== '' ? 'translateY(-2px)' : 'none',
+                                boxShadow: filterFechaHasta !== '' ? 'var(--mantine-shadow-sm)' : 'none'
+                            }}
+                            onClick={() => {
+                                if (filterFechaHasta !== '') {
+                                    setFilterFechaHasta('');
+                                    setFilterEstado('');
+                                } else {
+                                    const today = new Date();
+                                    const in30 = new Date(today);
+                                    in30.setDate(today.getDate() + 30);
+                                    const fmt = (d: Date) => d.toISOString().split('T')[0];
+                                    setFilterFechaDesde('');
+                                    setFilterFechaHasta(fmt(in30));
+                                    setFilterEstado('Activo');
+                                    setFilterExpired(false);
+                                    setFilterInactiveSampler(false);
+                                }
+                                setPage(1);
+                            }}
+                        >
+                            <Group justify="space-between" wrap="nowrap">
+                                <Stack gap={0}>
+                                    <Text size="xs" c="dimmed" fw={700} tt="uppercase">Por Vencer (30 días)</Text>
+                                    <Text size="xl" fw={700}>{expiringCount}</Text>
+                                </Stack>
+                                <Box 
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        width: 42,
+                                        height: 42,
+                                        borderRadius: 8,
+                                        backgroundColor: 'var(--mantine-color-orange-1)',
+                                        color: 'var(--mantine-color-orange-6)',
+                                        flexShrink: 0
+                                    }}
+                                >
+                                    <IconAlertTriangle size={24} />
+                                </Box>
+                            </Group>
+                        </Paper>
+                    </Grid.Col>
+
+                    <Grid.Col span={{ base: 12, md: 4 }}>
+                        <Paper 
+                            withBorder 
+                            p="md" 
+                            radius="md" 
+                            style={{ 
+                                cursor: 'pointer', 
+                                borderLeft: '4px solid var(--mantine-color-red-6)',
+                                backgroundColor: filterExpired ? 'var(--mantine-color-red-0)' : 'white',
+                                transition: 'all 0.2s ease',
+                                transform: filterExpired ? 'translateY(-2px)' : 'none',
+                                boxShadow: filterExpired ? 'var(--mantine-shadow-sm)' : 'none'
+                            }}
+                            onClick={() => {
+                                setFilterExpired(!filterExpired);
+                                setFilterInactiveSampler(false);
+                                setFilterFechaDesde('');
+                                setFilterFechaHasta('');
+                                setPage(1);
+                            }}
+                        >
+                            <Group justify="space-between" wrap="nowrap">
+                                <Stack gap={0}>
+                                    <Text size="xs" c="dimmed" fw={700} tt="uppercase">Activos Vencidos</Text>
+                                    <Text size="xl" fw={700}>{expiredCount}</Text>
+                                </Stack>
+                                <Box 
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        width: 42,
+                                        height: 42,
+                                        borderRadius: 8,
+                                        backgroundColor: 'var(--mantine-color-red-1)',
+                                        color: 'var(--mantine-color-red-6)',
+                                        flexShrink: 0
+                                    }}
+                                >
+                                    <IconCalendarOff size={24} />
+                                </Box>
+                            </Group>
+                        </Paper>
+                    </Grid.Col>
+
+                    <Grid.Col span={{ base: 12, md: 4 }}>
+                        <Paper 
+                            withBorder 
+                            p="md" 
+                            radius="md" 
+                            style={{ 
+                                cursor: 'pointer', 
+                                borderLeft: '4px solid var(--mantine-color-grape-6)',
+                                backgroundColor: filterInactiveSampler ? 'var(--mantine-color-grape-0)' : 'white',
+                                transition: 'all 0.2s ease',
+                                transform: filterInactiveSampler ? 'translateY(-2px)' : 'none',
+                                boxShadow: filterInactiveSampler ? 'var(--mantine-shadow-sm)' : 'none'
+                            }}
+                            onClick={() => {
+                                setFilterInactiveSampler(!filterInactiveSampler);
+                                setFilterExpired(false);
+                                setFilterFechaDesde('');
+                                setFilterFechaHasta('');
+                                setPage(1);
+                            }}
+                        >
+                            <Group justify="space-between" wrap="nowrap">
+                                <Stack gap={0}>
+                                    <Text size="xs" c="dimmed" fw={700} tt="uppercase">Muestreadores Inactivos</Text>
+                                    <Text size="xl" fw={700}>{inactiveSamplerCount}</Text>
+                                </Stack>
+                                <Box 
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        width: 42,
+                                        height: 42,
+                                        borderRadius: 8,
+                                        backgroundColor: 'var(--mantine-color-grape-1)',
+                                        color: 'var(--mantine-color-grape-6)',
+                                        flexShrink: 0
+                                    }}
+                                >
+                                    <IconUserOff size={24} />
+                                </Box>
+                            </Group>
+                        </Paper>
+                    </Grid.Col>
+                </Grid>
 
                 <Paper withBorder p="md" radius="md" shadow="xs">
                     <Grid align="flex-end">
