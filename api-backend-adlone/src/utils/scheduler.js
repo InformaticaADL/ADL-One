@@ -279,7 +279,7 @@ export const initScheduler = () => {
         } catch (pollError) {
             if (pollError.message?.includes('ConnectionError') || pollError.message?.includes('deadlock')) {
                 logger.debug('[MuestreoCompletado] DB unreachable or busy, skipping poll');
-            } else if (pollError.number === 207 || pollError.message?.includes('Invalid column name')) {
+            } else if (pollError.number === 207 && pollError.message?.includes('notificado_completado')) {
                 logger.debug('[MuestreoCompletado] Columna notificado_completado pendiente de migración, omitiendo poll');
             } else {
                 logger.error('[MuestreoCompletado] Error during polling:', pollError);
