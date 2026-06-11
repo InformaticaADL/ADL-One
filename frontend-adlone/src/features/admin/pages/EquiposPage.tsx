@@ -69,6 +69,23 @@ interface Props {
     onBack: () => void;
 }
 
+const parseDate = (dateStr?: string): Date | null => {
+    if (!dateStr) return null;
+    // Handle dd/MM/yyyy format (e.g. "30/06/2026")
+    const ddmmyyyyPattern = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+    const match = dateStr.match(ddmmyyyyPattern);
+    if (match) {
+        const day = parseInt(match[1], 10);
+        const month = parseInt(match[2], 10) - 1; // 0-indexed month
+        const year = parseInt(match[3], 10);
+        const date = new Date(year, month, day);
+        return isNaN(date.getTime()) ? null : date;
+    }
+    // Fallback to ISO / standard format
+    const parsed = new Date(dateStr);
+    return isNaN(parsed.getTime()) ? null : parsed;
+};
+
 export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     // --- View State ---
     const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
@@ -819,9 +836,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const sortedEquipos = useMemo(() => {
         const now = Date.now();
         const isExpiring = (v?: string) => {
-            if (!v) return false;
-            const t = new Date(v).getTime();
-            return !isNaN(t) && (t - now) <= 30 * 86400000;
+            const d = parseDate(v);
+            return d !== null && (d.getTime() - now) <= 30 * 86400000;
         };
         return [...equipos].sort((a, b) => {
             const aAlert = getPendingRequestsForEquipo(a.id_equipo).length > 0 ? 2 : 0;
@@ -831,8 +847,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
             const priorityDiff = (bAlert + bExp) - (aAlert + aExp);
             if (priorityDiff !== 0) return priorityDiff;
             // Mismo nivel de prioridad: ordenar por fecha de vigencia ascendente (vence antes = primero)
-            const aDate = a.vigencia ? new Date(a.vigencia).getTime() : Infinity;
-            const bDate = b.vigencia ? new Date(b.vigencia).getTime() : Infinity;
+            const aDate = parseDate(a.vigencia)?.getTime() ?? Infinity;
+            const bDate = parseDate(b.vigencia)?.getTime() ?? Infinity;
             return aDate - bDate;
         });
     }, [equipos, solicitudesRealizadas]);
@@ -1030,9 +1046,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                         const hasAccepted = pendingRequests.some(req => req.estado === 'ACEPTADA');
                                         
                                         const checkExp = (v?: string) => {
-                                            if (!v) return false;
-                                            const d = new Date(v);
-                                            return !isNaN(d.getTime()) && (d.getTime() - Date.now()) <= (30 * 86400000);
+                                            const d = parseDate(v);
+                                            return d !== null && (d.getTime() - Date.now()) <= (30 * 86400000);
                                         };
                                         const expiring = checkExp(equipo.vigencia);
 

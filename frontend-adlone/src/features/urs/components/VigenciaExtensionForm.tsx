@@ -7,6 +7,23 @@ interface VigenciaExtensionFormProps {
     onDataChange: (data: any) => void;
 }
 
+const parseDate = (dateStr?: string): Date | null => {
+    if (!dateStr) return null;
+    // Handle dd/MM/yyyy format (e.g. "30/06/2026")
+    const ddmmyyyyPattern = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+    const match = dateStr.match(ddmmyyyyPattern);
+    if (match) {
+        const day = parseInt(match[1], 10);
+        const month = parseInt(match[2], 10) - 1; // 0-indexed month
+        const year = parseInt(match[3], 10);
+        const date = new Date(year, month, day);
+        return isNaN(date.getTime()) ? null : date;
+    }
+    // Fallback to ISO / standard format
+    const parsed = new Date(dateStr);
+    return isNaN(parsed.getTime()) ? null : parsed;
+};
+
 const VigenciaExtensionForm: React.FC<VigenciaExtensionFormProps> = ({ onDataChange }) => {
     const { showToast } = useToast();
     const [equipoId, setEquipoId] = useState<string | null>(null);
@@ -81,11 +98,14 @@ const VigenciaExtensionForm: React.FC<VigenciaExtensionFormProps> = ({ onDataCha
                     radius="md"
                 />
 
-                {selectedEquipoRaw?.fecha_vigencia && (
+                {selectedEquipoRaw?.vigencia && (
                     <Box p="sm" style={{ background: 'var(--mantine-color-violet-1)', borderRadius: 'var(--mantine-radius-md)' }}>
                         <Text size="xs" c="violet.8" fw={700} tt="uppercase">Vigencia actual</Text>
                         <Text size="sm" fw={700} c="violet.9">
-                            {new Date(selectedEquipoRaw.fecha_vigencia).toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' })}
+                            {(() => {
+                                const d = parseDate(selectedEquipoRaw.vigencia);
+                                return d ? d.toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' }) : 'Fecha Inválida';
+                            })()}
                         </Text>
                     </Box>
                 )}
