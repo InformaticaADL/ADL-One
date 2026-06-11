@@ -20,7 +20,8 @@ const AppContent = () => {
   });
 
   // Deep-link desde correos: /?ficha=:id -> abre el detalle de la ficha,
-  // /?vista=calendario -> abre el Calendario de Servicios.
+  // /?vista=calendario -> abre el Calendario de Servicios,
+  // /?vista=ejecutados -> abre el listado de Muestreos Ejecutados.
   // Se usa un query param (no una ruta) porque la SPA no se sirve con
   // rutas propias: el servidor solo conoce "/".
   useEffect(() => {
