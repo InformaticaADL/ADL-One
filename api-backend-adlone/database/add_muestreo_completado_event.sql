@@ -15,6 +15,9 @@ BEGIN
     WHERE codigo_evento = 'FICHA_ASIGNADA';
 END
 
+IF NOT EXISTS (SELECT * FROM mae_evento_notificacion WHERE codigo_evento = 'FICHA_MUESTREO_COMPLETADO')
+    PRINT 'WARNING: FICHA_ASIGNADA no encontrado - FICHA_MUESTREO_COMPLETADO no fue insertado';
+
 -- Verificar resultado
 SELECT id_evento, codigo_evento, descripcion, id_funcionalidad
 FROM mae_evento_notificacion

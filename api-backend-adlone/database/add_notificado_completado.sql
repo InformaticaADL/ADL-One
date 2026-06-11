@@ -17,7 +17,7 @@ GO
 -- retroactivas masivas.
 UPDATE App_Ma_Agenda_MUESTREOS
 SET notificado_completado = 1
-WHERE id_estadomuestreo = 3
+WHERE id_estadomuestreo = 3 -- 3 = Ejecutado (muestreo completado)
   AND notificado_completado = 0;
 
 -- Verificar resultado
