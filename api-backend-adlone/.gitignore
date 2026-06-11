@@ -47,3 +47,6 @@ simple-fix.js
 verify-clean.js
 verify.js
 Formato_Carga_Masiva_ADL_test_oficial.xlsx
+
+# Email rendering preview output
+.preview-emails/
