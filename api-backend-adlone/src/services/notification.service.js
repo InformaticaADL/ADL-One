@@ -110,6 +110,8 @@ class NotificationService {
             }
 
             // 4. Compilar Asunto y Cuerpo
+            context.APP_URL = context.APP_URL || process.env.APP_URL || 'http://localhost:5173';
+
             // Fase 1: motor declarativo nuevo (Notion-style). Si el evento no
             // tiene configuración migrada, renderEmail() devuelve null y se
             // usa el motor legado (HTML desde mae_evento_notificacion).
