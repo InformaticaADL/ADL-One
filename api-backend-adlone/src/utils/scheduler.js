@@ -2,6 +2,7 @@ import { equipoService } from '../services/equipo.service.js';
 import { getConnection } from '../config/database.js';
 import sql from 'mssql';
 import unsService from '../services/uns.service.js';
+import fichaService from '../services/ficha.service.js';
 import { runAnalysis as runKpiAnalyst } from '../services/kpi-analyst.service.js';
 import kpiAnalystConfig from '../config/kpi-analyst.config.js';
 import logger from './logger.js';
@@ -218,6 +219,74 @@ export const initScheduler = () => {
         }
     };
 
+    // --- 2b. Muestreo Completado Watcher ---
+    // Polls App_Ma_Agenda_MUESTREOS for samplings that just finished
+    // (id_estadomuestreo = 3, "Ejecutado") and haven't been notified yet.
+    // Covers both Puntual (single process) and Compuesta (only fires when
+    // the second/retiro process completes), since both end up with
+    // id_estadomuestreo = 3 in App_Ma_Agenda_MUESTREOS.
+    let _pollMuestreosRunning = false;
+    const pollMuestreosCompletados = async () => {
+        if (_pollMuestreosRunning) return;
+        _pollMuestreosRunning = true;
+        try {
+            const pool = await getConnection();
+
+            const pending = await pool.request()
+                .query(`
+                    SELECT TOP 10
+                        a.id_agendamam,
+                        a.id_fichaingresoservicio,
+                        e.id_usuario as id_usuario_propietario,
+                        e.fichaingresoservicio as correlativo_txt,
+                        COALESCE(m2.nombre_muestreador, m1.nombre_muestreador) as nombre_muestreador
+                    FROM App_Ma_Agenda_MUESTREOS a
+                    INNER JOIN App_Ma_FichaIngresoServicio_ENC e ON e.id_fichaingresoservicio = a.id_fichaingresoservicio
+                    LEFT JOIN mae_muestreador m1 ON a.id_muestreador = m1.id_muestreador
+                    LEFT JOIN mae_muestreador m2 ON a.id_muestreador2 = m2.id_muestreador
+                    WHERE a.id_estadomuestreo = 3
+                      AND (a.notificado_completado = 0 OR a.notificado_completado IS NULL)
+                    ORDER BY a.id_agendamam ASC
+                `);
+
+            for (const row of pending.recordset) {
+                try {
+                    const baseContext = await fichaService.getFichaContextForNotification(
+                        row.id_fichaingresoservicio,
+                        row.nombre_muestreador || 'Muestreador',
+                        'Muestreo Completado',
+                        pool
+                    );
+
+                    await unsService.trigger('FICHA_MUESTREO_COMPLETADO', {
+                        ...baseContext,
+                        correlativo: (row.correlativo_txt || String(row.id_fichaingresoservicio)).trim(),
+                        id_usuario_propietario: row.id_usuario_propietario,
+                        id_usuario_accion: 0,
+                    });
+
+                    logger.info(`[MuestreoCompletado] Notificación enviada para agenda #${row.id_agendamam}`);
+                } catch (triggerError) {
+                    logger.error(`[MuestreoCompletado] Error notificando agenda #${row.id_agendamam}:`, triggerError);
+                }
+
+                // Mark as notified regardless of success, to avoid retry storms
+                // on a permanently-failing row (mirrors the Vigilante's behavior).
+                await pool.request()
+                    .input('id', sql.Numeric(10, 0), row.id_agendamam)
+                    .query('UPDATE App_Ma_Agenda_MUESTREOS SET notificado_completado = 1 WHERE id_agendamam = @id');
+            }
+        } catch (pollError) {
+            if (pollError.message?.includes('ConnectionError') || pollError.message?.includes('deadlock')) {
+                logger.debug('[MuestreoCompletado] DB unreachable or busy, skipping poll');
+            } else {
+                logger.error('[MuestreoCompletado] Error during polling:', pollError);
+            }
+        } finally {
+            _pollMuestreosRunning = false;
+        }
+    };
+
     // --- 3. KPI Analyst Dashboard Automation ---
     const runKpiAgent = async (mode = 'interval') => {
         try {
@@ -231,6 +300,7 @@ export const initScheduler = () => {
     setTimeout(() => {
         runDailyCheck();
         pollNewRequests();
+        pollMuestreosCompletados();
     }, 10000);
 
     setTimeout(() => {
@@ -244,10 +314,13 @@ export const initScheduler = () => {
     // Every 20 seconds (Vigilante poll)
     setInterval(pollNewRequests, 20 * 1000);
 
+    // Every 20 seconds (Muestreo Completado watcher)
+    setInterval(pollMuestreosCompletados, 20 * 1000);
+
     // KPI analyst interval execution
     setInterval(() => {
         runKpiAgent('interval');
     }, kpiAnalystConfig.orchestration.refreshIntervalMs);
 
-    logger.info('Scheduler initialized: Daily check, URS Watcher and KPI Analyst active.');
+    logger.info('Scheduler initialized: Daily check, URS Watcher, Muestreo Completado Watcher and KPI Analyst active.');
 };
