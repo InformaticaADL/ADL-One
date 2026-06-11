@@ -152,6 +152,10 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     }, []);
 
     useEffect(() => {
+        setPage(1);
+    }, [searchTerm, filterTipo, filterSede, filterEstado, filterMuestreador, filterFechaDesde, filterFechaHasta]);
+
+    useEffect(() => {
         const delayDebounceFn = setTimeout(() => {
             fetchData();
         }, 300);

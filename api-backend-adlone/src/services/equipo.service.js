@@ -232,31 +232,60 @@ export const equipoService = {
 
             // 3. Get unique types and states based on current OTHER filters
             const getCatalogs = async (currentSede) => {
-                let typesQuery = 'SELECT DISTINCT tipo_equipo as tipo FROM mae_equipo_catalogo WHERE tipo_equipo IS NOT NULL';
+                const sedeParam = (currentSede && currentSede !== 'Todos') ? currentSede : null;
+                
+                let typesQuery;
+                if (sedeParam) {
+                    typesQuery = 'SELECT DISTINCT tipoequipo as tipo FROM mae_equipo WHERE tipoequipo IS NOT NULL AND sede = @sedeFilter';
+                } else {
+                    typesQuery = 'SELECT DISTINCT tipo_equipo as tipo FROM mae_equipo_catalogo WHERE tipo_equipo IS NOT NULL';
+                }
+
                 let statesQuery = 'SELECT DISTINCT CASE WHEN habilitado = \'S\' THEN \'Activo\' ELSE \'Inactivo\' END as estado FROM mae_equipo WHERE 1=1';
+                if (sedeParam) {
+                    statesQuery += ' AND sede = @sedeFilter';
+                }
+
                 let sedesQuery = 'SELECT DISTINCT sede FROM mae_equipo WHERE sede IS NOT NULL AND LEN(TRIM(sede)) > 0';
                 
                 // NAMES and METADATA now come from mae_equipo_catalogo
                 let namesQuery = 'SELECT * FROM mae_equipo_catalogo ORDER BY nombre';
                 
-                let queMideQuery = `
-                    SELECT DISTINCT que_mide FROM mae_equipo WHERE que_mide IS NOT NULL AND LEN(TRIM(que_mide)) > 0
-                    UNION
-                    SELECT DISTINCT que_mide FROM mae_equipo_catalogo WHERE que_mide IS NOT NULL AND LEN(TRIM(que_mide)) > 0
-                `;
-                let unidadesQuery = `
-                    SELECT DISTINCT unidad_medida_textual as unidad FROM mae_equipo WHERE unidad_medida_textual IS NOT NULL AND LEN(TRIM(unidad_medida_textual)) > 0
-                    UNION
-                    SELECT DISTINCT unidad_medida_textual as unidad FROM mae_equipo_catalogo WHERE unidad_medida_textual IS NOT NULL AND LEN(TRIM(unidad_medida_textual)) > 0
-                `;
+                let queMideQuery;
+                if (sedeParam) {
+                    queMideQuery = 'SELECT DISTINCT que_mide FROM mae_equipo WHERE que_mide IS NOT NULL AND LEN(TRIM(que_mide)) > 0 AND sede = @sedeFilter';
+                } else {
+                    queMideQuery = `
+                        SELECT DISTINCT que_mide FROM mae_equipo WHERE que_mide IS NOT NULL AND LEN(TRIM(que_mide)) > 0
+                        UNION
+                        SELECT DISTINCT que_mide FROM mae_equipo_catalogo WHERE que_mide IS NOT NULL AND LEN(TRIM(que_mide)) > 0
+                    `;
+                }
+
+                let unidadesQuery;
+                if (sedeParam) {
+                    unidadesQuery = 'SELECT DISTINCT unidad_medida_textual as unidad FROM mae_equipo WHERE unidad_medida_textual IS NOT NULL AND LEN(TRIM(unidad_medida_textual)) > 0 AND sede = @sedeFilter';
+                } else {
+                    unidadesQuery = `
+                        SELECT DISTINCT unidad_medida_textual as unidad FROM mae_equipo WHERE unidad_medida_textual IS NOT NULL AND LEN(TRIM(unidad_medida_textual)) > 0
+                        UNION
+                        SELECT DISTINCT unidad_medida_textual as unidad FROM mae_equipo_catalogo WHERE unidad_medida_textual IS NOT NULL AND LEN(TRIM(unidad_medida_textual)) > 0
+                    `;
+                }
+
+                const makeRequest = () => {
+                    const r = pool.request();
+                    if (sedeParam) r.input('sedeFilter', sql.VarChar(100), sedeParam);
+                    return r;
+                };
 
                 const [tRes, sRes, lRes, nRes, qRes, uRes] = await Promise.all([
-                    pool.request().query(typesQuery),
-                    pool.request().query(statesQuery),
+                    makeRequest().query(typesQuery),
+                    makeRequest().query(statesQuery),
                     pool.request().query(sedesQuery),
                     pool.request().query(namesQuery),
-                    pool.request().query(queMideQuery),
-                    pool.request().query(unidadesQuery)
+                    makeRequest().query(queMideQuery),
+                    makeRequest().query(unidadesQuery)
                 ]);
                 return {
                     tipos: tRes.recordset.map(r => r.tipo).sort(),
