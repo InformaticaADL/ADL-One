@@ -698,7 +698,8 @@ class UnsService {
                 'FICHA_APROBADA_COORDINACION',
                 'FICHA_RECHAZADA_COORDINACION',
                 'FICHA_ASIGNADA',
-                'GCHAT_GRUPO_EXPULSADO', 
+                'FICHA_MUESTREO_COMPLETADO',
+                'GCHAT_GRUPO_EXPULSADO',
                 'GCHAT_GRUPO_CREADO'
             ];
             
