@@ -305,8 +305,8 @@ export const equipoService = {
                     FROM mae_equipo
                     WHERE habilitado = 'S'
                       AND fecha_vigencia IS NOT NULL
-                      AND CAST(EOMONTH(fecha_vigencia) AS DATE) <= CAST(DATEADD(day, 30, GETDATE()) AS DATE)
-                      AND CAST(EOMONTH(fecha_vigencia) AS DATE) >= CAST(GETDATE() AS DATE)
+                      AND CAST(fecha_vigencia AS DATE) <= CAST(DATEADD(day, 30, GETDATE()) AS DATE)
+                      AND CAST(fecha_vigencia AS DATE) >= CAST(GETDATE() AS DATE)
                 `)
             ]);
 
@@ -1214,7 +1214,7 @@ export const equipoService = {
                 SELECT id_equipo, nombre, codigo 
                 FROM mae_equipo 
                 WHERE habilitado = 'S' 
-                AND EOMONTH(fecha_vigencia) <= CAST(GETDATE() AS DATE)
+                AND CAST(fecha_vigencia AS DATE) < CAST(GETDATE() AS DATE)
             `;
             const findRes = await findReq.query(findQuery);
             const expiredEquipos = findRes.recordset;

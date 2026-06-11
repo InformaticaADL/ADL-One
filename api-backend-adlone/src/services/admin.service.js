@@ -431,7 +431,7 @@ export const adminService = {
                     SELECT COUNT(*) as count
                     FROM mae_equipo
                     WHERE habilitado = 'S'
-                    AND EOMONTH(fecha_vigencia) <= CAST(GETDATE() as DATE)
+                    AND CAST(fecha_vigencia AS DATE) < CAST(GETDATE() as DATE)
                 `),
                 pool.request().query(`
                     SELECT COUNT(*) as count
