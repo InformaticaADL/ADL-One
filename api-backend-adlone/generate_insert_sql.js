@@ -144,7 +144,7 @@ async function run() {
             if (rawSede) {
                 const upperSede = String(rawSede).trim().toUpperCase();
                 if (upperSede === '.A') rawSede = 'AY';
-                else if (upperSede === '.P') rawSede = 'PM';
+                else if (upperSede === '.P' || upperSede === '.M') rawSede = 'PM';
                 else if (upperSede === '.V') rawSede = 'VI';
             }
 
