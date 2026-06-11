@@ -88,6 +88,24 @@ const parseDate = (dateStr?: string): Date | null => {
     return isNaN(parsed.getTime()) ? null : parsed;
 };
 
+const isDateExpiringSoon = (dateStr?: string): boolean => {
+    const d = parseDate(dateStr);
+    if (!d) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const in30Days = new Date(today);
+    in30Days.setDate(today.getDate() + 30);
+    return d.getTime() >= today.getTime() && d.getTime() <= in30Days.getTime();
+};
+
+const isDateExpired = (dateStr?: string): boolean => {
+    const d = parseDate(dateStr);
+    if (!d) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return d.getTime() < today.getTime();
+};
+
 export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     // --- View State ---
     const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
@@ -846,16 +864,11 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
 
     // Equipos con solicitudes pendientes aparecen primero; luego los que vencen pronto (más cercano primero)
     const sortedEquipos = useMemo(() => {
-        const now = Date.now();
-        const isExpiring = (v?: string) => {
-            const d = parseDate(v);
-            return d !== null && (d.getTime() - now) <= 30 * 86400000;
-        };
         return [...equipos].sort((a, b) => {
             const aAlert = getPendingRequestsForEquipo(a.id_equipo).length > 0 ? 2 : 0;
             const bAlert = getPendingRequestsForEquipo(b.id_equipo).length > 0 ? 2 : 0;
-            const aExp = isExpiring(a.vigencia) ? 1 : 0;
-            const bExp = isExpiring(b.vigencia) ? 1 : 0;
+            const aExp = (isDateExpiringSoon(a.vigencia) || isDateExpired(a.vigencia)) ? 1 : 0;
+            const bExp = (isDateExpiringSoon(b.vigencia) || isDateExpired(b.vigencia)) ? 1 : 0;
             const priorityDiff = (bAlert + bExp) - (aAlert + aExp);
             if (priorityDiff !== 0) return priorityDiff;
             // Mismo nivel de prioridad: ordenar por fecha de vigencia ascendente (vence antes = primero)
@@ -1204,11 +1217,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                         const pendingRequests = getPendingRequestsForEquipo(equipo.id_equipo);
                                         const hasAccepted = pendingRequests.some(req => req.estado === 'ACEPTADA');
                                         
-                                        const checkExp = (v?: string) => {
-                                            const d = parseDate(v);
-                                            return d !== null && (d.getTime() - Date.now()) <= (30 * 86400000);
-                                        };
-                                        const expiring = checkExp(equipo.vigencia);
+                                        const expiringSoon = isDateExpiringSoon(equipo.vigencia);
+                                        const expired = isDateExpired(equipo.vigencia);
 
                                         return (
                                             <Table.Tr key={equipo.id_equipo}>
@@ -1244,7 +1254,11 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                                     </Badge>
                                                 </Table.Td>
                                                 <Table.Td>
-                                                    <Text size="sm" color={expiring ? 'orange.7' : 'inherit'} fw={expiring ? 700 : 400}>
+                                                    <Text 
+                                                        size="sm" 
+                                                        color={expired ? 'red.7' : expiringSoon ? 'orange.7' : 'inherit'} 
+                                                        fw={expired || expiringSoon ? 700 : 400}
+                                                    >
                                                         {equipo.vigencia}
                                                     </Text>
                                                 </Table.Td>
