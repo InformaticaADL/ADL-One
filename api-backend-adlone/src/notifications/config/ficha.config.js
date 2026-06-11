@@ -12,13 +12,23 @@ const FICHA_CAMPOS_BASE = [
     { icono: '🔧', label: 'Empresa Servicio', variable: '{EMPRESA_SERVICIO}' },
     { icono: '📍', label: 'Fuente Emisora', variable: '{FUENTE_EMISORA}' },
     { icono: '🎯', label: 'Objetivo del Muestreo', variable: '{OBJETIVO_MUESTREO}' },
-    { icono: '👤', label: 'Responsable', variable: '{USUARIO}' },
-    { icono: '🕒', label: 'Fecha', variable: '{FECHA} {HORA}' },
 ];
+
+// Información del evento (quién y cuándo se realizó la acción), mostrada por
+// separado de los datos de la ficha para no confundirla con sus atributos.
+const EVENTO_META = { usuario: '{USUARIO}', fecha: '{FECHA}', hora: '{HORA}' };
 
 const OBSERVACION_DEFAULT = { etiqueta: 'Observaciones', variable: '{OBSERVACION}' };
 
-const CTA_FICHA = { label: 'Ver Ficha en ADL ONE', ruta: '/medio-ambiente/fichas/{CORRELATIVO}' };
+const CTA_FICHA = { label: 'Ver Ficha en ADL ONE', ruta: '/?ficha={ID_FICHA}' };
+
+// Eventos de asignación/reprogramación de muestreo apuntan al Calendario,
+// donde el responsable gestiona sus servicios agendados.
+const CTA_CALENDARIO = { label: 'Ver Calendario en ADL ONE', ruta: '/?vista=calendario' };
+
+// El evento de muestreo completado apunta al listado de Muestreos Ejecutados,
+// donde se ve el avance/resultado del proceso recién finalizado.
+const CTA_EJECUTADOS = { label: 'Ver Muestreos Ejecutados', ruta: '/?vista=ejecutados' };
 
 export const FICHA_CONFIG = [
     {
@@ -29,6 +39,7 @@ export const FICHA_CONFIG = [
         titulo: 'Ficha Comercial Creada',
         resumen: 'Se ha creado la ficha de ingreso #{CORRELATIVO}.',
         campos: FICHA_CAMPOS_BASE,
+        eventoMeta: EVENTO_META,
         observacion: OBSERVACION_DEFAULT,
         cta: CTA_FICHA,
     },
@@ -40,6 +51,7 @@ export const FICHA_CONFIG = [
         titulo: 'Ficha de Remuestreo Creada',
         resumen: 'Se ha creado la ficha de remuestreo #{CORRELATIVO}, originada desde la ficha #{ficha_original}.',
         campos: FICHA_CAMPOS_BASE,
+        eventoMeta: EVENTO_META,
         observacion: OBSERVACION_DEFAULT,
         cta: CTA_FICHA,
     },
@@ -51,6 +63,7 @@ export const FICHA_CONFIG = [
         titulo: 'Ficha Aprobada por Área Técnica',
         resumen: 'La ficha #{CORRELATIVO} fue aprobada por el Área Técnica.',
         campos: FICHA_CAMPOS_BASE,
+        eventoMeta: EVENTO_META,
         observacion: OBSERVACION_DEFAULT,
         cta: CTA_FICHA,
     },
@@ -62,6 +75,7 @@ export const FICHA_CONFIG = [
         titulo: 'Ficha Rechazada por Área Técnica',
         resumen: 'La ficha #{CORRELATIVO} fue rechazada por el Área Técnica.',
         campos: FICHA_CAMPOS_BASE,
+        eventoMeta: EVENTO_META,
         observacion: { etiqueta: 'Motivo del Rechazo', variable: '{OBSERVACION}' },
         cta: CTA_FICHA,
     },
@@ -73,6 +87,7 @@ export const FICHA_CONFIG = [
         titulo: 'Ficha Aprobada por Coordinación',
         resumen: 'La ficha #{CORRELATIVO} fue aprobada por Coordinación.',
         campos: FICHA_CAMPOS_BASE,
+        eventoMeta: EVENTO_META,
         observacion: OBSERVACION_DEFAULT,
         cta: CTA_FICHA,
     },
@@ -84,6 +99,7 @@ export const FICHA_CONFIG = [
         titulo: 'Ficha Devuelta a Revisión por Coordinación',
         resumen: 'La ficha #{CORRELATIVO} fue devuelta a revisión técnica por Coordinación.',
         campos: FICHA_CAMPOS_BASE,
+        eventoMeta: EVENTO_META,
         observacion: { etiqueta: 'Motivo de Devolución', variable: '{OBSERVACION}' },
         cta: CTA_FICHA,
     },
@@ -95,9 +111,10 @@ export const FICHA_CONFIG = [
         titulo: 'Muestreo Asignado',
         resumen: 'Se asignaron fechas y/o responsables de muestreo para la ficha #{CORRELATIVO}.',
         campos: FICHA_CAMPOS_BASE,
+        eventoMeta: EVENTO_META,
         bloqueEspecial: 'fichaServicios',
         observacion: OBSERVACION_DEFAULT,
-        cta: CTA_FICHA,
+        cta: CTA_CALENDARIO,
     },
     {
         codigo: 'FICHA_MUESTREO_CANCELADO',
@@ -107,8 +124,9 @@ export const FICHA_CONFIG = [
         titulo: 'Muestreo Cancelado',
         resumen: 'Un muestreo de la ficha #{CORRELATIVO} fue cancelado.',
         campos: FICHA_CAMPOS_BASE,
+        eventoMeta: EVENTO_META,
         observacion: { etiqueta: 'Motivo de Cancelación', variable: '{OBSERVACION}' },
-        cta: CTA_FICHA,
+        cta: CTA_CALENDARIO,
     },
     {
         codigo: 'FICHA_MUESTREO_REPROGRAMADO',
@@ -118,9 +136,10 @@ export const FICHA_CONFIG = [
         titulo: 'Muestreo Reprogramado',
         resumen: 'Se reprogramó un muestreo de la ficha #{CORRELATIVO}.',
         campos: FICHA_CAMPOS_BASE,
+        eventoMeta: EVENTO_META,
         bloqueEspecial: 'fichaServicios',
         observacion: OBSERVACION_DEFAULT,
-        cta: CTA_FICHA,
+        cta: CTA_CALENDARIO,
     },
     {
         codigo: 'FICHA_MUESTREO_REASIGNADO',
@@ -130,9 +149,10 @@ export const FICHA_CONFIG = [
         titulo: 'Muestreo Reasignado',
         resumen: 'Se reasignó el responsable de un muestreo de la ficha #{CORRELATIVO}.',
         campos: FICHA_CAMPOS_BASE,
+        eventoMeta: EVENTO_META,
         bloqueEspecial: 'fichaServicios',
         observacion: OBSERVACION_DEFAULT,
-        cta: CTA_FICHA,
+        cta: CTA_CALENDARIO,
     },
     {
         codigo: 'FICHA_MUESTREO_REAGENDADO',
@@ -142,9 +162,10 @@ export const FICHA_CONFIG = [
         titulo: 'Muestreo Reagendado',
         resumen: 'Se reagendó la fecha de un muestreo de la ficha #{CORRELATIVO}.',
         campos: FICHA_CAMPOS_BASE,
+        eventoMeta: EVENTO_META,
         bloqueEspecial: 'fichaServicios',
         observacion: OBSERVACION_DEFAULT,
-        cta: CTA_FICHA,
+        cta: CTA_CALENDARIO,
     },
     {
         codigo: 'FICHA_MUESTREO_REAGENDADO_REASIGNADO',
@@ -154,8 +175,20 @@ export const FICHA_CONFIG = [
         titulo: 'Muestreo Reagendado y Reasignado',
         resumen: 'Se reagendó la fecha y se reasignó el responsable de un muestreo de la ficha #{CORRELATIVO}.',
         campos: FICHA_CAMPOS_BASE,
+        eventoMeta: EVENTO_META,
         bloqueEspecial: 'fichaServicios',
         observacion: OBSERVACION_DEFAULT,
-        cta: CTA_FICHA,
+        cta: CTA_CALENDARIO,
+    },
+    {
+        codigo: 'FICHA_MUESTREO_COMPLETADO',
+        categoria: 'FICHA',
+        outcome: 'INFORMATIVA',
+        asunto: 'Muestreo Completado - Ficha #{CORRELATIVO}',
+        titulo: 'Muestreo Completado',
+        resumen: 'Se completó el muestreo de la ficha #{CORRELATIVO}.',
+        campos: FICHA_CAMPOS_BASE,
+        eventoMeta: EVENTO_META,
+        cta: CTA_EJECUTADOS,
     },
 ];

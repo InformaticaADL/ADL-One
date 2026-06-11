@@ -4,6 +4,7 @@ import { renderEmail, getEventConfig } from './renderer.js';
 
 const BASE_CONTEXT = {
     CORRELATIVO: '1245',
+    ID_FICHA: '1245',
     TIPO_FICHA_INFO: 'Monitoreo Agua/Ril - Terreno',
     BASE_OPERACIONES: 'Puerto Montt',
     EMPRESA_FACTURAR: 'Empresa XYZ',
@@ -33,7 +34,7 @@ test('renders FICHA_CREADA: subject, title, badge, fields and CTA', () => {
     assert.match(result.html, /10 de junio de 2026 16:18/);
     assert.match(result.html, /Sin observaciones/);
     assert.match(result.html, /Ver Ficha en ADL ONE/);
-    assert.match(result.html, /\/medio-ambiente\/fichas\/1245/);
+    assert.match(result.html, /\/\?ficha=1245/);
 });
 
 test('renders FICHA_RECHAZADA_TECNICA with RECHAZADA badge and motivo label', () => {
@@ -80,4 +81,18 @@ test('omits a campo row when its value is empty', () => {
         EMPRESA_SERVICIO: 'No aplica',
     });
     assert.doesNotMatch(result.html, /Empresa Servicio/);
+});
+
+test('renders FICHA_MUESTREO_COMPLETADO: subject, title, meta and CTA to ejecutados', () => {
+    const result = renderEmail('FICHA_MUESTREO_COMPLETADO', BASE_CONTEXT);
+
+    assert.equal(result.asunto, 'Muestreo Completado - Ficha #1245');
+    assert.match(result.html, /Muestreo Completado/);
+    assert.match(result.html, /Se complet.* el muestreo de la ficha #1245/);
+    assert.match(result.html, /J\. Pérez/);
+    assert.match(result.html, /10 de junio de 2026 16:18/);
+    assert.match(result.html, /Ver Muestreos Ejecutados/);
+    assert.match(result.html, /\/\?vista=ejecutados/);
+    // INFORMATIVA outcome has no badge
+    assert.doesNotMatch(result.html, />NUEVA</);
 });
