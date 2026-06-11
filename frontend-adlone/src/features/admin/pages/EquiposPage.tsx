@@ -1038,7 +1038,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                         >
                             <Group justify="space-between" wrap="nowrap">
                                 <Stack gap={0}>
-                                    <Text size="xs" c="dimmed" fw={700} tt="uppercase">Activos Vencidos</Text>
+                                    <Text size="xs" c="dimmed" fw={700} tt="uppercase">Activos con vigencia vencida</Text>
                                     <Text size="xl" fw={700}>{expiredCount}</Text>
                                 </Stack>
                                 <Box 
@@ -1083,7 +1083,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                         >
                             <Group justify="space-between" wrap="nowrap">
                                 <Stack gap={0}>
-                                    <Text size="xs" c="dimmed" fw={700} tt="uppercase">Muestreadores Inactivos</Text>
+                                    <Text size="xs" c="dimmed" fw={700} tt="uppercase">Equipos con muestreadores vencidos</Text>
                                     <Text size="xl" fw={700}>{inactiveSamplerCount}</Text>
                                 </Stack>
                                 <Box 
