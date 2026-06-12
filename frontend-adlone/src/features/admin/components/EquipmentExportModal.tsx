@@ -230,7 +230,13 @@ export const EquipmentExportModal: React.FC<EquipmentExportModalProps> = ({
                             <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#475569', marginBottom: '0.5rem' }}>Responsable</label>
                             <select value={selectedMuestreador} onChange={(e) => setSelectedMuestreador(e.target.value)} style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#f8fafc' }}>
                                 <option value="">Todos los Responsables</option>
-                                {muestreadores.map(m => <option key={m.id_muestreador} value={m.id_muestreador}>{m.nombre_muestreador}</option>)}
+                                {muestreadores.map(m => (
+                                    <option key={m.id_muestreador} value={m.id_muestreador}>
+                                        {m.habilitado === 'N' || m.habilitado === false
+                                            ? `${m.nombre_muestreador} (Inactivo)`
+                                            : m.nombre_muestreador}
+                                    </option>
+                                ))}
                             </select>
                         </div>
 

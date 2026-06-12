@@ -126,3 +126,78 @@ html::-webkit-scrollbar, body::-webkit-scrollbar {
   transform: translate(-50%, -50%) rotate(-15deg) !important;
 }
 
+/* Responsive adjustments for page header actions in stacked layout */
+.page-header-actions-stacked button,
+.page-header-actions-stacked a {
+  flex: 1 1 150px !important;
+  max-width: 280px;
+}
+
+@media (max-width: 600px) {
+  .page-header-actions-stacked button,
+  .page-header-actions-stacked a {
+    max-width: 100% !important;
+  }
+}
+
+/* KPI Cards Custom Styles & Hover Effects */
+.kpi-card-por-vencer {
+  cursor: pointer;
+  border-left: 4px solid var(--mantine-color-orange-6) !important;
+  background-color: white !important;
+  transition: all 0.2s ease !important;
+}
+.kpi-card-por-vencer.active {
+  background-color: var(--mantine-color-orange-0) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: var(--mantine-shadow-sm) !important;
+}
+.kpi-card-por-vencer:hover {
+  background-color: var(--mantine-color-orange-0) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: var(--mantine-shadow-sm) !important;
+}
+.kpi-card-por-vencer.active:hover {
+  background-color: var(--mantine-color-orange-1) !important;
+}
+
+.kpi-card-activos-vencidos {
+  cursor: pointer;
+  border-left: 4px solid var(--mantine-color-red-6) !important;
+  background-color: white !important;
+  transition: all 0.2s ease !important;
+}
+.kpi-card-activos-vencidos.active {
+  background-color: var(--mantine-color-red-0) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: var(--mantine-shadow-sm) !important;
+}
+.kpi-card-activos-vencidos:hover {
+  background-color: var(--mantine-color-red-0) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: var(--mantine-shadow-sm) !important;
+}
+.kpi-card-activos-vencidos.active:hover {
+  background-color: var(--mantine-color-red-1) !important;
+}
+
+.kpi-card-muestreadores-vencidos {
+  cursor: pointer;
+  border-left: 4px solid var(--mantine-color-grape-6) !important;
+  background-color: white !important;
+  transition: all 0.2s ease !important;
+}
+.kpi-card-muestreadores-vencidos.active {
+  background-color: var(--mantine-color-grape-0) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: var(--mantine-shadow-sm) !important;
+}
+.kpi-card-muestreadores-vencidos:hover {
+  background-color: var(--mantine-color-grape-0) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: var(--mantine-shadow-sm) !important;
+}
+.kpi-card-muestreadores-vencidos.active:hover {
+  background-color: var(--mantine-color-grape-1) !important;
+}
+

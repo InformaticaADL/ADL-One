@@ -271,7 +271,7 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                 subtitle={!isMobile ? "Administra el personal de muestreo técnico y sus firmas digitales autorizadas." : undefined}
                 onBack={onBack}
                 rightSection={
-                    <Group gap="xs" wrap={isMobile ? "wrap" : "nowrap"}>
+                    <>
                         <ProtectedContent permission="MU_EXP">
                             <Button 
                                 variant="light" 
@@ -297,7 +297,7 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                                 Nuevo {isMobile ? '' : 'Muestreador'}
                             </Button>
                         </ProtectedContent>
-                    </Group>
+                    </>
                 }
             />
 

@@ -20,6 +20,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
     rightSection
 }) => {
     const isMobile = useMediaQuery('(max-width: 768px)');
+    const shouldStack = useMediaQuery('(max-width: 1250px)');
     const { setHelpCenterOpen } = useNavStore();
 
     const items = breadcrumbItems?.map((item, index) => (
@@ -64,10 +65,19 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
                     <Breadcrumbs mb={10}>{items}</Breadcrumbs>
                 )}
                 
-                <Group wrap="nowrap" align="center" style={{ width: '100%', position: 'relative' }}>
+                <Box 
+                    style={{ 
+                        display: 'grid', 
+                        gridTemplateColumns: shouldStack ? 'auto 1fr' : '1fr auto 1fr',
+                        alignItems: 'center',
+                        width: '100%',
+                        position: 'relative',
+                        gap: '16px'
+                    }}
+                >
                     
                     {/* Left Section: Back Button */}
-                    <Box style={{ flex: 1, display: 'flex', justifyContent: 'flex-start', minWidth: 0 }}>
+                    <Box style={{ display: 'flex', justifyContent: 'flex-start' }}>
                         {onBack && (
                             <ActionIcon 
                                 variant="subtle" 
@@ -80,15 +90,14 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
                             </ActionIcon>
                         )}
                     </Box>
-
+ 
                     {/* Center Section: Title & Subtitle */}
                     <Stack 
                         gap={2} 
                         style={{ 
-                            flex: '0 1 auto', 
                             textAlign: 'center',
                             alignItems: 'center',
-                            maxWidth: isMobile ? '80%' : '60%'
+                            maxWidth: '100%'
                         }}
                     >
                         <Title 
@@ -106,22 +115,26 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
                             </Text>
                         )}
                     </Stack>
-
+ 
                     {/* Right Section: Actions + Help Button (Desktop) */}
-                    <Box style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', minWidth: 0 }}>
-                        {!isMobile && (
+                    {!shouldStack && (
+                        <Box style={{ display: 'flex', justifyContent: 'flex-end' }}>
                             <Group gap="xs" wrap="nowrap">
                                 {rightSection}
                                 {helpButton}
                             </Group>
-                        )}
-                    </Box>
-
-                </Group>
+                        </Box>
+                    )}
+ 
+                </Box>
                 
-                {/* Actions + Help Button (Mobile) */}
-                {isMobile && (
-                    <Box mt="md" style={{ width: '100%', display: 'flex', justifyContent: 'center', gap: rem(8), flexWrap: 'wrap' }}>
+                {/* Actions + Help Button (Mobile / Stacked) */}
+                {shouldStack && (
+                    <Box 
+                        mt="md" 
+                        className="page-header-actions-stacked"
+                        style={{ width: '100%', display: 'flex', justifyContent: 'center', gap: rem(8), flexWrap: 'wrap' }}
+                    >
                         {rightSection}
                         {helpButton}
                     </Box>

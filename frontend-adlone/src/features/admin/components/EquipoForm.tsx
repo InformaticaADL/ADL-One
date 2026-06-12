@@ -37,7 +37,8 @@ import {
     IconDeviceFloppy, 
     IconChevronRight, 
     IconChevronLeft, 
-    IconEdit
+    IconEdit,
+    IconX
 } from '@tabler/icons-react';
 
 import { equipoService, type Equipo, type EquipoHistorial } from '../services/equipo.service';
@@ -99,6 +100,56 @@ interface Props {
 }
 
 export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pendingRequests = [], onRefreshSolicitudes }) => {
+    // --- Helpers for default dates ---
+    const getTodayString = () => {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    };
+
+    const calculateNext90Days = (dateStr: string) => {
+        if (!dateStr) return '';
+        const d = new Date(dateStr + 'T00:00:00');
+        d.setDate(d.getDate() + 90);
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    };
+
+    const formatDateToSpanish = (dateStr: string) => {
+        if (!dateStr) return '';
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+            return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+        return dateStr;
+    };
+
+    const defaultRevisionDate = getTodayString();
+    const defaultSiguienteDate = calculateNext90Days(defaultRevisionDate);
+
+    const parseInitialDate = (dateStr: string | undefined | null) => {
+        if (!dateStr) return '';
+        let clean = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+        if (clean.includes('/')) {
+            const parts = clean.split('/');
+            if (parts.length === 3) {
+                if (parts[2].length === 4) {
+                    clean = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                } else if (parts[0].length === 4) {
+                    clean = `${parts[0]}-${parts[1]}-${parts[2]}`;
+                }
+            }
+        }
+        return clean;
+    };
+
+    const initialRevision = parseInitialDate(initialData?.ultima_verificacion) || (initialData?.id_equipo ? '' : defaultRevisionDate);
+    const initialSiguiente = parseInitialDate(initialData?.siguiente_verificacion) || (initialData?.id_equipo ? '' : defaultSiguienteDate);
+
     // --- State ---
     const [formData, setFormData] = useState<any>({
         codigo: '',
@@ -106,7 +157,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         tipo: '',
         ubicacion: '',
         estado: '',
-        vigencia: '',
+        vigencia: initialSiguiente,
         id_muestreador: '',
         sigla: '',
         correlativo: 0,
@@ -123,8 +174,8 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         error30: 0,
         version: initialData?.version || 'v1',
         // Campos nuevos
-        ultima_verificacion: '',
-        siguiente_verificacion: '',
+        ultima_verificacion: initialRevision,
+        siguiente_verificacion: initialSiguiente,
         plazo_vigencia: '',
         estado_equipo: ''
     });
@@ -136,9 +187,12 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
     const [history, setHistory] = useState<EquipoHistorial[]>([]);
     const [showHistory, setShowHistory] = useState(false);
     const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+    const [showRevisionConfirm, setShowRevisionConfirm] = useState(false);
     const [editingObsIdx, setEditingObsIdx] = useState<number | null>(null);
     const [editingObsText, setEditingObsText] = useState('');
     const [requestedChanges, setRequestedChanges] = useState<any>(null);
+    const [originalUltimaVerificacion, setOriginalUltimaVerificacion] = useState<string>(initialRevision);
+    const [originalSiguienteVerificacion, setOriginalSiguienteVerificacion] = useState<string>(initialSiguiente);
     const [generatingCode, setGeneratingCode] = useState(false);
     const [namesOptions, setNamesOptions] = useState<string[]>([]);
     const [tipoOptions, setTipoOptions] = useState<string[]>([]);
@@ -256,16 +310,18 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                 try {
                     let baseData = initialData as any;
 
-                    if (isTraspaso) {
+                    if (hasId) {
                         const equipRes = await equipoService.getEquipoById(initialData.id_equipo);
                         if (equipRes.success) {
                             baseData = { ...equipRes.data, ...initialData };
                             if (!initialData.vigencia && equipRes.data.vigencia) baseData.vigencia = equipRes.data.vigencia;
-                            setRequestedChanges({
-                                nueva_ubicacion: initialData.ubicacion,
-                                nuevo_responsable_id: initialData.id_muestreador,
-                                vigencia: initialData.vigencia
-                            });
+                            if (isTraspaso) {
+                                setRequestedChanges({
+                                    nueva_ubicacion: initialData.ubicacion,
+                                    nuevo_responsable_id: initialData.id_muestreador,
+                                    vigencia: initialData.vigencia
+                                });
+                            }
                         }
                     } else if (isAlta) {
                         setRequestedChanges(initialData);
@@ -282,6 +338,11 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                         }
                     }
 
+                    const origUltima = baseData.ultima_verificacion ? baseData.ultima_verificacion.split('T')[0] : '';
+                    const origSiguiente = baseData.siguiente_verificacion ? baseData.siguiente_verificacion.split('T')[0] : '';
+                    setOriginalUltimaVerificacion(origUltima);
+                    setOriginalSiguienteVerificacion(origSiguiente);
+
                     setFormData({
                         ...baseData,
                         vigencia: formattedDate,
@@ -295,9 +356,8 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                         tiene_fc: (baseData.tiene_fc === 'S' || baseData.tiene_fc === 'SI') ? 'SI' : 'NO',
                         visible_muestreador: (baseData.visible_muestreador === 'S' || baseData.visible_muestreador === 'SI') ? 'SI' : 'NO',
                         informe: (baseData.informe === 'S' || baseData.informe === 'SI') ? 'SI' : 'NO',
-                        // Campos nuevos: formatear fechas si vienen como ISO
-                        ultima_verificacion: baseData.ultima_verificacion ? baseData.ultima_verificacion.split('T')[0] : '',
-                        siguiente_verificacion: baseData.siguiente_verificacion ? baseData.siguiente_verificacion.split('T')[0] : '',
+                        ultima_verificacion: origUltima,
+                        siguiente_verificacion: origSiguiente,
                         plazo_vigencia: baseData.plazo_vigencia || '',
                         estado_equipo: baseData.estado_equipo || ''
                     });
@@ -436,6 +496,11 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                             try { fd = new Date(b.vigencia).toISOString().split('T')[0]; } catch { fd = ''; }
                         }
                     }
+                    const origUltima = parseInitialDate(b.ultima_verificacion);
+                    const origSiguiente = parseInitialDate(b.siguiente_verificacion);
+                    setOriginalUltimaVerificacion(origUltima);
+                    setOriginalSiguienteVerificacion(origSiguiente);
+
                     setFormData({
                         ...b,
                         vigencia: fd,
@@ -443,6 +508,10 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                         tiene_fc: (b.tiene_fc === 'S' || b.tiene_fc === 'SI') ? 'SI' : 'NO',
                         visible_muestreador: (b.visible_muestreador === 'S' || b.visible_muestreador === 'SI') ? 'SI' : 'NO',
                         informe: (b.informe === 'S' || b.informe === 'SI') ? 'SI' : 'NO',
+                        ultima_verificacion: origUltima,
+                        siguiente_verificacion: origSiguiente,
+                        plazo_vigencia: b.plazo_vigencia || '',
+                        estado_equipo: b.estado_equipo || ''
                     });
                 }
                 const histRes = await equipoService.getEquipoHistorial(initialData.id_equipo);
@@ -456,10 +525,69 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         } finally { setLoading(false); }
     };
 
-    const isFormValid = useMemo(() => (
-        formData.nombre && formData.tipo && formData.ubicacion && formData.estado && 
-        formData.codigo && formData.vigencia && formData.observacion && !generatingCode
-    ), [formData, generatingCode]);
+    const handleSetToday = () => {
+        const todayStr = getTodayString();
+        const next90 = calculateNext90Days(todayStr);
+        setFormData((prev: any) => ({
+            ...prev,
+            ultima_verificacion: todayStr,
+            siguiente_verificacion: next90,
+            vigencia: next90
+        }));
+    };
+
+    const handleResetRevision = () => {
+        setFormData((prev: any) => ({
+            ...prev,
+            ultima_verificacion: originalUltimaVerificacion,
+            siguiente_verificacion: originalSiguienteVerificacion,
+            vigencia: originalSiguienteVerificacion
+        }));
+    };
+
+    const isFormValid = useMemo(() => {
+        const isEdit = !!initialData?.id_equipo;
+        const hasNewRevision = isEdit 
+            ? (formData.ultima_verificacion && formData.ultima_verificacion !== originalUltimaVerificacion)
+            : !!formData.ultima_verificacion;
+
+        return !!(
+            formData.nombre && 
+            formData.tipo && 
+            formData.ubicacion && 
+            formData.estado && 
+            formData.codigo && 
+            hasNewRevision && 
+            formData.id_muestreador && 
+            formData.que_mide && 
+            formData.observacion && 
+            formData.siguiente_verificacion && 
+            !generatingCode
+        );
+    }, [formData, generatingCode, initialData, originalUltimaVerificacion]);
+
+    const missingFields = useMemo(() => {
+        const missing = [];
+        if (!formData.nombre) missing.push("Nombre del Equipo");
+        if (!formData.tipo) missing.push("Tipo de Equipo");
+        if (!formData.ubicacion) missing.push("Ubicación (Sede)");
+        if (!formData.estado) missing.push("Estado");
+        if (!formData.codigo) missing.push("Código Final");
+        
+        const isEdit = !!initialData?.id_equipo;
+        const hasNewRevision = isEdit 
+            ? (formData.ultima_verificacion && formData.ultima_verificacion !== originalUltimaVerificacion)
+            : !!formData.ultima_verificacion;
+        if (!hasNewRevision) {
+            missing.push("Revisión Actual (Registrar hoy)");
+        }
+        
+        if (!formData.id_muestreador) missing.push("Responsable (Muestreador)");
+        if (!formData.que_mide) missing.push("¿Qué Mide?");
+        if (!formData.observacion) missing.push("Observación");
+        if (!formData.siguiente_verificacion) missing.push("Siguiente Verificación");
+        return missing;
+    }, [formData, initialData, originalUltimaVerificacion]);
 
     const generateBulkItems = (quantity: number, baseData: any) => {
         const items = [];
@@ -588,17 +716,19 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                     {isMobile ? 'Historial' : (showHistory ? 'Ocultar Historial' : 'Ver Historial')}
                                 </Button>
                             </ProtectedContent>
-                            <ProtectedContent permission="EQ_UPDATE">
-                                <Button 
-                                    leftSection={<IconDeviceFloppy size={18} />}
-                                    onClick={handleSave}
-                                    loading={loading}
-                                    color="adl-blue"
-                                    size={isMobile ? 'xs' : 'sm'}
-                                >
-                                    {initialData?.id_equipo ? 'Guardar' : 'Crear'}
-                                </Button>
-                            </ProtectedContent>
+                            {!initialData?.id_equipo && (
+                                <ProtectedContent permission="EQ_UPDATE">
+                                    <Button 
+                                        leftSection={<IconDeviceFloppy size={18} />}
+                                        onClick={handleSave}
+                                        loading={loading}
+                                        color="adl-blue"
+                                        size={isMobile ? 'xs' : 'sm'}
+                                    >
+                                        Crear
+                                    </Button>
+                                </ProtectedContent>
+                            )}
                         </Group>
                     </Group>
 
@@ -785,39 +915,99 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                             disabled={!isSuper}
                                         />
                                     </Grid.Col>
-                                    <Grid.Col span={{ base: 12, md: 8 }}>
-                                        <TextInput
-                                            label={<FieldLabel label="Código Final *" help="Código único de barra generado de forma automática para la identificación del equipo en terreno." />}
-                                            value={formData.codigo}
-                                            readOnly={!isSuper}
-                                            required
-                                            fw={700}
-                                            description={formData.previousCode && `Anterior: ${formData.previousCode}`}
-                                            error={attemptedSubmit && !formData.codigo && "Obligatorio"}
-                                        />
-                                    </Grid.Col>
-                                    <Grid.Col span={{ base: 12, md: 4 }}>
-                                        <TextInput
-                                            label={<FieldLabel label="Vigencia *" help="Fecha límite de vigencia de la última calibración o certificación del equipo." />}
-                                            type="date"
-                                            value={formData.vigencia}
-                                            readOnly
-                                            required
-                                            description="Sincronizada con Siguiente Verificación"
-                                            error={attemptedSubmit && !formData.vigencia && "Obligatorio"}
-                                        />
-                                    </Grid.Col>
+                                    {initialData?.id_equipo ? (
+                                        <>
+                                            <Grid.Col span={{ base: 12, md: 4 }}>
+                                                <TextInput
+                                                    label={<FieldLabel label="Código Final *" help="Código único de barra generado de forma automática para la identificación del equipo en terreno." />}
+                                                    value={formData.codigo}
+                                                    readOnly={!isSuper}
+                                                    required
+                                                    fw={700}
+                                                    description={formData.previousCode && `Anterior: ${formData.previousCode}`}
+                                                    error={attemptedSubmit && !formData.codigo && "Obligatorio"}
+                                                />
+                                            </Grid.Col>
+                                            <Grid.Col span={{ base: 12, md: 4 }}>
+                                                <TextInput
+                                                    label={<FieldLabel label="Última Revisión" help="Fecha de la última revisión registrada de este equipo." />}
+                                                    value={formatDateToSpanish(originalUltimaVerificacion)}
+                                                    readOnly
+                                                    disabled
+                                                />
+                                            </Grid.Col>
+                                            <Grid.Col span={{ base: 12, md: 4 }}>
+                                                <TextInput
+                                                    label={<FieldLabel label="Revisión Actual" help="Presione para registrar la nueva revisión técnica con fecha de hoy." />}
+                                                    placeholder="Presione para registrar hoy"
+                                                    value={formData.ultima_verificacion === originalUltimaVerificacion ? '' : formatDateToSpanish(formData.ultima_verificacion)}
+                                                    onClick={() => setShowRevisionConfirm(true)}
+                                                    style={{ cursor: 'pointer' }}
+                                                    readOnly
+                                                    rightSection={
+                                                        formData.ultima_verificacion !== originalUltimaVerificacion && (
+                                                            <ActionIcon 
+                                                                size="sm" 
+                                                                variant="subtle" 
+                                                                color="gray" 
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleResetRevision();
+                                                                }}
+                                                            >
+                                                                <IconX size={16} />
+                                                            </ActionIcon>
+                                                        )
+                                                    }
+                                                />
+                                            </Grid.Col>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Grid.Col span={{ base: 12, md: 8 }}>
+                                                <TextInput
+                                                    label={<FieldLabel label="Código Final *" help="Código único de barra generado de forma automática para la identificación del equipo en terreno." />}
+                                                    value={formData.codigo}
+                                                    readOnly={!isSuper}
+                                                    required
+                                                    fw={700}
+                                                    description={formData.previousCode && `Anterior: ${formData.previousCode}`}
+                                                    error={attemptedSubmit && !formData.codigo && "Obligatorio"}
+                                                />
+                                            </Grid.Col>
+                                            <Grid.Col span={{ base: 12, md: 4 }}>
+                                                <TextInput
+                                                    label={<FieldLabel label="Revisión *" help="Fecha en que se realizó la última revisión / verificación del equipo. En base a esta fecha se calcula la vigencia." />}
+                                                    type="date"
+                                                    value={formData.ultima_verificacion}
+                                                    onChange={(e) => {
+                                                        const newDate = e.target.value;
+                                                        let sigVerif = formData.siguiente_verificacion;
+                                                        if (newDate) {
+                                                            const d = new Date(newDate);
+                                                            d.setDate(d.getDate() + 90);
+                                                            sigVerif = d.toISOString().split('T')[0];
+                                                        } else {
+                                                            sigVerif = '';
+                                                        }
+                                                        setFormData((p: any) => ({
+                                                            ...p,
+                                                            ultima_verificacion: newDate,
+                                                            siguiente_verificacion: sigVerif,
+                                                            vigencia: sigVerif
+                                                        }));
+                                                    }}
+                                                    required
+                                                    error={attemptedSubmit && !formData.ultima_verificacion && "Obligatorio"}
+                                                />
+                                            </Grid.Col>
+                                        </>
+                                    )}
                                     <Grid.Col span={{ base: 12, md: 6 }}>
                                         <Select
                                             label={<FieldLabel label="Responsable (Muestreador) *" help="Muestreador responsable del cuidado y traslado del equipo en terreno." />}
                                             placeholder="Seleccione..."
                                             data={muestreadores
-                                                .filter(m => {
-                                                    const isEditing = !!initialData?.id_equipo;
-                                                    const isActive = !(m.habilitado === 'N' || m.habilitado === false);
-                                                    const isCurrentlySelected = String(m.id_muestreador) === String(formData.id_muestreador);
-                                                    return isEditing ? (isActive || isCurrentlySelected) : isActive;
-                                                })
                                                 .map(m => ({
                                                     value: String(m.id_muestreador),
                                                     label: m.habilitado === 'N' || m.habilitado === false
@@ -929,7 +1119,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                     </Grid.Col>
                                     <Grid.Col span={12}>
                                         <Textarea
-                                            label={<FieldLabel label="Observaciones *" help="Comentarios adicionales, historial de fallas, reparaciones o detalles relevantes del equipo." />}
+                                            label={<FieldLabel label="Observación *" help="Comentarios adicionales, historial de fallas, reparaciones o detalles relevantes del equipo." />}
                                             placeholder="Detalles sobre el equipo..."
                                             value={formData.observacion || ''}
                                             onChange={(e) => setFormData((p: any) => ({ ...p, observacion: e.target.value }))}
@@ -939,45 +1129,27 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                         />
                                     </Grid.Col>
                                 </Grid>
-
                                 <Divider label="Verificación y Estado" labelPosition="center" />
                                 <Grid>
-                                    <Grid.Col span={{ base: 12, sm: 4, md: 4 }}>
-                                        <TextInput
-                                            label={<FieldLabel label="Última Verificación" help="Fecha en que se realizó la última verificación técnica de calibración del equipo." />}
-                                            type="date"
-                                            value={formData.ultima_verificacion}
-                                            onChange={(e) => {
-                                                const newDate = e.target.value;
-                                                let sigVerif = formData.siguiente_verificacion;
-                                                if (newDate) {
-                                                    const d = new Date(newDate);
-                                                    d.setDate(d.getDate() + 90);
-                                                    sigVerif = d.toISOString().split('T')[0];
-                                                }
-                                                setFormData((p: any) => ({ ...p, ultima_verificacion: newDate, siguiente_verificacion: sigVerif }));
-                                            }}
-                                        />
-                                    </Grid.Col>
-                                    <Grid.Col span={{ base: 12, sm: 4, md: 4 }}>
+                                    <Grid.Col span={{ base: 12, sm: 6 }}>
                                         <TextInput
                                             label={
                                                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                                                     <FieldLabel label="Siguiente Verificación *" help="Fecha programada para la próxima verificación técnica (por defecto 90 días después de la última). Corresponde también a la fecha de vigencia." />
                                                     <span style={{ fontSize: 12, color: '#868e96', fontWeight: 400 }}>
-                                                        (Auto: Última + 90 días, editable)
-                                                    </span>
+                                                        (Auto: Última + 90 días)
+                                                     </span>
                                                 </span>
                                             }
                                             type="date"
                                             value={formData.siguiente_verificacion}
-                                            onChange={(e) => setFormData((p: any) => ({ ...p, siguiente_verificacion: e.target.value }))}
+                                            readOnly
                                             required
                                             withAsterisk={false}
                                             error={attemptedSubmit && !formData.siguiente_verificacion && "Obligatorio"}
                                         />
                                     </Grid.Col>
-                                    <Grid.Col span={{ base: 12, sm: 4, md: 4 }}>
+                                    <Grid.Col span={{ base: 12, sm: 6 }}>
                                         <Select
                                             label={<FieldLabel label="Estado del Equipo" help="Estado operativo actual del equipo (ej: Operativo, En Mantención, En Calibración, Fuera de Servicio)." />}
                                             placeholder="Seleccione..."
@@ -995,7 +1167,19 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                     </Grid.Col>
                                     <Grid.Col span={12}>
                                         <Textarea
-                                            label={<FieldLabel label="Plazo Vigencia" help="Comentarios o aclaraciones sobre el plazo de vigencia de la calibración del equipo (ej: Hasta el día 30 del mes...)." />}
+                                            label={
+                                                <FieldLabel 
+                                                    label={
+                                                        <>
+                                                            Plazo Vigencia{" "}
+                                                            <span style={{ fontSize: '11px', fontWeight: 400, color: 'var(--mantine-color-dimmed)' }}>
+                                                                (observación)
+                                                            </span>
+                                                        </>
+                                                    } 
+                                                    help="Comentarios o aclaraciones sobre el plazo de vigencia de la calibración del equipo (ej: Hasta el día 30 del mes...)." 
+                                                />
+                                            }
                                             placeholder="Ej: Hasta el día 30 del mes..."
                                             value={formData.plazo_vigencia || ''}
                                             onChange={(e) => setFormData((p: any) => ({ ...p, plazo_vigencia: e.target.value }))}
@@ -1122,14 +1306,25 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                     Rechazar Solicitud
                                 </Button>
                             )}
-                            <Button 
-                                color="adl-blue"
-                                disabled={!isFormValid || !(initialData?.id_equipo ? canEditEquipo : canCreateEquipo)}
-                                onClick={handleNext}
-                                rightSection={activeStep === 0 && !initialData?.id_equipo ? <IconChevronRight size={18} /> : <IconDeviceFloppy size={18} />}
+                            <Tooltip 
+                                label={!isFormValid ? `Campos obligatorios faltantes: ${missingFields.join(', ')}` : (initialData?.id_equipo ? 'Actualizar equipo' : 'Guardar equipo')}
+                                disabled={isFormValid && (initialData?.id_equipo ? canEditEquipo : canCreateEquipo)}
+                                position="top"
+                                withArrow
+                                multiline
+                                w={280}
                             >
-                                {initialData?.id_equipo ? 'Actualizar' : (activeStep === 0 ? 'Siguiente' : 'Guardar Todo')}
-                            </Button>
+                                <div style={{ display: 'inline-block' }}>
+                                    <Button 
+                                        color="adl-blue"
+                                        disabled={!isFormValid || !(initialData?.id_equipo ? canEditEquipo : canCreateEquipo)}
+                                        onClick={handleNext}
+                                        rightSection={activeStep === 0 && !initialData?.id_equipo ? <IconChevronRight size={18} /> : <IconDeviceFloppy size={18} />}
+                                    >
+                                        {initialData?.id_equipo ? 'Actualizar' : (activeStep === 0 ? 'Siguiente' : 'Guardar Todo')}
+                                    </Button>
+                                </div>
+                            </Tooltip>
                         </Group>
                     </Group>
                 </Stack>
@@ -1143,6 +1338,58 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                     <Group grow w="100%" mt="lg">
                         <Button variant="subtle" color="gray" onClick={() => setShowSaveConfirm(false)}>No, revisar</Button>
                         <Button color="blue" onClick={handleSave}>Sí, confirmar</Button>
+                    </Group>
+                </Stack>
+            </Modal>
+
+            <Modal 
+                opened={showRevisionConfirm} 
+                onClose={() => setShowRevisionConfirm(false)} 
+                title="Registrar Revisión" 
+                centered
+            >
+                <Stack>
+                    <Text size="sm">
+                        Se registrará la revisión técnica del equipo con la fecha de hoy:
+                    </Text>
+                    <Paper p="md" withBorder bg="gray.0">
+                        <Grid gutter="md">
+                            <Grid.Col span={12}>
+                                <Text size="xs" c="dimmed" tt="uppercase">Fecha de Revisión</Text>
+                                <Text fw={700} color="blue" size="md">
+                                    {formatDateToSpanish(getTodayString())}
+                                </Text>
+                            </Grid.Col>
+                            <Grid.Col span={6}>
+                                <Text size="xs" c="dimmed" tt="uppercase">Próxima Verificación</Text>
+                                <Text fw={700} color="teal" size="md">
+                                    {formatDateToSpanish(calculateNext90Days(getTodayString()))}
+                                </Text>
+                            </Grid.Col>
+                            <Grid.Col span={6}>
+                                <Text size="xs" c="dimmed" tt="uppercase">Vigencia Hasta</Text>
+                                <Text fw={700} color="green" size="md">
+                                    {formatDateToSpanish(calculateNext90Days(getTodayString()))}
+                                </Text>
+                            </Grid.Col>
+                        </Grid>
+                    </Paper>
+                    <Text size="xs" c="dimmed">
+                        * Al confirmar, se actualizará el estado temporal del equipo. Los cambios se guardarán definitivamente al presionar el botón "Actualizar" del formulario.
+                    </Text>
+                    <Group grow mt="md">
+                        <Button variant="subtle" color="gray" onClick={() => setShowRevisionConfirm(false)}>
+                            Cancelar
+                        </Button>
+                        <Button 
+                            color="blue" 
+                            onClick={() => {
+                                handleSetToday();
+                                setShowRevisionConfirm(false);
+                            }}
+                        >
+                            Confirmar y Registrar
+                        </Button>
                     </Group>
                 </Stack>
             </Modal>

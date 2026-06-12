@@ -35,6 +35,7 @@ export interface Equipo {
     siguiente_verificacion?: string;   // DATE - calculada (ultima + 90 días) pero editable
     plazo_vigencia?: string;           // VARCHAR(500) - texto con el plazo
     estado_equipo?: string;            // VARCHAR(100) - Estado textual (Operativo, Dado de Baja, etc.)
+    habilitado_muestreador?: string;   // 'S' o 'N' de mae_muestreador
 }
 
 export interface EquipoHistorial extends Equipo {

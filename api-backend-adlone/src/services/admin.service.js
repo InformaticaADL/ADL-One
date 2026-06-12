@@ -431,7 +431,7 @@ export const adminService = {
                     SELECT COUNT(*) as count
                     FROM mae_equipo
                     WHERE habilitado = 'S'
-                    AND CAST(fecha_vigencia AS DATE) < CAST(GETDATE() as DATE)
+                    AND CAST(Siguiente_verificacion AS DATE) < CAST(GETDATE() as DATE)
                 `),
                 pool.request().query(`
                     SELECT COUNT(*) as count
@@ -697,7 +697,7 @@ export const adminService = {
                             e.nombre as [Nombre Equipo],
                             e.tipoequipo as [Categoría],
                             e.sede as [Ubicación],
-                            FORMAT(e.fecha_vigencia, 'dd/MM/yyyy') as [Vigencia],
+                            FORMAT(e.Siguiente_verificacion, 'dd/MM/yyyy') as [Vigencia],
                             m.nombre_muestreador as [Responsable],
                             CASE WHEN e.habilitado = 'S' THEN 'Activo' ELSE 'Inactivo' END as [Estado],
                             e.sigla as [Sigla],
@@ -726,7 +726,7 @@ export const adminService = {
                             h.codigo as [Código],
                             h.nombre as [Nombre],
                             h.sede as [Ubicación],
-                            FORMAT(h.fecha_vigencia, 'dd/MM/yyyy') as [Vigencia],
+                            FORMAT(h.Siguiente_verificacion, 'dd/MM/yyyy') as [Vigencia],
                             m.nombre_muestreador as [Responsable],
                             CASE WHEN h.habilitado = 'S' THEN 'Activo' ELSE 'Inactivo' END as [Estado],
                             h.que_mide as [Qué Mide],

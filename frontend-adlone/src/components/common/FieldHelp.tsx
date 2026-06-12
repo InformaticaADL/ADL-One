@@ -11,7 +11,7 @@ import { IconInfoCircle } from '@tabler/icons-react';
 
 interface FieldLabelProps {
     /** Texto del label (puede incluir el asterisco de obligatorio) */
-    label: string;
+    label: React.ReactNode;
     /** Descripción que aparece al pasar el cursor o presionar el botón */
     help: string;
 }

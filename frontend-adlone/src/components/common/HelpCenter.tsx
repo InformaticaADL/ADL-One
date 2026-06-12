@@ -419,20 +419,25 @@ const getContextHelp = (
         return {
             title: 'Gestión de Equipos de Medición',
             queEs: 'Inventario y control del estado de calibración del instrumental de terreno y laboratorio.',
-            queHace: 'Permite registrar, editar, activar/desactivar y supervisar los equipos de medición. Incluye un sistema de alertas automáticas para detectar calibraciones próximas a vencer y solicitudes pendientes de acción.',
+            queHace: 'Permite registrar, editar, activar/desactivar y supervisar los equipos de medición. Incluye un panel de indicadores clave y un sistema de alertas automáticas para detectar calibraciones próximas a vencer, vigencias expiradas y responsabilidades afectadas.',
             comoFunciona: [
-                '1. La tabla lista todos los equipos con columnas de: Alerta, Código, Nombre, Tipo, Sede, Estado, Vigencia y Responsable.',
+                '1. TARJETAS DE INDICADORES (KPIs) superiores:',
+                '   • Por Vencer (30 días): Equipos activos cuya vigencia de calibración expira en los próximos 30 días (desde hoy inclusive).',
+                '   • Activos con vigencia vencida: Equipos activos cuya fecha de vigencia es menor al día actual (ya vencidos).',
+                '   • Equipos con muestreadores vencidos: Equipos (tanto activos como inactivos) que están asignados a un muestreador inhabilitado en el sistema.',
+                '   * Haz clic en cualquiera de estas tarjetas para aplicar el filtro correspondiente de forma automática.',
                 '2. COLUMNA ALERTA (⚠️): Aparece un ícono de triángulo naranja cuando el equipo tiene una solicitud ACEPTADA pendiente de ejecución (ej. traspaso, baja, recalibración aprobada). Haz clic en el ícono para abrir el panel de solicitudes y procesarla.',
                 '3. COLUMNA ESTADO — semáforo de colores: 🟢 Verde (punto) = Equipo Activo con calibración vigente | 🔴 Rojo (punto) = Equipo Inactivo o fuera de servicio.',
-                '4. COLUMNA VIGENCIA (fecha en naranja): Cuando la fecha de calibración vence en los próximos 30 días, el texto se vuelve naranja y negrita como advertencia visual.',
-                '5. Al abrir la página, si hay equipos por vencer aparece un banner naranja en la parte superior indicando cuántos. Haz clic en «Ver equipos» para filtrarlos automáticamente.',
+                '4. COLUMNA VIGENCIA: El texto de la fecha se muestra en naranja y negrita si está por vencer en los próximos 30 días, y en rojo y negrita si ya está vencida.',
+                '5. COLUMNA RESPONSABLE: Muestra el muestreador asignado. Si el muestreador está inhabilitado/inactivo, aparecerá una etiqueta roja «Inactivo» al lado de su nombre. En los filtros de búsqueda, se muestra como «(Inactivo)».',
                 '6. Los equipos con alertas activas se muestran primero en la tabla (ordenados por prioridad), seguidos de los que vencen más pronto.',
                 '7. Para editar un equipo: haz clic en el ícono de «Lápiz» en la columna de Acciones y actualiza sus datos (vigencia, responsable, estado).',
                 '8. Para crear un nuevo equipo: presiona «Nuevo Equipo» en la cabecera e ingresa Código, Nombre, Tipo, Sede, Responsable y Fecha de Vigencia.',
                 '9. Para activar o desactivar un equipo: usa el ícono de encendido (⏻) en la columna de Acciones. Te pedirá confirmar y opcionalmente ingresar una observación.'
             ],
             tips: [
-                'Revisa semanalmente la columna Vigencia con el filtro de fecha hasta los próximos 30 días para anticipar recalibraciones.',
+                'Usa las tarjetas superiores para ver rápidamente el estado del inventario y corregir asignaciones o renovar calibraciones de inmediato.',
+                'Si ves la etiqueta roja «Inactivo» en la columna Responsable, asigna el equipo a otro muestreador activo lo antes posible.',
                 'Si ves el ícono ⚠️ en la columna Alerta, haz clic en él: hay una solicitud ya aprobada esperando que la ejecutes (ej. actualizar vigencia, dar de baja, traspasar).',
                 'Un equipo en estado Inactivo NO puede ser asignado a muestreos. Actívalo solo cuando su calibración esté vigente.',
                 'Usa los filtros de Sede, Tipo y Responsable para revisar el inventario de una sucursal o área específica.'

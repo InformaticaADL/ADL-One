@@ -587,6 +587,29 @@ frontend-adlone/
   - `VigenciaExtensionForm.tsx` — Rediseño del formulario frontend: reemplazo del campo manual de fecha de vigencia por un DatePicker interactivo de "Fecha de Revisión / Verificación" con autocalculo instantáneo (+90 días) y despliegue estético de la nueva vigencia en tarjeta Teal.
   - `solicitud.service.js` — Actualización dual al aprobar solicitudes `VIGENCIA_PROXIMA`: guarda `ultima_verificacion` (fecha de revisión) y calcula/sincroniza `siguiente_verificacion` y `fecha_vigencia`.
 
+### 73. Indicadores de Estado y Filtros Rápidos en Gestión de Equipos (Junio 2026) 📊⚙️📋
+- **Tarjetas de Estadísticas e Indicadores (KPIs)**:
+  - Implementación de tarjetas superiores dinámicas e interactivas en la vista de Equipos (`EquiposPage.tsx`) que funcionan como filtros rápidos al hacer clic sobre ellas.
+  - *Activos con vigencia vencida*: Filtra de forma inmediata los equipos habilitados cuya vigencia ya expiró.
+  - *Equipos con muestreadores vencidos*: Filtra los equipos activos asignados a un muestreador que ha sido inhabilitado (inactivo) en el sistema.
+  - *Próximos a Vencer*: Muestra y filtra los equipos activos cuya vigencia expira dentro de los siguientes 30 días.
+- **Visualización de Muestreadores Inactivos**:
+  - Incorporación de la etiqueta roja `Inactivo` al lado del nombre del responsable en el listado de equipos cuando corresponda.
+  - Mapeo visual dinámico de los muestreadores deshabilitados como `(Inactivo)` en los filtros y selectores del sistema (incluyendo el modal de exportación `EquipmentExportModal.tsx`).
+- **Migración a Siguiente Verificación**:
+  - Actualización estructural en consultas SQL del backend (`equipo.service.js` y `admin.service.js`) para usar el campo `Siguiente_verificacion` como la columna de fecha de vigencia real del equipo para reportes, filtros, alertas y la exportación de tablas maestras a Excel.
+- **Flujo Simplificado de Registro de Revisión**:
+  - Incorporación del botón "Registrar Revisión" en `EquipoForm.tsx` para permitir al usuario registrar de manera directa la revisión del equipo con la fecha de hoy, auto-calculando automáticamente la próxima verificación a +90 días.
+- **Paginación y Filtros Adaptativos**:
+  - Corrección que restablece la página de paginación a 1 de forma automática al cambiar cualquier filtro de búsqueda en el listado de Equipos, solucionando la visualización de listas vacías.
+- **Hardening de Formularios y Alertas**:
+  - Bloqueo de edición del correlativo generado automáticamente en el formulario.
+  - Alertas visuales dinámicas que advierten si un equipo está vencido, por vencer o tiene un responsable inactivo.
+  - Tooltip explicativo en el botón de guardado que detalla los campos obligatorios pendientes de completar.
+  - Actualización de la documentación interactiva en `HelpCenter.tsx` explicando el funcionamiento de los nuevos filtros, colores e indicadores de vigencia de los equipos.
+- **Diseño Responsivo (Páginas Grandes)**:
+  - Implementación de layouts apilables en `PageHeader.tsx` para anchos de pantalla menores a 1250px, evitando el solapamiento o desborde de botones de acción mediante clases personalizadas en `index.css`.
+
 ---
 
 ## 🔧 Configuración para Desarrollo
@@ -665,6 +688,8 @@ npm run dev       # Puerto 5173
 | **Estado de Entrenamiento** | Toggle en_entrenamiento + badge interactivo en listado | ✅ Implementado |
 | **Importación e Integridad de Equipos** | Importación limpia de 666 equipos + mapeo de muestreadores de respaldo + normalización de sedes | ✅ Implementado |
 | **Control de Vigencia de Equipos** | Flujo de revisión con autocalculo (+90 días) + sincronización dual de fecha de verificación | ✅ Implementado |
+| **Indicadores y Filtros de Equipos** | Tarjetas KPI interactivas (por vencer, vencidos y con responsable inactivo) con filtros de clic, badges de inactividad de muestreadores y registro directo de revisión diaria | ✅ Implementado |
+| **Cabeceras Adaptativas (PageHeader)** | Layouts responsivos y apilables para vistas de administración complejas en pantallas intermedias y móviles | ✅ Implementado |
 
 ---
 

@@ -118,6 +118,7 @@ export const equipoService = {
     getEquipos: async (params = {}) => {
         try {
             const { search, tipo, sede, estado, fechaDesde, fechaHasta, id_muestreador, expiredOnly, inactiveSamplerOnly, sortBy, page = 1, limit = 10 } = params;
+            logger.info('getEquipos params: ' + JSON.stringify(params));
             const pool = await getConnection();
 
             // Filters logic for both count and data
@@ -158,20 +159,20 @@ export const equipoService = {
 
             if (fechaDesde) {
                 request.input('fechaDesde', sql.Date, new Date(fechaDesde));
-                whereClause += ` AND CAST(e.fecha_vigencia AS DATE) >= @fechaDesde`;
+                whereClause += ` AND CAST(e.Siguiente_verificacion AS DATE) >= @fechaDesde`;
             }
 
             if (fechaHasta) {
                 request.input('fechaHasta', sql.Date, new Date(fechaHasta));
-                whereClause += ` AND CAST(e.fecha_vigencia AS DATE) <= @fechaHasta`;
+                whereClause += ` AND CAST(e.Siguiente_verificacion AS DATE) <= @fechaHasta`;
             }
 
             if (expiredOnly === 'true' || expiredOnly === true) {
-                whereClause += ` AND e.habilitado = 'S' AND e.fecha_vigencia IS NOT NULL AND CAST(e.fecha_vigencia AS DATE) < CAST(GETDATE() AS DATE)`;
+                whereClause += ` AND e.habilitado = 'S' AND e.Siguiente_verificacion IS NOT NULL AND CAST(e.Siguiente_verificacion AS DATE) < CAST(GETDATE() AS DATE)`;
             }
 
             if (inactiveSamplerOnly === 'true' || inactiveSamplerOnly === true) {
-                whereClause += ` AND e.habilitado = 'S' AND m.habilitado = 'N'`;
+                whereClause += ` AND m.habilitado = 'N'`;
             }
 
             // 1. Get total for pagination
@@ -196,10 +197,11 @@ export const equipoService = {
                     e.nombre,
                     e.tipoequipo as tipo,
                     e.sede as ubicacion,
-                    FORMAT(e.fecha_vigencia, 'dd/MM/yyyy') as vigencia,
+                    FORMAT(e.Siguiente_verificacion, 'dd/MM/yyyy') as vigencia,
                     e.id_muestreador,
                     CASE WHEN e.habilitado = 'S' THEN 'Activo' ELSE 'Inactivo' END as estado,
                     m.nombre_muestreador as nombre_asignado,
+                    m.habilitado as habilitado_muestreador,
                     e.sigla,
                     e.correlativo,
                     e.tienefc as tiene_fc,
@@ -230,7 +232,7 @@ export const equipoService = {
                           AND JSON_VALUE(s.datos_json, '$.id_equipo') = CAST(e.id_equipo AS NVARCHAR(20))
                     ) THEN 0 ELSE 1 END) ASC,
                     ${sortBy === 'vigencia'
-                        ? 'CASE WHEN e.fecha_vigencia IS NULL THEN 1 ELSE 0 END ASC, e.fecha_vigencia ASC,'
+                        ? 'CASE WHEN e.Siguiente_verificacion IS NULL THEN 1 ELSE 0 END ASC, e.Siguiente_verificacion ASC,'
                         : ''}
                     e.id_equipo ASC
                 OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
@@ -312,23 +314,22 @@ export const equipoService = {
                     SELECT COUNT(*) as cnt
                     FROM mae_equipo
                     WHERE habilitado = 'S'
-                      AND fecha_vigencia IS NOT NULL
-                      AND CAST(fecha_vigencia AS DATE) <= CAST(DATEADD(day, 30, GETDATE()) AS DATE)
-                      AND CAST(fecha_vigencia AS DATE) >= CAST(GETDATE() AS DATE)
+                      AND Siguiente_verificacion IS NOT NULL
+                      AND CAST(Siguiente_verificacion AS DATE) <= CAST(DATEADD(day, 30, GETDATE()) AS DATE)
+                      AND CAST(Siguiente_verificacion AS DATE) >= CAST(GETDATE() AS DATE)
                 `),
                 pool.request().query(`
                     SELECT COUNT(*) as cnt
                     FROM mae_equipo
                     WHERE habilitado = 'S'
-                      AND fecha_vigencia IS NOT NULL
-                      AND CAST(fecha_vigencia AS DATE) < CAST(GETDATE() AS DATE)
+                      AND Siguiente_verificacion IS NOT NULL
+                      AND CAST(Siguiente_verificacion AS DATE) < CAST(GETDATE() AS DATE)
                 `),
                 pool.request().query(`
                     SELECT COUNT(*) as cnt
                     FROM mae_equipo e
                     INNER JOIN mae_muestreador m ON e.id_muestreador = m.id_muestreador
-                    WHERE e.habilitado = 'S'
-                      AND m.habilitado = 'N'
+                    WHERE m.habilitado = 'N'
                 `)
             ]);
 
@@ -476,10 +477,11 @@ export const equipoService = {
                     e.nombre,
                     e.tipoequipo as tipo,
                     e.sede as ubicacion,
-                    FORMAT(e.fecha_vigencia, 'dd/MM/yyyy') as vigencia,
+                    FORMAT(e.Siguiente_verificacion, 'dd/MM/yyyy') as vigencia,
                     e.id_muestreador,
                     CASE WHEN e.habilitado = 'S' THEN 'Activo' ELSE 'Inactivo' END as estado,
                     m.nombre_muestreador as nombre_asignado,
+                    m.habilitado as habilitado_muestreador,
                     e.sigla,
                     e.correlativo,
                     e.tienefc as tiene_fc,
@@ -1238,7 +1240,7 @@ export const equipoService = {
                 SELECT id_equipo, nombre, codigo 
                 FROM mae_equipo 
                 WHERE habilitado = 'S' 
-                AND CAST(fecha_vigencia AS DATE) < CAST(GETDATE() AS DATE)
+                AND CAST(Siguiente_verificacion AS DATE) < CAST(GETDATE() AS DATE)
             `;
             const findRes = await findReq.query(findQuery);
             const expiredEquipos = findRes.recordset;
