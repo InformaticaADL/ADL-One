@@ -620,6 +620,9 @@ frontend-adlone/
   - Alertas informativas dinámicas de advertencia (`<Alert>`) en español dentro de los modals de desactivación de estado y baja administrativa de equipos (`showStatusConfirmModal` y `showConfirmBajaModal`), listando explícitamente los equipos afectados para evitar pérdidas de relación accidental.
 - **Debounce Optimizado en Búsqueda de Equipos**:
   - Configuración de un retraso de 400ms (`localSearchTerm`) en el campo de búsqueda de la página de equipos (`EquiposPage.tsx`) para mitigar la sobrecarga de solicitudes API duplicadas al escribir en tiempo real.
+- **Optimización y Ampliación de Exportación a PDF**:
+  - En la ficha de ingreso de servicio (`ficha.service.js`), se agregaron los datos reales ingresados durante el muestreo (parámetros de terreno de `App_Ma_Resultados`, equipos utilizados de `App_Ma_Equipos_MUESTREOS`, observaciones del muestreador y condiciones de medición).
+  - En el listado de equipos (`EquipmentExportModal.tsx`), se transformó la exportación PDF a orientación horizontal (landscape), incorporando las columnas faltantes (Responsable asignado, ¿Qué Mide? y Fecha de creación) con un formato de fecha DD/MM/YYYY limpio.
 
 ---
 
