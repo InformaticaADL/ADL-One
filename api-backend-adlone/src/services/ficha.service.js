@@ -3127,13 +3127,15 @@ class FichaIngresoService {
         const pool = await getConnection();
         const request = pool.request();
         request.input('id', sql.Numeric(10, 0), id);
-        // M-06: traer también datos de ejecución del muestreo (fechas reales, totalizadores, ejecutor GEM)
+        // M-06: traer también datos de ejecución del muestreo (fechas reales, totalizadores, ejecutor GEM, observaciones y condiciones)
         const agendaRes = await request.query(`
             SELECT a.id_agendamam, a.frecuencia_correlativo, a.fecha_muestreo,
                    a.ma_muestreo_fechai, a.ma_muestreo_fechat,
                    a.muestreador_fechai, a.muestreador_fechat,
                    a.totalizador_inicio, a.totalizador_final,
                    a.realizado_por_gem, a.estado_caso,
+                   a.observaciones_muestreador, a.observaciones_muestreador2,
+                   a.condicionmedicion_flujolaminar, a.condicionmedicion_velocidaduniforme, a.condicionmedicion_observacion,
                    m1.nombre_muestreador as instalacion,
                    m2.nombre_muestreador as retiro,
                    e.nombre_estadomuestreo
@@ -3145,6 +3147,29 @@ class FichaIngresoService {
             ORDER BY a.id_agendamam ASC
         `);
         const agenda = agendaRes.recordset;
+
+        // Fetch results and equipments for executed samplings
+        const resultsRes = await pool.request()
+            .input('id', sql.Numeric(10, 0), id)
+            .query(`
+                SELECT r.frecuencia_correlativo, t.nombre_tecnica AS parametro, r.tipo_analisis, r.estado AS valor
+                FROM App_Ma_Resultados r
+                INNER JOIN mae_tecnica t ON r.id_tecnica = t.id_tecnica
+                WHERE r.id_fichaingresoservicio = @id
+            `);
+        const allResults = resultsRes.recordset;
+
+        const equipmentsRes = await pool.request()
+            .input('id', sql.Numeric(10, 0), id)
+            .query(`
+                SELECT e.frecuencia_correlativo, eq.nombre, eq.codigo, e.usado_instalacion, e.usado_retiro
+                FROM App_Ma_Equipos_MUESTREOS e
+                INNER JOIN mae_equipo eq ON e.id_equipo = eq.id_equipo
+                WHERE e.id_fichaingresoservicio = @id 
+                  AND e.seleccionado = 'S'
+                  AND ISNULL(e.estado, 'ACTIVO') = 'ACTIVO'
+            `);
+        const allEquipments = equipmentsRes.recordset;
 
         // Fetch historial for observations
         const historial = await this.getHistorial(id);
@@ -3403,6 +3428,68 @@ class FichaIngresoService {
                     width: 510,
                     prepareHeader: () => doc.font("Helvetica-Bold").fontSize(9).fillColor('black'),
                     prepareRow: () => doc.font("Helvetica").fontSize(8).fillColor('#374151')
+                });
+
+                // Render detail for each executed sampling
+                ejecutados.forEach(a => {
+                    const corr = a.frecuencia_correlativo;
+                    const samplingResults = allResults.filter(r => r.frecuencia_correlativo === corr && r.tipo_analisis !== 'Laboratorio' && r.tipo_analisis !== 'CostoOperativo');
+                    const samplingEquips = allEquipments.filter(e => e.frecuencia_correlativo === corr);
+
+                    if (samplingResults.length > 0 || samplingEquips.length > 0 || a.observaciones_muestreador || a.observaciones_muestreador2 || a.condicionmedicion_flujolaminar || a.condicionmedicion_velocidaduniforme) {
+                        if (doc.y > 700) {
+                            doc.addPage();
+                            addSectionTitle('Detalle de Ejecución (Continuación)');
+                        } else {
+                            doc.moveDown(0.5);
+                        }
+
+                        doc.font('Helvetica-Bold').fontSize(9.5).fillColor('#2b5b84').text(`Detalle de Ejecución — Corr. ${corr}`, 40, doc.y);
+                        doc.fillColor('black');
+                        doc.moveDown(0.2);
+
+                        // 1. Equipments used
+                        if (samplingEquips.length > 0) {
+                            const instEquips = samplingEquips.filter(e => e.usado_instalacion === 'S').map(e => `${e.nombre} (${e.codigo})`).join(', ');
+                            const retEquips = samplingEquips.filter(e => e.usado_retiro === 'S').map(e => `${e.nombre} (${e.codigo})`).join(', ');
+                            
+                            doc.font('Helvetica-Bold').fontSize(8).text('Equipos Utilizados:', 50, doc.y, { continued: true });
+                            doc.font('Helvetica').fontSize(8).text(` Instalación: ${instEquips || 'Ninguno'} | Retiro: ${retEquips || 'Ninguno'}`);
+                            doc.moveDown(0.15);
+                        }
+
+                        // 2. Terrain results
+                        if (samplingResults.length > 0) {
+                            doc.font('Helvetica-Bold').fontSize(8).text('Mediciones de Terreno: ', 50, doc.y, { continued: true });
+                            const resultsStr = samplingResults.map(r => `${r.parametro}: ${r.valor || '-'}`).join('  |  ');
+                            doc.font('Helvetica').fontSize(8).text(resultsStr);
+                            doc.moveDown(0.15);
+                        }
+
+                        // 3. Observations and conditions
+                        const detailsParts = [];
+                        if (a.observaciones_muestreador && a.observaciones_muestreador !== 'Sin observaciones.') {
+                            detailsParts.push(`Obs. Inst.: ${a.observaciones_muestreador}`);
+                        }
+                        if (a.observaciones_muestreador2 && a.observaciones_muestreador2 !== 'Sin observaciones.') {
+                            detailsParts.push(`Obs. Retiro: ${a.observaciones_muestreador2}`);
+                        }
+                        
+                        const conds = [];
+                        if (a.condicionmedicion_flujolaminar) conds.push(`Flujo Laminar: ${a.condicionmedicion_flujolaminar === 'S' ? 'Sí' : 'No'}`);
+                        if (a.condicionmedicion_velocidaduniforme) conds.push(`Velocidad Uniforme: ${a.condicionmedicion_velocidaduniforme === 'S' ? 'Sí' : 'No'}`);
+                        if (a.condicionmedicion_observacion && a.condicionmedicion_observacion !== 'Sin observaciones.') conds.push(`Obs. Cond.: ${a.condicionmedicion_observacion}`);
+
+                        if (conds.length > 0) {
+                            detailsParts.push(`Condiciones: [${conds.join(' | ')}]`);
+                        }
+
+                        if (detailsParts.length > 0) {
+                            doc.font('Helvetica-Bold').fontSize(8).text('Detalles Muestreo: ', 50, doc.y, { continued: true });
+                            doc.font('Helvetica').fontSize(8).text(detailsParts.join('  |  '));
+                            doc.moveDown(0.15);
+                        }
+                    }
                 });
             }
         }

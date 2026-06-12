@@ -93,7 +93,15 @@ export const EquipmentExportModal: React.FC<EquipmentExportModalProps> = ({
                     countByType[eq.tipo] = (countByType[eq.tipo] || 0) + 1;
                 });
 
-                const doc = new jsPDF();
+                const formatDateToDMY = (dateStr: string) => {
+                    if (!dateStr) return '-';
+                    const clean = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+                    const parts = clean.split('-');
+                    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+                    return dateStr;
+                };
+
+                const doc = new jsPDF({ orientation: 'landscape' });
                 const pageWidth = doc.internal.pageSize.getWidth();
                 
                 doc.setFontSize(18);
@@ -120,7 +128,7 @@ export const EquipmentExportModal: React.FC<EquipmentExportModalProps> = ({
                 
                 tipos.forEach(tipoName => {
                     const items = data.filter((eq: any) => eq.tipo === tipoName);
-                    if (currentY > 260) { doc.addPage(); currentY = 20; }
+                    if (currentY > 170) { doc.addPage(); currentY = 20; }
                     
                     doc.setFillColor(59, 130, 246);
                     doc.rect(14, currentY, pageWidth - 28, 8, 'F');
@@ -132,14 +140,21 @@ export const EquipmentExportModal: React.FC<EquipmentExportModalProps> = ({
 
                     autoTable(doc, {
                         startY: currentY,
-                        head: [['#', 'CÓDIGO', 'NOMBRE', 'S/C', 'ESTADO', 'UBICACIÓN', 'VIGENCIA']],
+                        head: [['#', 'CÓDIGO', 'NOMBRE', 'RESPONSABLE', '¿QUÉ MIDE?', 'ESTADO', 'UBICACIÓN', 'FECHA CREACIÓN', 'SIG. REVISIÓN (VIGENCIA)']],
                         body: items.map((eq: any, idx: number) => [
-                            idx + 1, eq.codigo || '-', eq.nombre || '-', `${eq.sigla || '-'}/${eq.correlativo || '-'}`,
-                            eq.estado || '-', eq.ubicacion || '-', eq.vigencia || '-'
+                            idx + 1,
+                            eq.codigo || '-',
+                            eq.nombre || '-',
+                            eq.nombre_asignado || '-',
+                            eq.que_mide || '-',
+                            eq.estado || '-',
+                            eq.ubicacion || '-',
+                            eq.ultima_verificacion ? formatDateToDMY(eq.ultima_verificacion) : '-',
+                            eq.vigencia || '-'
                         ]),
                         theme: 'grid',
-                        headStyles: { fillColor: [248, 250, 252], textColor: [71, 85, 105], fontSize: 8 },
-                        styles: { fontSize: 7, cellPadding: 2 },
+                        headStyles: { fillColor: [248, 250, 252], textColor: [71, 85, 105], fontSize: 8.5 },
+                        styles: { fontSize: 8, cellPadding: 2.5 },
                         margin: { horizontal: 14 },
                         didDrawPage: () => {
                             doc.setFontSize(8);
