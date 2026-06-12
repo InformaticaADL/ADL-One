@@ -1737,13 +1737,22 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
 
                     <Textarea 
                         label="Motivo del cambio" 
+                        required={equipoStatusPending?.estado === 'Activo'}
                         w="100%"
                         value={statusObservation}
                         onChange={(e) => setStatusObservation(e.currentTarget.value)}
+                        placeholder={equipoStatusPending?.estado === 'Activo' ? "Describa el motivo de la desactivación (obligatorio)..." : "Observaciones..."}
                     />
                     <Group grow w="100%">
                         <Button variant="subtle" color="gray" onClick={() => setShowStatusConfirmModal(false)}>Cancelar</Button>
-                        <Button color={equipoStatusPending?.estado === 'Activo' ? 'red' : 'green'} onClick={confirmToggleStatus} loading={processingAction}>Confirmar</Button>
+                        <Button 
+                            color={equipoStatusPending?.estado === 'Activo' ? 'red' : 'green'} 
+                            onClick={confirmToggleStatus} 
+                            loading={processingAction}
+                            disabled={equipoStatusPending?.estado === 'Activo' && !statusObservation.trim()}
+                        >
+                            Confirmar
+                        </Button>
                     </Group>
                 </Stack>
             </Modal>
