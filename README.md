@@ -610,6 +610,17 @@ frontend-adlone/
 - **Diseño Responsivo (Páginas Grandes)**:
   - Implementación de layouts apilables en `PageHeader.tsx` para anchos de pantalla menores a 1250px, evitando el solapamiento o desborde de botones de acción mediante clases personalizadas en `index.css`.
 
+### 74. Comparación de Versiones, Debounce y Advertencias de Asociación en Equipos (Junio 2026) 🔍🔄⚠️
+- **Comparador Visual de Historial (Diff Tool)**:
+  - Implementación de un modal de comparación interactivo y estéticamente premium (`EquipoForm.tsx`) para contrastar el estado actual de los campos del equipo frente a cualquier versión histórica previa.
+  - Resaltado visual de diferencias (verde para valores actuales y rojo para los antiguos) y botón directo de restauración de versión histórica.
+  - Adaptación en backend (`equipo.service.js`) para retornar los campos clave de verificación técnica, plazos, observaciones y estados en la consulta de historial de cambios.
+- **Advertencias en Desactivación y Baja por Asociación Activa**:
+  - Incorporación de selectores que comprueban si un equipo está configurado como `equipo_asociado` activo en otras unidades del sistema.
+  - Alertas informativas dinámicas de advertencia (`<Alert>`) en español dentro de los modals de desactivación de estado y baja administrativa de equipos (`showStatusConfirmModal` y `showConfirmBajaModal`), listando explícitamente los equipos afectados para evitar pérdidas de relación accidental.
+- **Debounce Optimizado en Búsqueda de Equipos**:
+  - Configuración de un retraso de 400ms (`localSearchTerm`) en el campo de búsqueda de la página de equipos (`EquiposPage.tsx`) para mitigar la sobrecarga de solicitudes API duplicadas al escribir en tiempo real.
+
 ---
 
 ## 🔧 Configuración para Desarrollo
@@ -690,6 +701,9 @@ npm run dev       # Puerto 5173
 | **Control de Vigencia de Equipos** | Flujo de revisión con autocalculo (+90 días) + sincronización dual de fecha de verificación | ✅ Implementado |
 | **Indicadores y Filtros de Equipos** | Tarjetas KPI interactivas (por vencer, vencidos y con responsable inactivo) con filtros de clic, badges de inactividad de muestreadores y registro directo de revisión diaria | ✅ Implementado |
 | **Cabeceras Adaptativas (PageHeader)** | Layouts responsivos y apilables para vistas de administración complejas en pantallas intermedias y móviles | ✅ Implementado |
+| **Comparador de Historial (Equipos)** | Modal interactivo de diferencias de campos (Diff Tool) + restauración directa de versión histórica | ✅ Implementado |
+| **Advertencias por Asociación Activa** | Alertas de dependencia en modals de baja y desactivación para evitar pérdida accidental de relaciones | ✅ Implementado |
+| **Búsqueda con Debounce** | Debounce de 400ms en búsqueda de equipos para optimizar el rendimiento y llamadas de API | ✅ Implementado |
 
 ---
 

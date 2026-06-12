@@ -188,6 +188,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
     const [showHistory, setShowHistory] = useState(false);
     const [showSaveConfirm, setShowSaveConfirm] = useState(false);
     const [showRevisionConfirm, setShowRevisionConfirm] = useState(false);
+    const [compareVersion, setCompareVersion] = useState<any | null>(null);
     const [editingObsIdx, setEditingObsIdx] = useState<number | null>(null);
     const [editingObsText, setEditingObsText] = useState('');
     const [requestedChanges, setRequestedChanges] = useState<any>(null);
@@ -338,14 +339,14 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                         }
                     }
 
-                    const origUltima = baseData.ultima_verificacion ? baseData.ultima_verificacion.split('T')[0] : '';
-                    const origSiguiente = baseData.siguiente_verificacion ? baseData.siguiente_verificacion.split('T')[0] : '';
+                    const origUltima = hasId ? (baseData.ultima_verificacion ? baseData.ultima_verificacion.split('T')[0] : '') : defaultRevisionDate;
+                    const origSiguiente = hasId ? (baseData.siguiente_verificacion ? baseData.siguiente_verificacion.split('T')[0] : '') : defaultSiguienteDate;
                     setOriginalUltimaVerificacion(origUltima);
                     setOriginalSiguienteVerificacion(origSiguiente);
 
                     setFormData({
                         ...baseData,
-                        vigencia: formattedDate,
+                        vigencia: hasId ? formattedDate : origSiguiente,
                         id_muestreador: isTraspaso ? (initialData.id_muestreador || baseData.id_muestreador) : (isAlta ? (initialData.id_muestreador || 0) : baseData.id_muestreador),
                         error0: Number(baseData.error0) || 0,
                         error15: Number(baseData.error15) || 0,
@@ -477,6 +478,67 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         };
     }, [initialData?.id_equipo, formData.vigencia, formData.estado, formData.id_muestreador, muestreadores]);
 
+    const getVersionDiff = (h: any) => {
+        const diffList: Array<{ campo: string, oldValue: string, newValue: string }> = [];
+
+        const getSamplerName = (id: any) => {
+            return muestreadores.find(m => String(m.id_muestreador) === String(id))?.nombre_muestreador || `ID ${id}`;
+        };
+
+        const formatYMDToDMY = (dateStr: string) => {
+            if (!dateStr) return '---';
+            const parts = dateStr.split('-');
+            if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+            return dateStr;
+        };
+
+        const comparisons = [
+            { campo: 'Código', oldVal: h.codigo, newVal: formData.codigo },
+            { campo: 'Nombre', oldVal: h.nombre, newVal: formData.nombre },
+            { campo: 'Tipo de Equipo', oldVal: h.tipo, newVal: formData.tipo },
+            { campo: 'Ubicación (Sede)', oldVal: h.ubicacion, newVal: formData.ubicacion },
+            { campo: 'Estado Habilitación', oldVal: h.estado, newVal: formData.estado },
+            { campo: 'Responsable', oldVal: getSamplerName(h.id_muestreador), newVal: getSamplerName(formData.id_muestreador) },
+            { 
+                campo: 'Siguiente Revisión (Vigente hasta)', 
+                oldVal: h.siguiente_verificacion ? formatYMDToDMY(h.siguiente_verificacion.split('T')[0]) : (h.vigencia || '---'), 
+                newVal: formData.siguiente_verificacion ? formatYMDToDMY(formData.siguiente_verificacion) : '---' 
+            },
+            { 
+                campo: 'Fecha de Creación', 
+                oldVal: h.ultima_verificacion ? formatYMDToDMY(h.ultima_verificacion.split('T')[0]) : '---', 
+                newVal: formData.ultima_verificacion ? formatYMDToDMY(formData.ultima_verificacion) : '---' 
+            },
+            { campo: 'Plazo Vigencia', oldVal: h.plazo_vigencia || '---', newVal: formData.plazo_vigencia || '---' },
+            { campo: 'Estado del Equipo', oldVal: h.estado_equipo || '---', newVal: formData.estado_equipo || '---' },
+            { campo: '¿Qué Mide?', oldVal: h.que_mide || '---', newVal: formData.que_mide || '---' },
+            { campo: 'Unidad de Medida', oldVal: h.unidad_medida_textual || '---', newVal: formData.unidad_medida_textual || '---' },
+            { campo: 'Sigla Unidad', oldVal: h.unidad_medida_sigla || '---', newVal: formData.unidad_medida_sigla || '---' },
+            { campo: 'Tiene Factor de Corrección', oldVal: h.tiene_fc === 'S' || h.tiene_fc === 'SI' ? 'SÍ' : 'NO', newVal: formData.tiene_fc === 'SI' ? 'SÍ' : 'NO' },
+            { campo: 'Visible para Muestreadores', oldVal: h.visible_muestreador === 'S' || h.visible_muestreador === 'SI' ? 'SÍ' : 'NO', newVal: formData.visible_muestreador === 'SI' ? 'SÍ' : 'NO' },
+            { campo: 'Incluir en Informe', oldVal: h.informe === 'S' || h.informe === 'SI' ? 'SÍ' : 'NO', newVal: formData.informe === 'SI' ? 'SÍ' : 'NO' },
+            { campo: 'Error 0', oldVal: String(h.error0 ?? 0), newVal: String(formData.error0 ?? 0) },
+            { campo: 'Error 15', oldVal: String(h.error15 ?? 0), newVal: String(formData.error15 ?? 0) },
+            { campo: 'Error 30', oldVal: String(h.error30 ?? 0), newVal: String(formData.error30 ?? 0) },
+            { campo: 'Equipo Asociado', oldVal: h.equipo_asociado === '0' ? 'No Aplica' : (h.equipo_asociado || 'No Aplica'), newVal: formData.equipo_asociado || 'No Aplica' },
+            { campo: 'Observación', oldVal: h.observacion || '---', newVal: formData.observacion || '---' }
+        ];
+
+        comparisons.forEach(c => {
+            const cleanOld = String(c.oldVal || '').trim().toLowerCase();
+            const cleanNew = String(c.newVal || '').trim().toLowerCase();
+            if (cleanOld !== cleanNew) {
+                diffList.push({
+                    campo: c.campo,
+                    oldValue: String(c.oldVal || '---'),
+                    newValue: String(c.newVal || '---')
+                });
+            }
+        });
+
+        return diffList;
+    };
+
     // --- Handlers ---
     const handleRestore = async (h: any) => {
         if (!initialData?.id_equipo) return;
@@ -579,13 +641,13 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
             ? (formData.ultima_verificacion && formData.ultima_verificacion !== originalUltimaVerificacion)
             : !!formData.ultima_verificacion;
         if (!hasNewRevision) {
-            missing.push("Revisión Actual (Registrar hoy)");
+            missing.push(isEdit ? "Revisión Actual (Registrar hoy)" : "Fecha Creación");
         }
         
         if (!formData.id_muestreador) missing.push("Responsable (Muestreador)");
         if (!formData.que_mide) missing.push("¿Qué Mide?");
         if (!formData.observacion) missing.push("Observación");
-        if (!formData.siguiente_verificacion) missing.push("Siguiente Verificación");
+        if (!formData.siguiente_verificacion) missing.push("Siguiente Revisión (Vigente hasta:)");
         return missing;
     }, [formData, initialData, originalUltimaVerificacion]);
 
@@ -826,7 +888,10 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                                     <Table.Td>{h.nombre_usuario_cambio || 'Sistema'}</Table.Td>
                                                     <Table.Td>{h.codigo}</Table.Td>
                                                     <Table.Td>
-                                                        <Button size="compact-xs" onClick={() => handleRestore(h)}>Habilitar</Button>
+                                                        <Group gap="xs">
+                                                            <Button size="compact-xs" variant="outline" color="blue" onClick={() => setCompareVersion(h)}>Comparar</Button>
+                                                            <Button size="compact-xs" onClick={() => handleRestore(h)}>Habilitar</Button>
+                                                        </Group>
                                                     </Table.Td>
                                                 </Table.Tr>
                                             ))
@@ -977,28 +1042,12 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                             </Grid.Col>
                                             <Grid.Col span={{ base: 12, md: 4 }}>
                                                 <TextInput
-                                                    label={<FieldLabel label="Revisión *" help="Fecha en que se realizó la última revisión / verificación del equipo. En base a esta fecha se calcula la vigencia." />}
+                                                    label={<FieldLabel label="Fecha Creación *" help="Fecha de creación del registro del equipo en el sistema. Se establece de forma automática con la fecha de hoy." />}
                                                     type="date"
                                                     value={formData.ultima_verificacion}
-                                                    onChange={(e) => {
-                                                        const newDate = e.target.value;
-                                                        let sigVerif = formData.siguiente_verificacion;
-                                                        if (newDate) {
-                                                            const d = new Date(newDate);
-                                                            d.setDate(d.getDate() + 90);
-                                                            sigVerif = d.toISOString().split('T')[0];
-                                                        } else {
-                                                            sigVerif = '';
-                                                        }
-                                                        setFormData((p: any) => ({
-                                                            ...p,
-                                                            ultima_verificacion: newDate,
-                                                            siguiente_verificacion: sigVerif,
-                                                            vigencia: sigVerif
-                                                        }));
-                                                    }}
+                                                    readOnly
                                                     required
-                                                    error={attemptedSubmit && !formData.ultima_verificacion && "Obligatorio"}
+                                                    error={attemptedSubmit && !formData.ultima_verificacion && "Se requiere una fecha de creación válida"}
                                                 />
                                             </Grid.Col>
                                         </>
@@ -1135,7 +1184,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                         <TextInput
                                             label={
                                                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                                                    <FieldLabel label="Siguiente Verificación *" help="Fecha programada para la próxima verificación técnica (por defecto 90 días después de la última). Corresponde también a la fecha de vigencia." />
+                                                    <FieldLabel label="Siguiente Revisión (Vigente hasta:) *" help="Fecha programada para la próxima revisión técnica (por defecto 90 días después de la última). Corresponde también a la fecha de vigencia." />
                                                     <span style={{ fontSize: 12, color: '#868e96', fontWeight: 400 }}>
                                                         (Auto: Última + 90 días)
                                                      </span>
@@ -1427,6 +1476,74 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                         setEditingObsIdx(null);
                     }}>Guardar Observación</Button>
                 </Stack>
+            </Modal>
+
+            <Modal 
+                opened={compareVersion !== null} 
+                onClose={() => setCompareVersion(null)} 
+                title={
+                    <Group gap="xs">
+                        <IconHistory size={20} color="var(--mantine-color-blue-6)" />
+                        <Text fw={700}>Comparación con Versión del Historial</Text>
+                    </Group>
+                } 
+                centered 
+                size="lg"
+            >
+                {compareVersion && (() => {
+                    const diffs = getVersionDiff(compareVersion);
+                    return (
+                        <Stack>
+                            <Text size="sm" c="dimmed">
+                                Mostrando las diferencias entre el registro histórico (<strong>{compareVersion.version}</strong>, modificado por <strong>{compareVersion.nombre_usuario_cambio || 'Sistema'}</strong> el {new Date(compareVersion.fecha_cambio).toLocaleString()}) y el estado actual del formulario.
+                            </Text>
+
+                            {diffs.length === 0 ? (
+                                <Alert color="blue" icon={<IconInfoCircle size={16} />} title="Sin diferencias">
+                                    Los datos de la versión del historial seleccionada coinciden exactamente con los datos actuales en el formulario.
+                                </Alert>
+                            ) : (
+                                <Table striped highlightOnHover withTableBorder withColumnBorders>
+                                    <Table.Thead bg="gray.1">
+                                        <Table.Tr>
+                                            <Table.Th>Campo</Table.Th>
+                                            <Table.Th>Versión Histórica ({compareVersion.version})</Table.Th>
+                                            <Table.Th>Valor en Formulario (Actual)</Table.Th>
+                                        </Table.Tr>
+                                    </Table.Thead>
+                                    <Table.Tbody>
+                                        {diffs.map((d, index) => (
+                                            <Table.Tr key={index}>
+                                                <Table.Td fw={500}>{d.campo}</Table.Td>
+                                                <Table.Td style={{ color: 'var(--mantine-color-red-7)', backgroundColor: 'var(--mantine-color-red-0)' }}>
+                                                    {d.oldValue}
+                                                </Table.Td>
+                                                <Table.Td style={{ color: 'var(--mantine-color-green-7)', backgroundColor: 'var(--mantine-color-green-0)' }}>
+                                                    {d.newValue}
+                                                </Table.Td>
+                                            </Table.Tr>
+                                        ))}
+                                    </Table.Tbody>
+                                </Table>
+                            )}
+
+                            <Group justify="flex-end" mt="md">
+                                <Button variant="subtle" color="gray" onClick={() => setCompareVersion(null)}>
+                                    Cerrar
+                                </Button>
+                                <Button 
+                                    color="blue" 
+                                    onClick={() => {
+                                        handleRestore(compareVersion);
+                                        setCompareVersion(null);
+                                    }}
+                                >
+                                    Restaurar esta Versión
+                                </Button>
+                            </Group>
+                        </Stack>
+                    );
+                })()}
             </Modal>
 
 

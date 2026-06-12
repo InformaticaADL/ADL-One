@@ -147,8 +147,39 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
 
     // --- Table & Filters State ---
     const [equipos, setEquipos] = useState<Equipo[]>([]);
+    const [allEquipos, setAllEquipos] = useState<Equipo[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [localSearchTerm, setLocalSearchTerm] = useState('');
+
+    const associatedActiveEquipos = useMemo(() => {
+        if (!equipoStatusPending || equipoStatusPending.estado !== 'Activo') return [];
+        return allEquipos.filter(e => 
+            e.estado === 'Activo' && 
+            String(e.equipo_asociado).trim().toLowerCase() === String(equipoStatusPending.codigo).trim().toLowerCase() &&
+            e.id_equipo !== equipoStatusPending.id_equipo
+        );
+    }, [equipoStatusPending, allEquipos]);
+
+    const associatedActiveEquiposBaja = useMemo(() => {
+        if (!equipoBajaPending) return [];
+        const fullEquipo = allEquipos.find(e => String(e.id_equipo) === String(equipoBajaPending.id));
+        const codigo = fullEquipo?.codigo || equipoBajaPending.datos_json?.codigo;
+        if (!codigo) return [];
+        return allEquipos.filter(e => 
+            e.estado === 'Activo' && 
+            String(e.equipo_asociado).trim().toLowerCase() === String(codigo).trim().toLowerCase() &&
+            String(e.id_equipo) !== String(equipoBajaPending.id)
+        );
+    }, [equipoBajaPending, allEquipos]);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setSearchTerm(localSearchTerm);
+        }, 400);
+        return () => clearTimeout(timer);
+    }, [localSearchTerm]);
+
     const [filterTipo, setFilterTipo] = useState<string | null>(null);
     const [filterSede, setFilterSede] = useState<string | null>(null);
     const [filterEstado, setFilterEstado] = useState<string | null>(null);
@@ -288,6 +319,13 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
             const response = await equipoService.getEquipos(params);
             if (response) {
                 setEquipos(response.data || []);
+                // Fetch all equipments asynchronously for active association warnings
+                equipoService.getEquipos({ limit: 5000 }).then(res => {
+                    if (res && res.data) {
+                        setAllEquipos(res.data);
+                    }
+                }).catch(err => console.error("Error fetching all equipments for association checks", err));
+
                 setTotalPages(response.totalPages || 1);
                 setTotalItems(response.total || 0);
                 setExpiringCount(response.expiringCount ?? 0);
@@ -822,6 +860,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     }, [reviewSolicitud]);
 
     const handleClearFilters = () => {
+        setLocalSearchTerm('');
         setSearchTerm('');
         setFilterTipo(null);
         setFilterSede(null);
@@ -1118,8 +1157,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                 label="Buscar"
                                 placeholder="Nombre o código..."
                                 leftSection={<IconSearch size={16} />}
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.currentTarget.value)}
+                                value={localSearchTerm}
+                                onChange={(e) => setLocalSearchTerm(e.currentTarget.value)}
                             />
                         </Grid.Col>
                         <Grid.Col span={{ base: 6, md: 2 }}>
@@ -1566,6 +1605,29 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 <Stack gap="md" align="center" py="md">
                     <IconTrash size={48} color="var(--mantine-color-red-6)" />
                     <Text ta="center">¿Estás seguro de dar de baja al equipo <b>{equipoBajaPending?.nombre}</b>?</Text>
+
+                    {associatedActiveEquiposBaja.length > 0 && (
+                        <Alert 
+                            color="orange" 
+                            title="Equipo Asociado Activo" 
+                            icon={<IconAlertTriangle size={18} />}
+                            w="100%"
+                        >
+                            <Text size="xs" mb="xs">
+                                <strong>Advertencia:</strong> Este equipo se encuentra configurado como el equipo asociado de los siguientes equipos activos. Al darlo de baja, estas unidades perderán su equipo asociado:
+                            </Text>
+                            <Box style={{ maxHeight: 100, overflowY: 'auto' }} w="100%">
+                                <ul style={{ margin: 0, paddingLeft: 16, fontSize: 11, textAlign: 'left' }}>
+                                    {associatedActiveEquiposBaja.map(e => (
+                                        <li key={e.id_equipo}>
+                                            <strong>{e.codigo}</strong> - {e.nombre} ({e.ubicacion})
+                                        </li>
+                                    ))}
+                                </ul>
+                            </Box>
+                        </Alert>
+                    )}
+
                     {equipoBajaPending?.datos_json?.tipo_solicitud === 'EQUIPO_PERDIDO' && (
                         <Box w="100%">
                             <Textarea 
@@ -1650,6 +1712,29 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 <Stack align="center" gap="md">
                     <IconPower size={48} color={equipoStatusPending?.estado === 'Activo' ? 'red' : 'green'} />
                     <Text ta="center">¿Cambiar estado de <b>{equipoStatusPending?.nombre}</b> a {equipoStatusPending?.estado === 'Activo' ? 'Inactivo' : 'Activo'}?</Text>
+
+                    {associatedActiveEquipos.length > 0 && (
+                        <Alert 
+                            color="orange" 
+                            title="Equipo Asociado Activo" 
+                            icon={<IconAlertTriangle size={18} />}
+                            w="100%"
+                        >
+                            <Text size="xs" mb="xs">
+                                <strong>Advertencia:</strong> Este equipo se encuentra configurado como el equipo asociado de los siguientes equipos activos. Al desactivarlo, quedará inactivo para ellos:
+                            </Text>
+                            <Box style={{ maxHeight: 100, overflowY: 'auto' }} w="100%">
+                                <ul style={{ margin: 0, paddingLeft: 16, fontSize: 11, textAlign: 'left' }}>
+                                    {associatedActiveEquipos.map(e => (
+                                        <li key={e.id_equipo}>
+                                            <strong>{e.codigo}</strong> - {e.nombre} ({e.ubicacion})
+                                        </li>
+                                    ))}
+                                </ul>
+                            </Box>
+                        </Alert>
+                    )}
+
                     <Textarea 
                         label="Motivo del cambio" 
                         w="100%"
