@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { equipoService } from '../services/equipo.service';
 import { useToast } from '../../../contexts/ToastContext';
 
@@ -31,7 +29,6 @@ export const EquipmentExportModal: React.FC<EquipmentExportModalProps> = ({
     muestreadores,
     initialFilters
 }) => {
-    const [format, setFormat] = useState<'excel' | 'formulario'>('excel');
     const [status, setStatus] = useState<string>(initialFilters?.estado || 'Todos');
     const [dateFrom, setDateFrom] = useState<string>(initialFilters?.fechaDesde || '');
     const [dateTo, setDateTo] = useState<string>(initialFilters?.fechaHasta || '');
@@ -54,7 +51,6 @@ export const EquipmentExportModal: React.FC<EquipmentExportModalProps> = ({
 
     if (!isOpen) return null;
 
-
     const handleExport = async () => {
         if (exporting) return;
         setExporting(true);
@@ -68,105 +64,17 @@ export const EquipmentExportModal: React.FC<EquipmentExportModalProps> = ({
                 id_muestreador: selectedMuestreador
             };
 
-            if (format === 'excel') {
-                const buffer = await equipoService.exportEquiposExcel(params);
-                const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `Reporte_INT_Equipos_${new Date().toISOString().split('T')[0]}.xlsx`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                window.URL.revokeObjectURL(url);
-            } else {
-                // PDF Format - Fetch data first
-                const response = await equipoService.getEquipos({ ...params, limit: 5000 });
-                if (!response || !response.data) throw new Error("No hay datos para exportar");
-                
-                const data = response.data;
-                const total = data.length;
-                const activeCount = data.filter((eq: any) => eq.estado === 'Activo').length;
-                const inactiveCount = total - activeCount;
-                const countByType: { [key: string]: number } = {};
-                data.forEach((eq: any) => {
-                    countByType[eq.tipo] = (countByType[eq.tipo] || 0) + 1;
-                });
-
-                const formatDateToDMY = (dateStr: string) => {
-                    if (!dateStr) return '-';
-                    const clean = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
-                    const parts = clean.split('-');
-                    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
-                    return dateStr;
-                };
-
-                const doc = new jsPDF({ orientation: 'landscape' });
-                const pageWidth = doc.internal.pageSize.getWidth();
-                
-                doc.setFontSize(18);
-                doc.setTextColor(30, 41, 59);
-                doc.text("REPORTE CONSOLIDADO DE EQUIPOS", pageWidth / 2, 20, { align: 'center' });
-                
-                autoTable(doc, {
-                    startY: 30,
-                    head: [['INDICADOR', 'VALOR']],
-                    body: [
-                        ['Total de Equipos', total],
-                        ['Equipos Activos', activeCount],
-                        ['Equipos Inactivos', inactiveCount],
-                        ['Fecha de Descarga', new Date().toLocaleString()]
-                    ],
-                    theme: 'striped',
-                    headStyles: { fillColor: [241, 245, 249], textColor: [30, 41, 59], fontStyle: 'bold' },
-                    styles: { fontSize: 9 },
-                    margin: { horizontal: 14 }
-                });
-
-                let currentY = (doc as any).lastAutoTable.finalY + 10;
-                const tipos = Object.keys(countByType).sort();
-                
-                tipos.forEach(tipoName => {
-                    const items = data.filter((eq: any) => eq.tipo === tipoName);
-                    if (currentY > 170) { doc.addPage(); currentY = 20; }
-                    
-                    doc.setFillColor(59, 130, 246);
-                    doc.rect(14, currentY, pageWidth - 28, 8, 'F');
-                    doc.setFontSize(10);
-                    doc.setTextColor(255, 255, 255);
-                    doc.text(`TIPO: ${String(tipoName).toUpperCase()} (${items.length} equipos)`, 18, currentY + 5.5);
-                    
-                    currentY += 10;
-
-                    autoTable(doc, {
-                        startY: currentY,
-                        head: [['#', 'CÓDIGO', 'NOMBRE', 'RESPONSABLE', '¿QUÉ MIDE?', 'ESTADO', 'UBICACIÓN', 'FECHA CREACIÓN', 'SIG. REVISIÓN (VIGENCIA)']],
-                        body: items.map((eq: any, idx: number) => [
-                            idx + 1,
-                            eq.codigo || '-',
-                            eq.nombre || '-',
-                            eq.nombre_asignado || '-',
-                            eq.que_mide || '-',
-                            eq.estado || '-',
-                            eq.ubicacion || '-',
-                            eq.ultima_verificacion ? formatDateToDMY(eq.ultima_verificacion) : '-',
-                            eq.vigencia || '-'
-                        ]),
-                        theme: 'grid',
-                        headStyles: { fillColor: [248, 250, 252], textColor: [71, 85, 105], fontSize: 8.5 },
-                        styles: { fontSize: 8, cellPadding: 2.5 },
-                        margin: { horizontal: 14 },
-                        didDrawPage: () => {
-                            doc.setFontSize(8);
-                            doc.setTextColor(148, 163, 184);
-                            doc.text("ADL ONE :FIN DEL REPORTE - ADL One System", pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
-                        }
-                    });
-                    currentY = (doc as any).lastAutoTable.finalY + 10;
-                });
-
-                doc.save(`Reporte_Equipos_PDF_${new Date().toISOString().split('T')[0]}.pdf`);
-            }
+            const buffer = await equipoService.exportEquiposExcel(params);
+            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Reporte_INT_Equipos_${new Date().toISOString().split('T')[0]}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
             onClose();
         } catch (error) {
             console.error("Export error:", error);
@@ -194,7 +102,7 @@ export const EquipmentExportModal: React.FC<EquipmentExportModalProps> = ({
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
                         <div>
                             <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.75rem', fontWeight: 800 }}>Exportar Equipos</h2>
-                            <p style={{ margin: '0.25rem 0 0 0', color: '#64748b', fontSize: '0.95rem' }}>Configure los filtros para su reporte personalizado</p>
+                            <p style={{ margin: '0.25rem 0 0 0', color: '#64748b', fontSize: '0.95rem' }}>Configure los filtros para su reporte personalizado (Formato Excel)</p>
                         </div>
                         <button onClick={onClose} style={{
                             background: '#f1f5f9', border: 'none', width: '36px', height: '36px',
@@ -206,31 +114,7 @@ export const EquipmentExportModal: React.FC<EquipmentExportModalProps> = ({
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-                        <div style={{ gridColumn: 'span 2' }}>
-                            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#475569', marginBottom: '0.75rem', textTransform: 'uppercase' }}>Formato de Salida</label>
-                            <div style={{ display: 'flex', gap: '1rem' }}>
-                                <button onClick={() => setFormat('excel')} style={{
-                                    flex: 1, padding: '1rem', borderRadius: '16px',
-                                    border: format === 'excel' ? '2px solid #3b82f6' : '2px solid #e2e8f0',
-                                    background: format === 'excel' ? '#eff6ff' : 'white',
-                                    color: format === 'excel' ? '#1d4ed8' : '#64748b',
-                                    fontWeight: 600, cursor: 'pointer', display: 'flex',
-                                    alignItems: 'center', justifyContent: 'center', gap: '0.5rem'
-                                }}>
-                                    Excel (Multi-hoja)
-                                </button>
-                                <button onClick={() => setFormat('formulario')} style={{
-                                    flex: 1, padding: '1rem', borderRadius: '16px',
-                                    border: format === 'formulario' ? '2px solid #3b82f6' : '2px solid #e2e8f0',
-                                    background: format === 'formulario' ? '#eff6ff' : 'white',
-                                    color: format === 'formulario' ? '#1d4ed8' : '#64748b',
-                                    fontWeight: 600, cursor: 'pointer', display: 'flex',
-                                    alignItems: 'center', justifyContent: 'center', gap: '0.5rem'
-                                }}>
-                                    PDF (Formulario)
-                                </button>
-                            </div>
-                        </div>
+
 
                         <div>
                             <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#475569', marginBottom: '0.5rem' }}>Estado</label>
@@ -287,7 +171,7 @@ export const EquipmentExportModal: React.FC<EquipmentExportModalProps> = ({
                         </button>
                         <button onClick={handleExport} disabled={exporting} style={{
                             padding: '0.75rem 2.5rem', borderRadius: '14px', border: 'none',
-                            background: exporting ? '#94a3b8' : 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                            background: exporting ? '#94a3b8' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                             color: 'white', fontWeight: 700, cursor: exporting ? 'not-allowed' : 'pointer',
                             display: 'flex', alignItems: 'center', gap: '0.75rem'
                         }}>
