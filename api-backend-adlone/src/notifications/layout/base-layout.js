@@ -19,6 +19,21 @@ export function renderCamposList(rows) {
 }
 
 /**
+ * Renders the "who/when" line for the event (acción realizada por X el Y a
+ * las Z), kept visually separate from the ficha's own data fields.
+ * Returns '' if usuario is empty.
+ */
+export function renderMetaInfo(usuario, fecha, hora) {
+    if (isEmptyValue(usuario)) return '';
+
+    const cuando = [fecha, hora].filter((v) => !isEmptyValue(v)).join(' ');
+
+    return `<div style="font-size:12px; color:#9b9a97; margin:-4px 0 16px 0; font-family:${FONT};">
+      Acción realizada por <strong style="color:#787774;">${usuario}</strong>${cuando ? ` el ${cuando}` : ''}
+    </div>`;
+}
+
+/**
  * Renders the observation/motivo block. Returns '' if value is empty.
  * "Sin observaciones" gets a neutral gray accent; any other text gets an
  * amber accent (matches the existing visual convention).
@@ -40,7 +55,13 @@ export function renderObservacion(etiqueta, valor) {
  */
 export function renderCta(label, href) {
     if (!label || !href) return '';
-    return `<a href="${href}" style="display:inline-block; background:#0062a8; color:#fff; font-size:14px; font-weight:600; padding:10px 20px; border-radius:8px; text-decoration:none; font-family:${FONT};">${label}</a>`;
+    return `<table role="presentation" border="0" cellspacing="0" cellpadding="0" style="margin-top:6px;">
+      <tr>
+        <td align="center" bgcolor="#0062a8" style="border-radius:8px;">
+          <a href="${href}" style="display:inline-block; padding:14px 36px; font-size:14px; font-weight:600; color:#ffffff; text-decoration:none; font-family:${FONT}; line-height:1; border-radius:8px;">${label}</a>
+        </td>
+      </tr>
+    </table>`;
 }
 
 /**
@@ -52,6 +73,7 @@ export function renderBaseLayout({
     titulo,
     badgeHtml = '',
     resumen = '',
+    metaInfoHtml = '',
     camposHtml = '',
     bloqueEspecialHtml = '',
     observacionHtml = '',
@@ -71,7 +93,7 @@ export function renderBaseLayout({
         <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:#ffffff; max-width:480px; width:100%; border-radius:14px; overflow:hidden; border:1px solid #e9e9e7;">
           <tr>
             <td style="padding:24px 28px 0 28px;">
-              <img src="cid:${logoCid}" alt="ADL ONE" width="120" style="display:block; height:28px; width:auto; border:0;">
+              <img src="cid:${logoCid}" alt="ADL ONE" width="160" style="display:block; height:38px; width:auto; border:0;">
             </td>
           </tr>
           <tr>
@@ -79,6 +101,7 @@ export function renderBaseLayout({
               <h2 style="margin:0 0 6px 0; font-size:18px; color:#1f1f1f; font-weight:600; font-family:${FONT};">${titulo}</h2>
               ${badgeHtml}
               ${resumen ? `<p style="font-size:14px; color:#787774; line-height:1.6; margin:12px 0 18px 0; font-family:${FONT};">${resumen}</p>` : ''}
+              ${metaInfoHtml}
               ${camposHtml}
               ${bloqueEspecialHtml}
               ${observacionHtml}

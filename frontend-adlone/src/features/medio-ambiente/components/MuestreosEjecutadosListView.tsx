@@ -21,9 +21,8 @@ import {
     ActionIcon,
     Box,
     Badge,
-    Popover,
-    UnstyledButton,
-    ThemeIcon
+    Modal,
+    Alert
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { DatePickerInput } from '@mantine/dates';
@@ -32,12 +31,21 @@ import {
     IconEraser,
     IconFilter,
     IconExternalLink,
-    IconCalendar,
-    IconX
+    IconCalendar
 } from '@tabler/icons-react';
 
 import { useNavStore } from '../../../store/navStore';
 import { ProtectedContent } from '../../../components/auth/ProtectedContent';
+
+// El backend (mssql) devuelve los datetime guardados con GETDATE() (hora local del servidor)
+// como si fueran UTC. Usamos los componentes UTC para evitar que el navegador
+// reste el offset horario nuevamente.
+const formatFechaHoraServidor = (value: string | Date) => {
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return '';
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${pad(d.getUTCDate())}-${pad(d.getUTCMonth() + 1)}-${d.getUTCFullYear()} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+};
 
 interface Props {
     onBackToMenu: () => void;
@@ -57,6 +65,9 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
     const isMobile = useMediaQuery('(max-width: 768px)');
 
     const [realizadoStates, setRealizadoStates] = useState<Record<string, {realizado: boolean, userName: string, fecha: string}>>({});
+
+    // Local cache: idAgendamam → caso_adlab asignado en esta sesión
+    const [casoAdlabMap, setCasoAdlabMap] = useState<Record<string, string>>({});
 
     // Filters
     const [searchCorrelativo, setSearchCorrelativo] = useState('');
@@ -86,17 +97,22 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
 
             // Initialize realizadoStates from DB data
             const initialStates: Record<string, {realizado: boolean, userName: string, fecha: string}> = {};
+            const initialCasos: Record<string, string> = {};
             (data || []).forEach((m: any) => {
                 const key = m.id_agendamam?.toString();
                 if (key && m.realizado_por_gem) {
                     initialStates[key] = {
                         realizado: true,
                         userName: m.realizado_por_gem,
-                        fecha: m.fecha_realizado_gem ? new Date(m.fecha_realizado_gem).toLocaleString('es-CL') : ''
+                        fecha: m.fecha_realizado_gem ? formatFechaHoraServidor(m.fecha_realizado_gem) : ''
                     };
+                }
+                if (key && m.caso_adlab) {
+                    initialCasos[key] = m.caso_adlab;
                 }
             });
             setRealizadoStates(initialStates);
+            setCasoAdlabMap(initialCasos);
         } catch (error) {
             console.error("Error loading muestreos ejecutados:", error);
             showToast({ type: 'error', message: "Error al cargar los muestreos ejecutados" });
@@ -228,6 +244,7 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
 
     return (
         <Box p="md" style={{ width: '100%' }}>
+
             <Stack gap="lg">
                 <PageHeader
                     title="Muestreos Completados"
@@ -347,7 +364,7 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
                                     <Table striped highlightOnHover withTableBorder={false} verticalSpacing="xs" miw={1000}>
                                         <Table.Thead bg="gray.1">
                                             <Table.Tr>
-                                                {(activeModule !== 'gem' && activeModule !== 'unidades-gem') && <Table.Th w={60} style={{ whiteSpace: 'nowrap' }}>ID</Table.Th>}
+                                                {(activeModule !== 'gem' && activeModule !== 'unidades-gem') && <Table.Th w={90} style={{ whiteSpace: 'nowrap' }}>Caso ADLab</Table.Th>}
                                                 <Table.Th w={120} style={{ whiteSpace: 'nowrap' }}>Correlativo</Table.Th>
                                                 <Table.Th w={100} style={{ whiteSpace: 'nowrap' }}>Fecha</Table.Th>
                                                 <Table.Th miw={180}>Cliente</Table.Th>
@@ -355,7 +372,7 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
                                                 <Table.Th miw={160}>Área / Obj.</Table.Th>
                                                 <Table.Th miw={120}>M. Inst.</Table.Th>
                                                 <Table.Th miw={120}>M. Ret.</Table.Th>
-                                                <Table.Th miw={140}>Realizado por GEM</Table.Th>
+                                                <Table.Th miw={180}>Realizado por GEM</Table.Th>
                                                 <Table.Th ta="center" w={80}>Acciones</Table.Th>
                                             </Table.Tr>
                                         </Table.Thead>
@@ -374,7 +391,11 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
                                                     >
                                                         {(activeModule !== 'gem' && activeModule !== 'unidades-gem') && (
                                                             <Table.Td style={{ whiteSpace: 'nowrap' }}>
-                                                                <Text size="xs" fw={700} c="blue.7">{m.caso_adlab || '-'}</Text>
+                                                                {casoAdlabMap[key] ? (
+                                                                    <Badge color="blue" variant="light" size="sm">{casoAdlabMap[key]}</Badge>
+                                                                ) : (
+                                                                    <Text size="xs" c="dimmed">Sin asignar</Text>
+                                                                )}
                                                             </Table.Td>
                                                         )}
                                                         <Table.Td style={{ whiteSpace: 'nowrap' }}>

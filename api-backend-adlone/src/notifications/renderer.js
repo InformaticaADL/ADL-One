@@ -1,10 +1,11 @@
 import { resolveTemplate, isEmptyValue } from './placeholders.js';
 import { renderOutcomeBadge } from './outcomes.js';
-import { renderBaseLayout, renderCamposList, renderObservacion, renderCta } from './layout/base-layout.js';
+import { renderBaseLayout, renderCamposList, renderMetaInfo, renderObservacion, renderCta } from './layout/base-layout.js';
 import { renderFichaServicios } from './blocks/ficha-servicios.js';
 import { FICHA_CONFIG } from './config/ficha.config.js';
+import { AVISO_CONFIG } from './config/aviso.config.js';
 
-const ALL_CONFIGS = [...FICHA_CONFIG];
+const ALL_CONFIGS = [...FICHA_CONFIG, ...AVISO_CONFIG];
 const CONFIG_BY_CODE = new Map(ALL_CONFIGS.map((c) => [c.codigo, c]));
 
 const SPECIAL_BLOCKS = {
@@ -38,6 +39,15 @@ export function renderEmail(codigoEvento, context = {}, options = {}) {
     const resumen = config.resumen ? resolveTemplate(config.resumen, context) : '';
     const badgeHtml = renderOutcomeBadge(config.outcome);
 
+    let metaInfoHtml = '';
+    if (config.eventoMeta) {
+        metaInfoHtml = renderMetaInfo(
+            resolveTemplate(config.eventoMeta.usuario, context),
+            resolveTemplate(config.eventoMeta.fecha, context),
+            resolveTemplate(config.eventoMeta.hora, context)
+        );
+    }
+
     const camposRows = (config.campos || [])
         .map((campo) => ({
             icono: campo.icono,
@@ -69,6 +79,7 @@ export function renderEmail(codigoEvento, context = {}, options = {}) {
         titulo,
         badgeHtml,
         resumen,
+        metaInfoHtml,
         camposHtml,
         bloqueEspecialHtml,
         observacionHtml,

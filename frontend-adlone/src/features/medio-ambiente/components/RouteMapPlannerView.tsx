@@ -29,6 +29,7 @@ import {
     Tooltip,
     Modal
 } from '@mantine/core';
+import { modals } from '@mantine/modals';
 import {
     IconRoute,
     IconMapPin,
@@ -167,8 +168,10 @@ const MapFocusHandler: React.FC<{ selectedFichas: FichaWithCoords[] }> = ({ sele
 interface CorrelativoInfo {
     frecuencia_correlativo: string;
     numero_servicio: number;
-    status: string; // PENDIENTE | PROGRAMADO | EJECUTADO | EN_RUTA
+    status: string; // DISPONIBLE | AGENDADO | EN_RUTA
     en_ruta: boolean;
+    tiene_equipos?: boolean;
+    tiene_resultados?: boolean;
 }
 
 interface FichaWithCoords {
@@ -195,6 +198,11 @@ interface SelectedItem {
     frecuencia_correlativo: string;
     numero_servicio: number;
 }
+
+// Servicio por defecto al agregar una ficha: primero DISPONIBLE (no en otra ruta);
+// si no hay, el primero AGENDADO (para reagendar). Los EN_RUTA quedan excluidos.
+const pickDefaultCorrelativo = (corrs: CorrelativoInfo[]): CorrelativoInfo | undefined =>
+    corrs.find(c => c.status === 'DISPONIBLE' && !c.en_ruta) || corrs.find(c => c.status === 'AGENDADO');
 
 interface Props {
     onBack: () => void;
@@ -232,6 +240,7 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
     const [assignDate, setAssignDate] = useState('');
     const [assignMuestreadorInst, setAssignMuestreadorInst] = useState<string | null>(null);
     const [assignMuestreadorRet, setAssignMuestreadorRet] = useState<string | null>(null);
+    const [assignObservacion, setAssignObservacion] = useState('');
     const [osrmRoute, setOsrmRoute] = useState<[number, number][]>([]);
     const [routeDistance, setRouteDistance] = useState<number | null>(null); // metros
     const [routeDuration, setRouteDuration] = useState<number | null>(null); // segundos
@@ -523,6 +532,8 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
         return () => controller.abort();
     }, [routePositions]);
 
+    const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+
     const toggleFicha = useCallback((id: number) => {
         // Pre-check outside the state updater to avoid double-toasts in React Strict Mode
         const isCurrentlySelected = selectedItems.some(s => s.fichaId === id);
@@ -534,9 +545,10 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                     showToast({ type: 'warning', message: `La Ficha #${id} no tiene coordenadas válidas registradas. Actualice su ubicación primero.` });
                     return;
                 }
-                const available = ficha.correlativos.find(c => c.status === 'DISPONIBLE' && !c.en_ruta);
-                if (!available && ficha.correlativos.length > 0) {
-                    showToast({ type: 'warning', message: `Ficha #${id}: todos los servicios ya están asignados o en otra ruta` });
+                // Preferimos un servicio DISPONIBLE; si no hay, permitimos uno AGENDADO para reagendar.
+                const selectable = pickDefaultCorrelativo(ficha.correlativos);
+                if (!selectable && ficha.correlativos.length > 0) {
+                    showToast({ type: 'warning', message: `Ficha #${id}: todos los servicios están en otra ruta y no hay ninguno disponible ni reagendable` });
                     return;
                 }
             }
@@ -550,9 +562,9 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
             
             const ficha = fichas.find(f => f.id === id);
             if (!ficha) return prev;
-            
-            const available = ficha.correlativos.find(c => c.status === 'DISPONIBLE' && !c.en_ruta);
-            
+
+            const available = pickDefaultCorrelativo(ficha.correlativos);
+
             return [...prev, {
                 fichaId: id,
                 frecuencia_correlativo: available?.frecuencia_correlativo || '',
@@ -607,6 +619,11 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
             showToast({ type: 'warning', message: 'Debe seleccionar un muestreador de instalación' });
             return;
         }
+        // Validación de fecha pasada (paridad con AssignmentDetailView).
+        if (assignDate < todayStr) {
+            showToast({ type: 'error', message: 'La fecha de muestreo no puede ser anterior a hoy.' });
+            return;
+        }
 
         setSaving(true);
         try {
@@ -615,6 +632,8 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
             );
 
             const assignments: any[] = [];
+            const reagendaConDatos: string[] = [];
+            const pastInstFichas: string[] = [];
             for (let i = 0; i < selectedItems.length; i++) {
                 const item = selectedItems[i];
                 const result = assignmentResults[i];
@@ -644,12 +663,12 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                         });
                         continue;
                     }
-                    // Verificar que el servicio elegido siga DISPONIBLE (no agendado en otra parte).
+                    // Un servicio EJECUTADO/CANCELADO/ANULADO nunca se puede (re)asignar. Los AGENDADO sí (reagendar).
                     const estado = String(pendingRow.nombre_estadomuestreo || '').toUpperCase();
                     if (estado.includes('EJECUTADO') || estado.includes('CANCELADO') || estado.includes('ANULADO')) {
                         showToast({
                             type: 'warning',
-                            message: `Ficha #${item.fichaId} (${item.frecuencia_correlativo}): el servicio ya no está disponible (${pendingRow.nombre_estadomuestreo}). Se omitirá.`
+                            message: `Ficha #${item.fichaId} (${item.frecuencia_correlativo}): el servicio no es asignable (${pendingRow.nombre_estadomuestreo}). Se omitirá.`
                         });
                         continue;
                     }
@@ -664,10 +683,30 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                     }
                 }
 
+                // ¿Es un reagendamiento? El servicio elegido ya estaba AGENDADO (con fecha previa).
+                const fichaInfo = fichas.find(f => f.id === item.fichaId);
+                const corrInfo = fichaInfo?.correlativos.find(c => c.frecuencia_correlativo === item.frecuencia_correlativo);
+                const isReagenda = corrInfo?.status === 'AGENDADO';
+
                 const dayOffset = Math.floor((Number(pendingRow.ma_duracion_muestreo) || 0) / 24);
                 const instDate = dayOffset > 0
                     ? (() => { const d = new Date(assignDate + 'T00:00:00'); d.setDate(d.getDate() - dayOffset); return d.toISOString().split('T')[0]; })()
                     : assignDate;
+
+                // La instalación (retiro − duración) no puede caer antes de hoy.
+                if (instDate < todayStr) {
+                    pastInstFichas.push(`#${item.fichaId} (${item.frecuencia_correlativo})`);
+                    continue;
+                }
+                // Coherencia: instalación nunca posterior al muestreo/retiro (defensivo).
+                if (instDate > assignDate) {
+                    showToast({ type: 'error', message: `Ficha #${item.fichaId}: la fecha de instalación no puede ser posterior a la de muestreo. Se omitirá.` });
+                    continue;
+                }
+
+                if (isReagenda && (corrInfo?.tiene_equipos || corrInfo?.tiene_resultados)) {
+                    reagendaConDatos.push(`#${item.fichaId} · ${item.frecuencia_correlativo}`);
+                }
 
                 assignments.push({
                     id: pendingRow.id_agendamam,
@@ -676,25 +715,70 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                     idMuestreadorInstalacion: Number(assignMuestreadorInst),
                     idMuestreadorRetiro: Number(assignMuestreadorRet || assignMuestreadorInst),
                     idFichaIngresoServicio: pendingRow.id_fichaingresoservicio || item.fichaId,
-                    frecuenciaCorrelativo: pendingRow.frecuencia_correlativo || 'PorAsignar'
+                    frecuenciaCorrelativo: pendingRow.frecuencia_correlativo || 'PorAsignar',
+                    // Reagendar un servicio ya agendado vs. asignar uno disponible.
+                    // expectAvailable activa la re-validación anti-carrera en el backend.
+                    reagendar: isReagenda,
+                    expectAvailable: !isReagenda
                 });
+            }
+
+            if (pastInstFichas.length > 0) {
+                showToast({ type: 'error', message: `Por la duración del muestreo, la instalación caería antes de hoy en: ${pastInstFichas.join(', ')}. Use una fecha de muestreo posterior.` });
+                return;
             }
 
             if (assignments.length === 0) {
                 showToast({ type: 'error', message: 'No hay registros pendientes para asignar en ninguna de las fichas seleccionadas' });
-                setSaving(false);
                 return;
             }
 
-            const response = await fichaService.batchUpdateAgenda({
-                assignments,
-                user: user ? { id: user.id } : { id: 0 },
-                observaciones: `Asignación por ruta (${assignments.length} fichas) desde Planificador de Rutas`
-            });
+            const executePost = async () => {
+                setSaving(true);
+                try {
+                    const response = await fichaService.batchUpdateAgenda({
+                        assignments,
+                        user: user ? { id: user.id } : { id: 0 },
+                        observaciones: `Asignación por ruta (${assignments.length} fichas) desde Planificador de Rutas`,
+                        observacionNotificacion: assignObservacion.trim() || null
+                    });
+                    showToast({ type: 'success', message: response.message || `✅ Ruta asignada: ${assignments.length} fichas programadas correctamente` });
+                    setIsModalOpen(false);
+                    setAssignObservacion('');
+                    setTimeout(() => onBack(), 1500);
+                } catch (error: any) {
+                    console.error("Error saving route:", error);
+                    showToast({ type: 'error', message: error?.response?.data?.message || 'Error al guardar la asignación de ruta' });
+                } finally {
+                    setSaving(false);
+                }
+            };
 
-            showToast({ type: 'success', message: response.message || `✅ Ruta asignada: ${assignments.length} fichas programadas correctamente` });
-            setIsModalOpen(false);
-            setTimeout(() => onBack(), 1500);
+            // Si hay reagendamientos sobre servicios con equipos/resultados, confirmar primero.
+            if (reagendaConDatos.length > 0) {
+                modals.openConfirmModal({
+                    title: 'Reagendar servicios con datos cargados',
+                    centered: true,
+                    children: (
+                        <Stack gap="sm">
+                            <Text size="sm">
+                                {reagendaConDatos.length} servicio{reagendaConDatos.length !== 1 ? 's' : ''} que vas a reagendar ya
+                                {' '}tiene{reagendaConDatos.length !== 1 ? 'n' : ''} equipos y/o resultados cargados:
+                            </Text>
+                            <Stack gap={2}>
+                                {reagendaConDatos.map(s => <Text key={s} size="xs" fw={600}>• {s}</Text>)}
+                            </Stack>
+                            <Text size="sm" c="orange">Cambiar la fecha puede afectar la consistencia de esos datos. ¿Deseas continuar?</Text>
+                        </Stack>
+                    ),
+                    labels: { confirm: 'Reagendar de todas formas', cancel: 'Cancelar' },
+                    confirmProps: { color: 'orange' },
+                    onConfirm: executePost
+                });
+                return;
+            }
+
+            await executePost();
         } catch (error) {
             console.error("Error saving route:", error);
             showToast({ type: 'error', message: 'Error al guardar la asignación de ruta' });
@@ -735,6 +819,7 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                     <TextInput
                         label="Fecha Muestreo"
                         type="date"
+                        min={todayStr}
                         value={assignDate}
                         onChange={(e) => setAssignDate(e.target.value)}
                         leftSection={<IconCalendarEvent size={16} />}
@@ -761,6 +846,15 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                         placeholder="Igual al de instalación"
                         leftSection={<IconUserPlus size={16} />}
                         comboboxProps={{ zIndex: 10001 }}
+                    />
+                    <Textarea
+                        label="Observación para la notificación"
+                        description="Se incluirá en el correo de asignación enviado al responsable"
+                        placeholder="Ej: Coordinar acceso con guardia antes de las 9:00 AM"
+                        minRows={2}
+                        autosize
+                        value={assignObservacion}
+                        onChange={(e) => setAssignObservacion(e.target.value)}
                     />
                     <Button
                         fullWidth
@@ -941,11 +1035,11 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                                                             value={item.frecuencia_correlativo}
                                                             onChange={(val) => val && updateSelectedCorrelativo(item.fichaId, val)}
                                                             data={f.correlativos
-                                                                .filter(c => (c.status === 'DISPONIBLE' && !c.en_ruta) || c.frecuencia_correlativo === item.frecuencia_correlativo)
+                                                                .filter(c => (c.status === 'DISPONIBLE' && !c.en_ruta) || c.status === 'AGENDADO' || c.frecuencia_correlativo === item.frecuencia_correlativo)
                                                                 .map(c => ({
                                                                     value: c.frecuencia_correlativo,
                                                                     label: `Serv. ${c.numero_servicio} / ${f.total_servicios}${
-                                                                        c.status === 'AGENDADO' ? ' ✓ Agendado' : 
+                                                                        c.status === 'AGENDADO' ? ' ↻ Reagendar' :
                                                                         c.en_ruta ? ' ↗ En ruta' : ''
                                                                     }`
                                                                 }))

@@ -624,6 +624,60 @@ frontend-adlone/
   - En la ficha de ingreso de servicio (`ficha.service.js`), se agregaron los datos reales ingresados durante el muestreo (parámetros de terreno de `App_Ma_Resultados`, equipos utilizados de `App_Ma_Equipos_MUESTREOS`, observaciones del muestreador y condiciones de medición).
   - En el listado de equipos (`EquipmentExportModal.tsx`), se transformó la exportación PDF a orientación horizontal (landscape), incorporando las columnas faltantes (Responsable asignado, ¿Qué Mide? y Fecha de creación) con un formato de fecha DD/MM/YYYY limpio.
 
+### 75. Rediseño del Motor de Notificaciones por Email (Junio 2026) 📧✨
+
+- **Nuevo Renderer Modular (`renderer.js`)**:
+  - Arquitectura en capas: `config/` + `layout/` + `blocks/` + `placeholders.js` + `outcomes.js`.
+  - `renderEmail(eventCode, context)` combina la configuración del evento, el layout base y bloques especiales para generar el HTML final.
+  - Fallback automático al motor legacy para eventos no migrados, garantizando compatibilidad total.
+- **Layout Base Notion-Style (`base-layout.js`)**:
+  - Layout con cabecera corporativa, bloque de contenido principal, tabla de detalle de servicios y pie de página estándar.
+  - Generación de tabla de metadatos a partir de pares clave-valor dinámicos.
+- **Bloque Especial de Servicios (`ficha-servicios.js`)**:
+  - Renderiza la lista de servicios de una ficha con detalle de parámetros, fechas y muestreadores asignados.
+  - Soporte para formato de fechas corregido (UTC) para evitar desfase de zona horaria en servidor SQL Server.
+- **Catálogo de Placeholders y Outcomes**:
+  - `placeholders.js` — Resolución de tokens `{VARIABLE}` desde el contexto de la notificación.
+  - `outcomes.js` — Catálogo de badges de resultado (ej. `APROBADO`, `RECHAZADO`, `PENDIENTE`) con estilos inline compatibles con Outlook.
+- **Configuración de Eventos FICHA (`ficha.config.js`)**:
+  - Definición declarativa de todos los eventos de Fichas (`FICHA_ASIGNADA`, `FICHA_REAGENDADA`, `FICHA_CANCELADA`, etc.) con metadatos, campos y orden de placeholders.
+- **Fix APP_URL en Producción**:
+  - `uns.service.js` — `context.APP_URL` se establece antes de llamar a `renderEmail()` para evitar que los botones CTA apunten a `localhost` en producción.
+- **Script de Preview Visual (`preview-ficha-emails.js`)**:
+  - Endpoint temporal `/api/notifications/preview/:eventCode` para visualizar correos en el navegador durante el desarrollo.
+
+### 76. Notificación FICHA_MUESTREO_COMPLETADO (Junio 2026) 🔔✅
+
+- **Polling de Muestreos Completados (`scheduler.js`)**:
+  - Nueva tarea programada que consulta periódicamente muestreos en estado `REALIZADO` sin notificación enviada.
+  - Supresión robusta de errores por migración pendiente de la columna `notificado_completado` (falla silenciosa si la columna aún no existe en la BD).
+- **Trigger de Notificación (`ficha.service.js`)**:
+  - Al detectar un muestreo completado, envía la notificación `FICHA_MUESTREO_COMPLETADO` al dueño de la ficha con el resumen del servicio ejecutado.
+- **Configuración del Evento (`ficha.config.js`)**:
+  - Nuevo evento `FICHA_MUESTREO_COMPLETADO` con template de email dedicado, placeholders de ejecución y badge de outcome `COMPLETADO`.
+- **Migraciones de Base de Datos**:
+  - `add_muestreo_completado_event.sql` — Inserta el nuevo evento en `mae_evento_notificacion`.
+  - `add_notificado_completado.sql` — Agrega columna `notificado_completado` a la tabla de muestreos para tracking del envío.
+
+### 77. Mejoras en FichaDetailView y Navegación de Notificaciones (Junio 2026) 🗺️🔔
+
+- **FichaDetailView — Ingreso de OI (Orden de Ingreso)**:
+  - Validación en frontend del campo OI con prefijo automático `OI-` y límite de 10 caracteres.
+  - Helper `formatFechaHoraServidor` para mostrar fechas/horas correctamente compensando el offset UTC del servidor SQL Server.
+  - Integración de iconos `IconInfoCircle` / `IconAlertTriangle` para alertas visuales en el detalle de la ficha.
+- **Navegación Inteligente desde Notificaciones (`notificationNavigation.ts`)**:
+  - Lógica de navegación diferenciada por tipo de notificación: notificaciones de `muestreo completado` dirigen al listado de **Muestreos Ejecutados** (`list_ejecutados`) en lugar del detalle de la ficha.
+  - Constantes de permisos `FICHA_DETALLE_PERMS` y `FICHA_EJECUTADOS_PERMS` para validación RBAC antes de navegar.
+  - Feedback de error vía `showToast` si el usuario no tiene permisos para el destino de la notificación.
+- **NotificationPopover y UserNotificationsPage**:
+  - Reciben `setFichasMode` y `hasPermission` como props para soportar la nueva navegación contextual.
+  - Sincronización del estado `fichasMode` con el store de navegación global (`navStore`).
+- **AssignmentDetailView y MuestreosEjecutadosListView**:
+  - Mejoras de UI en la visualización de datos de ejecución de muestreos.
+  - `MuestreosEjecutadosListView.tsx` — Refinamientos de estados de carga, manejo de errores y columnas de datos ejecutados.
+- **RouteMapPlannerView**:
+  - Refactorización significativa del planificador de rutas para mejorar rendimiento y manejo de estados complejos.
+
 ---
 
 ## 🔧 Configuración para Desarrollo
@@ -707,6 +761,9 @@ npm run dev       # Puerto 5173
 | **Comparador de Historial (Equipos)** | Modal interactivo de diferencias de campos (Diff Tool) + restauración directa de versión histórica | ✅ Implementado |
 | **Advertencias por Asociación Activa** | Alertas de dependencia en modals de baja y desactivación para evitar pérdida accidental de relaciones | ✅ Implementado |
 | **Búsqueda con Debounce** | Debounce de 400ms en búsqueda de equipos para optimizar el rendimiento y llamadas de API | ✅ Implementado |
+| **Motor de Email Modular (UNS v2)** | Renderer config/layout/blocks + fallback legacy + Outlook-safe | ✅ Implementado |
+| **FICHA_MUESTREO_COMPLETADO** | Polling scheduler + notificación al dueño de ficha + migración BD | ✅ Implementado |
+| **Navegación Contextual de Notificaciones** | RBAC-aware routing por tipo de evento + deep-link list_ejecutados | ✅ Implementado |
 
 ---
 

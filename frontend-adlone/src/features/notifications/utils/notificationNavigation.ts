@@ -6,15 +6,26 @@ interface NavActions {
     setPendingRequestId: (id: number | null) => void;
     setPendingChatId: (id: number | null) => void;
     setSelectedRequestId: (id: number | null) => void;
+    setFichasMode: (mode: 'list_ejecutados') => void;
+    hasPermission: (permission: string | string[]) => boolean;
+    showToast: (toast: { type: 'error' | 'info' | 'success' | 'warning'; message: string }) => void;
 }
 
+// Permisos que habilitan ver el detalle de una ficha (mismos que FichasIngresoPage usa para 'list_fichas')
+const FICHA_DETALLE_PERMS = ['FI_CONSULTAR', 'FI_VER', 'FI_APROBAR_TEC', 'FI_RECHAZAR_TEC', 'FI_APROBAR_COO', 'FI_RECHAZAR_COO', 'FI_EDITAR'];
+// Permisos que habilitan ver el listado de Muestreos Ejecutados (mismos que FichasIngresoPage usa para 'list_ejecutados')
+const FICHA_EJECUTADOS_PERMS = ['MA_COMERCIAL_HISTORIAL_ACCESO', 'FI_EXP_MC'];
+
 export const handleNotificationNavigation = (notif: Notification, actions: NavActions) => {
-    const { 
-        setActiveModule, 
-        setActiveSubmodule, 
-        setPendingRequestId, 
-        setPendingChatId, 
-        setSelectedRequestId 
+    const {
+        setActiveModule,
+        setActiveSubmodule,
+        setPendingRequestId,
+        setPendingChatId,
+        setSelectedRequestId,
+        setFichasMode,
+        hasPermission,
+        showToast
     } = actions;
 
     if (!notif.id_referencia) {
@@ -57,13 +68,29 @@ export const handleNotificationNavigation = (notif: Notification, actions: NavAc
         return;
     }
 
-    // 3. Medio Ambiente (Fichas de Ingreso)
-    const isFicha = 
-        titulo.includes('ficha') || mensaje.includes('ficha') || 
+    // 3. Muestreo Completado: lleva al listado de Muestreos Ejecutados, no al detalle de la ficha
+    if (titulo.includes('muestreo completado')) {
+        if (!hasPermission(FICHA_EJECUTADOS_PERMS)) {
+            showToast({ type: 'error', message: 'No tienes permiso para ver el listado de Muestreos Ejecutados.' });
+            return;
+        }
+        setActiveModule('medio_ambiente');
+        setActiveSubmodule('ma-fichas-ingreso');
+        setFichasMode('list_ejecutados');
+        return;
+    }
+
+    // 4. Medio Ambiente (Fichas de Ingreso)
+    const isFicha =
+        titulo.includes('ficha') || mensaje.includes('ficha') ||
         titulo.includes('programación') || mensaje.includes('muestreo') ||
         area === 'medio ambiente' || area === 'medio_ambiente' || area === 'fichas';
 
     if (isFicha) {
+        if (!hasPermission(FICHA_DETALLE_PERMS)) {
+            showToast({ type: 'error', message: 'No tienes permiso para ver el detalle de esta ficha.' });
+            return;
+        }
         setPendingRequestId(notif.id_referencia);
         setActiveModule('medio_ambiente');
         setActiveSubmodule('ma-fichas-ingreso');

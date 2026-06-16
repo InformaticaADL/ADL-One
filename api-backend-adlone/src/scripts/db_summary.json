@@ -1,0 +1,1173 @@
+[
+  {
+    "id_evento": 1,
+    "codigo_evento": "FICHA_CREADA",
+    "descripcion": "Ficha Comercial Creada",
+    "modulo": "Medio Ambiente",
+    "asunto_template": "Nueva Ficha Ingresada: {correlativo}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{USUARIO}",
+      "{FECHA}",
+      "{HORA}",
+      "{OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 2,
+    "codigo_evento": "FICHA_APROBADA_TECNICA",
+    "descripcion": "Aprobación Técnica Exitosa",
+    "modulo": "Medio Ambiente",
+    "asunto_template": "Ficha Aceptada Técnica: {correlativo}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{USUARIO}",
+      "{FECHA}",
+      "{ETIQUETA_HORA}",
+      "{HORA}",
+      "{OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 3,
+    "codigo_evento": "FICHA_RECHAZADA_TECNICA",
+    "descripcion": "Rechazo por Jefatura Técnica",
+    "modulo": "Medio Ambiente",
+    "asunto_template": "URGENTE: Ficha Rechazada Técnica: {correlativo}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{USUARIO}",
+      "{FECHA}",
+      "{ETIQUETA_HORA}",
+      "{HORA}",
+      "{OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 4,
+    "codigo_evento": "FICHA_APROBADA_COORDINACION",
+    "descripcion": "Aprobación Coordinación Exitosa",
+    "modulo": "Medio Ambiente",
+    "asunto_template": "Ficha Aceptada Coordinación: {correlativo}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{USUARIO}",
+      "{FECHA}",
+      "{ETIQUETA_HORA}",
+      "{HORA}",
+      "{OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 5,
+    "codigo_evento": "FICHA_RECHAZADA_COORDINACION",
+    "descripcion": "Rechazo por Coordinación",
+    "modulo": "Medio Ambiente",
+    "asunto_template": "URGENTE: Ficha Rechazada Coordinación: {correlativo}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{USUARIO}",
+      "{FECHA}",
+      "{ETIQUETA_HORA}",
+      "{HORA}",
+      "{OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 6,
+    "codigo_evento": "FICHA_ASIGNADA",
+    "descripcion": "Asignación de Fechas Muestreo",
+    "modulo": "Medio Ambiente",
+    "asunto_template": "Muestreo Asignado - Ficha #{CORRELATIVO}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{LABEL_SOLICITANTE}",
+      "{USUARIO}",
+      "{empresa_servicio}",
+      "{fuente_centro}",
+      "{monitoreo}",
+      "{FECHA}",
+      "{HORA}",
+      "{COLOR_PRINCIPAL}",
+      "{servicios_detalle}",
+      "{OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 12,
+    "codigo_evento": "SOL_EQUIPO_NUEVA",
+    "descripcion": "Nueva Solicitud de Equipo (Admin)",
+    "modulo": "AI_MA",
+    "asunto_template": "Nueva Solicitud de Equipo: {TIPO_SOLICITUD} - {CORRELATIVO}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 13,
+    "codigo_evento": "SOL_EQUIPO_ALTA_APR",
+    "descripcion": "Solicitud ACEPTADA: Activación de Equipo",
+    "modulo": "AI_MA",
+    "asunto_template": "ADL ONE: {TITULO_CORREO} {CORRELATIVO}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{USUARIO}",
+      "{FECHA}",
+      "{HORA}",
+      "{nombre_equipo}",
+      "{tipo_equipo}",
+      "{nombre_centro}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 14,
+    "codigo_evento": "SOL_EQUIPO_ALTA_RECH",
+    "descripcion": "Solicitud RECHAZADA: Activación de Equipo",
+    "modulo": "AI_MA",
+    "asunto_template": "ADL ONE: {TITULO_CORREO} {CORRELATIVO}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{USUARIO}",
+      "{FECHA}",
+      "{HORA}",
+      "{nombre_equipo}",
+      "{tipo_equipo}",
+      "{nombre_centro}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 15,
+    "codigo_evento": "SOL_EQUIPO_BAJA_APR",
+    "descripcion": "Solicitud ACEPTADA: Baja de Equipo",
+    "modulo": "AI_MA",
+    "asunto_template": "ADL ONE: {TITULO_CORREO} {CORRELATIVO}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{USUARIO}",
+      "{FECHA}",
+      "{HORA}",
+      "{nombre_equipo_full}",
+      "{motivo}",
+      "{fecha_baja}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 16,
+    "codigo_evento": "SOL_EQUIPO_BAJA_RECH",
+    "descripcion": "Solicitud RECHAZADA: Baja de Equipo",
+    "modulo": "AI_MA",
+    "asunto_template": "ADL ONE: {TITULO_CORREO} {CORRELATIVO}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{USUARIO}",
+      "{FECHA}",
+      "{HORA}",
+      "{nombre_equipo_full}",
+      "{motivo}",
+      "{fecha_baja}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 17,
+    "codigo_evento": "SOL_EQUIPO_TRASPASO_APR",
+    "descripcion": "Solicitud de Traspaso Aprobada",
+    "modulo": "AI_MA",
+    "asunto_template": "Solicitud Aprobada: {TIPO_SOLICITUD} ACEPTADA",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 18,
+    "codigo_evento": "SOL_EQUIPO_TRASPASO_RECH",
+    "descripcion": "Solicitud de Traspaso Rechazada",
+    "modulo": "AI_MA",
+    "asunto_template": "Solicitud Rechazada: {TIPO_SOLICITUD} RECHAZADA",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 19,
+    "codigo_evento": "SOL_EQUIPO_REAC_APR",
+    "descripcion": "Solicitud de Reactivación Aprobada",
+    "modulo": "AI_MA",
+    "asunto_template": "Solicitud Aprobada: {TIPO_SOLICITUD} ACEPTADA",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 20,
+    "codigo_evento": "SOL_EQUIPO_REAC_RECH",
+    "descripcion": "Solicitud de Reactivación Rechazada",
+    "modulo": "AI_MA",
+    "asunto_template": "Solicitud Rechazada: {TIPO_SOLICITUD} RECHAZADA",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 21,
+    "codigo_evento": "SOL_EQUIPO_REPORTE_PROBLEMA_APR",
+    "descripcion": "Solicitud de Reporte Problema Aprobada",
+    "modulo": "AI_MA",
+    "asunto_template": "Solicitud Aprobada: {TIPO_SOLICITUD} ACEPTADA",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 22,
+    "codigo_evento": "SOL_EQUIPO_REPORTE_PROBLEMA_RECH",
+    "descripcion": "Solicitud de Reporte Problema Rechazada",
+    "modulo": "AI_MA",
+    "asunto_template": "Solicitud Rechazada: {TIPO_SOLICITUD} RECHAZADA",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 23,
+    "codigo_evento": "SOL_EQUIPO_EQUIPO_PERDIDO_APR",
+    "descripcion": "Solicitud de Baja por Pérdida Aprobada",
+    "modulo": "AI_MA",
+    "asunto_template": "Solicitud Aprobada: {TIPO_SOLICITUD} ACEPTADA",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 24,
+    "codigo_evento": "SOL_EQUIPO_EQUIPO_PERDIDO_RECH",
+    "descripcion": "Solicitud de Baja por Pérdida Rechazada",
+    "modulo": "AI_MA",
+    "asunto_template": "Solicitud Rechazada: {TIPO_SOLICITUD} RECHAZADA",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 25,
+    "codigo_evento": "SOL_EQUIPO_EQUIPO_DESHABILITADO_APR",
+    "descripcion": "Solicitud de Deshabilitación Aprobada",
+    "modulo": "AI_MA",
+    "asunto_template": "Solicitud Aprobada: {TIPO_SOLICITUD} ACEPTADA",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 26,
+    "codigo_evento": "SOL_EQUIPO_EQUIPO_DESHABILITADO_RECH",
+    "descripcion": "Solicitud de Deshabilitación Rechazada",
+    "modulo": "AI_MA",
+    "asunto_template": "Solicitud Rechazada: {TIPO_SOLICITUD} RECHAZADA",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 27,
+    "codigo_evento": "SOL_EQUIPO_REVISION_APR",
+    "descripcion": "Solicitud de Revisión Aprobada",
+    "modulo": "AI_MA",
+    "asunto_template": "Solicitud Aprobada: {TIPO_SOLICITUD} ACEPTADA",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 28,
+    "codigo_evento": "SOL_EQUIPO_REVISION_RECH",
+    "descripcion": "Solicitud de Revisión Rechazada",
+    "modulo": "AI_MA",
+    "asunto_template": "Solicitud Rechazada: {TIPO_SOLICITUD} RECHAZADA",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 29,
+    "codigo_evento": "SOL_EQUIPO_VIGENCIA_PROXIMA_APR",
+    "descripcion": "Solicitud de Vigencia Próxima Aprobada",
+    "modulo": "AI_MA",
+    "asunto_template": "Solicitud Aprobada: {TIPO_SOLICITUD} ACEPTADA",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 30,
+    "codigo_evento": "SOL_EQUIPO_VIGENCIA_PROXIMA_RECH",
+    "descripcion": "Solicitud de Vigencia Próxima Rechazada",
+    "modulo": "AI_MA",
+    "asunto_template": "Solicitud Rechazada: {TIPO_SOLICITUD} RECHAZADA",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 31,
+    "codigo_evento": "SOL_EQUIPO_NUEVO_EQUIPO_APR",
+    "descripcion": "Solicitud de Nuevo Equipo Aprobada",
+    "modulo": "AI_MA",
+    "asunto_template": "Solicitud Aprobada: {TIPO_SOLICITUD} ACEPTADA",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 32,
+    "codigo_evento": "SOL_EQUIPO_NUEVO_EQUIPO_RECH",
+    "descripcion": "Solicitud de Nuevo Equipo Rechazada",
+    "modulo": "AI_MA",
+    "asunto_template": "Solicitud Rechazada: {TIPO_SOLICITUD} RECHAZADA",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 33,
+    "codigo_evento": "SOL_EQUIPO_REPORTE_PROBLEMA_NUEVA",
+    "descripcion": "Incidente Reportado",
+    "modulo": "AI_MA",
+    "asunto_template": "ADL ONE: {TITULO_CORREO} #{CORRELATIVO}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{LABEL_SOLICITANTE}",
+      "{USUARIO}",
+      "{FECHA}",
+      "{HORA}",
+      "{asunto}",
+      "{gravedad}",
+      "{categoria_problema}",
+      "{nombre_equipo_afectado}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 34,
+    "codigo_evento": "SOL_EQUIPO_REPORTE_PROBLEMA_APR",
+    "descripcion": "Solicitud de Reporte Problema Aprobada",
+    "modulo": "AI_MA",
+    "asunto_template": "Solicitud Aprobada: {TIPO_SOLICITUD} ACEPTADA",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 35,
+    "codigo_evento": "SOL_EQUIPO_REPORTE_PROBLEMA_RECH",
+    "descripcion": "Solicitud de Reporte Problema Rechazada",
+    "modulo": "AI_MA",
+    "asunto_template": "Solicitud Rechazada: {TIPO_SOLICITUD} RECHAZADA",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 36,
+    "codigo_evento": "SOL_EQUIPO_EQUIPO_PERDIDO_NUEVA",
+    "descripcion": "Nueva Solicitud de Baja por Pérdida",
+    "modulo": "AI_MA",
+    "asunto_template": "Nueva Solicitud de Equipo: {TIPO_SOLICITUD} - {CORRELATIVO}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 37,
+    "codigo_evento": "SOL_EQUIPO_EQUIPO_PERDIDO_APR",
+    "descripcion": "Solicitud de Baja por Pérdida Aprobada",
+    "modulo": "AI_MA",
+    "asunto_template": "Solicitud Aprobada: {TIPO_SOLICITUD} ACEPTADA",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 38,
+    "codigo_evento": "SOL_EQUIPO_EQUIPO_PERDIDO_RECH",
+    "descripcion": "Solicitud de Baja por Pérdida Rechazada",
+    "modulo": "AI_MA",
+    "asunto_template": "Solicitud Rechazada: {TIPO_SOLICITUD} RECHAZADA",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 39,
+    "codigo_evento": "SOL_EQUIPO_EQUIPO_DESHABILITADO_NUEVA",
+    "descripcion": "Nueva Solicitud de Deshabilitación",
+    "modulo": "AI_MA",
+    "asunto_template": "Nueva Solicitud de Equipo: {TIPO_SOLICITUD} - {CORRELATIVO}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 40,
+    "codigo_evento": "SOL_EQUIPO_EQUIPO_DESHABILITADO_APR",
+    "descripcion": "Solicitud de Deshabilitación Aprobada",
+    "modulo": "AI_MA",
+    "asunto_template": "Solicitud Aprobada: {TIPO_SOLICITUD} ACEPTADA",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 41,
+    "codigo_evento": "SOL_EQUIPO_EQUIPO_DESHABILITADO_RECH",
+    "descripcion": "Solicitud de Deshabilitación Rechazada",
+    "modulo": "AI_MA",
+    "asunto_template": "Solicitud Rechazada: {TIPO_SOLICITUD} RECHAZADA",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 42,
+    "codigo_evento": "SOL_EQUIPO_REVISION_NUEVA",
+    "descripcion": "Nueva Solicitud de Revisión de Equipo",
+    "modulo": "AI_MA",
+    "asunto_template": "Nueva Solicitud de Equipo: {TIPO_SOLICITUD} - {CORRELATIVO}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 43,
+    "codigo_evento": "SOL_EQUIPO_REVISION_APR",
+    "descripcion": "Solicitud de Revisión Aprobada",
+    "modulo": "AI_MA",
+    "asunto_template": "Solicitud Aprobada: {TIPO_SOLICITUD} ACEPTADA",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 44,
+    "codigo_evento": "SOL_EQUIPO_REVISION_RECH",
+    "descripcion": "Solicitud de Revisión Rechazada",
+    "modulo": "AI_MA",
+    "asunto_template": "Solicitud Rechazada: {TIPO_SOLICITUD} RECHAZADA",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 45,
+    "codigo_evento": "SOL_EQUIPO_VIGENCIA_PROXIMA_NUEVA",
+    "descripcion": "Nueva Solicitud de Vigencia Próxima",
+    "modulo": "AI_MA",
+    "asunto_template": "Nueva Solicitud de Equipo: {TIPO_SOLICITUD} - {CORRELATIVO}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 46,
+    "codigo_evento": "SOL_EQUIPO_VIGENCIA_PROXIMA_APR",
+    "descripcion": "Solicitud de Vigencia Próxima Aprobada",
+    "modulo": "AI_MA",
+    "asunto_template": "Solicitud Aprobada: {TIPO_SOLICITUD} ACEPTADA",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 47,
+    "codigo_evento": "SOL_EQUIPO_VIGENCIA_PROXIMA_RECH",
+    "descripcion": "Solicitud de Vigencia Próxima Rechazada",
+    "modulo": "AI_MA",
+    "asunto_template": "Solicitud Rechazada: {TIPO_SOLICITUD} RECHAZADA",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 48,
+    "codigo_evento": "SOL_EQUIPO_NUEVO_EQUIPO_NUEVA",
+    "descripcion": "Nueva Solicitud de Nuevo Equipo",
+    "modulo": "AI_MA",
+    "asunto_template": "ADL ONE: {TITULO_CORREO} #{CORRELATIVO}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{LABEL_SOLICITANTE}",
+      "{USUARIO}",
+      "{FECHA}",
+      "{HORA}",
+      "{nombre_equipo}",
+      "{tipo_equipo}",
+      "{marca}",
+      "{modelo}",
+      "{serie}",
+      "{fecha_adquisicion}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 49,
+    "codigo_evento": "SOL_EQUIPO_NUEVO_EQUIPO_APR",
+    "descripcion": "Solicitud de Nuevo Equipo Aprobada",
+    "modulo": "AI_MA",
+    "asunto_template": "Solicitud Aprobada: {TIPO_SOLICITUD} ACEPTADA",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 50,
+    "codigo_evento": "SOL_EQUIPO_NUEVO_EQUIPO_RECH",
+    "descripcion": "Solicitud de Nuevo Equipo Rechazada",
+    "modulo": "AI_MA",
+    "asunto_template": "Solicitud Rechazada: {TIPO_SOLICITUD} RECHAZADA",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 51,
+    "codigo_evento": "SOL_EQUIPO_ALTA_NUEVA",
+    "descripcion": "Nueva Solicitud: Activación de Equipo",
+    "modulo": "AI_MA",
+    "asunto_template": "ADL ONE: {TITULO_CORREO} #{CORRELATIVO}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{LABEL_SOLICITANTE}",
+      "{USUARIO}",
+      "{FECHA}",
+      "{HORA}",
+      "{nombre_equipo}",
+      "{tipo_equipo}",
+      "{nombre_centro}",
+      "{nombre_responsable}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 52,
+    "codigo_evento": "SOL_EQUIPO_BAJA_NUEVA",
+    "descripcion": "Nueva Solicitud: Baja de Equipo",
+    "modulo": "AI_MA",
+    "asunto_template": "ADL ONE: {TITULO_CORREO} #{CORRELATIVO}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{LABEL_SOLICITANTE}",
+      "{USUARIO}",
+      "{FECHA}",
+      "{HORA}",
+      "{nombre_equipo_full}",
+      "{motivo}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 53,
+    "codigo_evento": "SOL_EQUIPO_TRASPASO_NUEVA",
+    "descripcion": "Nueva Solicitud de Traspaso de Equipo",
+    "modulo": "AI_MA",
+    "asunto_template": "Nueva Solicitud de Equipo: {TIPO_SOLICITUD} - {CORRELATIVO}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 54,
+    "codigo_evento": "SOL_EQUIPO_REAC_NUEVA",
+    "descripcion": "Nueva Solicitud de Reactivación",
+    "modulo": "AI_MA",
+    "asunto_template": "Nueva Solicitud de Equipo: {TIPO_SOLICITUD} - {CORRELATIVO}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 55,
+    "codigo_evento": "FICHA_MUESTREO_CANCELADO",
+    "descripcion": "Muestreo Individual Cancelado",
+    "modulo": "Medio Ambiente",
+    "asunto_template": "ADL ONE: {TITULO_CORREO} {CORRELATIVO}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{LABEL_SOLICITANTE}",
+      "{USUARIO}",
+      "{FECHA}",
+      "{HORA}",
+      "{muestreo_correlativo}",
+      "{fecha_muestreo}",
+      "{muestreador}",
+      "{motivo}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 56,
+    "codigo_evento": "FICHA_MUESTREO_REPROGRAMADO",
+    "descripcion": "Muestreo Individual Reprogramado/Reasignado",
+    "modulo": "Medio Ambiente",
+    "asunto_template": "Muestreo Reprogramado - Ficha #{CORRELATIVO}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{LABEL_SOLICITANTE}",
+      "{USUARIO}",
+      "{FECHA}",
+      "{HORA}",
+      "{COLOR_PRINCIPAL}",
+      "{servicios_detalle}",
+      "{OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 57,
+    "codigo_evento": "SOLICITUD_NUEVA",
+    "descripcion": "Nueva Solicitud URS Recibida",
+    "modulo": "URS",
+    "asunto_template": "ADL ONE: {TITULO_CORREO} #{CORRELATIVO}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{LABEL_SOLICITANTE}",
+      "{USUARIO}",
+      "{FECHA}",
+      "{HORA}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 58,
+    "codigo_evento": "SOLICITUD_ESTADO_CAMBIO",
+    "descripcion": "Cambio de Estado en Solicitud URS",
+    "modulo": "URS",
+    "asunto_template": "ADL ONE: Notificación {CORRELATIVO}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}",
+      "{SOLICITANTE}",
+      "{FECHA}",
+      "{HORA}"
+    ]
+  },
+  {
+    "id_evento": 59,
+    "codigo_evento": "SOLICITUD_COMENTARIO_NUEVO",
+    "descripcion": "Nuevo Comentario en Solicitud URS",
+    "modulo": "URS",
+    "asunto_template": "ADL ONE: Notificación {CORRELATIVO}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}",
+      "{SOLICITANTE}",
+      "{FECHA}",
+      "{HORA}"
+    ]
+  },
+  {
+    "id_evento": 60,
+    "codigo_evento": "SOL_TRASPASO_SEDE_NUEVA",
+    "descripcion": "Nueva Solicitud: Traspaso de Sede",
+    "modulo": "URS",
+    "asunto_template": "ADL ONE: {TITULO_CORREO} #{CORRELATIVO}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{LABEL_SOLICITANTE}",
+      "{USUARIO}",
+      "{FECHA}",
+      "{HORA}",
+      "{nombre_equipo_full}",
+      "{sede_actual}",
+      "{nombre_centro_destino}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 61,
+    "codigo_evento": "SOL_TRASPASO_MUESTREADOR_NUEVA",
+    "descripcion": "Nueva Solicitud: Traspaso de Responsable",
+    "modulo": "URS",
+    "asunto_template": "ADL ONE: {TITULO_CORREO} #{CORRELATIVO}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{LABEL_SOLICITANTE}",
+      "{USUARIO}",
+      "{FECHA}",
+      "{HORA}",
+      "{nombre_equipo_full}",
+      "{responsable_actual}",
+      "{nombre_muestreador_destino}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 62,
+    "codigo_evento": "SOL_TRASPASO_AMBOS_NUEVA",
+    "descripcion": "Nueva Solicitud: Traspaso Completo",
+    "modulo": "URS",
+    "asunto_template": "ADL ONE: {TITULO_CORREO} #{CORRELATIVO}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{LABEL_SOLICITANTE}",
+      "{USUARIO}",
+      "{FECHA}",
+      "{HORA}",
+      "{nombre_equipo_full}",
+      "{sede_actual}",
+      "{nombre_centro_destino}",
+      "{responsable_actual}",
+      "{nombre_muestreador_destino}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 63,
+    "codigo_evento": "SOL_DESHABILITAR_MUESTREADOR_NUEVA",
+    "descripcion": "Nueva Solicitud: Deshabilitar Muestreador",
+    "modulo": "URS",
+    "asunto_template": "ADL ONE: {TITULO_CORREO} #{CORRELATIVO}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{LABEL_SOLICITANTE}",
+      "{USUARIO}",
+      "{FECHA}",
+      "{HORA}",
+      "{muestreador_origen_nombre}",
+      "{tipo_traspaso}",
+      "{muestreador_destino_nombre}",
+      "{base_destino}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 64,
+    "codigo_evento": "GCHAT_NUEVO_MENSAJE",
+    "descripcion": "Nuevo mensaje de chat",
+    "modulo": "Chat",
+    "asunto_template": "Nuevo mensaje de {EMISOR}",
+    "variables": []
+  },
+  {
+    "id_evento": 65,
+    "codigo_evento": "GCHAT_GRUPO_CREADO",
+    "descripcion": "Agregado a un grupo de chat",
+    "modulo": "Chat",
+    "asunto_template": "Has sido agregado al grupo {NOMBRE_GRUPO}",
+    "variables": []
+  },
+  {
+    "id_evento": 66,
+    "codigo_evento": "GCHAT_GRUPO_EXPULSADO",
+    "descripcion": "Expulsado de un grupo",
+    "modulo": "Chat",
+    "asunto_template": "Has sido removido del grupo {NOMBRE_GRUPO}",
+    "variables": []
+  },
+  {
+    "id_evento": 67,
+    "codigo_evento": "GCHAT_GRUPO_MIEMBRO_NUEVO",
+    "descripcion": "Nuevo miembro en grupo",
+    "modulo": "Chat",
+    "asunto_template": "Se ha agregado un nuevo miembro al grupo {NOMBRE_GRUPO}",
+    "variables": []
+  },
+  {
+    "id_evento": 69,
+    "codigo_evento": "SOLICITUD_DERIVACION",
+    "descripcion": "Se dispara cuando una solicitud es derivada a un nuevo destinatario en URS.",
+    "modulo": null,
+    "asunto_template": "Notificación: Solicitud Derivada ({nombre_tipo})",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}",
+      "{SOLICITANTE}",
+      "{FECHA}",
+      "{HORA}"
+    ]
+  },
+  {
+    "id_evento": 70,
+    "codigo_evento": "SOL_EXTENSION_VIGENCIA_NUEVA",
+    "descripcion": "Solicitud Extensión de Vigencia",
+    "modulo": "URS",
+    "asunto_template": "ADL ONE: {TITULO_CORREO} {CORRELATIVO}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{USUARIO}",
+      "{FECHA}",
+      "{HORA}",
+      "{nombre_equipo_full}",
+      "{nueva_vigencia}",
+      "{justificacion}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 72,
+    "codigo_evento": "SOL_EQUIPO_BAJA_REV",
+    "descripcion": "Solicitud de Baja de Equipo marcada En Revisión",
+    "modulo": "URS",
+    "asunto_template": "ADL ONE: Solicitud en Revisión {CORRELATIVO}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{USUARIO}",
+      "{FECHA}",
+      "{HORA}",
+      "{nombre_equipo_full}",
+      "{motivo}",
+      "{fecha_baja}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 73,
+    "codigo_evento": "ENV_FOMA_MAM",
+    "descripcion": "Envío de Informe de Muestreo (FoMa) al cliente final",
+    "modulo": "MAM",
+    "asunto_template": "Informe de Muestreo (FoMa) - {CORRELATIVO}",
+    "variables": [
+      "{LOGO_URL}",
+      "{CORRELATIVO}",
+      "{ANIO_ACTUAL}"
+    ]
+  },
+  {
+    "id_evento": 74,
+    "codigo_evento": "ENV_CADENA_MAM",
+    "descripcion": "Envío de Cadena de Custodia al cliente final",
+    "modulo": "MAM",
+    "asunto_template": "Cadena de Custodia - {CORRELATIVO}",
+    "variables": [
+      "{LOGO_URL}",
+      "{CORRELATIVO}",
+      "{LABORATORIO_ASIGNADO}",
+      "{ANIO_ACTUAL}"
+    ]
+  },
+  {
+    "id_evento": 75,
+    "codigo_evento": "AVISO_PROBLEMA_NUEVO",
+    "descripcion": "Nuevo Aviso Móvil: Problema de Equipo",
+    "modulo": null,
+    "asunto_template": "Nueva Solicitud de Reporte de Problema - #{CORRELATIVO}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{USUARIO}",
+      "{FECHA}",
+      "{HORA}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 76,
+    "codigo_evento": "AVISO_PERDIDO_NUEVO",
+    "descripcion": "Nuevo Aviso Móvil: Equipo Perdido",
+    "modulo": null,
+    "asunto_template": "Nueva Solicitud de Reporte de Extravío/Robo - #{CORRELATIVO}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{USUARIO}",
+      "{FECHA}",
+      "{HORA}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 77,
+    "codigo_evento": "AVISO_CANCELACION_NUEVA",
+    "descripcion": "Nuevo Aviso Móvil: Cancelación de Muestreo",
+    "modulo": null,
+    "asunto_template": "Nueva Solicitud de Anulación de Servicio - #{CORRELATIVO}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{USUARIO}",
+      "{FECHA}",
+      "{HORA}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 78,
+    "codigo_evento": "AVISO_CONSULTA_NUEVA",
+    "descripcion": "Nuevo Aviso Móvil: Consulta General",
+    "modulo": null,
+    "asunto_template": "Nueva Consulta General ADL One - #{CORRELATIVO}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{USUARIO}",
+      "{FECHA}",
+      "{HORA}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 79,
+    "codigo_evento": "FICHA_REMUESTREO_CREADA",
+    "descripcion": "Ficha de Remuestreo Creada",
+    "modulo": "Medio Ambiente",
+    "asunto_template": "Nueva Ficha de Remuestreo: {correlativo} (Origen: Ficha #{ficha_original})",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{LABEL_SOLICITANTE}",
+      "{USUARIO}",
+      "{FECHA}",
+      "{ETIQUETA_HORA}",
+      "{HORA}",
+      "{OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 80,
+    "codigo_evento": "AVISO_CONSULTA_EQUIPO_NUEVA",
+    "descripcion": "Consulta Móvil: Sobre Equipo",
+    "modulo": null,
+    "asunto_template": "Nueva Consulta de Equipo - #{CORRELATIVO}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{USUARIO}",
+      "{FECHA}",
+      "{HORA}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 81,
+    "codigo_evento": "AVISO_CONSULTA_FICHA_NUEVA",
+    "descripcion": "Consulta Móvil: Sobre Ficha/Servicio",
+    "modulo": null,
+    "asunto_template": "Nueva Consulta de Servicio/Ficha - #{CORRELATIVO}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{USUARIO}",
+      "{FECHA}",
+      "{HORA}",
+      "{EQUIPOS_DETALLE}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 82,
+    "codigo_evento": "FICHA_MUESTREO_REASIGNADO",
+    "descripcion": "Muestreo Reasignado (Muestreador)",
+    "modulo": "URS",
+    "asunto_template": "ADL ONE: {TITULO_CORREO} #{CORRELATIVO}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{LABEL_SOLICITANTE}",
+      "{USUARIO}",
+      "{FECHA}",
+      "{HORA}",
+      "{servicios_detalle}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 83,
+    "codigo_evento": "FICHA_MUESTREO_REAGENDADO",
+    "descripcion": "Muestreo Reagendado (Fecha)",
+    "modulo": "URS",
+    "asunto_template": "ADL ONE: {TITULO_CORREO} #{CORRELATIVO}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{LABEL_SOLICITANTE}",
+      "{USUARIO}",
+      "{FECHA}",
+      "{HORA}",
+      "{servicios_detalle}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 84,
+    "codigo_evento": "FICHA_MUESTREO_REAGENDADO_REASIGNADO",
+    "descripcion": "Muestreo Reagendado y Reasignado",
+    "modulo": "URS",
+    "asunto_template": "ADL ONE: {TITULO_CORREO} #{CORRELATIVO}",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{CORRELATIVO}",
+      "{LABEL_SOLICITANTE}",
+      "{USUARIO}",
+      "{FECHA}",
+      "{HORA}",
+      "{servicios_detalle}",
+      "{ETIQUETA_OBSERVACION}"
+    ]
+  },
+  {
+    "id_evento": 85,
+    "codigo_evento": "PASSWORD_RESET_REQUESTED",
+    "descripcion": "Solicitud de recuperación de contraseña (con enlace)",
+    "modulo": "Seguridad",
+    "asunto_template": "ADL ONE — Recuperación de contraseña",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{nombreUsuario}",
+      "{expiresInMinutes}",
+      "{resetUrl}"
+    ]
+  },
+  {
+    "id_evento": 86,
+    "codigo_evento": "PASSWORD_RESET_COMPLETED",
+    "descripcion": "Notificación de contraseña restablecida exitosamente",
+    "modulo": "Seguridad",
+    "asunto_template": "ADL ONE — Contraseña Restablecida",
+    "variables": [
+      "{LOGO_BASE64}",
+      "{nombreUsuario}",
+      "{FRONTEND_URL}"
+    ]
+  }
+]

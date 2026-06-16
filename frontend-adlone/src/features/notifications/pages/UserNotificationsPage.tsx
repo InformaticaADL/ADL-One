@@ -28,6 +28,8 @@ import {
 } from '@tabler/icons-react';
 import { useNotificationStore, type Notification } from '../../../store/notificationStore';
 import { useNavStore } from '../../../store/navStore';
+import { useAuth } from '../../../contexts/AuthContext';
+import { useToast } from '../../../contexts/ToastContext';
 import { handleNotificationNavigation } from '../utils/notificationNavigation';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
@@ -38,8 +40,10 @@ export const UserNotificationsPage = () => {
     const { notifications, loading, fetchNotifications, markAsRead, markAllAsRead } = useNotificationStore();
     const {
         setActiveModule, setActiveSubmodule,
-        setPendingRequestId, setPendingChatId, setSelectedRequestId
+        setPendingRequestId, setPendingChatId, setSelectedRequestId, setFichasMode
     } = useNavStore();
+    const { hasPermission } = useAuth();
+    const { showToast } = useToast();
 
     const [statusFilter, setStatusFilter] = useState('ALL');
     const [areaFilter, setAreaFilter] = useState<string | null>(null);
@@ -60,7 +64,10 @@ export const UserNotificationsPage = () => {
             setActiveSubmodule,
             setPendingRequestId,
             setPendingChatId,
-            setSelectedRequestId
+            setSelectedRequestId,
+            setFichasMode,
+            hasPermission,
+            showToast
         });
     };
 

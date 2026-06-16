@@ -38,6 +38,10 @@ export const fichaService = {
         const response = await apiClient.patch(`/api/fichas/agenda/${idAgendamam}/realizado-gem`, { isRealizado });
         return response.data;
     },
+    updateCasoAdlab: async (idAgendamam: number, casoAdlab: string) => {
+        const response = await apiClient.patch(`/api/fichas/agenda/${idAgendamam}/caso-adlab`, { casoAdlab });
+        return response.data;
+    },
 
     create: async (data: Record<string, unknown>) => {
         const response = await apiClient.post('/api/fichas/create', data);
@@ -97,6 +101,7 @@ export const fichaService = {
 
         user?: FichaUser,
         observaciones?: string,
+        observacionNotificacion?: string | null,
         reactivating?: boolean
     }) => {
         const response = await apiClient.post('/api/fichas/batch-agenda', data);

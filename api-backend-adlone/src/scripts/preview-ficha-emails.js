@@ -10,6 +10,7 @@ const OUT_DIR = path.resolve(__dirname, '../../.preview-emails');
 
 const BASE_CONTEXT = {
     CORRELATIVO: '1245',
+    ID_FICHA: '1245',
     TIPO_FICHA_INFO: 'Monitoreo Agua/Ril - Terreno',
     BASE_OPERACIONES: 'Puerto Montt',
     EMPRESA_FACTURAR: 'Empresa XYZ SpA',

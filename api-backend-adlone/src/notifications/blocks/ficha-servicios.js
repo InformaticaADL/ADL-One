@@ -24,10 +24,12 @@ function renderServicioCard(servicio) {
 
     const hasRetiroMuestreador = servicio.muestreador_retiro && servicio.muestreador_retiro !== 'No asignado';
     let retiroRow = null;
-    if (servicio.old_muestreador_retiro) {
-        retiroRow = diffOrPlain(servicio.old_muestreador_retiro, servicio.muestreador_retiro);
-    } else if (hasRetiroMuestreador) {
-        retiroRow = servicio.muestreador_retiro;
+    if (!servicio.esPuntual) {
+        if (servicio.old_muestreador_retiro) {
+            retiroRow = diffOrPlain(servicio.old_muestreador_retiro, servicio.muestreador_retiro);
+        } else if (hasRetiroMuestreador) {
+            retiroRow = servicio.muestreador_retiro;
+        }
     }
 
     const fechaHtml = diffOrPlain(servicio.old_fecha, servicio.fecha_muestreo);
@@ -35,16 +37,18 @@ function renderServicioCard(servicio) {
     const retiroValido = isValidDate(servicio.fecha_retiro);
     const oldRetiroValido = isValidDate(servicio.old_fecha_retiro);
     let fechaRetiroRow = null;
-    if (servicio.old_fecha_retiro && oldRetiroValido) {
-        fechaRetiroRow = diffOrPlain(servicio.old_fecha_retiro, retiroValido ? servicio.fecha_retiro : 'No asignada');
-    } else if (retiroValido) {
-        fechaRetiroRow = servicio.fecha_retiro;
+    if (!servicio.esPuntual) {
+        if (servicio.old_fecha_retiro && oldRetiroValido) {
+            fechaRetiroRow = diffOrPlain(servicio.old_fecha_retiro, retiroValido ? servicio.fecha_retiro : 'No asignada');
+        } else if (retiroValido) {
+            fechaRetiroRow = servicio.fecha_retiro;
+        }
     }
 
     const rows = [
-        { icono: '📥', label: 'Muestreador Inst.', valor: instalacionHtml },
+        { icono: '📥', label: servicio.esPuntual ? 'Muestreador' : 'Muestreador Inst.', valor: instalacionHtml },
         retiroRow ? { icono: '📤', label: 'Muestreador Ret.', valor: retiroRow } : null,
-        { icono: '📅', label: 'Fecha Instalación', valor: fechaHtml },
+        { icono: '📅', label: servicio.esPuntual ? 'Fecha Muestreo' : 'Fecha Instalación', valor: fechaHtml },
         fechaRetiroRow ? { icono: '📅', label: 'Fecha Retiro', valor: fechaRetiroRow } : null,
     ].filter(Boolean);
 

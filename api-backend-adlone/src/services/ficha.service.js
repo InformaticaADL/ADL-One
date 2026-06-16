@@ -12,6 +12,70 @@ import { getTransporter } from '../config/mailer.js';
 
 class FichaIngresoService {
 
+    async getFichaContextForNotification(idFicha, usuario, accionText, poolOrTransaction) {
+        try {
+            const dbReq = new sql.Request(poolOrTransaction);
+            dbReq.input('idF', sql.Numeric(10, 0), idFicha);
+            const res = await dbReq.query(`
+                SELECT 
+                    f.tipo_fichaingresoservicio as tipo_ficha,
+                    l.nombre_lugaranalisis as base_operaciones,
+                    c.nombre_empresa as empresa_facturar,
+                    es.nombre_empresaservicios as empresa_servicio,
+                    cen.nombre_centro as fuente_emisora,
+                    obj.nombre_objetivomuestreo_ma as objetivo_muestreo,
+                    f.observaciones_comercial,
+                    f.observaciones_jefaturatecnica,
+                    f.observaciones_coordinador
+                FROM App_Ma_FichaIngresoServicio_ENC f
+                LEFT JOIN mae_lugaranalisis l ON f.id_lugaranalisis = l.id_lugaranalisis
+                LEFT JOIN mae_empresa c ON f.id_empresa = c.id_empresa
+                LEFT JOIN mae_empresaservicios es ON f.id_empresaservicio = es.id_empresaservicio
+                LEFT JOIN mae_centro cen ON f.id_centro = cen.id_centro
+                LEFT JOIN mae_objetivomuestreo_ma obj ON f.id_objetivomuestreo_ma = obj.id_objetivomuestreo_ma
+                WHERE f.id_fichaingresoservicio = @idF
+            `);
+            
+            const data = res.recordset[0] || {};
+            
+            // Determinar observacion más reciente (simplificado, o puedes pasarla como param)
+            
+            const now = new Date();
+            return {
+                CORRELATIVO: String(idFicha),
+                ID_FICHA: String(idFicha),
+                ACCION_AREA: accionText,
+                TIPO_FICHA_INFO: `Monitoreo Agua/Ril - ${data.tipo_ficha || 'No definido'}`,
+                BASE_OPERACIONES: data.base_operaciones || 'No aplica',
+                EMPRESA_FACTURAR: data.empresa_facturar || 'No aplica',
+                EMPRESA_SERVICIO: data.empresa_servicio || 'No aplica',
+                FUENTE_EMISORA: data.fuente_emisora || 'No aplica',
+                OBJETIVO_MUESTREO: data.objetivo_muestreo || 'No aplica',
+                USUARIO: usuario || 'Sistema',
+                FECHA: now.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' }),
+                HORA: now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+            };
+        } catch (error) {
+            logger.error('Error fetching ficha context for notification:', error);
+            // Fallback context
+            const now = new Date();
+            return {
+                CORRELATIVO: String(idFicha),
+                ID_FICHA: String(idFicha),
+                ACCION_AREA: accionText,
+                TIPO_FICHA_INFO: 'Monitoreo Agua/Ril - Desconocido',
+                BASE_OPERACIONES: 'Desconocido',
+                EMPRESA_FACTURAR: 'Desconocido',
+                EMPRESA_SERVICIO: 'Desconocido',
+                FUENTE_EMISORA: 'Desconocido',
+                OBJETIVO_MUESTREO: 'Desconocido',
+                USUARIO: usuario || 'Sistema',
+                FECHA: now.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' }),
+                HORA: now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+            };
+        }
+    }
+
     async createFicha(data) {
         // data structure: { antecedentes: {}, analisis: [], observaciones: "", user: { id: 1 } }
         const pool = await getConnection();
@@ -397,16 +461,18 @@ class FichaIngresoService {
             }
 
             const fichaEventCode = data.isRemuestreo ? 'FICHA_REMUESTREO_CREADA' : 'FICHA_CREADA';
-            unsService.trigger(fichaEventCode, {
-                correlativo: String(newId),
-                id_usuario_accion: userId || (data.user ? (data.user.id_usuario || data.user.id) : 0),
-                usuario_accion: notifUser,
-                cliente: nombreCliente,
-                fecha: notifFecha,
-                hora: notifHora,
-                observacion: obs || 'Sin observaciones',
-                ficha_original: data.isRemuestreo ? String(data.originalFichaId) : null
-            }).catch(e => logger.warn('UNS trigger failed:', e));
+            const accionText = data.isRemuestreo ? 'Ficha de Remuestreo Creada' : 'Ficha Comercial Creada';
+
+            this.getFichaContextForNotification(newId, notifUser, accionText, pool).then(baseContext => {
+                const fullContext = {
+                    ...baseContext,
+                    id_usuario_accion: userId || (data.user ? (data.user.id_usuario || data.user.id) : 0),
+                    cliente: nombreCliente,
+                    OBSERVACION: obs || 'Sin observaciones',
+                    ficha_original: data.isRemuestreo ? String(data.originalFichaId) : null
+                };
+                unsService.trigger(fichaEventCode, fullContext).catch(e => logger.warn('UNS trigger failed:', e));
+            }).catch(err => logger.error('Error fetching context:', err));
 
             // AUDITORIA INMUTABLE
             auditService.log({
@@ -1615,17 +1681,14 @@ class FichaIngresoService {
 
             notifUser = notifUser || 'Jefatura Técnica';
 
-            unsService.trigger('FICHA_APROBADA_TECNICA', {
-                correlativo: String(id),
-                id_usuario_accion: user ? (user.id || user.id_usuario || 0) : 0,
-                id_usuario_propietario: ownerId,
-                usuario_accion: notifUser,
-                fecha: notifFecha,
-                hora: notifHora,
-                FECHA: notifFecha,
-                HORA: notifHora,
-                observacion: observaciones || 'Validación técnica conforme.'
-            }).catch(e => logger.warn('UNS trigger failed:', e));
+            this.getFichaContextForNotification(id, notifUser, 'Ficha Aprobada por Área Técnica', pool).then(baseContext => {
+                unsService.trigger('FICHA_APROBADA_TECNICA', {
+                    ...baseContext,
+                    id_usuario_accion: user ? (user.id || user.id_usuario || 0) : 0,
+                    id_usuario_propietario: ownerId,
+                    OBSERVACION: observaciones || 'Validación técnica conforme.'
+                }).catch(e => logger.warn('UNS trigger failed:', e));
+            }).catch(e => logger.error('Error in getFichaContextForNotification', e));
 
             // AUDITORIA INMUTABLE
             auditService.log({
@@ -1688,17 +1751,14 @@ class FichaIngresoService {
 
             notifUser = notifUser || 'Jefatura Técnica';
 
-            unsService.trigger('FICHA_RECHAZADA_TECNICA', {
-                correlativo: String(id),
-                id_usuario_accion: user ? (user.id || user.id_usuario || 0) : 0,
-                id_usuario_propietario: ownerId,
-                usuario_accion: notifUser,
-                fecha: notifFecha,
-                hora: notifHora,
-                FECHA: notifFecha,
-                HORA: notifHora,
-                observacion: observaciones || 'Sin motivo especificado'
-            }).catch(e => logger.warn('UNS trigger failed:', e));
+            this.getFichaContextForNotification(id, notifUser, 'Ficha Rechazada por Área Técnica', pool).then(baseContext => {
+                unsService.trigger('FICHA_RECHAZADA_TECNICA', {
+                    ...baseContext,
+                    id_usuario_accion: user ? (user.id || user.id_usuario || 0) : 0,
+                    id_usuario_propietario: ownerId,
+                    OBSERVACION: observaciones || 'Sin motivo especificado'
+                }).catch(e => logger.warn('UNS trigger failed:', e));
+            }).catch(e => logger.error('Error in getFichaContextForNotification', e));
 
             // AUDITORIA INMUTABLE
             auditService.log({
@@ -1774,17 +1834,14 @@ class FichaIngresoService {
 
             notifUser = notifUser || 'Coordinación';
 
-            unsService.trigger('FICHA_APROBADA_COORDINACION', {
-                correlativo: String(id),
-                id_usuario_accion: user ? (user.id || user.id_usuario || 0) : 0,
-                id_usuario_propietario: ownerId,
-                usuario_accion: notifUser,
-                fecha: notifFecha,
-                hora: notifHora,
-                FECHA: notifFecha,
-                HORA: notifHora,
-                observacion: observaciones || 'Validación coordinación conforme.'
-            }).catch(e => logger.warn('UNS trigger failed:', e));
+            this.getFichaContextForNotification(id, notifUser, 'Ficha Aprobada por Coordinación', pool).then(baseContext => {
+                unsService.trigger('FICHA_APROBADA_COORDINACION', {
+                    ...baseContext,
+                    id_usuario_accion: user ? (user.id || user.id_usuario || 0) : 0,
+                    id_usuario_propietario: ownerId,
+                    OBSERVACION: observaciones || 'Validación coordinación conforme.'
+                }).catch(e => logger.warn('UNS trigger failed:', e));
+            }).catch(e => logger.error('Error in getFichaContextForNotification', e));
 
             // AUDITORIA INMUTABLE
             auditService.log({
@@ -1851,17 +1908,14 @@ class FichaIngresoService {
 
             notifUser = notifUser || 'Coordinación';
 
-            unsService.trigger('FICHA_RECHAZADA_COORDINACION', {
-                correlativo: String(id),
-                id_usuario_accion: user ? (user.id || user.id_usuario || 0) : 0,
-                id_usuario_propietario: ownerId,
-                usuario_accion: notifUser,
-                fecha: notifFecha,
-                hora: notifHora,
-                FECHA: notifFecha,
-                HORA: notifHora,
-                observacion: observaciones || 'Ficha devuelta a revisión técnica.'
-            }).catch(e => logger.warn('UNS trigger failed:', e));
+            this.getFichaContextForNotification(id, notifUser, 'Ficha Devuelta a Revisión por Coordinación', pool).then(baseContext => {
+                unsService.trigger('FICHA_RECHAZADA_COORDINACION', {
+                    ...baseContext,
+                    id_usuario_accion: user ? (user.id || user.id_usuario || 0) : 0,
+                    id_usuario_propietario: ownerId,
+                    OBSERVACION: observaciones || 'Ficha devuelta a revisión técnica.'
+                }).catch(e => logger.warn('UNS trigger failed:', e));
+            }).catch(e => logger.error('Error in getFichaContextForNotification', e));
 
             // AUDITORIA INMUTABLE
             auditService.log({
@@ -1998,7 +2052,7 @@ class FichaIngresoService {
                             FROM App_Ma_Agenda_MUESTREOS a
                             WHERE a.id_fichaingresoservicio IN (${fichaIds.join(',')})
                               AND (a.estado_caso IS NULL OR a.estado_caso != 'CANCELADO')
-                            ORDER BY a.id_fichaingresoservicio, a.frecuencia_correlativo
+                            ORDER BY a.id_fichaingresoservicio, a.id_agendamam
                         `);
 
                         // Get correlativos already in pending routes
@@ -2020,6 +2074,32 @@ class FichaIngresoService {
                             agendaMap.get(fid).push(row);
                         });
 
+                        // Flags de "trabajo ya cargado" por correlativo: equipos activos y/o resultados.
+                        // Se usan para advertir antes de reagendar un servicio que ya tiene datos.
+                        const equiposSet = new Set();
+                        const resultadosSet = new Set();
+                        try {
+                            const [eqRes, resRes] = await Promise.all([
+                                pool.request().query(`
+                                    SELECT id_fichaingresoservicio, RTRIM(frecuencia_correlativo) AS corr
+                                    FROM App_Ma_Equipos_MUESTREOS
+                                    WHERE id_fichaingresoservicio IN (${fichaIds.join(',')})
+                                      AND ISNULL(estado, 'ACTIVO') = 'ACTIVO'
+                                    GROUP BY id_fichaingresoservicio, RTRIM(frecuencia_correlativo)
+                                `),
+                                pool.request().query(`
+                                    SELECT id_fichaingresoservicio, RTRIM(frecuencia_correlativo) AS corr
+                                    FROM App_Ma_Resultados
+                                    WHERE id_fichaingresoservicio IN (${fichaIds.join(',')})
+                                    GROUP BY id_fichaingresoservicio, RTRIM(frecuencia_correlativo)
+                                `)
+                            ]);
+                            eqRes.recordset.forEach(r => equiposSet.add(`${Number(r.id_fichaingresoservicio)}|${(r.corr || '').trim()}`));
+                            resRes.recordset.forEach(r => resultadosSet.add(`${Number(r.id_fichaingresoservicio)}|${(r.corr || '').trim()}`));
+                        } catch (flagsErr) {
+                            logger.warn('No se pudieron cargar flags equipos/resultados:', flagsErr.message);
+                        }
+
                         // Debug log
                         if (agendaResult.recordset.length > 0) {
                             const sample = agendaResult.recordset.slice(0, 5);
@@ -2034,7 +2114,11 @@ class FichaIngresoService {
 
                             const correlativos = agendaRows.map((ar, idx) => {
                                 const corrParts = (ar.frecuencia_correlativo || '').split('-');
-                                const numSvc = idx + 1; // Always use sequential order 1, 2, 3...
+                                // El número de servicio REAL está embebido en el correlativo (ficha-servicio-estado-idAgenda).
+                                // No usar idx+1: con datos ordenados, idx+1 puede no coincidir con el servicio real
+                                // y provoca que el usuario seleccione un servicio y se guarde otro.
+                                const parsedSvc = corrParts.length >= 2 ? parseInt(corrParts[1], 10) : NaN;
+                                const numSvc = Number.isFinite(parsedSvc) ? parsedSvc : idx + 1;
                                 const corrKey = `${id}|${(ar.frecuencia_correlativo || '').trim()}`;
                                 const enRuta = enRutaSet.has(corrKey);
 
@@ -2053,7 +2137,9 @@ class FichaIngresoService {
                                     frecuencia_correlativo: ar.frecuencia_correlativo,
                                     numero_servicio: numSvc,
                                     status,
-                                    en_ruta: enRuta
+                                    en_ruta: enRuta,
+                                    tiene_equipos: equiposSet.has(corrKey),
+                                    tiene_resultados: resultadosSet.has(corrKey)
                                 };
                             });
 
@@ -2229,7 +2315,7 @@ class FichaIngresoService {
         }
     }
     async batchUpdateAgenda(data) {
-        const { assignments, user, observaciones, reactivating = false } = data;
+        const { assignments, user, observaciones, observacionNotificacion, reactivating = false } = data;
 
         if (!assignments || !Array.isArray(assignments) || assignments.length === 0) {
             throw new Error('No se proporcionaron asignaciones');
@@ -2278,6 +2364,19 @@ class FichaIngresoService {
                 `);
                 if (histResult.recordset.length > 0) {
                     historicalData.set(String(id), histResult.recordset[0]);
+                }
+
+                // Re-validación server-side (anti-carrera): el frontend del planificador marca
+                // expectAvailable=true cuando seleccionó un servicio DISPONIBLE. Si entre la carga
+                // y la confirmación otro proceso ya lo agendó (fecha válida), rechazamos para no pisarlo.
+                // No aplica al reagendar explícito (AssignmentDetailView / reagendar=true no envían expectAvailable).
+                if (assignment.expectAvailable) {
+                    const prevRow = histResult.recordset[0] || null;
+                    const prevFecha = prevRow?.fecha_muestreo ? new Date(prevRow.fecha_muestreo) : null;
+                    const prevAgendado = prevFecha && prevFecha.getUTCFullYear() > 1900;
+                    if (prevAgendado) {
+                        throw new Error(`El servicio ${frecuenciaCorrelativo || id} ya fue agendado por otro proceso (fecha ${prevFecha.toISOString().split('T')[0]}). Refresque la lista e intente nuevamente.`);
+                    }
                 }
 
                 // 1. ACTUALIZAR App_Ma_Agenda_MUESTREOS
@@ -2519,7 +2618,7 @@ class FichaIngresoService {
                             insReqManual.input('eid', sql.Numeric(10, 0), item.id_equipo);
                             insReqManual.input('sid', sql.Numeric(10, 0), newInst); 
                             insReqManual.input('ver', sql.VarChar(50), ver);
-                            insReqManual.input('tfc', sql.VarChar(1), item.tienefc || null);
+                            insReqManual.input('tfc', sql.VarChar(1), (item.tienefc ? String(item.tienefc).trim().charAt(0) : '') || null);
                             insReqManual.input('e0', sql.Numeric(10, 1), choice === 'original' ? item.error0_original : item.error0_nueva);
                             insReqManual.input('e15', sql.Numeric(10, 1), choice === 'original' ? item.error15_original : item.error15_nueva);
                             insReqManual.input('e30', sql.Numeric(10, 1), choice === 'original' ? item.error30_original : item.error30_nueva);
@@ -2567,7 +2666,7 @@ class FichaIngresoService {
                                     insReq.input('corr', sql.VarChar(50), cleanCorr);
                                     insReq.input('eid', sql.Numeric(10, 0), eq.id_equipo);
                                     insReq.input('sid', sql.Numeric(10, 0), sId);
-                                    insReq.input('tfc', sql.VarChar(1), eq.tienefc || null);
+                                    insReq.input('tfc', sql.VarChar(1), (eq.tienefc ? String(eq.tienefc).trim().charAt(0) : '') || null);
                                     insReq.input('e0', sql.Numeric(10, 1), eq.error0);
                                     insReq.input('e15', sql.Numeric(10, 1), eq.error15);
                                     insReq.input('e30', sql.Numeric(10, 1), eq.error30);
@@ -2616,9 +2715,10 @@ class FichaIngresoService {
                 statusReq.input('fid', sql.Numeric(10, 0), fid);
                 // Query metadata + status (Resumen de Muestreo)
                 const metaRes = await statusReq.query(`
-                    SELECT 
+                    SELECT
                         e.id_usuario as id_usuario_propietario,
                         e.id_validaciontecnica,
+                        e.tipo_fichaingresoservicio as tipo_ficha,
                         e.fichaingresoservicio as correlativo_txt,
                         e.id_tipomuestra_ma, -- Componente
                         e.id_tipomuestra, -- Tipo Muestra
@@ -2654,7 +2754,21 @@ class FichaIngresoService {
 
                 const meta = metaRes.recordset[0] || {};
                 const prevStatus = meta.id_validaciontecnica;
-                const isReprogramacion = prevStatus === 5;
+
+                // La ficha puede estar "EN PROCESO" (id_validaciontecnica = 5) porque otros
+                // servicios ya fueron asignados antes, pero los servicios de ESTE batch
+                // pueden ser una asignación nueva (no tenían fecha previa). Solo se considera
+                // reprogramación si al menos uno de los servicios de este batch ya tenía
+                // una fecha de muestreo previa.
+                const batchAgendaIds = assignments
+                    .filter(a => a.idFichaIngresoServicio === fid)
+                    .map(a => String(a.id));
+                const wasPreviouslyAssigned = batchAgendaIds.some(aid => {
+                    const hist = historicalData.get(aid);
+                    if (!hist || !hist.fecha_muestreo) return false;
+                    return new Date(hist.fecha_muestreo).getUTCFullYear() > 1900;
+                });
+                const isReprogramacion = prevStatus === 5 && wasPreviouslyAssigned;
 
                 // Query detailed information for this ficha
                 const detailRequest = new sql.Request(transaction);
@@ -2687,6 +2801,10 @@ class FichaIngresoService {
                     const firstRow = detailResult.recordset[0];
                     const tipoFrecuencia = firstRow.nombre_frecuencia || 'No especificada';
                     const totalServicios = firstRow.total_servicios || 0;
+                    const isPuntual = (meta.tipo_ficha || '').toString().trim().toLowerCase() === 'puntual';
+                    const assignedAgendaIds = new Set(
+                        assignments.filter(a => a.idFichaIngresoServicio === fid).map(a => String(a.id))
+                    );
 
                     // Build services array with detailed information
                     const servicios = detailResult.recordset.map((row, index) => {
@@ -2740,6 +2858,7 @@ class FichaIngresoService {
                         }
 
                         return {
+                            id_agendamam: row.id_agendamam,
                             numero: numeroServicio,
                             muestreador_instalacion: row.muestreador_instalacion || 'No asignado',
                             muestreador_retiro: row.muestreador_retiro || 'No asignado',
@@ -2749,17 +2868,19 @@ class FichaIngresoService {
                             old_fecha_retiro: oldFechaRetiro,
                             old_muestreador_instalacion: oldInstalacion,
                             old_muestreador_retiro: oldRetiro,
-                            isModified
+                            isModified,
+                            esPuntual: isPuntual
                         };
                     });
 
                     // Sort services numerically by their extracted number
                     servicios.sort((a, b) => parseInt(a.numero) - parseInt(b.numero));
 
-                    // Only show modified services if it's a rescheduling
+                    // Only show modified services if it's a rescheduling; otherwise only the
+                    // services that were part of this assignment batch
                     const serviciosFinal = isReprogramacion
                         ? servicios.filter(s => s.isModified)
-                        : servicios;
+                        : servicios.filter(s => assignedAgendaIds.has(String(s.id_agendamam)));
 
                     // Skip notification if no services were actually modified and it's a reprogramming
                     if (isReprogramacion && serviciosFinal.length === 0) {
@@ -2802,31 +2923,19 @@ class FichaIngresoService {
                             eventCode = 'FICHA_MUESTREO_REPROGRAMADO'; // Fallback
                         }
                     }
-                    unsService.trigger(eventCode, {
-                        correlativo: (meta.correlativo_txt || String(fid)).trim(),
-                        id_usuario_accion: user ? (user.id || user.id_usuario || 0) : 0,
-                        id_usuario_propietario: meta.id_usuario_propietario,
-                        tipo_frecuencia: tipoFrecuencia,
-                        total_servicios: totalServicios,
-                        servicios: serviciosFinal,
-                        asignado_por: asignadoPor,
-                        usuario_accion: asignadoPor,
-                        fecha: notifFecha,
-                        hora_asignacion: notifHora,
-                        monitoreo: meta.monitoreo || 'No especificado',
-                        empresa_servicio: meta.empresa_servicio || 'No especificada',
-                        cliente: meta.cliente || 'No especificado',
-                        fuente_centro: meta.fuente_centro || 'No especificada',
-                        sub_area: meta.nombre_subarea || 'No especificada',
-                        objetivo: meta.nombre_objetivo || 'No especificado',
-                        glosa: meta.glosa || 'Sin observaciones',
-                        contacto_empresa: meta.nombre_contacto || 'No especificado',
-                        correo_contacto: meta.correo_contacto || 'No especificado',
-                        correo_empresa: meta.correo_empresa_servicio || 'No especificado',
-                        correo_cliente: meta.correo_empresa_cliente || 'No especificado',
-                        punto_muestreo: meta.punto_muestreo || 'No especificado',
-                        coordenadas: meta.coordenadas || 'No especificado'
-                    }).catch(e => logger.warn('UNS trigger failed:', e));
+                    this.getFichaContextForNotification(fid, asignadoPor, isReprogramacion ? 'Reasignación de Fechas' : 'Asignación de Fechas', pool).then(baseContext => {
+                        unsService.trigger(eventCode, {
+                            ...baseContext,
+                            correlativo: (meta.correlativo_txt || String(fid)).trim(),
+                            id_usuario_accion: user ? (user.id || user.id_usuario || 0) : 0,
+                            id_usuario_propietario: meta.id_usuario_propietario,
+                            tipo_frecuencia: tipoFrecuencia,
+                            total_servicios: totalServicios,
+                            servicios: serviciosFinal,
+                            asignado_por: asignadoPor,
+                            OBSERVACION: observacionNotificacion || meta.glosa || 'Sin observaciones'
+                        }).catch(e => logger.warn('UNS trigger failed:', e));
+                    }).catch(e => logger.error('Error in getFichaContextForNotification:', e));
                 }
             }
 
@@ -3018,17 +3127,18 @@ class FichaIngresoService {
                     }
                     canceladoPor = canceladoPor || 'Usuario';
 
-                    unsService.trigger('FICHA_MUESTREO_CANCELADO', {
-                        correlativo: (info.fichaingresoservicio || String(idFicha)).trim(),
-                        id_usuario_accion: user ? (user.id || user.id_usuario || 0) : 0,
-                        muestreo_correlativo: (info.frecuencia_correlativo || '').trim(),
-                        fecha_muestreo: fechaMuestreoStr,
-                        muestreador: info.nombre_muestreador || 'No asignado',
-                        motivo: observations || 'No especificado',
-                        usuario_cancela: canceladoPor,
-                        usuario_accion: canceladoPor,
-                        fecha: notifFechaStr
-                    }).catch(e => logger.warn('UNS trigger failed:', e));
+                    this.getFichaContextForNotification(idFicha, canceladoPor, 'Cancelación de Muestreo', pool).then(baseContext => {
+                        unsService.trigger('FICHA_MUESTREO_CANCELADO', {
+                            ...baseContext,
+                            correlativo: (info.fichaingresoservicio || String(idFicha)).trim(),
+                            id_usuario_accion: user ? (user.id || user.id_usuario || 0) : 0,
+                            muestreo_correlativo: (info.frecuencia_correlativo || '').trim(),
+                            fecha_muestreo: fechaMuestreoStr,
+                            muestreador: info.nombre_muestreador || 'No asignado',
+                            OBSERVACION: observations || 'No especificado',
+                            usuario_cancela: canceladoPor
+                        }).catch(e => logger.warn('UNS trigger failed:', e));
+                    }).catch(e => logger.error('Error in getFichaContextForNotification:', e));
                 }
             } catch (e) {
                 logger.warn('Error enviando notificación de cancelación:', e);
@@ -3743,6 +3853,61 @@ class FichaIngresoService {
             return { success: true };
         } catch (error) {
             logger.error('Error updating realizado_por_gem:', error);
+            throw error;
+        }
+    }
+
+    async updateCasoAdlab(idAgendamam, casoAdlab) {
+        const pool = await getConnection();
+        const request = pool.request();
+
+        // Validate length (column is VARCHAR(10))
+        if (!casoAdlab || casoAdlab.trim().length === 0) {
+            throw new Error('El código de caso no puede estar vacío.');
+        }
+        if (casoAdlab.trim().length > 10) {
+            throw new Error('El código de caso no puede superar los 10 caracteres.');
+        }
+
+        const idCasoStr = casoAdlab.replace(/\D/g, '');
+        const idCaso = idCasoStr ? parseInt(idCasoStr, 10) : null;
+
+        // Validar que el caso_adlab no esté ya asignado a otro registro
+        const dupCheck = await pool.request()
+            .input('idAgendamam', sql.Numeric, idAgendamam)
+            .input('casoAdlab', sql.VarChar(10), casoAdlab.trim())
+            .query(`
+                SELECT TOP 1 id_agendamam
+                FROM App_Ma_Agenda_MUESTREOS
+                WHERE caso_adlab = @casoAdlab
+                  AND id_agendamam != @idAgendamam
+            `);
+        if (dupCheck.recordset.length > 0) {
+            throw new Error(`El código de caso "${casoAdlab.trim()}" ya está asignado a otro muestreo.`);
+        }
+
+        request.input('idAgendamam', sql.Numeric, idAgendamam);
+        request.input('casoAdlab', sql.VarChar(10), casoAdlab.trim());
+        request.input('idCaso', sql.Numeric, idCaso);
+
+        const query = `
+            UPDATE App_Ma_Agenda_MUESTREOS
+            SET caso_adlab  = @casoAdlab,
+                id_caso     = @idCaso,
+                estado_caso = 'PROCESO'
+            WHERE id_agendamam = @idAgendamam
+              AND retiro_completado = 'S'
+        `;
+
+        try {
+            const result = await request.query(query);
+            if (result.rowsAffected[0] === 0) {
+                throw new Error('No se encontró el muestreo o no cumple la condición retiro_completado = S.');
+            }
+            logger.info(`[updateCasoAdlab] id_agendamam=${idAgendamam} caso_adlab="${casoAdlab}" → PROCESO`);
+            return { success: true };
+        } catch (error) {
+            logger.error('Error updating caso_adlab:', error);
             throw error;
         }
     }

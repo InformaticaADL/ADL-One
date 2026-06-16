@@ -19,4 +19,8 @@ router.post('/test/html', authenticate, notificationController.testCustomHTML);
 router.get('/catalog', authenticate, notificationController.getNotificationCatalog);
 router.post('/config', authenticate, notificationController.saveNotificationConfig);
 
+// TEMPORARY: Email Viewer
+router.get('/preview', notificationController.previewIndex);
+router.get('/preview/:eventCode', notificationController.previewEventHTML);
+
 export default router;

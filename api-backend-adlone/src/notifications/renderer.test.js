@@ -83,12 +83,35 @@ test('omits a campo row when its value is empty', () => {
     assert.doesNotMatch(result.html, /Empresa Servicio/);
 });
 
-test('renders FICHA_MUESTREO_COMPLETADO: subject, title, meta and CTA to ejecutados', () => {
-    const result = renderEmail('FICHA_MUESTREO_COMPLETADO', BASE_CONTEXT);
+test('renders AVISO_CONSULTA_EQUIPO_NUEVA: subject, title, fields and observation', () => {
+    const result = renderEmail('AVISO_CONSULTA_EQUIPO_NUEVA', {
+        USUARIO: 'Angelo Chiesa',
+        FECHA: '11-06-2026',
+        HORA: '16:55',
+        equipo_nombre: 'MEDIDOR PH PORTÁTIL [pHp.102/MA.PM]',
+        codigo_equipo: 'pHp.102/MA.PM',
+        OBSERVACION: '¿Qué pasa con este equipo?',
+    });
 
-    assert.equal(result.asunto, 'Muestreo Completado - Ficha #1245');
+    assert.equal(result.asunto, 'Nueva Consulta de Equipo: MEDIDOR PH PORTÁTIL [pHp.102/MA.PM]');
+    assert.match(result.html, /Consulta de Equipo/);
+    assert.match(result.html, /Angelo Chiesa realizó una consulta sobre el equipo MEDIDOR PH PORTÁTIL \[pHp\.102\/MA\.PM\]/);
+    assert.match(result.html, /Angelo Chiesa/);
+    assert.match(result.html, /11-06-2026 16:55/);
+    assert.match(result.html, /¿Qué pasa con este equipo\?/);
+    assert.match(result.html, />NUEVA</);
+});
+
+test('renders FICHA_MUESTREO_COMPLETADO: subject, title, meta and CTA to ejecutados', () => {
+    const result = renderEmail('FICHA_MUESTREO_COMPLETADO', {
+        ...BASE_CONTEXT,
+        numero_servicio: '5',
+        total_servicios: 12,
+    });
+
+    assert.equal(result.asunto, 'Muestreo Completado - Ficha #1245 - Servicio 5/12');
     assert.match(result.html, /Muestreo Completado/);
-    assert.match(result.html, /Se complet.* el muestreo de la ficha #1245/);
+    assert.match(result.html, /Se complet.* el servicio 5\/12 de la ficha #1245/);
     assert.match(result.html, /J\. Pérez/);
     assert.match(result.html, /10 de junio de 2026 16:18/);
     assert.match(result.html, /Ver Muestreos Ejecutados/);

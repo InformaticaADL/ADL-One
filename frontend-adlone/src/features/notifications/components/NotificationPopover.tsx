@@ -21,6 +21,8 @@ import {
 } from '@tabler/icons-react';
 import { useNotificationStore, type Notification } from '../../../store/notificationStore';
 import { useNavStore } from '../../../store/navStore';
+import { useAuth } from '../../../contexts/AuthContext';
+import { useToast } from '../../../contexts/ToastContext';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/es';
@@ -36,7 +38,13 @@ interface NotificationPopoverProps {
 
 export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ opened, onClose, children }) => {
     const { notifications, markAsRead, markAllAsRead } = useNotificationStore();
-    const { setActiveModule, setActiveSubmodule, setPendingRequestId, setPendingChatId, setSelectedRequestId } = useNavStore();
+    const { setActiveModule, setActiveSubmodule, setPendingRequestId, setPendingChatId, setSelectedRequestId, setFichasMode } = useNavStore();
+    const { hasPermission } = useAuth();
+    const { showToast } = useToast();
+
+    // Mismos permisos que FichasIngresoPage exige para 'list_fichas' / 'list_ejecutados'
+    const FICHA_DETALLE_PERMS = ['FI_CONSULTAR', 'FI_VER', 'FI_APROBAR_TEC', 'FI_RECHAZAR_TEC', 'FI_APROBAR_COO', 'FI_RECHAZAR_COO', 'FI_EDITAR'];
+    const FICHA_EJECUTADOS_PERMS = ['MA_COMERCIAL_HISTORIAL_ACCESO', 'FI_EXP_MC'];
 
     const unreadNotifications = notifications.filter(n => !n.leido);
     const recentNotifications = notifications.slice(0, 5);
@@ -82,7 +90,20 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ opened
                     setSelectedRequestId(notif.id_referencia);
                     setActiveModule('solicitudes');
                     setActiveSubmodule('');
+                } else if (titulo.includes('muestreo completado')) {
+                    // Muestreo Completado: lleva al listado de Muestreos Ejecutados, no al detalle de la ficha
+                    if (!hasPermission(FICHA_EJECUTADOS_PERMS)) {
+                        showToast({ type: 'error', message: 'No tienes permiso para ver el listado de Muestreos Ejecutados.' });
+                        return;
+                    }
+                    setActiveModule('medio-ambiente');
+                    setActiveSubmodule('ma-fichas-ingreso');
+                    setFichasMode('list_ejecutados');
                 } else if (titulo.includes('ficha') || (mensaje.includes('ficha') && !mensaje.includes('ficha/servicio')) || titulo.includes('programación') || mensaje.includes('muestreo')) {
+                    if (!hasPermission(FICHA_DETALLE_PERMS)) {
+                        showToast({ type: 'error', message: 'No tienes permiso para ver el detalle de esta ficha.' });
+                        return;
+                    }
                     setPendingRequestId(notif.id_referencia);
                     setActiveModule('medio-ambiente');
                     setActiveSubmodule('ma-fichas-ingreso');

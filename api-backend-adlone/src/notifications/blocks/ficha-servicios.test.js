@@ -58,3 +58,31 @@ test('highlights old -> new values with strikethrough when a field changed', () 
     assert.match(html, /12-06-2026/);
     assert.match(html, /15-06-2026/);
 });
+
+test('omits "Muestreador Ret." and "Fecha Retiro" rows for Puntual fichas even when retiro values are set', () => {
+    const html = renderFichaServicios({
+        servicios: [
+            {
+                numero: '1',
+                muestreador_instalacion: 'Juan Pérez',
+                muestreador_retiro: 'Juan Pérez',
+                fecha_muestreo: '12-06-2026',
+                fecha_retiro: '12-06-2026',
+                old_fecha: null,
+                old_fecha_retiro: null,
+                old_muestreador_instalacion: null,
+                old_muestreador_retiro: null,
+                isModified: false,
+                esPuntual: true,
+            },
+        ],
+    });
+
+    assert.match(html, /Servicio 1/);
+    assert.match(html, /📥 Muestreador<\/div>/);
+    assert.match(html, /Fecha Muestreo/);
+    assert.doesNotMatch(html, /Muestreador Inst\./);
+    assert.doesNotMatch(html, /Fecha Instalación/);
+    assert.doesNotMatch(html, /Muestreador Ret\./);
+    assert.doesNotMatch(html, /Fecha Retiro/);
+});

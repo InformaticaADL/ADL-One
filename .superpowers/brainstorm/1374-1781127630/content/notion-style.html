@@ -1,0 +1,80 @@
+<h2>Aplicando el estilo Notion/Shadcn a un email ADL ONE</h2>
+<p class="subtitle">Minimalista, tipografía limpia, lista de datos con iconos, badge de estado, logo y footer</p>
+
+<div class="mockup">
+  <div class="mockup-header">Preview: Ficha Rechazada Técnica</div>
+  <div class="mockup-body" style="font-family: -apple-system, Segoe UI, Helvetica, Arial, sans-serif; background:#fff; border-radius:14px; overflow:hidden; border:1px solid #e9e9e7; max-width:480px; margin:0 auto;">
+
+    <!-- Header -->
+    <div style="padding:24px 28px 0 28px;">
+      <img src="https://dummyimage.com/120x32/0062a8/ffffff.png&text=ADL+ONE" alt="ADL ONE" style="height:28px;">
+    </div>
+
+    <!-- Body -->
+    <div style="padding:20px 28px 24px 28px;">
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+        <h2 style="margin:0; font-size:18px; color:#1f1f1f; font-weight:600;">Ficha Técnica Rechazada</h2>
+      </div>
+      <span style="display:inline-block; background:#fdecea; color:#c0392b; font-size:11px; font-weight:600; padding:3px 10px; border-radius:6px; letter-spacing:0.3px; margin-bottom:14px;">RECHAZADO</span>
+
+      <p style="font-size:14px; color:#787774; line-height:1.6; margin:0 0 18px 0;">
+        La ficha <strong style="color:#1f1f1f;">#1245</strong> fue rechazada por el Área Técnica. Revisa los detalles a continuación.
+      </p>
+
+      <!-- Detalle tipo Notion: lista de filas con icono -->
+      <div style="border:1px solid #ededec; border-radius:10px; overflow:hidden; margin-bottom:18px;">
+        <div style="display:flex; padding:10px 14px; border-bottom:1px solid #f1f1ef; font-size:13px;">
+          <div style="width:140px; color:#9b9a97; display:flex; align-items:center; gap:6px;">📄 Ficha</div>
+          <div style="color:#1f1f1f; font-weight:500;">#1245</div>
+        </div>
+        <div style="display:flex; padding:10px 14px; border-bottom:1px solid #f1f1ef; font-size:13px;">
+          <div style="width:140px; color:#9b9a97; display:flex; align-items:center; gap:6px;">🏭 Centro</div>
+          <div style="color:#1f1f1f; font-weight:500;">Planta Puerto Montt</div>
+        </div>
+        <div style="display:flex; padding:10px 14px; border-bottom:1px solid #f1f1ef; font-size:13px;">
+          <div style="width:140px; color:#9b9a97; display:flex; align-items:center; gap:6px;">👤 Responsable</div>
+          <div style="color:#1f1f1f; font-weight:500;">J. Pérez</div>
+        </div>
+        <div style="display:flex; padding:10px 14px; font-size:13px;">
+          <div style="width:140px; color:#9b9a97; display:flex; align-items:center; gap:6px;">🕒 Fecha</div>
+          <div style="color:#1f1f1f; font-weight:500;">10-06-2026, 16:18</div>
+        </div>
+      </div>
+
+      <!-- Bloque observación -->
+      <div style="background:#fbfbfa; border:1px solid #ededec; border-radius:8px; padding:12px 14px; margin-bottom:22px;">
+        <div style="font-size:11px; color:#9b9a97; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Motivo del rechazo</div>
+        <div style="font-size:13px; color:#37352f; line-height:1.5;">Faltan datos de muestreo en el sector norte.</div>
+      </div>
+
+      <!-- CTA -->
+      <a href="#" style="display:inline-block; background:#0062a8; color:#fff; font-size:14px; font-weight:600; padding:10px 20px; border-radius:8px; text-decoration:none;">Ver Ficha en ADL ONE</a>
+    </div>
+
+    <!-- Footer -->
+    <div style="padding:18px 28px; border-top:1px solid #f1f1ef; background:#fbfbfa;">
+      <div style="font-size:11px; color:#9b9a97; line-height:1.6;">
+        <strong style="color:#787774;">ADL Diagnostic Chile SpA</strong><br>
+        Sector La Vara s/n, Camino a Alerce, Puerto Montt ·
+        <a href="#" style="color:#0062a8; text-decoration:none;">www.adldiagnostic.cl</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="options">
+  <div class="option" data-choice="like-it" onclick="toggleSelect(this)">
+    <div class="letter">✓</div>
+    <div class="content">
+      <h3>Me gusta esta dirección</h3>
+      <p>Sigamos refinando este estilo (badge, lista con iconos, CTA, footer minimalista)</p>
+    </div>
+  </div>
+  <div class="option" data-choice="adjust" onclick="toggleSelect(this)">
+    <div class="letter">✎</div>
+    <div class="content">
+      <h3>Cerca, pero ajustar</h3>
+      <p>Cuéntame qué cambiar (colores, iconos, espaciado, tabla en vez de filas, etc.)</p>
+    </div>
+  </div>
+</div>

@@ -390,6 +390,29 @@ class FichaIngresoController {
         }
     }
 
+    async updateCasoAdlab(req, res) {
+        try {
+            const { idAgendamam } = req.params;
+            const { casoAdlab } = req.body;
+
+            if (!idAgendamam) {
+                return errorResponse(res, 'ID de agenda requerido', 400);
+            }
+            if (!casoAdlab || typeof casoAdlab !== 'string' || casoAdlab.trim().length === 0) {
+                return errorResponse(res, 'El código de caso (caso_adlab) es obligatorio', 400);
+            }
+            if (casoAdlab.trim().length > 10) {
+                return errorResponse(res, 'El código de caso no puede superar los 10 caracteres', 400);
+            }
+
+            const result = await fichaService.updateCasoAdlab(idAgendamam, casoAdlab.trim());
+            return successResponse(res, result, 'Código de caso asignado exitosamente');
+        } catch (err) {
+            logger.error('Error in updateCasoAdlab controller:', err);
+            return errorResponse(res, err.message || 'Error al asignar el código de caso', 500, err.message);
+        }
+    }
+
     async getExecutionDetail(req, res) {
         try {
             const { id } = req.params;

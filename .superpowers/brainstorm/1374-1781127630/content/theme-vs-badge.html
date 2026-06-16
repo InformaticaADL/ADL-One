@@ -1,0 +1,64 @@
+<h2>¿Cómo debería verse un email de "Rechazo"?</h2>
+<p class="subtitle">Comparación: recolorear todo el email vs. usar solo un "badge" de estado</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">Opción A: Tema completo en rojo (actual)</div>
+    <div class="mockup-body" style="font-family: Arial, sans-serif; background:#fff; border-radius:12px; overflow:hidden; border:1px solid #e2e8f0;">
+      <div style="padding:16px 24px; border-bottom:5px solid #e11d48; background:#fff;">
+        <div style="font-weight:bold; color:#e11d48; font-size:18px;">ADL ONE</div>
+      </div>
+      <div style="padding:24px;">
+        <h3 style="margin:0 0 8px 0; color:#e11d48;">Ficha Rechazada Técnica</h3>
+        <div style="background:#ffe4e6; border:1px solid #fda4af; border-radius:10px; padding:14px 18px; margin-bottom:16px;">
+          <div style="margin-bottom:4px;"><strong style="color:#e11d48;">Acción:</strong> Rechazo Técnico</div>
+          <div style="margin-bottom:4px;"><strong style="color:#e11d48;">Responsable:</strong> J. Pérez</div>
+          <div><strong style="color:#e11d48;">Fecha:</strong> 10-06-2026</div>
+        </div>
+        <div style="background:#fff5f5; border:1px solid #fda4af; border-radius:8px; padding:12px;">
+          <strong style="color:#e11d48;">Motivo:</strong> Faltan datos de muestreo
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">Opción B: Layout neutro + badge de estado</div>
+    <div class="mockup-body" style="font-family: Arial, sans-serif; background:#fff; border-radius:12px; overflow:hidden; border:1px solid #e2e8f0;">
+      <div style="padding:16px 24px; border-bottom:4px solid #0062a8; background:#fff;">
+        <div style="font-weight:bold; color:#0062a8; font-size:18px;">ADL ONE</div>
+      </div>
+      <div style="padding:24px;">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+          <h3 style="margin:0; color:#1e293b;">Ficha Técnica</h3>
+          <span style="background:#e11d48; color:#fff; font-size:11px; font-weight:bold; padding:3px 10px; border-radius:999px; letter-spacing:0.5px;">RECHAZADO</span>
+        </div>
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:14px 18px; margin-bottom:16px;">
+          <div style="margin-bottom:4px;"><strong style="color:#0062a8;">Acción:</strong> Rechazo Técnico</div>
+          <div style="margin-bottom:4px;"><strong style="color:#0062a8;">Responsable:</strong> J. Pérez</div>
+          <div><strong style="color:#0062a8;">Fecha:</strong> 10-06-2026</div>
+        </div>
+        <div style="background:#f8fafc; border-left:4px solid #e11d48; border-radius:0 8px 8px 0; padding:12px;">
+          <strong style="color:#1e293b;">Motivo:</strong> Faltan datos de muestreo
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Tema completo (actual)</h3>
+      <p>Todo el email cambia de color según el resultado</p>
+    </div>
+  </div>
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Layout neutro + badge</h3>
+      <p>Solo el "estado" lleva color; el resto del email es consistente siempre</p>
+    </div>
+  </div>
+</div>

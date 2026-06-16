@@ -249,31 +249,35 @@ class UnsService {
                 },
                 'AVISO_CONSULTA_FICHA_NUEVA': {
                     titulo: 'Consulta de Ficha',
-                    mensaje: '{{usuario_accion}} realizó una consulta técnica sobre un servicio.'
+                    mensaje: '{{usuario_accion}} realizó una consulta técnica sobre el servicio #{{correlativo}}.'
                 },
                 'AVISO_CANCELACION_NUEVA': {
                     titulo: 'Cancelación de Muestreo',
-                    mensaje: '{{usuario_accion}} ha reportado la anulación del servicio {{CORRELATIVO}}'
+                    mensaje: '{{usuario_accion}} ha reportado la anulación del servicio #{{correlativo}}'
                 },
                 'FICHA_APROBADA_TECNICA': {
                     titulo: 'Aprobación Técnica: #{{correlativo}}',
-                    mensaje: 'La ficha #{{correlativo}} ha sido APROBADA técnicamente por {{usuario_accion}}.'
+                    mensaje: 'La ficha #{{correlativo}} ha sido aprobada técnicamente por {{usuario_accion}}.'
                 },
                 'FICHA_RECHAZADA_TECNICA': {
                     titulo: 'Ficha Rechazada: #{{correlativo}}',
-                    mensaje: 'La ficha #{{correlativo}} ha sido RECHAZADA técnicamente por {{usuario_accion}}.'
+                    mensaje: 'La ficha #{{correlativo}} ha sido rechazada técnicamente por {{usuario_accion}}.'
                 },
                 'FICHA_APROBADA_COORDINACION': {
                     titulo: 'Aprobación Coordinación: #{{correlativo}}',
-                    mensaje: 'La ficha #{{correlativo}} ha sido APROBADA por coordinación ({{usuario_accion}}).'
+                    mensaje: 'La ficha #{{correlativo}} ha sido aprobada por coordinación ({{usuario_accion}}).'
                 },
                 'FICHA_RECHAZADA_COORDINACION': {
                     titulo: 'Rechazo Coordinación: #{{correlativo}}',
-                    mensaje: 'La ficha #{{correlativo}} ha sido RECHAZADA por coordinación ({{usuario_accion}}).'
+                    mensaje: 'La ficha #{{correlativo}} ha sido rechazada por coordinación ({{usuario_accion}}).'
                 },
                 'FICHA_ASIGNADA': {
                     titulo: 'Muestreo Asignado: #{{correlativo}}',
                     mensaje: 'Se ha asignado el muestreo de la ficha #{{correlativo}} al equipo de terreno.'
+                },
+                'FICHA_MUESTREO_COMPLETADO': {
+                    titulo: 'Muestreo Completado: Ficha #{{correlativo}} - Servicio {{numero_servicio}}/{{total_servicios}}',
+                    mensaje: '{{usuario_accion}} completó el servicio {{numero_servicio}}/{{total_servicios}} de la ficha #{{correlativo}}.'
                 },
                 'FICHA_MUESTREO_CANCELADO': {
                     titulo: 'Muestreo Cancelado: #{{correlativo}}',
@@ -343,11 +347,18 @@ class UnsService {
                     // User Issue 3: If the DB rule just says "EN_REVISION", it overriding our nice formatted text.
                     // Let's force use of default templates if the DB template is too short/generic, or just use ours.
                     const isGenericLocalRule = ruleWithTemplate && ruleWithTemplate.plantilla_web.length < 20 && !ruleWithTemplate.plantilla_web.includes('{{');
-                    
+
+                    // Algunas reglas antiguas guardan el título "gritando" (p.ej. "AVISO CONSULTA EQUIPO NUEVA",
+                    // básicamente el código de evento con guiones bajos por espacios). En ese caso preferimos
+                    // el título legible por defecto en lugar de mostrarlo todo en mayúsculas.
+                    const isShoutingTitle = (str) => !!str && /[A-ZÀ-ÚÑ]/.test(str) && str === str.toUpperCase();
+                    const dbTitulo = ruleWithTemplate?.plantilla_web_titulo;
+                    const useDbTitulo = dbTitulo && !isShoutingTitle(dbTitulo);
+
                     const template = (ruleWithTemplate && !isGenericLocalRule) ? {
-                        titulo: ruleWithTemplate.plantilla_web_titulo || `Aviso: ${codigoEvento}`,
+                        titulo: useDbTitulo ? dbTitulo : ((defaultWebTemplates[codigoEvento]?.titulo) || `Aviso: ${codigoEvento.replace(/_/g, ' ')}`),
                         mensaje: ruleWithTemplate.plantilla_web
-                    } : (defaultWebTemplates[codigoEvento] || { 
+                    } : (defaultWebTemplates[codigoEvento] || {
                         titulo: (context.titulo_notificacion || context.titulo) || `Aviso: ${codigoEvento.replace(/_/g, ' ')}`, 
                         mensaje: (context.mensaje_notificacion || context.mensaje) || 'Nuevo aviso en el sistema' 
                     });

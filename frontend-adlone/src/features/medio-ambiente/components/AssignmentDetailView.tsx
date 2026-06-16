@@ -23,7 +23,8 @@ import {
     LoadingOverlay,
     Alert,
     Modal,
-    Radio
+    Radio,
+    Textarea
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import {
@@ -81,6 +82,7 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
     const [activeRowCorrelativo, setActiveRowCorrelativo] = useState('');
     // State to store chosen versions: { correlativo: { idEquipo: 'original' | 'nueva' } }
     const [equipmentSelections, setEquipmentSelections] = useState<Record<string, Record<number, 'original' | 'nueva'>>>({});
+    const [observacionAsignacion, setObservacionAsignacion] = useState('');
 
     const resamplingData = useMemo(() => {
         if (rows.length === 0) return null;
@@ -435,7 +437,8 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                 const response = await fichaService.batchUpdateAgenda({
                     assignments,
                     user: user ? { id: user.id } : { id: 0 },
-                    observaciones: 'Asignación de recursos y programación masiva desde sistema.'
+                    observaciones: 'Asignación de recursos y programación masiva desde sistema.',
+                    observacionNotificacion: observacionAsignacion.trim() || null
                 });
 
                 showToast({ message: response.message || 'Asignación guardada correctamente', type: 'success' });
@@ -617,6 +620,18 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                 )}
                             </Group>
                         </Paper>
+
+                        <ProtectedContent permission="FI_GEST_ASIG">
+                            <Textarea
+                                label="Observación para la notificación"
+                                description="Se incluirá en el correo de asignación enviado al responsable"
+                                placeholder="Ej: Coordinar acceso con guardia antes de las 9:00 AM"
+                                minRows={2}
+                                autosize
+                                value={observacionAsignacion}
+                                onChange={(e) => setObservacionAsignacion(e.target.value)}
+                            />
+                        </ProtectedContent>
 
                         <Divider />
 

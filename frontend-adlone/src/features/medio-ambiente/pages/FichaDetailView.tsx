@@ -45,12 +45,24 @@ import {
     IconRefresh,
     IconCheck,
     IconMailForward,
-    IconInfoCircle
+    IconInfoCircle,
+    IconAlertTriangle
 } from '@tabler/icons-react';
 import { useNavStore } from '../../../store/navStore';
 import apiClient from '../../../config/axios.config';
 import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useToast } from '../../../contexts/ToastContext';
+
+// El backend (mssql) devuelve los datetime guardados con GETDATE() (hora local del servidor)
+// como si fueran UTC. Usamos los componentes UTC para evitar que el navegador
+// reste el offset horario nuevamente.
+const formatFechaHoraServidor = (value: string | Date) => {
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return '';
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${pad(d.getUTCDate())}-${pad(d.getUTCMonth() + 1)}-${d.getUTCFullYear()} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+};
 
 export const FichaDetailView = () => {
     const {
@@ -61,6 +73,7 @@ export const FichaDetailView = () => {
         setHelpCenterOpen,
     } = useNavStore();
     const { hasPermission, user } = useAuth();
+    const { showToast } = useToast();
     const isGemMamPm = hasPermission('GEM_REALIZADO');
 
     const [loading, setLoading] = useState(true);
@@ -81,6 +94,8 @@ export const FichaDetailView = () => {
     const [realizadoGem, setRealizadoGem] = useState<{realizado: boolean, userName: string, fecha: string} | null>(null);
     const [confirmModalOpen, setConfirmModalOpen] = useState(false);
     const [realizadoLoading, setRealizadoLoading] = useState(false);
+    const [oiNumero, setOiNumero] = useState('');
+    const [oiError, setOiError] = useState('');
 
     const toggleDoc = (docId: string) => {
         setExpandedDocs(prev =>
@@ -129,7 +144,7 @@ export const FichaDetailView = () => {
                         realizado: true,
                         userName: agendaData.realizado_por_gem,
                         fecha: agendaData.fecha_realizado_gem
-                            ? new Date(agendaData.fecha_realizado_gem).toLocaleString('es-CL')
+                            ? formatFechaHoraServidor(agendaData.fecha_realizado_gem)
                             : ''
                     });
                 }
@@ -155,17 +170,53 @@ export const FichaDetailView = () => {
 
     const handleConfirmRealizado = async () => {
         if (!ficha?.id_agendamam) return;
+
+        // Validate OI input
+        const trimmed = oiNumero.trim();
+        if (!trimmed) {
+            setOiError('Debes ingresar el ID de caso generado por ADL Soft.');
+            return;
+        }
+        const fullCode = `OI-${trimmed}`;
+        if (fullCode.length > 10) {
+            setOiError(`El código "${fullCode}" supera los 10 caracteres permitidos.`);
+            return;
+        }
+
+        setOiError('');
         setRealizadoLoading(true);
         try {
+            // 1. Marcar como realizado por GEM
             await fichaService.updateRealizadoGem(Number(ficha.id_agendamam), true);
+            // 2. Asignar el código OI
+            await fichaService.updateCasoAdlab(Number(ficha.id_agendamam), fullCode);
+
+            // Update local state so header reflects the new OI
+            setData((prev: any) => {
+                if (!prev || !prev.ficha) return prev;
+                return {
+                    ...prev,
+                    ficha: {
+                        ...prev.ficha,
+                        caso_adlab: fullCode,
+                        id_caso: parseInt(trimmed, 10)
+                    }
+                };
+            });
+
             setRealizadoGem({
                 realizado: true,
                 userName: user?.name || user?.username || 'Usuario',
                 fecha: new Date().toLocaleString('es-CL')
             });
             setConfirmModalOpen(false);
-        } catch (err) {
+            setOiNumero('');
+            showToast({ type: 'success', message: `Muestreo marcado como realizado. Caso ${fullCode} asignado correctamente.` });
+        } catch (err: any) {
             console.error('Error al marcar como realizado:', err);
+            const message = err.response?.data?.message || 'Ocurrió un error al guardar. Intenta nuevamente.';
+            setOiError(message);
+            showToast({ type: 'error', message });
         } finally {
             setRealizadoLoading(false);
         }
@@ -247,9 +298,7 @@ export const FichaDetailView = () => {
                                 <IconArrowLeft size={20} />
                             </ActionIcon>
                             <div>
-                                {!(activeModule === 'gem' || activeModule === 'unidades-gem') && (
-                                    <Title order={2} c="blue.9" style={{ lineHeight: 1.2 }}>{ficha?.caso_adlab || 'Caso S/N'}</Title>
-                                )}
+                                <Title order={2} c="blue.9" style={{ lineHeight: 1.2 }}>{ficha?.caso_adlab || 'Caso S/N'}</Title>
                                 <Text size="xs" c="dimmed" fw={700} mt={4}>{ficha?.frecuencia_correlativo || 'Correlativo S/N'}</Text>
                                 <Badge color="green" variant="filled" size="sm" mt={6}>EJECUTADO</Badge>
                             </div>
@@ -397,23 +446,101 @@ export const FichaDetailView = () => {
                 </Grid>
             </Paper>
 
-            {/* Modal de confirmación Realizado por GEM */}
+            {/* Modal de confirmación Realizado por GEM + OI */}
             <Modal
                 opened={confirmModalOpen}
-                onClose={() => setConfirmModalOpen(false)}
-                title={<Text fw={700} size="md">⚠️ Confirmar acción irreversible</Text>}
+                onClose={() => { setConfirmModalOpen(false); setOiNumero(''); setOiError(''); }}
+                title={
+                    <Group gap="xs">
+                        <IconAlertTriangle size={18} color="var(--mantine-color-orange-6)" />
+                        <Text fw={700} size="md" c="orange.8">Confirmar ingreso en ADL Soft</Text>
+                    </Group>
+                }
                 centered
-                size="sm"
+                size="md"
             >
-                <Stack gap="md">
-                    <Text size="sm" c="dimmed">
-                        Al marcar este muestreo como <strong>Realizado por GEM</strong>, esta acción quedará registrada con tu nombre y la fecha/hora actual.
-                    </Text>
-                    <Text size="sm" fw={600} c="orange.7">
-                        Esta acción <u>no podrá deshacerse</u>. ¿Estás seguro de continuar?
-                    </Text>
+                <Stack gap="lg">
+                    {/* Texto explicativo */}
+                    <Alert
+                        color="orange"
+                        variant="light"
+                        radius="md"
+                        icon={<IconAlertTriangle size={16} />}
+                    >
+                        <Text size="sm">
+                            Estás a punto de marcar como <strong>Realizado por GEM</strong> este muestreo.
+                            Esto significa que la información ya fue ingresada <strong>correctamente</strong> en el sistema{' '}
+                            <strong>ADL Soft</strong>.
+                        </Text>
+                        <Text size="sm" mt="xs">
+                            Si es así, ingresa el <strong>ID de caso</strong> generado por ADL Soft:
+                        </Text>
+                    </Alert>
+
+                    {/* Input OI */}
+                    <Box>
+                        <Text size="xs" fw={700} c="dimmed" mb={6} tt="uppercase" ls="0.5px">Código de caso (ADL Soft)</Text>
+                        <Group gap={0} align="flex-start">
+                            {/* Prefijo fijo */}
+                            <Box
+                                style={{
+                                    height: 36,
+                                    padding: '0 12px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    background: 'var(--mantine-color-gray-1)',
+                                    border: '1.5px solid var(--mantine-color-gray-4)',
+                                    borderRight: 'none',
+                                    borderRadius: '6px 0 0 6px',
+                                    fontWeight: 800,
+                                    fontSize: 15,
+                                    color: 'var(--mantine-color-blue-7)',
+                                    letterSpacing: 1,
+                                    userSelect: 'none',
+                                    whiteSpace: 'nowrap'
+                                }}
+                            >
+                                OI-
+                            </Box>
+                            {/* Input numérico */}
+                            <TextInput
+                                placeholder="ingrese el id"
+                                value={oiNumero}
+                                onChange={(e) => {
+                                    setOiError('');
+                                    setOiNumero(e.currentTarget.value.replace(/\D/g, ''));
+                                }}
+                                error={oiError || undefined}
+                                style={{ flex: 1 }}
+                                styles={{
+                                    input: {
+                                        borderRadius: '0 6px 6px 0',
+                                        fontWeight: 700,
+                                        fontSize: 15,
+                                        letterSpacing: 1
+                                    }
+                                }}
+                                maxLength={7}
+                                autoFocus
+                                onKeyDown={(e) => { if (e.key === 'Enter' && oiNumero.trim()) handleConfirmRealizado(); }}
+                            />
+                        </Group>
+                        {/* Preview */}
+                        {oiNumero.trim() && !oiError && (
+                            <Text size="xs" c="blue.6" fw={700} mt={6}>
+                                Resultado: <strong>OI-{oiNumero.trim()}</strong>
+                            </Text>
+                        )}
+                    </Box>
+
+                    <Divider />
+
                     <Group justify="flex-end" gap="sm">
-                        <Button variant="default" onClick={() => setConfirmModalOpen(false)}>
+                        <Button
+                            variant="default"
+                            onClick={() => { setConfirmModalOpen(false); setOiNumero(''); setOiError(''); }}
+                            disabled={realizadoLoading}
+                        >
                             Cancelar
                         </Button>
                         <Button
@@ -421,8 +548,9 @@ export const FichaDetailView = () => {
                             loading={realizadoLoading}
                             leftSection={<IconCheck size={16} />}
                             onClick={handleConfirmRealizado}
+                            disabled={!oiNumero.trim()}
                         >
-                            Confirmar
+                            Confirmar y Guardar
                         </Button>
                     </Group>
                 </Stack>

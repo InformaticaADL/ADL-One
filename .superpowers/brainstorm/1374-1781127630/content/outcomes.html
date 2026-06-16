@@ -1,0 +1,72 @@
+<h2>Catálogo de "Outcomes" (badges de estado)</h2>
+<p class="subtitle">Estos badges son independientes de la categoría — el mismo "RECHAZADA" se ve igual en Fichas, Solicitudes de Equipo, URS, etc.</p>
+
+<div class="mockup">
+  <div class="mockup-header">Paleta propuesta</div>
+  <div class="mockup-body" style="font-family: -apple-system, Segoe UI, Helvetica, Arial, sans-serif; padding: 10px;">
+    <div style="display:flex; flex-wrap:wrap; gap:12px;">
+
+      <div style="display:flex; align-items:center; gap:10px; border:1px solid #ededec; border-radius:8px; padding:10px 14px;">
+        <span style="background:#e8f0fe; color:#1a56b0; font-size:11px; font-weight:600; padding:3px 10px; border-radius:6px;">● NUEVA</span>
+        <span style="font-size:12px; color:#787774;">Solicitudes/avisos recién creados</span>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:10px; border:1px solid #ededec; border-radius:8px; padding:10px 14px;">
+        <span style="background:#e3f6e8; color:#1f8b4c; font-size:11px; font-weight:600; padding:3px 10px; border-radius:6px;">● APROBADA</span>
+        <span style="font-size:12px; color:#787774;">Aceptaciones / aprobaciones</span>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:10px; border:1px solid #ededec; border-radius:8px; padding:10px 14px;">
+        <span style="background:#fdecea; color:#c0392b; font-size:11px; font-weight:600; padding:3px 10px; border-radius:6px;">● RECHAZADA</span>
+        <span style="font-size:12px; color:#787774;">Rechazos</span>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:10px; border:1px solid #ededec; border-radius:8px; padding:10px 14px;">
+        <span style="background:#fff4e5; color:#b35900; font-size:11px; font-weight:600; padding:3px 10px; border-radius:6px;">● EN REVISIÓN</span>
+        <span style="font-size:12px; color:#787774;">Pendiente de revisión</span>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:10px; border:1px solid #ededec; border-radius:8px; padding:10px 14px;">
+        <span style="background:#f3e8fd; color:#7e3ff2; font-size:11px; font-weight:600; padding:3px 10px; border-radius:6px;">● DERIVADA</span>
+        <span style="font-size:12px; color:#787774;">Reasignada a otro responsable</span>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:10px; border:1px solid #ededec; border-radius:8px; padding:10px 14px;">
+        <span style="background:#f1f1ef; color:#787774; font-size:11px; font-weight:600; padding:3px 10px; border-radius:6px;">● CANCELADA</span>
+        <span style="font-size:12px; color:#787774;">Anulaciones / cancelaciones</span>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:10px; border:1px solid #ededec; border-radius:8px; padding:10px 14px;">
+        <span style="background:#e9f4fb; color:#0975a8; font-size:11px; font-weight:600; padding:3px 10px; border-radius:6px;">● REPROGRAMADA</span>
+        <span style="font-size:12px; color:#787774;">Reasignación de fechas/recursos</span>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:10px; border:1px solid #ededec; border-radius:8px; padding:10px 14px;">
+        <span style="background:#eef2ff; color:#4453c4; font-size:11px; font-weight:600; padding:3px 10px; border-radius:6px;">● INFORMATIVA</span>
+        <span style="font-size:12px; color:#787774;">Comentarios, mensajes, avisos generales (sin badge fuerte)</span>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<p style="font-size:13px; color:#787774; margin-top:16px;">
+Cada evento se etiqueta con UNO de estos outcomes. Si necesitas un estado nuevo en el futuro (ej. "EXPIRADA"), se agrega una entrada más a esta paleta — no hay que tocar el layout.
+</p>
+
+<div class="options">
+  <div class="option" data-choice="approve" onclick="toggleSelect(this)">
+    <div class="letter">✓</div>
+    <div class="content">
+      <h3>Me sirve esta paleta</h3>
+      <p>8 estados cubren los casos actuales</p>
+    </div>
+  </div>
+  <div class="option" data-choice="adjust" onclick="toggleSelect(this)">
+    <div class="letter">✎</div>
+    <div class="content">
+      <h3>Falta/sobra algún estado</h3>
+      <p>Dime cuál agregar, quitar o renombrar</p>
+    </div>
+  </div>
+</div>

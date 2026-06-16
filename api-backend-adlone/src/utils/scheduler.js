@@ -237,9 +237,14 @@ export const initScheduler = () => {
                     SELECT TOP 10
                         a.id_agendamam,
                         a.id_fichaingresoservicio,
+                        a.frecuencia_correlativo,
                         e.id_usuario as id_usuario_propietario,
                         e.fichaingresoservicio as correlativo_txt,
-                        COALESCE(m2.nombre_muestreador, m1.nombre_muestreador) as nombre_muestreador
+                        COALESCE(m2.nombre_muestreador, m1.nombre_muestreador) as nombre_muestreador,
+                        (SELECT COUNT(*)
+                         FROM App_Ma_Agenda_MUESTREOS a2
+                         WHERE a2.id_fichaingresoservicio = a.id_fichaingresoservicio
+                           AND (a2.estado_caso IS NULL OR a2.estado_caso != 'CANCELADO')) as total_servicios
                     FROM App_Ma_Agenda_MUESTREOS a
                     INNER JOIN App_Ma_FichaIngresoServicio_ENC e ON e.id_fichaingresoservicio = a.id_fichaingresoservicio
                     LEFT JOIN mae_muestreador m1 ON a.id_muestreador = m1.id_muestreador
@@ -258,9 +263,15 @@ export const initScheduler = () => {
                         pool
                     );
 
+                    // El correlativo "X-Y-Estado-Z" codifica el numero de servicio (Y) dentro de la ficha (X)
+                    const correlativoParts = (row.frecuencia_correlativo || '').split('-');
+                    const numeroServicio = correlativoParts.length >= 2 ? correlativoParts[1] : '1';
+
                     await unsService.trigger('FICHA_MUESTREO_COMPLETADO', {
                         ...baseContext,
                         correlativo: (row.correlativo_txt || String(row.id_fichaingresoservicio)).trim(),
+                        numero_servicio: numeroServicio,
+                        total_servicios: row.total_servicios || 1,
                         id_usuario_propietario: row.id_usuario_propietario,
                         id_usuario_accion: 0,
                     });
