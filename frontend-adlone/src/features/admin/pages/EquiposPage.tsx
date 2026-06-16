@@ -1786,6 +1786,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 catalogs={catalogs}
                 muestreadores={muestreadorList}
                 initialFilters={{
+                    search: searchTerm || '',
                     tipo: filterTipo || '',
                     sede: filterSede || '',
                     estado: filterEstado || '',

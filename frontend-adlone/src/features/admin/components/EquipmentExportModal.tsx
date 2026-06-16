@@ -13,6 +13,7 @@ interface EquipmentExportModalProps {
     };
     muestreadores: any[];
     initialFilters?: {
+        search?: string;
         tipo?: string;
         sede?: string;
         estado?: string;
@@ -35,6 +36,7 @@ export const EquipmentExportModal: React.FC<EquipmentExportModalProps> = ({
     const [selectedMuestreador, setSelectedMuestreador] = useState<string>(initialFilters?.id_muestreador || '');
     const [selectedTipo, setSelectedTipo] = useState<string>(initialFilters?.tipo || '');
     const [selectedSede, setSelectedSede] = useState<string>(initialFilters?.sede || '');
+    const [searchTerm, setSearchTerm] = useState<string>(initialFilters?.search || '');
     const [exporting, setExporting] = useState(false);
     const { showToast } = useToast();
 
@@ -46,6 +48,7 @@ export const EquipmentExportModal: React.FC<EquipmentExportModalProps> = ({
             setSelectedMuestreador(initialFilters.id_muestreador || '');
             setSelectedTipo(initialFilters.tipo || '');
             setSelectedSede(initialFilters.sede || '');
+            setSearchTerm(initialFilters.search || '');
         }
     }, [isOpen, initialFilters]);
 
@@ -56,6 +59,7 @@ export const EquipmentExportModal: React.FC<EquipmentExportModalProps> = ({
         setExporting(true);
         try {
             const params = {
+                search: searchTerm,
                 tipo: selectedTipo,
                 sede: selectedSede,
                 estado: status === 'Todos' ? '' : status,

@@ -1342,7 +1342,13 @@ export const equipoService = {
             let whereClause = ' WHERE 1=1';
             if (search) {
                 request.input('search', sql.VarChar, `%${search}%`);
-                whereClause += ` AND (e.codigo LIKE @search OR e.nombre LIKE @search OR e.tipoequipo LIKE @search OR e.sede LIKE @search)`;
+                whereClause += ` AND (
+                    e.codigo LIKE @search OR 
+                    e.nombre LIKE @search OR 
+                    e.tipoequipo LIKE @search OR 
+                    e.sede LIKE @search OR 
+                    m.nombre_muestreador LIKE @search
+                )`;
             }
             if (tipo && tipo !== 'Todos') {
                 request.input('tipo', sql.VarChar, tipo);
@@ -1360,11 +1366,20 @@ export const equipoService = {
                 request.input('id_muestreador', sql.Int, Number(id_muestreador));
                 whereClause += ` AND e.id_muestreador = @id_muestreador`;
             }
+            if (fechaDesde) {
+                request.input('fechaDesde', sql.Date, new Date(fechaDesde));
+                whereClause += ` AND CAST(e.Siguiente_verificacion AS DATE) >= @fechaDesde`;
+            }
+            if (fechaHasta) {
+                request.input('fechaHasta', sql.Date, new Date(fechaHasta));
+                whereClause += ` AND CAST(e.Siguiente_verificacion AS DATE) <= @fechaHasta`;
+            }
 
             const queryDetail = `
                 SELECT 
                     e.id_equipo, e.codigo, e.nombre, e.tipoequipo as tipo, e.sede as ubicacion,
-                    FORMAT(e.fecha_vigencia, 'dd/MM/yyyy') as vigencia,
+                    FORMAT(e.Siguiente_verificacion, 'dd/MM/yyyy') as vigencia,
+                    FORMAT(e.Ultima_verificacion, 'dd/MM/yyyy') as fecha_creacion,
                     CASE WHEN e.habilitado = 'S' THEN 'Activo' ELSE 'Inactivo' END as estado,
                     m.nombre_muestreador as nombre_asignado, e.sigla, e.correlativo,
                     e.tienefc as tiene_fc, e.error0, e.error15, e.error30, e.equipo_asociado,
@@ -1416,6 +1431,7 @@ export const equipoService = {
                 { header: 'TIPO', key: 'tipo', width: 20 },
                 { header: 'UBICACIÓN', key: 'ubicacion', width: 25 },
                 { header: 'VIGENCIA', key: 'vigencia', width: 15 },
+                { header: 'FECHA CREACIÓN', key: 'fecha_creacion', width: 15 },
                 { header: 'ASIGNADO A', key: 'nombre_asignado', width: 25 },
                 { header: 'SIGLA', key: 'sigla', width: 10 },
                 { header: 'CORRELATIVO', key: 'correlativo', width: 10 },
