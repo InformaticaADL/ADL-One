@@ -265,6 +265,11 @@ export const FichaDetailView = () => {
 
     const { ficha, equipos, analisis, media, procesos } = data;
 
+    // ✅ PUNTUAL = un solo proceso, una sola fecha (no se divide en instalación/retiro).
+    // El backend duplica los mismos valores en las columnas *i (instalación) y *t (retiro),
+    // así que para Puntual basta con leer los campos *i / "instalacion" como el único muestreo.
+    const isPuntual = (ficha?.tipo_fichaingresoservicio || '').toString().trim().toLowerCase() === 'puntual';
+
     // Helper to format values consistently
     const fmt = (v: any) => (v !== null && v !== undefined && v !== '' ? String(v) : '—');
 
@@ -340,18 +345,26 @@ export const FichaDetailView = () => {
                             {/* Group 3: Operational */}
                             <Stack gap={4}>
                                 <Text size="xs" fw={700} c="blue.7" style={{ whiteSpace: 'nowrap' }}>DETALLE ACTIVIDAD</Text>
-                                <SimpleGrid cols={2} spacing="xs">
+                                {isPuntual ? (
                                     <Box>
-                                        <Text size="10px" fw={700} c="dimmed">INICIO</Text>
+                                        <Text size="10px" fw={700} c="dimmed">FECHA MUESTREO</Text>
                                         <Text size="xs" fw={600}>{parseFechaStr(ficha?.ma_muestreo_fechai)}</Text>
                                         <Text size="xs" c="dimmed" truncate title={procesos?.instalacion?.nombreMuestreador}>{procesos?.instalacion?.nombreMuestreador || '—'}</Text>
                                     </Box>
-                                    <Box>
-                                        <Text size="10px" fw={700} c="dimmed">TÉRMINO</Text>
-                                        <Text size="xs" fw={600}>{parseFechaStr(ficha?.ma_muestreo_fechat)}</Text>
-                                        <Text size="xs" c="dimmed" truncate title={procesos?.retiro?.nombreMuestreador}>{procesos?.retiro?.nombreMuestreador || '—'}</Text>
-                                    </Box>
-                                </SimpleGrid>
+                                ) : (
+                                    <SimpleGrid cols={2} spacing="xs">
+                                        <Box>
+                                            <Text size="10px" fw={700} c="dimmed">INICIO</Text>
+                                            <Text size="xs" fw={600}>{parseFechaStr(ficha?.ma_muestreo_fechai)}</Text>
+                                            <Text size="xs" c="dimmed" truncate title={procesos?.instalacion?.nombreMuestreador}>{procesos?.instalacion?.nombreMuestreador || '—'}</Text>
+                                        </Box>
+                                        <Box>
+                                            <Text size="10px" fw={700} c="dimmed">TÉRMINO</Text>
+                                            <Text size="xs" fw={600}>{parseFechaStr(ficha?.ma_muestreo_fechat)}</Text>
+                                            <Text size="xs" c="dimmed" truncate title={procesos?.retiro?.nombreMuestreador}>{procesos?.retiro?.nombreMuestreador || '—'}</Text>
+                                        </Box>
+                                    </SimpleGrid>
+                                )}
                             </Stack>
                         </SimpleGrid>
                     </Grid.Col>
@@ -479,7 +492,7 @@ export const FichaDetailView = () => {
 
                     {/* Input OI */}
                     <Box>
-                        <Text size="xs" fw={700} c="dimmed" mb={6} tt="uppercase" ls="0.5px">Código de caso (ADL Soft)</Text>
+                        <Text size="xs" fw={700} c="dimmed" mb={6} tt="uppercase" lts="0.5px">Código de caso (ADL Soft)</Text>
                         <Group gap={0} align="flex-start">
                             {/* Prefijo fijo */}
                             <Box
@@ -581,6 +594,27 @@ export const FichaDetailView = () => {
                                 {/* --- SUB-TAB: EQUIPOS --- */}
                                 <Tabs.Panel value="equipos" style={{ width: '100%', overflow: 'hidden' }}>
                                     <Box p="md" style={{ width: '100%', boxSizing: 'border-box' }}>
+                                        {isPuntual ? (
+                                            <Box>
+                                                <Group mb="md">
+                                                    <IconTool color="orange" size={20} />
+                                                    <Title order={5}>Equipos Utilizados</Title>
+                                                </Group>
+                                                <Stack gap="xs">
+                                                    {equipos?.filter((e: any) => e.usado_instalacion === 'S' || e.usado_retiro === 'S').length > 0 ? (
+                                                        equipos
+                                                            .filter((e: any) => e.usado_instalacion === 'S' || e.usado_retiro === 'S')
+                                                            .filter((e: any, idx: number, arr: any[]) => arr.findIndex((o: any) => o.codigo === e.codigo) === idx)
+                                                            .map((eq: any, i: number) => (
+                                                                <Paper key={i} withBorder p="xs" radius="sm">
+                                                                    <Text fw={600} size="sm">{eq.nombre}</Text>
+                                                                    <Text size="xs" c="dimmed">Código: {eq.codigo}</Text>
+                                                                </Paper>
+                                                            ))
+                                                    ) : <Text fs="italic" size="sm" c="dimmed">No hay equipos registrados.</Text>}
+                                                </Stack>
+                                            </Box>
+                                        ) : (
                                         <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl" style={{ width: '100%' }}>
                                             <Box>
                                                 <Group mb="md">
@@ -615,6 +649,7 @@ export const FichaDetailView = () => {
                                                 </Stack>
                                             </Box>
                                         </SimpleGrid>
+                                        )}
                                         <Divider my="lg" label="Condiciones de Medición" labelPosition="center" />
                                         <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl">
                                             <Box style={{ minWidth: 0 }}>
@@ -639,7 +674,50 @@ export const FichaDetailView = () => {
                                 <Tabs.Panel value="datos" style={{ width: '100%', overflow: 'hidden' }}>
                                     <Box p="md" style={{ width: '100%', boxSizing: 'border-box' }}>
                                         <Stack gap="xl" style={{ width: '100%' }}>
-                                            <SimpleGrid cols={{ base: 1, md: ficha?.tipo_fichaingresoservicio !== 'Puntual' ? 3 : 2 }} spacing="lg" style={{ width: '100%', minWidth: 0 }}>
+                                            <SimpleGrid cols={{ base: 1, md: isPuntual ? 1 : (ficha?.tipo_fichaingresoservicio !== 'Puntual' ? 3 : 2) }} spacing="lg" style={{ width: '100%', minWidth: 0 }}>
+                                                {isPuntual ? (
+                                                    /* Puntual: un solo proceso de muestreo (sin instalación/retiro separados) */
+                                                    <Box style={{ minWidth: 0, maxWidth: 360 }}>
+                                                        <Title order={5} mb="sm" c="orange.7">Muestreo</Title>
+                                                        <Paper withBorder p="md" radius="md" style={{ width: '100%', overflow: 'hidden' }}>
+                                                            <Stack gap="xs">
+                                                                <Group justify="space-between" wrap="wrap">
+                                                                    <Text size="sm" c="dimmed">Fecha Muestreo</Text>
+                                                                    <Text fw={600} size="sm">{parseFechaStr(ficha?.ma_muestreo_fechai)}</Text>
+                                                                </Group>
+                                                                <Group justify="space-between" wrap="wrap">
+                                                                    <Text size="sm" c="dimmed">Hora Muestreo</Text>
+                                                                    <Text fw={600} size="sm">{fmt(ficha?.ma_muestreo_horai)}</Text>
+                                                                </Group>
+                                                                <Group justify="space-between" wrap="wrap">
+                                                                    <Text size="sm" c="dimmed">Temperatura</Text>
+                                                                    <Text fw={600} size="sm" c="orange.8">{fmt(ficha?.ma_temperaturai)} °C</Text>
+                                                                </Group>
+                                                                <Group justify="space-between" wrap="wrap">
+                                                                    <Text size="sm" c="dimmed">Temperatura corregida</Text>
+                                                                    <Text fw={600} size="sm" c="orange.8">{fmt(ficha?.temperatura_corregidai)} °C</Text>
+                                                                </Group>
+                                                                <Group justify="space-between" wrap="wrap">
+                                                                    <Text size="sm" c="dimmed">pH</Text>
+                                                                    <Text fw={600} size="sm" c="orange.8">{fmt(ficha?.ma_phi)}</Text>
+                                                                </Group>
+                                                                {ficha?.totalizador_inicio && (
+                                                                    <Group justify="space-between" wrap="wrap">
+                                                                        <Text size="sm" c="dimmed">Totalizador Inicio</Text>
+                                                                        <Text fw={600} size="sm">{fmt(ficha?.totalizador_inicio)} m³</Text>
+                                                                    </Group>
+                                                                )}
+                                                                {ficha?.totalizador_final && (
+                                                                    <Group justify="space-between" wrap="wrap">
+                                                                        <Text size="sm" c="dimmed">Totalizador Término</Text>
+                                                                        <Text fw={600} size="sm">{fmt(ficha?.totalizador_final)} m³</Text>
+                                                                    </Group>
+                                                                )}
+                                                            </Stack>
+                                                        </Paper>
+                                                    </Box>
+                                                ) : (
+                                                <>
                                                 {/* Instalación */}
                                                 <Box style={{ minWidth: 0 }}>
                                                     <Title order={5} mb="sm" c="orange.7">Instalación</Title>
@@ -709,6 +787,8 @@ export const FichaDetailView = () => {
                                                         </Stack>
                                                     </Paper>
                                                 </Box>
+                                                </>
+                                                )}
 
                                                 {/* Datos Compuestos / VDD */}
                                                 {ficha?.tipo_fichaingresoservicio !== 'Puntual' && (
@@ -845,6 +925,34 @@ export const FichaDetailView = () => {
                                 {/* --- SUB-TAB: FOTOS --- */}
                                 <Tabs.Panel value="fotos" style={{ width: '100%', overflow: 'hidden' }}>
                                     <Box p="md" style={{ width: '100%', boxSizing: 'border-box' }}>
+                                        {isPuntual ? (
+                                            <Box>
+                                                <Group mb="md">
+                                                    <IconPhoto color="orange" size={20} />
+                                                    <Title order={5}>Fotos Muestreo</Title>
+                                                </Group>
+                                                <Paper withBorder p="md" radius="md" style={{ width: '100%' }}>
+                                                    <SimpleGrid cols={{ base: 1, sm: 2, md: 4, lg: 5 }} spacing="md">
+                                                        {media?.ma_fotografia?.split(';').filter((p: string) => p.toLowerCase().includes('instalacion') || p.toLowerCase().includes('retiro')).length > 0 ? (
+                                                            media.ma_fotografia.split(';')
+                                                                .filter((p: string) => p.toLowerCase().includes('instalacion') || p.toLowerCase().includes('retiro'))
+                                                                .filter((p: string, idx: number, arr: string[]) => arr.indexOf(p) === idx)
+                                                                .map((photo: string, idx: number) => (
+                                                                    <Card key={idx} padding="xs" radius="md" withBorder shadow="sm" style={{ cursor: 'pointer' }} onClick={() => setOpenedImage(`${apiClient.defaults.baseURL}${photo}`)}>
+                                                                        <Card.Section>
+                                                                            <Image
+                                                                                src={`${apiClient.defaults.baseURL}${photo}`}
+                                                                                height={140}
+                                                                                fallbackSrc="https://placehold.co/400x300?text=Sin+Imagen"
+                                                                            />
+                                                                        </Card.Section>
+                                                                    </Card>
+                                                                ))
+                                                        ) : <Text fs="italic" size="sm" c="dimmed">No hay fotos de muestreo.</Text>}
+                                                    </SimpleGrid>
+                                                </Paper>
+                                            </Box>
+                                        ) : (
                                         <Stack gap="xl" style={{ width: '100%' }}>
                                             {/* Fotos Instalación */}
                                             <Box>
@@ -898,12 +1006,75 @@ export const FichaDetailView = () => {
                                                 </Paper>
                                             </Box>
                                         </Stack>
+                                        )}
                                     </Box>
                                 </Tabs.Panel>
 
                                 {/* --- SUB-TAB: FIRMAS --- */}
                                 <Tabs.Panel value="firmas" style={{ width: '100%', overflow: 'hidden' }}>
                                     <Box p="md" style={{ width: '100%', boxSizing: 'border-box' }}>
+                                        {isPuntual ? (
+                                            <Stack gap="xl" style={{ width: '100%' }}>
+                                                {/* Muestreador Section */}
+                                                <Paper withBorder p="md" radius="md" style={{ width: '100%' }}>
+                                                    <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl" style={{ width: '100%' }}>
+                                                        <Box>
+                                                            <Title order={6} mb="xs" c="dimmed">MUESTREADOR</Title>
+                                                            <Text size="lg" fw={700}>{procesos?.instalacion?.nombreMuestreador || '—'}</Text>
+                                                            <Box mt="md" p="xs" bg="gray.0" style={{ borderRadius: 8, border: '1px dashed #ced4da', minHeight: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                {procesos?.instalacion?.firmas?.find((f: any) => f.rol === 'muestreador') ? (
+                                                                    <Image
+                                                                        src={`${apiClient.defaults.baseURL}${procesos.instalacion.firmas.find((f: any) => f.rol === 'muestreador').ruta}`}
+                                                                        height={100}
+                                                                        fit="contain"
+                                                                    />
+                                                                ) : <Text fs="italic" size="xs" c="dimmed">Sin firma registrada.</Text>}
+                                                            </Box>
+                                                        </Box>
+                                                        <Box>
+                                                            <Title order={6} mb="xs" c="dimmed">OBSERVACIONES MUESTREADOR</Title>
+                                                            <Box p="md" bg="gray.0" style={{ borderRadius: 8, height: 160, overflowY: 'auto' }}>
+                                                                <Text size="sm" fs="italic">
+                                                                    {procesos?.instalacion?.observaciones || 'Sin observaciones.'}
+                                                                </Text>
+                                                            </Box>
+                                                        </Box>
+                                                    </SimpleGrid>
+                                                </Paper>
+
+                                                <Divider label="Observador de terreno" labelPosition="center" />
+
+                                                {/* Observador Section */}
+                                                {procesos?.instalacion?.nombreObservador && procesos?.instalacion?.nombreObservador !== 'S/D' ? (
+                                                    <Paper withBorder p="md" radius="md" style={{ width: '100%' }}>
+                                                        <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl" style={{ width: '100%' }}>
+                                                            <Box>
+                                                                <Title order={6} mb="xs" c="dimmed">NOMBRE OBSERVADOR</Title>
+                                                                <Text size="md" fw={600}>{procesos.instalacion.nombreObservador}</Text>
+                                                                <Title order={6} mt="md" mb="xs" c="dimmed">CARGO</Title>
+                                                                <Text size="sm">{procesos.instalacion.cargoObservador || '—'}</Text>
+                                                            </Box>
+                                                            <Box>
+                                                                <Title order={6} mb="xs" c="dimmed">FIRMA OBSERVADOR</Title>
+                                                                <Box p="xs" bg="gray.0" style={{ borderRadius: 8, border: '1px dashed #ced4da', minHeight: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                    {procesos?.instalacion?.firmas?.find((f: any) => f.rol === 'observador') ? (
+                                                                        <Image
+                                                                            src={`${apiClient.defaults.baseURL}${procesos.instalacion.firmas.find((f: any) => f.rol === 'observador').ruta}`}
+                                                                            height={100}
+                                                                            fit="contain"
+                                                                        />
+                                                                    ) : <Text fs="italic" size="xs" c="dimmed">Sin firma registrada.</Text>}
+                                                                </Box>
+                                                            </Box>
+                                                        </SimpleGrid>
+                                                    </Paper>
+                                                ) : (
+                                                    <Alert color="blue" variant="light" icon={<IconAlertCircle size={16} />}>
+                                                        Observador de terreno no registrado en el proceso
+                                                    </Alert>
+                                                )}
+                                            </Stack>
+                                        ) : (
                                         <Tabs defaultValue="instalacion_f" variant="pills" radius="xl" mb="md" style={{ width: '100%' }}>
                                             <Tabs.List justify="center">
                                                 <Tabs.Tab value="instalacion_f" color="orange">Instalación</Tabs.Tab>
@@ -1036,6 +1207,7 @@ export const FichaDetailView = () => {
                                                 </Stack>
                                             </Tabs.Panel>
                                         </Tabs>
+                                        )}
                                     </Box>
                                 </Tabs.Panel>
                             </Tabs>

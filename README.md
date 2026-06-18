@@ -678,6 +678,20 @@ frontend-adlone/
 - **RouteMapPlannerView**:
   - Refactorización significativa del planificador de rutas para mejorar rendimiento y manejo de estados complejos.
 
+### 78. Soporte de Fichas Tipo Puntual en FichaDetailView (Junio 2026) 📋🔬
+
+- **Detección de tipo de ficha (`isPuntual`)**:
+  - `FichaDetailView.tsx` — Variable derivada `isPuntual` que identifica fichas tipo `Puntual` a partir del campo `tipo_fichaingresoservicio`, adaptando dinámicamente la interfaz de detalle.
+- **Header adaptativo**:
+  - En fichas Puntuales, el bloque "Detalle Actividad" muestra solo la Fecha de Muestreo y el muestreador (sin columna de Término/Retiro), eliminando datos no aplicables.
+- **Sub-tab Fotos — Vista Puntual**:
+  - En fichas tipo Puntual, el tab de Fotos muestra una galería unificada de imágenes del muestreo (sin separar por Instalación/Retiro), con mensaje cuando no hay fotos registradas.
+- **Sub-tab Firmas — Vista Puntual**:
+  - En fichas tipo Puntual, el tab de Firmas muestra directamente la firma e información del muestreador y, si existe, del observador de terreno (nombre, cargo, firma), evitando el selector de sub-tabs Instalación/Retiro innecesario.
+  - Si el observador no está registrado en el proceso, se muestra un `Alert` informativo en lugar de la sección vacía.
+- **Comportamiento dual sin ruptura**:
+  - Todas las secciones existentes (Equipos, Datos, Análisis, Fotos, Firmas) mantienen su comportamiento original para fichas de tipo **Continua** u otros tipos no-Puntual mediante condicional `isPuntual ? ... : ...`.
+
 ---
 
 ## 🔧 Configuración para Desarrollo
@@ -764,6 +778,7 @@ npm run dev       # Puerto 5173
 | **Motor de Email Modular (UNS v2)** | Renderer config/layout/blocks + fallback legacy + Outlook-safe | ✅ Implementado |
 | **FICHA_MUESTREO_COMPLETADO** | Polling scheduler + notificación al dueño de ficha + migración BD | ✅ Implementado |
 | **Navegación Contextual de Notificaciones** | RBAC-aware routing por tipo de evento + deep-link list_ejecutados | ✅ Implementado |
+| **Soporte Fichas Tipo Puntual (FichaDetailView)** | Detección `isPuntual` + UI adaptativa en Fotos y Firmas sin romper flujo Continua | ✅ Implementado |
 
 ---
 
