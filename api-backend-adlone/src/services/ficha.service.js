@@ -4303,6 +4303,62 @@ class FichaIngresoService {
             throw error;
         }
     }
+
+    /**
+     * Pide a api-app-mam que regenere los PDFs de FoMa y/o Cadena de Custodia
+     * ya existentes para un muestreo, ahora mostrando "ID CASO" en vez de
+     * "Folio" (caso_adlab ya debe estar guardado en BD antes de llamar esto —
+     * el template lo lee en vivo). No lanza si un documento falla: cada
+     * resultado queda reflejado en el objeto devuelto.
+     */
+    async regenerarDocumentos(idAgendamam, { foma, cadena }) {
+        const baseUrl = process.env.APP_MAM_API_URL;
+        const headers = {
+            'Content-Type': 'application/json',
+            'x-internal-key': process.env.INTERNAL_API_KEY,
+        };
+        const resultado = { foma: null, cadena: null };
+
+        if (foma) {
+            try {
+                const response = await fetch(`${baseUrl}/ficha/interno/generar-foma`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ id_agendamam: idAgendamam }),
+                    signal: AbortSignal.timeout(15000),
+                });
+                if (!response.ok) {
+                    const body = await response.json().catch(() => ({}));
+                    throw new Error(body.message || `HTTP ${response.status}`);
+                }
+                resultado.foma = { ok: true };
+            } catch (e) {
+                logger.warn('Error regenerando FoMa:', e.message);
+                resultado.foma = { ok: false, error: e.message };
+            }
+        }
+
+        if (cadena) {
+            try {
+                const response = await fetch(`${baseUrl}/ficha/interno/generar-cadena-custodia`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ id_agendamam: idAgendamam }),
+                    signal: AbortSignal.timeout(15000),
+                });
+                const body = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    throw new Error(body.message || `HTTP ${response.status}`);
+                }
+                resultado.cadena = { ok: true, regenerados: body.regenerados };
+            } catch (e) {
+                logger.warn('Error regenerando Cadena de Custodia:', e.message);
+                resultado.cadena = { ok: false, error: e.message };
+            }
+        }
+
+        return resultado;
+    }
 }
 
 export default new FichaIngresoService();
