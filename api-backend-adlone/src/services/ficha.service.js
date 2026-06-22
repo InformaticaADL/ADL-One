@@ -4311,7 +4311,7 @@ class FichaIngresoService {
      * el template lo lee en vivo). No lanza si un documento falla: cada
      * resultado queda reflejado en el objeto devuelto.
      */
-    async regenerarDocumentos(idAgendamam, { foma, cadena }) {
+    async regenerarDocumentos(idAgendamam, { foma, cadena } = {}) {
         const baseUrl = process.env.APP_MAM_API_URL;
         const headers = {
             'Content-Type': 'application/json',
