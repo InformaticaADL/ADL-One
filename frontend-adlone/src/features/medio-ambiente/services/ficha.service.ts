@@ -42,6 +42,20 @@ export const fichaService = {
         const response = await apiClient.patch(`/api/fichas/agenda/${idAgendamam}/caso-adlab`, { casoAdlab });
         return response.data;
     },
+    regenerarDocumentos: async (idAgendamam: number, opts: { foma: boolean; cadena: boolean }) => {
+        const response = await apiClient.post('/api/fichas/regenerar-documentos', {
+            id_agendamam: idAgendamam,
+            foma: opts.foma,
+            cadena: opts.cadena
+        });
+        return response.data as {
+            success: boolean;
+            data: {
+                foma: { ok: boolean; error?: string } | null;
+                cadena: { ok: boolean; regenerados?: number; error?: string } | null;
+            };
+        };
+    },
 
     create: async (data: Record<string, unknown>) => {
         const response = await apiClient.post('/api/fichas/create', data);
