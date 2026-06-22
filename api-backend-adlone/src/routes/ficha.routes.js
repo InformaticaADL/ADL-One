@@ -21,6 +21,7 @@ router.post('/:id/review-coordinacion', authenticate, verifyPermission('FI_RECHA
 router.post('/batch-agenda', authenticate, verifyPermission(['FI_GEST_ASIG', 'MA_RUTA_CREAR']), validateRequest(fichaValidationSchemas.batchUpdateAgenda), fichaController.batchUpdateAgenda);
 router.post('/cancel-sampling', authenticate, verifyPermission('MA_CALENDARIO_CANCELAR'), fichaController.cancelSampling);
 router.post('/enviar-documento-manual', authenticate, fichaController.enviarDocumentoManual);
+router.post('/regenerar-documentos', authenticate, fichaController.regenerarDocumentos);
 router.get('/:id/assignment-detail', authenticate, validateRequest(fichaValidationSchemas.getAssignmentDetail), fichaController.getAssignmentDetail);
 router.get('/:id/execution-detail', authenticate, fichaController.getExecutionDetail);
 router.get('/:id/historial', authenticate, fichaController.getHistorial);

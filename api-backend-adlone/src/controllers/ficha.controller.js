@@ -453,6 +453,25 @@ class FichaIngresoController {
             return errorResponse(res, 'Error al enviar el documento', 500, err.message);
         }
     }
+
+    async regenerarDocumentos(req, res) {
+        try {
+            const { id_agendamam, foma, cadena } = req.body;
+            if (!id_agendamam) {
+                return errorResponse(res, 'id_agendamam requerido', 400);
+            }
+
+            const result = await fichaService.regenerarDocumentos(id_agendamam, {
+                foma: !!foma,
+                cadena: !!cadena,
+            });
+
+            return successResponse(res, result, 'Regeneración de documentos procesada');
+        } catch (err) {
+            logger.error('Error in regenerarDocumentos controller:', err);
+            return errorResponse(res, 'Error al regenerar documentos', 500, err.message);
+        }
+    }
 }
 
 export default new FichaIngresoController();
