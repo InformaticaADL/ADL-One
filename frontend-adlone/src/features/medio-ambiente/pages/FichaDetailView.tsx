@@ -96,6 +96,8 @@ export const FichaDetailView = () => {
     const [realizadoLoading, setRealizadoLoading] = useState(false);
     const [oiNumero, setOiNumero] = useState('');
     const [oiError, setOiError] = useState('');
+    const [generarFoma, setGenerarFoma] = useState(true);
+    const [generarCadena, setGenerarCadena] = useState(true);
 
     const toggleDoc = (docId: string) => {
         setExpandedDocs(prev =>
@@ -188,7 +190,8 @@ export const FichaDetailView = () => {
         try {
             // 1. Marcar como realizado por GEM
             await fichaService.updateRealizadoGem(Number(ficha.id_agendamam), true);
-            // 2. Asignar el código OI
+            // 2. Asignar el código OI (debe quedar guardado en BD antes de regenerar
+            // documentos, porque el PDF lee caso_adlab en vivo desde la base de datos)
             await fichaService.updateCasoAdlab(Number(ficha.id_agendamam), fullCode);
 
             // Update local state so header reflects the new OI
@@ -212,6 +215,30 @@ export const FichaDetailView = () => {
             setConfirmModalOpen(false);
             setOiNumero('');
             showToast({ type: 'success', message: `Muestreo marcado como realizado. Caso ${fullCode} asignado correctamente.` });
+
+            // 3. Regenerar documentos (FoMa / Cadena de Custodia) con el nuevo ID Caso,
+            // si el usuario dejó los switches marcados. No bloquea el flujo si falla.
+            if (generarFoma || generarCadena) {
+                try {
+                    const regenResult = await fichaService.regenerarDocumentos(Number(ficha.id_agendamam), {
+                        foma: generarFoma,
+                        cadena: generarCadena
+                    });
+                    const fallos: string[] = [];
+                    if (generarFoma && regenResult?.data?.foma && !regenResult.data.foma.ok) {
+                        fallos.push(`FoMa: ${regenResult.data.foma.error || 'error desconocido'}`);
+                    }
+                    if (generarCadena && regenResult?.data?.cadena && !regenResult.data.cadena.ok) {
+                        fallos.push(`Cadena de Custodia: ${regenResult.data.cadena.error || 'error desconocido'}`);
+                    }
+                    if (fallos.length > 0) {
+                        showToast({ type: 'warning', message: `Caso ${fullCode} guardado, pero no se pudo regenerar: ${fallos.join('; ')}` });
+                    }
+                } catch (regenErr: any) {
+                    console.error('Error al regenerar documentos:', regenErr);
+                    showToast({ type: 'warning', message: `Caso ${fullCode} guardado, pero falló la regeneración de documentos.` });
+                }
+            }
         } catch (err: any) {
             console.error('Error al marcar como realizado:', err);
             const message = err.response?.data?.message || 'Ocurrió un error al guardar. Intenta nuevamente.';
@@ -462,7 +489,7 @@ export const FichaDetailView = () => {
             {/* Modal de confirmación Realizado por GEM + OI */}
             <Modal
                 opened={confirmModalOpen}
-                onClose={() => { setConfirmModalOpen(false); setOiNumero(''); setOiError(''); }}
+                onClose={() => { setConfirmModalOpen(false); setOiNumero(''); setOiError(''); setGenerarFoma(true); setGenerarCadena(true); }}
                 title={
                     <Group gap="xs">
                         <IconAlertTriangle size={18} color="var(--mantine-color-orange-6)" />
@@ -546,12 +573,32 @@ export const FichaDetailView = () => {
                         )}
                     </Box>
 
+                    <Box>
+                        <Text size="xs" fw={700} c="dimmed" mb={6} tt="uppercase" lts="0.5px">Regenerar documentos con este Caso</Text>
+                        <Stack gap="xs">
+                            <Switch
+                                label="Generar FoMa"
+                                description="Reemplaza el encabezado 'Folio' por 'ID CASO' en el FoMa ya generado por la app móvil."
+                                checked={generarFoma}
+                                onChange={(e) => setGenerarFoma(e.currentTarget.checked)}
+                                color="teal"
+                            />
+                            <Switch
+                                label="Generar Cadena de Custodia"
+                                description="Regenera todas las Cadenas de Custodia ya generadas (una por laboratorio) con el nuevo encabezado."
+                                checked={generarCadena}
+                                onChange={(e) => setGenerarCadena(e.currentTarget.checked)}
+                                color="teal"
+                            />
+                        </Stack>
+                    </Box>
+
                     <Divider />
 
                     <Group justify="flex-end" gap="sm">
                         <Button
                             variant="default"
-                            onClick={() => { setConfirmModalOpen(false); setOiNumero(''); setOiError(''); }}
+                            onClick={() => { setConfirmModalOpen(false); setOiNumero(''); setOiError(''); setGenerarFoma(true); setGenerarCadena(true); }}
                             disabled={realizadoLoading}
                         >
                             Cancelar
