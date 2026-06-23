@@ -472,6 +472,21 @@ class FichaIngresoController {
             return errorResponse(res, 'Error al regenerar documentos', 500, err.message);
         }
     }
+
+    async notificarMuestreoCompletado(req, res) {
+        try {
+            const { frecuencia_correlativo } = req.body;
+            if (!frecuencia_correlativo) {
+                return errorResponse(res, 'frecuencia_correlativo requerido', 400);
+            }
+
+            const result = await fichaService.notificarMuestreoCompletado(frecuencia_correlativo);
+            return successResponse(res, result, 'Notificación procesada');
+        } catch (err) {
+            logger.error('Error in notificarMuestreoCompletado controller:', err);
+            return errorResponse(res, 'Error al notificar muestreo completado', 500, err.message);
+        }
+    }
 }
 
 export default new FichaIngresoController();

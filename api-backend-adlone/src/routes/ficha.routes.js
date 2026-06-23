@@ -1,6 +1,7 @@
 import express from 'express';
 import fichaController from '../controllers/ficha.controller.js';
 import { authenticate } from '../middlewares/auth.middleware.js';
+import { protectInternalService } from '../middlewares/protectInternalService.js';
 import { verifyPermission } from '../middlewares/verifyPermission.js';
 import { validateRequest, fichaValidationSchemas } from '../middlewares/validate.middleware.js';
 
@@ -22,6 +23,7 @@ router.post('/batch-agenda', authenticate, verifyPermission(['FI_GEST_ASIG', 'MA
 router.post('/cancel-sampling', authenticate, verifyPermission('MA_CALENDARIO_CANCELAR'), fichaController.cancelSampling);
 router.post('/enviar-documento-manual', authenticate, fichaController.enviarDocumentoManual);
 router.post('/regenerar-documentos', authenticate, fichaController.regenerarDocumentos);
+router.post('/interno/muestreo-completado', protectInternalService, fichaController.notificarMuestreoCompletado);
 router.get('/:id/assignment-detail', authenticate, validateRequest(fichaValidationSchemas.getAssignmentDetail), fichaController.getAssignmentDetail);
 router.get('/:id/execution-detail', authenticate, fichaController.getExecutionDetail);
 router.get('/:id/historial', authenticate, fichaController.getHistorial);
