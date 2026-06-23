@@ -1,3 +1,6 @@
+import { errorResponse } from '../utils/response.js';
+import logger from '../utils/logger.js';
+
 /**
  * Protege endpoints destinados a llamadas servidor-a-servidor (api-app-mam ->
  * ADL ONE Web), distintas de los endpoints de usuario web (authenticate, que
@@ -9,11 +12,11 @@
 export const protectInternalService = (req, res, next) => {
     const key = req.headers['x-internal-key'];
     if (!process.env.INTERNAL_API_KEY) {
-        console.error('INTERNAL_API_KEY no está configurada en .env');
-        return res.status(500).json({ message: 'Servicio mal configurado.' });
+        logger.error('INTERNAL_API_KEY no está configurada en .env');
+        return errorResponse(res, 'Servicio mal configurado.', 500);
     }
     if (!key || key !== process.env.INTERNAL_API_KEY) {
-        return res.status(401).json({ message: 'Clave interna inválida o ausente.' });
+        return errorResponse(res, 'Clave interna inválida o ausente.', 401);
     }
     next();
 };
