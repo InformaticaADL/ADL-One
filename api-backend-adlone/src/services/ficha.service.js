@@ -76,6 +76,85 @@ class FichaIngresoService {
         }
     }
 
+    /**
+     * Construye y dispara la notificación FICHA_MUESTREO_COMPLETADO para una
+     * fila de App_Ma_Agenda_MUESTREOS identificada por su frecuencia_correlativo,
+     * si todavía no fue notificada. Reutilizada tanto por el endpoint interno
+     * (aviso inmediato desde api-app-mam) como por el poller de respaldo
+     * (scheduler.js) — es la única lógica que sabe armar este contexto, para
+     * no duplicarla entre ambos caminos.
+     *
+     * @param {string} frecuenciaCorrelativo
+     * @returns {Promise<{notificado: boolean, motivo?: string}>}
+     */
+    async notificarMuestreoCompletado(frecuenciaCorrelativo) {
+        const pool = await getConnection();
+
+        const pending = await pool.request()
+            .input('frecuencia', sql.VarChar(50), frecuenciaCorrelativo)
+            .query(`
+                SELECT TOP 1
+                    a.id_agendamam,
+                    a.id_fichaingresoservicio,
+                    a.frecuencia_correlativo,
+                    e.id_usuario as id_usuario_propietario,
+                    e.fichaingresoservicio as correlativo_txt,
+                    COALESCE(m2.nombre_muestreador, m1.nombre_muestreador) as nombre_muestreador,
+                    (SELECT COUNT(*)
+                     FROM App_Ma_Agenda_MUESTREOS a2
+                     WHERE a2.id_fichaingresoservicio = a.id_fichaingresoservicio
+                       AND (a2.estado_caso IS NULL OR a2.estado_caso != 'CANCELADO')) as total_servicios
+                FROM App_Ma_Agenda_MUESTREOS a
+                INNER JOIN App_Ma_FichaIngresoServicio_ENC e ON e.id_fichaingresoservicio = a.id_fichaingresoservicio
+                LEFT JOIN mae_muestreador m1 ON a.id_muestreador = m1.id_muestreador
+                LEFT JOIN mae_muestreador m2 ON a.id_muestreador2 = m2.id_muestreador
+                WHERE a.frecuencia_correlativo = @frecuencia
+                  AND a.id_estadomuestreo = 3
+                  AND (a.notificado_completado = 0 OR a.notificado_completado IS NULL)
+            `);
+
+        if (pending.recordset.length === 0) {
+            return { notificado: false, motivo: 'No encontrado, no está completo, o ya fue notificado.' };
+        }
+
+        const row = pending.recordset[0];
+
+        try {
+            const baseContext = await this.getFichaContextForNotification(
+                row.id_fichaingresoservicio,
+                row.nombre_muestreador || 'Muestreador',
+                'Muestreo Completado',
+                pool
+            );
+
+            // El correlativo "X-Y-Estado-Z" codifica el numero de servicio (Y) dentro de la ficha (X)
+            const correlativoParts = (row.frecuencia_correlativo || '').split('-');
+            const numeroServicio = correlativoParts.length >= 2 ? correlativoParts[1] : '1';
+
+            await unsService.trigger('FICHA_MUESTREO_COMPLETADO', {
+                ...baseContext,
+                correlativo: (row.correlativo_txt || String(row.id_fichaingresoservicio)).trim(),
+                numero_servicio: numeroServicio,
+                total_servicios: row.total_servicios || 1,
+                id_usuario_propietario: row.id_usuario_propietario,
+                id_usuario_accion: 0,
+            });
+
+            logger.info(`[MuestreoCompletado] Notificación enviada para agenda #${row.id_agendamam}`);
+        } catch (triggerError) {
+            logger.error(`[MuestreoCompletado] Error notificando agenda #${row.id_agendamam}:`, triggerError);
+        }
+
+        // Se marca como notificado incluso si el trigger falló, para no reintentar
+        // en bucle sobre una fila que falla de forma permanente (mismo criterio
+        // que ya usaba el poller antes de este refactor).
+        await pool.request()
+            .input('id', sql.Numeric(10, 0), row.id_agendamam)
+            .query('UPDATE App_Ma_Agenda_MUESTREOS SET notificado_completado = 1 WHERE id_agendamam = @id');
+
+        return { notificado: true };
+    }
+
     async createFicha(data) {
         // data structure: { antecedentes: {}, analisis: [], observaciones: "", user: { id: 1 } }
         const pool = await getConnection();
@@ -3780,6 +3859,7 @@ class FichaIngresoService {
                 a.frecuencia_correlativo,
                 a.fecha_muestreo,
                 a.ma_muestreo_fechat as fecha_retiro,
+                a.fecha_completado,
                 a.id_estadomuestreo,
                 e.nombre_estadomuestreo as estado_muestreo,
                 f.id_fichaingresoservicio,
