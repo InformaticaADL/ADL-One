@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import dayjs from 'dayjs';
 import { fichaService } from '../services/ficha.service';
 import { useToast } from '../../../contexts/ToastContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
@@ -399,9 +400,14 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
                                                             </Table.Td>
                                                         )}
                                                         <Table.Td style={{ whiteSpace: 'nowrap' }}>
-                                                            <Text size="xs" fw={600} truncate title={m.frecuencia_correlativo}>
-                                                                {m.frecuencia_correlativo || '-'}
-                                                            </Text>
+                                                            <Group gap={4} wrap="nowrap">
+                                                                <Text size="xs" fw={600} truncate title={m.frecuencia_correlativo}>
+                                                                    {m.frecuencia_correlativo || '-'}
+                                                                </Text>
+                                                                {m.fecha_completado && dayjs().diff(dayjs(m.fecha_completado), 'hour') < 24 && (
+                                                                    <Badge color="green" variant="filled" size="xs">Nuevo</Badge>
+                                                                )}
+                                                            </Group>
                                                         </Table.Td>
                                                         <Table.Td style={{ whiteSpace: 'nowrap' }}>
                                                             <Text size="xs">
