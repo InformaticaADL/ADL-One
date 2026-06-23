@@ -84,6 +84,12 @@ class FichaIngresoService {
      * (scheduler.js) — es la única lógica que sabe armar este contexto, para
      * no duplicarla entre ambos caminos.
      *
+     * Nota: el SELECT y el UPDATE no van en una transacción, así que si el
+     * endpoint y el poller leen la misma fila casi al mismo tiempo, ambos
+     * podrían notificarla (riesgo ya aceptado, igual al que tenía el poller
+     * original antes de este refactor — solo se amplía levemente al haber
+     * ahora dos llamadores concurrentes en vez de uno).
+     *
      * @param {string} frecuenciaCorrelativo
      * @returns {Promise<{notificado: boolean, motivo?: string}>}
      */
