@@ -40,6 +40,13 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
         }
     }, [activeSubmodule, isCompact, close]);
 
+    // Listener global para cerrar el sidebar móvil desde otros componentes (ej. al hacer click en una notificación)
+    useEffect(() => {
+        const handleCloseMobile = () => close();
+        window.addEventListener('close-mobile-sidebar', handleCloseMobile);
+        return () => window.removeEventListener('close-mobile-sidebar', handleCloseMobile);
+    }, [close]);
+
     // Global Notifications listener (Toast logic)
     const { user, token } = useAuth();
     const { fetchNotifications, initSocket, disconnectSocket, socketStatus } = useNotificationStore();

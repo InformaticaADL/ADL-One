@@ -53,6 +53,7 @@ import {
     ScrollArea as MantineScrollArea, SegmentedControl, TextInput,
     Collapse, Divider, Textarea, Select, Box
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { rutasPlanificadasService, type RutaPlanificada, type GrupoRuta } from '../services/rutasPlanificadas.service';
 import { rutasEjecucionesService } from '../services/rutasEjecuciones.service';
 import { fichaService } from '../services/ficha.service';
@@ -69,6 +70,7 @@ interface RutasListViewProps {
 }
 
 export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNuevaRuta, onEditarRuta }) => {
+    const isMobile = useMediaQuery('(max-width: 768px)');
     const [rutas, setRutas] = useState<RutaPlanificada[]>([]);
     const [grupos, setGrupos] = useState<GrupoRuta[]>([]);
     const [loading, setLoading] = useState(false);
@@ -820,8 +822,8 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
                             />
                         </Group>
                         {viewTab === 'mapa' ? (
-                            <div style={{ display: 'flex', height: 520 }}>
-                                <div style={{ flex: 1, position: 'relative' }}>
+                            <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', height: isMobile ? 'auto' : 520 }}>
+                                <div style={{ flex: isMobile ? 'none' : 1, height: isMobile ? 350 : 'auto', position: 'relative' }}>
                                     {viewRoutePositions.length === 0 ? (
                                         <Center style={{ height: '100%' }}>
                                             <Stack align="center" gap="xs">
@@ -847,7 +849,13 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
                                         </MapContainer>
                                     )}
                                 </div>
-                                <MantineScrollArea style={{ width: 240, borderLeft: '1px solid var(--mantine-color-gray-2)', padding: 8 }}>
+                                <MantineScrollArea style={{ 
+                                    width: isMobile ? '100%' : 240, 
+                                    height: 'auto',
+                                    borderLeft: isMobile ? 'none' : '1px solid var(--mantine-color-gray-2)', 
+                                    borderTop: isMobile ? '1px solid var(--mantine-color-gray-2)' : 'none',
+                                    padding: 8 
+                                }}>
                                     <Stack gap="xs">
                                         <Text size="xs" fw={700} c="dimmed" mb={4}>ORDEN DE PARADAS</Text>
                                         {(viewTarget.fichas || []).map((f: any, idx: number) => (

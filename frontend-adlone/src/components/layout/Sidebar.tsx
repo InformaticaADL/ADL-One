@@ -24,6 +24,7 @@ import {
     IconLogout,
     IconLayoutSidebarLeftCollapse,
     IconLayoutSidebarRightCollapse,
+    IconX,
 } from '@tabler/icons-react';
 import logoAdl from '../../assets/images/logo-adlone.png';
 import logoSmall from '../../assets/images/logo-adlone-pequeño.png';
@@ -228,14 +229,15 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo, onHelpClick }
     // Sync opened module with active module changes
     useEffect(() => {
         if (activeModule) {
-            // Si el módulo activo es notificaciones (historial), cerramos el popover
-            if (activeModule === 'notificaciones') {
+            // En modo compacto (móvil), 'notificaciones' se maneja como panel inline,
+            // no cerramos openedModule cuando está activo
+            if (activeModule === 'notificaciones' && !forceNotCollapsed) {
                 setOpenedModule(null);
-            } else {
+            } else if (activeModule !== 'notificaciones') {
                 setOpenedModule(activeModule);
             }
         }
-    }, [activeModule]);
+    }, [activeModule, forceNotCollapsed]);
 
     const { notifications } = useNotificationStore();
     const unreadCount = notifications.filter(n => !n.leido).length;
@@ -626,6 +628,8 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo, onHelpClick }
                     </div>
                 </Portal>
             )}
+
+
 
         </nav>
     );

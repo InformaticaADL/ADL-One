@@ -692,6 +692,19 @@ frontend-adlone/
 - **Comportamiento dual sin ruptura**:
   - Todas las secciones existentes (Equipos, Datos, Análisis, Fotos, Firmas) mantienen su comportamiento original para fichas de tipo **Continua** u otros tipos no-Puntual mediante condicional `isPuntual ? ... : ...`.
 
+### 79. Optimización de UI Móvil para Rutas y Notificaciones (Julio 2026) 📱🚀
+
+- **Planificador de Rutas en Móvil (`RutasListView.tsx`)**:
+  - Reestructuración del layout en pantallas pequeñas (modo flex-columna).
+  - El mapa de ruta ahora se presenta en formato cuadrado fijo (`height: 350px`) en la parte superior.
+  - La lista del orden de paradas aparece inmediatamente debajo del mapa con altura automática (`h="auto"`).
+  - El botón "Cerrar Mapa" se ancla justo debajo de la lista de paradas, acompañando el crecimiento dinámico del `scroll` a medida que aumentan los puntos de la ruta.
+- **Panel Flotante de Notificaciones en Móvil (`NotificationPopover.tsx`)**:
+  - Restauración del diseño original flotante (`Portal` + `fixed`), ubicando el panel de forma precisa debajo del botón de apertura (gracias a `getBoundingClientRect`).
+  - Incorporación de un botón interactivo "X" en la cabecera derecha (exclusivo para vista móvil) para un cierre manual cómodo.
+  - **Hardening de Touch Events**: Solución a un problema crítico en dispositivos móviles (Safari/Chrome Mobile) donde el componente `ScrollArea` interceptaba los toques. Se implementó `onPointerDown={(e) => e.preventDefault()}` y `e.stopPropagation()` para asegurar que la presión sobre una notificación registre el evento "clic" inmediatamente en lugar de confundirlo con un desplazamiento (scroll).
+  - **Corrección de Condición de Carrera en Enrutamiento**: Refactorización profunda de la lógica de selección en teléfonos. Ahora los cambios de estado global de navegación (`setActiveModule`, `setPendingRequestId`) ocurren de forma **100% síncrona** y sin latencia, _antes_ de despachar el evento que cierra el menú lateral (`close-mobile-sidebar`). Esto garantiza que la transición visual de pantalla sea exacta, responsiva e idéntica a la experiencia fluida de una computadora de escritorio.
+
 ---
 
 ## 🔧 Configuración para Desarrollo
@@ -779,6 +792,8 @@ npm run dev       # Puerto 5173
 | **FICHA_MUESTREO_COMPLETADO** | Polling scheduler + notificación al dueño de ficha + migración BD | ✅ Implementado |
 | **Navegación Contextual de Notificaciones** | RBAC-aware routing por tipo de evento + deep-link list_ejecutados | ✅ Implementado |
 | **Soporte Fichas Tipo Puntual (FichaDetailView)** | Detección `isPuntual` + UI adaptativa en Fotos y Firmas sin romper flujo Continua | ✅ Implementado |
+| **Optimización UI Móvil de Rutas** | Mapa cuadrado fijo superior + lista dinámica inferior + botón anclado | ✅ Implementado |
+| **Estabilidad de Notificaciones en Móvil** | Prevención de Touch-Cancel (onPointerDown) + enrutamiento síncrono antes del cierre + Botón X de cerrado manual | ✅ Implementado |
 
 ---
 
