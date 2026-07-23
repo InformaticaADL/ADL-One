@@ -161,6 +161,93 @@ class FichaIngresoService {
         return { notificado: true };
     }
 
+    /**
+     * Análisis fijos que SIEMPRE se ofrecen pre-agregados (manual y carga masiva):
+     *   - pH           (DS 90 / Tabla 1 / Terreno)
+     *   - Temperatura  (DS 90 / Tabla 1 / Terreno)
+     * Se resuelven por NOMBRE contra los catálogos (sin hardcodear IDs) y se
+     * cachean en memoria. Devuelve [] si el catálogo no los contiene (nunca
+     * rompe la creación de fichas).
+     */
+    async getDefaultTerrenoAnalyses() {
+        if (FichaIngresoService._defaultTerrenoCache) return FichaIngresoService._defaultTerrenoCache;
+
+        const norm = (s) => String(s || '')
+            .normalize('NFD').replace(/[̀-ͯ]/g, '')
+            .toUpperCase()
+            .replace(/N[°º]/g, ' ')      // "N°"/"Nº" (número) → fuera, ANTES de quitar °
+            .replace(/[.°º]/g, ' ')      // puntos y símbolos de grado sueltos
+            .replace(/\s+/g, ' ').trim();
+
+        try {
+            const pool = await getConnection();
+
+            // 1. Normativa DS 90
+            const normRes = await pool.request().execute('Consulta_App_Ma_Normativa').catch(() => ({ recordset: [] }));
+            const normativas = normRes.recordset.map(r => ({ id: r.id_normativa || r.id, nombre: (r.nombre_normativa || r.nombre || '').trim() }));
+            const dsNorm = normativas.find(n => { const x = norm(n.nombre); return /\b90\b/.test(x) && /(^|\s)(D\s?S|DECRETO SUPREMO|DS)(\s|$)/.test(x); })
+                || normativas.find(n => /\b90\b/.test(norm(n.nombre)));
+            if (!dsNorm) { logger.warn('[DefaultAnalyses] Normativa "DS 90" no encontrada'); return []; }
+
+            // 2. Referencia "Tabla 1" bajo esa normativa
+            const refRes = await pool.request()
+                .input('idn', sql.Numeric(10, 0), Number(dsNorm.id))
+                .query('SELECT id_normativareferencia, nombre_normativareferencia, id_normativa FROM mae_normativareferencia WHERE id_normativa = @idn')
+                .catch(() => ({ recordset: [] }));
+            const refs = refRes.recordset.map(r => ({ id: r.id_normativareferencia, nombre: (r.nombre_normativareferencia || '').trim() }));
+            const tabla1 = refs.find(r => /\bTABLA 1\b/.test(norm(r.nombre)));
+            if (!tabla1) { logger.warn(`[DefaultAnalyses] Referencia "Tabla 1" no encontrada en ${dsNorm.nombre}`); return []; }
+
+            // 3. Análisis de esa tabla → pH y Temperatura
+            const anaRes = await pool.request()
+                .input('xid_normativareferencia', sql.Numeric(10, 0), Number(tabla1.id))
+                .execute('Consulta_App_Ma_ReferenciaAnalisis')
+                .catch(() => ({ recordset: [] }));
+            const analisisCat = anaRes.recordset.map(r => ({
+                id_referenciaanalisis: r.id_referenciaanalisis,
+                id_tecnica: r.id_tecnica,
+                nombre_tecnica: (r.nombre_tecnica || '').trim(),
+                limitemax_d: r.limitemax_d, limitemax_h: r.limitemax_h,
+                llevaerror: r.llevaerror || 'N', error_min: r.error_min, error_max: r.error_max
+            }));
+            const pick = (predicate) => analisisCat.find(a => predicate(norm(a.nombre_tecnica)));
+            const ph = pick(x => x === 'PH');
+            const temp = pick(x => x.includes('TEMPERATURA'));
+
+            // 4. Tipo entrega "Directa" (para análisis de Terreno)
+            const teRes = await pool.request().execute('Maestro_Tipoentrega').catch(() => ({ recordset: [] }));
+            const directa = teRes.recordset.map(r => ({ id: r.id_tipoentrega || r.id, nombre: (r.nombre_tipoentrega || r.nombre || '').trim() }))
+                .find(t => norm(t.nombre).includes('DIRECTA'));
+
+            const build = (a) => a ? ({
+                id_referenciaanalisis: a.id_referenciaanalisis,
+                id_tecnica: a.id_tecnica,
+                nombre_tecnica: a.nombre_tecnica,
+                id_normativa: dsNorm.id, nombre_normativa: dsNorm.nombre,
+                id_normativareferencia: tabla1.id, nombre_normativareferencia: tabla1.nombre,
+                limitemax_d: a.limitemax_d, limitemax_h: a.limitemax_h,
+                llevaerror: a.llevaerror, error_min: a.error_min, error_max: a.error_max,
+                tipo_analisis: 'Terreno',
+                uf_individual: 0,
+                id_laboratorioensayo: 0, nombre_laboratorioensayo: '',
+                id_laboratorioensayo_2: 0, nombre_laboratorioensayo_2: '',
+                id_tipoentrega: directa?.id || 0, nombre_tipoentrega: directa?.nombre || 'Directa',
+                id_transporte: 0,
+                resultado_fecha: '  /  /    ',
+                _fijo: true
+            }) : null;
+
+            const out = [build(ph), build(temp)].filter(Boolean);
+            if (out.length < 2) logger.warn(`[DefaultAnalyses] Faltan análisis fijos (pH=${!!ph}, Temperatura=${!!temp}) en ${dsNorm.nombre}/${tabla1.nombre}`);
+            FichaIngresoService._defaultTerrenoCache = out;
+            logger.info(`[DefaultAnalyses] Resueltos ${out.length} análisis fijos: ${out.map(a => a.nombre_tecnica).join(', ')}`);
+            return out;
+        } catch (e) {
+            logger.error('[DefaultAnalyses] Error resolviendo análisis fijos:', e);
+            return [];
+        }
+    }
+
     async createFicha(data) {
         // data structure: { antecedentes: {}, analisis: [], observaciones: "", user: { id: 1 } }
         const pool = await getConnection();
@@ -190,6 +277,14 @@ class FichaIngresoService {
             // (el frontend lo mostrará como "No aplica").
             const co = data.costoOperativo || { activo: false, uf: 0 };
             const userId = data.user ? (data.user.id_usuario || data.user.id || 1) : 1;
+
+            // AUTO-APROBACIÓN (solo carga masiva): la ficha nace ya aprobada por
+            // Área Técnica y Área Coordinación, entrando directo a PROGRAMACIÓN
+            // (id_validaciontecnica = 6). En creación manual sigue el flujo normal
+            // (id_validaciontecnica = 3 → Pendiente Técnica).
+            const autoAprobar = data.autoAprobar === true;
+            const idValidacionTecnica = autoAprobar ? 6 : 3;
+            const estadoFichaInicial = autoAprobar ? 'PENDIENTE PROGRAMACIÓN' : 'VIGENTE';
 
             // Helper for empty strings/nulls
             const val = (v) => v === undefined || v === null || v === '' ? null : v;
@@ -292,7 +387,8 @@ class FichaIngresoService {
             requestEnc.input('fecha_jefatura', sql.Date, new Date('1900-01-01'));
             requestEnc.input('hora_jefatura', sql.VarChar(10), '');
             requestEnc.input('coord_ruta', sql.VarChar(30), '');
-            requestEnc.input('id_val_tecnica', sql.Numeric(10, 0), 3); // Hardcoded 3 as per FoxPro
+            requestEnc.input('id_val_tecnica', sql.Numeric(10, 0), idValidacionTecnica); // 3 = Pendiente Técnica; 6 = aprobada (carga masiva)
+            requestEnc.input('estado_ficha', sql.VarChar(40), estadoFichaInicial);
             requestEnc.input('obs_jefatura', sql.VarChar(250), '');
             requestEnc.input('obs_coordinador', sql.VarChar(250), '');
 
@@ -341,7 +437,7 @@ class FichaIngresoService {
                     @etfa, @punto_muestreo, @coordenadas,
                     @id_tipomuestra, @id_subarea, @id_tipodescarga, @id_contacto, @cliente_entrega,
                     @id_tipomuestreo, @id_tipomuestra_ma, @id_actividad, @duracion,
-                    'S', 'VIGENTE', 'N',
+                    'S', @estado_ficha, 'N',
                     @ref_google, @medicion_caudal, @id_modalidad,
                     @id_formacanal, @formacanal_medida, @id_disp, @disp_medida,
                     @id_um_formacanal, @id_um_dispositivohidraulico,

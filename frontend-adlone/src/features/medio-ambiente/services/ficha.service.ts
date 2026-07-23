@@ -157,6 +157,11 @@ export const fichaService = {
         const response = await apiClient.post('/api/fichas/bulk-commit', data);
         return response.data;
     },
+    // Análisis fijos que se pre-agregan a toda ficha nueva (pH + Temperatura, DS 90 / Tabla 1 / Terreno)
+    getDefaultAnalyses: async (): Promise<any[]> => {
+        const response = await apiClient.get('/api/fichas/analisis-por-defecto');
+        return response.data?.data || [];
+    },
     downloadBulkTemplate: async () => {
         const response = await apiClient.get('/api/fichas/bulk-template', { responseType: 'blob' });
         // Trigger browser download

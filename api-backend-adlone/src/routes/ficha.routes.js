@@ -13,6 +13,7 @@ router.get('/for-assignment', authenticate, fichaController.getForAssignment);
 router.post('/verificar-link', authenticate, fichaController.verificarLink);
 router.get('/ejecutados', authenticate, fichaController.getMuestreosEjecutados);
 router.get('/resolve-url', authenticate, fichaController.resolveGoogleMaps);
+router.get('/analisis-por-defecto', authenticate, fichaController.getDefaultAnalyses);
 
 router.post('/create', authenticate, verifyPermission('FI_CREAR'), validateRequest(fichaValidationSchemas.create), fichaController.create);
 router.post('/:id/approve', authenticate, verifyPermission('FI_APROBAR_TEC'), validateRequest(fichaValidationSchemas.approve), fichaController.approve);

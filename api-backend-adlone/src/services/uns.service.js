@@ -490,6 +490,12 @@ class UnsService {
                         ETIQUETA_HORA: etiquetaHora,
                         TIPO_SOLICITUD: context.nombre_tipo || 'Notificación General',
                         // OBSERVACION assignment rules:
+                        // Los callers (ficha.service.js) ya resuelven la observación correcta para su
+                        // evento (texto del usuario + su propio fallback, ej. "Validación técnica conforme.")
+                        // y la entregan en context.OBSERVACION (mayúscula). Hay que respetarla: si no se
+                        // prioriza, se pisa con context.observaciones (minúscula, casi nunca seteada por
+                        // estos callers) y termina mostrando siempre "Sin observaciones" aunque el usuario
+                        // sí haya escrito un comentario al aprobar/asignar/rechazar.
                         // ─ FICHA Muestreo events (Asignado, Reasignado, Reagendado, Reprogramado):
                         //     glosa = commercial service name → NEVER shown as observation.
                         //     Fallback: 'Sin observaciones'
@@ -502,7 +508,9 @@ class UnsService {
                         //     Fallback: 'Sin observaciones'
                         // ─ URS / SOL_EQUIPO / AVISO / SOLICITUD events:
                         //     May use glosa or mensaje as informational context → keep fallback.
-                        OBSERVACION: (['FICHA_ASIGNADA', 'FICHA_MUESTREO_REASIGNADO', 'FICHA_MUESTREO_REAGENDADO', 'FICHA_MUESTREO_REAGENDADO_REASIGNADO', 'FICHA_MUESTREO_REPROGRAMADO',
+                        OBSERVACION: (context.OBSERVACION && String(context.OBSERVACION).trim())
+                            ? String(context.OBSERVACION).trim()
+                            : (['FICHA_ASIGNADA', 'FICHA_MUESTREO_REASIGNADO', 'FICHA_MUESTREO_REAGENDADO', 'FICHA_MUESTREO_REAGENDADO_REASIGNADO', 'FICHA_MUESTREO_REPROGRAMADO',
                                        'FICHA_CREADA', 'FICHA_REMUESTREO_CREADA',
                                        'FICHA_APROBADA_TECNICA', 'FICHA_APROBADA_COORDINACION'].includes(codigoEvento))
                             ? (context.observaciones && context.observaciones.trim() ? context.observaciones.trim() : 'Sin observaciones')

@@ -17,6 +17,16 @@ class FichaIngresoController {
         }
     }
 
+    async getDefaultAnalyses(_req, res) {
+        try {
+            const result = await fichaService.getDefaultTerrenoAnalyses();
+            return successResponse(res, result, 'Análisis fijos por defecto');
+        } catch (err) {
+            logger.error('Error in getDefaultAnalyses controller:', err);
+            return errorResponse(res, 'Error al obtener análisis por defecto', 500, err.message);
+        }
+    }
+
     async getEnProceso(req, res) {
         try {
             const { month, year } = req.query;

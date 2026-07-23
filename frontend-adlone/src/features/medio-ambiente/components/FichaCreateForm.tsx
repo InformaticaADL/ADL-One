@@ -1,4 +1,4 @@
-import React, { useState, useRef, useTransition, useCallback } from 'react';
+import React, { useState, useRef, useTransition, useCallback, useEffect } from 'react';
 import { AntecedentesForm } from './AntecedentesForm';
 import type { AntecedentesFormHandle } from './AntecedentesForm';
 import { AnalysisForm } from './AnalysisForm';
@@ -113,6 +113,32 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
     const topRef = useRef<HTMLDivElement>(null);
     const [savedAnalysis, setSavedAnalysis] = useState<any[]>([]);
     const [costoOperativo, setCostoOperativo] = useState<{ enabled: boolean; uf: number | string }>({ enabled: true, uf: '' });
+
+    // Pre-agregar análisis fijos (pH + Temperatura, DS 90 / Tabla 1 / Terreno) a la
+    // ficha nueva. Quedan listos para rellenar precio (UF=0) y son desmarcables
+    // (el usuario los puede eliminar con el ícono de basurero, igual que cualquier
+    // análisis). Se cargan una sola vez al montar el formulario de creación.
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const defaults = await fichaService.getDefaultAnalyses();
+                if (cancelled || !defaults || defaults.length === 0) return;
+                setSavedAnalysis(prev => {
+                    if (prev.length > 0) return prev; // no pisar si el usuario ya agregó algo
+                    return defaults.map((d: any, i: number) => ({
+                        ...d,
+                        uf_individual: 0,
+                        item: i + 1,
+                        savedId: `fijo-${d.id_referenciaanalisis}-${Date.now()}`
+                    }));
+                });
+            } catch {
+                /* si falla, la ficha simplemente arranca sin los fijos */
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const handleValidationChange = useCallback((isValid: boolean) => {
         startTransition(() => {

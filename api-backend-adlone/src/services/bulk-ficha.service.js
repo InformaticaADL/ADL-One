@@ -1388,14 +1388,30 @@ class BulkFichaService {
         logger.info(`[BulkFicha] Committing ${items.length} fichas...`);
         const results = [];
 
+        // Análisis fijos (pH + Temperatura, DS 90 / Tabla 1 / Terreno) que SIEMPRE
+        // se agregan en carga masiva, con UF=0 (se rellena después). Se resuelven
+        // una vez por lote. Si el catálogo no los tiene, se omiten sin romper.
+        let defaultAnalyses = [];
+        try {
+            defaultAnalyses = await fichaService.getDefaultTerrenoAnalyses();
+        } catch (e) {
+            logger.warn(`[BulkFicha] No se pudieron resolver los análisis fijos por defecto: ${e.message}`);
+        }
+
         for (const item of items) {
             try {
                 // Build payload in the format createFicha expects
                 // Only include analysis rows that were successfully matched (have id_referenciaanalisis)
+                const matchedRows = item.analisis.filter(a => a.id_referenciaanalisis);
+
+                // Inyectar los análisis fijos (pH + Temperatura) que no estén ya presentes
+                const presentRefIds = new Set(matchedRows.map(a => String(a.id_referenciaanalisis)));
+                const fijosToAdd = defaultAnalyses.filter(d => !presentRefIds.has(String(d.id_referenciaanalisis)));
+
                 const payload = {
+                    autoAprobar: true, // carga masiva → aprobada por Técnica + Coordinación, directo a programación
                     antecedentes: item.antecedentes,
-                    analisis: item.analisis
-                        .filter(a => a.id_referenciaanalisis) // CRITICAL: Filter out unmatched rows
+                    analisis: [...matchedRows, ...fijosToAdd]
                         .map(a => ({
                             id_tecnica: a.id_tecnica,
                             id_normativa: a.id_normativa || item.antecedentes?.selectedNormativa, // Fallback to header norm
