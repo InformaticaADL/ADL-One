@@ -85,9 +85,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                     borderBottom: isCompact ? '1px solid rgba(0, 0, 0, 0.05)' : 'none',
                 },
                 navbar: {
-                    backgroundColor: 'rgba(255, 255, 255, 0.4)',
-                    backdropFilter: 'blur(10px)',
-                    WebkitBackdropFilter: 'blur(10px)',
+                    backgroundColor: 'transparent',
                     borderRight: '1px solid rgba(0, 0, 0, 0.05)',
                 },
                 main: {
@@ -120,7 +118,19 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
             </AppShell.Header>
 
             <AppShell.Navbar>
-                <Box h="100%" pb="md">
+                <Box 
+                    style={{ 
+                        position: 'absolute', 
+                        inset: 0, 
+                        zIndex: -1,
+                        backgroundColor: 'rgba(200, 205, 210, 0.45)',
+                        backdropFilter: 'blur(10px)',
+                        WebkitBackdropFilter: 'blur(10px)',
+                        maskImage: 'linear-gradient(to right, black 50%, transparent 100%)',
+                        WebkitMaskImage: 'linear-gradient(to right, black 50%, transparent 100%)'
+                    }} 
+                />
+                <Box h="100%" pb="md" style={{ position: 'relative', zIndex: 1 }}>
                     <Sidebar 
                         forceNotCollapsed={isCompact} 
                         hideLogo={isCompact}

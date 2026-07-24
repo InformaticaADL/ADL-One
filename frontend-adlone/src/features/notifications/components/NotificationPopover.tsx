@@ -148,7 +148,7 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ opened
     /* ── Contenido original del panel (compartido mobile/desktop) ── */
     const panelContent = (
         <>
-            <Box p="md" style={{ backgroundColor: 'white' }}>
+            <Box p="md" style={{ backgroundColor: 'transparent' }}>
                 <Group justify="space-between" mb="xs">
                     <Text fw={700} size="sm">Notificaciones Recientes</Text>
                     <Group gap={6}>
@@ -221,8 +221,8 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ opened
                 </ScrollArea.Autosize>
             </Box>
 
-            <Divider />
-            <Box p="xs" style={{ backgroundColor: 'var(--mantine-color-gray-0)' }}>
+            <Divider color="rgba(0,0,0,0.05)" />
+            <Box p="xs" style={{ backgroundColor: 'rgba(248, 249, 250, 0.4)' }}>
                 <Button
                     variant="subtle"
                     fullWidth
@@ -269,7 +269,9 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ opened
                                 width: 'calc(100% - 20px)',
                                 maxWidth: 340,
                                 zIndex: 300,
-                                backgroundColor: 'white',
+                                backgroundColor: 'rgba(255, 255, 255, 0.7)',
+                                backdropFilter: 'blur(12px)',
+                                WebkitBackdropFilter: 'blur(12px)',
                                 display: 'flex',
                                 flexDirection: 'column',
                                 boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
@@ -305,7 +307,10 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ opened
                     padding: 0,
                     borderRadius: '12px',
                     border: '1px solid var(--mantine-color-gray-2)',
-                    overflow: 'hidden'
+                    overflow: 'hidden',
+                    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+                    backdropFilter: 'blur(12px)',
+                    WebkitBackdropFilter: 'blur(12px)',
                 }
             }}
         >

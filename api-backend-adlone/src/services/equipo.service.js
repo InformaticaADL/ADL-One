@@ -640,7 +640,7 @@ export const equipoService = {
             await transaction.commit();
             return { id: newId, ...data };
         } catch (error) {
-            await transaction.rollback();
+            try { await transaction.rollback(); } catch (rollbackError) {}
             logger.error('Error in createEquipo service:', error);
             throw error;
         }
@@ -715,7 +715,7 @@ export const equipoService = {
             await transaction.commit();
             return results;
         } catch (error) {
-            await transaction.rollback();
+            try { await transaction.rollback(); } catch (rollbackError) {}
             logger.error('Error in createEquiposBulk service:', error);
             throw error;
         }
@@ -952,7 +952,7 @@ export const equipoService = {
             await transaction.commit();
             return { id, ...data, version: nextVersionLabel };
         } catch (error) {
-            await transaction.rollback();
+            try { await transaction.rollback(); } catch (rollbackError) {}
             logger.error('Error in updateEquipo service:', error);
             throw error;
         }
@@ -1082,7 +1082,7 @@ export const equipoService = {
             await transaction.commit();
             return { success: true };
         } catch (error) {
-            await transaction.rollback();
+            try { await transaction.rollback(); } catch (rollbackError) {}
             logger.error('Error in deleteEquipo (soft delete) service:', error);
             throw error;
         }
@@ -1222,7 +1222,7 @@ export const equipoService = {
             await transaction.commit();
             return { success: true, newVersion: nextVersionLabel };
         } catch (error) {
-            await transaction.rollback();
+            try { await transaction.rollback(); } catch (rollbackError) {}
             logger.error('Error in restoreEquipoVersion service:', error);
             throw error;
         }
@@ -1277,30 +1277,30 @@ export const equipoService = {
                 histReq.input('version', sql.VarChar(10), current.version || 'v1');
 
                 // Bind all
-                histReq.input('codigo', sql.VarChar, current.codigo);
-                histReq.input('nombre', sql.VarChar, current.nombre);
-                histReq.input('tipoequipo', sql.VarChar, current.tipoequipo);
-                histReq.input('sede', sql.VarChar, current.sede);
+                histReq.input('codigo', sql.VarChar(20), String(current.codigo || '').substring(0, 20));
+                histReq.input('nombre', sql.VarChar(50), String(current.nombre || '').substring(0, 50));
+                histReq.input('tipoequipo', sql.VarChar(50), String(current.tipoequipo || '').substring(0, 50));
+                histReq.input('sede', sql.VarChar(2), String(current.sede || '').substring(0, 2));
                 histReq.input('fecha_vigencia', sql.Date, current.fecha_vigencia);
                 histReq.input('id_muestreador', sql.Numeric(10, 0), current.id_muestreador || 0);
                 histReq.input('habilitado', sql.VarChar(1), 'N'); // New state
-                histReq.input('sigla', sql.VarChar(10), current.sigla || '');
+                histReq.input('sigla', sql.VarChar(10), String(current.sigla || '').substring(0, 10));
                 histReq.input('correlativo', sql.Numeric(10, 0), current.correlativo || 0);
-                histReq.input('tienefc', sql.VarChar(1), current.tienefc || 'N');
+                histReq.input('tienefc', sql.VarChar(1), String(current.tienefc || 'N').trim().substring(0, 1));
                 histReq.input('error0', sql.Numeric(10, 1), current.error0 || 0);
                 histReq.input('error15', sql.Numeric(10, 1), current.error15 || 0);
                 histReq.input('error30', sql.Numeric(10, 1), current.error30 || 0);
-                histReq.input('equipo_asociado', sql.VarChar(20), current.equipo_asociado || '0');
+                histReq.input('equipo_asociado', sql.VarChar(20), String(current.equipo_asociado || '0').substring(0, 20));
                 histReq.input('observacion', sql.VarChar, `[SISTEMA] Inactivación automática por vencimiento. Obs anterior: ${current.observacion || ''}`.substring(0, 500));
-                histReq.input('visible_muestreador', sql.VarChar(1), current.visible_muestreador || 'N');
-                histReq.input('que_mide', sql.VarChar, current.que_mide || '');
-                histReq.input('unidad_medida_textual', sql.VarChar, current.unidad_medida_textual || '');
-                histReq.input('unidad_medida_sigla', sql.VarChar, current.unidad_medida_sigla || '');
-                histReq.input('informe', sql.VarChar(1), current.informe || 'N');
+                histReq.input('visible_muestreador', sql.VarChar(1), String(current.visible_muestreador || 'N').trim().substring(0, 1));
+                histReq.input('que_mide', sql.VarChar(250), current.que_mide ? String(current.que_mide).substring(0, 250) : '');
+                histReq.input('unidad_medida_textual', sql.VarChar(250), current.unidad_medida_textual ? String(current.unidad_medida_textual).substring(0, 250) : '');
+                histReq.input('unidad_medida_sigla', sql.VarChar(100), current.unidad_medida_sigla ? String(current.unidad_medida_sigla).substring(0, 100) : '');
+                histReq.input('informe', sql.VarChar(1), String(current.informe || 'N').trim().substring(0, 1));
                 histReq.input('ultima_verificacion', sql.Date, parseSqlDate(current.Ultima_verificacion) || null);
                 histReq.input('siguiente_verificacion', sql.Date, parseSqlDate(current.Siguiente_verificacion) || null);
-                histReq.input('plazo_vigencia', sql.VarChar(500), current.Plazo_Vigencia || null);
-                histReq.input('estado_equipo_exp', sql.VarChar(100), current.Estado || null);
+                histReq.input('plazo_vigencia', sql.VarChar(500), current.Plazo_Vigencia != null ? String(current.Plazo_Vigencia).substring(0, 500) : null);
+                histReq.input('estado_equipo_exp', sql.VarChar(100), current.Estado != null ? String(current.Estado).substring(0, 100) : null);
 
                 await histReq.query(`
                     INSERT INTO mae_equipo_historial (
@@ -1323,7 +1323,7 @@ export const equipoService = {
             return { processed: expiredEquipos.length, message: 'Process completed successfully.' };
 
         } catch (error) {
-            await transaction.rollback();
+            try { await transaction.rollback(); } catch (rollbackError) {}
             logger.error('Error in inactivateExpiredEquipos service:', error);
             throw error;
         }
