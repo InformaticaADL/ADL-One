@@ -312,6 +312,19 @@ const buildMonthlyTrend = (rows) => {
         }));
 };
 
+const buildYearlyTrend = (rows) => {
+    const counts = new Map();
+    rows.forEach((row) => {
+        const date = safeDate(row.fecha_servicio);
+        if (!date) return;
+        const key = date.getFullYear().toString();
+        counts.set(key, (counts.get(key) || 0) + 1);
+    });
+    return [...counts.entries()]
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([year, value]) => ({ name: year, value }));
+};
+
 const getPreviousComparison = (trend) => {
     if (trend.length < 2) {
         return {
@@ -461,6 +474,8 @@ const buildDashboards = (context) => {
         alertLevelDistribution,
         etfaMix,
         stateByAnalysisType,
+        yearlyTrend,
+        placeVsStatusMatrix,
     } = context;
 
     const totalRows = rows.length;
@@ -524,6 +539,14 @@ const buildDashboards = (context) => {
                     xKey: 'name',
                     yKeys: ['value'],
                 }, 'Ordena los centros de muestreo por volumen de servicios.', 'Sirve para identificar puntos críticos, concentración geográfica y necesidades logísticas.'),
+                withHelp({
+                    id: 'ma-yearly-trend',
+                    type: 'bar',
+                    title: 'Concentracion Anual de Demanda',
+                    data: yearlyTrend,
+                    xKey: 'name',
+                    yKeys: ['value'],
+                }, 'Agrupa el volumen de los servicios ambientales por año.', 'Proporciona una vista macro del crecimiento del negocio a largo plazo.'),
                 withHelp({
                     id: 'ma-operational-mix',
                     type: 'stacked-bar',
@@ -606,6 +629,14 @@ const buildDashboards = (context) => {
                     xKey: 'name',
                     yKeys: ['value'],
                 }, 'Compara la carga entre analisis de laboratorio, terreno u otras clasificaciones.', 'Permite distribuir mejor capacidad técnica y tiempos de respuesta.'),
+                withHelp({
+                    id: 'gc-time-distribution',
+                    type: 'bar',
+                    title: 'Distribucion de Tiempos (Lugar vs Estado)',
+                    data: placeVsStatusMatrix,
+                    xKey: 'name',
+                    yKeys: ['value'],
+                }, 'Cruza el lugar de analisis con el estado actual de la operacion.', 'Permite detectar si los retrasos ocurren principalmente en el laboratorio o en terreno.'),
                 withHelp({
                     id: 'gc-labs',
                     type: 'bar',
@@ -783,6 +814,7 @@ const yieldToEventLoop = () => new Promise((resolve) => setImmediate(resolve));
 const buildSnapshot = async (rows, options = {}) => {
     // Phase 1: trend and basic aggregates
     const monthlyTrend = buildMonthlyTrend(rows);
+    const yearlyTrend = buildYearlyTrend(rows);
     const trendComparison = getPreviousComparison(monthlyTrend);
 
     await yieldToEventLoop();
@@ -875,6 +907,7 @@ const buildSnapshot = async (rows, options = {}) => {
 
     const objectiveSubareaMatrix = topPairs(rows, 'subarea', 'objetivo', 'Sin subarea', 'Sin objetivo', 10);
     const clientSubareaMatrix = topPairs(rows, 'cliente', 'subarea', 'Sin cliente', 'Sin subarea', 10);
+    const placeVsStatusMatrix = topPairs(rows, 'lugar_analisis', 'estado_operacion', 'Sin lugar', 'Sin estado', 8);
     const stateByAnalysisType = topAnalysisTypes.map((type) => {
         const typeRows = rows.filter((row) => (row.tipo_analisis || 'Sin clasificar') === type.name);
         return {
@@ -965,6 +998,8 @@ const buildSnapshot = async (rows, options = {}) => {
             etfaMix,
             stateByAnalysisType,
             monthlyTrend,
+            yearlyTrend,
+            placeVsStatusMatrix,
             trendComparison,
             alerts,
             insights,

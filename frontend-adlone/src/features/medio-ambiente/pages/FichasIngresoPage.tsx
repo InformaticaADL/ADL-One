@@ -292,6 +292,16 @@ export const FichasIngresoPage = () => {
                                     />
                                 </ProtectedContent>
 
+                                <ProtectedContent permission="MA_COORDINACION_ACCESO">
+                                    <SelectionCard
+                                        title="Dashboard Operativo"
+                                        description="Vista minimalista de la coordinación diaria, carga de trabajo y estados (Nuevo Diseño)."
+                                        icon={<IconChartBar size={32} />}
+                                        color="#0ea5e9"
+                                        onClick={() => setFichasMode('dashboard')}
+                                    />
+                                </ProtectedContent>
+
                             </SimpleGrid>
                         </Stack>
                     </Paper>
