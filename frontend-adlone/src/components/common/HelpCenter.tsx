@@ -236,21 +236,19 @@ const getContextHelp = (
                     ]
                 };
             case 'dashboard':
-            case 'kpi_dashboard':
                 return {
-                    title: 'Dashboard Inteligente de Operaciones',
-                    queEs: 'Panel de análisis gráfico de indicadores clave de rendimiento (KPIs).',
-                    queHace: 'Muestra estadísticas en tiempo real del volumen de fichas registradas, estados de avance, tiempos de proceso y rendimiento por muestreador o cliente.',
+                    title: 'Dashboard Operativo',
+                    queEs: 'Vista minimalista de la coordinación diaria, carga de trabajo y estados.',
+                    queHace: 'Proporciona una radiografía instantánea de la operación: balances diarios, embudo de estados, top de clientes exigentes y ranking de muestreadores.',
                     comoFunciona: [
-                        '1. Observa el gráfico de torta/barras con la distribución de fichas por estado (Pendiente, Validada, Asignada, Completada).',
-                        '2. El panel de totales del mes muestra cuántas fichas se ingresaron, validaron y completaron.',
-                        '3. Aplica los filtros de fecha (rango de mes) para analizar un período específico.',
-                        '4. Filtra por cliente para ver el rendimiento de servicio asociado a una cuenta específica.',
-                        '5. El ranking de muestreadores muestra quiénes completaron más visitas en el período seleccionado.',
-                        '6. Exporta los gráficos o datos usando el botón de descarga disponible en cada tarjeta.'
+                        '1. Observa el balance general de Muestreos Iniciados vs Finalizados para medir la eficiencia de la jornada.',
+                        '2. Usa el filtro rápido (15 Días, 30 Días, etc.) arriba a la derecha para acercar o alejar la línea de tiempo.',
+                        '3. Revisa el «Embudo de Estados» para detectar cuellos de botella al instante.',
+                        '4. Identifica qué muestreadores y clientes tienen la mayor carga operativa actual.',
+                        '5. Haz clic en el ícono de «Información (i)» en cualquier gráfico para ver cómo se procesan esos datos.'
                     ],
                     tips: [
-                        'Revisa el Dashboard al inicio de cada semana para detectar fichas que llevan mucho tiempo sin avanzar de estado.'
+                        'Mantén esta vista abierta durante tu jornada para monitorear el flujo de trabajo en tiempo real sin distracciones.'
                     ]
                 };
             case 'manage_empresas':
@@ -283,7 +281,7 @@ const getContextHelp = (
                         '4. Entra a «Asignación» para asignar fichas validadas a los muestreadores de terreno.',
                         '5. Usa el «Calendario» para ver la planificación mensual de visitas.',
                         '6. Accede a «Muestreos Completados» para revisar los resultados del trabajo en terreno.',
-                        '7. El «Dashboard» te muestra los KPIs y estadísticas del proceso completo.'
+                        '7. El «Dashboard Operativo» te muestra la radiografía en tiempo real de la coordinación y carga de trabajo.'
                     ]
                 };
         }
