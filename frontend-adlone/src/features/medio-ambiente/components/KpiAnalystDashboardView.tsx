@@ -16,6 +16,8 @@ import {
     Title,
     Loader,
     Center,
+    Modal,
+    ScrollArea,
 } from '@mantine/core';
 import {
     Area,
@@ -456,53 +458,65 @@ export const KpiAnalystDashboardView = ({ onBack }: Props) => {
             </Box>
 
             {/* Modal para Explicación de Gráficos */}
-            {infoModal && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    backgroundColor: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999,
-                    animation: 'fadeIn 0.2s ease-out'
-                }} onClick={() => setInfoModal(null)}>
-                    <div style={{
-                        backgroundColor: 'white', padding: '3rem', borderRadius: '32px',
-                        maxWidth: '600px', width: '90%', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
-                        position: 'relative', animation: 'slideUp 0.3s ease-out'
-                    }} onClick={e => e.stopPropagation()}>
-                        <button onClick={() => setInfoModal(null)} style={{
-                            position: 'absolute', top: '1.5rem', right: '1.5rem', border: 'none',
-                            background: 'none', cursor: 'pointer', color: '#9ca3af'
-                        }}>
-                            <IconX size={24} />
-                        </button>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
-                            <ThemeIcon size={56} radius="xl" color="blue" variant="light">
-                                <IconInfoCircle size={28} />
-                            </ThemeIcon>
-                            <Title order={3} fw={800} c="dark.9">{infoModal.title}</Title>
-                        </div>
+            <Modal
+                opened={!!infoModal}
+                onClose={() => setInfoModal(null)}
+                withCloseButton={false}
+                size="lg"
+                radius="32px"
+                zIndex={1000}
+                overlayProps={{
+                    backgroundOpacity: 0.4,
+                    blur: 8,
+                    color: '#0f172a'
+                }}
+                styles={{
+                    header: { borderBottom: 'none', paddingBottom: 0, backgroundColor: 'transparent' },
+                    body: { padding: '2rem' },
+                    content: { boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', border: 'none' }
+                }}
+            >
+                {infoModal && (
+                    <ScrollArea.Autosize mah="80vh" offsetScrollbars>
+                        <Box style={{ position: 'relative' }}>
+                            <ActionIcon 
+                                variant="subtle" 
+                                color="gray" 
+                                radius="xl" 
+                                onClick={() => setInfoModal(null)}
+                                style={{ position: 'absolute', top: 0, right: 0 }}
+                            >
+                                <IconX size={20} />
+                            </ActionIcon>
+                            
+                            <Group gap="md" align="center" wrap="nowrap" mb="xl">
+                                <ThemeIcon size={56} radius="xl" color="blue" variant="light" style={{ flexShrink: 0 }}>
+                                    <IconInfoCircle size={28} />
+                                </ThemeIcon>
+                                <Box>
+                                    <Text size="xs" fw={800} c="blue.6" tt="uppercase" lts={1}>Explicación Detallada</Text>
+                                    <Title order={3} fw={800} c="dark.9">{infoModal.title}</Title>
+                                </Box>
+                            </Group>
 
-                        <Stack gap="xl">
-                            <Box>
-                                <Text size="xs" fw={800} c="blue.6" tt="uppercase" lts={1} mb="xs">¿Qué muestra este gráfico?</Text>
-                                <Text c="dark.6" size="sm" lh={1.6}>{infoModal.what}</Text>
-                            </Box>
-                            <Box>
-                                <Text size="xs" fw={800} c="blue.6" tt="uppercase" lts={1} mb="xs">¿Para qué sirve?</Text>
-                                <Text c="dark.6" size="sm" lh={1.6}>{infoModal.why}</Text>
-                            </Box>
-                        </Stack>
+                            <Stack gap="xl">
+                                <Box>
+                                    <Text size="xs" fw={800} c="blue.6" tt="uppercase" lts={1} mb="xs">¿Qué muestra este gráfico?</Text>
+                                    <Text c="dark.7" size="sm" lh={1.6}>{infoModal.what}</Text>
+                                </Box>
+                                <Box>
+                                    <Text size="xs" fw={800} c="blue.6" tt="uppercase" lts={1} mb="xs">¿Para qué sirve?</Text>
+                                    <Text c="dark.7" size="sm" lh={1.6}>{infoModal.why}</Text>
+                                </Box>
+                            </Stack>
 
-                        <Button fullWidth size="lg" radius="xl" mt="xl" onClick={() => setInfoModal(null)} color="dark">
-                            Entendido
-                        </Button>
-                    </div>
-                </div>
-            )}
-
-            <style>{`
-                @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-                @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-            `}</style>
+                            <Button fullWidth size="lg" radius="xl" mt="xl" onClick={() => setInfoModal(null)} variant="light" color="blue">
+                                Entendido
+                            </Button>
+                        </Box>
+                    </ScrollArea.Autosize>
+                )}
+            </Modal>
         </Box>
     );
 };

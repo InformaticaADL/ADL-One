@@ -1,5 +1,5 @@
 import { Modal, Stack, Group, Text, ThemeIcon, Paper, Badge, Box, List, ScrollArea, Divider, Title, rem, Button } from '@mantine/core';
-import { 
+import {
     IconChevronRight,
     IconInfoCircle,
     IconListCheck,
@@ -24,8 +24,8 @@ interface HelpContent {
 }
 
 const getContextHelp = (
-    activeModule: string, 
-    activeSubmodule: string, 
+    activeModule: string,
+    activeSubmodule: string,
     fichasMode: string,
     isGlobal: boolean = false
 ): HelpContent | null => {
@@ -43,7 +43,7 @@ const getContextHelp = (
             ],
             tips: [
                 'Mantén actualizado tu perfil con foto y firma digital para que el sistema los use correctamente en documentos e informes.',
-                'Si tienes dudas o encuentras un error, comunícate con soporte.it@adl.cl o usa el módulo de Solicitudes (URS).'
+                'Si tienes dudas o encuentras un error, comunícate con informatica@adldiagnostic.cl o usa el módulo de Solicitudes (URS).'
             ]
         };
     }
@@ -775,45 +775,45 @@ export const HelpCenter = ({ opened, onClose }: HelpCenterProps) => {
             opened={opened}
             onClose={onClose}
             title={
-                <Group gap="sm" align="center">
+                <Group gap="md" align="center">
                     <ThemeIcon
-                        variant="gradient"
-                        gradient={{ from: 'orange.6', to: 'orange.4', deg: 135 }}
-                        size={rem(36)}
-                        radius="md"
-                        style={{ boxShadow: '0 4px 12px rgba(247,103,7,0.35)' }}
+                        variant="light"
+                        color="blue"
+                        size={rem(48)}
+                        radius="xl"
                     >
-                        <IconBook2 size={20} stroke={1.8} />
+                        <IconBook2 size={24} stroke={1.5} />
                     </ThemeIcon>
                     <Stack gap={0}>
-                        <Title order={5} style={{ fontWeight: 800, letterSpacing: '-0.01em', lineHeight: 1.1 }}>
+                        <Title order={4} style={{ fontWeight: 800, letterSpacing: '-0.01em', lineHeight: 1.1 }}>
                             Centro de Ayuda
                         </Title>
-                        <Text size="xs" c="dimmed" fw={500}>ADL ONE — Manual de Usuario</Text>
+                        <Text size="xs" c="dimmed" fw={600} mt={4}>ADL ONE — Manual de Usuario</Text>
                     </Stack>
                 </Group>
             }
             size="lg"
-            radius="lg"
+            radius="32px"
             zIndex={1000}
             overlayProps={{
-                backgroundOpacity: 0.45,
-                blur: 4,
+                backgroundOpacity: 0.4,
+                blur: 8,
+                color: '#0f172a',
                 zIndex: 999,
             }}
             styles={{
                 header: {
-                    borderBottom: '1px solid var(--mantine-color-gray-2)',
-                    paddingBottom: rem(12),
-                    backgroundColor: 'rgba(255,255,255,0.85)',
-                    backdropFilter: 'blur(8px)',
+                    borderBottom: 'none',
+                    paddingBottom: 0,
+                    backgroundColor: 'transparent',
                 },
                 body: {
-                    backgroundColor: 'var(--mantine-color-gray-0)',
-                    padding: rem(16),
+                    backgroundColor: 'white',
+                    padding: rem(24),
                 },
                 content: {
-                    boxShadow: '0 20px 40px rgba(0,0,0,0.12)',
+                    boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+                    border: 'none',
                 }
             }}
         >
@@ -822,172 +822,131 @@ export const HelpCenter = ({ opened, onClose }: HelpCenterProps) => {
                     <Stack gap="md">
 
                         {/* ── Header de sección ── */}
-                        <Paper
-                            radius="md"
-                            p="md"
-                            style={{
-                                background: 'linear-gradient(135deg, #0062a8 0%, #2574d8 100%)',
-                                border: 'none',
-                                boxShadow: '0 4px 16px rgba(0,98,168,0.25)',
-                            }}
-                        >
-                            <Group gap="sm" align="flex-start">
+                        <Box mb="md">
+                            <Group gap="md" align="center" wrap="nowrap">
                                 <ThemeIcon
-                                    variant="white"
-                                    size={rem(40)}
-                                    radius="md"
-                                    color="adl-blue"
+                                    variant="light"
+                                    size={rem(56)}
+                                    radius="xl"
+                                    color="blue"
                                     style={{ flexShrink: 0 }}
                                 >
-                                    <IconInfoCircle size={22} stroke={1.8} />
+                                    <IconInfoCircle size={28} stroke={2} />
                                 </ThemeIcon>
-                                <Stack gap={2} style={{ flex: 1 }}>
-                                    <Badge
-                                        variant="white"
-                                        color="orange"
-                                        size="xs"
-                                        radius="sm"
-                                        fw={700}
-                                        style={{ width: 'fit-content' }}
-                                    >
-                                        Módulo activo
-                                    </Badge>
-                                    <Title order={4} style={{ color: '#ffffff', fontWeight: 800, letterSpacing: '-0.02em' }}>
+                                <Stack gap={4} style={{ flex: 1 }}>
+                                    <Text size="xs" fw={800} c="blue.6" tt="uppercase" lts={1}>
+                                        Módulo Activo
+                                    </Text>
+                                    <Title order={3} fw={800} c="dark.9" style={{ letterSpacing: '-0.02em' }}>
                                         {help.title}
                                     </Title>
                                 </Stack>
                             </Group>
-                        </Paper>
+                        </Box>
 
                         {/* ── ¿Qué es? y ¿Qué hace? ── */}
-                        <Paper withBorder radius="md" p="md" style={{ backgroundColor: '#ffffff' }}>
-                            <Stack gap="md">
-                                <Box>
-                                    <Group gap="xs" mb={rem(6)}>
-                                        <ThemeIcon variant="light" color="adl-blue" size="sm" radius="sm">
-                                            <IconInfoCircle size={14} />
-                                        </ThemeIcon>
-                                        <Text fw={700} size="sm" c="adl-blue.7">¿Qué es?</Text>
-                                    </Group>
-                                    <Text size="sm" c="gray.7" lh={1.6} pl={rem(28)}>
-                                        {help.queEs}
-                                    </Text>
-                                </Box>
+                        <Stack gap="xl" mt="sm">
+                            <Box>
+                                <Text size="xs" fw={800} c="blue.6" tt="uppercase" lts={1} mb="xs">
+                                    ¿Qué es?
+                                </Text>
+                                <Text size="sm" c="dark.6" lh={1.6}>
+                                    {help.queEs}
+                                </Text>
+                            </Box>
 
-                                <Divider color="gray.1" />
-
-                                <Box>
-                                    <Group gap="xs" mb={rem(6)}>
-                                        <ThemeIcon variant="light" color="adl-blue" size="sm" radius="sm">
-                                            <IconListCheck size={14} />
-                                        </ThemeIcon>
-                                        <Text fw={700} size="sm" c="adl-blue.7">¿Qué hace?</Text>
-                                    </Group>
-                                    <Text size="sm" c="gray.7" lh={1.6} pl={rem(28)}>
-                                        {help.queHace}
-                                    </Text>
-                                </Box>
-                            </Stack>
-                        </Paper>
+                            <Box>
+                                <Text size="xs" fw={800} c="blue.6" tt="uppercase" lts={1} mb="xs">
+                                    ¿Qué hace?
+                                </Text>
+                                <Text size="sm" c="dark.6" lh={1.6}>
+                                    {help.queHace}
+                                </Text>
+                            </Box>
+                        </Stack>
 
                         {/* ── Paso a Paso ── */}
-                        <Paper withBorder radius="md" p="md" style={{ backgroundColor: '#ffffff' }}>
-                            <Group gap="xs" mb="sm">
-                                <ThemeIcon variant="light" color="orange" size="sm" radius="sm">
-                                    <IconListCheck size={14} />
-                                </ThemeIcon>
-                                <Text fw={700} size="sm" c="orange.8">Paso a Paso — ¿Cómo funciona?</Text>
-                            </Group>
-                            <Stack gap={rem(6)} pl={rem(4)}>
+                        <Box mt="md">
+                            <Text size="xs" fw={800} c="orange.6" tt="uppercase" lts={1} mb="md">
+                                Paso a Paso — ¿Cómo funciona?
+                            </Text>
+                            <Stack gap="sm">
                                 {help.comoFunciona.map((item, index) => (
-                                    <Group key={index} gap="xs" align="flex-start" wrap="nowrap">
+                                    <Group key={index} gap="md" align="flex-start" wrap="nowrap" p="sm" style={{ border: '1px solid var(--mantine-color-gray-1)', borderRadius: 16, backgroundColor: '#f8fafc' }}>
                                         <ThemeIcon
-                                            variant="gradient"
-                                            gradient={{ from: 'orange.5', to: 'orange.3', deg: 135 }}
-                                            size={rem(22)}
-                                            radius="sm"
-                                            style={{ flexShrink: 0, marginTop: rem(2) }}
+                                            variant="light"
+                                            color="orange"
+                                            size={rem(24)}
+                                            radius="xl"
+                                            style={{ flexShrink: 0 }}
                                         >
-                                            <IconChevronRight size={12} stroke={2.5} />
+                                            <IconChevronRight size={14} stroke={2.5} />
                                         </ThemeIcon>
-                                        <Text size="sm" c="gray.7" lh={1.55} style={{ flex: 1 }}>
+                                        <Text size="sm" c="dark.7" lh={1.5} style={{ flex: 1, marginTop: 2 }}>
                                             {item}
                                         </Text>
                                     </Group>
                                 ))}
                             </Stack>
-                        </Paper>
+                        </Box>
 
                         {/* ── Consejos ── */}
                         {help.tips && help.tips.length > 0 && (
-                            <Paper
-                                withBorder
-                                radius="md"
-                                p="md"
-                                style={{
-                                    backgroundColor: '#fffbf0',
-                                    borderColor: 'var(--mantine-color-yellow-3)',
-                                    borderLeft: `4px solid var(--mantine-color-orange-5)`,
-                                }}
-                            >
-                                <Group gap="xs" mb="sm">
-                                    <ThemeIcon variant="light" color="yellow" size="sm" radius="sm">
-                                        <IconBulb size={14} />
-                                    </ThemeIcon>
-                                    <Text fw={700} size="sm" c="orange.8">Consejos útiles</Text>
-                                </Group>
-                                <List
-                                    size="sm"
-                                    c="gray.7"
-                                    spacing={rem(6)}
-                                    center
-                                    icon={
-                                        <ThemeIcon color="orange" size={rem(18)} radius="xl" variant="light">
-                                            <IconBulb size={11} />
-                                        </ThemeIcon>
-                                    }
-                                >
+                            <Box mt="md">
+                                <Text size="xs" fw={800} c="green.6" tt="uppercase" lts={1} mb="md">
+                                    Consejos útiles
+                                </Text>
+                                <Stack gap="sm">
                                     {help.tips.map((tip, index) => (
-                                        <List.Item key={index} style={{ fontStyle: 'italic', lineHeight: 1.55 }}>
-                                            {tip}
-                                        </List.Item>
+                                        <Group key={index} gap="md" align="flex-start" wrap="nowrap" p="sm" style={{ border: '1px solid var(--mantine-color-green-1)', borderRadius: 16, backgroundColor: '#f0fdf4' }}>
+                                            <ThemeIcon variant="light" color="green" size={rem(24)} radius="xl">
+                                                <IconBulb size={14} />
+                                            </ThemeIcon>
+                                            <Text size="sm" c="dark.7" lh={1.5} fs="italic" style={{ flex: 1, marginTop: 2 }}>
+                                                {tip}
+                                            </Text>
+                                        </Group>
                                     ))}
-                                </List>
-                            </Paper>
+                                </Stack>
+                            </Box>
                         )}
-                        
+
                         {/* ── Tarjetas de Contacto TI (Solo Global) ── */}
                         {helpCenterIsGlobal && (
-                            <>
-                                <Divider label="Contacto Soporte Informático" labelPosition="center" my="sm" />
+                            <Box mt="xl">
+                                <Divider label={<Text size="xs" fw={700} c="dimmed">CONTACTO SOPORTE</Text>} labelPosition="center" mb="lg" />
                                 <Group grow>
-                                    <Paper withBorder p="md" radius="md" style={{ textAlign: 'center' }} shadow="sm">
+                                    <Paper p="md" radius="xl" bg="#f8fafc" style={{ border: '1px solid var(--mantine-color-gray-2)', textAlign: 'center' }}>
                                         <Stack align="center" gap="xs">
                                             <ThemeIcon size={40} radius="xl" color="blue" variant="light">
-                                                <IconMail size={24} />
+                                                <IconMail size={20} />
                                             </ThemeIcon>
-                                            <Text fw={600} size="sm">Correo Soporte</Text>
-                                            <Text size="xs" c="dimmed">informatica@adldiagnostic.cl</Text>
-                                            <Button variant="subtle" size="compact-xs" component="a" href="mailto:informatica@adldiagnostic.cl">
-                                                Enviar Correo
+                                            <Box>
+                                                <Text fw={700} size="sm">Correo Soporte</Text>
+                                                <Text size="xs" c="dimmed">informatica@adldiagnostic.cl</Text>
+                                            </Box>
+                                            <Button variant="light" size="xs" radius="xl" component="a" href="mailto:informatica@adldiagnostic.cl" fullWidth>
+                                                Enviar
                                             </Button>
                                         </Stack>
                                     </Paper>
 
-                                    <Paper withBorder p="md" radius="md" style={{ textAlign: 'center' }} shadow="sm">
+                                    <Paper p="md" radius="xl" bg="#f8fafc" style={{ border: '1px solid var(--mantine-color-gray-2)', textAlign: 'center' }}>
                                         <Stack align="center" gap="xs">
                                             <ThemeIcon size={40} radius="xl" color="green" variant="light">
-                                                <IconMessageCircle size={24} />
+                                                <IconMessageCircle size={20} />
                                             </ThemeIcon>
-                                            <Text fw={600} size="sm">WhatsApp</Text>
-                                            <Text size="xs" c="dimmed">+56 9 5721 8268</Text>
-                                            <Button variant="subtle" size="compact-xs" color="green" component="a" href="https://wa.me/56957218268" target="_blank">
-                                                Abrir Chat
+                                            <Box>
+                                                <Text fw={700} size="sm">WhatsApp</Text>
+                                                <Text size="xs" c="dimmed">+56 9 5721 8268</Text>
+                                            </Box>
+                                            <Button variant="light" size="xs" radius="xl" color="green" component="a" href="https://wa.me/56957218268" target="_blank" fullWidth>
+                                                Chat
                                             </Button>
                                         </Stack>
                                     </Paper>
                                 </Group>
-                            </>
+                            </Box>
                         )}
 
                     </Stack>
