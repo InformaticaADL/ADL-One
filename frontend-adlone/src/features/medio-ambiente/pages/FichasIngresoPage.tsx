@@ -282,15 +282,6 @@ export const FichasIngresoPage = () => {
                                     />
                                 </ProtectedContent>
 
-                                <ProtectedContent permission="MA_COORDINACION_ACCESO">
-                                    <SelectionCard
-                                        title="Dashboard Inteligente"
-                                        description="Análisis automático de métricas operativas, rendimiento de laboratorios y detección de riesgos."
-                                        icon={<IconChartBar size={32} />}
-                                        color="#e64980"
-                                        onClick={() => setFichasMode('kpi_dashboard')}
-                                    />
-                                </ProtectedContent>
 
                                 <ProtectedContent permission="MA_COORDINACION_ACCESO">
                                     <SelectionCard

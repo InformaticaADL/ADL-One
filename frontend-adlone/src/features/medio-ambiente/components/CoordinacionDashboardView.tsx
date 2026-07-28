@@ -436,7 +436,7 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
               <IconChevronLeft size={24} />
             </ActionIcon>
             <Stack gap={0}>
-              <Title order={3} fw={800} c="dark.9">Dashboards Inteligentes</Title>
+              <Title order={3} fw={800} c="dark.9">Dashboard Operativo</Title>
               <Text c="dimmed" fw={600} size="xs" tt="uppercase" lts={1}>Análisis Minimalista</Text>
             </Stack>
           </Group>
