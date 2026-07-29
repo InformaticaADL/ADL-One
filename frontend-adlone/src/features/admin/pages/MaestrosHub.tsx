@@ -72,7 +72,7 @@ interface MaestroConfig {
             idColumn: string;
             displayColumn: string;
             noCreate?: boolean;
-        } | undefined;
+        };
     };
 }
 
@@ -85,7 +85,7 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
     const [activeTab, setActiveTab] = useState<string | null>('general');
     const [hubSearch, setHubSearch] = useState('');
 
-    const MAESTROS_CONFIG: MaestroConfig[] = useMemo(() => [
+    const MAESTROS_CONFIG = useMemo(() => ([
         // AREA: GESTIÓN ORGANIZACIONAL
         { 
             id: 'clientes', 
@@ -563,7 +563,7 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             summaryColumns: ['codigo_evento', 'descripcion', 'modulo', 'es_transaccional']
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    ], []);
+    ] as MaestroConfig[]), []);
 
     // Hook must be declared before any conditional return
     const filteredBySearch = useMemo(() => {

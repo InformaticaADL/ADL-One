@@ -105,10 +105,10 @@ export const fichaService = {
     batchUpdateAgenda: async (data: {
         assignments: {
             id: number,
-            fecha: string,
-            fechaRetiro?: string,
-            idMuestreadorInstalacion: number,
-            idMuestreadorRetiro: number,
+            fecha: string | null,
+            fechaRetiro?: string | null,
+            idMuestreadorInstalacion: number | null,
+            idMuestreadorRetiro: number | null,
             idFichaIngresoServicio: number,
             frecuenciaCorrelativo: string
         }[],
