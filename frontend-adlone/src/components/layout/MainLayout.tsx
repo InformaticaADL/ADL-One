@@ -118,17 +118,17 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
             </AppShell.Header>
 
             <AppShell.Navbar>
-                <Box 
-                    style={{ 
-                        position: 'absolute', 
-                        inset: 0, 
+                <Box
+                    style={{
+                        position: 'absolute',
+                        inset: 0,
                         zIndex: -1,
-                        backgroundColor: 'rgba(200, 205, 210, 0.45)',
-                        backdropFilter: 'blur(10px)',
-                        WebkitBackdropFilter: 'blur(10px)',
-                        maskImage: 'linear-gradient(to right, black 50%, transparent 100%)',
-                        WebkitMaskImage: 'linear-gradient(to right, black 50%, transparent 100%)'
-                    }} 
+                        backgroundColor: isCompact ? 'rgba(200, 205, 210, 0.45)' : 'transparent',
+                        backdropFilter: isCompact ? 'blur(10px)' : 'none',
+                        WebkitBackdropFilter: isCompact ? 'blur(10px)' : 'none',
+                        maskImage: isCompact ? 'linear-gradient(to right, black 50%, transparent 100%)' : 'none',
+                        WebkitMaskImage: isCompact ? 'linear-gradient(to right, black 50%, transparent 100%)' : 'none'
+                    }}
                 />
                 <Box h="100%" pb="md" style={{ position: 'relative', zIndex: 1 }}>
                     <Sidebar 
