@@ -3,6 +3,9 @@ node_modules/
 .pnp
 .pnp.js
 
+# Brainstorming visual companion (temporary mockups)
+.superpowers/
+
 # Environment variables
 .env
 .env.local
