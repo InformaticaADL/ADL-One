@@ -1,5 +1,4 @@
 import { getConnection } from '../config/database.js';
-import sql from 'mssql';
 import { getIo } from '../utils/socketManager.js';
 import logger from '../utils/logger.js';
 
