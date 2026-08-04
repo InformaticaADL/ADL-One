@@ -6,6 +6,7 @@ import { FichasIngresoPage } from '../features/medio-ambiente/pages/FichasIngres
 import { CalendarioReplicaPage } from '../features/medio-ambiente/pages/CalendarioReplicaPage';
 import { FichaDetailView } from '../features/medio-ambiente/pages/FichaDetailView';
 import { RemuestreoPage } from '../features/medio-ambiente/pages/RemuestreoPage';
+import { HoyEnVivoPage } from '../features/medio-ambiente/pages/HoyEnVivoPage';
 import { MuestreosEjecutadosListView } from '../features/medio-ambiente/components/MuestreosEjecutadosListView';
 import { ProtectedContent } from '../components/auth/ProtectedContent';
 
@@ -89,6 +90,11 @@ const DashboardPage = () => {
         if (activeSubmodule === 'ma-fichas-ingreso') return <FichasIngresoPage />;
         if (activeSubmodule === 'ma-ficha-detalle') return <FichaDetailView />;
         if (activeSubmodule === 'ma-remuestreo') return <RemuestreoPage />;
+        if (activeSubmodule === 'ma-hoy-en-vivo') return (
+            <ProtectedContent permission="AI_MA_HOY_EN_VIVO">
+                <HoyEnVivoPage />
+            </ProtectedContent>
+        );
         if (activeSubmodule === 'gem-muestreos-completados') return (
             <ProtectedContent permission={['GEM_ACCESO', 'GEM_REALIZADO']}>
                 <MuestreosEjecutadosListView onBackToMenu={() => setActiveSubmodule('')} />
