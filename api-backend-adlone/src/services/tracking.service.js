@@ -57,15 +57,22 @@ class TrackingService {
         const idsMuestreador = jornadas.recordset.map(j => j.id_muestreador);
 
         // Última posición conocida por jornada (una fila por jornada activa).
+        // Se ordena por timestamp_reporte, NO por id_ubicacion: la app móvil
+        // encola posiciones offline y las sube en lote al reconectar, así que
+        // un punto con timestamp más antiguo puede insertarse DESPUÉS (con un
+        // id_ubicacion mayor) que uno más reciente. Usar MAX(id_ubicacion)
+        // mostraría posiciones desactualizadas al supervisor tras cualquier
+        // reconexión con puntos en cola.
         const ultimasPosiciones = await pool.request().query(`
-            SELECT u.id_jornada, u.latitud, u.longitud, u.timestamp_reporte
-            FROM mam_ubicaciones_tracking u
-            INNER JOIN (
-                SELECT id_jornada, MAX(id_ubicacion) AS max_id
+            SELECT id_jornada, latitud, longitud, timestamp_reporte
+            FROM (
+                SELECT
+                    id_jornada, latitud, longitud, timestamp_reporte,
+                    ROW_NUMBER() OVER (PARTITION BY id_jornada ORDER BY timestamp_reporte DESC) AS rn
                 FROM mam_ubicaciones_tracking
                 WHERE id_jornada IN (${idsJornada.join(',')})
-                GROUP BY id_jornada
-            ) ultimo ON ultimo.id_jornada = u.id_jornada AND ultimo.max_id = u.id_ubicacion
+            ) ultimo
+            WHERE rn = 1
         `);
         const posicionPorJornada = new Map(
             ultimasPosiciones.recordset.map(p => [Number(p.id_jornada), p])
