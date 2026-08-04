@@ -1,6 +1,6 @@
 import { Box, ScrollArea, Text, TextInput, Badge, Stack, UnstyledButton, Group } from '@mantine/core';
 import { IconSearch } from '@tabler/icons-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { JornadaHoy } from '../services/tracking.service';
 
 interface FlotaPanelProps {
@@ -29,6 +29,16 @@ function tiempoRelativo(fechaIso: string): string {
 
 export function FlotaPanel({ jornadas, selectedJornadaId, onSelectJornada }: FlotaPanelProps) {
     const [busqueda, setBusqueda] = useState('');
+
+    // Fuerza un re-render cada 15s para que estadoDeJornada/tiempoRelativo se
+    // reevalúen aunque no llegue ningún evento nuevo por socket — sin esto, un
+    // muestreador sin pings nuevos se queda "En ruta" para siempre en vez de
+    // pasar a "Sin señal" al cruzar el umbral de 10 minutos.
+    const [, forceTick] = useState(0);
+    useEffect(() => {
+        const id = setInterval(() => forceTick((t) => t + 1), 15_000);
+        return () => clearInterval(id);
+    }, []);
 
     const jornadasFiltradas = useMemo(
         () => jornadas.filter((j) => j.nombre_muestreador.toLowerCase().includes(busqueda.toLowerCase())),
