@@ -28,6 +28,8 @@ export interface JornadaHoy {
     id_muestreador: number;
     nombre_muestreador: string;
     fecha_inicio: string;
+    horas_trabajadas_minutos: number;
+    km_recorridos: number;
     ultima_posicion: UltimaPosicion | null;
     fichas_hoy: FichaHoy[];
 }

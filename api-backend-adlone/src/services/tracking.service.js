@@ -1,6 +1,7 @@
 import { getConnection } from '../config/database.js';
 import { getIo } from '../utils/socketManager.js';
 import logger from '../utils/logger.js';
+import { calcularKmRecorridos } from '../utils/distanciaHelper.js';
 
 export const TRACKING_ROOM = 'hoy_en_vivo';
 
@@ -77,6 +78,24 @@ class TrackingService {
             ultimasPosiciones.recordset.map(p => [Number(p.id_jornada), p])
         );
 
+        // Historial completo de puntos por jornada (no solo el último), para
+        // sumar km recorridos con Haversine. Consulta aparte de
+        // ultimasPosiciones a propósito: son dos formas distintas de leer la
+        // misma tabla y mezclarlas complicaría esa query ya probada en
+        // producción sin necesidad real.
+        const todosLosPuntos = await pool.request().query(`
+            SELECT id_jornada, latitud, longitud
+            FROM mam_ubicaciones_tracking
+            WHERE id_jornada IN (${idsJornada.join(',')})
+            ORDER BY id_jornada, timestamp_reporte ASC
+        `);
+        const puntosPorJornada = new Map();
+        for (const p of todosLosPuntos.recordset) {
+            const idJornada = Number(p.id_jornada);
+            if (!puntosPorJornada.has(idJornada)) puntosPorJornada.set(idJornada, []);
+            puntosPorJornada.get(idJornada).push({ lat: Number(p.latitud), lon: Number(p.longitud) });
+        }
+
         // Fichas agendadas hoy (muestreo o retiro) para los muestreadores con
         // jornada activa — cubre tanto el primer muestreador como el de retiro.
         // El JOIN a App_Ma_FichaIngresoServicio_ENC (y de ahí a empresa/centro/
@@ -135,6 +154,11 @@ class TrackingService {
                 id_muestreador: idMuestreador,
                 nombre_muestreador: j.nombre_muestreador,
                 fecha_inicio: j.fecha_inicio,
+                // Minutos en vivo, no un valor fijo — la jornada sigue abierta
+                // (fecha_fin IS NULL, filtrado más arriba), así que se recalcula
+                // en cada snapshot contra la hora actual del servidor.
+                horas_trabajadas_minutos: Math.round((Date.now() - new Date(j.fecha_inicio).getTime()) / 60000),
+                km_recorridos: calcularKmRecorridos(puntosPorJornada.get(idJornada) || []),
                 ultima_posicion: posicionPorJornada.get(idJornada) || null,
                 fichas_hoy: fichasPorMuestreador.get(idMuestreador) || [],
             };

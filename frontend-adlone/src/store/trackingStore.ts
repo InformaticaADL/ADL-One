@@ -71,9 +71,9 @@ export const useTrackingStore = create<TrackingState>((set) => ({
         socket.on('posicion_actualizada', (payload: PosicionActualizadaPayload) => {
             // Solo actualiza jornadas que YA están en el snapshot cargado. Si un
             // muestreador inicia su jornada DESPUÉS de que la pantalla ya cargó
-            // el snapshot, no aparecerá hasta que se refresque manualmente —
-            // limitación aceptada para esta fase (no hay auto-refresh del set
-            // de jornadas activas, solo de su posición).
+            // el snapshot, no aparece al instante — pero HoyEnVivoPage.tsx
+            // vuelve a pedir el snapshot completo cada 60s, así que como mucho
+            // tarda ese margen en aparecer (no requiere refresco manual).
             set((state) => ({
                 jornadas: state.jornadas.map((j) =>
                     j.id_jornada === payload.id_jornada

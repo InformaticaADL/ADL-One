@@ -1,6 +1,20 @@
+import { useEffect, useState } from 'react';
 import { Drawer, Text, Timeline, Badge, Group, SimpleGrid, Box } from '@mantine/core';
 import { IconCheck, IconClock, IconMapPin } from '@tabler/icons-react';
 import type { JornadaHoy } from '../services/tracking.service';
+
+// "Horas trabajadas" se recalcula en vivo contra fecha_inicio en vez de
+// mostrar el valor fijo del último snapshot: horas_trabajadas_minutos llega
+// del backend en cada fetch (cada 60s, ver HoyEnVivoPage.tsx), pero entre un
+// fetch y otro igual queremos que el contador avance visualmente.
+function formatearHorasTrabajadas(fechaInicio: string): string {
+    const ms = Date.now() - new Date(fechaInicio).getTime();
+    if (ms < 0) return '0m';
+    const totalMin = Math.floor(ms / 60000);
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
 
 interface DetalleJornadaDrawerProps {
     jornada: JornadaHoy | null;
@@ -48,6 +62,15 @@ export function DetalleJornadaDrawer({ jornada, opened, onClose }: DetalleJornad
 
     const indiceActivo = jornada.fichas_hoy.findIndex((f) => !fichaCompletada(f));
 
+    // Fuerza un re-render cada 30s para que "Horas trabajadas" avance en vivo
+    // entre un fetch del snapshot y el siguiente (mismo patrón que
+    // FlotaPanel.tsx usa para su badge de estado/tiempo relativo).
+    const [, forceTick] = useState(0);
+    useEffect(() => {
+        const id = setInterval(() => forceTick((t) => t + 1), 30_000);
+        return () => clearInterval(id);
+    }, []);
+
     return (
         <Drawer opened={opened} onClose={onClose} position="right" size="sm" title={jornada.nombre_muestreador} zIndex={DRAWER_Z_INDEX}>
             <Group mb="md">
@@ -66,6 +89,14 @@ export function DetalleJornadaDrawer({ jornada, opened, onClose }: DetalleJornad
                     <Text fw={700}>
                         {new Date(jornada.fecha_inicio).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
                     </Text>
+                </Box>
+                <Box>
+                    <Text size="xs" c="dimmed">Horas trabajadas</Text>
+                    <Text fw={700}>{formatearHorasTrabajadas(jornada.fecha_inicio)}</Text>
+                </Box>
+                <Box>
+                    <Text size="xs" c="dimmed">Km recorridos</Text>
+                    <Text fw={700}>{jornada.km_recorridos.toFixed(1)} km</Text>
                 </Box>
             </SimpleGrid>
 

@@ -22,6 +22,13 @@ export function HoyEnVivoPage() {
 
     useEffect(() => {
         fetchSnapshot();
+        // El socket solo actualiza `ultima_posicion` (ver trackingStore.ts) —
+        // horas_trabajadas_minutos, km_recorridos, y la aparición de jornadas
+        // NUEVAS iniciadas después de abrir esta pantalla dependen de volver a
+        // pedir el snapshot completo. 60s es suficiente para que esos datos no
+        // se sientan desactualizados sin generar tráfico excesivo.
+        const id = setInterval(fetchSnapshot, 60_000);
+        return () => clearInterval(id);
     }, [fetchSnapshot]);
 
     useEffect(() => {
