@@ -94,13 +94,18 @@ export function DetalleJornadaDrawer({ jornada, opened, onClose }: DetalleJornad
                     <Text fw={700}>{jornada.fichas_hoy.length}</Text>
                 </Box>
                 <Box>
-                    <Text size="xs" c="dimmed">{finalizada ? 'Inicio · término' : 'Inicio jornada'}</Text>
+                    <Text size="xs" c="dimmed">Inicio jornada</Text>
                     <Text fw={700}>
                         {new Date(jornada.fecha_inicio).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
-                        {finalizada && jornada.fecha_fin && (
-                            <> · {new Date(jornada.fecha_fin).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}</>
-                        )}
                     </Text>
+                    {finalizada && jornada.fecha_fin && (
+                        <>
+                            <Text size="xs" c="dimmed" mt={4}>Término jornada</Text>
+                            <Text fw={700}>
+                                {new Date(jornada.fecha_fin).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
+                            </Text>
+                        </>
+                    )}
                 </Box>
                 <Box>
                     <Text size="xs" c="dimmed">Horas trabajadas</Text>
