@@ -58,7 +58,18 @@ export function DetalleJornadaDrawer({ jornada, opened, onClose }: DetalleJornad
     }, []);
 
     return (
-        <Drawer opened={opened} onClose={onClose} position="right" size="sm" title={jornada.nombre_muestreador} zIndex={DRAWER_Z_INDEX}>
+        <Drawer
+            opened={opened}
+            onClose={onClose}
+            position="right"
+            size="sm"
+            title={jornada.nombre_muestreador}
+            zIndex={DRAWER_Z_INDEX}
+            // El título del Drawer trunca con "..." por defecto (pensado para
+            // títulos cortos) — un nombre largo terminaba cortado. Se permite
+            // que ocupe más de una línea en vez de recortarlo.
+            styles={{ title: { whiteSpace: 'normal', overflow: 'visible', textOverflow: 'unset', fontWeight: 700 } }}
+        >
             <Group mb="md">
                 {finalizada ? (
                     <Badge color="blue" variant="light" leftSection={<IconFlagCheck size={12} />}>

@@ -86,15 +86,19 @@ export function FlotaPanel({ jornadas, selectedJornadaId, onSelectJornada }: Flo
                                     backgroundColor: seleccionada ? 'var(--mantine-color-blue-0)' : 'transparent',
                                 }}
                             >
-                                <Group justify="space-between" wrap="nowrap">
-                                    <Group gap={8} wrap="nowrap" style={{ minWidth: 0 }}>
-                                        <Avatar size={22} radius="xl" color="white" style={{ backgroundColor: colorPorMuestreador(j.id_muestreador), flexShrink: 0 }}>
-                                            <Text size={10} fw={700} c="white">{inicialesDe(j.nombre_muestreador)}</Text>
-                                        </Avatar>
-                                        <Text size="sm" fw={600} truncate>{j.nombre_muestreador}</Text>
-                                    </Group>
-                                    <Badge size="xs" color={estado.color} variant="dot">{estado.label}</Badge>
+                                {/* Sin truncate ni nowrap a propósito: un nombre largo o el
+                                    label "Día finalizado" terminaban cortados en "..." al
+                                    forzarlos a compartir una sola línea angosta. Se prefiere
+                                    que la card crezca en alto antes que recortar texto. */}
+                                <Group gap={8} align="flex-start" wrap="nowrap" mb={4}>
+                                    <Avatar size={22} radius="xl" color="white" style={{ backgroundColor: colorPorMuestreador(j.id_muestreador), flexShrink: 0, marginTop: 1 }}>
+                                        <Text size={10} fw={700} c="white">{inicialesDe(j.nombre_muestreador)}</Text>
+                                    </Avatar>
+                                    <Text size="sm" fw={600} style={{ flex: 1 }}>{j.nombre_muestreador}</Text>
                                 </Group>
+                                <Badge size="xs" color={estado.color} variant="dot" mb={4} style={{ alignSelf: 'flex-start' }}>
+                                    {estado.label}
+                                </Badge>
                                 <Text size="xs" c="dimmed">
                                     {j.estado === 'finalizada'
                                         ? (() => {
