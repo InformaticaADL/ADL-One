@@ -42,7 +42,7 @@ export function HoyEnVivoPage() {
 
     if (loading && jornadas.length === 0) {
         return (
-            <Center style={{ height: 'calc(100vh - 180px)' }}>
+            <Center style={{ height: '100%' }}>
                 <Loader />
             </Center>
         );
@@ -50,14 +50,14 @@ export function HoyEnVivoPage() {
 
     if (error) {
         return (
-            <Center style={{ height: 'calc(100vh - 180px)' }}>
+            <Center style={{ height: '100%' }}>
                 <Text c="red">{error}</Text>
             </Center>
         );
     }
 
     return (
-        <Box style={{ display: 'flex', height: 'calc(100vh - 180px)', minHeight: 500 }}>
+        <Box style={{ display: 'flex', height: '100%', minHeight: 500 }}>
             <FlotaPanel
                 jornadas={jornadas}
                 selectedJornadaId={selectedJornadaId}

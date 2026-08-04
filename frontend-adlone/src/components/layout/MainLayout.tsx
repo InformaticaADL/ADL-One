@@ -30,8 +30,12 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
     const [opened, { toggle, close }] = useDisclosure();
     const viewportRef = useRef<HTMLDivElement>(null);
 
-    // Modules that manage their own internal scroll per column — bypass wrapper padding/overflow
-    const isFullHeightModule = !activeSubmodule && (activeModule === 'solicitudes' || activeModule === 'chat');
+    // Modules that manage their own internal scroll per column — bypass wrapper padding/overflow.
+    // "Hoy en Vivo" needs this too: its map must fill the real available height, not a vh-minus-
+    // magic-number guess that drifts whenever the header/alert bar height changes.
+    const isFullHeightModule =
+        (!activeSubmodule && (activeModule === 'solicitudes' || activeModule === 'chat')) ||
+        activeSubmodule === 'ma-hoy-en-vivo';
 
     // Auto-close sidebar on compact view when navigating (only on terminal submodule selection)
     useEffect(() => {

@@ -21,15 +21,23 @@ function fichaCompletada(ficha: JornadaHoy['fichas_hoy'][number]): boolean {
     return esRetiroHoy ? ficha.retiro_completado === 'S' : ficha.instalacion_completado === 'S';
 }
 
+// Leaflet dibuja sus propios panes internos (tiles, overlays, markers,
+// tooltips, popups) con z-index hasta 700 dentro del propio MapContainer. El
+// Drawer de Mantine, en cambio, se monta vía Portal con su z-index por
+// defecto (~200) — más bajo que Leaflet — así que sin fijarlo explícitamente
+// por encima, el mapa termina visualmente delante del drawer en vez de
+// detrás. 1000 deja margen sobre cualquier pane de Leaflet.
+const DRAWER_Z_INDEX = 1000;
+
 export function DetalleJornadaDrawer({ jornada, opened, onClose }: DetalleJornadaDrawerProps) {
     if (!jornada) {
-        return <Drawer opened={opened} onClose={onClose} position="right" size="sm" title="Detalle" />;
+        return <Drawer opened={opened} onClose={onClose} position="right" size="sm" title="Detalle" zIndex={DRAWER_Z_INDEX} />;
     }
 
     const indiceActivo = jornada.fichas_hoy.findIndex((f) => !fichaCompletada(f));
 
     return (
-        <Drawer opened={opened} onClose={onClose} position="right" size="sm" title={jornada.nombre_muestreador}>
+        <Drawer opened={opened} onClose={onClose} position="right" size="sm" title={jornada.nombre_muestreador} zIndex={DRAWER_Z_INDEX}>
             <Group mb="md">
                 <Badge color={jornada.ultima_posicion ? 'green' : 'gray'} variant="light" leftSection={<IconMapPin size={12} />}>
                     {jornada.ultima_posicion ? 'En ruta' : 'Sin posición'}
