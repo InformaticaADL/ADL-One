@@ -8,8 +8,17 @@ interface DetalleJornadaDrawerProps {
     onClose: () => void;
 }
 
+// Una ficha Compuesta aparece en el itinerario dos días distintos (instalación
+// y retiro, con fecha_muestreo/fecha_retiro distintas) — usando la MISMA fila
+// de App_Ma_Agenda_MUESTREOS ambas veces. Si solo mirásemos "cualquiera de los
+// dos flags en 'S'", una ficha de retiro se vería "Completada" apenas se abre
+// el drawer el día del retiro, porque instalacion_completado ya quedó en 'S'
+// desde la visita anterior — antes de que el retiro realmente ocurra. Hay que
+// mirar el flag que corresponde a la visita de HOY, no cualquiera de los dos.
 function fichaCompletada(ficha: JornadaHoy['fichas_hoy'][number]): boolean {
-    return ficha.retiro_completado === 'S' || ficha.instalacion_completado === 'S';
+    const hoy = new Date().toISOString().slice(0, 10);
+    const esRetiroHoy = ficha.fecha_retiro?.slice(0, 10) === hoy;
+    return esRetiroHoy ? ficha.retiro_completado === 'S' : ficha.instalacion_completado === 'S';
 }
 
 export function DetalleJornadaDrawer({ jornada, opened, onClose }: DetalleJornadaDrawerProps) {
