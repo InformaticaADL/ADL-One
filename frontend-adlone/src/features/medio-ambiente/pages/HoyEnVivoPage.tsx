@@ -17,6 +17,7 @@ export function HoyEnVivoPage() {
         connectSocket,
         disconnectSocket,
         selectJornada,
+        reset,
     } = useTrackingStore();
 
     useEffect(() => {
@@ -26,8 +27,16 @@ export function HoyEnVivoPage() {
     useEffect(() => {
         if (!token) return;
         connectSocket(token);
-        return () => disconnectSocket();
-    }, [token, connectSocket, disconnectSocket]);
+        // Al desmontar (navegar fuera de "Hoy en Vivo"), además de cerrar el
+        // socket, se limpia el estado de jornadas/selección/error. Sin esto,
+        // un remount mostraría de inmediato las posiciones de la sesión
+        // anterior (potencialmente desactualizadas) sin indicador de carga,
+        // porque el gate de loading exige jornadas.length === 0.
+        return () => {
+            disconnectSocket();
+            reset();
+        };
+    }, [token, connectSocket, disconnectSocket, reset]);
 
     const jornadaSeleccionada = jornadas.find((j) => j.id_jornada === selectedJornadaId) ?? null;
 

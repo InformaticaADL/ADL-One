@@ -20,6 +20,7 @@ interface TrackingState {
     connectSocket: (token: string) => void;
     disconnectSocket: () => void;
     selectJornada: (id: number | null) => void;
+    reset: () => void;
 }
 
 // Conexión de socket privada de esta feature, igual al patrón ya usado en
@@ -99,4 +100,6 @@ export const useTrackingStore = create<TrackingState>((set) => ({
     },
 
     selectJornada: (id) => set({ selectedJornadaId: id }),
+
+    reset: () => set({ jornadas: [], selectedJornadaId: null, error: null }),
 }));
