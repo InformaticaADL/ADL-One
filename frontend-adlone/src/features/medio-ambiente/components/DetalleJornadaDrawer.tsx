@@ -21,6 +21,18 @@ function fichaCompletada(ficha: JornadaHoy['fichas_hoy'][number]): boolean {
     return esRetiroHoy ? ficha.retiro_completado === 'S' : ficha.instalacion_completado === 'S';
 }
 
+// Una ficha Puntual de proceso único tiene fecha_muestreo === fecha_retiro
+// (instalación y retiro el mismo día, mismo muestreador): sin esta
+// distinción, el itinerario mostraría "Instalación" o "Retiro" de forma
+// arbitraria para una visita que en realidad es una sola.
+function tipoVisitaHoy(ficha: JornadaHoy['fichas_hoy'][number]): string {
+    const hoy = new Date().toISOString().slice(0, 10);
+    const esInstalacionHoy = ficha.fecha_muestreo?.slice(0, 10) === hoy;
+    const esRetiroHoy = ficha.fecha_retiro?.slice(0, 10) === hoy;
+    if (esInstalacionHoy && esRetiroHoy) return 'Instalación y Retiro';
+    return esRetiroHoy ? 'Retiro' : 'Instalación';
+}
+
 // Leaflet dibuja sus propios panes internos (tiles, overlays, markers,
 // tooltips, popups) con z-index hasta 700 dentro del propio MapContainer. El
 // Drawer de Mantine, en cambio, se monta vía Portal con su z-index por
@@ -69,11 +81,21 @@ export function DetalleJornadaDrawer({ jornada, opened, onClose }: DetalleJornad
                             <Timeline.Item
                                 key={ficha.id_agendamam}
                                 bullet={completada ? <IconCheck size={12} /> : <IconClock size={12} />}
-                                title={ficha.frecuencia_correlativo}
+                                title={
+                                    <Group gap={6} wrap="nowrap">
+                                        <Text size="sm" fw={600}>{ficha.frecuencia_correlativo}</Text>
+                                        <Badge size="xs" variant="light" color={completada ? 'green' : 'blue'}>
+                                            {tipoVisitaHoy(ficha)}
+                                        </Badge>
+                                    </Group>
+                                }
                             >
-                                <Text size="xs" c="dimmed">
+                                <Text size="xs" c="dimmed" mb={2}>
                                     {completada ? 'Completada' : 'Pendiente'} · {ficha.hora_coordinador || '—'}
                                 </Text>
+                                {ficha.empresa && <Text size="xs">Empresa: {ficha.empresa}</Text>}
+                                {ficha.centro && <Text size="xs">Centro: {ficha.centro}</Text>}
+                                {ficha.objetivo && <Text size="xs">Objetivo: {ficha.objetivo}</Text>}
                             </Timeline.Item>
                         );
                     })}

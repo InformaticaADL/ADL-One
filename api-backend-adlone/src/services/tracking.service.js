@@ -79,6 +79,10 @@ class TrackingService {
 
         // Fichas agendadas hoy (muestreo o retiro) para los muestreadores con
         // jornada activa — cubre tanto el primer muestreador como el de retiro.
+        // El JOIN a App_Ma_FichaIngresoServicio_ENC (y de ahí a empresa/centro/
+        // objetivo) sigue el mismo patrón ya usado en ficha.service.js — es LEFT
+        // JOIN a propósito: un registro de agenda sin ficha ENC asociada todavía
+        // no debe desaparecer del mapa, solo mostrar esos datos vacíos.
         const fichasHoy = await pool.request().query(`
             SELECT
                 a.id_agendamam,
@@ -91,8 +95,15 @@ class TrackingService {
                 a.estado_caso,
                 a.instalacion_completado,
                 a.retiro_completado,
-                a.id_estadomuestreo
+                a.id_estadomuestreo,
+                c.nombre_empresa AS empresa,
+                ce.nombre_centro AS centro,
+                o.nombre_objetivomuestreo_ma AS objetivo
             FROM App_Ma_Agenda_MUESTREOS a
+            LEFT JOIN App_Ma_FichaIngresoServicio_ENC f ON a.id_fichaingresoservicio = f.id_fichaingresoservicio
+            LEFT JOIN mae_empresa c ON f.id_empresa = c.id_empresa
+            LEFT JOIN mae_centro ce ON f.id_centro = ce.id_centro
+            LEFT JOIN mae_objetivomuestreo_ma o ON f.id_objetivomuestreo_ma = o.id_objetivomuestreo_ma
             WHERE (a.id_muestreador IN (${idsMuestreador.join(',')}) OR a.id_muestreador2 IN (${idsMuestreador.join(',')}))
               AND (a.fecha_muestreo = CAST(GETDATE() AS DATE) OR a.fecha_retiro = CAST(GETDATE() AS DATE))
               AND (a.estado_caso IS NULL OR a.estado_caso <> 'CANCELADO')
@@ -101,8 +112,16 @@ class TrackingService {
 
         const fichasPorMuestreador = new Map();
         for (const ficha of fichasHoy.recordset) {
-            for (const idMuestreador of [Number(ficha.id_muestreador), Number(ficha.id_muestreador2)]) {
-                if (!idMuestreador) continue;
+            // Set, no array: en una ficha Puntual de proceso único,
+            // id_muestreador e id_muestreador2 son la MISMA persona (instalación
+            // y retiro el mismo día, mismo muestreador). Sin deduplicar, la
+            // ficha se empujaba dos veces al mismo arreglo y el correlativo
+            // aparecía repetido en el itinerario del supervisor.
+            const idsUnicos = new Set(
+                [Number(ficha.id_muestreador), Number(ficha.id_muestreador2)]
+                    .filter((id) => Number.isFinite(id) && id > 0)
+            );
+            for (const idMuestreador of idsUnicos) {
                 if (!fichasPorMuestreador.has(idMuestreador)) fichasPorMuestreador.set(idMuestreador, []);
                 fichasPorMuestreador.get(idMuestreador).push(ficha);
             }

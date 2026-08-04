@@ -18,6 +18,9 @@ export interface FichaHoy {
     instalacion_completado: string | null;
     retiro_completado: string | null;
     id_estadomuestreo: number | null;
+    empresa: string | null;
+    centro: string | null;
+    objetivo: string | null;
 }
 
 export interface JornadaHoy {

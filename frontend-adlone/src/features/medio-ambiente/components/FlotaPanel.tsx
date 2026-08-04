@@ -1,7 +1,8 @@
-import { Box, ScrollArea, Text, TextInput, Badge, Stack, UnstyledButton, Group } from '@mantine/core';
+import { Box, ScrollArea, Text, TextInput, Badge, Stack, UnstyledButton, Group, Avatar } from '@mantine/core';
 import { IconSearch } from '@tabler/icons-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { JornadaHoy } from '../services/tracking.service';
+import { colorPorMuestreador, inicialesDe } from '../utils/colorMuestreador';
 
 interface FlotaPanelProps {
     jornadas: JornadaHoy[];
@@ -82,7 +83,12 @@ export function FlotaPanel({ jornadas, selectedJornadaId, onSelectJornada }: Flo
                                 }}
                             >
                                 <Group justify="space-between" wrap="nowrap">
-                                    <Text size="sm" fw={600} truncate>{j.nombre_muestreador}</Text>
+                                    <Group gap={8} wrap="nowrap" style={{ minWidth: 0 }}>
+                                        <Avatar size={22} radius="xl" color="white" style={{ backgroundColor: colorPorMuestreador(j.id_muestreador), flexShrink: 0 }}>
+                                            <Text size={10} fw={700} c="white">{inicialesDe(j.nombre_muestreador)}</Text>
+                                        </Avatar>
+                                        <Text size="sm" fw={600} truncate>{j.nombre_muestreador}</Text>
+                                    </Group>
                                     <Badge size="xs" color={estado.color} variant="dot">{estado.label}</Badge>
                                 </Group>
                                 <Text size="xs" c="dimmed">

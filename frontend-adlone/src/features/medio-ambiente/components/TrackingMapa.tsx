@@ -3,6 +3,7 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { useEffect } from 'react';
 import type { JornadaHoy, UltimaPosicion } from '../services/tracking.service';
+import { colorPorMuestreador, inicialesDe } from '../utils/colorMuestreador';
 
 // Fix para los íconos por defecto de Leaflet, que no se resuelven bien en el
 // bundle de Vite (mismo fix ya usado en AssignmentMapView.tsx).
@@ -49,6 +50,37 @@ function CentradorMapa({ jornadas, selectedJornadaId }: { jornadas: JornadaHoy[]
     return null;
 }
 
+// Ícono a color por muestreador (en vez del pin genérico de Leaflet), con sus
+// iniciales adentro — sin esto todos los muestreadores en terreno se ven
+// como el mismo pin azul y el supervisor no puede distinguirlos de un
+// vistazo. El seleccionado se dibuja levemente más grande y con borde más
+// grueso para reforzar cuál está activo en el drawer de detalle.
+function crearIconoMuestreador(idMuestreador: number, nombre: string, seleccionado: boolean): L.DivIcon {
+    const color = colorPorMuestreador(idMuestreador);
+    const tamano = seleccionado ? 36 : 30;
+    return L.divIcon({
+        className: 'tracking-marker-icon',
+        html: `<div style="
+            width: ${tamano}px;
+            height: ${tamano}px;
+            border-radius: 50%;
+            background: ${color};
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 12px;
+            font-family: sans-serif;
+            border: ${seleccionado ? 3 : 2}px solid #fff;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+        ">${inicialesDe(nombre)}</div>`,
+        iconSize: [tamano, tamano],
+        iconAnchor: [tamano / 2, tamano / 2],
+        popupAnchor: [0, -tamano / 2],
+    });
+}
+
 export function TrackingMapa({ jornadas, selectedJornadaId, onSelectJornada }: TrackingMapaProps) {
     // Predicado de tipo (no un simple boolean) para que TypeScript realmente
     // angoste ultima_posicion a no-nulo dentro del .map() de abajo — con un
@@ -69,6 +101,7 @@ export function TrackingMapa({ jornadas, selectedJornadaId, onSelectJornada }: T
                 <Marker
                     key={j.id_jornada}
                     position={[j.ultima_posicion.latitud, j.ultima_posicion.longitud]}
+                    icon={crearIconoMuestreador(j.id_muestreador, j.nombre_muestreador, j.id_jornada === selectedJornadaId)}
                     eventHandlers={{ click: () => onSelectJornada(j.id_jornada) }}
                 >
                     <Popup>
