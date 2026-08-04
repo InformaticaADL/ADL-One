@@ -270,11 +270,31 @@ export const initScheduler = () => {
         }
     };
 
+    // --- 4. Hoy en Vivo: purga de historial GPS (retención 30 días) ---
+    const purgeTrackingHistory = async () => {
+        try {
+            const pool = await getConnection();
+            const result = await pool.request().query(`
+                DELETE FROM mam_ubicaciones_tracking
+                WHERE creado_en < DATEADD(day, -30, GETDATE())
+            `);
+            const rowsDeleted = result.rowsAffected?.[0] ?? 0;
+            if (rowsDeleted > 0) {
+                logger.info(`[Tracking Purge] Eliminadas ${rowsDeleted} posiciones GPS con más de 30 días de antigüedad.`);
+            } else {
+                logger.info('[Tracking Purge] No hay posiciones antiguas para eliminar.');
+            }
+        } catch (error) {
+            logger.error('[Tracking Purge] Error al purgar historial de ubicaciones:', error);
+        }
+    };
+
     // --- Startup Execution ---
     setTimeout(() => {
         runDailyCheck();
         pollNewRequests();
         pollMuestreosCompletados();
+        purgeTrackingHistory();
     }, 10000);
 
     setTimeout(() => {
@@ -284,6 +304,9 @@ export const initScheduler = () => {
     // --- Active Loops ---
     // Every 24 hours
     setInterval(runDailyCheck, 24 * 60 * 60 * 1000);
+
+    // Every 24 hours (Tracking history purge — retention: 30 days)
+    setInterval(purgeTrackingHistory, 24 * 60 * 60 * 1000);
 
     // Every 20 seconds (Vigilante poll)
     setInterval(pollNewRequests, 20 * 1000);
@@ -296,5 +319,5 @@ export const initScheduler = () => {
         runKpiAgent('interval');
     }, kpiAnalystConfig.orchestration.refreshIntervalMs);
 
-    logger.info('Scheduler initialized: Daily check, URS Watcher, Muestreo Completado Watcher and KPI Analyst active.');
+    logger.info('Scheduler initialized: Daily check, URS Watcher, Muestreo Completado Watcher, Tracking Purge, and KPI Analyst active.');
 };
