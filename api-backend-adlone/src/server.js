@@ -120,6 +120,24 @@ io.on('connection', (socket) => {
         socket.leave(`chat_${conversationId}`);
     });
 
+    // Hoy en Vivo: unirse a la sala de tracking en vivo solo si el usuario
+    // tiene el permiso AI_MA_HOY_EN_VIVO (embebido en el JWT decodificado en
+    // el middleware io.use de arriba — sin round-trip a BD, igual que
+    // verifyPermission en las rutas HTTP).
+    socket.on('joinTracking', () => {
+        const permissions = socket.user?.permissions || [];
+        if (!permissions.includes('AI_MA_HOY_EN_VIVO')) {
+            logger.warn(`User ${socket.user?.id} intentó unirse a hoy_en_vivo sin permiso`);
+            return;
+        }
+        socket.join('hoy_en_vivo');
+        logger.info(`User ${socket.user?.id} joined hoy_en_vivo room`);
+    });
+
+    socket.on('leaveTracking', () => {
+        socket.leave('hoy_en_vivo');
+    });
+
     // Typing indicators — delivered via user rooms (consistent with message delivery)
     socket.on('typingStart', async ({ conversationId }) => {
         try {
