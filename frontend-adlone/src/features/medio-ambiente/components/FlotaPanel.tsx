@@ -3,6 +3,7 @@ import { IconSearch } from '@tabler/icons-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { JornadaHoy } from '../services/tracking.service';
 import { colorPorMuestreador, inicialesDe } from '../utils/colorMuestreador';
+import { contarFichasCompletadas } from '../utils/fichaHoyHelpers';
 
 interface FlotaPanelProps {
     jornadas: JornadaHoy[];
@@ -13,6 +14,7 @@ interface FlotaPanelProps {
 const UMBRAL_SIN_SENAL_MS = 10 * 60 * 1000; // 10 minutos, per diseño "Hoy en Vivo"
 
 function estadoDeJornada(jornada: JornadaHoy): { label: string; color: string } {
+    if (jornada.estado === 'finalizada') return { label: 'Día finalizado', color: 'blue' };
     if (!jornada.ultima_posicion) return { label: 'Sin posición', color: 'gray' };
     const msDesdeUltimoPing = Date.now() - new Date(jornada.ultima_posicion.timestamp_reporte).getTime();
     if (msDesdeUltimoPing > UMBRAL_SIN_SENAL_MS) return { label: 'Sin señal', color: 'gray' };
@@ -51,7 +53,9 @@ export function FlotaPanel({ jornadas, selectedJornadaId, onSelectJornada }: Flo
             <Box p="sm">
                 <Group justify="space-between" mb="xs">
                     <Text fw={700} size="sm">Hoy en vivo</Text>
-                    <Badge size="sm" variant="light">{jornadas.length} en terreno</Badge>
+                    <Badge size="sm" variant="light">
+                        {jornadas.filter((j) => j.estado === 'en_ruta').length} en terreno
+                    </Badge>
                 </Group>
                 <TextInput
                     placeholder="Buscar muestreador..."
@@ -92,8 +96,13 @@ export function FlotaPanel({ jornadas, selectedJornadaId, onSelectJornada }: Flo
                                     <Badge size="xs" color={estado.color} variant="dot">{estado.label}</Badge>
                                 </Group>
                                 <Text size="xs" c="dimmed">
-                                    {j.fichas_hoy.length} ficha(s) hoy
-                                    {j.ultima_posicion && ` · act. ${tiempoRelativo(j.ultima_posicion.timestamp_reporte)}`}
+                                    {j.estado === 'finalizada'
+                                        ? (() => {
+                                              const { completadas, total } = contarFichasCompletadas(j.fichas_hoy);
+                                              return `${completadas}/${total} completadas`;
+                                          })()
+                                        : `${j.fichas_hoy.length} ficha(s) hoy`}
+                                    {j.estado === 'en_ruta' && j.ultima_posicion && ` · act. ${tiempoRelativo(j.ultima_posicion.timestamp_reporte)}`}
                                 </Text>
                             </UnstyledButton>
                         );

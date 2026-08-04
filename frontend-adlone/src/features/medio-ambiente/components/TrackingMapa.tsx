@@ -54,27 +54,39 @@ function CentradorMapa({ jornadas, selectedJornadaId }: { jornadas: JornadaHoy[]
 // iniciales adentro — sin esto todos los muestreadores en terreno se ven
 // como el mismo pin azul y el supervisor no puede distinguirlos de un
 // vistazo. El seleccionado se dibuja levemente más grande y con borde más
-// grueso para reforzar cuál está activo en el drawer de detalle.
-function crearIconoMuestreador(idMuestreador: number, nombre: string, seleccionado: boolean): L.DivIcon {
+// grueso para reforzar cuál está activo en el drawer de detalle. Un
+// muestreador con el día finalizado sigue en el mapa (última posición
+// conocida) pero atenuado y con un check, para no confundirlo con alguien
+// todavía en movimiento.
+function crearIconoMuestreador(idMuestreador: number, nombre: string, seleccionado: boolean, finalizada: boolean): L.DivIcon {
     const color = colorPorMuestreador(idMuestreador);
     const tamano = seleccionado ? 36 : 30;
     return L.divIcon({
         className: 'tracking-marker-icon',
-        html: `<div style="
-            width: ${tamano}px;
-            height: ${tamano}px;
-            border-radius: 50%;
-            background: ${color};
-            color: #fff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 12px;
-            font-family: sans-serif;
-            border: ${seleccionado ? 3 : 2}px solid #fff;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.4);
-        ">${inicialesDe(nombre)}</div>`,
+        html: `<div style="position: relative; opacity: ${finalizada ? 0.55 : 1};">
+            <div style="
+                width: ${tamano}px;
+                height: ${tamano}px;
+                border-radius: 50%;
+                background: ${color};
+                color: #fff;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: 700;
+                font-size: 12px;
+                font-family: sans-serif;
+                border: ${seleccionado ? 3 : 2}px solid #fff;
+                box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+            ">${inicialesDe(nombre)}</div>
+            ${finalizada ? `<div style="
+                position: absolute; bottom: -2px; right: -2px;
+                width: 16px; height: 16px; border-radius: 50%;
+                background: #228be6; border: 2px solid #fff;
+                display: flex; align-items: center; justify-content: center;
+                font-size: 10px; color: #fff; font-weight: 700;
+            ">✓</div>` : ''}
+        </div>`,
         iconSize: [tamano, tamano],
         iconAnchor: [tamano / 2, tamano / 2],
         popupAnchor: [0, -tamano / 2],
@@ -101,13 +113,13 @@ export function TrackingMapa({ jornadas, selectedJornadaId, onSelectJornada }: T
                 <Marker
                     key={j.id_jornada}
                     position={[j.ultima_posicion.latitud, j.ultima_posicion.longitud]}
-                    icon={crearIconoMuestreador(j.id_muestreador, j.nombre_muestreador, j.id_jornada === selectedJornadaId)}
+                    icon={crearIconoMuestreador(j.id_muestreador, j.nombre_muestreador, j.id_jornada === selectedJornadaId, j.estado === 'finalizada')}
                     eventHandlers={{ click: () => onSelectJornada(j.id_jornada) }}
                 >
                     <Popup>
                         <strong>{j.nombre_muestreador}</strong>
                         <br />
-                        Última actualización: {new Date(j.ultima_posicion.timestamp_reporte).toLocaleTimeString('es-CL')}
+                        {j.estado === 'finalizada' ? 'Día finalizado' : 'Última actualización'}: {new Date(j.ultima_posicion.timestamp_reporte).toLocaleTimeString('es-CL')}
                     </Popup>
                 </Marker>
             ))}

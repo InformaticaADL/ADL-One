@@ -26,13 +26,21 @@ class TrackingService {
     }
 
     /**
-     * Snapshot inicial para cuando un supervisor abre "Hoy en Vivo": jornadas
-     * activas de hoy, su última posición conocida, y las fichas agendadas del
-     * día (fecha_muestreo o fecha_retiro = hoy) para cada muestreador con
-     * jornada activa, ordenadas por hora. Todo en la misma BD compartida que
-     * usa la app móvil (mam_jornadas / mam_ubicaciones_tracking vienen de la
-     * fase 1 de api-app-mam; App_Ma_Agenda_MUESTREOS es la tabla existente de
-     * ADL ONE).
+     * Snapshot inicial para cuando un supervisor abre "Hoy en Vivo": el estado
+     * del día de cada muestreador que inició al menos una jornada hoy (activa
+     * O ya finalizada — un muestreador que terminó su ruta sigue visible con
+     * estado "finalizada" y su resumen del día, no desaparece del mapa/lista),
+     * su última posición conocida, y las fichas agendadas del día (fecha_
+     * muestreo o fecha_retiro = hoy), ordenadas por hora. Todo en la misma BD
+     * compartida que usa la app móvil (mam_jornadas / mam_ubicaciones_tracking
+     * vienen de la fase 1 de api-app-mam; App_Ma_Agenda_MUESTREOS es la tabla
+     * existente de ADL ONE).
+     *
+     * Un muestreador puede tener MÁS DE UNA jornada hoy (p.ej. cortó para
+     * almorzar y volvió a tocar "Iniciar Ruta"): se agrupan todas sus
+     * jornadas de hoy en una sola entrada, sumando horas/km de cada tramo por
+     * separado — así una pausa entre jornadas nunca se cuenta como distancia
+     * recorrida.
      */
     async getSnapshotHoy() {
         const pool = await getConnection();
@@ -42,11 +50,12 @@ class TrackingService {
                 j.id_jornada,
                 j.id_muestreador,
                 j.fecha_inicio,
+                j.fecha_fin,
                 m.nombre_muestreador
             FROM mam_jornadas j
             INNER JOIN mae_muestreador m ON m.id_muestreador = j.id_muestreador
-            WHERE j.fecha_fin IS NULL
-            ORDER BY j.fecha_inicio ASC
+            WHERE CAST(j.fecha_inicio AS DATE) = CAST(GETDATE() AS DATE)
+            ORDER BY j.id_muestreador, j.fecha_inicio ASC
         `);
 
         if (jornadas.recordset.length === 0) {
@@ -54,7 +63,16 @@ class TrackingService {
         }
 
         const idsJornada = jornadas.recordset.map(j => j.id_jornada);
-        const idsMuestreador = jornadas.recordset.map(j => j.id_muestreador);
+        const idsMuestreador = [...new Set(jornadas.recordset.map(j => Number(j.id_muestreador)))];
+
+        // Jornadas de hoy agrupadas por muestreador — base para agregar
+        // horas/km/estado/última posición por persona en vez de por jornada.
+        const jornadasPorMuestreador = new Map();
+        for (const j of jornadas.recordset) {
+            const idM = Number(j.id_muestreador);
+            if (!jornadasPorMuestreador.has(idM)) jornadasPorMuestreador.set(idM, []);
+            jornadasPorMuestreador.get(idM).push(j);
+        }
 
         // Última posición conocida por jornada (una fila por jornada activa).
         // Se ordena por timestamp_reporte, NO por id_ubicacion: la app móvil
@@ -146,20 +164,50 @@ class TrackingService {
             }
         }
 
-        const resultado = jornadas.recordset.map(j => {
-            const idJornada = Number(j.id_jornada);
-            const idMuestreador = Number(j.id_muestreador);
+        const resultado = [...jornadasPorMuestreador.entries()].map(([idMuestreador, jornadasDelDia]) => {
+            // Representativa para efectos de matching con el socket
+            // (posicion_actualizada llega taggeada con el id_jornada REAL y
+            // activo) y de "hora de inicio": la más reciente de hoy — si hay
+            // una activa, es esa; si todas están cerradas, es el último tramo.
+            const jornadaMasReciente = jornadasDelDia[jornadasDelDia.length - 1];
+            const activa = jornadasDelDia.find(j => j.fecha_fin === null);
+            const estado = activa ? 'en_ruta' : 'finalizada';
+
+            let horasTrabajadasMinutos = 0;
+            let kmRecorridos = 0;
+            let ultimaPosicion = null;
+            let ultimoTimestamp = null;
+
+            for (const j of jornadasDelDia) {
+                const idJornada = Number(j.id_jornada);
+                const finTramo = j.fecha_fin ? new Date(j.fecha_fin).getTime() : Date.now();
+                // Math.max(0, ...) por tramo: un reloj de dispositivo desfasado
+                // (o datos de prueba manuales) podría producir un fecha_fin
+                // anterior a fecha_inicio — mejor mostrar 0 minutos para ese
+                // tramo que un total negativo sin sentido para el supervisor.
+                horasTrabajadasMinutos += Math.max(0, Math.round((finTramo - new Date(j.fecha_inicio).getTime()) / 60000));
+                kmRecorridos += calcularKmRecorridos(puntosPorJornada.get(idJornada) || []);
+
+                const posicionTramo = posicionPorJornada.get(idJornada);
+                if (posicionTramo) {
+                    const ts = new Date(posicionTramo.timestamp_reporte).getTime();
+                    if (ultimoTimestamp === null || ts > ultimoTimestamp) {
+                        ultimoTimestamp = ts;
+                        ultimaPosicion = posicionTramo;
+                    }
+                }
+            }
+
             return {
-                id_jornada: idJornada,
+                id_jornada: Number(jornadaMasReciente.id_jornada),
                 id_muestreador: idMuestreador,
-                nombre_muestreador: j.nombre_muestreador,
-                fecha_inicio: j.fecha_inicio,
-                // Minutos en vivo, no un valor fijo — la jornada sigue abierta
-                // (fecha_fin IS NULL, filtrado más arriba), así que se recalcula
-                // en cada snapshot contra la hora actual del servidor.
-                horas_trabajadas_minutos: Math.round((Date.now() - new Date(j.fecha_inicio).getTime()) / 60000),
-                km_recorridos: calcularKmRecorridos(puntosPorJornada.get(idJornada) || []),
-                ultima_posicion: posicionPorJornada.get(idJornada) || null,
+                nombre_muestreador: jornadaMasReciente.nombre_muestreador,
+                fecha_inicio: jornadasDelDia[0].fecha_inicio,
+                fecha_fin: activa ? null : jornadaMasReciente.fecha_fin,
+                estado,
+                horas_trabajadas_minutos: horasTrabajadasMinutos,
+                km_recorridos: Math.round(kmRecorridos * 100) / 100,
+                ultima_posicion: ultimaPosicion,
                 fichas_hoy: fichasPorMuestreador.get(idMuestreador) || [],
             };
         });
