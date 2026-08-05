@@ -51,6 +51,9 @@ class TrackingService {
                 j.id_muestreador,
                 j.fecha_inicio,
                 j.fecha_fin,
+                j.motivo_fin,
+                j.bateria_inicio,
+                j.bateria_fin,
                 m.nombre_muestreador
             FROM mam_jornadas j
             INNER JOIN mae_muestreador m ON m.id_muestreador = j.id_muestreador
@@ -133,6 +136,10 @@ class TrackingService {
                 a.instalacion_completado,
                 a.retiro_completado,
                 a.id_estadomuestreo,
+                a.instalacion_hora_inicio_trabajo,
+                a.instalacion_hora_fin_trabajo,
+                a.retiro_hora_inicio_trabajo,
+                a.retiro_hora_fin_trabajo,
                 c.nombre_empresa AS empresa,
                 ce.nombre_centro AS centro,
                 o.nombre_objetivomuestreo_ma AS objetivo
@@ -146,6 +153,19 @@ class TrackingService {
               AND (a.estado_caso IS NULL OR a.estado_caso <> 'CANCELADO')
             ORDER BY a.fecha_muestreo ASC, a.hora_coordinador ASC
         `);
+
+        // Tiempo de trabajo en terreno (diagnóstico — ver migración
+        // add_tiempo_trabajo_ficha.sql en api-app-mam): usa el par retiro si
+        // esa visita llegó a registrar su propio inicio (fase 'término' real,
+        // no Puntual de proceso único), si no cae al par instalación — que es
+        // también donde queda el único inicio registrado para una ficha
+        // Puntual, aunque ambos *_hora_fin_trabajo se marquen juntos.
+        for (const ficha of fichasHoy.recordset) {
+            const inicio = ficha.retiro_hora_inicio_trabajo || ficha.instalacion_hora_inicio_trabajo;
+            const fin = ficha.retiro_hora_inicio_trabajo ? ficha.retiro_hora_fin_trabajo : ficha.instalacion_hora_fin_trabajo;
+            const minutos = (inicio && fin) ? Math.round((new Date(fin).getTime() - new Date(inicio).getTime()) / 60000) : null;
+            ficha.tiempo_trabajo_minutos = (minutos != null && minutos >= 0) ? minutos : null;
+        }
 
         const fichasPorMuestreador = new Map();
         for (const ficha of fichasHoy.recordset) {
@@ -171,7 +191,14 @@ class TrackingService {
             // una activa, es esa; si todas están cerradas, es el último tramo.
             const jornadaMasReciente = jornadasDelDia[jornadasDelDia.length - 1];
             const activa = jornadasDelDia.find(j => j.fecha_fin === null);
-            const estado = activa ? 'en_ruta' : 'finalizada';
+            // 'pausada': ninguna jornada activa, pero la más reciente se cerró
+            // con motivo_fin='pausa' (el muestreador tocó "Pausar", no
+            // "Terminar") — jornadas de antes de la migración tienen
+            // motivo_fin NULL y caen en 'finalizada', que es el comportamiento
+            // previo.
+            const estado = activa
+                ? 'en_ruta'
+                : (jornadaMasReciente.motivo_fin === 'pausa' ? 'pausada' : 'finalizada');
 
             let horasTrabajadasMinutos = 0;
             let kmRecorridos = 0;
@@ -207,6 +234,11 @@ class TrackingService {
                 estado,
                 horas_trabajadas_minutos: horasTrabajadasMinutos,
                 km_recorridos: Math.round(kmRecorridos * 100) / 100,
+                // Batería al primer inicio del día y en el tramo más reciente
+                // (activo o no) — no tiene sentido sumarla como horas/km,
+                // es un nivel puntual, no una cantidad acumulable.
+                bateria_inicio: jornadasDelDia[0].bateria_inicio,
+                bateria_fin: jornadaMasReciente.bateria_fin,
                 ultima_posicion: ultimaPosicion,
                 fichas_hoy: fichasPorMuestreador.get(idMuestreador) || [],
             };

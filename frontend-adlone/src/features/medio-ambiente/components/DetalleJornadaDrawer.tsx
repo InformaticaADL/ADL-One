@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Drawer, Text, Timeline, Badge, Group, SimpleGrid, Box } from '@mantine/core';
-import { IconCheck, IconClock, IconMapPin, IconFlagCheck } from '@tabler/icons-react';
+import { IconCheck, IconClock, IconMapPin, IconFlagCheck, IconPlayerPause, IconBattery2 } from '@tabler/icons-react';
 import type { JornadaHoy } from '../services/tracking.service';
 import { fichaCompletada, tipoVisitaHoy, contarFichasCompletadas } from '../utils/fichaHoyHelpers';
 
-// Mientras la jornada sigue activa, "Horas trabajadas" se recalcula en vivo
-// contra fecha_inicio en vez de mostrar el valor fijo del último snapshot:
-// horas_trabajadas_minutos llega del backend en cada fetch (cada 60s, ver
-// HoyEnVivoPage.tsx), pero entre un fetch y otro igual queremos que el
-// contador avance visualmente. Una jornada "finalizada" ya no avanza — se
-// muestra el total fijo que ya vino calculado del backend.
+// Mientras la jornada sigue activa ('en_ruta'), "Horas trabajadas" se
+// recalcula en vivo contra fecha_inicio en vez de mostrar el valor fijo del
+// último snapshot: horas_trabajadas_minutos llega del backend en cada fetch
+// (cada 60s, ver HoyEnVivoPage.tsx), pero entre un fetch y otro igual
+// queremos que el contador avance visualmente. 'pausada' y 'finalizada' ya
+// no avanzan — se muestra el total fijo que vino calculado del backend (para
+// 'pausada' es la suma de los tramos ya cerrados, sin contar la pausa).
 function formatearMinutos(totalMin: number): string {
     const min = Math.max(0, Math.floor(totalMin));
     const h = Math.floor(min / 60);
@@ -18,7 +19,7 @@ function formatearMinutos(totalMin: number): string {
 }
 
 function formatearHorasTrabajadas(jornada: JornadaHoy): string {
-    if (jornada.estado === 'finalizada') return formatearMinutos(jornada.horas_trabajadas_minutos);
+    if (jornada.estado !== 'en_ruta') return formatearMinutos(jornada.horas_trabajadas_minutos);
     const ms = Date.now() - new Date(jornada.fecha_inicio).getTime();
     return formatearMinutos(ms / 60000);
 }
@@ -44,12 +45,15 @@ export function DetalleJornadaDrawer({ jornada, opened, onClose }: DetalleJornad
 
     const indiceActivo = jornada.fichas_hoy.findIndex((f) => !fichaCompletada(f));
     const { completadas, total } = contarFichasCompletadas(jornada.fichas_hoy);
+    const enRuta = jornada.estado === 'en_ruta';
+    const pausada = jornada.estado === 'pausada';
     const finalizada = jornada.estado === 'finalizada';
+    const tieneBateria = jornada.bateria_inicio != null && jornada.bateria_fin != null;
 
     // Fuerza un re-render cada 30s para que "Horas trabajadas" avance en vivo
     // entre un fetch del snapshot y el siguiente (mismo patrón que
     // FlotaPanel.tsx usa para su badge de estado/tiempo relativo). No hace
-    // nada útil si la jornada ya está finalizada (el valor es fijo), pero
+    // nada útil si la jornada ya no está 'en_ruta' (el valor es fijo), pero
     // tampoco molesta — se limpia igual al desmontar.
     const [, forceTick] = useState(0);
     useEffect(() => {
@@ -71,7 +75,11 @@ export function DetalleJornadaDrawer({ jornada, opened, onClose }: DetalleJornad
             styles={{ title: { whiteSpace: 'normal', overflow: 'visible', textOverflow: 'unset', fontWeight: 700 } }}
         >
             <Group mb="md">
-                {finalizada ? (
+                {pausada ? (
+                    <Badge color="orange" variant="light" leftSection={<IconPlayerPause size={12} />}>
+                        En pausa
+                    </Badge>
+                ) : finalizada ? (
                     <Badge color="blue" variant="light" leftSection={<IconFlagCheck size={12} />}>
                         Día finalizado
                     </Badge>
@@ -82,7 +90,7 @@ export function DetalleJornadaDrawer({ jornada, opened, onClose }: DetalleJornad
                 )}
             </Group>
 
-            {finalizada && (
+            {!enRuta && (
                 <Text size="sm" fw={600} mb="md">
                     {completadas}/{total} ficha{total === 1 ? '' : 's'} completada{completadas === 1 ? '' : 's'}
                 </Text>
@@ -98,9 +106,9 @@ export function DetalleJornadaDrawer({ jornada, opened, onClose }: DetalleJornad
                     <Text fw={700}>
                         {new Date(jornada.fecha_inicio).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
                     </Text>
-                    {finalizada && jornada.fecha_fin && (
+                    {!enRuta && jornada.fecha_fin && (
                         <>
-                            <Text size="xs" c="dimmed" mt={4}>Término jornada</Text>
+                            <Text size="xs" c="dimmed" mt={4}>{pausada ? 'Pausado a las' : 'Término jornada'}</Text>
                             <Text fw={700}>
                                 {new Date(jornada.fecha_fin).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
                             </Text>
@@ -115,6 +123,15 @@ export function DetalleJornadaDrawer({ jornada, opened, onClose }: DetalleJornad
                     <Text size="xs" c="dimmed">Km recorridos</Text>
                     <Text fw={700}>{jornada.km_recorridos.toFixed(1)} km</Text>
                 </Box>
+                {tieneBateria && (
+                    <Box>
+                        <Text size="xs" c="dimmed">
+                            <IconBattery2 size={12} style={{ verticalAlign: 'text-bottom', marginRight: 2 }} />
+                            Batería
+                        </Text>
+                        <Text fw={700}>{jornada.bateria_inicio}% → {jornada.bateria_fin}%</Text>
+                    </Box>
+                )}
             </SimpleGrid>
 
             <Text size="xs" fw={700} tt="uppercase" c="dimmed" mb="xs">Itinerario de hoy</Text>
@@ -140,6 +157,7 @@ export function DetalleJornadaDrawer({ jornada, opened, onClose }: DetalleJornad
                             >
                                 <Text size="xs" c="dimmed" mb={2}>
                                     {completada ? 'Completada' : 'Pendiente'} · {ficha.hora_coordinador || '—'}
+                                    {ficha.tiempo_trabajo_minutos != null && ` · ${formatearMinutos(ficha.tiempo_trabajo_minutos)} en terreno`}
                                 </Text>
                                 {ficha.empresa && <Text size="xs">Empresa: {ficha.empresa}</Text>}
                                 {ficha.centro && <Text size="xs">Centro: {ficha.centro}</Text>}

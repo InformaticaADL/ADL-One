@@ -55,15 +55,23 @@ function CentradorMapa({ jornadas, selectedJornadaId }: { jornadas: JornadaHoy[]
 // como el mismo pin azul y el supervisor no puede distinguirlos de un
 // vistazo. El seleccionado se dibuja levemente más grande y con borde más
 // grueso para reforzar cuál está activo en el drawer de detalle. Un
-// muestreador con el día finalizado sigue en el mapa (última posición
-// conocida) pero atenuado y con un check, para no confundirlo con alguien
-// todavía en movimiento.
-function crearIconoMuestreador(idMuestreador: number, nombre: string, seleccionado: boolean, finalizada: boolean): L.DivIcon {
+// muestreador que no está 'en_ruta' (pausado o con el día finalizado) sigue
+// en el mapa (última posición conocida) pero atenuado, con una insignia
+// distinta según el motivo — para no confundirlo con alguien todavía en
+// movimiento, ni una pausa de almuerzo con el fin del día.
+function crearIconoMuestreador(idMuestreador: number, nombre: string, seleccionado: boolean, estado: JornadaHoy['estado']): L.DivIcon {
     const color = colorPorMuestreador(idMuestreador);
     const tamano = seleccionado ? 36 : 30;
+    const atenuado = estado !== 'en_ruta';
+    const insignia = estado === 'pausada'
+        ? { color: '#f08c00', simbolo: '❚❚' }
+        : estado === 'finalizada'
+            ? { color: '#228be6', simbolo: '✓' }
+            : null;
+
     return L.divIcon({
         className: 'tracking-marker-icon',
-        html: `<div style="position: relative; opacity: ${finalizada ? 0.55 : 1};">
+        html: `<div style="position: relative; opacity: ${atenuado ? 0.55 : 1};">
             <div style="
                 width: ${tamano}px;
                 height: ${tamano}px;
@@ -79,13 +87,13 @@ function crearIconoMuestreador(idMuestreador: number, nombre: string, selecciona
                 border: ${seleccionado ? 3 : 2}px solid #fff;
                 box-shadow: 0 1px 4px rgba(0,0,0,0.4);
             ">${inicialesDe(nombre)}</div>
-            ${finalizada ? `<div style="
+            ${insignia ? `<div style="
                 position: absolute; bottom: -2px; right: -2px;
                 width: 16px; height: 16px; border-radius: 50%;
-                background: #228be6; border: 2px solid #fff;
+                background: ${insignia.color}; border: 2px solid #fff;
                 display: flex; align-items: center; justify-content: center;
-                font-size: 10px; color: #fff; font-weight: 700;
-            ">✓</div>` : ''}
+                font-size: 8px; color: #fff; font-weight: 700;
+            ">${insignia.simbolo}</div>` : ''}
         </div>`,
         iconSize: [tamano, tamano],
         iconAnchor: [tamano / 2, tamano / 2],
@@ -113,13 +121,13 @@ export function TrackingMapa({ jornadas, selectedJornadaId, onSelectJornada }: T
                 <Marker
                     key={j.id_jornada}
                     position={[j.ultima_posicion.latitud, j.ultima_posicion.longitud]}
-                    icon={crearIconoMuestreador(j.id_muestreador, j.nombre_muestreador, j.id_jornada === selectedJornadaId, j.estado === 'finalizada')}
+                    icon={crearIconoMuestreador(j.id_muestreador, j.nombre_muestreador, j.id_jornada === selectedJornadaId, j.estado)}
                     eventHandlers={{ click: () => onSelectJornada(j.id_jornada) }}
                 >
                     <Popup>
                         <strong>{j.nombre_muestreador}</strong>
                         <br />
-                        {j.estado === 'finalizada' ? 'Día finalizado' : 'Última actualización'}: {new Date(j.ultima_posicion.timestamp_reporte).toLocaleTimeString('es-CL')}
+                        {j.estado === 'pausada' ? 'En pausa' : j.estado === 'finalizada' ? 'Día finalizado' : 'Última actualización'}: {new Date(j.ultima_posicion.timestamp_reporte).toLocaleTimeString('es-CL')}
                     </Popup>
                 </Marker>
             ))}

@@ -14,6 +14,7 @@ interface FlotaPanelProps {
 const UMBRAL_SIN_SENAL_MS = 10 * 60 * 1000; // 10 minutos, per diseño "Hoy en Vivo"
 
 function estadoDeJornada(jornada: JornadaHoy): { label: string; color: string } {
+    if (jornada.estado === 'pausada') return { label: 'En pausa', color: 'orange' };
     if (jornada.estado === 'finalizada') return { label: 'Día finalizado', color: 'blue' };
     if (!jornada.ultima_posicion) return { label: 'Sin posición', color: 'gray' };
     const msDesdeUltimoPing = Date.now() - new Date(jornada.ultima_posicion.timestamp_reporte).getTime();
@@ -100,7 +101,7 @@ export function FlotaPanel({ jornadas, selectedJornadaId, onSelectJornada }: Flo
                                     {estado.label}
                                 </Badge>
                                 <Text size="xs" c="dimmed">
-                                    {j.estado === 'finalizada'
+                                    {j.estado !== 'en_ruta'
                                         ? (() => {
                                               const { completadas, total } = contarFichasCompletadas(j.fichas_hoy);
                                               return `${completadas}/${total} completadas`;

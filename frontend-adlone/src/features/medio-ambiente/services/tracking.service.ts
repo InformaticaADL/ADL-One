@@ -21,6 +21,7 @@ export interface FichaHoy {
     empresa: string | null;
     centro: string | null;
     objetivo: string | null;
+    tiempo_trabajo_minutos: number | null;
 }
 
 export interface JornadaHoy {
@@ -29,9 +30,11 @@ export interface JornadaHoy {
     nombre_muestreador: string;
     fecha_inicio: string;
     fecha_fin: string | null;
-    estado: 'en_ruta' | 'finalizada';
+    estado: 'en_ruta' | 'pausada' | 'finalizada';
     horas_trabajadas_minutos: number;
     km_recorridos: number;
+    bateria_inicio: number | null;
+    bateria_fin: number | null;
     ultima_posicion: UltimaPosicion | null;
     fichas_hoy: FichaHoy[];
 }
