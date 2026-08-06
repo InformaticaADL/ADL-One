@@ -126,50 +126,108 @@ function crearIconoMuestreador(idMuestreador: number, nombre: string, selecciona
     });
 }
 
-// Duración del deslizamiento del ícono hacia la nueva posición cuando llega
-// un ping. El backend solo reporta cada ~45s (para no gastar batería/datos
-// del muestreador), así que el ícono NO se mueve de forma continua durante
-// esos 45s — pero al menos ya no "teletransporta" de golpe cada vez que llega
-// un ping nuevo: se desliza suavemente hasta el punto nuevo y luego queda
-// quieto esperando el siguiente.
-const DURACION_ANIMACION_MS = 4000;
+// El backend solo reporta un ping cada ~45s (para no gastar batería/datos
+// del muestreador), pero el ícono no tiene por qué quedarse quieto ese
+// tiempo: mientras haya dos pings reales consecutivos, se extrapola la
+// posición hacia adelante usando la velocidad de ese último tramo (estilo
+// "Uber"), como si el muestreador siguiera caminando en la misma dirección.
+// Si pasa demasiado tiempo sin un ping real que lo confirme, se deja de
+// extrapolar (no tiene sentido seguir "caminando" sobre una suposición cada
+// vez más vieja) y el ícono queda quieto en la última posición predicha.
+const MAX_EXTRAPOLACION_MS = 60_000;
 
-// Interpola la posición mostrada de un muestreador entre su última posición
-// animada y la posición objetivo recién recibida, usando un ease-out cúbico
-// (arranca rápido, llega suave) vía requestAnimationFrame. El componente que
-// llama a este hook está keyed por id_muestreador (ver TrackingMapa más
-// abajo), así que cada instancia siempre anima el mismo muestreador — no
-// hace falta detectar cambios de identidad acá.
-function usePosicionAnimada(target: [number, number]): [number, number] {
+// Cuando llega un ping real, la posición mostrada puede estar en cualquier
+// punto extrapolado (no necesariamente el último real) — en vez de saltar de
+// golpe al dato real, se funde suavemente hacia él en esta duración antes de
+// retomar la extrapolación con la nueva velocidad.
+const DURACION_CORRECCION_MS = 1500;
+
+// No hace falta re-renderizar en cada frame de 60fps para que el ojo lo vea
+// fluido a la velocidad de una persona caminando — se limita la frecuencia de
+// setState para no generar renders de más en un dashboard con varios
+// muestreadores a la vez.
+const INTERVALO_MIN_RENDER_MS = 150;
+
+interface PuntoConTiempo {
+    lat: number;
+    lon: number;
+    t: number;
+}
+
+// Anima la posición mostrada de un muestreador de forma continua entre
+// pings reales, extrapolando su trayectoria (velocidad del último tramo
+// confirmado) en vez de quedarse quieto esperando el próximo ping. El
+// componente que llama a este hook está keyed por id_muestreador (ver
+// TrackingMapa más abajo), así que cada instancia siempre corresponde al
+// mismo muestreador durante toda su vida.
+function usePosicionUber(target: [number, number], timestampReporte: string, enMovimiento: boolean): [number, number] {
+    const tInicial = new Date(timestampReporte).getTime();
     const [pos, setPos] = useState<[number, number]>(target);
     const posRef = useRef<[number, number]>(target);
+    const prevPuntoRef = useRef<PuntoConTiempo | null>(null);
+    const currPuntoRef = useRef<PuntoConTiempo>({ lat: target[0], lon: target[1], t: Number.isFinite(tInicial) ? tInicial : Date.now() });
+    const correccionRef = useRef<{ desde: [number, number]; inicio: number } | null>(null);
+    const ultimoRenderRef = useRef(0);
     const frameRef = useRef<number | undefined>(undefined);
 
+    // Llegó un ping real distinto del actual: guarda desde dónde había que
+    // corregir (la posición mostrada en este instante, sea real o
+    // extrapolada) para que el loop de animación la funda suavemente hacia
+    // el punto real nuevo, y desplaza prev/curr para recalcular la velocidad
+    // del tramo siguiente.
     useEffect(() => {
-        const inicio = posRef.current;
-        const inicioTiempo = performance.now();
-        if (frameRef.current !== undefined) cancelAnimationFrame(frameRef.current);
+        const t = new Date(timestampReporte).getTime();
+        if (!Number.isFinite(t) || t === currPuntoRef.current.t) return;
 
-        function tick(ahora: number) {
-            const t = Math.min((ahora - inicioTiempo) / DURACION_ANIMACION_MS, 1);
-            const suavizado = 1 - Math.pow(1 - t, 3);
-            const siguiente: [number, number] = [
-                inicio[0] + (target[0] - inicio[0]) * suavizado,
-                inicio[1] + (target[1] - inicio[1]) * suavizado,
-            ];
-            posRef.current = siguiente;
-            setPos(siguiente);
-            if (t < 1) {
-                frameRef.current = requestAnimationFrame(tick);
+        prevPuntoRef.current = currPuntoRef.current;
+        currPuntoRef.current = { lat: target[0], lon: target[1], t };
+        correccionRef.current = { desde: posRef.current, inicio: performance.now() };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [target[0], target[1], timestampReporte]);
+
+    useEffect(() => {
+        function tick() {
+            const curr = currPuntoRef.current;
+            const correccion = correccionRef.current;
+            let siguiente: [number, number];
+
+            if (correccion) {
+                const t = Math.min((performance.now() - correccion.inicio) / DURACION_CORRECCION_MS, 1);
+                const suavizado = 1 - Math.pow(1 - t, 3);
+                siguiente = [
+                    correccion.desde[0] + (curr.lat - correccion.desde[0]) * suavizado,
+                    correccion.desde[1] + (curr.lon - correccion.desde[1]) * suavizado,
+                ];
+                if (t >= 1) correccionRef.current = null;
+            } else if (enMovimiento && prevPuntoRef.current) {
+                const prev = prevPuntoRef.current;
+                const dtDesdePing = Date.now() - curr.t;
+                const dtTramo = curr.t - prev.t;
+                if (dtTramo > 0 && dtDesdePing < MAX_EXTRAPOLACION_MS) {
+                    const velLat = (curr.lat - prev.lat) / dtTramo;
+                    const velLon = (curr.lon - prev.lon) / dtTramo;
+                    siguiente = [curr.lat + velLat * dtDesdePing, curr.lon + velLon * dtDesdePing];
+                } else {
+                    siguiente = [curr.lat, curr.lon];
+                }
+            } else {
+                siguiente = [curr.lat, curr.lon];
             }
+
+            posRef.current = siguiente;
+            const ahora = performance.now();
+            if (ahora - ultimoRenderRef.current >= INTERVALO_MIN_RENDER_MS) {
+                ultimoRenderRef.current = ahora;
+                setPos(siguiente);
+            }
+            frameRef.current = requestAnimationFrame(tick);
         }
         frameRef.current = requestAnimationFrame(tick);
 
         return () => {
             if (frameRef.current !== undefined) cancelAnimationFrame(frameRef.current);
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [target[0], target[1]]);
+    }, [enMovimiento]);
 
     return pos;
 }
@@ -181,10 +239,11 @@ interface MarcadorMuestreadorProps {
 }
 
 function MarcadorMuestreador({ jornada, seleccionado, onSelectMuestreador }: MarcadorMuestreadorProps) {
-    const posicionAnimada = usePosicionAnimada([
-        jornada.ultima_posicion.latitud,
-        jornada.ultima_posicion.longitud,
-    ]);
+    const posicionAnimada = usePosicionUber(
+        [jornada.ultima_posicion.latitud, jornada.ultima_posicion.longitud],
+        jornada.ultima_posicion.timestamp_reporte,
+        jornada.estado === 'en_ruta'
+    );
 
     return (
         <Marker
