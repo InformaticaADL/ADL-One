@@ -1,7 +1,7 @@
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type { JornadaHoy, UltimaPosicion } from '../services/tracking.service';
 import { colorPorMuestreador, inicialesDe } from '../utils/colorMuestreador';
 
@@ -40,6 +40,31 @@ function CentradorMapa({ jornadas, selectedMuestreadorId }: { jornadas: JornadaH
         : undefined;
     const lat = jornadaSeleccionada?.ultima_posicion?.latitud;
     const lng = jornadaSeleccionada?.ultima_posicion?.longitud;
+
+    // Centrado inicial: sin esto el mapa siempre abría en CENTRO_DEFECTO
+    // (Santiago) con zoom 6, sin importar dónde esté realmente el equipo —
+    // si todos los muestreadores están en otra región, el supervisor tenía
+    // que buscar manualmente. Se ejecuta UNA sola vez, la primera vez que
+    // hay al menos una posición conocida (con el mismo cuidado de no
+    // depender del array `jornadas` completo en cada ping — solo importa la
+    // CANTIDAD de posiciones conocidas la primera vez, no cada actualización
+    // posterior). Después de ese primer ajuste, el supervisor puede navegar
+    // el mapa libremente sin que se recentre solo.
+    const yaCentroInicial = useRef(false);
+    useEffect(() => {
+        if (yaCentroInicial.current) return;
+        const posiciones = jornadas
+            .filter((j): j is JornadaHoy & { ultima_posicion: UltimaPosicion } => j.ultima_posicion !== null)
+            .map((j) => [j.ultima_posicion.latitud, j.ultima_posicion.longitud] as [number, number]);
+        if (posiciones.length === 0) return;
+
+        yaCentroInicial.current = true;
+        if (posiciones.length === 1) {
+            map.setView(posiciones[0], 13);
+        } else {
+            map.fitBounds(posiciones, { padding: [50, 50], maxZoom: 14 });
+        }
+    }, [jornadas, map]);
 
     useEffect(() => {
         if (lat !== undefined && lng !== undefined) {

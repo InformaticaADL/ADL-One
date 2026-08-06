@@ -27,6 +27,29 @@ class TrackingController {
     }
 
     /**
+     * POST /api/tracking/interno/jornada-iniciada — llamado por api-app-mam
+     * (servidor-a-servidor, protectInternalService) cuando un muestreador
+     * arranca una jornada NUEVA (no en los reintentos idempotentes de doble
+     * tap). Difunde el aviso para que "Hoy en Vivo" lo muestre sin esperar
+     * el próximo poll de 60s.
+     */
+    async recibirJornadaIniciada(req, res) {
+        try {
+            const { id_muestreador, nombre_muestreador, id_jornada, fecha_inicio } = req.body;
+
+            if (!id_muestreador || !id_jornada) {
+                return errorResponse(res, 'id_muestreador e id_jornada son requeridos', 400);
+            }
+
+            const payload = trackingService.broadcastJornadaIniciada({ id_muestreador, nombre_muestreador, id_jornada, fecha_inicio });
+            return successResponse(res, payload, 'Jornada iniciada difundida');
+        } catch (err) {
+            logger.error('Error in recibirJornadaIniciada controller:', err);
+            return errorResponse(res, 'Error al procesar el inicio de jornada', 500, err.message);
+        }
+    }
+
+    /**
      * GET /api/tracking/hoy — snapshot inicial para la pantalla "Hoy en Vivo"
      * de un supervisor. Requiere el permiso AI_MA_HOY_EN_VIVO.
      */

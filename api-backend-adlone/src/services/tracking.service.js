@@ -26,6 +26,27 @@ class TrackingService {
     }
 
     /**
+     * Recibe el aviso de api-app-mam de que un muestreador inició una
+     * jornada NUEVA y lo difunde a los supervisores conectados. A
+     * diferencia de broadcastPosicion (que solo actualiza un campo de una
+     * jornada que el frontend YA tiene en su lista), esto puede ser un
+     * muestreador que el snapshot inicial nunca cargó — el frontend
+     * reacciona pidiendo el snapshot completo de nuevo (ver trackingStore.ts),
+     * no intentando reconstruir la jornada a mano con este payload parcial.
+     */
+    broadcastJornadaIniciada({ id_muestreador, nombre_muestreador, id_jornada, fecha_inicio }) {
+        const payload = {
+            id_muestreador: Number(id_muestreador),
+            nombre_muestreador,
+            id_jornada: Number(id_jornada),
+            fecha_inicio,
+        };
+        getIo().to(TRACKING_ROOM).emit('jornada_iniciada', payload);
+        logger.info(`[Tracking] Jornada iniciada difundida: muestreador ${payload.id_muestreador} (${nombre_muestreador})`);
+        return payload;
+    }
+
+    /**
      * Snapshot inicial para cuando un supervisor abre "Hoy en Vivo": el estado
      * del día de cada muestreador que inició al menos una jornada hoy (activa
      * O ya finalizada — un muestreador que terminó su ruta sigue visible con

@@ -26,13 +26,21 @@ function calcularDistanciaKm(a, b) {
  * propósito: son repos y runtimes distintos — CJS allá, ESM acá — y es
  * lógica pura sin dependencias compartidas que valga la pena centralizar).
  *
- * Usa un punto "ancla" en vez de comparar siempre contra el punto anterior:
- * el ancla solo avanza cuando un punto se aleja más de UMBRAL_RUIDO_KM de
- * ella. Así, el ruido GPS de un dispositivo quieto (que oscila unos metros
- * de un ping a otro, siempre alrededor de la misma posición real) nunca se
- * acumula — comparar solo contra el punto inmediatamente anterior sí lo
- * acumularía, porque cada salto individual pasaría el filtro aunque el
- * conjunto no represente ningún desplazamiento real.
+ * Usa un punto "ancla" que solo avanza cuando el movimiento queda
+ * CONFIRMADO por dos puntos consecutivos, no por uno solo. Con datos reales
+ * (jornada de prueba: dispositivo quieto, 14 pings cada ~45s) se detectó que
+ * un solo ping con error de precisión — un salto aislado de ~24m que en el
+ * siguiente ping volvía a la posición original — hacía que el ancla
+ * avanzara DOS veces (ida y "vuelta"), sumando ~49m de un dispositivo que
+ * nunca se movió. La versión anterior (ancla avanza con solo un punto fuera
+ * del umbral) no distinguía ese rebote de un desplazamiento real.
+ *
+ * Regla: cuando un punto se aleja del ancla más de UMBRAL_RUIDO_KM, no se
+ * acepta todavía — queda como "pendiente". Si el SIGUIENTE punto está cerca
+ * de ese pendiente (confirma que el dispositivo realmente está ahí, no fue
+ * un rebote), el ancla avanza hasta el pendiente y se suma esa distancia. Si
+ * en cambio el siguiente punto vuelve a estar cerca del ancla original, el
+ * pendiente se descarta como ruido — nunca se contó como desplazamiento.
  *
  * @param {Array<{lat: number, lon: number}>} puntosOrdenados - deben venir
  *   ordenados por timestamp_reporte ascendente, no por id_ubicacion: el
@@ -45,12 +53,42 @@ export function calcularKmRecorridos(puntosOrdenados) {
 
     let totalKm = 0;
     let ancla = puntosOrdenados[0];
+    let pendiente = null;
+
     for (let i = 1; i < puntosOrdenados.length; i++) {
-        const distancia = calcularDistanciaKm(ancla, puntosOrdenados[i]);
-        if (distancia >= UMBRAL_RUIDO_KM) {
-            totalKm += distancia;
-            ancla = puntosOrdenados[i];
+        const punto = puntosOrdenados[i];
+        const distanciaAncla = calcularDistanciaKm(ancla, punto);
+
+        if (distanciaAncla < UMBRAL_RUIDO_KM) {
+            // De vuelta cerca del ancla: si había un pendiente esperando
+            // confirmación, era ruido (fue y volvió) — se descarta sin sumar.
+            pendiente = null;
+            continue;
+        }
+
+        if (pendiente !== null && calcularDistanciaKm(pendiente, punto) < UMBRAL_RUIDO_KM) {
+            // Segundo punto consecutivo lejos del ancla Y cerca del primero
+            // que se alejó: dos pings de acuerdo confirman que el
+            // desplazamiento es real, no un rebote de un solo ping.
+            totalKm += calcularDistanciaKm(ancla, pendiente);
+            ancla = pendiente;
+            pendiente = null;
+        } else {
+            // Primera vez que se aleja del ancla (o el pendiente previo no
+            // fue confirmado): queda como candidato a la espera del próximo punto.
+            pendiente = punto;
         }
     }
+
+    // Si el ÚLTIMO punto de la jornada quedó como pendiente sin confirmar
+    // (no hay más pings para desmentirlo ni confirmarlo), se cuenta igual —
+    // de lo contrario, el tramo más reciente de cualquier jornada corta (o
+    // el final de una larga) nunca se sumaría, porque siempre falta "un
+    // ping más" para confirmarlo. Solo se descarta un pendiente cuando un
+    // ping POSTERIOR demuestra que fue ruido (vuelve cerca del ancla).
+    if (pendiente !== null) {
+        totalKm += calcularDistanciaKm(ancla, pendiente);
+    }
+
     return Math.round(totalKm * 100) / 100;
 }

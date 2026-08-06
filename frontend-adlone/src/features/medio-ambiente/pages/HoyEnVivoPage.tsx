@@ -7,6 +7,7 @@ import { FlotaPanel } from '../components/FlotaPanel';
 import { DetalleJornadaDrawer } from '../components/DetalleJornadaDrawer';
 import { HistorialJornadasTab } from '../components/HistorialJornadasTab';
 import { AlertasSinSenal } from '../components/AlertasSinSenal';
+import { AvisoNuevaJornada } from '../components/AvisoNuevaJornada';
 
 export function HoyEnVivoPage() {
     const { token } = useAuth();
@@ -25,11 +26,12 @@ export function HoyEnVivoPage() {
 
     useEffect(() => {
         fetchSnapshot();
-        // El socket solo actualiza `ultima_posicion` (ver trackingStore.ts) —
-        // horas_trabajadas_minutos, km_recorridos, y la aparición de jornadas
-        // NUEVAS iniciadas después de abrir esta pantalla dependen de volver a
-        // pedir el snapshot completo. 60s es suficiente para que esos datos no
-        // se sientan desactualizados sin generar tráfico excesivo.
+        // El evento 'jornada_iniciada' del socket (ver trackingStore.ts) ya
+        // dispara un fetchSnapshot() apenas alguien arranca una ruta nueva, así
+        // que este poll de 60s es un respaldo — cubre horas_trabajadas_minutos/
+        // km_recorridos (que solo se recalculan en el snapshot completo, no
+        // vía socket) y cualquier evento que se haya perdido por una
+        // desconexión momentánea del socket.
         const id = setInterval(fetchSnapshot, 60_000);
         return () => clearInterval(id);
     }, [fetchSnapshot]);
@@ -89,6 +91,7 @@ export function HoyEnVivoPage() {
                                 selectedMuestreadorId={selectedMuestreadorId}
                                 onSelectMuestreador={selectMuestreador}
                             />
+                            <AvisoNuevaJornada />
                         </Box>
                         <DetalleJornadaDrawer
                             jornada={jornadaSeleccionada}

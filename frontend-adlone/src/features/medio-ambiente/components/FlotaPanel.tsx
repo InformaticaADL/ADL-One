@@ -107,7 +107,10 @@ export function FlotaPanel({ jornadas, selectedMuestreadorId, onSelectMuestreado
                                               return `${completadas}/${total} completadas`;
                                           })()
                                         : `${j.fichas_hoy.length} ficha(s) hoy`}
-                                    {j.estado === 'en_ruta' && j.ultima_posicion && ` · act. ${tiempoRelativo(j.ultima_posicion.timestamp_reporte)}`}
+                                    {/* "última señal", no "act." — la abreviatura se prestaba a
+                                        leerse como "estuvo activo/moviéndose en esos segundos"; es
+                                        solo hace cuánto llegó el último ping GPS, se mueva o no. */}
+                                    {j.estado === 'en_ruta' && j.ultima_posicion && ` · última señal ${tiempoRelativo(j.ultima_posicion.timestamp_reporte)}`}
                                 </Text>
                             </UnstyledButton>
                         );

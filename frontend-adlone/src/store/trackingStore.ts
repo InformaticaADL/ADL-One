@@ -11,6 +11,18 @@ interface PosicionActualizadaPayload {
     timestamp: string;
 }
 
+interface JornadaIniciadaPayload {
+    id_muestreador: number;
+    nombre_muestreador: string;
+    id_jornada: number;
+    fecha_inicio: string;
+}
+
+export interface AvisoJornadaIniciada {
+    id: number; // Date.now() del aviso — clave para que el componente sepa que es un aviso NUEVO aunque el nombre se repita
+    nombreMuestreador: string;
+}
+
 interface TrackingState {
     jornadas: JornadaHoy[];
     loading: boolean;
@@ -23,10 +35,15 @@ interface TrackingState {
     // se veía vacío justo cuando el supervisor más quería ver el detalle
     // (el muestreador acaba de retomar la ruta).
     selectedMuestreadorId: number | null;
+    // Último aviso de "fulano inició su ruta" para que la UI lo muestre como
+    // un toast efímero (ver AvisoNuevaJornada.tsx) — null cuando no hay nada
+    // pendiente de mostrar.
+    avisoJornadaIniciada: AvisoJornadaIniciada | null;
     fetchSnapshot: () => Promise<void>;
     connectSocket: (token: string) => void;
     disconnectSocket: () => void;
     selectMuestreador: (id: number | null) => void;
+    limpiarAvisoJornadaIniciada: () => void;
     reset: () => void;
 }
 
@@ -35,11 +52,12 @@ interface TrackingState {
 // comparte una única conexión global).
 let socket: Socket | null = null;
 
-export const useTrackingStore = create<TrackingState>((set) => ({
+export const useTrackingStore = create<TrackingState>((set, get) => ({
     jornadas: [],
     loading: false,
     error: null,
     selectedMuestreadorId: null,
+    avisoJornadaIniciada: null,
 
     fetchSnapshot: async () => {
         set({ loading: true, error: null });
@@ -78,9 +96,9 @@ export const useTrackingStore = create<TrackingState>((set) => ({
         socket.on('posicion_actualizada', (payload: PosicionActualizadaPayload) => {
             // Solo actualiza jornadas que YA están en el snapshot cargado. Si un
             // muestreador inicia su jornada DESPUÉS de que la pantalla ya cargó
-            // el snapshot, no aparece al instante — pero HoyEnVivoPage.tsx
-            // vuelve a pedir el snapshot completo cada 60s, así que como mucho
-            // tarda ese margen en aparecer (no requiere refresco manual).
+            // el snapshot, no aparece al instante por esta vía — pero el evento
+            // 'jornada_iniciada' de abajo cubre exactamente ese caso pidiendo el
+            // snapshot completo de nuevo.
             set((state) => ({
                 jornadas: state.jornadas.map((j) =>
                     j.id_jornada === payload.id_jornada
@@ -96,6 +114,22 @@ export const useTrackingStore = create<TrackingState>((set) => ({
                 ),
             }));
         });
+
+        socket.on('jornada_iniciada', (payload: JornadaIniciadaPayload) => {
+            // Se pide el snapshot COMPLETO de nuevo en vez de intentar armar la
+            // jornada a mano con este payload parcial (falta fichas_hoy, estado,
+            // etc.) — así el muestreador nuevo aparece en la lista/mapa sin
+            // esperar el próximo poll de 60s ni que el supervisor refresque la
+            // página. El aviso visual queda aparte, en avisoJornadaIniciada,
+            // para que un componente lo muestre como toast y lo descarte solo.
+            get().fetchSnapshot();
+            set({
+                avisoJornadaIniciada: {
+                    id: Date.now(),
+                    nombreMuestreador: payload.nombre_muestreador,
+                },
+            });
+        });
     },
 
     disconnectSocket: () => {
@@ -108,5 +142,7 @@ export const useTrackingStore = create<TrackingState>((set) => ({
 
     selectMuestreador: (id) => set({ selectedMuestreadorId: id }),
 
-    reset: () => set({ jornadas: [], selectedMuestreadorId: null, error: null }),
+    limpiarAvisoJornadaIniciada: () => set({ avisoJornadaIniciada: null }),
+
+    reset: () => set({ jornadas: [], selectedMuestreadorId: null, error: null, avisoJornadaIniciada: null }),
 }));
