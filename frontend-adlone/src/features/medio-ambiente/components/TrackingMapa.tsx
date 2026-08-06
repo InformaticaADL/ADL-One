@@ -1,7 +1,7 @@
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { JornadaHoy, UltimaPosicion } from '../services/tracking.service';
 import { colorPorMuestreador, inicialesDe } from '../utils/colorMuestreador';
 
@@ -126,6 +126,81 @@ function crearIconoMuestreador(idMuestreador: number, nombre: string, selecciona
     });
 }
 
+// Duración del deslizamiento del ícono hacia la nueva posición cuando llega
+// un ping. El backend solo reporta cada ~45s (para no gastar batería/datos
+// del muestreador), así que el ícono NO se mueve de forma continua durante
+// esos 45s — pero al menos ya no "teletransporta" de golpe cada vez que llega
+// un ping nuevo: se desliza suavemente hasta el punto nuevo y luego queda
+// quieto esperando el siguiente.
+const DURACION_ANIMACION_MS = 4000;
+
+// Interpola la posición mostrada de un muestreador entre su última posición
+// animada y la posición objetivo recién recibida, usando un ease-out cúbico
+// (arranca rápido, llega suave) vía requestAnimationFrame. El componente que
+// llama a este hook está keyed por id_muestreador (ver TrackingMapa más
+// abajo), así que cada instancia siempre anima el mismo muestreador — no
+// hace falta detectar cambios de identidad acá.
+function usePosicionAnimada(target: [number, number]): [number, number] {
+    const [pos, setPos] = useState<[number, number]>(target);
+    const posRef = useRef<[number, number]>(target);
+    const frameRef = useRef<number | undefined>(undefined);
+
+    useEffect(() => {
+        const inicio = posRef.current;
+        const inicioTiempo = performance.now();
+        if (frameRef.current !== undefined) cancelAnimationFrame(frameRef.current);
+
+        function tick(ahora: number) {
+            const t = Math.min((ahora - inicioTiempo) / DURACION_ANIMACION_MS, 1);
+            const suavizado = 1 - Math.pow(1 - t, 3);
+            const siguiente: [number, number] = [
+                inicio[0] + (target[0] - inicio[0]) * suavizado,
+                inicio[1] + (target[1] - inicio[1]) * suavizado,
+            ];
+            posRef.current = siguiente;
+            setPos(siguiente);
+            if (t < 1) {
+                frameRef.current = requestAnimationFrame(tick);
+            }
+        }
+        frameRef.current = requestAnimationFrame(tick);
+
+        return () => {
+            if (frameRef.current !== undefined) cancelAnimationFrame(frameRef.current);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [target[0], target[1]]);
+
+    return pos;
+}
+
+interface MarcadorMuestreadorProps {
+    jornada: JornadaHoy & { ultima_posicion: UltimaPosicion };
+    seleccionado: boolean;
+    onSelectMuestreador: (id: number) => void;
+}
+
+function MarcadorMuestreador({ jornada, seleccionado, onSelectMuestreador }: MarcadorMuestreadorProps) {
+    const posicionAnimada = usePosicionAnimada([
+        jornada.ultima_posicion.latitud,
+        jornada.ultima_posicion.longitud,
+    ]);
+
+    return (
+        <Marker
+            position={posicionAnimada}
+            icon={crearIconoMuestreador(jornada.id_muestreador, jornada.nombre_muestreador, seleccionado, jornada.estado)}
+            eventHandlers={{ click: () => onSelectMuestreador(jornada.id_muestreador) }}
+        >
+            <Popup>
+                <strong>{jornada.nombre_muestreador}</strong>
+                <br />
+                {jornada.estado === 'pausada' ? 'En pausa' : jornada.estado === 'finalizada' ? 'Día finalizado' : 'Última actualización'}: {new Date(jornada.ultima_posicion.timestamp_reporte).toLocaleTimeString('es-CL')}
+            </Popup>
+        </Marker>
+    );
+}
+
 export function TrackingMapa({ jornadas, selectedMuestreadorId, onSelectMuestreador }: TrackingMapaProps) {
     // Predicado de tipo (no un simple boolean) para que TypeScript realmente
     // angoste ultima_posicion a no-nulo dentro del .map() de abajo — con un
@@ -143,18 +218,12 @@ export function TrackingMapa({ jornadas, selectedMuestreadorId, onSelectMuestrea
             />
             <CentradorMapa jornadas={jornadas} selectedMuestreadorId={selectedMuestreadorId} />
             {conPosicion.map((j) => (
-                <Marker
+                <MarcadorMuestreador
                     key={j.id_muestreador}
-                    position={[j.ultima_posicion.latitud, j.ultima_posicion.longitud]}
-                    icon={crearIconoMuestreador(j.id_muestreador, j.nombre_muestreador, j.id_muestreador === selectedMuestreadorId, j.estado)}
-                    eventHandlers={{ click: () => onSelectMuestreador(j.id_muestreador) }}
-                >
-                    <Popup>
-                        <strong>{j.nombre_muestreador}</strong>
-                        <br />
-                        {j.estado === 'pausada' ? 'En pausa' : j.estado === 'finalizada' ? 'Día finalizado' : 'Última actualización'}: {new Date(j.ultima_posicion.timestamp_reporte).toLocaleTimeString('es-CL')}
-                    </Popup>
-                </Marker>
+                    jornada={j}
+                    seleccionado={j.id_muestreador === selectedMuestreadorId}
+                    onSelectMuestreador={onSelectMuestreador}
+                />
             ))}
         </MapContainer>
     );
