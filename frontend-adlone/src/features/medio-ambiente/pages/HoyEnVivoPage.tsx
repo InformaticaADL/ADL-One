@@ -15,11 +15,11 @@ export function HoyEnVivoPage() {
         jornadas,
         loading,
         error,
-        selectedJornadaId,
+        selectedMuestreadorId,
         fetchSnapshot,
         connectSocket,
         disconnectSocket,
-        selectJornada,
+        selectMuestreador,
         reset,
     } = useTrackingStore();
 
@@ -48,7 +48,7 @@ export function HoyEnVivoPage() {
         };
     }, [token, connectSocket, disconnectSocket, reset]);
 
-    const jornadaSeleccionada = jornadas.find((j) => j.id_jornada === selectedJornadaId) ?? null;
+    const jornadaSeleccionada = jornadas.find((j) => j.id_muestreador === selectedMuestreadorId) ?? null;
 
     return (
         <Box style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 500 }}>
@@ -80,20 +80,20 @@ export function HoyEnVivoPage() {
                     <Box style={{ display: 'flex', flex: 1, minHeight: 0 }}>
                         <FlotaPanel
                             jornadas={jornadas}
-                            selectedJornadaId={selectedJornadaId}
-                            onSelectJornada={selectJornada}
+                            selectedMuestreadorId={selectedMuestreadorId}
+                            onSelectMuestreador={selectMuestreador}
                         />
                         <Box style={{ flex: 1, position: 'relative' }}>
                             <TrackingMapa
                                 jornadas={jornadas}
-                                selectedJornadaId={selectedJornadaId}
-                                onSelectJornada={selectJornada}
+                                selectedMuestreadorId={selectedMuestreadorId}
+                                onSelectMuestreador={selectMuestreador}
                             />
                         </Box>
                         <DetalleJornadaDrawer
                             jornada={jornadaSeleccionada}
-                            opened={selectedJornadaId !== null}
-                            onClose={() => selectJornada(null)}
+                            opened={selectedMuestreadorId !== null}
+                            onClose={() => selectMuestreador(null)}
                         />
                     </Box>
                 </>

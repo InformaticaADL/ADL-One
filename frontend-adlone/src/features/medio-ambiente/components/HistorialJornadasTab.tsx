@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Group, Table, Text, TextInput, Loader, Center, Badge, ScrollArea } from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
 import { IconCalendar, IconSearch } from '@tabler/icons-react';
@@ -26,15 +26,30 @@ export function HistorialJornadasTab() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // Guard de carrera: si el usuario cambia de fecha rápido (dos requests en
+    // vuelo), sin esto podía ganar la que responde último, no la que se pidió
+    // último — dejando en pantalla el resultado de un rango que ya no es el
+    // seleccionado.
+    const solicitudActual = useRef(0);
     useEffect(() => {
         if (!fechaDesde || !fechaHasta) return;
+        const idSolicitud = ++solicitudActual.current;
         setLoading(true);
         setError(null);
         trackingService
             .getHistorial(dayjs(fechaDesde).format('YYYY-MM-DD'), dayjs(fechaHasta).format('YYYY-MM-DD'))
-            .then(setDias)
-            .catch(() => setError('No se pudo cargar el historial de jornadas.'))
-            .finally(() => setLoading(false));
+            .then((resultado) => {
+                if (idSolicitud !== solicitudActual.current) return;
+                setDias(resultado);
+            })
+            .catch(() => {
+                if (idSolicitud !== solicitudActual.current) return;
+                setError('No se pudo cargar el historial de jornadas.');
+            })
+            .finally(() => {
+                if (idSolicitud !== solicitudActual.current) return;
+                setLoading(false);
+            });
     }, [fechaDesde, fechaHasta]);
 
     const diasFiltrados = useMemo(

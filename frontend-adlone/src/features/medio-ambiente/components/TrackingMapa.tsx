@@ -22,8 +22,8 @@ const CENTRO_DEFECTO: [number, number] = [-33.4489, -70.6693]; // Santiago
 
 interface TrackingMapaProps {
     jornadas: JornadaHoy[];
-    selectedJornadaId: number | null;
-    onSelectJornada: (id: number) => void;
+    selectedMuestreadorId: number | null;
+    onSelectMuestreador: (id: number) => void;
 }
 
 // Centra el mapa en la jornada seleccionada. Depende de las coordenadas de la
@@ -33,10 +33,10 @@ interface TrackingMapaProps {
 // completo haría que el mapa se recentrara y perdiera el zoom del supervisor
 // cada vez que llega cualquier ping — no solo cuando cambia la selección o se
 // mueve la jornada seleccionada.
-function CentradorMapa({ jornadas, selectedJornadaId }: { jornadas: JornadaHoy[]; selectedJornadaId: number | null }) {
+function CentradorMapa({ jornadas, selectedMuestreadorId }: { jornadas: JornadaHoy[]; selectedMuestreadorId: number | null }) {
     const map = useMap();
-    const jornadaSeleccionada = selectedJornadaId
-        ? jornadas.find((j) => j.id_jornada === selectedJornadaId)
+    const jornadaSeleccionada = selectedMuestreadorId
+        ? jornadas.find((j) => j.id_muestreador === selectedMuestreadorId)
         : undefined;
     const lat = jornadaSeleccionada?.ultima_posicion?.latitud;
     const lng = jornadaSeleccionada?.ultima_posicion?.longitud;
@@ -45,7 +45,7 @@ function CentradorMapa({ jornadas, selectedJornadaId }: { jornadas: JornadaHoy[]
         if (lat !== undefined && lng !== undefined) {
             map.setView([lat, lng], 13);
         }
-    }, [selectedJornadaId, lat, lng, map]);
+    }, [selectedMuestreadorId, lat, lng, map]);
 
     return null;
 }
@@ -101,7 +101,7 @@ function crearIconoMuestreador(idMuestreador: number, nombre: string, selecciona
     });
 }
 
-export function TrackingMapa({ jornadas, selectedJornadaId, onSelectJornada }: TrackingMapaProps) {
+export function TrackingMapa({ jornadas, selectedMuestreadorId, onSelectMuestreador }: TrackingMapaProps) {
     // Predicado de tipo (no un simple boolean) para que TypeScript realmente
     // angoste ultima_posicion a no-nulo dentro del .map() de abajo — con un
     // filter(j => j.ultima_posicion !== null) normal, TS no propaga ese
@@ -116,13 +116,13 @@ export function TrackingMapa({ jornadas, selectedJornadaId, onSelectJornada }: T
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             />
-            <CentradorMapa jornadas={jornadas} selectedJornadaId={selectedJornadaId} />
+            <CentradorMapa jornadas={jornadas} selectedMuestreadorId={selectedMuestreadorId} />
             {conPosicion.map((j) => (
                 <Marker
-                    key={j.id_jornada}
+                    key={j.id_muestreador}
                     position={[j.ultima_posicion.latitud, j.ultima_posicion.longitud]}
-                    icon={crearIconoMuestreador(j.id_muestreador, j.nombre_muestreador, j.id_jornada === selectedJornadaId, j.estado)}
-                    eventHandlers={{ click: () => onSelectJornada(j.id_jornada) }}
+                    icon={crearIconoMuestreador(j.id_muestreador, j.nombre_muestreador, j.id_muestreador === selectedMuestreadorId, j.estado)}
+                    eventHandlers={{ click: () => onSelectMuestreador(j.id_muestreador) }}
                 >
                     <Popup>
                         <strong>{j.nombre_muestreador}</strong>

@@ -57,6 +57,24 @@ class TrackingController {
             if (!formatoFecha.test(fecha_desde) || !formatoFecha.test(fecha_hasta)) {
                 return errorResponse(res, 'fecha_desde y fecha_hasta deben tener formato YYYY-MM-DD', 400);
             }
+            // La UI ya evita esto con minDate/maxDate cruzados en los date
+            // pickers, pero el endpoint es invocable directo — sin este check
+            // un rango invertido llega tal cual al BETWEEN de SQL (que
+            // simplemente no matchea nada, no truena, pero es mejor devolver
+            // un 400 claro que un array vacío sin explicación).
+            if (fecha_desde > fecha_hasta) {
+                return errorResponse(res, 'fecha_desde no puede ser posterior a fecha_hasta', 400);
+            }
+            // Tope de amplitud: un rango de 1 año trae TODOS los puntos GPS de
+            // todas las jornadas del período a memoria solo para sumar km
+            // (ver getHistorialJornadas) — 92 días (~3 meses) cubre cualquier
+            // uso real (rendición mensual, revisión trimestral) sin abrir la
+            // puerta a una consulta arbitrariamente pesada.
+            const unDiaMs = 24 * 60 * 60 * 1000;
+            const diasDeRango = (new Date(fecha_hasta) - new Date(fecha_desde)) / unDiaMs;
+            if (diasDeRango > 92) {
+                return errorResponse(res, 'El rango no puede superar 92 días — acota la búsqueda', 400);
+            }
 
             const data = await trackingService.getHistorialJornadas({
                 fechaDesde: fecha_desde,

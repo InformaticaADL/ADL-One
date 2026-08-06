@@ -16,8 +16,15 @@ const UMBRAL_SIN_SENAL_MS = 10 * 60 * 1000;
 // termina su día.
 function estaSinSenal(jornada: JornadaHoy): boolean {
     if (jornada.estado !== 'en_ruta') return false;
-    if (!jornada.ultima_posicion) return true;
-    return Date.now() - new Date(jornada.ultima_posicion.timestamp_reporte).getTime() > UMBRAL_SIN_SENAL_MS;
+    // Sin ninguna posición todavía (recién tocó "Iniciar Ruta", el primer
+    // ping GPS puede tardar hasta ~45s, o llegar más tarde si quedó
+    // encolado offline): medir contra CUÁNDO empezó el tramo, no disparar
+    // la alerta de inmediato — antes esto era `return true` sin medir
+    // tiempo, mostrando el banner a los 30s de iniciar la ruta.
+    const referencia = jornada.ultima_posicion?.timestamp_reporte
+        ?? jornada.fecha_inicio_tramo_actual
+        ?? jornada.fecha_inicio;
+    return Date.now() - new Date(referencia).getTime() > UMBRAL_SIN_SENAL_MS;
 }
 
 interface AlertasSinSenalProps {

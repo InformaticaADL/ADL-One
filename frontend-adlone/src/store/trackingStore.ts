@@ -15,11 +15,18 @@ interface TrackingState {
     jornadas: JornadaHoy[];
     loading: boolean;
     error: string | null;
-    selectedJornadaId: number | null;
+    // Por id_muestreador, NO por id_jornada: id_jornada es "la jornada más
+    // reciente de HOY" para ese muestreador (ver tracking.service.js), y
+    // cambia de valor en cuanto pausa y reanuda — si la selección se
+    // guardara por id_jornada, el próximo poll de 60s (HoyEnVivoPage.tsx) la
+    // dejaría apuntando a un id que ya no existe en el snapshot, y el drawer
+    // se veía vacío justo cuando el supervisor más quería ver el detalle
+    // (el muestreador acaba de retomar la ruta).
+    selectedMuestreadorId: number | null;
     fetchSnapshot: () => Promise<void>;
     connectSocket: (token: string) => void;
     disconnectSocket: () => void;
-    selectJornada: (id: number | null) => void;
+    selectMuestreador: (id: number | null) => void;
     reset: () => void;
 }
 
@@ -32,7 +39,7 @@ export const useTrackingStore = create<TrackingState>((set) => ({
     jornadas: [],
     loading: false,
     error: null,
-    selectedJornadaId: null,
+    selectedMuestreadorId: null,
 
     fetchSnapshot: async () => {
         set({ loading: true, error: null });
@@ -99,7 +106,7 @@ export const useTrackingStore = create<TrackingState>((set) => ({
         }
     },
 
-    selectJornada: (id) => set({ selectedJornadaId: id }),
+    selectMuestreador: (id) => set({ selectedMuestreadorId: id }),
 
-    reset: () => set({ jornadas: [], selectedJornadaId: null, error: null }),
+    reset: () => set({ jornadas: [], selectedMuestreadorId: null, error: null }),
 }));

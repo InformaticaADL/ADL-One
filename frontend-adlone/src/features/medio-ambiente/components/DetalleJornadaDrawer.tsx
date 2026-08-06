@@ -20,8 +20,14 @@ function formatearMinutos(totalMin: number): string {
 
 function formatearHorasTrabajadas(jornada: JornadaHoy): string {
     if (jornada.estado !== 'en_ruta') return formatearMinutos(jornada.horas_trabajadas_minutos);
-    const ms = Date.now() - new Date(jornada.fecha_inicio).getTime();
-    return formatearMinutos(ms / 60000);
+    // horas_trabajadas_cerradas_minutos (tramos YA cerrados) + minutos desde
+    // que empezó el tramo ACTIVO — antes se calculaba desde jornada.
+    // fecha_inicio (el inicio del PRIMER tramo del día), así que una pausa de
+    // almuerzo se sumaba como si fuera trabajo hasta el próximo fetch del
+    // snapshot (cada 60s), donde el número "saltaba" hacia abajo de golpe.
+    const inicioTramoActual = jornada.fecha_inicio_tramo_actual ?? jornada.fecha_inicio;
+    const msTramoActual = Date.now() - new Date(inicioTramoActual).getTime();
+    return formatearMinutos(jornada.horas_trabajadas_cerradas_minutos + msTramoActual / 60000);
 }
 
 interface DetalleJornadaDrawerProps {

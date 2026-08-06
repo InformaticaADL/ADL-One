@@ -30,9 +30,16 @@ export interface JornadaHoy {
     id_muestreador: number;
     nombre_muestreador: string;
     fecha_inicio: string;
+    // Inicio del tramo ACTIVO (null si no hay ninguno abierto) — distinto de
+    // fecha_inicio, que es el inicio del PRIMER tramo del día. Junto con
+    // horas_trabajadas_cerradas_minutos, permite que el tick en vivo del
+    // frontend avance sin contar el tiempo de una pausa anterior del mismo
+    // día como si fuera trabajo.
+    fecha_inicio_tramo_actual: string | null;
     fecha_fin: string | null;
     estado: 'en_ruta' | 'pausada' | 'finalizada';
     horas_trabajadas_minutos: number;
+    horas_trabajadas_cerradas_minutos: number;
     km_recorridos: number;
     bateria_inicio: number | null;
     bateria_fin: number | null;

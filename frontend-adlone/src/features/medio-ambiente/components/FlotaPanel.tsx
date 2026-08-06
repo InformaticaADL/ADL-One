@@ -7,8 +7,8 @@ import { contarFichasCompletadas } from '../utils/fichaHoyHelpers';
 
 interface FlotaPanelProps {
     jornadas: JornadaHoy[];
-    selectedJornadaId: number | null;
-    onSelectJornada: (id: number) => void;
+    selectedMuestreadorId: number | null;
+    onSelectMuestreador: (id: number) => void;
 }
 
 const UMBRAL_SIN_SENAL_MS = 10 * 60 * 1000; // 10 minutos, per diseño "Hoy en Vivo"
@@ -31,7 +31,7 @@ function tiempoRelativo(fechaIso: string): string {
     return `hace ${horas} h`;
 }
 
-export function FlotaPanel({ jornadas, selectedJornadaId, onSelectJornada }: FlotaPanelProps) {
+export function FlotaPanel({ jornadas, selectedMuestreadorId, onSelectMuestreador }: FlotaPanelProps) {
     const [busqueda, setBusqueda] = useState('');
 
     // Fuerza un re-render cada 15s para que estadoDeJornada/tiempoRelativo se
@@ -75,11 +75,11 @@ export function FlotaPanel({ jornadas, selectedJornadaId, onSelectJornada }: Flo
                     )}
                     {jornadasFiltradas.map((j) => {
                         const estado = estadoDeJornada(j);
-                        const seleccionada = j.id_jornada === selectedJornadaId;
+                        const seleccionada = j.id_muestreador === selectedMuestreadorId;
                         return (
                             <UnstyledButton
-                                key={j.id_jornada}
-                                onClick={() => onSelectJornada(j.id_jornada)}
+                                key={j.id_muestreador}
+                                onClick={() => onSelectMuestreador(j.id_muestreador)}
                                 p="xs"
                                 style={{
                                     borderRadius: 8,

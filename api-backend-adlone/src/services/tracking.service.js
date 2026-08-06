@@ -174,23 +174,36 @@ class TrackingService {
         // tiempo por ficha activo, más preciso se vuelve solo. HAVING >= 3
         // evita mostrar un "estimado" basado en 1-2 muestras, que sería más
         // ruido que señal.
+        // El CASE de "duracion" mira retiro únicamente si ese par TIENE
+        // inicio (igual que el cálculo por ficha de arriba) — antes, si
+        // retiro_hora_inicio_trabajo estaba seteado pero faltaba el fin,
+        // caía al par instalación y metía en el promedio la duración de una
+        // visita de OTRO día (instalación), distinta de la que en realidad
+        // se estaba midiendo. duracion <= 480 (8h) descarta una ficha donde
+        // alguien olvidó cerrar el trabajo (ej. 480+ min) y que de otro modo
+        // arrastra el promedio de todo un objetivo a un número sin sentido.
         const promedios = await pool.request().query(`
             SELECT id_objetivomuestreo_ma, AVG(CAST(duracion AS FLOAT)) AS promedio_minutos, COUNT(*) AS muestras
             FROM (
                 SELECT
                     f.id_objetivomuestreo_ma,
                     CASE
-                        WHEN a.retiro_hora_inicio_trabajo IS NOT NULL AND a.retiro_hora_fin_trabajo IS NOT NULL
-                            THEN DATEDIFF(minute, a.retiro_hora_inicio_trabajo, a.retiro_hora_fin_trabajo)
-                        WHEN a.instalacion_hora_inicio_trabajo IS NOT NULL AND a.instalacion_hora_fin_trabajo IS NOT NULL
-                            THEN DATEDIFF(minute, a.instalacion_hora_inicio_trabajo, a.instalacion_hora_fin_trabajo)
-                        ELSE NULL
+                        WHEN a.retiro_hora_inicio_trabajo IS NOT NULL THEN
+                            CASE WHEN a.retiro_hora_fin_trabajo IS NOT NULL
+                                THEN DATEDIFF(minute, a.retiro_hora_inicio_trabajo, a.retiro_hora_fin_trabajo)
+                                ELSE NULL
+                            END
+                        ELSE
+                            CASE WHEN a.instalacion_hora_inicio_trabajo IS NOT NULL AND a.instalacion_hora_fin_trabajo IS NOT NULL
+                                THEN DATEDIFF(minute, a.instalacion_hora_inicio_trabajo, a.instalacion_hora_fin_trabajo)
+                                ELSE NULL
+                            END
                     END AS duracion
                 FROM App_Ma_Agenda_MUESTREOS a
                 INNER JOIN App_Ma_FichaIngresoServicio_ENC f ON a.id_fichaingresoservicio = f.id_fichaingresoservicio
                 WHERE f.id_objetivomuestreo_ma IS NOT NULL
             ) x
-            WHERE duracion IS NOT NULL AND duracion >= 0
+            WHERE duracion IS NOT NULL AND duracion >= 0 AND duracion <= 480
             GROUP BY id_objetivomuestreo_ma
             HAVING COUNT(*) >= 3
         `);
@@ -203,18 +216,36 @@ class TrackingService {
                 : null;
         }
 
+        // hoy: mismo día que ya usa el filtro SQL de fichasHoy (CAST(... AS
+        // DATE) = CAST(GETDATE() AS DATE)) — comparado en JS vía
+        // toISOString() porque database.js fija useUTC:true, así que ambas
+        // formas de calcular "hoy" coinciden (a diferencia de api-app-mam,
+        // que corre en un proceso Node aparte sin esa garantía).
+        const hoy = new Date().toISOString().slice(0, 10);
         const fichasPorMuestreador = new Map();
         for (const ficha of fichasHoy.recordset) {
-            // Set, no array: en una ficha Puntual de proceso único,
-            // id_muestreador e id_muestreador2 son la MISMA persona (instalación
-            // y retiro el mismo día, mismo muestreador). Sin deduplicar, la
-            // ficha se empujaba dos veces al mismo arreglo y el correlativo
-            // aparecía repetido en el itinerario del supervisor.
-            const idsUnicos = new Set(
-                [Number(ficha.id_muestreador), Number(ficha.id_muestreador2)]
-                    .filter((id) => Number.isFinite(id) && id > 0)
-            );
-            for (const idMuestreador of idsUnicos) {
+            const diaMuestreo = ficha.fecha_muestreo ? new Date(ficha.fecha_muestreo).toISOString().slice(0, 10) : null;
+            const diaRetiro = ficha.fecha_retiro ? new Date(ficha.fecha_retiro).toISOString().slice(0, 10) : null;
+            const idInstalador = Number(ficha.id_muestreador) || null;
+            // id_muestreador2 NULL significa "el mismo muestreador hace
+            // instalación y retiro" (mismo criterio usado en el geofence de
+            // api-app-mam) — sin este fallback, el retiro de una ficha así
+            // nunca se le asignaba a nadie.
+            const idRetirador = Number(ficha.id_muestreador2) || idInstalador;
+
+            // Antes esto asignaba la ficha a AMBOS id_muestreador/id_muestreador2
+            // sin mirar si el rol de cada uno correspondía a HOY — un
+            // muestreador de instalación (fecha_muestreo de otro día) y un
+            // muestreador de retiro (fecha_retiro = hoy) en la MISMA ficha
+            // Compuesta terminaban viendo la ficha del otro en su propio
+            // itinerario, con el badge/estado de completado que no les
+            // correspondía. El Set sigue deduplicando el caso Puntual (mismo
+            // muestreador, mismo día, ambos roles).
+            const idsAAgregar = new Set();
+            if (diaMuestreo === hoy && idInstalador) idsAAgregar.add(idInstalador);
+            if (diaRetiro === hoy && idRetirador) idsAAgregar.add(idRetirador);
+
+            for (const idMuestreador of idsAAgregar) {
                 if (!fichasPorMuestreador.has(idMuestreador)) fichasPorMuestreador.set(idMuestreador, []);
                 fichasPorMuestreador.get(idMuestreador).push(ficha);
             }
@@ -226,7 +257,17 @@ class TrackingService {
             // activo) y de "hora de inicio": la más reciente de hoy — si hay
             // una activa, es esa; si todas están cerradas, es el último tramo.
             const jornadaMasReciente = jornadasDelDia[jornadasDelDia.length - 1];
-            const activa = jornadasDelDia.find(j => j.fecha_fin === null);
+            // De las jornadas ABIERTAS, la de fecha_inicio más reciente — no
+            // "la primera que aparezca" (jornadasDelDia viene ASC por
+            // fecha_inicio, así que un .find() ingenuo se queda con la más
+            // VIEJA). En teoría solo puede haber una jornada abierta a la vez
+            // por el índice único filtrado del lado api-app-mam, pero si por
+            // cualquier motivo hubiera más de una, la más vieja sería una
+            // jornada huérfana (app matada sin terminar) y no debería
+            // "secuestrar" el estado del día — sus horas quedarían creciendo
+            // para siempre si la tratáramos como la activa real.
+            const abiertas = jornadasDelDia.filter(j => j.fecha_fin === null);
+            const activa = abiertas.length > 0 ? abiertas[abiertas.length - 1] : undefined;
             // 'pausada': ninguna jornada activa, pero la más reciente se cerró
             // con motivo_fin='pausa' (el muestreador tocó "Pausar", no
             // "Terminar") — jornadas de antes de la migración tienen
@@ -237,18 +278,28 @@ class TrackingService {
                 : (jornadaMasReciente.motivo_fin === 'pausa' ? 'pausada' : 'finalizada');
 
             let horasTrabajadasMinutos = 0;
+            // Suma solo de tramos YA CERRADOS (excluye el activo) — el
+            // frontend usa esto + un tick en vivo desde fecha_inicio_tramo_
+            // actual para que "horas trabajadas" avance sin contar el tiempo
+            // de una pausa anterior del mismo día (antes usaba fecha_inicio
+            // del PRIMER tramo del día para el tick en vivo, así que una
+            // pausa de mediodía se sumaba como si fuera trabajo).
+            let horasTrabajadasCerradasMinutos = 0;
             let kmRecorridos = 0;
             let ultimaPosicion = null;
             let ultimoTimestamp = null;
 
             for (const j of jornadasDelDia) {
                 const idJornada = Number(j.id_jornada);
+                const esTramoActivo = activa && Number(j.id_jornada) === Number(activa.id_jornada);
                 const finTramo = j.fecha_fin ? new Date(j.fecha_fin).getTime() : Date.now();
                 // Math.max(0, ...) por tramo: un reloj de dispositivo desfasado
                 // (o datos de prueba manuales) podría producir un fecha_fin
                 // anterior a fecha_inicio — mejor mostrar 0 minutos para ese
                 // tramo que un total negativo sin sentido para el supervisor.
-                horasTrabajadasMinutos += Math.max(0, Math.round((finTramo - new Date(j.fecha_inicio).getTime()) / 60000));
+                const minutosTramo = Math.max(0, Math.round((finTramo - new Date(j.fecha_inicio).getTime()) / 60000));
+                horasTrabajadasMinutos += minutosTramo;
+                if (!esTramoActivo) horasTrabajadasCerradasMinutos += minutosTramo;
                 kmRecorridos += calcularKmRecorridos(puntosPorJornada.get(idJornada) || []);
 
                 const posicionTramo = posicionPorJornada.get(idJornada);
@@ -266,9 +317,11 @@ class TrackingService {
                 id_muestreador: idMuestreador,
                 nombre_muestreador: jornadaMasReciente.nombre_muestreador,
                 fecha_inicio: jornadasDelDia[0].fecha_inicio,
+                fecha_inicio_tramo_actual: activa ? activa.fecha_inicio : null,
                 fecha_fin: activa ? null : jornadaMasReciente.fecha_fin,
                 estado,
                 horas_trabajadas_minutos: horasTrabajadasMinutos,
+                horas_trabajadas_cerradas_minutos: horasTrabajadasCerradasMinutos,
                 km_recorridos: Math.round(kmRecorridos * 100) / 100,
                 // Batería al primer inicio del día y en el tramo más reciente
                 // (activo o no) — no tiene sentido sumarla como horas/km,
@@ -377,12 +430,17 @@ class TrackingService {
         for (const ficha of fichasRango.recordset) {
             const diaMuestreo = ficha.fecha_muestreo ? new Date(ficha.fecha_muestreo).toISOString().slice(0, 10) : null;
             const diaRetiro = ficha.fecha_retiro ? new Date(ficha.fecha_retiro).toISOString().slice(0, 10) : null;
+            const idInstalador = Number(ficha.id_muestreador) || null;
+            // id_muestreador2 NULL => el mismo muestreador cubre ambos roles
+            // (mismo criterio que getSnapshotHoy y el geofence) — sin esto el
+            // retiro de esa ficha no se contaba para nadie en el historial.
+            const idRetirador = Number(ficha.id_muestreador2) || idInstalador;
             const eventos = [];
-            if (diaMuestreo && ficha.id_muestreador) {
-                eventos.push({ idM: Number(ficha.id_muestreador), dia: diaMuestreo, completada: ficha.instalacion_completado === 'S' });
+            if (diaMuestreo && idInstalador) {
+                eventos.push({ idM: idInstalador, dia: diaMuestreo, completada: ficha.instalacion_completado === 'S' });
             }
-            if (diaRetiro && ficha.id_muestreador2) {
-                eventos.push({ idM: Number(ficha.id_muestreador2), dia: diaRetiro, completada: ficha.retiro_completado === 'S' });
+            if (diaRetiro && idRetirador) {
+                eventos.push({ idM: idRetirador, dia: diaRetiro, completada: ficha.retiro_completado === 'S' });
             }
             // Dedup: Puntual de proceso único repite mismo muestreador+día en
             // ambos eventos (instalación y retiro son la misma visita).
@@ -395,13 +453,27 @@ class TrackingService {
             }
         }
 
+        const hoy = new Date().toISOString().slice(0, 10);
         const resultado = [...jornadasPorDia.values()].map(({ idMuestreador, dia, jornadas: jornadasDelDia }) => {
             let horasTrabajadasMinutos = 0;
             let kmRecorridos = 0;
 
             for (const j of jornadasDelDia) {
                 const idJornada = Number(j.id_jornada);
-                const finTramo = j.fecha_fin ? new Date(j.fecha_fin).getTime() : Date.now();
+                let finTramo;
+                if (j.fecha_fin) {
+                    finTramo = new Date(j.fecha_fin).getTime();
+                } else if (dia === hoy) {
+                    // Hoy: sigue corriendo de verdad, Date.now() es correcto.
+                    finTramo = Date.now();
+                } else {
+                    // Un tramo de un día PASADO que nunca se cerró (batería
+                    // muerta, app matada sin volver a abrirla) — sin este cap,
+                    // Date.now() seguía creciendo cada vez que alguien mira el
+                    // historial, mostrando más y más horas para un día que ya
+                    // terminó hace tiempo. Se acota al fin de ese día.
+                    finTramo = new Date(`${dia}T23:59:59`).getTime();
+                }
                 horasTrabajadasMinutos += Math.max(0, Math.round((finTramo - new Date(j.fecha_inicio).getTime()) / 60000));
                 kmRecorridos += calcularKmRecorridos(puntosPorJornada.get(idJornada) || []);
             }
