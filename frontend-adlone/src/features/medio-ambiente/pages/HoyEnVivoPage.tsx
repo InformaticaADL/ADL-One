@@ -6,6 +6,7 @@ import { TrackingMapa } from '../components/TrackingMapa';
 import { FlotaPanel } from '../components/FlotaPanel';
 import { DetalleJornadaDrawer } from '../components/DetalleJornadaDrawer';
 import { HistorialJornadasTab } from '../components/HistorialJornadasTab';
+import { AlertasSinSenal } from '../components/AlertasSinSenal';
 
 export function HoyEnVivoPage() {
     const { token } = useAuth();
@@ -74,25 +75,28 @@ export function HoyEnVivoPage() {
                     <Text c="red">{error}</Text>
                 </Center>
             ) : (
-                <Box style={{ display: 'flex', flex: 1, minHeight: 0 }}>
-                    <FlotaPanel
-                        jornadas={jornadas}
-                        selectedJornadaId={selectedJornadaId}
-                        onSelectJornada={selectJornada}
-                    />
-                    <Box style={{ flex: 1, position: 'relative' }}>
-                        <TrackingMapa
+                <>
+                    <AlertasSinSenal jornadas={jornadas} />
+                    <Box style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+                        <FlotaPanel
                             jornadas={jornadas}
                             selectedJornadaId={selectedJornadaId}
                             onSelectJornada={selectJornada}
                         />
+                        <Box style={{ flex: 1, position: 'relative' }}>
+                            <TrackingMapa
+                                jornadas={jornadas}
+                                selectedJornadaId={selectedJornadaId}
+                                onSelectJornada={selectJornada}
+                            />
+                        </Box>
+                        <DetalleJornadaDrawer
+                            jornada={jornadaSeleccionada}
+                            opened={selectedJornadaId !== null}
+                            onClose={() => selectJornada(null)}
+                        />
                     </Box>
-                    <DetalleJornadaDrawer
-                        jornada={jornadaSeleccionada}
-                        opened={selectedJornadaId !== null}
-                        onClose={() => selectJornada(null)}
-                    />
-                </Box>
+                </>
             )}
         </Box>
     );
