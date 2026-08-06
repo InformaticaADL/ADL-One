@@ -64,6 +64,25 @@ test('un desplazamiento real de dos tramos confirmados por puntos consecutivos s
     assert.ok(km > 0.1, `esperaba > 0.1 (movimiento confirmado), obtuvo ${km}`);
 });
 
+test('caminata continua (cada ping >20m del anterior) se acumula tramo a tramo', () => {
+    // A ~1.4 m/s (paso normal) y 45s entre pings, dos pings consecutivos
+    // quedan a ~60-65m entre sí durante una caminata real — muy por encima
+    // del umbral de 20m. La v1 de la confirmación exigía que el punto
+    // siguiente estuviera cerca del PENDIENTE (no del ancla), así que en
+    // este escenario el ancla nunca avanzaba: cada punto se reemplazaba como
+    // "pendiente" sin confirmarse nunca entre sí. Este test fija el
+    // comportamiento correcto (confirma contra el ancla, no contra el
+    // pendiente) para que no se rompa de nuevo.
+    const puntos = [
+        { lat: 0, lon: 0 },
+        { lat: 0, lon: 0.00057 }, // ~63m
+        { lat: 0, lon: 0.00114 }, // ~63m más
+        { lat: 0, lon: 0.00171 }, // ~63m más
+    ];
+    const km = calcularKmRecorridos(puntos);
+    assert.ok(km > 0.15 && km < 0.22, `esperaba ~0.19km (3 tramos de ~63m), obtuvo ${km}`);
+});
+
 test('ida y vuelta CONFIRMADA (varios puntos en el destino) suma el recorrido real', () => {
     const puntos = [
         { lat: 0, lon: 0 },
