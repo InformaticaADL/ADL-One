@@ -126,15 +126,19 @@ function crearIconoMuestreador(idMuestreador: number, nombre: string, selecciona
     });
 }
 
-// El backend solo reporta un ping cada ~45s (para no gastar batería/datos
-// del muestreador), pero el ícono no tiene por qué quedarse quieto ese
-// tiempo: mientras haya dos pings reales consecutivos, se extrapola la
-// posición hacia adelante usando la velocidad de ese último tramo (estilo
-// "Uber"), como si el muestreador siguiera caminando en la misma dirección.
-// Si pasa demasiado tiempo sin un ping real que lo confirme, se deja de
-// extrapolar (no tiene sentido seguir "caminando" sobre una suposición cada
-// vez más vieja) y el ícono queda quieto en la última posición predicha.
-const MAX_EXTRAPOLACION_MS = 60_000;
+// El backend solo reporta un ping cada ~30s (INTERVALO_REPORTE_MS en
+// app-mam/utils/trackingHelper.js, para no gastar batería/datos del
+// muestreador), pero el ícono no tiene por qué quedarse quieto ese tiempo:
+// mientras haya dos pings reales consecutivos, se extrapola la posición
+// hacia adelante usando la velocidad de ese último tramo (estilo "Uber"),
+// como si el muestreador siguiera caminando en la misma dirección. Si pasa
+// demasiado tiempo sin un ping real que lo confirme, se deja de extrapolar
+// (no tiene sentido seguir "caminando" sobre una suposición cada vez más
+// vieja) y el ícono queda quieto en la última posición predicha. Se fija en
+// ~1.3x el intervalo real: suficiente margen para un ping levemente atrasado
+// sin dejar que la extrapolación se estire mucho más allá de lo que el
+// backend puede confirmar.
+const MAX_EXTRAPOLACION_MS = 40_000;
 
 // Cuando llega un ping real, la posición mostrada puede estar en cualquier
 // punto extrapolado (no necesariamente el último real) — en vez de saltar de
