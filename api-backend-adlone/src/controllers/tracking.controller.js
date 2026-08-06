@@ -39,6 +39,36 @@ class TrackingController {
             return errorResponse(res, 'Error al obtener el snapshot de seguimiento', 500, err.message);
         }
     }
+
+    /**
+     * GET /api/tracking/historial?fecha_desde=YYYY-MM-DD&fecha_hasta=YYYY-MM-DD&id_muestreador=123
+     * Historial de jornadas por día, dentro de "Hoy en Vivo" (pestaña
+     * Historial). Mismo permiso que el snapshot en vivo — es la misma
+     * pantalla, no una sección aparte con control de acceso propio.
+     */
+    async getHistorial(req, res) {
+        try {
+            const { fecha_desde, fecha_hasta, id_muestreador } = req.query;
+
+            if (!fecha_desde || !fecha_hasta) {
+                return errorResponse(res, 'fecha_desde y fecha_hasta son requeridos (YYYY-MM-DD)', 400);
+            }
+            const formatoFecha = /^\d{4}-\d{2}-\d{2}$/;
+            if (!formatoFecha.test(fecha_desde) || !formatoFecha.test(fecha_hasta)) {
+                return errorResponse(res, 'fecha_desde y fecha_hasta deben tener formato YYYY-MM-DD', 400);
+            }
+
+            const data = await trackingService.getHistorialJornadas({
+                fechaDesde: fecha_desde,
+                fechaHasta: fecha_hasta,
+                idMuestreador: id_muestreador ? Number(id_muestreador) : undefined,
+            });
+            return successResponse(res, data, 'Historial obtenido');
+        } catch (err) {
+            logger.error('Error in getHistorial controller:', err);
+            return errorResponse(res, 'Error al obtener el historial de jornadas', 500, err.message);
+        }
+    }
 }
 
 export default new TrackingController();

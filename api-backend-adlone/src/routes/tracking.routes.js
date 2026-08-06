@@ -8,5 +8,6 @@ const router = express.Router();
 
 router.post('/interno/posicion', protectInternalService, trackingController.recibirPosicion);
 router.get('/hoy', authenticate, verifyPermission('AI_MA_HOY_EN_VIVO'), trackingController.getSnapshot);
+router.get('/historial', authenticate, verifyPermission('AI_MA_HOY_EN_VIVO'), trackingController.getHistorial);
 
 export default router;

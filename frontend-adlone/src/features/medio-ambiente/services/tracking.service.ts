@@ -39,9 +39,29 @@ export interface JornadaHoy {
     fichas_hoy: FichaHoy[];
 }
 
+export interface HistorialDia {
+    id_muestreador: number;
+    nombre_muestreador: string;
+    dia: string; // 'YYYY-MM-DD'
+    num_jornadas: number;
+    horas_trabajadas_minutos: number;
+    km_recorridos: number;
+    bateria_inicio: number | null;
+    bateria_fin: number | null;
+    fichas_completadas: number;
+    fichas_total: number;
+}
+
 export const trackingService = {
     getSnapshotHoy: async (): Promise<JornadaHoy[]> => {
         const response = await apiClient.get('/api/tracking/hoy');
         return response.data.data.jornadas;
+    },
+
+    getHistorial: async (fechaDesde: string, fechaHasta: string): Promise<HistorialDia[]> => {
+        const response = await apiClient.get('/api/tracking/historial', {
+            params: { fecha_desde: fechaDesde, fecha_hasta: fechaHasta },
+        });
+        return response.data.data.dias;
     },
 };

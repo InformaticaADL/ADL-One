@@ -246,6 +246,150 @@ class TrackingService {
 
         return { jornadas: resultado };
     }
+
+    /**
+     * Historial de jornadas por día — a diferencia de getSnapshotHoy (siempre
+     * "hoy", con estado en vivo), esto es retrospectivo: agrupa por
+     * (muestreador, día calendario de fecha_inicio) dentro del rango pedido,
+     * sin importar si esas jornadas siguen activas o no. Reutiliza la misma
+     * idea de "un día puede tener varias jornadas" (pausas de almuerzo, etc.)
+     * sumando horas/km por tramo por separado.
+     * @param {{fechaDesde: string, fechaHasta: string, idMuestreador?: number}} filtros - fechas 'YYYY-MM-DD'
+     */
+    async getHistorialJornadas({ fechaDesde, fechaHasta, idMuestreador }) {
+        const pool = await getConnection();
+
+        const reqJornadas = pool.request()
+            .input('fechaDesde', fechaDesde)
+            .input('fechaHasta', fechaHasta);
+        if (idMuestreador) reqJornadas.input('idMuestreador', idMuestreador);
+
+        const jornadas = await reqJornadas.query(`
+            SELECT
+                j.id_jornada,
+                j.id_muestreador,
+                j.fecha_inicio,
+                j.fecha_fin,
+                j.bateria_inicio,
+                j.bateria_fin,
+                m.nombre_muestreador
+            FROM mam_jornadas j
+            INNER JOIN mae_muestreador m ON m.id_muestreador = j.id_muestreador
+            WHERE CAST(j.fecha_inicio AS DATE) BETWEEN @fechaDesde AND @fechaHasta
+            ${idMuestreador ? 'AND j.id_muestreador = @idMuestreador' : ''}
+            ORDER BY j.id_muestreador, CAST(j.fecha_inicio AS DATE), j.fecha_inicio ASC
+        `);
+
+        if (jornadas.recordset.length === 0) {
+            return { dias: [] };
+        }
+
+        const idsJornada = jornadas.recordset.map(j => j.id_jornada);
+        const idsMuestreador = [...new Set(jornadas.recordset.map(j => Number(j.id_muestreador)))];
+
+        // Jornadas agrupadas por (muestreador, día calendario de fecha_inicio)
+        // — cada combinación es una fila del historial.
+        const jornadasPorDia = new Map();
+        for (const j of jornadas.recordset) {
+            const idM = Number(j.id_muestreador);
+            const dia = new Date(j.fecha_inicio).toISOString().slice(0, 10);
+            const clave = `${idM}|${dia}`;
+            if (!jornadasPorDia.has(clave)) jornadasPorDia.set(clave, { idMuestreador: idM, dia, jornadas: [] });
+            jornadasPorDia.get(clave).jornadas.push(j);
+        }
+
+        const todosLosPuntos = await pool.request().query(`
+            SELECT id_jornada, latitud, longitud
+            FROM mam_ubicaciones_tracking
+            WHERE id_jornada IN (${idsJornada.join(',')})
+            ORDER BY id_jornada, timestamp_reporte ASC
+        `);
+        const puntosPorJornada = new Map();
+        for (const p of todosLosPuntos.recordset) {
+            const id = Number(p.id_jornada);
+            if (!puntosPorJornada.has(id)) puntosPorJornada.set(id, []);
+            puntosPorJornada.get(id).push({ lat: Number(p.latitud), lon: Number(p.longitud) });
+        }
+
+        // Fichas del rango para contar completadas/total por día — mismo
+        // patrón de dedup que getSnapshotHoy (una ficha Puntual de proceso
+        // único cuenta una sola vez, no una por rol), aplicado por cada
+        // combinación (muestreador, día) en vez de solo "hoy".
+        const fichasRango = await pool.request()
+            .input('fechaDesde', fechaDesde)
+            .input('fechaHasta', fechaHasta)
+            .query(`
+                SELECT a.id_muestreador, a.id_muestreador2, a.fecha_muestreo, a.fecha_retiro,
+                       a.instalacion_completado, a.retiro_completado, a.estado_caso
+                FROM App_Ma_Agenda_MUESTREOS a
+                WHERE (a.id_muestreador IN (${idsMuestreador.join(',')}) OR a.id_muestreador2 IN (${idsMuestreador.join(',')}))
+                  AND (
+                    CAST(a.fecha_muestreo AS DATE) BETWEEN @fechaDesde AND @fechaHasta
+                    OR CAST(a.fecha_retiro AS DATE) BETWEEN @fechaDesde AND @fechaHasta
+                  )
+                  AND (a.estado_caso IS NULL OR a.estado_caso <> 'CANCELADO')
+            `);
+
+        const fichasPorDia = new Map(); // clave "idMuestreador|dia" -> {completadas, total}
+        const sumarFicha = (idM, dia, completada) => {
+            const clave = `${idM}|${dia}`;
+            if (!fichasPorDia.has(clave)) fichasPorDia.set(clave, { completadas: 0, total: 0 });
+            const acc = fichasPorDia.get(clave);
+            acc.total += 1;
+            if (completada) acc.completadas += 1;
+        };
+        for (const ficha of fichasRango.recordset) {
+            const diaMuestreo = ficha.fecha_muestreo ? new Date(ficha.fecha_muestreo).toISOString().slice(0, 10) : null;
+            const diaRetiro = ficha.fecha_retiro ? new Date(ficha.fecha_retiro).toISOString().slice(0, 10) : null;
+            const eventos = [];
+            if (diaMuestreo && ficha.id_muestreador) {
+                eventos.push({ idM: Number(ficha.id_muestreador), dia: diaMuestreo, completada: ficha.instalacion_completado === 'S' });
+            }
+            if (diaRetiro && ficha.id_muestreador2) {
+                eventos.push({ idM: Number(ficha.id_muestreador2), dia: diaRetiro, completada: ficha.retiro_completado === 'S' });
+            }
+            // Dedup: Puntual de proceso único repite mismo muestreador+día en
+            // ambos eventos (instalación y retiro son la misma visita).
+            const vistos = new Set();
+            for (const ev of eventos) {
+                const clave = `${ev.idM}|${ev.dia}`;
+                if (vistos.has(clave)) continue;
+                vistos.add(clave);
+                if (ev.dia >= fechaDesde && ev.dia <= fechaHasta) sumarFicha(ev.idM, ev.dia, ev.completada);
+            }
+        }
+
+        const resultado = [...jornadasPorDia.values()].map(({ idMuestreador, dia, jornadas: jornadasDelDia }) => {
+            let horasTrabajadasMinutos = 0;
+            let kmRecorridos = 0;
+
+            for (const j of jornadasDelDia) {
+                const idJornada = Number(j.id_jornada);
+                const finTramo = j.fecha_fin ? new Date(j.fecha_fin).getTime() : Date.now();
+                horasTrabajadasMinutos += Math.max(0, Math.round((finTramo - new Date(j.fecha_inicio).getTime()) / 60000));
+                kmRecorridos += calcularKmRecorridos(puntosPorJornada.get(idJornada) || []);
+            }
+
+            const fichas = fichasPorDia.get(`${idMuestreador}|${dia}`) || { completadas: 0, total: 0 };
+
+            return {
+                id_muestreador: idMuestreador,
+                nombre_muestreador: jornadasDelDia[0].nombre_muestreador,
+                dia,
+                num_jornadas: jornadasDelDia.length,
+                horas_trabajadas_minutos: horasTrabajadasMinutos,
+                km_recorridos: Math.round(kmRecorridos * 100) / 100,
+                bateria_inicio: jornadasDelDia[0].bateria_inicio,
+                bateria_fin: jornadasDelDia[jornadasDelDia.length - 1].bateria_fin,
+                fichas_completadas: fichas.completadas,
+                fichas_total: fichas.total,
+            };
+        });
+
+        resultado.sort((a, b) => (a.dia === b.dia ? a.nombre_muestreador.localeCompare(b.nombre_muestreador) : b.dia.localeCompare(a.dia)));
+
+        return { dias: resultado };
+    }
 }
 
 export default new TrackingService();
