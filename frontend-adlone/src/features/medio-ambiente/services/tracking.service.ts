@@ -22,6 +22,7 @@ export interface FichaHoy {
     centro: string | null;
     objetivo: string | null;
     tiempo_trabajo_minutos: number | null;
+    tiempo_estimado_minutos: number | null;
 }
 
 export interface JornadaHoy {

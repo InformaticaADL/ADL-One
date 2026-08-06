@@ -140,6 +140,7 @@ class TrackingService {
                 a.instalacion_hora_fin_trabajo,
                 a.retiro_hora_inicio_trabajo,
                 a.retiro_hora_fin_trabajo,
+                f.id_objetivomuestreo_ma,
                 c.nombre_empresa AS empresa,
                 ce.nombre_centro AS centro,
                 o.nombre_objetivomuestreo_ma AS objetivo
@@ -165,6 +166,41 @@ class TrackingService {
             const fin = ficha.retiro_hora_inicio_trabajo ? ficha.retiro_hora_fin_trabajo : ficha.instalacion_hora_fin_trabajo;
             const minutos = (inicio && fin) ? Math.round((new Date(fin).getTime() - new Date(inicio).getTime()) / 60000) : null;
             ficha.tiempo_trabajo_minutos = (minutos != null && minutos >= 0) ? minutos : null;
+        }
+
+        // Tiempo estimado por objetivo de muestreo: promedio histórico del
+        // tiempo real ya medido (mismo cálculo instalación/retiro de arriba)
+        // en TODA la base, no solo hoy — mientras más fichas se completen con
+        // tiempo por ficha activo, más preciso se vuelve solo. HAVING >= 3
+        // evita mostrar un "estimado" basado en 1-2 muestras, que sería más
+        // ruido que señal.
+        const promedios = await pool.request().query(`
+            SELECT id_objetivomuestreo_ma, AVG(CAST(duracion AS FLOAT)) AS promedio_minutos, COUNT(*) AS muestras
+            FROM (
+                SELECT
+                    f.id_objetivomuestreo_ma,
+                    CASE
+                        WHEN a.retiro_hora_inicio_trabajo IS NOT NULL AND a.retiro_hora_fin_trabajo IS NOT NULL
+                            THEN DATEDIFF(minute, a.retiro_hora_inicio_trabajo, a.retiro_hora_fin_trabajo)
+                        WHEN a.instalacion_hora_inicio_trabajo IS NOT NULL AND a.instalacion_hora_fin_trabajo IS NOT NULL
+                            THEN DATEDIFF(minute, a.instalacion_hora_inicio_trabajo, a.instalacion_hora_fin_trabajo)
+                        ELSE NULL
+                    END AS duracion
+                FROM App_Ma_Agenda_MUESTREOS a
+                INNER JOIN App_Ma_FichaIngresoServicio_ENC f ON a.id_fichaingresoservicio = f.id_fichaingresoservicio
+                WHERE f.id_objetivomuestreo_ma IS NOT NULL
+            ) x
+            WHERE duracion IS NOT NULL AND duracion >= 0
+            GROUP BY id_objetivomuestreo_ma
+            HAVING COUNT(*) >= 3
+        `);
+        const promedioPorObjetivo = new Map(
+            promedios.recordset.map(p => [Number(p.id_objetivomuestreo_ma), Math.round(p.promedio_minutos)])
+        );
+        for (const ficha of fichasHoy.recordset) {
+            ficha.tiempo_estimado_minutos = ficha.id_objetivomuestreo_ma
+                ? (promedioPorObjetivo.get(Number(ficha.id_objetivomuestreo_ma)) ?? null)
+                : null;
         }
 
         const fichasPorMuestreador = new Map();

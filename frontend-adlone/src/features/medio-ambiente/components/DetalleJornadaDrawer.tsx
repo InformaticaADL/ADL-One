@@ -159,6 +159,20 @@ export function DetalleJornadaDrawer({ jornada, opened, onClose }: DetalleJornad
                                     {completada ? 'Completada' : 'Pendiente'} · {ficha.hora_coordinador || '—'}
                                     {ficha.tiempo_trabajo_minutos != null && ` · ${formatearMinutos(ficha.tiempo_trabajo_minutos)} en terreno`}
                                 </Text>
+                                {/* Promedio histórico por objetivo de muestreo (ver
+                                    getSnapshotHoy en tracking.service.js) — null hasta que
+                                    se acumulen al menos 3 fichas completadas con ese mismo
+                                    objetivo, para no mostrar un "esperado" basado en 1-2
+                                    muestras. Se muestra aunque la ficha siga pendiente, como
+                                    referencia de cuánto suele tomar. */}
+                                {ficha.tiempo_estimado_minutos != null && (
+                                    <Text size="xs" c="dimmed" mb={2}>
+                                        Esperado: ≈{formatearMinutos(ficha.tiempo_estimado_minutos)} (promedio histórico)
+                                        {ficha.tiempo_trabajo_minutos != null && ficha.tiempo_trabajo_minutos > ficha.tiempo_estimado_minutos * 1.3 && (
+                                            <Text component="span" c="orange" fw={600}> · sobre lo esperado</Text>
+                                        )}
+                                    </Text>
+                                )}
                                 {ficha.empresa && <Text size="xs">Empresa: {ficha.empresa}</Text>}
                                 {ficha.centro && <Text size="xs">Centro: {ficha.centro}</Text>}
                                 {ficha.objetivo && <Text size="xs">Objetivo: {ficha.objetivo}</Text>}
