@@ -3,7 +3,7 @@ import { IconSearch } from '@tabler/icons-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { JornadaHoy } from '../services/tracking.service';
 import { colorPorMuestreador, inicialesDe } from '../utils/colorMuestreador';
-import { contarFichasCompletadas } from '../utils/fichaHoyHelpers';
+import { contarFichasCompletadas, siguienteFichaPendiente, distanciaKm } from '../utils/fichaHoyHelpers';
 
 interface FlotaPanelProps {
     jornadas: JornadaHoy[];
@@ -112,6 +112,24 @@ export function FlotaPanel({ jornadas, selectedMuestreadorId, onSelectMuestreado
                                         solo hace cuánto llegó el último ping GPS, se mueva o no. */}
                                     {j.estado === 'en_ruta' && j.ultima_posicion && ` · última señal ${tiempoRelativo(j.ultima_posicion.timestamp_reporte)}`}
                                 </Text>
+                                {/* Distancia en línea recta a la próxima ficha pendiente — no
+                                    es ruta real por calle (no hay motor de ruteo acá), pero le
+                                    da al supervisor una idea de "qué tan cerca está" sin tener
+                                    que abrir el drawer de detalle. Solo mientras está en_ruta y
+                                    hay posición + ficha con coordenadas resueltas. */}
+                                {j.estado === 'en_ruta' && j.ultima_posicion && (() => {
+                                    const siguiente = siguienteFichaPendiente(j.fichas_hoy);
+                                    if (!siguiente) return null;
+                                    const dist = distanciaKm(
+                                        { lat: j.ultima_posicion.latitud, lon: j.ultima_posicion.longitud },
+                                        { lat: Number(siguiente.ubicacion_lat), lon: Number(siguiente.ubicacion_lon) }
+                                    );
+                                    return (
+                                        <Text size="xs" c="blue" mt={2}>
+                                            {dist < 1 ? `${Math.round(dist * 1000)} m` : `${dist.toFixed(1)} km`} a {siguiente.centro || 'la próxima ficha'}
+                                        </Text>
+                                    );
+                                })()}
                             </UnstyledButton>
                         );
                     })}

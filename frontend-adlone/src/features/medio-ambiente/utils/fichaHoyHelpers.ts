@@ -28,3 +28,25 @@ export function tipoVisitaHoy(ficha: JornadaHoy['fichas_hoy'][number]): string {
 export function contarFichasCompletadas(fichas: JornadaHoy['fichas_hoy']): { completadas: number; total: number } {
     return { completadas: fichas.filter(fichaCompletada).length, total: fichas.length };
 }
+
+// Primera ficha del itinerario (ya viene ordenado por hora_coordinador desde
+// el backend) que todavía no se completó, con coordenadas resueltas — sin
+// coordenadas no hay forma de calcular la distancia, así que esas fichas se
+// saltan en vez de romper el cálculo.
+export function siguienteFichaPendiente(fichas: JornadaHoy['fichas_hoy']): JornadaHoy['fichas_hoy'][number] | null {
+    return fichas.find((f) => !fichaCompletada(f) && f.ubicacion_lat != null && f.ubicacion_lon != null) ?? null;
+}
+
+// Haversine — distancia en línea recta, no de ruta real por calle (no hay
+// routing engine acá, y para "cuánto le falta" a un supervisor le alcanza
+// con una aproximación directa).
+const RADIO_TIERRA_KM = 6371;
+export function distanciaKm(a: { lat: number; lon: number }, b: { lat: number; lon: number }): number {
+    const dLat = (b.lat - a.lat) * Math.PI / 180;
+    const dLon = (b.lon - a.lon) * Math.PI / 180;
+    const sinDlat = Math.sin(dLat / 2);
+    const sinDlon = Math.sin(dLon / 2);
+    const chord = sinDlat * sinDlat +
+        Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) * sinDlon * sinDlon;
+    return RADIO_TIERRA_KM * 2 * Math.atan2(Math.sqrt(chord), Math.sqrt(1 - chord));
+}

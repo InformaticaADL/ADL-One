@@ -23,6 +23,8 @@ export interface FichaHoy {
     objetivo: string | null;
     tiempo_trabajo_minutos: number | null;
     tiempo_estimado_minutos: number | null;
+    ubicacion_lat: number | string | null;
+    ubicacion_lon: number | string | null;
 }
 
 export interface JornadaHoy {

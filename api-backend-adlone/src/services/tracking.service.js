@@ -162,6 +162,8 @@ class TrackingService {
                 a.retiro_hora_inicio_trabajo,
                 a.retiro_hora_fin_trabajo,
                 f.id_objetivomuestreo_ma,
+                f.ubicacion_lat,
+                f.ubicacion_lon,
                 c.nombre_empresa AS empresa,
                 ce.nombre_centro AS centro,
                 o.nombre_objetivomuestreo_ma AS objetivo
