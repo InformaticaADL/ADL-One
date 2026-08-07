@@ -50,3 +50,57 @@ Formato_Carga_Masiva_ADL_test_oficial.xlsx
 
 # Email rendering preview output
 .preview-emails/
+
+# Scripts scratch de diagnóstico con credenciales hardcodeadas (eliminados por seguridad)
+# NO volver a versionar: contenían la contraseña de SQL Server en texto plano.
+audit_tipo13.cjs
+check_121.cjs
+check_18.cjs
+check_186.cjs
+check_eq.cjs
+check_last_requests.cjs
+check_muestreador.cjs
+check_perms.cjs
+check_template_123.cjs
+check_templates.cjs
+create_generic_user.cjs
+debug_hub.cjs
+final_audit_130.cjs
+final_name_search.cjs
+find_tables.cjs
+find_tables_ref.cjs
+fix_db.cjs
+fix_equipo_names.cjs
+fix_hub_visibility.cjs
+fix_requests_batch.cjs
+fix_sp_join.cjs
+fix_tray_perms.cjs
+get_roles.cjs
+get_schema.cjs
+get_types.cjs
+inspect_analytical_objects.cjs
+inspect_analytical_objects_v2.cjs
+inspect_columns.cjs
+inspect_columns_v2.cjs
+inspect_columns_v3.cjs
+inspect_det_sp.cjs
+inspect_empresa_cols.cjs
+inspect_last_122.cjs
+inspect_sp_output.cjs
+inspect_sps.cjs
+read_templates.cjs
+reset_117.cjs
+scratch_db_columns.js
+search_analisis_cols.cjs
+setup_consulta_types.cjs
+setup_events.cjs
+setup_perms_14_15.cjs
+setup_urs_management.cjs
+test_inbox.cjs
+update_120.cjs
+update_mobile_db.cjs
+update_notification_templates.cjs
+update_notification_templates_v2.cjs
+update_templates.cjs
+update_templates_html.cjs
+verify_avisos.cjs

@@ -44,10 +44,8 @@ api-backend-adlone/
    - Actualiza las credenciales de SQL Server
 
 3. **Configuración de red:**
-   - El servidor está configurado para escuchar en `0.0.0.0`
-   - IPs locales detectadas:
-     - Wi-Fi: `192.168.10.152`
-     - Ethernet: `192.168.10.68`
+   - El servidor está configurado para escuchar en `0.0.0.0` (todas las interfaces)
+   - Usa la IP local del equipo servidor en la red; obténla con `ipconfig` (Windows) o `ip addr` (Linux)
 
 ## 🏃 Ejecución
 
@@ -63,8 +61,7 @@ npm start
 
 El servidor estará disponible en:
 - Local: `http://localhost:5000`
-- Red (Wi-Fi): `http://192.168.10.152:5000`
-- Red (Ethernet): `http://192.168.10.68:5000`
+- Red: `http://<IP-DEL-SERVIDOR>:5000` (reemplaza `<IP-DEL-SERVIDOR>` por la IP local del equipo)
 
 ## 📡 Endpoints Disponibles
 
