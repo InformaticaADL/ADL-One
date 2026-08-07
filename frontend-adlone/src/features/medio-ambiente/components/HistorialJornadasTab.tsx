@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Box, Group, Table, Text, TextInput, Loader, Center, Badge, ScrollArea } from '@mantine/core';
+import { Box, Group, Table, Text, TextInput, Loader, Center, Badge, ScrollArea, Button, Paper, SimpleGrid } from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
-import { IconCalendar, IconSearch } from '@tabler/icons-react';
+import { IconCalendar, IconSearch, IconFileSpreadsheet } from '@tabler/icons-react';
 import dayjs from 'dayjs';
 import { trackingService, type HistorialDia } from '../services/tracking.service';
 import { HistorialDiaReplayModal } from './HistorialDiaReplayModal';
@@ -11,6 +11,75 @@ function formatearMinutos(totalMin: number): string {
     const h = Math.floor(min / 60);
     const m = min % 60;
     return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+// Escapa para CSV: envuelve en comillas y duplica comillas internas solo si
+// el valor las necesita (coma, comilla o salto de línea) — así los nombres
+// normales quedan legibles sin comillas de más.
+function celdaCSV(valor: string | number): string {
+    const s = String(valor);
+    if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+    return s;
+}
+
+function exportarHistorialCSV(dias: HistorialDia[]) {
+    const encabezado = ['Fecha', 'Muestreador', 'Tiempo de ruta (min)', 'Km recorridos', 'Fichas completadas', 'Fichas totales', 'Jornadas'];
+    const filas = dias.map((d) => [
+        d.dia,
+        d.nombre_muestreador,
+        Math.round(d.horas_trabajadas_minutos),
+        d.km_recorridos.toFixed(2),
+        d.fichas_completadas,
+        d.fichas_total,
+        d.num_jornadas,
+    ]);
+    // ﻿ (BOM): sin esto, Excel en Windows abre el CSV con tildes/ñ
+    // rotas (asume Windows-1252 en vez de UTF-8) — el BOM le indica que lea
+    // el archivo como UTF-8.
+    const contenido = '﻿' + [encabezado, ...filas].map((fila) => fila.map(celdaCSV).join(',')).join('\n');
+    const blob = new Blob([contenido], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `historial_jornadas_${dayjs().format('YYYY-MM-DD')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    link.parentNode?.removeChild(link);
+    window.URL.revokeObjectURL(url);
+}
+
+interface ResumenMuestreador {
+    id_muestreador: number;
+    nombre_muestreador: string;
+    dias: number;
+    minutos: number;
+    km: number;
+    fichasCompletadas: number;
+    fichasTotal: number;
+}
+
+function calcularResumenPorMuestreador(dias: HistorialDia[]): ResumenMuestreador[] {
+    const porMuestreador = new Map<number, ResumenMuestreador>();
+    for (const d of dias) {
+        if (!porMuestreador.has(d.id_muestreador)) {
+            porMuestreador.set(d.id_muestreador, {
+                id_muestreador: d.id_muestreador,
+                nombre_muestreador: d.nombre_muestreador,
+                dias: 0,
+                minutos: 0,
+                km: 0,
+                fichasCompletadas: 0,
+                fichasTotal: 0,
+            });
+        }
+        const acc = porMuestreador.get(d.id_muestreador)!;
+        acc.dias += 1;
+        acc.minutos += d.horas_trabajadas_minutos;
+        acc.km += d.km_recorridos;
+        acc.fichasCompletadas += d.fichas_completadas;
+        acc.fichasTotal += d.fichas_total;
+    }
+    return [...porMuestreador.values()].sort((a, b) => b.minutos - a.minutos);
 }
 
 // Por defecto, últimos 7 días — vista rápida de la semana. El supervisor
@@ -59,6 +128,8 @@ export function HistorialJornadasTab() {
         [dias, busqueda]
     );
 
+    const resumenPorMuestreador = useMemo(() => calcularResumenPorMuestreador(diasFiltrados), [diasFiltrados]);
+
     return (
         <Box style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: 16 }}>
             <Group mb="md" gap="sm">
@@ -94,7 +165,37 @@ export function HistorialJornadasTab() {
                     onChange={(e) => setBusqueda(e.currentTarget.value)}
                     w={220}
                 />
+                <Button
+                    variant="light"
+                    size="xs"
+                    mt={18}
+                    leftSection={<IconFileSpreadsheet size={14} />}
+                    disabled={diasFiltrados.length === 0}
+                    onClick={() => exportarHistorialCSV(diasFiltrados)}
+                >
+                    Exportar CSV
+                </Button>
             </Group>
+
+            {!loading && !error && resumenPorMuestreador.length > 0 && (
+                <Paper withBorder p="sm" mb="md">
+                    <Text size="xs" fw={700} c="dimmed" mb={8} tt="uppercase">Resumen del período por muestreador</Text>
+                    <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="xs">
+                        {resumenPorMuestreador.map((r) => (
+                            <Group key={r.id_muestreador} justify="space-between" wrap="nowrap" gap="xs">
+                                <Text size="sm" truncate>{r.nombre_muestreador}</Text>
+                                <Group gap={6} wrap="nowrap">
+                                    <Badge size="sm" variant="light" color="blue">{formatearMinutos(r.minutos)}</Badge>
+                                    <Badge size="sm" variant="light" color="grape">{r.km.toFixed(1)} km</Badge>
+                                    <Badge size="sm" variant="light" color={r.fichasTotal > 0 && r.fichasCompletadas === r.fichasTotal ? 'green' : 'gray'}>
+                                        {r.fichasCompletadas}/{r.fichasTotal}
+                                    </Badge>
+                                </Group>
+                            </Group>
+                        ))}
+                    </SimpleGrid>
+                </Paper>
+            )}
 
             {loading && (
                 <Center style={{ flex: 1 }}>
