@@ -119,7 +119,7 @@ export function HistorialJornadasTab() {
                             <Table.Tr>
                                 <Table.Th>Fecha</Table.Th>
                                 <Table.Th>Muestreador</Table.Th>
-                                <Table.Th>Horas trabajadas</Table.Th>
+                                <Table.Th>Tiempo de ruta</Table.Th>
                                 <Table.Th>Km recorridos</Table.Th>
                                 <Table.Th>Fichas</Table.Th>
                                 <Table.Th>Jornadas</Table.Th>

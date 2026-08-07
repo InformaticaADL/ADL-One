@@ -4,7 +4,7 @@ import { IconCheck, IconClock, IconMapPin, IconFlagCheck, IconPlayerPause, IconB
 import type { JornadaHoy } from '../services/tracking.service';
 import { fichaCompletada, tipoVisitaHoy, contarFichasCompletadas } from '../utils/fichaHoyHelpers';
 
-// Mientras la jornada sigue activa ('en_ruta'), "Horas trabajadas" se
+// Mientras la jornada sigue activa ('en_ruta'), "Tiempo de ruta" se
 // recalcula en vivo contra fecha_inicio en vez de mostrar el valor fijo del
 // último snapshot: horas_trabajadas_minutos llega del backend en cada fetch
 // (cada 60s, ver HoyEnVivoPage.tsx), pero entre un fetch y otro igual
@@ -56,7 +56,7 @@ export function DetalleJornadaDrawer({ jornada, opened, onClose }: DetalleJornad
     const finalizada = jornada.estado === 'finalizada';
     const tieneBateria = jornada.bateria_inicio != null && jornada.bateria_fin != null;
 
-    // Fuerza un re-render cada 30s para que "Horas trabajadas" avance en vivo
+    // Fuerza un re-render cada 30s para que "Tiempo de ruta" avance en vivo
     // entre un fetch del snapshot y el siguiente (mismo patrón que
     // FlotaPanel.tsx usa para su badge de estado/tiempo relativo). No hace
     // nada útil si la jornada ya no está 'en_ruta' (el valor es fijo), pero
@@ -122,7 +122,7 @@ export function DetalleJornadaDrawer({ jornada, opened, onClose }: DetalleJornad
                     )}
                 </Box>
                 <Box>
-                    <Text size="xs" c="dimmed">Horas trabajadas</Text>
+                    <Text size="xs" c="dimmed">Tiempo de ruta</Text>
                     <Text fw={700}>{formatearHorasTrabajadas(jornada)}</Text>
                 </Box>
                 <Box>
