@@ -128,11 +128,18 @@ export function HistorialJornadasTab() {
                             </Table.Tr>
                         </Table.Thead>
                         <Table.Tbody>
-                            {diasFiltrados.map((d) => (
+                            {diasFiltrados.map((d) => {
+                                // Jornada con fichas asignadas ese día pero NINGUNA
+                                // completada — posible ruta que no se concretó
+                                // (problema técnico, cancelación de último minuto no
+                                // reflejada, etc.), vale la pena que salte a la vista
+                                // en vez de perderse entre el resto de filas normales.
+                                const sinNingunaCompletada = d.fichas_total > 0 && d.fichas_completadas === 0;
+                                return (
                                 <Table.Tr
                                     key={`${d.id_muestreador}|${d.dia}`}
                                     onClick={() => setDiaSeleccionado(d)}
-                                    style={{ cursor: 'pointer' }}
+                                    style={{ cursor: 'pointer', backgroundColor: sinNingunaCompletada ? 'var(--mantine-color-red-0)' : undefined }}
                                 >
                                     <Table.Td>{dayjs(d.dia).format('DD/MM/YYYY')}</Table.Td>
                                     <Table.Td>{d.nombre_muestreador}</Table.Td>
@@ -142,14 +149,15 @@ export function HistorialJornadasTab() {
                                         <Badge
                                             size="sm"
                                             variant="light"
-                                            color={d.fichas_total > 0 && d.fichas_completadas === d.fichas_total ? 'green' : 'blue'}
+                                            color={sinNingunaCompletada ? 'red' : (d.fichas_total > 0 && d.fichas_completadas === d.fichas_total ? 'green' : 'blue')}
                                         >
                                             {d.fichas_completadas}/{d.fichas_total}
                                         </Badge>
                                     </Table.Td>
                                     <Table.Td>{d.num_jornadas > 1 ? `${d.num_jornadas} tramos` : '1 tramo'}</Table.Td>
                                 </Table.Tr>
-                            ))}
+                                );
+                            })}
                         </Table.Tbody>
                     </Table>
                 </ScrollArea>
