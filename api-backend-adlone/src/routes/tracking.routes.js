@@ -10,5 +10,6 @@ router.post('/interno/posicion', protectInternalService, trackingController.reci
 router.post('/interno/jornada-iniciada', protectInternalService, trackingController.recibirJornadaIniciada);
 router.get('/hoy', authenticate, verifyPermission('AI_MA_HOY_EN_VIVO'), trackingController.getSnapshot);
 router.get('/historial', authenticate, verifyPermission('AI_MA_HOY_EN_VIVO'), trackingController.getHistorial);
+router.get('/historial/dia', authenticate, verifyPermission('AI_MA_HOY_EN_VIVO'), trackingController.getHistorialDia);
 
 export default router;

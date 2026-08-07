@@ -110,6 +110,38 @@ class TrackingController {
             return errorResponse(res, 'Error al obtener el historial de jornadas', 500, err.message);
         }
     }
+
+    /**
+     * GET /api/tracking/historial/dia?id_muestreador=123&dia=YYYY-MM-DD
+     * Detalle de un día puntual del historial, para el replay en el mapa (ver
+     * HistorialJornadasTab.tsx). A propósito NO devuelve el trazo GPS crudo
+     * (mam_ubicaciones_tracking) — solo las fichas visitadas ese día, con su
+     * hora de llegada confirmada. Ver decisión de privacidad: un supervisor
+     * revisando el historial no debería poder reconstruir cada calle por la
+     * que pasó el muestreador (mandados personales incluidos), solo verificar
+     * que las visitas de trabajo se realizaron.
+     */
+    async getHistorialDia(req, res) {
+        try {
+            const { id_muestreador, dia } = req.query;
+
+            if (!id_muestreador || !dia) {
+                return errorResponse(res, 'id_muestreador y dia son requeridos (dia en formato YYYY-MM-DD)', 400);
+            }
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(dia)) {
+                return errorResponse(res, 'dia debe tener formato YYYY-MM-DD', 400);
+            }
+
+            const data = await trackingService.getHistorialDia({
+                idMuestreador: Number(id_muestreador),
+                dia,
+            });
+            return successResponse(res, data, 'Detalle del día obtenido');
+        } catch (err) {
+            logger.error('Error in getHistorialDia controller:', err);
+            return errorResponse(res, 'Error al obtener el detalle del día', 500, err.message);
+        }
+    }
 }
 
 export default new TrackingController();

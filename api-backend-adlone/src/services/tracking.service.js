@@ -519,6 +519,92 @@ class TrackingService {
 
         return { dias: resultado };
     }
+
+    /**
+     * Detalle de un día para el replay del historial (ver
+     * tracking.controller.js:getHistorialDia). Devuelve las fichas visitadas
+     * ese día por el muestreador, con su hora de llegada confirmada
+     * (instalacion_hora_inicio_trabajo / retiro_hora_inicio_trabajo — el mismo
+     * campo que ya escribe el geofence de api-app-mam, ver
+     * trackingController.js:detectarLlegadasFichas), no el trazo GPS crudo.
+     */
+    async getHistorialDia({ idMuestreador, dia }) {
+        const pool = await getConnection();
+
+        const jornadasReq = await pool.request()
+            .input('idMuestreador', idMuestreador)
+            .input('dia', dia)
+            .query(`
+                SELECT id_jornada, fecha_inicio, fecha_fin
+                FROM mam_jornadas
+                WHERE id_muestreador = @idMuestreador
+                  AND CAST(fecha_inicio AS DATE) = @dia
+                ORDER BY fecha_inicio ASC
+            `);
+
+        // instalación y retiro se traen como dos eventos candidatos por
+        // ficha; cuál de los dos aplica a ESTE muestreador y ESTE día se
+        // resuelve en JS abajo (mismo criterio de roles que
+        // detectarLlegadasFichas: id_muestreador2 NULL = mismo muestreador
+        // cubre ambos roles).
+        const fichasReq = await pool.request()
+            .input('idMuestreador', idMuestreador)
+            .input('dia', dia)
+            .query(`
+                SELECT
+                    a.id_agendamam, a.frecuencia_correlativo,
+                    a.id_muestreador, a.id_muestreador2,
+                    a.instalacion_hora_inicio_trabajo, a.retiro_hora_inicio_trabajo,
+                    f.ubicacion_lat, f.ubicacion_lon,
+                    c.nombre_centro, e.nombre_empresa
+                FROM App_Ma_Agenda_MUESTREOS a
+                INNER JOIN App_Ma_FichaIngresoServicio_ENC f ON a.id_fichaingresoservicio = f.id_fichaingresoservicio
+                INNER JOIN mae_centro c ON f.id_centro = c.id_centro
+                INNER JOIN mae_empresa e ON f.id_empresa = e.id_empresa
+                WHERE (a.id_muestreador = @idMuestreador OR a.id_muestreador2 = @idMuestreador)
+                  AND f.ubicacion_lat IS NOT NULL AND f.ubicacion_lon IS NOT NULL
+                  AND (
+                    CAST(a.instalacion_hora_inicio_trabajo AS DATE) = @dia
+                    OR CAST(a.retiro_hora_inicio_trabajo AS DATE) = @dia
+                  )
+            `);
+
+        const eventos = [];
+        for (const f of fichasReq.recordset) {
+            const mismoMuestreadorAmbosRoles = f.id_muestreador2 == null;
+            const esInstalador = Number(f.id_muestreador) === idMuestreador;
+            const esRetirador = Number(f.id_muestreador2) === idMuestreador
+                || (mismoMuestreadorAmbosRoles && esInstalador);
+
+            const punto = {
+                id_agendamam: f.id_agendamam,
+                frecuencia_correlativo: f.frecuencia_correlativo,
+                nombre_centro: f.nombre_centro,
+                nombre_empresa: f.nombre_empresa,
+                lat: Number(f.ubicacion_lat),
+                lon: Number(f.ubicacion_lon),
+            };
+
+            if (esInstalador && f.instalacion_hora_inicio_trabajo
+                && new Date(f.instalacion_hora_inicio_trabajo).toISOString().slice(0, 10) === dia) {
+                eventos.push({ ...punto, tipo: 'instalacion', hora: f.instalacion_hora_inicio_trabajo });
+            }
+            // Puntual de proceso único solo escribe UNO de los dos campos
+            // (ver detectarLlegadasFichas: prioriza retiro), así que esto no
+            // duplica esa visita — son genuinamente dos eventos distintos
+            // cuando ambos están presentes (p.ej. Compuesta corta).
+            if (esRetirador && f.retiro_hora_inicio_trabajo
+                && new Date(f.retiro_hora_inicio_trabajo).toISOString().slice(0, 10) === dia) {
+                eventos.push({ ...punto, tipo: 'retiro', hora: f.retiro_hora_inicio_trabajo });
+            }
+        }
+        eventos.sort((a, b) => new Date(a.hora) - new Date(b.hora));
+
+        return {
+            jornadas: jornadasReq.recordset,
+            fichas_visitadas: eventos,
+        };
+    }
 }
 
 export default new TrackingService();

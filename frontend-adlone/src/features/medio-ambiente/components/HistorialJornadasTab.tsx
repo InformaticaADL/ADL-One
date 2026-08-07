@@ -4,6 +4,7 @@ import { DatePickerInput } from '@mantine/dates';
 import { IconCalendar, IconSearch } from '@tabler/icons-react';
 import dayjs from 'dayjs';
 import { trackingService, type HistorialDia } from '../services/tracking.service';
+import { HistorialDiaReplayModal } from './HistorialDiaReplayModal';
 
 function formatearMinutos(totalMin: number): string {
     const min = Math.max(0, Math.floor(totalMin));
@@ -25,6 +26,7 @@ export function HistorialJornadasTab() {
     const [dias, setDias] = useState<HistorialDia[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [diaSeleccionado, setDiaSeleccionado] = useState<HistorialDia | null>(null);
 
     // Guard de carrera: si el usuario cambia de fecha rápido (dos requests en
     // vuelo), sin esto podía ganar la que responde último, no la que se pidió
@@ -127,7 +129,11 @@ export function HistorialJornadasTab() {
                         </Table.Thead>
                         <Table.Tbody>
                             {diasFiltrados.map((d) => (
-                                <Table.Tr key={`${d.id_muestreador}|${d.dia}`}>
+                                <Table.Tr
+                                    key={`${d.id_muestreador}|${d.dia}`}
+                                    onClick={() => setDiaSeleccionado(d)}
+                                    style={{ cursor: 'pointer' }}
+                                >
                                     <Table.Td>{dayjs(d.dia).format('DD/MM/YYYY')}</Table.Td>
                                     <Table.Td>{d.nombre_muestreador}</Table.Td>
                                     <Table.Td>{formatearMinutos(d.horas_trabajadas_minutos)}</Table.Td>
@@ -148,6 +154,14 @@ export function HistorialJornadasTab() {
                     </Table>
                 </ScrollArea>
             )}
+
+            <HistorialDiaReplayModal
+                opened={diaSeleccionado !== null}
+                onClose={() => setDiaSeleccionado(null)}
+                idMuestreador={diaSeleccionado?.id_muestreador ?? null}
+                nombreMuestreador={diaSeleccionado?.nombre_muestreador ?? ''}
+                dia={diaSeleccionado?.dia ?? null}
+            />
         </Box>
     );
 }

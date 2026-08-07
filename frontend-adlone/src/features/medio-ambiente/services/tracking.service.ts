@@ -60,6 +60,22 @@ export interface HistorialDia {
     fichas_total: number;
 }
 
+export interface FichaVisitadaDia {
+    id_agendamam: number;
+    frecuencia_correlativo: string;
+    nombre_centro: string;
+    nombre_empresa: string;
+    lat: number;
+    lon: number;
+    tipo: 'instalacion' | 'retiro';
+    hora: string;
+}
+
+export interface HistorialDiaDetalle {
+    jornadas: Array<{ id_jornada: number; fecha_inicio: string; fecha_fin: string | null }>;
+    fichas_visitadas: FichaVisitadaDia[];
+}
+
 export const trackingService = {
     getSnapshotHoy: async (): Promise<JornadaHoy[]> => {
         const response = await apiClient.get('/api/tracking/hoy');
@@ -71,5 +87,12 @@ export const trackingService = {
             params: { fecha_desde: fechaDesde, fecha_hasta: fechaHasta },
         });
         return response.data.data.dias;
+    },
+
+    getHistorialDia: async (idMuestreador: number, dia: string): Promise<HistorialDiaDetalle> => {
+        const response = await apiClient.get('/api/tracking/historial/dia', {
+            params: { id_muestreador: idMuestreador, dia },
+        });
+        return response.data.data;
     },
 };
