@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import { MapContainer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import { BaseTiles } from './BaseTiles';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import iconUrl from 'leaflet/dist/images/marker-icon.png';
@@ -833,7 +834,7 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
                                         </Center>
                                     ) : (
                                         <MapContainer center={viewRoutePositions[0] ?? [-38.5, -72.5]} zoom={8} style={{ height: '100%', width: '100%' }} zoomControl>
-                                            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' />
+                                            <BaseTiles />
                                             <FitBounds positions={viewRoutePositions} />
                                             {viewOsrmRoute.length > 1 && <Polyline positions={viewOsrmRoute} color="#7950f2" weight={4} opacity={0.75} dashArray="8,4" />}
                                             {viewOsrmRoute.length === 0 && viewRoutePositions.length > 1 && <Polyline positions={viewRoutePositions} color="#7950f2" weight={3} opacity={0.5} />}

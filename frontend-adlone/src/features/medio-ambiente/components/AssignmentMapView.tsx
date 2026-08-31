@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, Marker, Popup } from 'react-leaflet';
+import { BaseTiles } from './BaseTiles';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { Box, Paper, Text, Button, Badge } from '@mantine/core';
@@ -57,10 +58,7 @@ export const AssignmentMapView: React.FC<AssignmentMapViewProps> = ({ fichas, on
     return (
         <Paper withBorder radius="md" p={0} style={{ overflow: 'hidden', height: '100%', minHeight: 400 }}>
             <MapContainer center={fallbackCenter} zoom={5} style={{ height: '100%', width: '100%', minHeight: 400 }}>
-                <TileLayer
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                />
+                <BaseTiles />
                 {markers.map(m => (
                     <Marker key={m.id} position={[m.lat, m.lng]}>
                         <Popup>

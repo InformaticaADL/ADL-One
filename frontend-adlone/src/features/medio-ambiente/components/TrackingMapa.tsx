@@ -1,7 +1,10 @@
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { useEffect, useRef, useState } from 'react';
+import { SegmentedControl } from '@mantine/core';
+import { BaseTiles } from './BaseTiles';
+import { BASEMAPS, BASEMAP_STORAGE_KEY, leerBasemapGuardado } from '../utils/basemaps';
 import type { JornadaHoy, UltimaPosicion } from '../services/tracking.service';
 import { colorPorMuestreador, inicialesDe } from '../utils/colorMuestreador';
 
@@ -273,21 +276,45 @@ export function TrackingMapa({ jornadas, selectedMuestreadorId, onSelectMuestrea
         (j): j is JornadaHoy & { ultima_posicion: UltimaPosicion } => j.ultima_posicion !== null
     );
 
+    const [basemapId, setBasemapId] = useState<string>(leerBasemapGuardado);
+
+    const cambiarBasemap = (id: string) => {
+        setBasemapId(id);
+        try { localStorage.setItem(BASEMAP_STORAGE_KEY, id); } catch { /* no-op */ }
+    };
+
     return (
-        <MapContainer center={CENTRO_DEFECTO} zoom={6} style={{ height: '100%', width: '100%' }}>
-            <TileLayer
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            />
-            <CentradorMapa jornadas={jornadas} selectedMuestreadorId={selectedMuestreadorId} />
-            {conPosicion.map((j) => (
-                <MarcadorMuestreador
-                    key={j.id_muestreador}
-                    jornada={j}
-                    seleccionado={j.id_muestreador === selectedMuestreadorId}
-                    onSelectMuestreador={onSelectMuestreador}
+        <div style={{ position: 'relative', height: '100%', width: '100%' }}>
+            {/* Selector de fondo de mapa. onMouseDown/onWheel stopPropagation para
+                que interactuar con el control no arrastre ni haga zoom en el mapa. */}
+            <div
+                style={{ position: 'absolute', top: 8, right: 8, zIndex: 1000 }}
+                onMouseDown={(e) => e.stopPropagation()}
+                onDoubleClick={(e) => e.stopPropagation()}
+                onWheel={(e) => e.stopPropagation()}
+            >
+                <SegmentedControl
+                    size="xs"
+                    radius="md"
+                    value={basemapId}
+                    onChange={cambiarBasemap}
+                    data={BASEMAPS.map((b) => ({ value: b.id, label: b.label }))}
+                    styles={{ root: { boxShadow: '0 1px 6px rgba(0,0,0,0.25)', backgroundColor: 'rgba(255,255,255,0.95)' } }}
                 />
-            ))}
-        </MapContainer>
+            </div>
+
+            <MapContainer center={CENTRO_DEFECTO} zoom={6} style={{ height: '100%', width: '100%' }}>
+                <BaseTiles styleId={basemapId} />
+                <CentradorMapa jornadas={jornadas} selectedMuestreadorId={selectedMuestreadorId} />
+                {conPosicion.map((j) => (
+                    <MarcadorMuestreador
+                        key={j.id_muestreador}
+                        jornada={j}
+                        seleccionado={j.id_muestreador === selectedMuestreadorId}
+                        onSelectMuestreador={onSelectMuestreador}
+                    />
+                ))}
+            </MapContainer>
+        </div>
     );
 }

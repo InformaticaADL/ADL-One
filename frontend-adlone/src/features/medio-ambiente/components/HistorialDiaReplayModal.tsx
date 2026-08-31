@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Modal, Box, Text, Loader, Center, Timeline, Badge, Group } from '@mantine/core';
 import { IconMapPin, IconClockHour4 } from '@tabler/icons-react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import { MapContainer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import { BaseTiles } from './BaseTiles';
 import L from 'leaflet';
 import dayjs from 'dayjs';
 import { trackingService, type HistorialDiaDetalle, type FichaVisitadaDia } from '../services/tracking.service';
@@ -104,10 +105,7 @@ export function HistorialDiaReplayModal({ opened, onClose, idMuestreador, nombre
                 <Box style={{ display: 'flex', gap: 16, height: 420 }}>
                     <Box style={{ flex: 2, borderRadius: 8, overflow: 'hidden' }}>
                         <MapContainer center={puntos[0]} zoom={13} style={{ height: '100%', width: '100%' }}>
-                            <TileLayer
-                                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                            />
+                            <BaseTiles />
                             <AjustarBounds puntos={puntos} />
                             {/* Línea recta entre visitas confirmadas — a propósito NO es
                                 el trazo GPS real, que expondría cada calle por la que pasó

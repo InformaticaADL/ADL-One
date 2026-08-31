@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import { MapContainer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import { BaseTiles } from './BaseTiles';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { fichaService } from '../services/ficha.service';
@@ -1132,10 +1133,7 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                                 zoom={10}
                                 style={{ height: '100%', width: '100%' }}
                             >
-                                <TileLayer
-                                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                                />
+                                <BaseTiles />
                                 {allPositions.length > 0 && <FitBounds positions={allPositions} />}
                                 <MapFocusHandler selectedFichas={selectedFichas} />
 
