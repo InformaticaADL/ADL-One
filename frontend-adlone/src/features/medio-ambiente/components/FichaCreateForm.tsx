@@ -130,7 +130,7 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
                         ...d,
                         uf_individual: 0,
                         item: i + 1,
-                        savedId: `fijo-${d.id_referenciaanalisis}-${Date.now()}`
+                        savedId: `fijo-${d._fijoTecnica || d.nombre_tecnica || i}-${Date.now()}-${i}`
                     }));
                 });
             } catch {
@@ -168,9 +168,15 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
                 return;
             }
 
+            // Descartar filas fijas (pH/Temperatura) que el usuario no configuró
+            // con normativa/tabla, y quitar el array `opciones` (solo de UI).
+            const analisisPayload = savedAnalysis
+                .filter((a: any) => !a._fijo || a.id_referenciaanalisis)
+                .map(({ opciones, ...rest }: any) => rest);
+
             const payload = {
                 antecedentes: antData,
-                analisis: savedAnalysis,
+                analisis: analisisPayload,
                 costoOperativo: {
                     activo: !!costoOperativo.enabled,
                     uf: costoOperativo.enabled ? Number(costoOperativo.uf || 0) : 0

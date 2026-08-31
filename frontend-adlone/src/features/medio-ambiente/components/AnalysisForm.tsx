@@ -349,6 +349,33 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
         onSavedAnalysisChange(updatedAnalysis);
     };
 
+    // Análisis fijos (pH/Temperatura): al elegir la normativa/tabla, se copian
+    // sus límites y errores desde la opción seleccionada.
+    const handleFixedRefChange = (savedId: string, refId: string | null) => {
+        const updated = savedAnalysis.map((item: any) => {
+            if (item.savedId !== savedId) return item;
+            const opt = (item.opciones || []).find((o: any) => String(o.id_referenciaanalisis) === String(refId));
+            if (!opt) {
+                return {
+                    ...item,
+                    id_referenciaanalisis: null, id_tecnica: null,
+                    id_normativa: null, nombre_normativa: '',
+                    id_normativareferencia: null, nombre_normativareferencia: '',
+                    limitemax_d: null, limitemax_h: null, llevaerror: 'N', error_min: null, error_max: null
+                };
+            }
+            return {
+                ...item,
+                id_referenciaanalisis: opt.id_referenciaanalisis, id_tecnica: opt.id_tecnica,
+                id_normativa: opt.id_normativa, nombre_normativa: opt.nombre_normativa,
+                id_normativareferencia: opt.id_normativareferencia, nombre_normativareferencia: opt.nombre_normativareferencia,
+                limitemax_d: opt.limitemax_d, limitemax_h: opt.limitemax_h,
+                llevaerror: opt.llevaerror, error_min: opt.error_min, error_max: opt.error_max
+            };
+        });
+        onSavedAnalysisChange(updated);
+    };
+
     const handleDeleteSavedAnalysis = (savedId: string) => {
         const updatedAnalysis = savedAnalysis.filter((a: any) => a.savedId !== savedId);
         onSavedAnalysisChange(updatedAnalysis);
@@ -725,11 +752,38 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                                     <Table.Td ta="center"></Table.Td>
                                 </Table.Tr>
                                 {savedAnalysis.length > 0 ? (
-                                    savedAnalysis.map(analysis => (
-                                        <Table.Tr key={analysis.savedId}>
-                                            <Table.Td fz="sm" fw={500}>{analysis.nombre_tecnica}</Table.Td>
-                                            <Table.Td fz="xs">{analysis.nombre_normativa || '-'}</Table.Td>
-                                            <Table.Td fz="xs">{analysis.nombre_normativareferencia || '-'}</Table.Td>
+                                    savedAnalysis.map(analysis => {
+                                        const isFixed = !!analysis._fijo;
+                                        return (
+                                        <Table.Tr key={analysis.savedId} bg={isFixed ? 'blue.0' : undefined}>
+                                            <Table.Td fz="sm" fw={500}>
+                                                <Group gap={6} wrap="nowrap">
+                                                    <Text fz="sm" fw={500}>{analysis.nombre_tecnica}</Text>
+                                                    {isFixed && <Badge size="xs" color="blue" variant="light">Fijo</Badge>}
+                                                </Group>
+                                            </Table.Td>
+                                            {isFixed ? (
+                                                <Table.Td colSpan={2}>
+                                                    <Select
+                                                        size="xs" radius="xs"
+                                                        placeholder="Seleccione normativa / tabla"
+                                                        data={(analysis.opciones || []).map((o: any) => ({
+                                                            value: String(o.id_referenciaanalisis),
+                                                            label: `${o.nombre_normativa} / ${o.nombre_normativareferencia}`
+                                                        }))}
+                                                        value={analysis.id_referenciaanalisis ? String(analysis.id_referenciaanalisis) : null}
+                                                        onChange={(val) => handleFixedRefChange(analysis.savedId, val)}
+                                                        searchable
+                                                        comboboxProps={{ withinPortal: true }}
+                                                        style={{ minWidth: 230 }}
+                                                    />
+                                                </Table.Td>
+                                            ) : (
+                                                <>
+                                                    <Table.Td fz="xs">{analysis.nombre_normativa || '-'}</Table.Td>
+                                                    <Table.Td fz="xs">{analysis.nombre_normativareferencia || '-'}</Table.Td>
+                                                </>
+                                            )}
                                             <Table.Td fz="xs">{analysis.tipo_analisis}</Table.Td>
                                             <Table.Td fz="xs" ta="right">{analysis.limitemax_d ?? '-'}</Table.Td>
                                             <Table.Td fz="xs" ta="right">{analysis.limitemax_h ?? '-'}</Table.Td>
@@ -738,9 +792,9 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                                             <Table.Td fz="xs" ta="right">{analysis.error_max ?? '-'}</Table.Td>
                                             <Table.Td fz="xs">{analysis.nombre_tipoentrega}</Table.Td>
                                             <Table.Td>
-                                                <NumberInput 
+                                                <NumberInput
                                                     size="xs" radius="xs"
-                                                    value={analysis.uf_individual} 
+                                                    value={analysis.uf_individual}
                                                     onChange={(val) => handleUfChange(analysis.savedId, val)}
                                                     onFocus={(e) => {
                                                         if (String(analysis.uf_individual) === '0') {
@@ -761,7 +815,8 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                                                 </ActionIcon>
                                             </Table.Td>
                                         </Table.Tr>
-                                    ))
+                                        );
+                                    })
                                 ) : (
                                     <Table.Tr><Table.Td colSpan={14} ta="center" py="xl" c="dimmed">Aún no hay análisis grabados (agregue al menos uno)</Table.Td></Table.Tr>
                                 )}
