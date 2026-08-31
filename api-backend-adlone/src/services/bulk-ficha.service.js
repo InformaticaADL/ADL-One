@@ -119,6 +119,32 @@ const findBestMatch = (searchText, catalog, nameKey = 'nombre', idKey = 'id', mi
 };
 
 // ─────────────────────────────────────────────────────────────
+// ¿La técnica emparejada es REALMENTE el mismo análisis que el texto del Excel?
+// Compara el conjunto de palabras significativas (ignora paréntesis, conectores
+// y plural/singular). Un match difuso NO es suficiente para análisis: evita
+// sustituciones peligrosas como "Nitrito"→"Nitrato" o "Nitrógeno Total
+// Kjeldahl"→"Nitrógeno Total", que cargarían un parámetro DISTINTO.
+// ─────────────────────────────────────────────────────────────
+const analysisTokenSet = (s) => new Set(
+    String(s || '')
+        .normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .toUpperCase()
+        .replace(/\([^)]*\)/g, ' ')            // quitar cualificadores entre paréntesis, ej. (254nm)
+        .replace(/[^A-Z0-9 ]/g, ' ')
+        .split(/\s+/)
+        .filter(w => w && !['Y', 'E', 'O', 'U', 'DE', 'DEL', 'LA', 'EL', 'LOS', 'LAS', 'EN', 'A', 'CON', 'POR'].includes(w))
+        .map(w => w.replace(/(ES|S)$/, ''))    // singularizar plural (Aceites↔Aceite, Cloruros↔Cloruro)
+        .filter(Boolean)
+);
+const isConfidentAnalysisMatch = (excelName, matchedName) => {
+    const a = analysisTokenSet(excelName), b = analysisTokenSet(matchedName);
+    if (a.size === 0 || b.size === 0) return false;
+    for (const w of a) if (!b.has(w)) return false;  // toda palabra del Excel debe estar en la técnica
+    for (const w of b) if (!a.has(w)) return false;  // y viceversa (no perder especificidad, ej. "Kjeldahl")
+    return true;
+};
+
+// ─────────────────────────────────────────────────────────────
 // BULK FICHA SERVICE
 // ─────────────────────────────────────────────────────────────
 class BulkFichaService {
@@ -1173,9 +1199,10 @@ class BulkFichaService {
             }
 
             if (rowAnalysisCatalog.length > 0) {
-                refMatch = findBestMatch(row.nombre, rowAnalysisCatalog, 'nombre', 'id', 40);
-                if (refMatch) {
-                    const fullRef = rowAnalysisCatalog.find(r => r.id === refMatch.id);
+                const m = findBestMatch(row.nombre, rowAnalysisCatalog, 'nombre', 'id', 40);
+                if (m && isConfidentAnalysisMatch(row.nombre, m.nombre)) {
+                    refMatch = m;
+                    const fullRef = rowAnalysisCatalog.find(r => r.id === m.id);
                     if (fullRef) {
                         id_tecnica = fullRef.id_tecnica;
                         id_referenciaanalisis = fullRef.id;
@@ -1185,15 +1212,20 @@ class BulkFichaService {
                         row_error_min = fullRef.error_min;
                         row_error_max = fullRef.error_max;
                     } else {
-                        id_referenciaanalisis = refMatch.id;
+                        id_referenciaanalisis = m.id;
                     }
+                } else if (m) {
+                    // Coincidencia DUDOSA en la tabla: es un análisis distinto (p. ej.
+                    // "Nitrito" vs "Nitrato"). NO se acepta para no cargar un parámetro
+                    // equivocado; se intenta el catálogo global por nombre EXACTO.
+                    rowErrors.push(`Análisis "${row.nombre}" no existe en la tabla "${perRow.normRefNombre || '-'}" (lo más parecido, "${m.nombre}", es un análisis DISTINTO). No se incluyó: corrija la normativa/tabla o el nombre.`);
                 }
             }
 
-            // FALLBACK BÚSQUEDA GLOBAL
+            // FALLBACK BÚSQUEDA GLOBAL (solo si es una coincidencia CONFIABLE)
             if (!refMatch && globalCatalog.length > 0) {
                 const globalMatch = findBestMatch(row.nombre, globalCatalog, 'nombre', 'id', 40);
-                if (globalMatch) {
+                if (globalMatch && isConfidentAnalysisMatch(row.nombre, globalMatch.nombre)) {
                     refMatch = globalMatch;
                     id_referenciaanalisis = globalMatch.id;
                     const fullRef = globalCatalog.find(r => r.id === globalMatch.id);
@@ -1207,10 +1239,10 @@ class BulkFichaService {
                         row_error_max = fullRef.error_max;
                     }
                     rowErrors.push(`Obtenido mediante Fallback desde otra Normativa`);
-                } else {
+                } else if (!rowErrors.length) {
                     rowErrors.push(`Análisis "${row.nombre}" no encontrado en la Normativa "${perRow.normNombre || '-'}" ni en el Catálogo Global`);
                 }
-            } else if (!refMatch) {
+            } else if (!refMatch && !rowErrors.length) {
                 rowErrors.push(`Análisis "${row.nombre}" omitido (Tabla "${perRow.normRefNombre || '-'}" vacía o SP falló)`);
             }
 
@@ -1388,25 +1420,23 @@ class BulkFichaService {
         logger.info(`[BulkFicha] Committing ${items.length} fichas...`);
         const results = [];
 
-        // Análisis fijos (pH + Temperatura, DS 90 / Tabla 1 / Terreno) que SIEMPRE
-        // se agregan en carga masiva, con UF=0 (se rellena después). Se resuelven
-        // una vez por lote. Si el catálogo no los tiene, se omiten sin romper.
-        let defaultAnalyses = [];
-        try {
-            defaultAnalyses = await fichaService.getDefaultTerrenoAnalyses();
-        } catch (e) {
-            logger.warn(`[BulkFicha] No se pudieron resolver los análisis fijos por defecto: ${e.message}`);
-        }
-
         for (const item of items) {
             try {
                 // Build payload in the format createFicha expects
                 // Only include analysis rows that were successfully matched (have id_referenciaanalisis)
                 const matchedRows = item.analisis.filter(a => a.id_referenciaanalisis);
 
-                // Inyectar los análisis fijos (pH + Temperatura) que no estén ya presentes
+                // Inyectar pH + Temperatura (Terreno) heredando la normativa/tabla
+                // de la ficha (no fija). Solo si existen en esa tabla y no están ya.
                 const presentRefIds = new Set(matchedRows.map(a => String(a.id_referenciaanalisis)));
-                const fijosToAdd = defaultAnalyses.filter(d => !presentRefIds.has(String(d.id_referenciaanalisis)));
+                const fichaRefId = item.antecedentes?.selectedNormativaRef;
+                let fijosToAdd = [];
+                try {
+                    const terreno = await fichaService.resolveTerrenoAnalysesForRef(fichaRefId);
+                    fijosToAdd = terreno.filter(d => !presentRefIds.has(String(d.id_referenciaanalisis)));
+                } catch (e) {
+                    logger.warn(`[BulkFicha] No se pudo resolver pH/Temperatura para la tabla ${fichaRefId}: ${e.message}`);
+                }
 
                 const payload = {
                     autoAprobar: true, // carga masiva → aprobada por Técnica + Coordinación, directo a programación

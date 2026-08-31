@@ -546,6 +546,19 @@ class BulkExcelService {
                 });
             }
 
+            // Análisis donde el nombre del Excel NO existe en su tabla y lo más
+            // parecido era un análisis DISTINTO (p. ej. "Nitrito"→"Nitrato",
+            // "Sulfatos"→"Sulfuros"). Se descartó la sustitución peligrosa; se
+            // surfaca para que el usuario corrija normativa/tabla o el nombre.
+            // (Los fallbacks al MISMO análisis desde otra tabla NO se marcan aquí
+            //  para no llenar de ruido; el análisis es el correcto.)
+            const analisisSustituidos = (result.analisis || []).filter(r =>
+                Array.isArray(r._errors) && r._errors.some(m => /análisis DISTINTO/i.test(m)));
+            for (const a of analisisSustituidos) {
+                const nota = (a._errors || []).find(m => /análisis DISTINTO/i.test(m)) || a._errors.join(' · ');
+                warns.push({ field: 'Análisis a verificar', message: nota });
+            }
+
             if (criticalErrors.length > 0 || result.errors.length > 0) {
                 result.status = 'ERROR';
             } else if (unmatchedAnalysis.length > 0 || result.warnings.length > 0) {

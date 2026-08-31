@@ -162,88 +162,128 @@ class FichaIngresoService {
     }
 
     /**
-     * Análisis fijos que SIEMPRE se ofrecen pre-agregados (manual y carga masiva):
-     *   - pH           (DS 90 / Tabla 1 / Terreno)
-     *   - Temperatura  (DS 90 / Tabla 1 / Terreno)
-     * Se resuelven por NOMBRE contra los catálogos (sin hardcodear IDs) y se
-     * cachean en memoria. Devuelve [] si el catálogo no los contiene (nunca
-     * rompe la creación de fichas).
+     * Carga (cacheada) TODAS las combinaciones normativa/tabla donde existen los
+     * análisis de terreno pH y Temperatura, con sus límites y errores. La
+     * normativa/tabla ya NO es fija: el usuario elige (form manual) o se hereda
+     * de la ficha (carga masiva). Devuelve { combos, directaId, directaNombre }.
      */
-    async getDefaultTerrenoAnalyses() {
-        if (FichaIngresoService._defaultTerrenoCache) return FichaIngresoService._defaultTerrenoCache;
-
+    async _loadTerrenoCombos() {
+        if (FichaIngresoService._terrenoCombosCache) return FichaIngresoService._terrenoCombosCache;
         const norm = (s) => String(s || '')
             .normalize('NFD').replace(/[̀-ͯ]/g, '')
-            .toUpperCase()
-            .replace(/N[°º]/g, ' ')      // "N°"/"Nº" (número) → fuera, ANTES de quitar °
-            .replace(/[.°º]/g, ' ')      // puntos y símbolos de grado sueltos
+            .toUpperCase().replace(/N[°º]/g, ' ').replace(/[.°º]/g, ' ')
             .replace(/\s+/g, ' ').trim();
+        const pool = await getConnection();
 
+        const res = await pool.request().query(`
+            SELECT LTRIM(RTRIM(t.nombre_tecnica)) AS tecnica, t.id_tecnica,
+                   n.id_normativa, n.nombre_normativa,
+                   nr.id_normativareferencia, nr.nombre_normativareferencia,
+                   ra.id_referenciaanalisis, ra.limitemax_d, ra.limitemax_h,
+                   ra.llevaerror, ra.error_min, ra.error_max
+            FROM App_Ma_ReferenciaAnalisis ra
+            JOIN mae_tecnica t ON ra.id_tecnica = t.id_tecnica
+            JOIN mae_normativareferencia nr ON ra.id_normativareferencia = nr.id_normativareferencia
+            JOIN mae_Normativa n ON nr.id_normativa = n.id_normativa
+            WHERE LTRIM(RTRIM(t.nombre_tecnica)) IN ('pH','Temperatura')
+            ORDER BY t.nombre_tecnica, n.nombre_normativa, nr.nombre_normativareferencia
+        `).catch((e) => { logger.warn('[DefaultAnalyses] combos query failed: ' + e.message); return { recordset: [] }; });
+
+        const teRes = await pool.request().execute('Maestro_Tipoentrega').catch(() => ({ recordset: [] }));
+        const directa = teRes.recordset
+            .map(r => ({ id: r.id_tipoentrega || r.id, nombre: (r.nombre_tipoentrega || r.nombre || '').trim() }))
+            .find(t => norm(t.nombre).includes('DIRECTA'));
+
+        const combos = res.recordset.map(r => ({
+            tecnica: r.tecnica, id_tecnica: r.id_tecnica,
+            id_normativa: r.id_normativa, nombre_normativa: (r.nombre_normativa || '').trim(),
+            id_normativareferencia: r.id_normativareferencia, nombre_normativareferencia: (r.nombre_normativareferencia || '').trim(),
+            id_referenciaanalisis: r.id_referenciaanalisis,
+            limitemax_d: r.limitemax_d, limitemax_h: r.limitemax_h,
+            llevaerror: r.llevaerror || 'N', error_min: r.error_min, error_max: r.error_max
+        }));
+        FichaIngresoService._terrenoCombosCache = { combos, directaId: directa?.id || 0, directaNombre: directa?.nombre || 'Directa' };
+        return FichaIngresoService._terrenoCombosCache;
+    }
+
+    _terrenoBaseRow(tecnica, opciones, directaId, directaNombre) {
+        return {
+            _fijo: true, _fijoTecnica: tecnica,
+            nombre_tecnica: tecnica,
+            tipo_analisis: 'Terreno',
+            uf_individual: 0,
+            // Sin selección de normativa/tabla → sin límites hasta que el usuario elija
+            id_tecnica: null, id_referenciaanalisis: null,
+            id_normativa: null, nombre_normativa: '',
+            id_normativareferencia: null, nombre_normativareferencia: '',
+            limitemax_d: null, limitemax_h: null, llevaerror: 'N', error_min: null, error_max: null,
+            id_laboratorioensayo: 0, nombre_laboratorioensayo: '',
+            id_laboratorioensayo_2: 0, nombre_laboratorioensayo_2: '',
+            id_tipoentrega: directaId, nombre_tipoentrega: directaNombre,
+            id_transporte: 0,
+            resultado_fecha: '  /  /    ',
+            opciones
+        };
+    }
+
+    /**
+     * Form manual: pH y Temperatura pre-agregados SIN normativa fija, cada uno
+     * con su lista de `opciones` (normativa/tabla + límites/errores) para elegir.
+     */
+    async getDefaultTerrenoAnalyses() {
         try {
-            const pool = await getConnection();
-
-            // 1. Normativa DS 90
-            const normRes = await pool.request().execute('Consulta_App_Ma_Normativa').catch(() => ({ recordset: [] }));
-            const normativas = normRes.recordset.map(r => ({ id: r.id_normativa || r.id, nombre: (r.nombre_normativa || r.nombre || '').trim() }));
-            const dsNorm = normativas.find(n => { const x = norm(n.nombre); return /\b90\b/.test(x) && /(^|\s)(D\s?S|DECRETO SUPREMO|DS)(\s|$)/.test(x); })
-                || normativas.find(n => /\b90\b/.test(norm(n.nombre)));
-            if (!dsNorm) { logger.warn('[DefaultAnalyses] Normativa "DS 90" no encontrada'); return []; }
-
-            // 2. Referencia "Tabla 1" bajo esa normativa
-            const refRes = await pool.request()
-                .input('idn', sql.Numeric(10, 0), Number(dsNorm.id))
-                .query('SELECT id_normativareferencia, nombre_normativareferencia, id_normativa FROM mae_normativareferencia WHERE id_normativa = @idn')
-                .catch(() => ({ recordset: [] }));
-            const refs = refRes.recordset.map(r => ({ id: r.id_normativareferencia, nombre: (r.nombre_normativareferencia || '').trim() }));
-            const tabla1 = refs.find(r => /\bTABLA 1\b/.test(norm(r.nombre)));
-            if (!tabla1) { logger.warn(`[DefaultAnalyses] Referencia "Tabla 1" no encontrada en ${dsNorm.nombre}`); return []; }
-
-            // 3. Análisis de esa tabla → pH y Temperatura
-            const anaRes = await pool.request()
-                .input('xid_normativareferencia', sql.Numeric(10, 0), Number(tabla1.id))
-                .execute('Consulta_App_Ma_ReferenciaAnalisis')
-                .catch(() => ({ recordset: [] }));
-            const analisisCat = anaRes.recordset.map(r => ({
-                id_referenciaanalisis: r.id_referenciaanalisis,
-                id_tecnica: r.id_tecnica,
-                nombre_tecnica: (r.nombre_tecnica || '').trim(),
-                limitemax_d: r.limitemax_d, limitemax_h: r.limitemax_h,
-                llevaerror: r.llevaerror || 'N', error_min: r.error_min, error_max: r.error_max
-            }));
-            const pick = (predicate) => analisisCat.find(a => predicate(norm(a.nombre_tecnica)));
-            const ph = pick(x => x === 'PH');
-            const temp = pick(x => x.includes('TEMPERATURA'));
-
-            // 4. Tipo entrega "Directa" (para análisis de Terreno)
-            const teRes = await pool.request().execute('Maestro_Tipoentrega').catch(() => ({ recordset: [] }));
-            const directa = teRes.recordset.map(r => ({ id: r.id_tipoentrega || r.id, nombre: (r.nombre_tipoentrega || r.nombre || '').trim() }))
-                .find(t => norm(t.nombre).includes('DIRECTA'));
-
-            const build = (a) => a ? ({
-                id_referenciaanalisis: a.id_referenciaanalisis,
-                id_tecnica: a.id_tecnica,
-                nombre_tecnica: a.nombre_tecnica,
-                id_normativa: dsNorm.id, nombre_normativa: dsNorm.nombre,
-                id_normativareferencia: tabla1.id, nombre_normativareferencia: tabla1.nombre,
-                limitemax_d: a.limitemax_d, limitemax_h: a.limitemax_h,
-                llevaerror: a.llevaerror, error_min: a.error_min, error_max: a.error_max,
-                tipo_analisis: 'Terreno',
-                uf_individual: 0,
-                id_laboratorioensayo: 0, nombre_laboratorioensayo: '',
-                id_laboratorioensayo_2: 0, nombre_laboratorioensayo_2: '',
-                id_tipoentrega: directa?.id || 0, nombre_tipoentrega: directa?.nombre || 'Directa',
-                id_transporte: 0,
-                resultado_fecha: '  /  /    ',
-                _fijo: true
-            }) : null;
-
-            const out = [build(ph), build(temp)].filter(Boolean);
-            if (out.length < 2) logger.warn(`[DefaultAnalyses] Faltan análisis fijos (pH=${!!ph}, Temperatura=${!!temp}) en ${dsNorm.nombre}/${tabla1.nombre}`);
-            FichaIngresoService._defaultTerrenoCache = out;
-            logger.info(`[DefaultAnalyses] Resueltos ${out.length} análisis fijos: ${out.map(a => a.nombre_tecnica).join(', ')}`);
+            const { combos, directaId, directaNombre } = await this._loadTerrenoCombos();
+            if (!combos.length) { logger.warn('[DefaultAnalyses] Sin combinaciones pH/Temperatura'); return []; }
+            const optsOf = (tec) => combos
+                .filter(c => c.tecnica.toLowerCase() === tec.toLowerCase())
+                .map(c => ({
+                    id_referenciaanalisis: c.id_referenciaanalisis, id_tecnica: c.id_tecnica,
+                    id_normativa: c.id_normativa, nombre_normativa: c.nombre_normativa,
+                    id_normativareferencia: c.id_normativareferencia, nombre_normativareferencia: c.nombre_normativareferencia,
+                    limitemax_d: c.limitemax_d, limitemax_h: c.limitemax_h,
+                    llevaerror: c.llevaerror, error_min: c.error_min, error_max: c.error_max
+                }));
+            const out = [];
+            const phOpts = optsOf('pH');
+            const tempOpts = optsOf('Temperatura');
+            if (phOpts.length) out.push(this._terrenoBaseRow('pH', phOpts, directaId, directaNombre));
+            if (tempOpts.length) out.push(this._terrenoBaseRow('Temperatura', tempOpts, directaId, directaNombre));
+            logger.info(`[DefaultAnalyses] pH(${phOpts.length} opciones) + Temperatura(${tempOpts.length} opciones)`);
             return out;
         } catch (e) {
-            logger.error('[DefaultAnalyses] Error resolviendo análisis fijos:', e);
+            logger.error('[DefaultAnalyses] Error:', e);
+            return [];
+        }
+    }
+
+    /**
+     * Carga masiva: pH/Temperatura resueltos a una normativa/tabla concreta
+     * (la de la ficha). Solo devuelve los que existen en esa tabla.
+     */
+    async resolveTerrenoAnalysesForRef(idNormativaReferencia) {
+        if (!idNormativaReferencia) return [];
+        try {
+            const { combos, directaId, directaNombre } = await this._loadTerrenoCombos();
+            const rows = [];
+            for (const tec of ['pH', 'Temperatura']) {
+                const c = combos.find(x => x.tecnica.toLowerCase() === tec.toLowerCase()
+                    && String(x.id_normativareferencia) === String(idNormativaReferencia));
+                if (!c) continue;
+                rows.push({
+                    _fijo: true, nombre_tecnica: c.tecnica, id_tecnica: c.id_tecnica,
+                    id_referenciaanalisis: c.id_referenciaanalisis,
+                    id_normativa: c.id_normativa, nombre_normativa: c.nombre_normativa,
+                    id_normativareferencia: c.id_normativareferencia, nombre_normativareferencia: c.nombre_normativareferencia,
+                    limitemax_d: c.limitemax_d, limitemax_h: c.limitemax_h,
+                    llevaerror: c.llevaerror, error_min: c.error_min, error_max: c.error_max,
+                    tipo_analisis: 'Terreno', uf_individual: 0,
+                    id_laboratorioensayo: 0, id_laboratorioensayo_2: 0,
+                    id_tipoentrega: directaId, nombre_tipoentrega: directaNombre, id_transporte: 0
+                });
+            }
+            return rows;
+        } catch (e) {
+            logger.warn('[DefaultAnalyses] resolveTerrenoAnalysesForRef error: ' + e.message);
             return [];
         }
     }
