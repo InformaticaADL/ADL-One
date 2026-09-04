@@ -63,3 +63,17 @@ TESTING_EXECUTION_SUMMARY.md
 TESTING_READY_REPORT.md
 nginx.hardened.conf
 frontend-adlone/eslint_out.json
+
+# Client-provided sample files / exports (invoicing bulk-load work)
+FACTURA 30632 JUN ID72325 NALCAHUE MAM CHESQUE ALTO.PDF
+FE_CASOS_73718_73716_73714_73712_73710_73708_73706_73704.TXT
+FE_OTRASVENTAS_73153.TXT
+Formato_Carga_Masiva_ADL_CORREGIDO.xlsx
+Formato_Carga_Masiva_ADL_LIMPIO Agua dulce.XLSX
+Formato_Carga_Masiva_ADL_LIMPIO Agua dulce_FIX MF.XLSX
+Formato_Carga_Masiva_ADL_LIMPIO Agua dulce_FIX MF_CORREGIDO.xlsx
+Formato_Carga_Masiva_ADL_LIMPIO Agua dulce_FIX.xlsx
+Formato_Carga_Masiva_ADL_LIMPIO.xlsx
+RE Levantamiento sistema de facturación  (495 MB).msg
+create_clean_template.mjs
+run_facturacion_migration.mjs

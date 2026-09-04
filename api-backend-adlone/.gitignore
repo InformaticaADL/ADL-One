@@ -104,3 +104,19 @@ update_notification_templates_v2.cjs
 update_templates.cjs
 update_templates_html.cjs
 verify_avisos.cjs
+
+# Diagnostic / one-off scripts (invoicing module work)
+check_columns.mjs
+check_ejecutados.mjs
+check_facturada.mjs
+check_import.mjs
+create_clean_template.mjs
+run_facturacion_ma.mjs
+run_facturacion_migration.mjs
+test_cotizacion.mjs
+test_emision.mjs
+test_emision2.mjs
+test_facturacion_e2e.mjs
+test_fecha.mjs
+test_renovacion.mjs
+test_resolver.mjs

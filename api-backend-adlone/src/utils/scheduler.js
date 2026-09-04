@@ -3,6 +3,7 @@ import { getConnection } from '../config/database.js';
 import sql from 'mssql';
 import unsService from '../services/uns.service.js';
 import fichaService from '../services/ficha.service.js';
+import facturacionService from '../services/facturacion.service.js';
 import { runAnalysis as runKpiAnalyst } from '../services/kpi-analyst.service.js';
 import kpiAnalystConfig from '../config/kpi-analyst.config.js';
 import logger from './logger.js';
@@ -261,6 +262,98 @@ export const initScheduler = () => {
         }
     };
 
+    // --- 2c. Informe Completo Watcher ---
+    // Polls App_Ma_Agenda_MUESTREOS for muestreos whose informe_emitido just
+    // turned 'S' (trg_App_Ma_Resultados_InformeCompleto lo cierra en cuanto
+    // todos sus análisis tienen resultado, sin importar si lo escribió ADL
+    // SAMPLING o el laboratorio en ADL ONE) y aún no fueron notificados.
+    // Deliberadamente separado del watcher de "Muestreo Completado": ese
+    // descarta la fila apenas la notifica una vez (notificado_completado), y
+    // el informe puede cerrar mucho después del retiro — este poller sigue
+    // revisando la fila hasta que informe_emitido efectivamente pase a 'S'.
+    let _pollInformesRunning = false;
+    const pollInformesCompletos = async () => {
+        if (_pollInformesRunning) return;
+        _pollInformesRunning = true;
+        try {
+            const pool = await getConnection();
+
+            const pending = await pool.request()
+                .query(`
+                    SELECT TOP 10 a.id_agendamam, a.frecuencia_correlativo
+                    FROM App_Ma_Agenda_MUESTREOS a
+                    WHERE a.informe_emitido = 'S'
+                      AND (a.informe_notificado = 'N' OR a.informe_notificado IS NULL)
+                    ORDER BY a.id_agendamam ASC
+                `);
+
+            for (const row of pending.recordset) {
+                try {
+                    await fichaService.notificarInformeCompleto(row.frecuencia_correlativo);
+                } catch (rowError) {
+                    logger.error(`[InformeCompleto] Error procesando agenda #${row.id_agendamam}:`, rowError);
+                }
+            }
+        } catch (pollError) {
+            if (pollError.message?.includes('ConnectionError') || pollError.message?.includes('deadlock')) {
+                logger.debug('[InformeCompleto] DB unreachable or busy, skipping poll');
+            } else if (pollError.number === 207 && pollError.message?.includes('informe_emitido')) {
+                logger.debug('[InformeCompleto] Columnas informe_emitido/informe_notificado pendientes de migración, omitiendo poll');
+            } else {
+                logger.error('[InformeCompleto] Error during polling:', pollError);
+            }
+        } finally {
+            _pollInformesRunning = false;
+        }
+    };
+
+    // --- 2d. Folio SII Watcher ---
+    // Lee adl_facturacion.dbo.ventas (cross-DB, solo lectura) por cada
+    // fac_emision pendiente de folio. Cuando el Sistema de Ventas ya emitió
+    // (ventas.nrodoc poblado, nulo=0), cierra la pre-factura sin re-tecleo.
+    // Cadencia más relajada que los watchers internos: depende de un
+    // sistema externo, no de un trigger propio.
+    let _pollFoliosRunning = false;
+    const pollFoliosSii = async () => {
+        if (_pollFoliosRunning) return;
+        _pollFoliosRunning = true;
+        try {
+            const { cerrados } = await facturacionService.cerrarFoliosPendientes();
+            if (cerrados > 0) logger.info(`[FolioSII] ${cerrados} pre-factura(s) cerradas con folio.`);
+        } catch (pollError) {
+            if (pollError.message?.includes('ConnectionError') || pollError.message?.includes('deadlock')) {
+                logger.debug('[FolioSII] DB unreachable or busy, skipping poll');
+            } else {
+                logger.error('[FolioSII] Error during polling:', pollError);
+            }
+        } finally {
+            _pollFoliosRunning = false;
+        }
+    };
+
+    // --- 2e. UF diaria (Banco Central vía mindicador.cl) ---
+    const actualizarUfDiaria = async () => {
+        try {
+            const result = await facturacionService.actualizarValorUfHoy();
+            if (result.actualizado) logger.info(`[UF] Actualizada a ${result.valor} para ${result.fecha}.`);
+        } catch (error) {
+            logger.error(`[UF] Error en actualización diaria: ${error.message}`);
+        }
+    };
+
+    // --- 2f. Cotizaciones vencidas ---
+    // Sin esto, una cotización ENVIADA cuya vigencia pasó se queda ahí para
+    // siempre: aceptarla ya estaba bloqueado, pero la bandeja seguía diciendo
+    // que estaba vigente.
+    const expirarCotizaciones = async () => {
+        try {
+            const r = await facturacionService.expirarCotizacionesVencidas();
+            if (r.expiradas > 0) logger.info(`[Cotizaciones] ${r.expiradas} marcada(s) como EXPIRADA.`);
+        } catch (error) {
+            logger.error(`[Cotizaciones] Error al expirar vencidas: ${error.message}`);
+        }
+    };
+
     // --- 3. KPI Analyst Dashboard Automation ---
     const runKpiAgent = async (mode = 'interval') => {
         try {
@@ -294,7 +387,11 @@ export const initScheduler = () => {
         runDailyCheck();
         pollNewRequests();
         pollMuestreosCompletados();
+        pollInformesCompletos();
+        pollFoliosSii();
         purgeTrackingHistory();
+        actualizarUfDiaria();
+        expirarCotizaciones();
     }, 10000);
 
     setTimeout(() => {
@@ -308,16 +405,28 @@ export const initScheduler = () => {
     // Every 24 hours (Tracking history purge — retention: 30 days)
     setInterval(purgeTrackingHistory, 24 * 60 * 60 * 1000);
 
+    // Every 24 hours (UF diaria — Banco Central)
+    setInterval(actualizarUfDiaria, 24 * 60 * 60 * 1000);
+
+    // Every 24 hours (Cotizaciones cuya vigencia venció)
+    setInterval(expirarCotizaciones, 24 * 60 * 60 * 1000);
+
     // Every 20 seconds (Vigilante poll)
     setInterval(pollNewRequests, 20 * 1000);
 
     // Every 20 seconds (Muestreo Completado watcher)
     setInterval(pollMuestreosCompletados, 20 * 1000);
 
+    // Every 20 seconds (Informe Completo watcher)
+    setInterval(pollInformesCompletos, 20 * 1000);
+
+    // Every 60 seconds (Folio SII watcher — depende de sistema externo)
+    setInterval(pollFoliosSii, 60 * 1000);
+
     // KPI analyst interval execution
     setInterval(() => {
         runKpiAgent('interval');
     }, kpiAnalystConfig.orchestration.refreshIntervalMs);
 
-    logger.info('Scheduler initialized: Daily check, URS Watcher, Muestreo Completado Watcher, Tracking Purge, and KPI Analyst active.');
+    logger.info('Scheduler initialized: Daily check, URS Watcher, Muestreo Completado Watcher, Informe Completo Watcher, Folio SII Watcher, Tracking Purge, and KPI Analyst active.');
 };

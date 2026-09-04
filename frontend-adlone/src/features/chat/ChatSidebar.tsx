@@ -1,22 +1,21 @@
 import { useState, useEffect, useRef } from 'react';
+import { Button, Input, Badge, Tag, Spin, Dropdown, Tooltip } from 'antd';
 import {
-    Box, TextInput, ScrollArea, UnstyledButton, Avatar, Text, Group, Badge,
-    ActionIcon, Tooltip, Tabs, Loader, Center, Menu
-} from '@mantine/core';
-import {
-    IconSearch, IconPlus, IconUsers, IconStar, IconStarFilled,
-    IconUserCircle, IconDotsVertical, IconTrash
+    IconDotsVertical, IconStar, IconStarFilled, IconTrash, IconUser,
+    IconRefresh, IconMessages, IconUsers, IconSearch,
 } from '@tabler/icons-react';
 import { generalChatService } from '../../services/general-chat.service';
 import type { ChatConversation, ChatContact } from '../../services/general-chat.service';
 import { useChatStore } from '../../store/chatStore';
 import { useAuth } from '../../contexts/AuthContext';
-import API_CONFIG from '../../config/api.config';
-import { ConfirmModal } from '../../components/common/ConfirmModal';
+import type { ChatView } from './ChatNav';
+import { useConfirm } from './FluentConfirm';
+import ChatAvatar from './ChatAvatar';
 
 interface ChatSidebarProps {
     conversations: ChatConversation[];
     activeConversation: ChatConversation | null;
+    view: ChatView;
     onSelect: (conv: ChatConversation) => void;
     onStartDirect: (contactId: number) => void;
     onSelectById: (conversationId: number) => void;
@@ -25,431 +24,220 @@ interface ChatSidebarProps {
     isMobile?: boolean;
 }
 
+const C = {
+    border: '#f0f0f0', text: 'rgba(0,0,0,0.88)', textSec: 'rgba(0,0,0,0.65)', textTer: 'rgba(0,0,0,0.45)',
+    primary: '#1677ff', primaryBg: '#e6f4ff', bg: '#ffffff', hover: '#fafafa',
+};
+
+const CSS = `
+.adl-sb-list { width:360px; flex-shrink:0; display:flex; flex-direction:column; min-height:0; overflow:hidden; background:${C.bg}; border-right:1px solid ${C.border}; }
+.adl-sb-list.mobile { width:100%; }
+.adl-sb-toolbar { display:flex; align-items:center; column-gap:8px; padding:12px; border-bottom:1px solid ${C.border}; position:relative; }
+.adl-sb-results { position:absolute; top:100%; left:12px; right:12px; z-index:20; background:${C.bg}; border:1px solid ${C.border}; border-radius:8px; box-shadow:0 6px 16px rgba(0,0,0,.12); max-height:320px; overflow-y:auto; margin-top:4px; padding:4px; }
+.adl-sb-scroll { flex:1; min-height:0; overflow-y:auto; padding:4px; }
+.adl-sb-item { position:relative; display:flex; align-items:center; column-gap:12px; width:100%; padding:10px 12px; border:none; background:transparent; cursor:pointer; text-align:left; border-radius:8px; color:${C.text}; }
+.adl-sb-item:hover { background:${C.hover}; }
+.adl-sb-item.active { background:${C.primaryBg}; }
+.adl-sb-item.active::before { content:""; position:absolute; left:3px; top:50%; transform:translateY(-50%); width:4px; height:34px; border-radius:4px; background:${C.primary}; }
+.adl-sb-avatar { position:relative; flex-shrink:0; }
+.adl-sb-dot { position:absolute; top:-1px; right:-1px; width:12px; height:12px; border-radius:50%; background:#ff4d4f; border:2px solid ${C.bg}; }
+.adl-sb-body { flex:1; min-width:0; }
+.adl-sb-row1 { display:flex; align-items:center; justify-content:space-between; column-gap:8px; }
+.adl-sb-name { font-weight:600; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:${C.text}; }
+.adl-sb-time { font-size:12px; color:${C.textTer}; flex-shrink:0; }
+.adl-sb-row2 { display:flex; align-items:center; justify-content:space-between; column-gap:8px; margin-top:2px; }
+.adl-sb-preview { font-size:12px; color:${C.textTer}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.adl-sb-unread { color:${C.text}; font-weight:600; }
+.adl-sb-trailing { display:flex; align-items:center; column-gap:4px; flex-shrink:0; }
+.adl-sb-empty { display:flex; flex-direction:column; align-items:center; row-gap:12px; padding:48px 24px; text-align:center; color:${C.textTer}; }
+.adl-sb-emptytext { margin:0; font-size:14px; white-space:pre-line; }
+.adl-sb-acrow { display:flex; align-items:center; column-gap:12px; width:100%; padding:8px; border:none; background:transparent; cursor:pointer; border-radius:6px; text-align:left; }
+.adl-sb-acrow:hover { background:${C.hover}; }
+`;
+
 const ChatSidebar: React.FC<ChatSidebarProps> = ({
-    conversations, activeConversation, onSelect, onStartDirect, onSelectById, onCreateGroup, onViewProfile, isMobile
+    conversations, activeConversation, view, onStartDirect, onSelect, onSelectById, onViewProfile, isMobile,
 }) => {
     const [search, setSearch] = useState('');
     const [searchResults, setSearchResults] = useState<ChatContact[]>([]);
     const [searching, setSearching] = useState(false);
     const [showResults, setShowResults] = useState(false);
-    const [activeTab, setActiveTab] = useState<string | null>('chats');
-    const { favorites, fetchFavorites, deleteConversation, messages } = useChatStore();
+    const { favorites, fetchFavorites, fetchConversations, deleteConversation } = useChatStore();
     const { user } = useAuth();
-    const searchRef = useRef<HTMLDivElement>(null);
-    const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-    const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+    const { ask, dialog } = useConfirm();
+    const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-    useEffect(() => {
-        fetchFavorites();
-    }, []);
+    useEffect(() => { fetchFavorites(); }, []);
 
-    // Click outside to close search results
-    useEffect(() => {
-        const handler = (e: MouseEvent) => {
-            if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
-                setShowResults(false);
-            }
-        };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
-    }, []);
-
-    const handleSearchChange = (value: string) => {
-        setSearch(value);
-        if (timerRef.current) clearTimeout(timerRef.current);
-        setShowResults(true);
-        setSearching(true);
-        timerRef.current = setTimeout(async () => {
+    const handleSearch = (value: string) => {
+        setSearch(value); setShowResults(true); setSearching(true);
+        if (timer.current) clearTimeout(timer.current);
+        timer.current = setTimeout(async () => {
             try {
                 const results = await generalChatService.searchContacts(value);
-                const filteredResults = results.filter(
-                    (contact) => !(contact.tipo_entidad === 'USER' && String(contact.id_entidad) === String(user?.id))
-                );
-                setSearchResults(filteredResults);
-            } catch (err) {
-                console.error(err);
-            } finally {
-                setSearching(false);
-            }
+                setSearchResults(results.filter((c) => !(c.tipo_entidad === 'USER' && String(c.id_entidad) === String(user?.id))));
+            } catch { setSearchResults([]); } finally { setSearching(false); }
         }, 300);
     };
-
-    const handleSearchFocus = () => {
-        setShowResults(true);
-        if (searchResults.length === 0 && !searching) {
-            handleSearchChange(search);
-        }
+    const pickResult = (item: ChatContact) => {
+        setSearch(''); setSearchResults([]); setShowResults(false);
+        if (item.tipo_entidad === 'GROUP') onSelectById(item.id_entidad); else onStartDirect(item.id_entidad);
     };
 
-    const handleSelectItem = (item: ChatContact) => {
-        setSearch('');
-        setShowResults(false);
-        setSearchResults([]);
-        if (item.tipo_entidad === 'GROUP') {
-            onSelectById(item.id_entidad);
-        } else {
-            onStartDirect(item.id_entidad);
-        }
-    };
-
-    const handleToggleFavorite = async (e: React.MouseEvent, conversation: ChatConversation) => {
-        e.stopPropagation();
+    const toggleFav = async (conv: ChatConversation) => {
         try {
-            const isCurrentlyFav = conversation.es_favorito === 1;
-            const targetId = conversation.tipo === 'DIRECTA' ? conversation.contacto_id : conversation.id_conversacion;
-            const tipo = conversation.tipo === 'DIRECTA' ? 'USER' : 'GROUP';
-
+            const isFav = conv.es_favorito === 1;
+            const targetId = conv.tipo === 'DIRECTA' ? conv.contacto_id : conv.id_conversacion;
+            const tipo = conv.tipo === 'DIRECTA' ? 'USER' : 'GROUP';
             if (!targetId) return;
-
-            if (isCurrentlyFav) {
-                await generalChatService.removeFavorite(targetId, tipo);
-            } else {
-                await generalChatService.addFavorite(targetId, tipo);
-            }
-            // fetchConversations is passed via props? No, I should use the one from store or refresh.
-            // In typical cases here conversations come from props but fetch is in store.
-            useChatStore.getState().fetchConversations();
-            fetchFavorites();
-        } catch (err) {
-            console.error(err);
-        }
+            if (isFav) await generalChatService.removeFavorite(targetId, tipo); else await generalChatService.addFavorite(targetId, tipo);
+            fetchConversations(); fetchFavorites();
+        } catch { /* noop */ }
     };
-
-    const handleToggleFavoriteById = async (e: React.MouseEvent, id: number, tipo: 'USER' | 'GROUP') => {
-        e.stopPropagation();
-        const isFav = favorites.some(f => f.id_entidad === id);
+    const toggleFavById = async (id: number, tipo: 'USER' | 'GROUP') => {
         try {
-            if (isFav) {
-                await generalChatService.removeFavorite(id, tipo);
-            } else {
-                await generalChatService.addFavorite(id, tipo);
-            }
-            useChatStore.getState().fetchConversations();
-            fetchFavorites();
-        } catch (err) {
-            console.error(err);
-        }
+            const isFav = favorites.some((f) => f.id_entidad === id);
+            if (isFav) await generalChatService.removeFavorite(id, tipo); else await generalChatService.addFavorite(id, tipo);
+            fetchConversations(); fetchFavorites();
+        } catch { /* noop */ }
     };
 
     const formatTime = (date: string | null) => {
         if (!date) return '';
-        const d = new Date(date);
-        const now = new Date();
-        const isToday = d.toDateString() === now.toDateString();
-        // Use local time for formatting
-        if (isToday) return d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
-        const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
-        if (d.toDateString() === yesterday.toDateString()) return 'Ayer';
+        const d = new Date(date), now = new Date();
+        if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
+        const y = new Date(now); y.setDate(now.getDate() - 1);
+        if (d.toDateString() === y.toDateString()) return 'Ayer';
         return d.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit' });
     };
 
-    const filteredConversations = conversations.filter(c => {
-        if (!search || showResults) return true;
-        const name = c.nombre_display || '';
-        return name.toLowerCase().includes(search.toLowerCase());
-    });
-
-    const renderConversationItem = (conv: ChatConversation) => {
-        const isActive = activeConversation?.id_conversacion === conv.id_conversacion;
-        const baseUrl = API_CONFIG.getBaseURL();
-        const avatar = conv.foto_display ? `${baseUrl}${conv.foto_display}` : null;
+    const renderConversation = (conv: ChatConversation) => {
+        const active = activeConversation?.id_conversacion === conv.id_conversacion;
+        const group = conv.tipo === 'GRUPO';
+        const unread = conv.no_leidos > 0;
         const isFav = conv.es_favorito === 1;
-
+        const preview = conv.ultimo_tipo_mensaje === 'ARCHIVO' ? '📎 Archivo adjunto'
+            : conv.ultimo_tipo_mensaje === 'SISTEMA' ? `ℹ️ ${conv.ultimo_mensaje || ''}`
+                : conv.ultimo_mensaje || ' ';
+        const menuItems = [
+            {
+                key: 'fav', icon: isFav ? <IconStarFilled size={16} /> : <IconStar size={16} />,
+                label: isFav ? 'Quitar de favoritos' : 'Añadir a favoritos',
+                onClick: ({ domEvent }: { domEvent: any }) => { domEvent.stopPropagation(); toggleFav(conv); },
+            },
+            {
+                key: 'del', icon: <IconTrash size={16} />, danger: true, label: 'Eliminar chat',
+                onClick: ({ domEvent }: { domEvent: any }) => {
+                    domEvent.stopPropagation();
+                    ask({
+                        title: 'Eliminar conversación', danger: true, confirmLabel: 'Eliminar',
+                        message: 'Se ocultará y se limpiará el historial, pero reaparecerá si recibes nuevos mensajes.',
+                        onConfirm: () => deleteConversation(conv.id_conversacion),
+                    });
+                },
+            },
+        ];
         return (
-            <UnstyledButton
-                component="div"
-                key={conv.id_conversacion}
-                onClick={() => onSelect(conv)}
-                p="sm"
-                style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 12,
-                    borderRadius: 8,
-                    background: isActive
-                        ? 'var(--mantine-color-blue-light)'
-                        : 'transparent',
-                    transition: 'background 150ms ease',
-                    width: '100%'
-                }}
-                className="chat-conversation-item"
-            >
-                <Avatar src={avatar} radius="xl" size={48} color={conv.tipo === 'GRUPO' ? 'teal' : 'blue'}>
-                    {conv.tipo === 'GRUPO' ? <IconUsers size={22} /> : conv.nombre_display?.charAt(0)?.toUpperCase()}
-                </Avatar>
-                <Box style={{ flex: 1, minWidth: 0 }}>
-                    <Group justify="space-between" wrap="nowrap" gap={4}>
-                        <Text size="sm" fw={600} truncate style={{ flex: 1 }}>
-                            {conv.nombre_display || 'Chat'}
-                        </Text>
-                        <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
-                            {formatTime(conv.ultimo_mensaje_fecha)}
-                        </Text>
-                    </Group>
-                    <Group justify="space-between" wrap="nowrap" gap={4}>
-                        <Text size="xs" c="dimmed" truncate style={{ flex: 1 }}>
-                            {conv.ultimo_tipo_mensaje === 'ARCHIVO' ? '📎 Archivo adjunto' :
-                             conv.ultimo_tipo_mensaje === 'SISTEMA' ? `ℹ️ ${conv.ultimo_mensaje || ''}` :
-                             conv.ultimo_mensaje || (activeConversation?.id_conversacion === conv.id_conversacion && messages.length === 0 ? '' : ' ')}
-                        </Text>
-                        <Group gap={4} style={{ flexShrink: 0 }}>
-                            {conv.no_leidos > 0 && (
-                                <Badge size="sm" variant="filled" color="blue" circle>
-                                    {conv.no_leidos > 99 ? '99+' : conv.no_leidos}
-                                </Badge>
-                            )}
-
-                            <Menu position="bottom-end" shadow="md" withinPortal>
-                                <Menu.Target>
-                                    <ActionIcon
-                                        size="sm"
-                                        variant="subtle"
-                                        color="gray"
-                                        onClick={(e) => e.stopPropagation()}
-                                        className="chat-item-menu-btn"
-                                    >
-                                        <IconDotsVertical size={14} />
-                                    </ActionIcon>
-                                </Menu.Target>
-                                <Menu.Dropdown>
-                                    <Menu.Item
-                                        leftSection={isFav ? <IconStarFilled size={14} /> : <IconStar size={14} />}
-                                        onClick={(e) => handleToggleFavorite(e, conv)}
-                                    >
-                                        {isFav ? 'Quitar de favoritos' : 'Añadir a favoritos'}
-                                    </Menu.Item>
-                                    <Menu.Item
-                                        color="red"
-                                        leftSection={<IconTrash size={14} />}
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setConfirmDeleteId(conv.id_conversacion);
-                                        }}
-                                    >
-                                        Eliminar chat
-                                    </Menu.Item>
-                                </Menu.Dropdown>
-                            </Menu>
-
-                            <ActionIcon
-                                size="xs"
-                                variant="transparent"
-                                onClick={(e) => handleToggleFavorite(e, conv)}
-                                color={isFav ? 'yellow' : 'gray'}
-                            >
-                                {isFav ? <IconStarFilled size={14} /> : <IconStar size={14} />}
-                            </ActionIcon>
-                        </Group>
-                    </Group>
-                </Box>
-            </UnstyledButton>
+            <button key={conv.id_conversacion} type="button" className={`adl-sb-item ${active ? 'active' : ''}`} onClick={() => onSelect(conv)}>
+                <span className="adl-sb-avatar">
+                    <ChatAvatar name={conv.nombre_display} foto={conv.foto_display} size={40} group={group} />
+                    {unread && <span className="adl-sb-dot" />}
+                </span>
+                <span className="adl-sb-body">
+                    <span className="adl-sb-row1">
+                        <span className={`adl-sb-name ${unread ? 'adl-sb-unread' : ''}`}>{conv.nombre_display || 'Chat'}</span>
+                        <span className="adl-sb-time">{formatTime(conv.ultimo_mensaje_fecha)}</span>
+                    </span>
+                    <span className="adl-sb-row2">
+                        <span className={`adl-sb-preview ${unread ? 'adl-sb-unread' : ''}`}>{preview}</span>
+                        <span className="adl-sb-trailing">
+                            {group && <Tag color="blue" style={{ marginInlineEnd: 0 }}>Grupo</Tag>}
+                            {unread && <Badge count={conv.no_leidos} size="small" />}
+                            <Dropdown trigger={['click']} placement="bottomRight" menu={{ items: menuItems }}>
+                                <Button type="text" size="small" icon={<IconDotsVertical size={18} />}
+                                    onClick={(e) => e.stopPropagation()} aria-label="Opciones" />
+                            </Dropdown>
+                        </span>
+                    </span>
+                </span>
+            </button>
         );
     };
 
+    const list = view === 'grupos' ? conversations.filter((c) => c.tipo === 'GRUPO') : conversations;
+    const empty = {
+        chats: { icon: <IconMessages size={34} />, text: 'No tienes conversaciones aún.\nBusca un contacto para comenzar.' },
+        grupos: { icon: <IconUsers size={34} />, text: 'No perteneces a ningún grupo.\nCrea uno con el botón +.' },
+        favoritos: { icon: <IconStar size={34} />, text: 'No tienes contactos favoritos.\nMarca la ⭐ en un contacto.' },
+    }[view];
+
     return (
-        <Box
-            style={{
-                width: isMobile ? '100%' : 340,
-                borderRight: isMobile ? 'none' : '1px solid var(--mantine-color-default-border)',
-                display: 'flex',
-                flexDirection: 'column',
-                background: 'var(--mantine-color-body)'
-            }}
-        >
-            {/* Header */}
-            <Box p="sm" style={{ borderBottom: '1px solid var(--mantine-color-default-border)' }}>
-                <Group justify="space-between" mb="xs">
-                    <Text size="lg" fw={700}>Chat</Text>
-                    <Group gap={4}>
-                        <Tooltip label="Nuevo grupo">
-                            <ActionIcon variant="light" color="blue" onClick={onCreateGroup}>
-                                <IconUsers size={18} />
-                            </ActionIcon>
-                        </Tooltip>
-                    </Group>
-                </Group>
-
-                {/* Search */}
-                <Box ref={searchRef} style={{ position: 'relative' }}>
-                    <TextInput
-                        placeholder="Buscar contacto o grupo..."
-                        leftSection={<IconSearch size={16} />}
-                        value={search}
-                        onChange={(e) => handleSearchChange(e.currentTarget.value)}
-                        onFocus={handleSearchFocus}
-                        size="sm"
-                        radius="md"
-                    />
-                    {showResults && (
-                        <Box
-                            style={{
-                                position: 'absolute',
-                                top: '100%',
-                                left: 0,
-                                right: 0,
-                                zIndex: 100,
-                                background: 'var(--mantine-color-body)',
-                                border: '1px solid var(--mantine-color-default-border)',
-                                borderRadius: '0 0 8px 8px',
-                                boxShadow: 'var(--mantine-shadow-md)',
-                                maxHeight: 300,
-                                overflowY: 'auto'
-                            }}
-                        >
-                            {searching ? (
-                                <Center p="md"><Loader size="sm" /></Center>
-                            ) : searchResults.length === 0 ? (
-                                <Text p="md" c="dimmed" size="sm" ta="center">Sin resultados</Text>
-                            ) : (
-                                searchResults.map(item => (
-                                    <UnstyledButton
-                                        component="div"
-                                        key={`${item.tipo_entidad}-${item.id_entidad}`}
-                                        onClick={() => handleSelectItem(item)}
-                                        p="xs"
-                                        px="sm"
-                                        style={{
-                                            display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-                                            borderRadius: 4, transition: 'background 150ms ease'
-                                        }}
-                                        className="chat-conversation-item"
-                                    >
-                                        <Avatar
-                                            src={item.foto ? `${API_CONFIG.getBaseURL()}${item.foto}` : null}
-                                            size={36} radius="xl" color={item.tipo_entidad === 'GROUP' ? 'teal' : 'blue'}
-                                        >
-                                            {item.tipo_entidad === 'GROUP' ? <IconUsers size={18} /> : item.nombre?.charAt(0)?.toUpperCase()}
-                                        </Avatar>
-                                        <Box style={{ flex: 1, minWidth: 0 }}>
-                                            <Text size="sm" fw={500} truncate>{item.nombre}</Text>
-                                            <Text size="xs" c="dimmed" truncate>{item.tipo_entidad === 'GROUP' ? 'Grupo' : (item.cargo || item.email)}</Text>
-                                        </Box>
-                                        {item.tipo_entidad === 'USER' && (
-                                            <Tooltip label="Ver perfil">
-                                                <ActionIcon size="sm" variant="subtle" onClick={(e) => { e.stopPropagation(); onViewProfile(item.id_entidad); }}>
-                                                    <IconUserCircle size={16} />
-                                                </ActionIcon>
-                                            </Tooltip>
-                                        )}
-                                    </UnstyledButton>
-                                ))
-                            )}
-                        </Box>
-                    )}
-                </Box>
-            </Box>
-
-            {/* Tabs: Chats | Favoritos */}
-            <Tabs value={activeTab} onChange={setActiveTab} variant="default">
-                <Tabs.List grow>
-                    <Tabs.Tab value="chats" leftSection={<IconSearch size={14} />}>Chats</Tabs.Tab>
-                    <Tabs.Tab value="favoritos" leftSection={<IconStarFilled size={14} />}>Favoritos</Tabs.Tab>
-                </Tabs.List>
-            </Tabs>
-
-            {/* List */}
-            <ScrollArea style={{ flex: 1 }} type="auto" p="xs">
-                {activeTab === 'chats' ? (
-                    filteredConversations.length === 0 ? (
-                        <Center style={{ padding: 40, flexDirection: 'column', gap: 8 }}>
-                            <IconPlus size={32} stroke={1} style={{ color: 'var(--mantine-color-dimmed)' }} />
-                            <Text size="sm" c="dimmed" ta="center">
-                                No tienes conversaciones aún.{'\n'}Busca un contacto para comenzar.
-                            </Text>
-                        </Center>
-                    ) : (
-                        filteredConversations.map(renderConversationItem)
-                    )
-                ) : (
-                    favorites.length === 0 ? (
-                        <Center style={{ padding: 40, flexDirection: 'column', gap: 8 }}>
-                            <IconStar size={32} stroke={1} style={{ color: 'var(--mantine-color-dimmed)' }} />
-                            <Text size="sm" c="dimmed" ta="center">
-                                No tienes contactos favoritos.{'\n'}Marca la ⭐ en un contacto.
-                            </Text>
-                        </Center>
-                    ) : (
-                        favorites.map(fav => {
-                            return (
-                                <UnstyledButton
-                                    key={`fav-${fav.tipo_entidad}-${fav.id_entidad}`}
-                                    component="div"
-                                    onClick={() => fav.tipo_entidad === 'GROUP' ? onSelectById(fav.id_entidad) : onStartDirect(fav.id_entidad)}
-                                    p="sm"
-                                    style={{
-                                        display: 'flex', alignItems: 'center', gap: 12,
-                                        borderRadius: 8, width: '100%', transition: 'background 150ms ease'
-                                    }}
-                                    className="chat-conversation-item"
-                                >
-                                    <Avatar
-                                        src={fav.foto ? `${API_CONFIG.getBaseURL()}${fav.foto}` : null}
-                                        size={42} radius="xl" color={fav.tipo_entidad === 'GROUP' ? 'teal' : 'blue'}
-                                    >
-                                        {fav.tipo_entidad === 'GROUP' ? <IconUsers size={20} /> : fav.nombre?.charAt(0)?.toUpperCase()}
-                                    </Avatar>
-                                    <Box style={{ flex: 1, minWidth: 0 }}>
-                                        <Text size="sm" fw={500} truncate>{fav.nombre}</Text>
-                                        <Text size="xs" c="dimmed" truncate>{fav.tipo_entidad === 'GROUP' ? 'Grupo' : (fav.cargo || fav.email)}</Text>
-                                    </Box>
-                                    <Group gap={4}>
-                                        <Menu position="bottom-end" shadow="md" withinPortal>
-                                            <Menu.Target>
-                                                <ActionIcon
-                                                    size="sm"
-                                                    variant="subtle"
-                                                    color="gray"
-                                                    onClick={(e) => e.stopPropagation()}
-                                                >
-                                                    <IconDotsVertical size={14} />
-                                                </ActionIcon>
-                                            </Menu.Target>
-                                            <Menu.Dropdown>
-                                                <Menu.Item
-                                                    leftSection={<IconStar size={14} />}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleToggleFavoriteById(e, fav.id_entidad, fav.tipo_entidad);
-                                                    }}
-                                                >
-                                                    Quitar de favoritos
-                                                </Menu.Item>
-                                                <Menu.Item
-                                                    leftSection={<IconUserCircle size={14} />}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        onViewProfile(fav.id_entidad);
-                                                    }}
-                                                >
-                                                    Ver perfil
-                                                </Menu.Item>
-                                            </Menu.Dropdown>
-                                        </Menu>
-
-                                        <ActionIcon size="xs" variant="transparent" color="yellow" onClick={(e) => handleToggleFavoriteById(e, fav.id_entidad, fav.tipo_entidad)}>
-                                            <IconStarFilled size={14} />
-                                        </ActionIcon>
-                                    </Group>
-                                </UnstyledButton>
-                            );
-                        })
-                    )
+        <div className={`adl-sb-list ${isMobile ? 'mobile' : ''}`}>
+            <style>{CSS}</style>
+            <div className="adl-sb-toolbar"
+                onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setShowResults(false); }}>
+                <Input allowClear placeholder="Buscar contacto o grupo…" prefix={<IconSearch size={16} color={C.textTer} />}
+                    style={{ flex: 1 }} value={search} onFocus={() => setShowResults(true)}
+                    onChange={(e) => handleSearch(e.target.value)} />
+                <Tooltip title="Actualizar">
+                    <Button type="text" icon={<IconRefresh size={18} />} aria-label="Actualizar"
+                        onClick={() => { fetchConversations(); fetchFavorites(); }} />
+                </Tooltip>
+                {showResults && search.length > 0 && (
+                    <div className="adl-sb-results">
+                        {searching ? (
+                            <div style={{ display: 'flex', justifyContent: 'center', padding: 16 }}><Spin size="small" /></div>
+                        ) : searchResults.length === 0 ? (
+                            <div style={{ padding: 16, textAlign: 'center', color: C.textTer, fontSize: 12 }}>Sin resultados</div>
+                        ) : searchResults.map((item) => (
+                            <button key={`${item.tipo_entidad}-${item.id_entidad}`} type="button" className="adl-sb-acrow" onClick={() => pickResult(item)}>
+                                <ChatAvatar name={item.nombre} foto={item.foto} size={32} group={item.tipo_entidad === 'GROUP'} />
+                                <span style={{ minWidth: 0 }}>
+                                    <span style={{ display: 'block', fontWeight: 600, fontSize: 14, color: C.text }}>{item.nombre}</span>
+                                    <span style={{ display: 'block', fontSize: 12, color: C.textTer, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {item.tipo_entidad === 'GROUP' ? 'Grupo' : (item.cargo || item.email)}
+                                    </span>
+                                </span>
+                            </button>
+                        ))}
+                    </div>
                 )}
-            </ScrollArea>
+            </div>
 
-            <ConfirmModal
-                isOpen={confirmDeleteId !== null}
-                title="Eliminar Conversación"
-                message="¿Estás seguro de que deseas eliminar esta conversación de tu bandeja? Se ocultará y se limpiará el historial, pero reaparecerá si recibes nuevos mensajes."
-                confirmText="Eliminar"
-                confirmColor="var(--mantine-color-red-6)"
-                onConfirm={() => {
-                    if (confirmDeleteId) deleteConversation(confirmDeleteId);
-                    setConfirmDeleteId(null);
-                }}
-                onCancel={() => setConfirmDeleteId(null)}
-            />
-        </Box>
+            <div className="adl-sb-scroll">
+                {view === 'favoritos' ? (
+                    favorites.length === 0 ? (
+                        <div className="adl-sb-empty">{empty.icon}<p className="adl-sb-emptytext">{empty.text}</p></div>
+                    ) : favorites.map((fav) => (
+                        <button key={`fav-${fav.tipo_entidad}-${fav.id_entidad}`} type="button" className="adl-sb-item"
+                            onClick={() => (fav.tipo_entidad === 'GROUP' ? onSelectById(fav.id_entidad) : onStartDirect(fav.id_entidad))}>
+                            <span className="adl-sb-avatar">
+                                <ChatAvatar name={fav.nombre} foto={fav.foto} size={40} group={fav.tipo_entidad === 'GROUP'} />
+                            </span>
+                            <span className="adl-sb-body">
+                                <span className="adl-sb-row1"><span className="adl-sb-name">{fav.nombre}</span></span>
+                                <span className="adl-sb-row2">
+                                    <span className="adl-sb-preview">{fav.tipo_entidad === 'GROUP' ? 'Grupo' : (fav.cargo || fav.email)}</span>
+                                    <span className="adl-sb-trailing">
+                                        {fav.tipo_entidad === 'USER' && (
+                                            <Button type="text" size="small" icon={<IconUser size={18} />} aria-label="Ver perfil"
+                                                onClick={(e) => { e.stopPropagation(); onViewProfile(fav.id_entidad); }} />
+                                        )}
+                                        <Button type="text" size="small" icon={<IconStarFilled size={18} color="#faad14" />} aria-label="Quitar de favoritos"
+                                            onClick={(e) => { e.stopPropagation(); toggleFavById(fav.id_entidad, fav.tipo_entidad); }} />
+                                    </span>
+                                </span>
+                            </span>
+                        </button>
+                    ))
+                ) : (
+                    list.length === 0 ? (
+                        <div className="adl-sb-empty">{empty.icon}<p className="adl-sb-emptytext">{empty.text}</p></div>
+                    ) : list.map(renderConversation)
+                )}
+            </div>
+            {dialog}
+        </div>
     );
 };
 

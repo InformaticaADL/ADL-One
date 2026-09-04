@@ -25,6 +25,10 @@ interface NavState {
     setPendingChatId: (id: number | null) => void;
     setSelectedRequestId: (id: number | null) => void;
     setSelectedFicha: (id: number | null, correlativo: string | null) => void;
+    // Cotización que originó la ficha que se está creando: el formulario la lee
+    // para precargarse y para dejar la trazabilidad al guardar.
+    cotizacionParaFicha: number | null;
+    setCotizacionParaFicha: (id: number | null) => void;
     setUrsInboxMode: (mode: 'RECEIVED' | 'SENT') => void;
     sidebarCollapsed: boolean;
     setSidebarCollapsed: (isCollapsed: boolean) => void;
@@ -56,6 +60,7 @@ export const useNavStore = create<NavState>()(
             selectedRequestId: null,
             selectedFichaId: null,
             selectedCorrelativo: null,
+            cotizacionParaFicha: null,
             ursInboxMode: 'RECEIVED',
             hiddenNotifications: [],
             maArea: null,
@@ -76,6 +81,7 @@ export const useNavStore = create<NavState>()(
             setPendingChatId: (id) => set({ pendingChatId: id }),
             setSelectedRequestId: (id) => set({ selectedRequestId: id }),
             setSelectedFicha: (id, correlativo) => set({ selectedFichaId: id, selectedCorrelativo: correlativo }),
+            setCotizacionParaFicha: (id) => set({ cotizacionParaFicha: id }),
             setUrsInboxMode: (mode) => set({ ursInboxMode: mode }),
             hideNotification: (id: string | number) => set((state) => {
                 const idStr = String(id);
@@ -92,6 +98,7 @@ export const useNavStore = create<NavState>()(
                 selectedRequestId: null,
                 selectedFichaId: null,
                 selectedCorrelativo: null,
+                cotizacionParaFicha: null,
                 ursInboxMode: 'RECEIVED',
                 adminSearchTerm: '',
                 maArea: null,

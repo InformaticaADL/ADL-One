@@ -279,6 +279,14 @@ class UnsService {
                     titulo: 'Muestreo Completado: Ficha #{{correlativo}} - Servicio {{numero_servicio}}/{{total_servicios}}',
                     mensaje: '{{usuario_accion}} completó el servicio {{numero_servicio}}/{{total_servicios}} de la ficha #{{correlativo}}.'
                 },
+                'FICHA_INFORME_COMPLETO': {
+                    titulo: 'Informe Completo: #{{correlativo}}',
+                    mensaje: 'Todos los resultados de la ficha #{{correlativo}} ya están cargados. Queda disponible para facturar.'
+                },
+                'FICHA_CICLO_FINALIZADO': {
+                    titulo: 'Ciclo Finalizado: #{{correlativo}}',
+                    mensaje: 'Todos los servicios programados de la ficha #{{correlativo}} ya tienen su informe completo.'
+                },
                 'FICHA_MUESTREO_CANCELADO': {
                     titulo: 'Muestreo Cancelado: #{{correlativo}}',
                     mensaje: 'El muestreo agendado para la ficha #{{correlativo}} ha sido cancelado.'

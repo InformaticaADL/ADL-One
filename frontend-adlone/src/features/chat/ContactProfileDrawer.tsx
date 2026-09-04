@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
-import { Drawer, Avatar, Text, Box, Group, Button, Divider, Loader, Center, Badge } from '@mantine/core';
-import { IconMessageCircle, IconMail, IconBriefcase, IconShield } from '@tabler/icons-react';
+import { useEffect, useState, type ReactElement } from 'react';
+import { Drawer, Button, Divider, Tag, Spin } from 'antd';
+import { IconMail, IconBriefcase, IconShield, IconMessageCircle } from '@tabler/icons-react';
 import { generalChatService } from '../../services/general-chat.service';
 import type { UserProfile } from '../../services/general-chat.service';
-import API_CONFIG from '../../config/api.config';
+import ChatAvatar from './ChatAvatar';
 
 interface ContactProfileDrawerProps {
     opened: boolean;
@@ -12,121 +12,61 @@ interface ContactProfileDrawerProps {
     onStartChat: (userId: number) => void;
 }
 
-const ContactProfileDrawer: React.FC<ContactProfileDrawerProps> = ({
-    opened, onClose, userId, onStartChat
-}) => {
+const C = { text: 'rgba(0,0,0,0.88)', textTer: 'rgba(0,0,0,0.45)', primary: '#1677ff' };
+
+const ContactProfileDrawer: React.FC<ContactProfileDrawerProps> = ({ opened, onClose, userId, onStartChat }) => {
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         if (opened && userId) {
-            loadProfile(userId);
+            setLoading(true);
+            generalChatService.getUserProfile(userId).then(setProfile).catch((e) => console.error(e)).finally(() => setLoading(false));
         }
         if (!opened) setProfile(null);
     }, [opened, userId]);
 
-    const loadProfile = async (id: number) => {
-        setLoading(true);
-        try {
-            const data = await generalChatService.getUserProfile(id);
-            setProfile(data);
-        } catch (err) {
-            console.error(err);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const baseUrl = API_CONFIG.getBaseURL();
+    const Row = ({ icon, label, value }: { icon: ReactElement; label: string; value: React.ReactNode }) => (
+        <div style={{ display: 'flex', columnGap: 12, alignItems: 'flex-start' }}>
+            <span style={{ color: C.primary, marginTop: 2 }}>{icon}</span>
+            <div>
+                <div style={{ fontSize: 12, color: C.textTer, textTransform: 'uppercase', letterSpacing: '.4px' }}>{label}</div>
+                <div style={{ fontSize: 14, marginTop: 2, color: C.text }}>{value}</div>
+            </div>
+        </div>
+    );
 
     return (
-        <Drawer
-            opened={opened}
-            onClose={onClose}
-            title="Perfil de Contacto"
-            position="right"
-            size="sm"
-        >
+        <Drawer open={opened} onClose={onClose} placement="right" width={360} title="Perfil de contacto">
             {loading ? (
-                <Center style={{ height: 200 }}><Loader /></Center>
+                <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><Spin /></div>
             ) : !profile ? (
-                <Text c="dimmed" ta="center" p="xl">No se encontró el usuario</Text>
+                <p style={{ textAlign: 'center', color: C.textTer }}>No se encontró el usuario</p>
             ) : (
-                <Box>
-                    {/* Avatar & Name */}
-                    <Center style={{ flexDirection: 'column', gap: 12 }} mb="lg">
-                        <Avatar
-                            src={profile.foto ? `${baseUrl}${profile.foto}` : null}
-                            size={100}
-                            radius="100%"
-                            color="blue"
-                            style={{ border: '3px solid var(--mantine-color-blue-3)' }}
-                        >
-                            {profile.nombre?.charAt(0)?.toUpperCase()}
-                        </Avatar>
-                        <Box ta="center">
-                            <Text size="xl" fw={700}>{profile.nombre}</Text>
-                            {profile.nombre_usuario && (
-                                <Text size="sm" c="dimmed">@{profile.nombre_usuario}</Text>
-                            )}
-                        </Box>
-                    </Center>
-
-                    <Divider mb="md" />
-
-                    {/* Info */}
-                    <Box px="sm">
-                        {profile.email && (
-                            <Group gap="sm" mb="md">
-                                <IconMail size={18} style={{ color: 'var(--mantine-color-blue-6)' }} />
-                                <Box>
-                                    <Text size="xs" c="dimmed">Correo electrónico</Text>
-                                    <Text size="sm">{profile.email}</Text>
-                                </Box>
-                            </Group>
-                        )}
-
-                        {profile.cargo && (
-                            <Group gap="sm" mb="md">
-                                <IconBriefcase size={18} style={{ color: 'var(--mantine-color-teal-6)' }} />
-                                <Box>
-                                    <Text size="xs" c="dimmed">Cargo</Text>
-                                    <Text size="sm">{profile.cargo}</Text>
-                                </Box>
-                            </Group>
-                        )}
-
+                <div style={{ display: 'flex', flexDirection: 'column', rowGap: 16 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', rowGap: 12, padding: '8px 0' }}>
+                        <ChatAvatar name={profile.nombre} foto={profile.foto} size={120} />
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: 18, fontWeight: 700, color: C.text }}>{profile.nombre}</div>
+                            {profile.nombre_usuario && <div style={{ fontSize: 12, color: C.textTer, marginTop: 2 }}>@{profile.nombre_usuario}</div>}
+                        </div>
+                    </div>
+                    <Divider style={{ margin: 0 }} />
+                    <div style={{ display: 'flex', flexDirection: 'column', rowGap: 16 }}>
+                        {profile.email && <Row icon={<IconMail size={20} />} label="Correo electrónico" value={profile.email} />}
+                        {profile.cargo && <Row icon={<IconBriefcase size={20} />} label="Cargo" value={profile.cargo} />}
                         {profile.roles && (
-                            <Group gap="sm" mb="md" align="flex-start">
-                                <IconShield size={18} style={{ color: 'var(--mantine-color-violet-6)', marginTop: 3 }} />
-                                <Box>
-                                    <Text size="xs" c="dimmed">Roles</Text>
-                                    <Group gap={4} mt={4}>
-                                        {profile.roles.split(', ').map((r, i) => (
-                                            <Badge key={i} size="sm" variant="light" color="violet">{r}</Badge>
-                                        ))}
-                                    </Group>
-                                </Box>
-                            </Group>
+                            <Row icon={<IconShield size={20} />} label="Roles" value={
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 2 }}>
+                                    {profile.roles.split(', ').map((r, i) => <Tag key={i} color="blue">{r}</Tag>)}
+                                </div>
+                            } />
                         )}
-                    </Box>
-
-                    <Divider my="md" />
-
-                    {/* Action */}
-                    <Box px="sm">
-                        <Button
-                            fullWidth
-                            leftSection={<IconMessageCircle size={18} />}
-                            onClick={() => {
-                                onClose();
-                                if (userId) onStartChat(userId);
-                            }}
-                        >
-                            Enviar mensaje
-                        </Button>
-                    </Box>
-                </Box>
+                    </div>
+                    <Button type="primary" icon={<IconMessageCircle size={18} />} onClick={() => { onClose(); if (userId) onStartChat(userId); }}>
+                        Enviar mensaje
+                    </Button>
+                </div>
             )}
         </Drawer>
     );

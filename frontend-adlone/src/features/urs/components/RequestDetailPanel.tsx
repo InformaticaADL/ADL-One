@@ -1,97 +1,108 @@
 import { ursService } from '../../../services/urs.service';
 import { useAuth } from '../../../contexts/AuthContext';
-import { IconBan } from '@tabler/icons-react';
 import React, { useState, useMemo } from 'react';
 import FileIcon from './FileIcon';
 import DeriveRequestModal from './DeriveRequestModal';
 import { useToast } from '../../../contexts/ToastContext';
+import { ConfigProvider, Card, Tag, Alert, Button, Timeline, Modal, Input, Typography } from 'antd';
 import {
-    Stack,
-    Group,
-    Paper,
-    Text,
-    Title,
-    Badge,
-    Divider,
-    Box,
-    Button,
-    Grid,
-    ThemeIcon,
-    SimpleGrid,
-    Alert,
-    Center,
-    Modal,
-    Textarea,
-    Timeline,
-    ScrollArea,
-    Collapse,
-    UnstyledButton,
-    useMantineTheme
-} from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
-import {
-    IconFileText,
-    IconCalendar,
-    IconUser,
-    IconAlertCircle,
-    IconDownload,
-    IconCheck,
-    IconX,
-    IconSearch,
-    IconArrowUpRight,
-    IconInfoCircle,
-    IconLock,
-    IconMapPin,
-    IconDeviceDesktop,
-    IconAlertTriangle,
-    IconArrowsExchange,
-    IconHistory,
-    IconArrowRight,
-    IconChevronDown,
-    IconChevronUp,
-    IconCheckbox
+    IconFileText, IconCalendar, IconUser, IconAlertCircle, IconDownload, IconCheck, IconX,
+    IconSearch, IconArrowUpRight, IconLock, IconMapPin, IconDeviceDesktop, IconAlertTriangle,
+    IconArrowsExchange, IconHistory, IconArrowRight, IconChevronDown, IconChevronUp, IconCheckbox, IconBan,
 } from '@tabler/icons-react';
-import { StatusBadge } from '../../../components/ui/StatusBadge';
 
-/** Converts code-like strings to human-readable text */
+const { TextArea } = Input;
+const { Text } = Typography;
+
 const CODE_VALUE_MAP: Record<string, string> = {
-    'VIDA_UTIL': 'Vida Útil',
-    'DANIO': 'Daño',
-    'DANO': 'Daño',
-    'OBSOLESCENCIA': 'Obsolescencia',
-    'PERDIDA': 'Pérdida',
-    'ROBO': 'Robo',
-    'DETERIORO': 'Deterioro',
-    'REEMPLAZO': 'Reemplazo',
-    'OTRO': 'Otro',
-    'EN_REVISION': 'En Revisión',
-    'PENDIENTE': 'Pendiente',
-    'ACEPTADA': 'Aceptada',
-    'RECHAZADA': 'Rechazada',
-    'REALIZADA': 'Realizada',
-    'CANCELADA': 'Cancelada',
-    'NORMAL': 'Normal',
-    'ALTA': 'Alta',
-    'CRITICO': 'Crítico',
-    'URGENTE': 'Urgente',
-    'MEDIA': 'Media',
-    'BAJA': 'Baja',
+    'VIDA_UTIL': 'Vida Útil', 'DANIO': 'Daño', 'DANO': 'Daño', 'OBSOLESCENCIA': 'Obsolescencia',
+    'PERDIDA': 'Pérdida', 'ROBO': 'Robo', 'DETERIORO': 'Deterioro', 'REEMPLAZO': 'Reemplazo', 'OTRO': 'Otro',
+    'EN_REVISION': 'En Revisión', 'PENDIENTE': 'Pendiente', 'ACEPTADA': 'Aceptada', 'RECHAZADA': 'Rechazada',
+    'REALIZADA': 'Realizada', 'CANCELADA': 'Cancelada', 'NORMAL': 'Normal', 'ALTA': 'Alta', 'CRITICO': 'Crítico',
+    'URGENTE': 'Urgente', 'MEDIA': 'Media', 'BAJA': 'Baja',
 };
 
 const formatCodeValue = (value: string | null | undefined): string => {
     if (!value) return 'N/A';
     const upper = String(value).trim().toUpperCase();
     if (CODE_VALUE_MAP[upper]) return CODE_VALUE_MAP[upper];
-    // Fallback: SNAKE_CASE → Title Case
     return String(value)
-        .replace(/_/g, ' ')
-        .toLowerCase()
-        .replace(/\b\w/g, l => l.toUpperCase())
-        .replace(/\bDe\b/g, 'de')
-        .replace(/\bDel\b/g, 'del')
-        .replace(/\bY\b/g, 'y')
-        .replace(/\bEn\b/g, 'en')
-        .replace(/\bA\b/g, 'a');
+        .replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())
+        .replace(/\bDe\b/g, 'de').replace(/\bDel\b/g, 'del').replace(/\bY\b/g, 'y')
+        .replace(/\bEn\b/g, 'en').replace(/\bA\b/g, 'a');
+};
+
+const STATUS_LABEL: Record<string, string> = {
+    PENDIENTE: 'Pendiente', EN_REVISION: 'En revisión', ACEPTADA: 'Aceptada',
+    REALIZADA: 'Realizada', RECHAZADA: 'Rechazada', CANCELADA: 'Cancelada',
+};
+const STATUS_TAG: Record<string, string> = {
+    PENDIENTE: 'gold', EN_REVISION: 'blue', ACEPTADA: 'green',
+    REALIZADA: 'geekblue', RECHAZADA: 'red', CANCELADA: 'default',
+};
+
+const C = {
+    border: '#f0f0f0', text: 'rgba(0,0,0,0.88)', textSec: 'rgba(0,0,0,0.65)', textTer: 'rgba(0,0,0,0.45)',
+    primary: '#1677ff', primaryBg: '#e6f4ff', primaryBorder: '#91caff',
+    green: '#389e0d', greenBg: '#f6ffed', greenBorder: '#b7eb8f',
+    red: '#cf1322', redBg: '#fff1f0', redBorder: '#ffccc7', orange: '#d46b08',
+    bg: '#ffffff', bgLayout: '#fafafa',
+};
+
+const CSS = `
+.adl-rd-root { display:flex; flex-direction:column; row-gap:16px; max-width:820px; margin:0 auto; width:100%; }
+.adl-rd-empty { display:flex; align-items:center; justify-content:center; height:100%; color:${C.textTer}; }
+.adl-rd-cardhead { display:flex; align-items:center; column-gap:8px; }
+.adl-rd-icon { display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:6px; background:${C.primaryBg}; color:${C.primary}; flex-shrink:0; }
+.adl-rd-sectitle { margin:0; font-size:16px; font-weight:600; color:${C.text}; }
+.adl-rd-idrow { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.adl-rd-title { margin:0 0 14px; font-size:20px; font-weight:700; letter-spacing:-.3px; color:${C.text}; }
+.adl-rd-mtag { display:flex; align-items:center; column-gap:4px; font-size:12px; font-weight:600; color:${C.primary}; margin-bottom:10px; }
+.adl-rd-meta { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:16px; }
+.adl-rd-metaitem { display:flex; column-gap:8px; align-items:flex-start; min-width:0; }
+.adl-rd-metaicon { display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:6px; background:${C.bgLayout}; color:${C.textSec}; flex-shrink:0; }
+.adl-rd-label { font-size:11px; text-transform:uppercase; font-weight:700; color:${C.textTer}; letter-spacing:.4px; }
+.adl-rd-value { font-size:14px; font-weight:600; color:${C.text}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.adl-rd-tiles { display:flex; flex-direction:column; row-gap:12px; }
+.adl-rd-tile { border:1px solid ${C.border}; border-radius:8px; padding:12px; background:${C.bgLayout}; display:flex; flex-direction:column; row-gap:3px; }
+.adl-rd-tile.brand { background:${C.primaryBg}; border-color:${C.primaryBorder}; }
+.adl-rd-tile.danger { background:${C.redBg}; border-color:${C.redBorder}; }
+.adl-rd-tile.success { background:${C.greenBg}; border-color:${C.greenBorder}; }
+.adl-rd-tile.icon { flex-direction:row; align-items:center; column-gap:8px; }
+.adl-rd-valuelg { font-size:17px; font-weight:700; color:${C.text}; }
+.adl-rd-tilerow { display:flex; align-items:center; justify-content:space-between; column-gap:8px; }
+.adl-rd-grid2 { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; }
+.adl-rd-swap { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; column-gap:12px; }
+.adl-rd-swapcol { text-align:center; display:flex; flex-direction:column; row-gap:2px; }
+.adl-rd-kv { display:flex; justify-content:space-between; column-gap:12px; padding:6px 0; border-bottom:1px solid ${C.border}; }
+.adl-rd-kvk { font-size:14px; color:${C.textTer}; text-transform:capitalize; }
+.adl-rd-kvv { font-size:14px; font-weight:600; text-align:right; color:${C.text}; }
+.adl-rd-file { display:flex; align-items:center; justify-content:space-between; column-gap:12px; padding:12px; border:1px solid ${C.border}; border-radius:8px; text-decoration:none; color:inherit; cursor:pointer; transition:background .15s; }
+.adl-rd-file:hover { background:${C.bgLayout}; }
+.adl-rd-filemeta { display:flex; align-items:center; column-gap:8px; min-width:0; }
+.adl-rd-filename { font-size:14px; font-weight:600; color:${C.primary}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.adl-rd-filesub { font-size:11px; color:${C.textTer}; }
+.adl-rd-muted { font-size:14px; color:${C.textTer}; text-align:center; padding:16px 0; display:block; }
+.adl-rd-actions { display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:8px; }
+.adl-rd-collapse { display:flex; align-items:center; justify-content:space-between; width:100%; background:none; border:none; padding:0; cursor:pointer; }
+`;
+
+const bulletColor = (action: string): string => {
+    const a = action.toUpperCase();
+    if (a.includes('ACEPTADA') || a.includes('APROBAD')) return C.green;
+    if (a.includes('REALIZADA')) return '#237804';
+    if (a.includes('RECHAZAD')) return C.red;
+    if (a.includes('REVISION')) return C.primary;
+    if (a.includes('DERIVAD')) return '#722ed1';
+    return '#8c8c8c';
+};
+const actionTag = (action: string): string => {
+    const a = action.toUpperCase();
+    if (a.includes('ACEPTADA') || a.includes('APROBAD') || a.includes('REALIZADA')) return 'green';
+    if (a.includes('RECHAZAD')) return 'red';
+    if (a.includes('REVISION')) return 'blue';
+    if (a.includes('DERIVAD')) return 'purple';
+    return 'default';
 };
 
 interface RequestDetailPanelProps {
@@ -104,77 +115,41 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
     const [isDeriving, setIsDeriving] = useState(false);
     const { token, user } = useAuth();
     const { showToast } = useToast();
-    const theme = useMantineTheme();
-    const isMobile = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`);
 
-    // Observation modal state
     const [obsModalOpen, setObsModalOpen] = useState(false);
     const [obsText, setObsText] = useState('');
     const [pendingAction, setPendingAction] = useState<string | null>(null);
     const [actionLoading, setActionLoading] = useState(false);
-    // Action history toggle
     const [historyOpen, setHistoryOpen] = useState(false);
 
     const isClosed = request?.estado === 'REALIZADA' || request?.estado === 'RECHAZADA' || request?.estado === 'CANCELADA';
     const isCreator = Number(request?.id_solicitante) === Number(user?.id);
     const canCancel = !isClosed && request?.estado === 'PENDIENTE' && isCreator;
 
-    // Build unified action history from system comments + derivations
     const actionHistory = useMemo(() => {
         if (!request) return [];
         const items: { date: string; action: string; user: string; observation: string; type: string }[] = [];
-
-        // System comments (es_sistema === true or 1)
         (request.conversacion || []).forEach((msg: any) => {
             if (msg.es_sistema) {
                 let action = msg.mensaje || '';
                 let obs = '';
-                // Parse "Cambio de estado a X: observación"
                 const match = action.match(/^Cambio de estado a ([^:]+)(?::\s*(.+))?$/);
-                if (match) {
-                    action = match[1].trim();
-                    obs = match[2]?.trim() || '';
-                }
-                items.push({
-                    date: msg.fecha,
-                    action,
-                    user: msg.nombre_usuario || 'Sistema',
-                    observation: obs,
-                    type: 'status'
-                });
+                if (match) { action = match[1].trim(); obs = match[2]?.trim() || ''; }
+                items.push({ date: msg.fecha, action, user: msg.nombre_usuario || 'Sistema', observation: obs, type: 'status' });
             }
         });
-
-        // Derivations
         (request.historial_derivaciones || []).forEach((d: any) => {
             items.push({
                 date: d.fecha,
                 action: `Derivada → ${d.usuario_destino || d.rol_destino || d.area_destino || 'Otro destino'}`,
-                user: d.usuario_origen || 'Sistema',
-                observation: d.motivo || '',
-                type: 'derivation'
+                user: d.usuario_origen || 'Sistema', observation: d.motivo || '', type: 'derivation',
             });
         });
-
         items.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
         return items;
     }, [request]);
 
-    const getActionColor = (action: string) => {
-        const a = action.toUpperCase();
-        if (a.includes('ACEPTADA') || a.includes('APROBAD')) return 'teal';
-        if (a.includes('REALIZADA')) return 'green';
-        if (a.includes('RECHAZAD')) return 'red';
-        if (a.includes('REVISION')) return 'blue';
-        if (a.includes('DERIVAD')) return 'indigo';
-        return 'gray';
-    };
-
-    const openObservationModal = (actionType: string) => {
-        setPendingAction(actionType);
-        setObsText('');
-        setObsModalOpen(true);
-    };
+    const openObservationModal = (actionType: string) => { setPendingAction(actionType); setObsText(''); setObsModalOpen(true); };
 
     const getActionLabel = (actionType: string | null) => {
         switch (actionType) {
@@ -187,31 +162,15 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
         }
     };
 
-    const getActionColor2 = (actionType: string | null) => {
-        switch (actionType) {
-            case 'ACEPTADA': return 'teal';
-            case 'RECHAZADA': return 'red';
-            case 'EN_REVISION': return 'blue';
-            case 'REALIZADA': return 'green';
-            case 'CANCELADA': return 'gray';
-            default: return 'gray';
-        }
-    };
-
     const confirmAction = async () => {
         if (!pendingAction || !obsText.trim()) return;
         setActionLoading(true);
         try {
-            await ursService.updateStatus(request.id_solicitud, { 
-                status: pendingAction, 
-                comment: obsText.trim() 
-            });
+            await ursService.updateStatus(request.id_solicitud, { status: pendingAction, comment: obsText.trim() });
             const messages: Record<string, string> = {
-                'ACEPTADA': 'Solicitud aceptada correctamente',
-                'RECHAZADA': 'Solicitud rechazada',
-                'EN_REVISION': 'Solicitud puesta en revisión',
-                'REALIZADA': 'Solicitud marcada como realizada',
-                'CANCELADA': 'Solicitud cancelada'
+                'ACEPTADA': 'Solicitud aceptada correctamente', 'RECHAZADA': 'Solicitud rechazada',
+                'EN_REVISION': 'Solicitud puesta en revisión', 'REALIZADA': 'Solicitud marcada como realizada',
+                'CANCELADA': 'Solicitud cancelada',
             };
             showToast({ message: messages[pendingAction] || 'Estado actualizado', type: 'success' });
             setObsModalOpen(false);
@@ -220,235 +179,167 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
         } catch (error) {
             console.error('Error updating status:', error);
             showToast({ message: 'Error al actualizar el estado', type: 'error' });
-        } finally {
-            setActionLoading(false);
-        }
+        } finally { setActionLoading(false); }
     };
 
-    if (!request) return (
-        <Center h={400}>
-            <Text c="dimmed">Selecciona una solicitud</Text>
-        </Center>
-    );
+    if (!request) return <div className="adl-rd-empty">Selecciona una solicitud</div>;
 
-    const getPriorityColor = (p?: string) => {
+    const priorityColor = (p?: string) => {
         const priority = p?.toUpperCase() || 'NORMAL';
-        if (priority === 'ALTA' || priority === 'CRITICO' || priority === 'URGENTE') return 'red';
-        if (priority === 'MEDIA') return 'orange';
-        return 'blue';
+        if (priority === 'ALTA' || priority === 'CRITICO' || priority === 'URGENTE') return C.red;
+        if (priority === 'MEDIA') return C.orange;
+        return C.primary;
     };
+
+    const dj = request.datos_json || {};
 
     return (
-        <Stack gap="xl">
-            {/* Header Section */}
-            <Paper p={{ base: 'md', sm: 'lg' }} radius="lg" withBorder shadow="sm">
-                <Stack gap="md">
-                    <Group justify="space-between" align="center">
-                        <Badge variant="light" color="gray" size={isMobile ? 'sm' : 'lg'} radius="sm">
-                            ID #{request.id_solicitud}
-                        </Badge>
-                        <StatusBadge status={request.estado} size={isMobile ? 'xs' : 'md'} />
-                    </Group>
-                    
-                    {(request.origen_solicitud === 'MUESTREADOR' || request.datos_json?.origen_solicitud === 'MUESTREADOR' || request.datos_json?.app_version) && (
-                        <Text size="xs" fw={700} c="blue.7" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            📱 Solicitud enviada vía aplicación móvil ADL Sampling
-                        </Text>
+        <ConfigProvider theme={{ token: { colorPrimary: C.primary, borderRadius: 8 } }}>
+            <style>{CSS}</style>
+            <div className="adl-rd-root">
+                {/* Header */}
+                <Card size="small" styles={{ body: { padding: 16 } }}>
+                    <div className="adl-rd-idrow">
+                        <Tag>ID #{request.id_solicitud}</Tag>
+                        <Tag color={STATUS_TAG[request.estado] || 'default'} style={{ marginInlineEnd: 0 }}>{STATUS_LABEL[request.estado] || request.estado}</Tag>
+                    </div>
+                    {(request.origen_solicitud === 'MUESTREADOR' || dj.origen_solicitud === 'MUESTREADOR' || dj.app_version) && (
+                        <div className="adl-rd-mtag">📱 Solicitud enviada vía aplicación móvil ADL Sampling</div>
                     )}
+                    <h2 className="adl-rd-title">{request.titulo || request.nombre_tipo}</h2>
+                    <div className="adl-rd-meta">
+                        <div className="adl-rd-metaitem">
+                            <span className="adl-rd-metaicon"><IconFileText size={15} /></span>
+                            <div style={{ minWidth: 0 }}>
+                                <div className="adl-rd-label">Tipo</div>
+                                <div className="adl-rd-value">{request.nombre_tipo}</div>
+                            </div>
+                        </div>
+                        <div className="adl-rd-metaitem">
+                            <span className="adl-rd-metaicon"><IconCalendar size={15} /></span>
+                            <div>
+                                <div className="adl-rd-label">Creada</div>
+                                <div className="adl-rd-value">{new Date(request.fecha_creacion).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
+                            </div>
+                        </div>
+                        <div className="adl-rd-metaitem">
+                            <span className="adl-rd-metaicon"><IconAlertCircle size={15} /></span>
+                            <div>
+                                <div className="adl-rd-label">Prioridad</div>
+                                <div className="adl-rd-value" style={{ color: priorityColor(request.prioridad) }}>{request.prioridad || 'NORMAL'}</div>
+                            </div>
+                        </div>
+                        <div className="adl-rd-metaitem">
+                            <span className="adl-rd-metaicon" style={{ background: C.primaryBg, color: C.primary }}><IconUser size={15} /></span>
+                            <div style={{ minWidth: 0 }}>
+                                <div className="adl-rd-label">Solicitante</div>
+                                <div className="adl-rd-value">{request.nombre_solicitante}</div>
+                            </div>
+                        </div>
+                    </div>
+                </Card>
 
-                    <Title order={isMobile ? 3 : 2} style={{ letterSpacing: '-0.5px' }}>
-                        {request.titulo || request.nombre_tipo}
-                    </Title>
+                {/* Observations */}
+                {request.observaciones && (
+                    <Alert type="info" showIcon message="Observaciones del Solicitante"
+                        description={<Text italic>"{request.observaciones}"</Text>} />
+                )}
 
-                    <SimpleGrid 
-                        cols={{ base: 1, xs: 2, sm: 4 }} 
-                        spacing="lg"
-                    >
-                        <Group gap="xs" wrap="nowrap">
-                            <ThemeIcon variant="light" color="gray" size="sm" radius="md">
-                                <IconFileText size={14} />
-                            </ThemeIcon>
-                            <Box style={{ minWidth: 0, flex: 1 }}>
-                                <Text size="xs" c="dimmed" fw={700} tt="uppercase">Tipo</Text>
-                                <Text size="sm" fw={700} truncate>{request.nombre_tipo}</Text>
-                            </Box>
-                        </Group>
-                        
-                        <Group gap="xs" wrap="nowrap">
-                            <ThemeIcon variant="light" color="gray" size="sm" radius="md">
-                                <IconCalendar size={14} />
-                            </ThemeIcon>
-                            <Box>
-                                <Text size="xs" c="dimmed" fw={700} tt="uppercase">Creada</Text>
-                                <Text size="sm" fw={700}>
-                                    {new Date(request.fecha_creacion).toLocaleDateString('es-CL', {
-                                        day: '2-digit', 
-                                        month: 'short', 
-                                        year: 'numeric'
-                                    })}
-                                </Text>
-                            </Box>
-                        </Group>
-
-                        <Group gap="xs" wrap="nowrap">
-                            <ThemeIcon variant="light" color={getPriorityColor(request.prioridad)} size="sm" radius="md">
-                                <IconAlertCircle size={14} />
-                            </ThemeIcon>
-                            <Box>
-                                <Text size="xs" c="dimmed" fw={700} tt="uppercase">Prioridad</Text>
-                                <Text size="sm" fw={700} c={getPriorityColor(request.prioridad)}>
-                                    {request.prioridad || 'NORMAL'}
-                                </Text>
-                            </Box>
-                        </Group>
-
-                        <Group gap="xs" wrap="nowrap">
-                            <ThemeIcon variant="light" color="adl-blue" size="sm" radius="md">
-                                <IconUser size={14} />
-                            </ThemeIcon>
-                            <Box style={{ minWidth: 0, flex: 1 }}>
-                                <Text size="xs" c="dimmed" fw={700} tt="uppercase">Solicitante</Text>
-                                <Text size="sm" fw={700} truncate>{request.nombre_solicitante}</Text>
-                            </Box>
-                        </Group>
-                    </SimpleGrid>
-                </Stack>
-            </Paper>
-
-            {/* Observations Section */}
-            {request.observaciones && (
-                <Alert icon={<IconInfoCircle size={20} />} title="Observaciones del Solicitante" color="adl-blue" variant="light" radius="lg">
-                    <Text size="sm" style={{ fontStyle: 'italic' }}>"{request.observaciones}"</Text>
-                </Alert>
-            )}
-
-            {/* Data Detail Section */}
-            <Paper p="lg" radius="lg" withBorder>
-                <Stack gap="md">
-                    <Group gap="xs">
-                        <ThemeIcon variant="filled" color="adl-blue" size="md" radius="md">
-                            <IconFileText size={18} />
-                        </ThemeIcon>
-                        <Title order={4}>Detalle de la Información</Title>
-                    </Group>
-                    
-                    <Divider />
-
-                    <Box pt="sm">
-                        {/* Specialized for Sampler Deactivation */}
+                {/* Data Detail */}
+                <Card size="small" styles={{ body: { padding: 16 } }}
+                    title={<div className="adl-rd-cardhead"><span className="adl-rd-icon"><IconFileText size={17} /></span><span className="adl-rd-sectitle">Detalle de la Información</span></div>}>
+                    <div className="adl-rd-tiles">
                         {request.id_tipo === 7 || request.id_tipo === 8 ? (
-                            <Stack gap="md">
-                                <Paper p="md" bg="adl-blue.0" radius="md" withBorder style={{ borderColor: 'var(--mantine-color-adl-blue-2)' }}>
-                                    <Text size="xs" c="adl-blue.7" fw={800} tt="uppercase" mb={4}>Muestreador a deshabilitar</Text>
-                                    <Group justify="space-between">
-                                        <Text fw={700} size="lg">{request.datos_json?.muestreador_origen_nombre}</Text>
-                                        <Badge color="adl-blue">ID: {request.datos_json?.muestreador_origen_id || 'N/A'}</Badge>
-                                    </Group>
-                                </Paper>
-
-                                <Grid gutter="md">
-                                    <Grid.Col span={{ base: 12, xs: 6 }}>
-                                        <Paper p="sm" withBorder radius="md">
-                                            <Text size="xs" c="dimmed" fw={700}>Traspaso de equipos</Text>
-                                            <Text fw={700} c={request.datos_json?.muestreador_origen_id ? 'teal' : 'red'}>
-                                                {request.datos_json?.reasignacion_manual || request.datos_json?.muestreador_destino_nombre || request.datos_json?.base_destino ? '✅ SI' : '❌ NO'}
-                                            </Text>
-                                        </Paper>
-                                    </Grid.Col>
-                                    <Grid.Col span={{ base: 12, xs: 6 }}>
-                                        <Paper p="sm" withBorder radius="md">
-                                            <Text size="xs" c="dimmed" fw={700}>Tipo de traspaso</Text>
-                                            <Text fw={700} truncate>
-                                                {request.datos_json?.tipo_traspaso === 'IGUAL' || request.datos_json?.tipo_traspaso === 'MUESTREADOR' ? 'A un Muestreador' : 
-                                                 request.datos_json?.tipo_traspaso === 'BASE' ? 'BASE' : 
-                                                 request.datos_json?.tipo_traspaso === 'DISTINGO' || request.datos_json?.tipo_traspaso === 'MANUAL' ? 'Personalizado' : 
-                                                 request.datos_json?.tipo_traspaso || 'N/A'}
-                                            </Text>
-                                        </Paper>
-                                    </Grid.Col>
-                                </Grid>
-
-                                <Paper p="md" bg="gray.0" radius="md" withBorder>
-                                    <Text size="xs" c="dimmed" fw={800} tt="uppercase" mb={4}>Destino Final</Text>
-                                    <Text fw={700} size="md">
-                                        {request.datos_json?.tipo_traspaso === 'IGUAL' || request.datos_json?.tipo_traspaso === 'MUESTREADOR' ? (
-                                            `👤 ${request.datos_json?.muestreador_destino_nombre || 'Muestreador No Especificado'}`
-                                        ) : request.datos_json?.tipo_traspaso === 'BASE' ? (
-                                            `🏢 ${request.datos_json?.base_destino || 'Base No Especificada'}`
-                                        ) : request.datos_json?.tipo_traspaso === 'DISTINGO' || request.datos_json?.tipo_traspaso === 'MANUAL' ? (
-                                            `🛠️ Reasignación Manual (${request.datos_json?.reasignacion_manual?.length || 0} equipos)`
-                                        ) : (
-                                            `❓ ${request.datos_json?.tipo_traspaso || 'No definido'}`
-                                        )}
-                                    </Text>
-                                </Paper>
-                            </Stack>
-                        ) : (request.id_tipo === 1 || request.datos_json?._form_type === 'ACTIVACION_EQUIPO') ? (
-                            <Stack gap="md">
-                                <Paper p="md" bg="blue.0" radius="md" withBorder>
-                                    <Text size="xs" c="blue.8" fw={800} mb={4}>NOMBRE DEL EQUIPO</Text>
-                                    <Text size="xl" fw={800} c="blue.9">{request.datos_json?.nombre_equipo}</Text>
-                                </Paper>
-                                <SimpleGrid cols={{ base: 1, xs: 2 }}>
-                                    <Paper p="sm" withBorder radius="md">
-                                        <Group gap="xs">
-                                            <IconDeviceDesktop size={16} />
-                                            <Box>
-                                                <Text size="xs" c="dimmed">Tipo de Dispositivo</Text>
-                                                <Text size="sm" fw={700}>{request.datos_json?.tipo_equipo || 'N/A'}</Text>
-                                            </Box>
-                                        </Group>
-                                    </Paper>
-                                    <Paper p="sm" withBorder radius="md">
-                                        <Group gap="xs">
-                                            <IconMapPin size={16} />
-                                            <Box>
-                                                <Text size="xs" c="dimmed">Sede / Ubicación</Text>
-                                                <Text size="sm" fw={700}>{request.datos_json?.nombre_ubicacion || request.datos_json?.nombre_centro || 'N/A'}</Text>
-                                            </Box>
-                                        </Group>
-                                    </Paper>
-                                </SimpleGrid>
-                            </Stack>
-                        ) : (request.id_tipo === 2 || request.id_tipo === 6 || request.datos_json?._form_type === 'BAJA_EQUIPO') ? (
-                            <Stack gap="md">
-                                <Alert color="red" icon={<IconAlertTriangle size={20} />} title="Equipo Desvinculado" radius="md">
-                                    <Text fw={700} size="lg">{request.datos_json?.nombre_equipo_full}</Text>
-                                </Alert>
-                                <SimpleGrid cols={{ base: 1, xs: 2 }}>
-                                    <Box>
-                                        <Text size="xs" c="dimmed" fw={700}>CAUSA</Text>
-                                        <Text fw={700} c="red.7">
-                                            {formatCodeValue(request.datos_json?.motivo)}
-                                        </Text>
-                                    </Box>
-                                    <Box>
-                                        <Text size="xs" c="dimmed" fw={700}>FECHA EFECTIVA</Text>
-                                        <Text fw={700}>
-                                            📅 {request.datos_json?.fecha_baja ? (() => {
-                                                const parts = String(request.datos_json.fecha_baja).split('T')[0].split('-');
-                                                return parts.length === 3
-                                                    ? (parts[0].length === 4 ? `${parts[2]}/${parts[1]}/${parts[0]}` : parts.join('/'))
-                                                    : request.datos_json.fecha_baja;
+                            <>
+                                <div className="adl-rd-tile brand">
+                                    <div className="adl-rd-label">Muestreador a deshabilitar</div>
+                                    <div className="adl-rd-tilerow">
+                                        <span className="adl-rd-valuelg">{dj.muestreador_origen_nombre}</span>
+                                        <Tag color="blue" style={{ marginInlineEnd: 0 }}>ID: {dj.muestreador_origen_id || 'N/A'}</Tag>
+                                    </div>
+                                </div>
+                                <div className="adl-rd-grid2">
+                                    <div className="adl-rd-tile">
+                                        <div className="adl-rd-label">Traspaso de equipos</div>
+                                        <span className="adl-rd-value" style={{ color: dj.muestreador_origen_id ? C.green : C.red }}>
+                                            {dj.reasignacion_manual || dj.muestreador_destino_nombre || dj.base_destino ? '✅ SI' : '❌ NO'}
+                                        </span>
+                                    </div>
+                                    <div className="adl-rd-tile">
+                                        <div className="adl-rd-label">Tipo de traspaso</div>
+                                        <span className="adl-rd-value">
+                                            {dj.tipo_traspaso === 'IGUAL' || dj.tipo_traspaso === 'MUESTREADOR' ? 'A un Muestreador' :
+                                                dj.tipo_traspaso === 'BASE' ? 'BASE' :
+                                                    dj.tipo_traspaso === 'DISTINGO' || dj.tipo_traspaso === 'MANUAL' ? 'Personalizado' :
+                                                        dj.tipo_traspaso || 'N/A'}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="adl-rd-tile">
+                                    <div className="adl-rd-label">Destino Final</div>
+                                    <span className="adl-rd-value">
+                                        {dj.tipo_traspaso === 'IGUAL' || dj.tipo_traspaso === 'MUESTREADOR' ? `👤 ${dj.muestreador_destino_nombre || 'Muestreador No Especificado'}` :
+                                            dj.tipo_traspaso === 'BASE' ? `🏢 ${dj.base_destino || 'Base No Especificada'}` :
+                                                dj.tipo_traspaso === 'DISTINGO' || dj.tipo_traspaso === 'MANUAL' ? `🛠️ Reasignación Manual (${dj.reasignacion_manual?.length || 0} equipos)` :
+                                                    `❓ ${dj.tipo_traspaso || 'No definido'}`}
+                                    </span>
+                                </div>
+                            </>
+                        ) : (request.id_tipo === 1 || dj._form_type === 'ACTIVACION_EQUIPO') ? (
+                            <>
+                                <div className="adl-rd-tile brand">
+                                    <div className="adl-rd-label">Nombre del Equipo</div>
+                                    <span className="adl-rd-valuelg">{dj.nombre_equipo}</span>
+                                </div>
+                                <div className="adl-rd-grid2">
+                                    <div className="adl-rd-tile icon">
+                                        <IconDeviceDesktop size={18} />
+                                        <div>
+                                            <div className="adl-rd-label">Tipo de Dispositivo</div>
+                                            <span className="adl-rd-value">{dj.tipo_equipo || 'N/A'}</span>
+                                        </div>
+                                    </div>
+                                    <div className="adl-rd-tile icon">
+                                        <IconMapPin size={18} />
+                                        <div>
+                                            <div className="adl-rd-label">Sede / Ubicación</div>
+                                            <span className="adl-rd-value">{dj.nombre_ubicacion || dj.nombre_centro || 'N/A'}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </>
+                        ) : (request.id_tipo === 2 || request.id_tipo === 6 || dj._form_type === 'BAJA_EQUIPO') ? (
+                            <>
+                                <Alert type="error" showIcon icon={<IconAlertTriangle size={18} />} message="Equipo Desvinculado"
+                                    description={<span className="adl-rd-value">{dj.nombre_equipo_full}</span>} />
+                                <div className="adl-rd-grid2">
+                                    <div className="adl-rd-tile">
+                                        <div className="adl-rd-label">Causa</div>
+                                        <span className="adl-rd-value" style={{ color: C.red }}>{formatCodeValue(dj.motivo)}</span>
+                                    </div>
+                                    <div className="adl-rd-tile">
+                                        <div className="adl-rd-label">Fecha Efectiva</div>
+                                        <span className="adl-rd-value">
+                                            📅 {dj.fecha_baja ? (() => {
+                                                const parts = String(dj.fecha_baja).split('T')[0].split('-');
+                                                return parts.length === 3 ? (parts[0].length === 4 ? `${parts[2]}/${parts[1]}/${parts[0]}` : parts.join('/')) : dj.fecha_baja;
                                             })() : 'N/A'}
-                                        </Text>
-                                    </Box>
-                                </SimpleGrid>
-                            </Stack>
+                                        </span>
+                                    </div>
+                                </div>
+                            </>
                         ) : ([10, 11, 12, 13, 14, 15].includes(Number(request.id_tipo))) ? (
-                            <Stack gap="md">
-                                <Paper p="md" bg={Number(request.id_tipo) === 12 ? "red.0" : "blue.0"} radius="md" withBorder style={{ borderLeft: `4px solid var(--mantine-color-${Number(request.id_tipo) === 12 ? 'red' : 'blue'}-6)` }}>
-                                    <Text size="xs" c={Number(request.id_tipo) === 12 ? "red.8" : "blue.8"} fw={800} mb={4} tt="uppercase">
+                            <>
+                                <div className={`adl-rd-tile ${Number(request.id_tipo) === 12 ? 'danger' : 'brand'}`}>
+                                    <div className="adl-rd-label">
                                         {Number(request.id_tipo) === 11 ? 'Equipo Referenciado (Extravío)' :
                                             Number(request.id_tipo) === 10 ? 'Equipo Referenciado (Problema Técnico)' :
-                                            Number(request.id_tipo) === 14 ? 'Equipo Referenciado (Consulta)' :
-                                                Number(request.id_tipo) === 15 ? 'Ficha/Servicio Referenciado (Consulta)' :
-                                                    Number(request.id_tipo) === 12 ? 'Servicio a Anular' :
-                                                        'Consulta General'}
-                                    </Text>
-                                    <Text size="lg" fw={800} c={Number(request.id_tipo) === 12 ? "red.9" : "blue.9"}>
+                                                Number(request.id_tipo) === 14 ? 'Equipo Referenciado (Consulta)' :
+                                                    Number(request.id_tipo) === 15 ? 'Ficha/Servicio Referenciado (Consulta)' :
+                                                        Number(request.id_tipo) === 12 ? 'Servicio a Anular' : 'Consulta General'}
+                                    </div>
+                                    <span className="adl-rd-valuelg" style={{ color: Number(request.id_tipo) === 12 ? C.red : C.primary }}>
                                         {(() => {
-                                            const dj = request.datos_json || {};
                                             const name = dj.nombre_equipo_full || dj.equipo_nombre || dj.nombre_equipo || dj.id_muestreo || dj.correlativo || dj.num_ficha;
                                             const code = dj.codigo_equipo || dj.equipo_codigo;
                                             if (!name && !code) return 'N/A';
@@ -456,369 +347,203 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                                             if (name && code) return `${name} [${code}]`;
                                             return name || code;
                                         })()}
-                                    </Text>
-                                </Paper>
-
-                                {(request.datos_json?.fecha_extravio || request.datos_json?.fecha_suceso || request.datos_json?.fecha_ocurrencia) && (
-                                    <Paper p="sm" withBorder radius="md">
-                                        <Group gap="xs">
-                                            <IconCalendar size={16} color="var(--mantine-color-blue-6)" />
-                                            <Box>
-                                                <Text size="xs" c="dimmed" fw={700} tt="uppercase">Fecha del Suceso</Text>
-                                                <Text size="sm" fw={700}>
-                                                    📅 {(() => {
-                                                        const d = request.datos_json?.fecha_extravio || request.datos_json?.fecha_suceso || request.datos_json?.fecha_ocurrencia;
-                                                        if (!d) return 'N/A';
-                                                        const parts = String(d).split('T')[0].split('-');
-                                                        if (parts.length === 3) {
-                                                            return parts[0].length === 4 ? `${parts[2]}/${parts[1]}/${parts[0]}` : parts.join('/');
-                                                        }
-                                                        return String(d);
-                                                    })()}
-                                                </Text>
-                                            </Box>
-                                        </Group>
-                                    </Paper>
+                                    </span>
+                                </div>
+                                {(dj.fecha_extravio || dj.fecha_suceso || dj.fecha_ocurrencia) && (
+                                    <div className="adl-rd-tile icon">
+                                        <IconCalendar size={18} color={C.primary} />
+                                        <div>
+                                            <div className="adl-rd-label">Fecha del Suceso</div>
+                                            <span className="adl-rd-value">
+                                                📅 {(() => {
+                                                    const d = dj.fecha_extravio || dj.fecha_suceso || dj.fecha_ocurrencia;
+                                                    if (!d) return 'N/A';
+                                                    const parts = String(d).split('T')[0].split('-');
+                                                    if (parts.length === 3) return parts[0].length === 4 ? `${parts[2]}/${parts[1]}/${parts[0]}` : parts.join('/');
+                                                    return String(d);
+                                                })()}
+                                            </span>
+                                        </div>
+                                    </div>
                                 )}
-                            </Stack>
-                        ) : (request.id_tipo === 3 || request.datos_json?._form_type === 'TRASPASO_EQUIPO') ? (
-                             <Stack gap="md">
-                                <Paper p="md" bg="teal.0" radius="md" withBorder>
-                                    <Text size="xs" c="teal.8" fw={800} mb={4}>EQUIPO EN TRASPASO</Text>
-                                    <Text size="lg" fw={800} c="teal.9">{request.datos_json?.nombre_equipo_full}</Text>
-                                </Paper>
-                                
-                                {request.datos_json?.traspaso_de?.includes('UBICACION') && (
-                                    <Paper p="md" withBorder radius="md">
-                                        <Text size="xs" fw={800} c="dimmed" mb="xs">CAMBIO DE UBICACIÓN</Text>
-                                        <Group grow align="center">
-                                            <Box style={{ textAlign: 'center' }}>
-                                                <Text size="xs" c="dimmed">ACTUAL</Text>
-                                                <Text fw={700}>{request.datos_json?.info_actual?.ubicacion || 'N/A'}</Text>
-                                            </Box>
-                                            <IconArrowsExchange size={20} color="var(--mantine-color-blue-4)" />
-                                            <Box style={{ textAlign: 'center' }}>
-                                                <Text size="xs" c="blue.6" fw={700}>NUEVA</Text>
-                                                <Text fw={800} c="blue.9">{request.datos_json?.nombre_centro_destino}</Text>
-                                            </Box>
-                                        </Group>
-                                    </Paper>
+                            </>
+                        ) : (request.id_tipo === 3 || dj._form_type === 'TRASPASO_EQUIPO') ? (
+                            <>
+                                <div className="adl-rd-tile success">
+                                    <div className="adl-rd-label">Equipo en Traspaso</div>
+                                    <span className="adl-rd-valuelg">{dj.nombre_equipo_full}</span>
+                                </div>
+                                {dj.traspaso_de?.includes('UBICACION') && (
+                                    <div className="adl-rd-tile">
+                                        <div className="adl-rd-label" style={{ marginBottom: 6 }}>Cambio de Ubicación</div>
+                                        <div className="adl-rd-swap">
+                                            <div className="adl-rd-swapcol"><span className="adl-rd-label">Actual</span><span className="adl-rd-value">{dj.info_actual?.ubicacion || 'N/A'}</span></div>
+                                            <IconArrowsExchange size={20} color={C.primary} />
+                                            <div className="adl-rd-swapcol"><span className="adl-rd-label" style={{ color: C.primary }}>Nueva</span><span className="adl-rd-value">{dj.nombre_centro_destino}</span></div>
+                                        </div>
+                                    </div>
                                 )}
-
-                                {request.datos_json?.traspaso_de?.includes('RESPONSABLE') && (
-                                    <Paper p="md" withBorder radius="md">
-                                        <Text size="xs" fw={800} c="dimmed" mb="xs">CAMBIO DE RESPONSABLE</Text>
-                                        <Group grow align="center">
-                                            <Box style={{ textAlign: 'center' }}>
-                                                <Text size="xs" c="dimmed">ACTUAL</Text>
-                                                <Text fw={700}>{request.datos_json?.info_actual?.responsable || 'N/A'}</Text>
-                                            </Box>
-                                            <IconArrowsExchange size={20} color="var(--mantine-color-teal-4)" />
-                                            <Box style={{ textAlign: 'center' }}>
-                                                <Text size="xs" c="teal.6" fw={700}>NUEVO</Text>
-                                                <Text fw={800} c="teal.9">{request.datos_json?.nombre_muestreador_destino}</Text>
-                                            </Box>
-                                        </Group>
-                                    </Paper>
+                                {dj.traspaso_de?.includes('RESPONSABLE') && (
+                                    <div className="adl-rd-tile">
+                                        <div className="adl-rd-label" style={{ marginBottom: 6 }}>Cambio de Responsable</div>
+                                        <div className="adl-rd-swap">
+                                            <div className="adl-rd-swapcol"><span className="adl-rd-label">Actual</span><span className="adl-rd-value">{dj.info_actual?.responsable || 'N/A'}</span></div>
+                                            <IconArrowsExchange size={20} color={C.green} />
+                                            <div className="adl-rd-swapcol"><span className="adl-rd-label" style={{ color: C.green }}>Nuevo</span><span className="adl-rd-value">{dj.nombre_muestreador_destino}</span></div>
+                                        </div>
+                                    </div>
                                 )}
-                             </Stack>
+                            </>
                         ) : (
-                            /* Generic Display */
-                            <Stack gap="xs">
-                                {request.datos_json && typeof request.datos_json === 'object' ? (
-                                    Object.entries(request.datos_json).map(([key, value]) => {
+                            <div>
+                                {dj && typeof dj === 'object' && Object.keys(dj).length > 0 ? (
+                                    Object.entries(dj).map(([key, value]) => {
                                         if (['prioridad', 'titulo', 'descripcion', '_form_type'].includes(key)) return null;
                                         return (
-                                            <Group key={key} justify="space-between" p="xs" style={{ borderBottom: '1px solid var(--mantine-color-gray-1)' }}>
-                                                <Text size="sm" fw={600} c="dimmed" tt="capitalize">{key.replace(/_/g, ' ')}</Text>
-                                                <Text size="sm" fw={700}>{formatCodeValue(String(value))}</Text>
-                                            </Group>
+                                            <div key={key} className="adl-rd-kv">
+                                                <span className="adl-rd-kvk">{key.replace(/_/g, ' ')}</span>
+                                                <span className="adl-rd-kvv">{formatCodeValue(String(value))}</span>
+                                            </div>
                                         );
                                     })
                                 ) : (
-                                    <Text size="sm" c="dimmed">No hay datos específicos disponibles.</Text>
+                                    <span className="adl-rd-muted">No hay datos específicos disponibles.</span>
                                 )}
-                            </Stack>
+                            </div>
                         )}
-                    </Box>
-                </Stack>
-            </Paper>
+                    </div>
+                </Card>
 
-            {/* Attachments Section */}
-            <Paper p="lg" radius="lg" withBorder>
-                <Stack gap="md">
-                    <Group gap="xs">
-                        <ThemeIcon variant="light" color="adl-blue" size="md" radius="md">
-                            <IconDownload size={18} />
-                        </ThemeIcon>
-                        <Title order={4}>Archivos Adjuntos</Title>
-                    </Group>
-                    <Divider />
-                    
-                    {request.archivos_adjuntos && request.archivos_adjuntos.length > 0 ? (
-                        <Stack gap="sm">
-                            {request.archivos_adjuntos.map((file: any) => (
-                                <Paper 
-                                    key={file.id_adjunto}
-                                    component="a"
-                                    href={`${import.meta.env.VITE_API_URL}/api/urs/download/${file.id_adjunto}?token=${token}`}
-                                    target="_blank"
-                                    p="sm"
-                                    withBorder
-                                    radius="md"
-                                    style={{ cursor: 'pointer', textDecoration: 'none' }}
-                                    styles={{ root: { '&:hover': { backgroundColor: 'var(--mantine-color-gray-0)' } } }}
-                                >
-                                    <Group justify="space-between" wrap="nowrap">
-                                        <Group gap="sm" wrap="nowrap">
-                                            <FileIcon mimetype={file.tipo_archivo} filename={file.nombre_archivo} size={28} />
-                                            <Box>
-                                                <Text size="sm" fw={700} c="blue.7" truncate>{file.nombre_archivo}</Text>
-                                                <Text size="xs" c="dimmed">{(file.tipo_archivo || 'Archivo').toUpperCase()} • {new Date(file.fecha).toLocaleDateString()}</Text>
-                                            </Box>
-                                        </Group>
-                                        <IconDownload size={18} color="var(--mantine-color-gray-4)" />
-                                    </Group>
-                                </Paper>
-                            ))}
-                        </Stack>
-                    ) : (
-                        <Center py="xl">
-                            <Text size="sm" c="dimmed">No hay archivos adjuntos.</Text>
-                        </Center>
-                    )}
-                </Stack>
-            </Paper>
+                {/* Attachments */}
+                <Card size="small" styles={{ body: { padding: 16 } }}
+                    title={<div className="adl-rd-cardhead"><span className="adl-rd-icon"><IconDownload size={17} /></span><span className="adl-rd-sectitle">Archivos Adjuntos</span></div>}>
+                    <div style={{ display: 'flex', flexDirection: 'column', rowGap: 8 }}>
+                        {request.archivos_adjuntos && request.archivos_adjuntos.length > 0 ? (
+                            request.archivos_adjuntos.map((file: any) => (
+                                <a key={file.id_adjunto} className="adl-rd-file" target="_blank" rel="noreferrer"
+                                    href={`${import.meta.env.VITE_API_URL}/api/urs/download/${file.id_adjunto}?token=${token}`}>
+                                    <span className="adl-rd-filemeta">
+                                        <FileIcon mimetype={file.tipo_archivo} filename={file.nombre_archivo} size={28} />
+                                        <span style={{ minWidth: 0 }}>
+                                            <div className="adl-rd-filename">{file.nombre_archivo}</div>
+                                            <div className="adl-rd-filesub">{(file.tipo_archivo || 'Archivo').toUpperCase()} • {new Date(file.fecha).toLocaleDateString()}</div>
+                                        </span>
+                                    </span>
+                                    <IconDownload size={18} color={C.textTer} />
+                                </a>
+                            ))
+                        ) : (
+                            <span className="adl-rd-muted">No hay archivos adjuntos.</span>
+                        )}
+                    </div>
+                </Card>
 
-            {/* Status Messages */}
-            {request.estado === 'ACEPTADA' && (
-                <Alert icon={<IconCheck size={20} />} color="teal" variant="light" radius="lg">
-                    <Text size="sm" fw={700}>Solicitud aceptada, se le avisará cuando se haya realizado lo solicitado.</Text>
-                </Alert>
-            )}
-            {request.estado === 'REALIZADA' && (
-                <Alert icon={<IconCheckbox size={20} />} color="green" variant="light" radius="lg">
-                    <Text size="sm" fw={700}>Solicitud realizada, por ende se cierra esta solicitud.</Text>
-                </Alert>
-            )}
-            {request.estado === 'RECHAZADA' && (
-                <Alert icon={<IconX size={20} />} color="red" variant="light" radius="lg">
-                    <Text size="sm" fw={700}>Solicitud rechazada. No se pueden realizar más acciones.</Text>
-                </Alert>
-            )}
-            {request.estado === 'EN_REVISION' && (
-                <Alert icon={<IconSearch size={20} />} color="blue" variant="light" radius="lg">
-                    <Text size="sm" fw={700}>Solicitud en revisión. Se está evaluando para proceder.</Text>
-                </Alert>
-            )}
-            {request.estado === 'CANCELADA' && (
-                <Alert icon={<IconBan size={20} />} color="gray" variant="light" radius="lg">
-                    <Text size="sm" fw={700}>Solicitud cancelada por el solicitante.</Text>
-                </Alert>
-            )}
+                {/* Status message */}
+                {request.estado === 'ACEPTADA' && <Alert type="success" showIcon message="Solicitud aceptada, se le avisará cuando se haya realizado lo solicitado." />}
+                {request.estado === 'REALIZADA' && <Alert type="success" showIcon message="Solicitud realizada, por ende se cierra esta solicitud." />}
+                {request.estado === 'RECHAZADA' && <Alert type="error" showIcon message="Solicitud rechazada. No se pueden realizar más acciones." />}
+                {request.estado === 'EN_REVISION' && <Alert type="info" showIcon message="Solicitud en revisión. Se está evaluando para proceder." />}
+                {request.estado === 'CANCELADA' && <Alert type="warning" showIcon message="Solicitud cancelada por el solicitante." />}
 
-            {/* Management Section - Only show if not closed */}
-            {!isClosed && (
-                <Paper p="lg" radius="xl" bg="gray.0" withBorder>
-                    <Stack gap="md">
-                        <Group gap="xs">
-                            <ThemeIcon variant="filled" color="dark" size="md" radius="md">
-                                <IconCheck size={18} />
-                            </ThemeIcon>
-                            <Title order={4}>Gestión de Solicitud</Title>
-                        </Group>
-                        
+                {/* Management */}
+                {!isClosed && (
+                    <Card size="small" styles={{ body: { padding: 16 } }}
+                        title={<div className="adl-rd-cardhead"><span className="adl-rd-icon" style={{ background: C.text, color: '#fff' }}><IconCheck size={17} /></span><span className="adl-rd-sectitle">Gestión de Solicitud</span></div>}>
                         {(request.can_manage || request.can_derive) ? (
-                            <Grid>
+                            <div style={{ display: 'flex', flexDirection: 'column', rowGap: 8 }}>
                                 {request.can_manage && request.estado !== 'ACEPTADA' && (
-                                    <>
-                                        <Grid.Col span={{ base: 12, sm: 4 }}>
-                                            <Button fullWidth leftSection={<IconCheck size={18} />} color="teal" radius="md" onClick={() => openObservationModal('ACEPTADA')}>
-                                                Aceptar
-                                            </Button>
-                                        </Grid.Col>
-                                        <Grid.Col span={{ base: 12, sm: 4 }}>
-                                            <Button fullWidth leftSection={<IconX size={18} />} color="red" radius="md" onClick={() => openObservationModal('RECHAZADA')}>
-                                                Rechazar
-                                            </Button>
-                                        </Grid.Col>
-                                        <Grid.Col span={{ base: 12, sm: 4 }}>
-                                            <Button fullWidth leftSection={<IconSearch size={18} />} color="blue" radius="md" onClick={() => openObservationModal('EN_REVISION')}>
-                                                En Revisión
-                                            </Button>
-                                        </Grid.Col>
-                                    </>
+                                    <div className="adl-rd-actions">
+                                        <Button type="primary" icon={<IconCheck size={16} />} style={{ background: C.green, borderColor: C.green }} onClick={() => openObservationModal('ACEPTADA')}>Aceptar</Button>
+                                        <Button danger type="primary" icon={<IconX size={16} />} onClick={() => openObservationModal('RECHAZADA')}>Rechazar</Button>
+                                        <Button type="primary" icon={<IconSearch size={16} />} onClick={() => openObservationModal('EN_REVISION')}>En Revisión</Button>
+                                    </div>
                                 )}
                                 {request.can_derive && (
-                                    <Grid.Col span={12}>
-                                        <Button fullWidth variant="light" color="adl-blue" leftSection={<IconArrowUpRight size={18} />} radius="md" onClick={() => setIsDeriving(true)}>
-                                            Derivar Solicitud
-                                        </Button>
-                                    </Grid.Col>
+                                    <Button block icon={<IconArrowUpRight size={16} />} onClick={() => setIsDeriving(true)}>Derivar Solicitud</Button>
                                 )}
-                            </Grid>
-                        ) : (
-                            <Alert color="gray" icon={<IconLock size={20} />} radius="md">
-                                <Text size="sm" fw={700}>Modo Lectura</Text>
-                                <Text size="xs">Usted tiene acceso de visualización para este trámite.</Text>
-                            </Alert>
-                        )}
-                        
-                        {/* Marcar como Realizado - Only when ACEPTADA and user can manage */}
-                        {request.can_manage && request.estado === 'ACEPTADA' && (
-                            <Button fullWidth leftSection={<IconCheckbox size={18} />} color="green" radius="md" size="lg" onClick={() => openObservationModal('REALIZADA')}>
-                                Marcar como Realizado
-                            </Button>
-                        )}
-                    </Stack>
-                </Paper>
-            )}
-
-            {/* Cancel Section - Only creator, only PENDIENTE */}
-            {canCancel && (
-                <Paper p="md" radius="xl" bg="gray.0" withBorder style={{ borderColor: 'var(--mantine-color-gray-3)' }}>
-                    <Group justify="space-between" align="center">
-                        <Box>
-                            <Text size="sm" fw={700} c="dimmed">¿Deseas retirar esta solicitud?</Text>
-                            <Text size="xs" c="dimmed">Solo el solicitante puede cancelar mientras esté pendiente.</Text>
-                        </Box>
-                        <Button
-                            variant="light"
-                            color="gray"
-                            leftSection={<IconBan size={16} />}
-                            radius="md"
-                            onClick={() => openObservationModal('CANCELADA')}
-                        >
-                            Cancelar solicitud
-                        </Button>
-                    </Group>
-                </Paper>
-            )}
-
-            {/* Action History Section */}
-            <Paper p="lg" radius="lg" withBorder>
-                <Stack gap="md">
-                    <UnstyledButton onClick={() => setHistoryOpen(!historyOpen)} style={{ width: '100%' }}>
-                        <Group justify="space-between">
-                            <Group gap="xs">
-                                <ThemeIcon variant="light" color="gray" size="md" radius="md">
-                                    <IconHistory size={18} />
-                                </ThemeIcon>
-                                <Title order={4}>Historial de Acciones</Title>
-                                {actionHistory.length > 0 && (
-                                    <Badge size="sm" variant="filled" color="gray">{actionHistory.length}</Badge>
+                                {request.can_manage && request.estado === 'ACEPTADA' && (
+                                    <Button block type="primary" size="large" icon={<IconCheckbox size={18} />} style={{ background: C.green, borderColor: C.green }} onClick={() => openObservationModal('REALIZADA')}>Marcar como Realizado</Button>
                                 )}
-                            </Group>
-                            {historyOpen ? <IconChevronUp size={18} /> : <IconChevronDown size={18} />}
-                        </Group>
-                    </UnstyledButton>
-
-                    <Collapse in={historyOpen}>
-                        {actionHistory.length > 0 ? (
-                            <ScrollArea.Autosize mah={300}>
-                                <Timeline active={actionHistory.length - 1} bulletSize={24} lineWidth={2} mt="sm">
-                                    {actionHistory.map((item, idx) => (
-                                        <Timeline.Item
-                                            key={idx}
-                                            bullet={item.type === 'derivation' ? <IconArrowRight size={12} /> : <IconCheck size={12} />}
-                                            color={getActionColor(item.action)}
-                                            title={
-                                                <Group gap="xs">
-                                                    <Badge size="xs" variant="light" color={getActionColor(item.action)}>
-                                                        {formatCodeValue(item.action)}
-                                                    </Badge>
-                                                    <Text size="xs" c="dimmed">
-                                                        {new Date(item.date).toLocaleString('es-CL', {
-                                                            day: '2-digit', month: '2-digit', year: 'numeric',
-                                                            hour: '2-digit', minute: '2-digit'
-                                                        })}
-                                                    </Text>
-                                                </Group>
-                                            }
-                                        >
-                                            <Text c="dimmed" size="xs" mt={4}>
-                                                <Text span fw={600} c="dark">{item.user || 'Sistema'}</Text>
-                                                {' '}•{' '}
-                                                {item.observation || 'Sin detalle'}
-                                            </Text>
-                                        </Timeline.Item>
-                                    ))}
-                                </Timeline>
-                            </ScrollArea.Autosize>
+                            </div>
                         ) : (
-                            <Text size="sm" c="dimmed" fs="italic" ta="center" py="md">
-                                Sin movimientos registrados.
-                            </Text>
+                            <Alert type="info" showIcon icon={<IconLock size={16} />} message="Modo Lectura" description="Usted tiene acceso de visualización para este trámite." />
                         )}
-                    </Collapse>
-                </Stack>
-            </Paper>
+                    </Card>
+                )}
 
-            {/* Observation Modal */}
-            <Modal
-                opened={obsModalOpen}
-                onClose={() => { setObsModalOpen(false); setPendingAction(null); }}
-                title={
-                    <Group gap="xs">
-                        <ThemeIcon variant="light" color={getActionColor2(pendingAction)} radius="md">
-                            <IconCheck size={18} />
-                        </ThemeIcon>
-                        <Text fw={700}>{getActionLabel(pendingAction)}</Text>
-                    </Group>
-                }
-                radius="lg"
-                zIndex={1100}
-            >
-                <Stack gap="md">
-                    {(pendingAction === 'RECHAZADA' || pendingAction === 'REALIZADA' || pendingAction === 'CANCELADA') && (
-                        <Alert color={pendingAction === 'RECHAZADA' ? 'red' : pendingAction === 'CANCELADA' ? 'gray' : 'orange'} variant="light" radius="md">
-                            <Text size="sm" fw={500}>
-                                {pendingAction === 'RECHAZADA'
-                                    ? 'Esta acción es irreversible. La solicitud quedará rechazada definitivamente.'
-                                    : pendingAction === 'CANCELADA'
-                                    ? 'La solicitud será cancelada. Esta acción no puede deshacerse.'
-                                    : 'Esta acción marcará la solicitud como completada. No podrá revertirse.'}
-                            </Text>
-                        </Alert>
+                {/* Cancel */}
+                {canCancel && (
+                    <Card size="small" styles={{ body: { padding: 16 } }}>
+                        <div className="adl-rd-tilerow">
+                            <div>
+                                <div className="adl-rd-value">¿Deseas retirar esta solicitud?</div>
+                                <div className="adl-rd-filesub">Solo el solicitante puede cancelar mientras esté pendiente.</div>
+                            </div>
+                            <Button icon={<IconBan size={16} />} onClick={() => openObservationModal('CANCELADA')}>Cancelar solicitud</Button>
+                        </div>
+                    </Card>
+                )}
+
+                {/* History */}
+                <Card size="small" styles={{ body: { padding: 16 } }}>
+                    <button type="button" className="adl-rd-collapse" onClick={() => setHistoryOpen(!historyOpen)}>
+                        <div className="adl-rd-cardhead">
+                            <span className="adl-rd-icon" style={{ background: C.bgLayout, color: C.textSec }}><IconHistory size={17} /></span>
+                            <span className="adl-rd-sectitle">Historial de Acciones</span>
+                            {actionHistory.length > 0 && <Tag>{actionHistory.length}</Tag>}
+                        </div>
+                        {historyOpen ? <IconChevronUp size={18} /> : <IconChevronDown size={18} />}
+                    </button>
+                    {historyOpen && (
+                        actionHistory.length > 0 ? (
+                            <div style={{ maxHeight: 320, overflowY: 'auto', marginTop: 16 }}>
+                                <Timeline items={actionHistory.map((item) => ({
+                                    color: bulletColor(item.action),
+                                    dot: item.type === 'derivation' ? <IconArrowRight size={14} color={bulletColor(item.action)} /> : undefined,
+                                    children: (
+                                        <div>
+                                            <div style={{ display: 'flex', alignItems: 'center', columnGap: 8, flexWrap: 'wrap', marginBottom: 2 }}>
+                                                <Tag color={actionTag(item.action)} style={{ marginInlineEnd: 0 }}>{formatCodeValue(item.action)}</Tag>
+                                                <span style={{ fontSize: 11, color: C.textTer }}>
+                                                    {new Date(item.date).toLocaleString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            </div>
+                                            <div style={{ fontSize: 13, color: C.textSec }}>
+                                                <span style={{ fontWeight: 600, color: C.text }}>{item.user || 'Sistema'}</span> • {item.observation || 'Sin detalle'}
+                                            </div>
+                                        </div>
+                                    ),
+                                }))} />
+                            </div>
+                        ) : (
+                            <span className="adl-rd-muted">Sin movimientos registrados.</span>
+                        )
                     )}
-                    <Textarea
-                        label="Observaciones"
-                        placeholder="Escriba sus observaciones para esta acción..."
-                        required
-                        minRows={3}
-                        value={obsText}
-                        onChange={(e) => setObsText(e.currentTarget.value)}
-                        radius="md"
-                    />
-                    <Group justify="flex-end" mt="md">
-                        <Button variant="light" color="gray" onClick={() => setObsModalOpen(false)} radius="md">
-                            Cancelar
-                        </Button>
-                        <Button
-                            color={getActionColor2(pendingAction)}
-                            radius="md"
-                            loading={actionLoading}
-                            disabled={!obsText.trim()}
-                            onClick={confirmAction}
-                        >
-                            {getActionLabel(pendingAction)}
-                        </Button>
-                    </Group>
-                </Stack>
-            </Modal>
+                </Card>
 
-            <DeriveRequestModal 
-                isOpen={isDeriving} 
-                requestId={request.id_solicitud} 
-                requestTypeId={request.id_tipo}
-                onClose={() => setIsDeriving(false)} 
-                onSuccess={() => {
-                    showToast({ message: 'Solicitud derivada correctamente', type: 'success' });
-                    onReload();
-                    onRequestUpdate();
-                }}
-            />
-        </Stack>
+                {/* Observation Modal */}
+                <Modal open={obsModalOpen} title={getActionLabel(pendingAction)}
+                    onCancel={() => { setObsModalOpen(false); setPendingAction(null); }}
+                    onOk={confirmAction} okText={getActionLabel(pendingAction)} cancelText="Cancelar"
+                    confirmLoading={actionLoading} okButtonProps={{ disabled: !obsText.trim() }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', rowGap: 12 }}>
+                        {(pendingAction === 'RECHAZADA' || pendingAction === 'REALIZADA' || pendingAction === 'CANCELADA') && (
+                            <Alert type={pendingAction === 'RECHAZADA' ? 'error' : 'warning'} showIcon message={
+                                pendingAction === 'RECHAZADA' ? 'Esta acción es irreversible. La solicitud quedará rechazada definitivamente.' :
+                                    pendingAction === 'CANCELADA' ? 'La solicitud será cancelada. Esta acción no puede deshacerse.' :
+                                        'Esta acción marcará la solicitud como completada. No podrá revertirse.'
+                            } />
+                        )}
+                        <TextArea placeholder="Escriba sus observaciones para esta acción..." rows={4}
+                            value={obsText} onChange={(e) => setObsText(e.target.value)} />
+                    </div>
+                </Modal>
+
+                <DeriveRequestModal isOpen={isDeriving} requestId={request.id_solicitud} requestTypeId={request.id_tipo}
+                    onClose={() => setIsDeriving(false)}
+                    onSuccess={() => { showToast({ message: 'Solicitud derivada correctamente', type: 'success' }); onReload(); onRequestUpdate(); }} />
+            </div>
+        </ConfigProvider>
     );
 };
 

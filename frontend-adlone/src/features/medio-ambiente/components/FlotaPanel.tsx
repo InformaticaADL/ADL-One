@@ -93,7 +93,7 @@ export function FlotaPanel({ jornadas, selectedMuestreadorId, onSelectMuestreado
                                     que la card crezca en alto antes que recortar texto. */}
                                 <Group gap={8} align="flex-start" wrap="nowrap" mb={4}>
                                     <Avatar size={22} radius="xl" color="white" style={{ backgroundColor: colorPorMuestreador(j.id_muestreador), flexShrink: 0, marginTop: 1 }}>
-                                        <Text size={10} fw={700} c="white">{inicialesDe(j.nombre_muestreador)}</Text>
+                                        <Text fz={10} fw={700} c="white">{inicialesDe(j.nombre_muestreador)}</Text>
                                     </Avatar>
                                     <Text size="sm" fw={600} style={{ flex: 1 }}>{j.nombre_muestreador}</Text>
                                 </Group>

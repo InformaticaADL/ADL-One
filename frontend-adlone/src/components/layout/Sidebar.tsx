@@ -25,6 +25,7 @@ import {
     IconLayoutSidebarLeftCollapse,
     IconLayoutSidebarRightCollapse,
     IconX,
+    IconFileInvoice,
 } from '@tabler/icons-react';
 import logoAdl from '../../assets/images/logo-adlone.png';
 import logoSmall from '../../assets/images/logo-adlone-pequeño.png';
@@ -42,6 +43,7 @@ const FIXED_TOP_MODULES = [
     { label: 'Solicitudes', icon: IconClipboardList, id: 'solicitudes' },
     { label: 'Notificaciones', icon: IconBell, id: 'notificaciones' },
     { label: 'Chat / Mensajes', icon: IconMessageCircle, id: 'chat' },
+    { label: 'Facturación', icon: IconFileInvoice, id: 'facturacion', permission: 'FAC_ACCESO' },
 ];
 
 const FIXED_BOTTOM_MODULES: any[] = [];
@@ -193,6 +195,7 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo, onHelpClick }
         activeSubmodule,
         sidebarCollapsed,
         toggleSidebar,
+        setSidebarCollapsed,
         setActiveModule,
         setActiveSubmodule,
         resetNavigation,
@@ -207,6 +210,21 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo, onHelpClick }
     const isFirstLoad = useRef(true);
     const prevUnreadCount = useRef<number>(0);
     const notificationsRef = useRef<HTMLDivElement>(null);
+
+    // Notebooks con escalado de Windows alto (125-150%) le reportan al
+    // navegador un viewport efectivo mucho más angosto que la resolución
+    // física — a diferencia de un font-size fijo, este umbral SÍ responde a
+    // eso: colapsa el sidebar por defecto para aprovechar mejor ese espacio.
+    // Solo fija un DEFAULT al cargar (no pelea con lo que el usuario ya
+    // haya elegido manualmente después) y no aplica en modo forzado (drawer
+    // mobile, que ya maneja su propio ancho).
+    useEffect(() => {
+        if (forceNotCollapsed) return;
+        if (window.innerWidth < 1440 && !sidebarCollapsed) {
+            setSidebarCollapsed(true);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // Fetch dynamic menu only once per session (cached in Zustand store)
     useEffect(() => {
@@ -371,7 +389,9 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo, onHelpClick }
 
     const visibleBottom = FIXED_BOTTOM_MODULES.filter(m => !m.permission || hasPermission(m.permission));
 
-    const mainLinks = FIXED_TOP_MODULES.map((item) => {
+    const visibleTop = FIXED_TOP_MODULES.filter(m => !m.permission || hasPermission(m.permission));
+
+    const mainLinks = visibleTop.map((item) => {
         const isNotificationsItem = item.id === 'notificaciones';
         const link = (
             <LinksGroup

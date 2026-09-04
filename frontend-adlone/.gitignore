@@ -22,3 +22,13 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Chat/URS redesign backups (scratch, not part of the build)
+.chat-backup-fluent/
+.chat-backup-original/
+.chat-backup-primereact/
+.urs-backup-fluent/
+.urs-backup-original/
+
+# Reference document used to reformulate the quotation PDF (not code)
+MEDIO AMBIENTE-P881-01092026-EQUIPO TI.doc

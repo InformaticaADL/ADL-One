@@ -162,6 +162,95 @@ class FichaIngresoService {
     }
 
     /**
+     * Construye y dispara FICHA_INFORME_COMPLETO para un muestreo cuyo
+     * informe_emitido pasó a 'S' (lo cierra trg_App_Ma_Resultados_InformeCompleto
+     * en cuanto todos sus análisis tienen resultado). Deliberadamente
+     * independiente de notificarMuestreoCompletado / notificado_completado:
+     * el informe puede cerrar mucho después del retiro (cuando el laboratorio
+     * termina de cargar resultados), así que necesita su propio poller que no
+     * descarte la fila hasta que el informe efectivamente cierre.
+     *
+     * Si además esto deja CERRADO EL CICLO COMPLETO de la ficha (todas sus
+     * frecuencias con informe_emitido='S' o canceladas — lo detecta el mismo
+     * trigger subiendo id_validaciontecnica a 8), dispara también
+     * FICHA_CICLO_FINALIZADO una sola vez por ficha.
+     *
+     * @param {string} frecuenciaCorrelativo
+     * @returns {Promise<{notificado: boolean, motivo?: string}>}
+     */
+    async notificarInformeCompleto(frecuenciaCorrelativo) {
+        const pool = await getConnection();
+
+        const pending = await pool.request()
+            .input('frecuencia', sql.VarChar(50), frecuenciaCorrelativo)
+            .query(`
+                SELECT TOP 1
+                    a.id_agendamam,
+                    a.id_fichaingresoservicio,
+                    a.frecuencia_correlativo,
+                    e.id_usuario as id_usuario_propietario,
+                    e.fichaingresoservicio as correlativo_txt,
+                    e.id_validaciontecnica,
+                    e.ciclo_notificado
+                FROM App_Ma_Agenda_MUESTREOS a
+                INNER JOIN App_Ma_FichaIngresoServicio_ENC e ON e.id_fichaingresoservicio = a.id_fichaingresoservicio
+                WHERE a.frecuencia_correlativo = @frecuencia
+                  AND a.informe_emitido = 'S'
+                  AND (a.informe_notificado = 'N' OR a.informe_notificado IS NULL)
+            `);
+
+        if (pending.recordset.length === 0) {
+            return { notificado: false, motivo: 'No encontrado, informe no cerrado, o ya fue notificado.' };
+        }
+
+        const row = pending.recordset[0];
+
+        try {
+            const baseContext = await this.getFichaContextForNotification(
+                row.id_fichaingresoservicio,
+                'Sistema',
+                'Informe Completo',
+                pool
+            );
+
+            await unsService.trigger('FICHA_INFORME_COMPLETO', {
+                ...baseContext,
+                correlativo: (row.correlativo_txt || String(row.id_fichaingresoservicio)).trim(),
+                id_usuario_propietario: row.id_usuario_propietario,
+                id_usuario_accion: 0,
+            });
+
+            logger.info(`[InformeCompleto] Notificación enviada para agenda #${row.id_agendamam}`);
+
+            // Si el trigger ya cerró el ciclo completo de la ficha (id_validaciontecnica=8),
+            // avisar una sola vez, controlado por ciclo_notificado.
+            if (row.id_validaciontecnica === 8 && row.ciclo_notificado !== 'S') {
+                await unsService.trigger('FICHA_CICLO_FINALIZADO', {
+                    ...baseContext,
+                    correlativo: (row.correlativo_txt || String(row.id_fichaingresoservicio)).trim(),
+                    id_usuario_propietario: row.id_usuario_propietario,
+                    id_usuario_accion: 0,
+                });
+                await pool.request()
+                    .input('idFicha', sql.Numeric(10, 0), row.id_fichaingresoservicio)
+                    .query("UPDATE App_Ma_FichaIngresoServicio_ENC SET ciclo_notificado = 'S' WHERE id_fichaingresoservicio = @idFicha");
+                logger.info(`[CicloFinalizado] Notificación enviada para ficha #${row.id_fichaingresoservicio}`);
+            }
+        } catch (triggerError) {
+            logger.error(`[InformeCompleto] Error notificando agenda #${row.id_agendamam}:`, triggerError);
+        }
+
+        // Se marca como notificado incluso si el trigger falló, mismo criterio
+        // que notificarMuestreoCompletado (evita reintentar en bucle una fila
+        // que falla de forma permanente).
+        await pool.request()
+            .input('id', sql.Numeric(10, 0), row.id_agendamam)
+            .query("UPDATE App_Ma_Agenda_MUESTREOS SET informe_notificado = 'S' WHERE id_agendamam = @id");
+
+        return { notificado: true };
+    }
+
+    /**
      * Carga (cacheada) TODAS las combinaciones normativa/tabla donde existen los
      * análisis de terreno pH y Temperatura, con sus límites y errores. La
      * normativa/tabla ya NO es fija: el usuario elige (form manual) o se hereda
@@ -450,6 +539,10 @@ class FichaIngresoService {
             requestEnc.input('es_remuestreo', sql.VarChar(1), data.isRemuestreo ? 'S' : 'N');
             requestEnc.input('id_ficha_original', sql.Numeric(10, 0), data.isRemuestreo ? valNum(data.originalFichaId) : null);
 
+            // Cotización de origen: deja la trazabilidad cotización → ficha →
+            // casos → pre-factura. NULL en las fichas que no nacen de una.
+            requestEnc.input('id_cotizacion', sql.Int, valNum(data.idCotizacion));
+
             const queryEnc = `
                 INSERT INTO App_Ma_FichaIngresoServicio_ENC (
                     id_fichaingresoservicio, tipo_fichaingresoservicio, fichaingresoservicio,
@@ -469,7 +562,7 @@ class FichaIngresoService {
                     id_usuario, fecha_fichacomercial, hora_fichacomercial,
                     responsablemuestreo, id_cargo, observaciones_comercial, ubicacion,
                     es_remuestreo, id_ficha_original,
-                    ubicacion_lat, ubicacion_lon
+                    ubicacion_lat, ubicacion_lon, id_cotizacion
                 ) VALUES (
                     @id, @tipo_ficha, @ficha_txt,
                     @id_lugaranalisis, @id_empresaservicio, @id_empresa, @id_centro, @id_tipoagua,
@@ -488,7 +581,7 @@ class FichaIngresoService {
                     @id_usuario, @fecha, @hora,
                     @responsable, @id_cargo, @obs_comercial, @ubicacion,
                     @es_remuestreo, @id_ficha_original,
-                    @lat, @lon
+                    @lat, @lon, @id_cotizacion
                 )
             `;
             await requestEnc.query(queryEnc);

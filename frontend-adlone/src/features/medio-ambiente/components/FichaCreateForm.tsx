@@ -5,6 +5,7 @@ import { AnalysisForm } from './AnalysisForm';
 import { ObservacionesForm } from './ObservacionesForm';
 import type { ObservacionesFormHandle } from './ObservacionesForm';
 import { fichaService } from '../services/ficha.service';
+import { facturacionService } from '../../facturacion/services/facturacion.service';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
@@ -21,7 +22,8 @@ import {
     Divider,
     Box,
     Tabs,
-    Container
+    Container,
+    Alert
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import {
@@ -100,7 +102,12 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
     const isVerySmall = useMediaQuery('(max-width: 450px)');
     const { user } = useAuth();
     const { showToast } = useToast();
-    const { setSelectedFicha, setFichasMode } = useNavStore();
+    const { setSelectedFicha, setFichasMode, cotizacionParaFicha, setCotizacionParaFicha } = useNavStore();
+    // Ficha que nace de una cotización aceptada: llega con cliente, centro y los
+    // análisis con el precio que el cliente ya aprobó. AntecedentesForm decide si
+    // hidrata al montarse, así que no se renderiza hasta tener la precarga.
+    const [prefillCotizacion, setPrefillCotizacion] = useState<any>(null);
+    const [cargandoCotizacion, setCargandoCotizacion] = useState<boolean>(!!cotizacionParaFicha);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [createdFichaId, setCreatedFichaId] = useState<number | null>(null);
     const [isAntecedentesValid, setIsAntecedentesValid] = useState(false);
@@ -139,6 +146,38 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
         })();
         return () => { cancelled = true; };
     }, []);
+
+    // Precarga desde la cotización. Los análisis cotizados se AGREGAN a los
+    // fijos (pH/Temperatura), no los reemplazan: siguen siendo obligatorios.
+    useEffect(() => {
+        if (!cotizacionParaFicha) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const prep = await facturacionService.getCotizacionParaFicha(cotizacionParaFicha);
+                if (cancelled) return;
+                setPrefillCotizacion(prep);
+                if (prep.analisis?.length) {
+                    setSavedAnalysis(prev => [
+                        ...prev,
+                        ...prep.analisis.map((a: any, i: number) => ({
+                            ...a,
+                            tipo_analisis: 'Laboratorio',
+                            item: prev.length + i + 1,
+                            savedId: `cot-${cotizacionParaFicha}-${i}-${Date.now()}`,
+                        })),
+                    ]);
+                }
+            } catch {
+                if (!cancelled) {
+                    showToast({ type: 'error', message: 'No se pudo cargar la cotización: complete la ficha a mano.' });
+                }
+            } finally {
+                if (!cancelled) setCargandoCotizacion(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [cotizacionParaFicha, showToast]);
 
     const handleValidationChange = useCallback((isValid: boolean) => {
         startTransition(() => {
@@ -182,7 +221,9 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
                     uf: costoOperativo.enabled ? Number(costoOperativo.uf || 0) : 0
                 },
                 observaciones: observacionesRef.current?.getData() || 'No Aplica',
-                user: { id: user?.id || 0 }
+                user: { id: user?.id || 0 },
+                // Trazabilidad cotización → ficha → casos → pre-factura.
+                idCotizacion: cotizacionParaFicha || null,
             };
 
             const result = await fichaService.create(payload);
@@ -190,6 +231,12 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
             if (result && (result.success || result.data?.success)) {
                 const idToUse = result.data?.id_fichaingresoservicio || result.data?.id || result.id;
                 if (idToUse) {
+                    if (cotizacionParaFicha) {
+                        // Deja la cotización marcada como ya convertida en trabajo.
+                        // Si esto falla, la ficha ya quedó creada: no se revierte.
+                        facturacionService.marcarCotizacionConvertida(cotizacionParaFicha).catch(() => { });
+                        setCotizacionParaFicha(null);
+                    }
                     setCreatedFichaId(Number(idToUse));
                     setShowSuccessModal(true);
                 } else {
@@ -297,10 +344,26 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
                         </Tabs.List>
 
                         <Tabs.Panel value="antecedentes" p={isMobile ? 'md' : 50} pt="xl" style={{ width: '100% !important', minHeight: '70vh' }}>
-                            <AntecedentesForm
-                                ref={antecedentesRef}
-                                onValidationChange={handleValidationChange}
-                            />
+                            {cargandoCotizacion ? (
+                                <Text ta="center" c="dimmed" mt="xl">Cargando los datos de la cotización…</Text>
+                            ) : (
+                                <>
+                                    {prefillCotizacion && (
+                                        <Alert color="blue" variant="light" mb="lg" title={`Desde la cotización N° ${prefillCotizacion.numero_cotizacion}`}>
+                                            El cliente, el centro y {prefillCotizacion.analisis?.length || 0} análisis vienen cargados
+                                            con el precio que el cliente aceptó. Falta completar objetivo, punto de muestreo y programación.
+                                            {prefillCotizacion.avisos?.length > 0 && (
+                                                <> <b>{prefillCotizacion.avisos.length} análisis no se pudieron traer</b> y hay que agregarlos a mano.</>
+                                            )}
+                                        </Alert>
+                                    )}
+                                    <AntecedentesForm
+                                        ref={antecedentesRef}
+                                        initialData={prefillCotizacion?.antecedentes}
+                                        onValidationChange={handleValidationChange}
+                                    />
+                                </>
+                            )}
                         </Tabs.Panel>
 
                         <Tabs.Panel value="analisis" p={isMobile ? 'md' : 50} pt="xl" style={{ width: '100% !important' }}>

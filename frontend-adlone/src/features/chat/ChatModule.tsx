@@ -1,6 +1,9 @@
 import { useEffect, useCallback, useState, useRef } from 'react';
-import { Paper, Text, Loader, Center, useMantineTheme } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
+// ── Rediseño con Ant Design v6 (solo la página de chat) ───────────────────
+// ConfigProvider aplica el tema antd a su subárbol. El estilo estructural se
+// hace con clases CSS inyectadas; los componentes son de antd.
+import { ConfigProvider, Spin } from 'antd';
 import { IconMessageCircle } from '@tabler/icons-react';
 import { useChatStore } from '../../store/chatStore';
 import { useAuth } from '../../contexts/AuthContext';
@@ -11,12 +14,26 @@ import type { ChatMessage } from '../../services/general-chat.service';
 import { io, Socket } from 'socket.io-client';
 import API_CONFIG from '../../config/api.config';
 import ChatSidebar from './ChatSidebar';
+import ChatNav, { type ChatView } from './ChatNav';
 import ChatWindow from './ChatWindow';
 import ChatGroupModal from './ChatGroupModal';
 import ContactProfileDrawer from './ContactProfileDrawer';
-import './ChatModule.css';
 
 let chatSocket: Socket | null = null;
+
+const C = {
+    border: '#f0f0f0', text: 'rgba(0,0,0,0.88)', textTer: 'rgba(0,0,0,0.45)',
+    primary: '#1677ff', primaryBg: '#e6f4ff', bg: '#ffffff',
+};
+
+const CSS = `
+.adl-cm-root { display:flex; height:100%; overflow:hidden; background:${C.bg}; }
+.adl-cm-center { display:flex; align-items:center; justify-content:center; height:100%; }
+.adl-cm-empty { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; row-gap:6px; text-align:center; background:${C.bg}; }
+.adl-cm-badge { width:104px; height:104px; border-radius:20px; display:grid; place-items:center; margin-bottom:12px; color:${C.primary}; background:${C.primaryBg}; }
+.adl-cm-title { font-size:18px; font-weight:700; margin:0; color:${C.text}; }
+.adl-cm-sub { color:${C.textTer}; font-size:14px; margin:0; }
+`;
 
 const ChatModule: React.FC = () => {
     const { user, token } = useAuth();
@@ -36,9 +53,16 @@ const ChatModule: React.FC = () => {
     const [profileUserId, setProfileUserId] = useState<number | null>(null);
     const [profileOpen, setProfileOpen] = useState(false);
     const [otherUserReadAt, setOtherUserReadAt] = useState<Record<number, string>>({});
-    
-    const theme = useMantineTheme();
-    const isMobile = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`);
+    const [chatView, setChatView] = useState<ChatView>('chats');
+    const favorites = useChatStore((s) => s.favorites);
+
+    const isMobile = useMediaQuery('(max-width: 768px)');
+
+    const navCounts = {
+        chats: conversations.length,
+        favoritos: favorites.length,
+        grupos: conversations.filter((c) => c.tipo === 'GRUPO').length,
+    };
 
     // deep-linking from notifications
     const { pendingChatId, setPendingChatId, activeModule } = useNavStore();
@@ -274,26 +298,31 @@ const ChatModule: React.FC = () => {
 
     if (loading && conversations.length === 0) {
         return (
-            <Center style={{ height: '100%' }}>
-                <Loader size="lg" color="blue" />
-            </Center>
+            <ConfigProvider theme={{ token: { colorPrimary: C.primary, borderRadius: 8 } }}>
+                <style>{CSS}</style>
+                <div className="adl-cm-center"><Spin tip="Cargando conversaciones…"><div style={{ padding: 40 }} /></Spin></div>
+            </ConfigProvider>
         );
     }
 
     return (
-        <>
-            <Paper
-                radius={0}
-                style={{
-                    display: 'flex',
-                    height: '100%',
-                    overflow: 'hidden',
-                }}
-            >
+        <ConfigProvider theme={{ token: { colorPrimary: C.primary, borderRadius: 8 } }}>
+            <style>{CSS}</style>
+            <div className="adl-cm-root">
+                {!isMobile && (
+                    <ChatNav
+                        view={chatView}
+                        onChangeView={setChatView}
+                        counts={navCounts}
+                        onCreateGroup={() => setGroupModalOpen(true)}
+                    />
+                )}
+
                 {(!isMobile || !activeConversation) && (
                     <ChatSidebar
                         conversations={conversations}
                         activeConversation={activeConversation}
+                        view={chatView}
                         onSelect={handleSelectConversation}
                         onStartDirect={handleStartDirectChat}
                         onSelectById={handleSelectConversationById}
@@ -327,13 +356,13 @@ const ChatModule: React.FC = () => {
                         />
                     )
                 ) : !isMobile && (
-                    <Center style={{ flex: 1, flexDirection: 'column', gap: 16 }}>
-                        <IconMessageCircle size={80} stroke={1} style={{ color: 'var(--mantine-color-dimmed)' }} />
-                        <Text size="xl" c="dimmed" fw={500}>Chat General ADL One</Text>
-                        <Text size="sm" c="dimmed">Selecciona una conversación o busca un contacto para comenzar</Text>
-                    </Center>
+                    <div className="adl-cm-empty">
+                        <div className="adl-cm-badge"><IconMessageCircle size={44} /></div>
+                        <h2 className="adl-cm-title">Chat General ADL One</h2>
+                        <p className="adl-cm-sub">Selecciona una conversación o busca un contacto para comenzar</p>
+                    </div>
                 )}
-            </Paper>
+            </div>
 
             <ChatGroupModal
                 opened={groupModalOpen}
@@ -349,7 +378,7 @@ const ChatModule: React.FC = () => {
                 userId={profileUserId}
                 onStartChat={handleStartDirectChat}
             />
-        </>
+        </ConfigProvider>
     );
 };
 

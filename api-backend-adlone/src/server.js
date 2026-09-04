@@ -39,6 +39,7 @@ import bulkFichaRoutes from './routes/bulk-ficha.routes.js';
 import rutasPlanificadasRoutes from './routes/rutas-planificadas.routes.js';
 import rutasEjecucionesRoutes from './routes/rutas-ejecuciones.routes.js';
 import trackingRoutes from './routes/tracking.routes.js';
+import facturacionRoutes from './routes/facturacion.routes.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -236,6 +237,7 @@ app.use('/api/menu', menuRoutes);
 app.use('/api/rutas-planificadas', rutasPlanificadasRoutes);
 app.use('/api/rutas-ejecuciones', rutasEjecucionesRoutes);
 app.use('/api/tracking', trackingRoutes);
+app.use('/api/facturacion', facturacionRoutes);
 
 // Avatares predefinidos del sistema: viven en el repo (van versionados en git),
 // por lo que SIEMPRE están disponibles y viajan solos al migrar de equipo —
@@ -244,6 +246,17 @@ app.use('/api/tracking', trackingRoutes);
 app.use('/uploads/avatars', express.static(path.join(__dirname, '../uploads/avatars')));
 
 // Serve uploads directory as static (archivos subidos por usuarios)
+// Algunos de estos archivos (p.ej. los PDF de Facturación) se muestran en
+// un <iframe> embebido del propio frontend. El CSP frame-ancestors 'none'
+// y el X-Frame-Options que helmet aplica globalmente bloquean eso incluso
+// para el propio frontend (distinto puerto/origen en dev) — se relaja
+// SOLO para esta ruta, permitiendo únicamente los orígenes ya confiables
+// de CORS (allowedOrigins), nunca "*".
+app.use('/uploads', (req, res, next) => {
+    res.removeHeader('X-Frame-Options');
+    res.setHeader('Content-Security-Policy', `frame-ancestors 'self' ${allowedOrigins.join(' ')}`);
+    next();
+});
 const uploadPath = process.env.UPLOAD_PATH || path.join(__dirname, '../uploads');
 app.use('/uploads', express.static(uploadPath));
 

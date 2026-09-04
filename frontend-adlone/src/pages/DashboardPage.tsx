@@ -26,6 +26,7 @@ import UniversalInbox from '../features/urs/components/UniversalInbox';
 import { UserNotificationsPage } from '../features/notifications/pages/UserNotificationsPage';
 import { ProfilePage } from '../features/auth/pages/ProfilePage';
 import ChatModule from '../features/chat/ChatModule';
+import FacturacionModule from '../features/facturacion/components/FacturacionModule';
 import { WelcomePage } from './WelcomePage';
 
 import { NotificationsPage } from '../features/admin/pages/NotificationsPage';
@@ -132,6 +133,7 @@ const DashboardPage = () => {
             if (activeModule === 'solicitudes') return <UniversalInbox />;
             if (activeModule === 'notificaciones') return <UserNotificationsPage />;
             if (activeModule === 'chat') return <ChatModule />;
+            if (activeModule === 'facturacion') return <FacturacionModule />;
             if (activeModule === 'perfil') return <ProfilePage />;
 
             // Para todo lo demás (Medio Ambiente, Calidad, Inicio, etc.), mostrar el WelcomePage

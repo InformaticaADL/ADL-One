@@ -1,57 +1,64 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import {
-    Stack,
-    Group,
-    Paper,
-    Text,
-    Title,
-    ScrollArea,
-    ActionIcon,
-    Textarea,
-    ThemeIcon,
-    Box,
-    Badge,
-    FileButton,
-    Center,
-    Divider
-} from '@mantine/core';
-import {
-    IconMessage,
-    IconSend,
-    IconPaperclip,
-    IconX,
-    IconUser
-} from '@tabler/icons-react';
+import { ConfigProvider, Button, Input, Tag, Divider, Tooltip } from 'antd';
+import { IconMessage, IconSend, IconPaperclip, IconX } from '@tabler/icons-react';
 import { ursService } from '../../../services/urs.service';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../contexts/ToastContext';
 import FileIcon from './FileIcon';
+
+const { TextArea } = Input;
 
 interface RequestActivityAndChatProps {
     request: any;
     onReload: () => void;
 }
 
+const BUBBLE_COLORS = ['#1677ff', '#389e0d', '#d46b08', '#722ed1', '#c41d7f', '#2f54eb', '#08979c', '#7cb305', '#531dab'];
+
+const C = {
+    border: '#f0f0f0', text: 'rgba(0,0,0,0.88)', textSec: 'rgba(0,0,0,0.65)', textTer: 'rgba(0,0,0,0.45)',
+    primary: '#1677ff', primaryBg: '#e6f4ff', primaryBorder: '#91caff', bg: '#ffffff', bgLayout: '#fafafa',
+};
+
+const CSS = `
+.adl-ch-root { display:flex; flex-direction:column; height:100%; background:${C.bg}; overflow:hidden; }
+.adl-ch-header { display:flex; align-items:center; column-gap:8px; padding:12px; border-bottom:1px solid ${C.border}; flex-shrink:0; }
+.adl-ch-headicon { display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:6px; background:${C.primaryBg}; color:${C.primary}; }
+.adl-ch-headtitle { margin:0; font-size:12px; font-weight:700; letter-spacing:.8px; text-transform:uppercase; color:${C.textSec}; }
+.adl-ch-scroll { flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; row-gap:12px; }
+.adl-ch-datelabel { font-size:11px; font-weight:600; color:${C.textTer}; text-transform:capitalize; }
+.adl-ch-msg { display:flex; flex-direction:column; max-width:85%; }
+.adl-ch-msg.own { align-self:flex-end; align-items:flex-end; }
+.adl-ch-msg.other { align-self:flex-start; align-items:flex-start; }
+.adl-ch-meta { display:flex; align-items:center; column-gap:6px; margin-bottom:3px; }
+.adl-ch-author { font-size:11px; font-weight:700; }
+.adl-ch-time { font-size:11px; color:${C.textTer}; }
+.adl-ch-bubble { padding:8px 12px; border-radius:12px; font-size:14px; line-height:1.5; white-space:pre-wrap; word-break:break-word; overflow-wrap:break-word; border:1px solid ${C.border}; }
+.adl-ch-bubble.own { background:${C.primaryBg}; border-color:${C.primaryBorder}; border-bottom-right-radius:4px; }
+.adl-ch-bubble.other { background:${C.bgLayout}; border-bottom-left-radius:4px; }
+.adl-ch-attach { display:flex; align-items:center; column-gap:6px; margin-top:6px; padding:4px 6px; border:1px solid ${C.border}; border-radius:6px; background:${C.bg}; text-decoration:none; color:${C.primary}; cursor:pointer; max-width:220px; }
+.adl-ch-attach:hover { background:${C.bgLayout}; }
+.adl-ch-attachname { font-size:11px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.adl-ch-emptychat { text-align:center; color:${C.textTer}; font-style:italic; font-size:12px; padding:40px 0; }
+.adl-ch-input { border-top:1px solid ${C.border}; padding:12px; display:flex; flex-direction:column; row-gap:8px; flex-shrink:0; }
+.adl-ch-chips { display:flex; flex-wrap:wrap; gap:6px; }
+.adl-ch-inputrow { display:flex; align-items:flex-end; column-gap:8px; }
+`;
+
 const RequestActivityAndChat: React.FC<RequestActivityAndChatProps> = ({ request, onReload }) => {
     const [comment, setComment] = useState('');
     const [sending, setSending] = useState(false);
     const [files, setFiles] = useState<File[]>([]);
     const viewport = useRef<HTMLDivElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const { token } = useAuth();
     const { showToast } = useToast();
 
-    const scrollToBottom = () => {
-        viewport.current?.scrollTo({ top: viewport.current.scrollHeight, behavior: 'smooth' });
-    };
+    const scrollToBottom = () => { viewport.current?.scrollTo({ top: viewport.current.scrollHeight, behavior: 'smooth' }); };
+    useEffect(() => { scrollToBottom(); }, [request.conversacion]);
 
-    useEffect(() => {
-        scrollToBottom();
-    }, [request.conversacion]);
-
-    const handleSendMessage = async (e?: React.FormEvent) => {
-        e?.preventDefault();
+    const handleSendMessage = async () => {
         if (!comment.trim() && files.length === 0) return;
-
         setSending(true);
         try {
             await ursService.addComment(request.id_solicitud, comment, false, files);
@@ -60,36 +67,20 @@ const RequestActivityAndChat: React.FC<RequestActivityAndChatProps> = ({ request
             onReload();
         } catch {
             showToast({ type: 'error', message: 'Error al enviar el mensaje' });
-        } finally {
-            setSending(false);
-        }
+        } finally { setSending(false); }
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            handleSendMessage();
-        }
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); }
     };
 
-    const removeFile = (index: number) => {
-        setFiles(prev => prev.filter((_, i) => i !== index));
-    };
+    const removeFile = (index: number) => setFiles(prev => prev.filter((_, i) => i !== index));
 
     const getUserColor = (userId: any) => {
-        const colors = [
-            'blue', 'teal', 'orange', 'violet', 
-            'pink', 'indigo', 'cyan', 'lime', 'grape'
-        ];
-        
-        // Simple hash for any ID type (number or string)
         const idStr = String(userId || '0');
         let hash = 0;
-        for (let i = 0; i < idStr.length; i++) {
-            hash = idStr.charCodeAt(i) + ((hash << 5) - hash);
-        }
-        
-        return colors[Math.abs(hash) % colors.length];
+        for (let i = 0; i < idStr.length; i++) hash = idStr.charCodeAt(i) + ((hash << 5) - hash);
+        return BUBBLE_COLORS[Math.abs(hash) % BUBBLE_COLORS.length];
     };
 
     const getDateLabel = (dateStr: string): string => {
@@ -102,166 +93,77 @@ const RequestActivityAndChat: React.FC<RequestActivityAndChatProps> = ({ request
         return d.toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' });
     };
 
-    // Filtered Chat: Only user messages
-    const chatMessages = useMemo(() => {
-        return (request.conversacion || []).filter((m: any) => !m.es_sistema);
-    }, [request.conversacion]);
+    const chatMessages = useMemo(() => (request.conversacion || []).filter((m: any) => !m.es_sistema), [request.conversacion]);
 
     return (
-        <Stack h="100%" gap={0}>
-            {/* Chat Section */}
-            <Stack gap={0} flex={1} style={{ overflow: 'hidden' }}>
-                <Group p="sm" bg="white" style={{ borderBottom: '1px solid var(--mantine-color-gray-1)' }}>
-                    <ThemeIcon variant="light" color="adl-blue" size="sm" radius="md">
-                        <IconMessage size={14} />
-                    </ThemeIcon>
-                    <Title order={6} lts="1px">CHAT DE COMUNICACIÓN</Title>
-                </Group>
+        <ConfigProvider theme={{ token: { colorPrimary: C.primary, borderRadius: 8 } }}>
+            <style>{CSS}</style>
+            <div className="adl-ch-root">
+                <div className="adl-ch-header">
+                    <span className="adl-ch-headicon"><IconMessage size={15} /></span>
+                    <h4 className="adl-ch-headtitle">Chat de comunicación</h4>
+                </div>
 
-                <ScrollArea flex={1} p="md" viewportRef={viewport}>
-                    <Stack gap="lg">
-                        {chatMessages.length > 0 ? (
-                            chatMessages.map((msg: any, i: number) => {
-                                const isOwn = msg.es_mio;
-                                const userColor = getUserColor(msg.id_usuario);
-                                const msgDate = new Date(msg.fecha).toDateString();
-                                const prevDate = i > 0 ? new Date(chatMessages[i - 1].fecha).toDateString() : null;
-                                const showDateSep = msgDate !== prevDate;
-                                return (
-                                    <React.Fragment key={i}>
+                <div className="adl-ch-scroll" ref={viewport}>
+                    {chatMessages.length > 0 ? (
+                        chatMessages.map((msg: any, i: number) => {
+                            const isOwn = msg.es_mio;
+                            const userColor = getUserColor(msg.id_usuario);
+                            const msgDate = new Date(msg.fecha).toDateString();
+                            const prevDate = i > 0 ? new Date(chatMessages[i - 1].fecha).toDateString() : null;
+                            const showDateSep = msgDate !== prevDate;
+                            return (
+                                <React.Fragment key={i}>
                                     {showDateSep && (
-                                        <Divider
-                                            label={
-                                                <Text size="xs" c="dimmed" fw={600} tt="capitalize">
-                                                    {getDateLabel(msg.fecha)}
-                                                </Text>
-                                            }
-                                            labelPosition="center"
-                                            my="xs"
-                                        />
+                                        <Divider style={{ margin: '4px 0' }}><span className="adl-ch-datelabel">{getDateLabel(msg.fecha)}</span></Divider>
                                     )}
-                                    <Box style={{ alignSelf: isOwn ? 'flex-end' : 'flex-start', maxWidth: '85%' }}>
-                                        <Group gap={6} mb={4} justify={isOwn ? 'flex-end' : 'flex-start'}>
-                                            {!isOwn && <IconUser size={12} style={{ color: `var(--mantine-color-${userColor}-6)` }} />}
-                                            <Text size="xs" fw={800} c={isOwn ? 'blue.7' : `${userColor}.7`}>
-                                                {msg.nombre_usuario}
-                                            </Text>
-                                            <Text size="xs" c="dimmed">
-                                                {new Date(msg.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                            </Text>
-                                        </Group>
-                                        
-                                        <Paper 
-                                            p="sm" 
-                                            radius="lg" 
-                                            shadow="xs"
-                                            withBorder
-                                            bg={isOwn ? 'blue.0' : `${userColor}.0`}
-                                            style={{ 
-                                                borderBottomRightRadius: isOwn ? 4 : 'var(--mantine-radius-lg)',
-                                                borderBottomLeftRadius: !isOwn ? 4 : 'var(--mantine-radius-lg)',
-                                                borderColor: isOwn ? 'var(--mantine-color-blue-2)' : `var(--mantine-color-${userColor}-2)`
-                                            }}
-                                        >
-                                            <Text size="sm" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word' }}>{msg.mensaje}</Text>
-                                            
-                                            {msg.adjuntos && msg.adjuntos.length > 0 && (
-                                                <Stack gap={4} mt="xs">
-                                                    {msg.adjuntos.map((file: any) => (
-                                                        <Paper
-                                                            key={file.id_adjunto}
-                                                            component="a"
-                                                            href={`${import.meta.env.VITE_API_URL}/api/urs/download/${file.id_adjunto}?token=${token}`}
-                                                            target="_blank"
-                                                            p="xs"
-                                                            withBorder
-                                                            radius="md"
-                                                            style={{ cursor: 'pointer', textDecoration: 'none', maxWidth: '100%' }}
-                                                            styles={{ root: { '&:hover': { backgroundColor: 'var(--mantine-color-gray-0)' } } }}
-                                                        >
-                                                            <Group gap={6} wrap="nowrap">
-                                                                <FileIcon mimetype={file.tipo_archivo} filename={file.nombre_archivo} size={18} />
-                                                                <Text size="xs" fw={600} c="blue.7" truncate style={{ maxWidth: 180 }}>
-                                                                    {file.nombre_archivo}
-                                                                </Text>
-                                                            </Group>
-                                                        </Paper>
-                                                    ))}
-                                                </Stack>
-                                            )}
-                                        </Paper>
-                                    </Box>
-                                    </React.Fragment>
-                                );
-                            })
-                        ) : (
-                            <Center py={40}>
-                                <Text size="xs" c="dimmed italic">Sin mensajes aún.</Text>
-                            </Center>
-                        )}
-                    </Stack>
-                </ScrollArea>
+                                    <div className={`adl-ch-msg ${isOwn ? 'own' : 'other'}`}>
+                                        <div className="adl-ch-meta">
+                                            <span className="adl-ch-author" style={{ color: isOwn ? C.primary : userColor }}>{msg.nombre_usuario}</span>
+                                            <span className="adl-ch-time">{new Date(msg.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                        </div>
+                                        <div className={`adl-ch-bubble ${isOwn ? 'own' : 'other'}`}>
+                                            {msg.mensaje}
+                                            {msg.adjuntos && msg.adjuntos.length > 0 && msg.adjuntos.map((file: any) => (
+                                                <a key={file.id_adjunto} className="adl-ch-attach" target="_blank" rel="noreferrer"
+                                                    href={`${import.meta.env.VITE_API_URL}/api/urs/download/${file.id_adjunto}?token=${token}`}>
+                                                    <FileIcon mimetype={file.tipo_archivo} filename={file.nombre_archivo} size={18} />
+                                                    <span className="adl-ch-attachname">{file.nombre_archivo}</span>
+                                                </a>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </React.Fragment>
+                            );
+                        })
+                    ) : (
+                        <div className="adl-ch-emptychat">Sin mensajes aún.</div>
+                    )}
+                </div>
 
-                {/* Input Area */}
-                <Box p="md" style={{ borderTop: '1px solid var(--mantine-color-gray-2)', backgroundColor: 'white' }}>
-                    <Stack gap="xs">
-                        {files.length > 0 && (
-                            <Group gap={6} wrap="wrap">
-                                {files.map((f, i) => (
-                                    <Badge 
-                                        key={i} 
-                                        variant="light" 
-                                        color="blue" 
-                                        rightSection={
-                                            <ActionIcon size="xs" color="blue" variant="transparent" onClick={() => removeFile(i)}>
-                                                <IconX size={10} />
-                                            </ActionIcon>
-                                        }
-                                    >
-                                        {f.name}
-                                    </Badge>
-                                ))}
-                            </Group>
-                        )}
-                        
-                        <Group align="flex-end" gap="xs">
-                            <FileButton onChange={(payload) => setFiles(prev => [...prev, ...payload])} accept="image/*,application/pdf,.xlsx,.xls,.doc,.docx,.txt,.csv" multiple>
-                                {(props) => (
-                                    <ActionIcon {...props} variant="light" color="gray" size="lg" radius="md">
-                                        <IconPaperclip size={20} />
-                                    </ActionIcon>
-                                )}
-                            </FileButton>
-
-                            <Textarea 
-                                placeholder="Escribe un mensaje..."
-                                flex={1}
-                                minRows={1}
-                                maxRows={4}
-                                autosize
-                                value={comment}
-                                onChange={(e) => setComment(e.currentTarget.value)}
-                                onKeyDown={handleKeyDown}
-                                radius="md"
-                                styles={{ input: { fontSize: 'var(--mantine-font-size-sm)' } }}
-                            />
-
-                            <ActionIcon 
-                                variant="filled" 
-                                color="adl-blue" 
-                                size="lg" 
-                                radius="md"
-                                loading={sending}
-                                disabled={!comment.trim() && files.length === 0}
-                                onClick={() => handleSendMessage()}
-                            >
-                                <IconSend size={20} />
-                            </ActionIcon>
-                        </Group>
-                    </Stack>
-                </Box>
-            </Stack>
-        </Stack>
+                <div className="adl-ch-input">
+                    {files.length > 0 && (
+                        <div className="adl-ch-chips">
+                            {files.map((f, i) => (
+                                <Tag key={i} color="blue" closable onClose={() => removeFile(i)} closeIcon={<IconX size={12} />}>{f.name}</Tag>
+                            ))}
+                        </div>
+                    )}
+                    <div className="adl-ch-inputrow">
+                        <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }}
+                            accept="image/*,application/pdf,.xlsx,.xls,.doc,.docx,.txt,.csv"
+                            onChange={(e) => { const list = Array.from(e.target.files || []); setFiles(prev => [...prev, ...list]); e.target.value = ''; }} />
+                        <Tooltip title="Adjuntar archivo">
+                            <Button type="text" icon={<IconPaperclip size={18} />} onClick={() => fileInputRef.current?.click()} />
+                        </Tooltip>
+                        <TextArea placeholder="Escribe un mensaje..." autoSize={{ minRows: 1, maxRows: 4 }} style={{ flex: 1 }}
+                            value={comment} onChange={(e) => setComment(e.target.value)} onKeyDown={handleKeyDown} />
+                        <Button type="primary" icon={<IconSend size={18} />} loading={sending}
+                            disabled={!comment.trim() && files.length === 0} onClick={handleSendMessage} />
+                    </div>
+                </div>
+            </div>
+        </ConfigProvider>
     );
 };
 
