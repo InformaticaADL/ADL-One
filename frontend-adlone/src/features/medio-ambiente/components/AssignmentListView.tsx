@@ -242,10 +242,10 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
             render: (_: any, row: any) => <Text strong style={{ color: 'var(--app-accent-text)' }}>{row.fichaingresoservicio || row.id_fichaingresoservicio}</Text>,
         },
         {
-            title: 'Estado', width: 150,
+            title: 'Estado', width: 120, align: 'center' as const,
             render: (_: any, row: any) => {
                 const status = row.estado_ficha || row.nombre_estadomuestreo;
-                return <Tag color={getStatusColor(status)} style={{ whiteSpace: 'normal', textAlign: 'center', width: '100%' }}>{status || '-'}</Tag>;
+                return <Tag color={getStatusColor(status)} style={{ whiteSpace: 'nowrap', margin: 0 }}>{status || '-'}</Tag>;
             },
         },
         {

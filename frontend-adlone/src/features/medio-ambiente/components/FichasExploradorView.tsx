@@ -163,13 +163,16 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
             render: (v: any) => <Text strong style={{ color: 'var(--app-accent-text)' }}>{v || '-'}</Text>,
         },
         {
-            title: 'Estado', dataIndex: 'estado_ficha', width: 170,
+            title: 'Estado', dataIndex: 'estado_ficha', width: 120, align: 'center' as const,
             render: (v: string) => {
                 const status = getStatusProps(v);
-                return <Tag color={status.color} style={{ width: '100%', textAlign: 'center' }}>{status.label}</Tag>;
+                return <Tag color={status.color} style={{ whiteSpace: 'nowrap', margin: 0 }}>{status.label}</Tag>;
             },
         },
-        { title: 'Fecha', dataIndex: 'fecha', width: 100 },
+        {
+            title: 'Fecha', dataIndex: 'fecha', width: 110,
+            render: (v: string) => <Text style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{v || '-'}</Text>,
+        },
         { title: 'Facturar a', dataIndex: 'empresa_facturar', ellipsis: { showTitle: true } },
         { title: 'E. Servicio', dataIndex: 'empresa_servicio', ellipsis: { showTitle: true } },
         { title: 'Objetivo', dataIndex: 'nombre_objetivomuestreo_ma', ellipsis: { showTitle: true } },

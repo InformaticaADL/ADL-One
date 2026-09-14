@@ -237,8 +237,8 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
             ),
         },
         {
-            title: 'Fecha', width: 100,
-            render: (_: any, m: any) => <Text style={{ fontSize: 12 }}>{m.fecha_retiro ? new Date(m.fecha_retiro).toLocaleDateString('es-CL', { timeZone: 'UTC' }) : '-'}</Text>,
+            title: 'Fecha', width: 110,
+            render: (_: any, m: any) => <Text style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{m.fecha_retiro ? new Date(m.fecha_retiro).toLocaleDateString('es-CL', { timeZone: 'UTC' }) : '-'}</Text>,
         },
         { title: 'Cliente', dataIndex: 'cliente', width: 180, ellipsis: { showTitle: true } },
         { title: 'F. Emisora', dataIndex: 'centro', width: 180, ellipsis: { showTitle: true } },
