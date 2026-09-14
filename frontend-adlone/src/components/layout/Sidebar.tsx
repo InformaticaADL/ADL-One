@@ -1,10 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Menu, Tooltip } from 'antd';
+import { Menu } from 'antd';
 import type { MenuProps } from 'antd';
 import {
     IconMessageCircle,
-    IconLayoutSidebarLeftCollapse,
-    IconLayoutSidebarRightCollapse,
     IconFileInvoice,
     IconClipboardList,
 } from '@tabler/icons-react';
@@ -44,7 +42,6 @@ export function Sidebar({ forceNotCollapsed, onNavigate }: { forceNotCollapsed?:
         activeModule,
         activeSubmodule,
         sidebarCollapsed,
-        toggleSidebar,
         setSidebarCollapsed,
         setActiveModule,
         setActiveSubmodule,
@@ -238,30 +235,8 @@ export function Sidebar({ forceNotCollapsed, onNavigate }: { forceNotCollapsed?:
 
     return (
         <nav className={`${classes.navbar} ${isCollapsed ? classes.navbarCollapsed : ''}`}>
-            {/* En desktop el logo ya lo muestra TopBar arriba — este bloque solo
-                conserva el botón de colapsar/expandir. En mobile (forceNotCollapsed)
-                no hay concepto de colapsar, así que no se renderiza nada aquí. */}
-            {!forceNotCollapsed && (
-                <div className={classes.header}>
-                    <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: isCollapsed ? 'center' : 'flex-end' }}>
-                        <Tooltip title={isCollapsed ? 'Expandir menú' : 'Contraer menú'}>
-                            <button
-                                onClick={toggleSidebar}
-                                style={{
-                                    border: 'none', background: 'transparent', cursor: 'pointer',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    color: 'var(--app-text-secondary)', padding: 6, borderRadius: 6,
-                                }}
-                            >
-                                {isCollapsed
-                                    ? <IconLayoutSidebarRightCollapse size={18} />
-                                    : <IconLayoutSidebarLeftCollapse size={20} />}
-                            </button>
-                        </Tooltip>
-                    </div>
-                </div>
-            )}
-
+            {/* El logo y el botón de colapsar/expandir viven en TopBar (solo
+                desktop) — Sidebar es exclusivamente el menú de navegación. */}
             <div className={classes.links}>
                 <div className={classes.linksInner}>
                     <Menu

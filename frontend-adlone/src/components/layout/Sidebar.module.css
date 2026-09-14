@@ -1,8 +1,8 @@
 /* Migrado a Ant Design: el listado de módulos/submódulos ahora lo dibuja
    <Menu> de antd (ver Sidebar.tsx), así que esta hoja solo conserva el
-   chrome propio del panel — encabezado y scroll — que antd no cubre.
-   Notificaciones/tema/avatar se movieron a TopBar.tsx. Usa los tokens
-   --app-* de index.css (claro/oscuro según data-theme en <html>) en vez de
+   scroll del panel — Sidebar es exclusivamente navegación, sin logo ni
+   toggle de colapsar (viven en TopBar.tsx). Usa los tokens --app-* de
+   index.css (claro/oscuro según data-theme en <html>) en vez de
    var(--mantine-color-*) o hex fijo, para desacoplar este panel de Mantine
    y que responda al switch de tema. */
 
@@ -21,16 +21,6 @@
 .navbarCollapsed {
   width: 80px;
   padding: 10px;
-}
-
-.header {
-  /* Ya no aloja el logo (vive solo en TopBar/MainLayout) — solo el botón
-     de colapsar/expandir. Sin borde ni min-height propios: así no se lee
-     como una sección/franja vacía, es solo un poco de aire arriba del menú. */
-  padding: 6px 4px 2px;
-  color: var(--app-text);
-  display: flex;
-  align-items: center;
 }
 
 .links {
