@@ -1,65 +1,63 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-    Typography,
-    Button,
-    Input,
-    Select,
-    Table,
-    Tag,
-    Card,
-    Modal,
-    Checkbox,
-    Spin,
-    Tooltip,
-    Avatar
-} from 'antd';
-import { IconEye, IconEyeOff } from '@tabler/icons-react';
-import { useMediaQuery } from '../../../hooks/useMediaQuery';
-import {
     IconSearch,
     IconPlus,
-    IconEdit,
+    IconPencil,
     IconKey,
     IconBan,
     IconCheck,
-    IconUser,
-    IconMail,
-    IconShield,
-    IconClock
+    IconEye,
+    IconEyeOff,
+    IconShieldCheck,
 } from '@tabler/icons-react';
+
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
+
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { rbacService, type User, type CreateUserData, type UpdateUserData, type Role } from '../services/rbac.service';
 import { catalogosService } from '../../medio-ambiente/services/catalogos.service';
 import { useToast } from '../../../contexts/ToastContext';
-import { ConfirmModal } from '../../../components/common/ConfirmModal';
 import { PageHeader } from '../../../components/layout/PageHeader';
-
-const { Text } = Typography;
 
 interface Props {
     onBack?: () => void;
 }
 
+// Piloto shadcn/ui — misma lógica de negocio que la versión AntD anterior,
+// reconstruida como componentes propios (Radix + Tailwind, sin librería de
+// componentes) y con la estructura de página del "Users" de referencia:
+// tabs de estado (Todos/Activos/Inactivos) en vez de un Select, búsqueda +
+// filtro de rol en una sola fila, celda de identidad (avatar+nombre+email)
+// combinada en una sola columna, badges neutros para rol, badge de color
+// solo para estado real.
 export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
     const isMobile = useMediaQuery('(max-width: 768px)');
     const { showToast } = useToast();
     const [users, setUsers] = useState<User[]>([]);
     const [roles, setRoles] = useState<Role[]>([]);
     const [cargos, setCargos] = useState<any[]>([]);
-    // RB-01: separar loading de listado vs operaciones en modal (evita el overlay blanco residual)
-    const [loading, setLoading] = useState(false); // listado
-    const [savingUser, setSavingUser] = useState(false); // modal de crear/editar/cambiar pass
+    const [loading, setLoading] = useState(false);
+    const [savingUser, setSavingUser] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-    const [filterStatus, setFilterStatus] = useState<string>('active');
+    const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('active');
     const [filterRole, setFilterRole] = useState<string>('all');
 
-    // Modal states
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [showPasswordModal, setShowPasswordModal] = useState(false);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
-    // Form states
     const [formData, setFormData] = useState<CreateUserData>({
         nombre_usuario: '',
         nombre_real: '',
@@ -71,6 +69,8 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
     const [roleSearchTerm, setRoleSearchTerm] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [showPw, setShowPw] = useState(false);
+    const [showPw2, setShowPw2] = useState(false);
 
     useEffect(() => {
         loadUsers();
@@ -112,22 +112,18 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
         if (!formData.nombre_usuario || !formData.nombre_real || !formData.clave_usuario) {
             return showToast({ type: 'error', message: 'Complete los campos requeridos' });
         }
-
         try {
             setSavingUser(true);
             const newUser = await rbacService.createUser(formData);
-
             if (selectedRoles.length > 0) {
                 await rbacService.assignRolesToUser(newUser.id_usuario, selectedRoles);
             }
-
             showToast({ type: 'success', message: 'Usuario creado exitosamente' });
             setShowCreateModal(false);
             resetForm();
             loadUsers();
         } catch (error: any) {
-            const msg = error.response?.data?.message || 'Error al crear usuario';
-            showToast({ type: 'error', message: msg });
+            showToast({ type: 'error', message: error.response?.data?.message || 'Error al crear usuario' });
         } finally {
             setSavingUser(false);
         }
@@ -135,26 +131,22 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
 
     const handleUpdateUser = async () => {
         if (!selectedUser) return;
-
         const updateData: UpdateUserData = {
             nombre_usuario: formData.nombre_usuario,
             nombre_real: formData.nombre_real,
             correo_electronico: formData.correo_electronico,
             id_cargo: formData.id_cargo
         };
-
         try {
             setSavingUser(true);
             await rbacService.updateUser(selectedUser.id_usuario, updateData);
             await rbacService.assignRolesToUser(selectedUser.id_usuario, selectedRoles);
-
             showToast({ type: 'success', message: 'Usuario actualizado exitosamente' });
             setShowEditModal(false);
             resetForm();
             loadUsers();
         } catch (error: any) {
-            const msg = error.response?.data?.message || 'Error al actualizar usuario';
-            showToast({ type: 'error', message: msg });
+            showToast({ type: 'error', message: error.response?.data?.message || 'Error al actualizar usuario' });
         } finally {
             setSavingUser(false);
         }
@@ -165,7 +157,6 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
         if (!newPassword || newPassword !== confirmPassword) {
             return showToast({ type: 'error', message: 'Las contraseñas no coinciden' });
         }
-
         try {
             setSavingUser(true);
             await rbacService.updateUserPassword(selectedUser.id_usuario, newPassword);
@@ -184,20 +175,15 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
     const handleToggleStatus = async () => {
         if (!selectedUser) return;
         const newStatus = selectedUser.habilitado !== 'S';
-
         try {
             setLoading(true);
             await rbacService.toggleUserStatus(selectedUser.id_usuario, newStatus);
-            showToast({
-                type: 'success',
-                message: `Usuario ${newStatus ? 'habilitado' : 'deshabilitado'} exitosamente`
-            });
+            showToast({ type: 'success', message: `Usuario ${newStatus ? 'habilitado' : 'deshabilitado'} exitosamente` });
             setShowConfirmModal(false);
             setSelectedUser(null);
             loadUsers();
         } catch (error: any) {
-            const msg = error.response?.data?.message || 'Error al cambiar estado del usuario';
-            showToast({ type: 'error', message: msg });
+            showToast({ type: 'error', message: error.response?.data?.message || 'Error al cambiar estado del usuario' });
         } finally {
             setLoading(false);
         }
@@ -218,7 +204,6 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
             id_cargo: user.id_cargo,
             clave_usuario: ''
         });
-
         try {
             const userRoles = await rbacService.getUserRoles(user.id_usuario);
             setSelectedRoles(userRoles.map(r => r.id_rol));
@@ -226,7 +211,6 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
             console.error('Error loading user roles:', error);
             setSelectedRoles([]);
         }
-
         setShowEditModal(true);
     };
 
@@ -234,6 +218,8 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
         setSelectedUser(user);
         setNewPassword('');
         setConfirmPassword('');
+        setShowPw(false);
+        setShowPw2(false);
         setShowPasswordModal(true);
     };
 
@@ -243,24 +229,14 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
     };
 
     const resetForm = () => {
-        setFormData({
-            nombre_usuario: '',
-            nombre_real: '',
-            correo_electronico: '',
-            id_cargo: undefined,
-            clave_usuario: ''
-        });
+        setFormData({ nombre_usuario: '', nombre_real: '', correo_electronico: '', id_cargo: undefined, clave_usuario: '' });
         setSelectedRoles([]);
         setRoleSearchTerm('');
         setSelectedUser(null);
     };
 
     const toggleRole = (roleId: number) => {
-        setSelectedRoles(prev =>
-            prev.includes(roleId)
-                ? prev.filter(id => id !== roleId)
-                : [...prev, roleId]
-        );
+        setSelectedRoles(prev => (prev.includes(roleId) ? prev.filter(id => id !== roleId) : [...prev, roleId]));
     };
 
     const filteredUsers = useMemo(() => {
@@ -270,450 +246,330 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                 (user.nombre_usuario ?? '').toLowerCase().includes(term) ||
                 (user.nombre_real ?? '').toLowerCase().includes(term) ||
                 (user.correo_electronico ?? '').toLowerCase().includes(term);
-
             const matchesStatus =
                 filterStatus === 'all' ||
                 (filterStatus === 'active' && user.habilitado === 'S') ||
                 (filterStatus === 'inactive' && user.habilitado === 'N');
-
-            const matchesRole =
-                filterRole === 'all' ||
-                (user.roles && user.roles.includes(filterRole));
-
+            const matchesRole = filterRole === 'all' || (user.roles && user.roles.includes(filterRole));
             return matchesSearch && matchesStatus && matchesRole;
         });
     }, [users, searchTerm, filterStatus, filterRole]);
 
-    // RB-01: memoizar lista de roles filtrados para que no se recalcule en cada keystroke del form
     const memoizedRoles = useMemo(() => {
         const term = roleSearchTerm.toLowerCase();
         return roles
             .filter(r => r.estado && r.nombre_rol)
-            .filter(r =>
-                (r.nombre_rol ?? '').toLowerCase().includes(term) ||
-                (r.descripcion && r.descripcion.toLowerCase().includes(term))
-            );
+            .filter(r => (r.nombre_rol ?? '').toLowerCase().includes(term) || (r.descripcion && r.descripcion.toLowerCase().includes(term)));
     }, [roles, roleSearchTerm]);
 
-    const columns = [
-        {
-            title: 'Usuario', key: 'usuario',
-            render: (_: unknown, user: User) => (
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <Avatar size="small" style={{ backgroundColor: 'var(--app-accent-bg)', color: '#1677ff' }}>
-                        <IconUser size={14} />
-                    </Avatar>
-                    <Text strong style={{ fontSize: 13 }}>{user.nombre_usuario}</Text>
-                </div>
-            ),
-        },
-        { title: 'Nombre Real', key: 'nombre_real', render: (_: unknown, user: User) => <Text style={{ fontSize: 13 }}>{user.nombre_real}</Text> },
-        { title: 'Cargo', key: 'cargo', render: (_: unknown, user: User) => <Text style={{ fontSize: 13 }}>{user.nombre_cargo || '-'}</Text> },
-        {
-            title: 'Roles', key: 'roles',
-            render: (_: unknown, user: User) => (
-                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                    {user.roles?.map((rol, i) => <Tag key={i}>{rol}</Tag>)}
-                </div>
-            ),
-        },
-        {
-            title: 'Email', key: 'email',
-            render: (_: unknown, user: User) => (
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                    <IconMail size={14} color="gray" />
-                    <Text style={{ fontSize: 12, color: '#1c7ed6' }}>{user.correo_electronico || '-'}</Text>
-                </div>
-            ),
-        },
-        {
-            title: 'Último Acceso', key: 'ultimo_acceso',
-            render: (_: unknown, user: User) => (
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                    <IconClock size={14} color="gray" />
-                    <Text type="secondary" style={{ fontSize: 12 }}>{user.ultimo_acceso ?? 'Nunca'}</Text>
-                </div>
-            ),
-        },
-        {
-            title: 'Estado', key: 'estado', align: 'center' as const,
-            render: (_: unknown, user: User) => (
-                <Tag color={user.habilitado === 'S' ? 'green' : 'red'}>
-                    {user.habilitado === 'S' ? 'Activo' : 'Inactivo'}
-                </Tag>
-            ),
-        },
-        {
-            title: 'Acciones', key: 'acciones', align: 'right' as const,
-            render: (_: unknown, user: User) => (
-                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                    <Tooltip title="Editar datos">
-                        <Button type="text" size="small" icon={<IconEdit size={16} />} onClick={() => openEditModal(user)} />
-                    </Tooltip>
-                    <Tooltip title="Cambiar contraseña">
-                        <Button type="text" size="small" icon={<IconKey size={16} />} onClick={() => openPasswordModal(user)} />
-                    </Tooltip>
-                    <Tooltip title={user.habilitado === 'S' ? 'Deshabilitar' : 'Habilitar'}>
-                        <Button
-                            type="text"
-                            size="small"
-                            danger={user.habilitado === 'S'}
-                            icon={user.habilitado === 'S' ? <IconBan size={16} /> : <IconCheck size={16} />}
-                            onClick={() => openConfirmModal(user)}
-                        />
-                    </Tooltip>
-                </div>
-            ),
-        },
-    ];
+    const initials = (name: string) => (name || '?').trim().charAt(0).toUpperCase();
 
     return (
-        <div style={{ padding: isMobile ? 8 : 16, width: '100%' }}>
+        <div className="w-full p-4 md:p-6">
             <PageHeader
-                title="Gestión de Usuarios"
+                title="Usuarios"
                 subtitle="Administra accesos y roles del personal."
                 onBack={onBack}
-                breadcrumbItems={[
-                    { label: 'Administración', onClick: onBack },
-                    { label: 'Usuarios' }
-                ]}
+                breadcrumbItems={[{ label: 'Administración', onClick: onBack }, { label: 'Usuarios' }]}
                 rightSection={
-                    <Button
-                        type="primary"
-                        icon={<IconPlus size={18} />}
-                        onClick={openCreateModal}
-                        block={isMobile}
-                        style={{ marginTop: isMobile ? 16 : 0 }}
-                    >
-                        Nuevo Usuario
+                    <Button onClick={openCreateModal} className={cn(isMobile && 'w-full')}>
+                        <IconPlus size={16} /> Nuevo Usuario
                     </Button>
                 }
             />
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 24, marginTop: 32 }}>
+            <div className="mt-6 flex flex-col gap-4">
+                {/* Filtros: tabs de estado + búsqueda + rol, sin tarjeta con borde */}
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <Tabs value={filterStatus} onValueChange={(v) => setFilterStatus(v as typeof filterStatus)}>
+                        <TabsList>
+                            <TabsTrigger value="all">Todos</TabsTrigger>
+                            <TabsTrigger value="active">Activos</TabsTrigger>
+                            <TabsTrigger value="inactive">Inactivos</TabsTrigger>
+                        </TabsList>
+                    </Tabs>
 
-                {/* Filters Section */}
-                <Card size="small">
-                    <div style={{ display: 'flex', gap: 16, flexWrap: isMobile ? 'wrap' : 'nowrap', alignItems: 'flex-end' }}>
-                        <Field label="Búsqueda" style={{ flex: 1 }}>
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                        <div className="relative">
+                            <IconSearch size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                             <Input
-                                placeholder="Nombre o email..."
-                                prefix={<IconSearch size={16} />}
+                                placeholder="Buscar usuarios..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-8 sm:w-64"
                             />
-                        </Field>
-                        <Field label="Estado" style={{ flex: 1 }}>
-                            <Select
-                                value={filterStatus}
-                                onChange={(val) => setFilterStatus(val || 'all')}
-                                options={[
-                                    { value: 'all', label: 'Todos' },
-                                    { value: 'active', label: 'Solo Activos' },
-                                    { value: 'inactive', label: 'Solo Inactivos' }
-                                ]}
-                                style={{ width: '100%' }}
-                            />
-                        </Field>
-                        <Field label="Rol" style={{ flex: 1 }}>
-                            <Select
-                                placeholder="Filtrar por rol..."
-                                value={filterRole}
-                                onChange={(val) => setFilterRole(val || 'all')}
-                                options={[
-                                    { value: 'all', label: 'Todos los roles' },
-                                    ...roles
-                                        .filter(r => r.nombre_rol)
-                                        .map(r => ({ value: String(r.nombre_rol), label: String(r.nombre_rol) }))
-                                ]}
-                                showSearch
-                                filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                                allowClear
-                                style={{ width: '100%' }}
-                            />
-                        </Field>
+                        </div>
+                        <Select value={filterRole} onValueChange={setFilterRole}>
+                            <SelectTrigger className="sm:w-44">
+                                <SelectValue placeholder="Rol" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Todos los roles</SelectItem>
+                                {roles.filter(r => r.nombre_rol).map(r => (
+                                    <SelectItem key={r.id_rol} value={String(r.nombre_rol)}>{r.nombre_rol}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
-                </Card>
+                </div>
 
-                {/* Content Section */}
-                <div style={{ position: 'relative' }}>
+                {/* Tabla / lista */}
+                <div className="relative rounded-xl border border-border bg-card">
                     {loading && !showCreateModal && !showEditModal && !showPasswordModal && !showConfirmModal && (
-                        <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(255,255,255,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
-                            <Spin size="large" />
+                        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-background/60">
+                            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                         </div>
                     )}
 
                     {isMobile ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                            {filteredUsers.length > 0 ? (
-                                filteredUsers.map((user) => (
-                                    <Card key={user.id_usuario} size="small">
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8, flexWrap: 'nowrap' }}>
-                                            <div style={{ display: 'flex', gap: 8, flexWrap: 'nowrap', flex: 1, minWidth: 0 }}>
-                                                <Avatar style={{ backgroundColor: 'var(--app-accent-bg)', color: '#1677ff' }} size={40}>
-                                                    <IconUser size={24} />
-                                                </Avatar>
-                                                <div style={{ flex: 1, minWidth: 0 }}>
-                                                    <Text strong style={{ fontSize: 13, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.nombre_real}</Text>
-                                                    <Text type="secondary" style={{ fontSize: 12 }}>@{user.nombre_usuario}</Text>
-                                                </div>
-                                            </div>
-                                            <Tag color={user.habilitado === 'S' ? 'green' : 'red'}>
-                                                {user.habilitado === 'S' ? 'ACTIVO' : 'INACTIVO'}
-                                            </Tag>
-                                        </div>
-
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-                                            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                                                <IconMail size={14} color="gray" />
-                                                <Text style={{ fontSize: 12, color: '#1c7ed6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.correo_electronico || '-'}</Text>
-                                            </div>
-                                            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                                                <IconShield size={14} color="gray" />
-                                                <Text style={{ fontSize: 12, fontWeight: 500 }}>{user.nombre_cargo || 'Sin Cargo'}</Text>
-                                            </div>
-                                            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                                                <IconClock size={14} color="gray" />
-                                                <Text type="secondary" style={{ fontSize: 12 }}>{user.ultimo_acceso ?? 'Nunca'}</Text>
-                                            </div>
-                                            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                                                {user.roles?.map((rol, i) => <Tag key={i}>{rol}</Tag>)}
+                        <div className="flex flex-col gap-3 p-3">
+                            {filteredUsers.length > 0 ? filteredUsers.map((user) => (
+                                <div key={user.id_usuario} className="rounded-lg border border-border p-3">
+                                    <div className="mb-2 flex items-start justify-between gap-2">
+                                        <div className="flex min-w-0 items-center gap-2.5">
+                                            <Avatar>
+                                                <AvatarFallback>{initials(user.nombre_real)}</AvatarFallback>
+                                            </Avatar>
+                                            <div className="min-w-0">
+                                                <p className="truncate text-sm font-semibold text-foreground">{user.nombre_real}</p>
+                                                <p className="truncate text-xs text-muted-foreground">{user.correo_electronico || `@${user.nombre_usuario}`}</p>
                                             </div>
                                         </div>
-
-                                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', paddingTop: 8, borderTop: '1px solid var(--app-border)' }}>
-                                            <Button type="text" icon={<IconEdit size={18} />} onClick={() => openEditModal(user)} />
-                                            <Button type="text" icon={<IconKey size={18} />} onClick={() => openPasswordModal(user)} />
-                                            <Button
-                                                type="text"
-                                                danger={user.habilitado === 'S'}
-                                                icon={user.habilitado === 'S' ? <IconBan size={18} /> : <IconCheck size={18} />}
-                                                onClick={() => openConfirmModal(user)}
-                                            />
-                                        </div>
-                                    </Card>
-                                ))
-                            ) : (
-                                <Card style={{ textAlign: 'center' }}>
-                                    <Text type="secondary">No se encontraron usuarios</Text>
-                                </Card>
+                                        <Badge variant={user.habilitado === 'S' ? 'success' : 'destructive'}>
+                                            {user.habilitado === 'S' ? 'Activo' : 'Inactivo'}
+                                        </Badge>
+                                    </div>
+                                    <div className="mb-3 flex flex-wrap gap-1.5">
+                                        <span className="text-xs text-muted-foreground">{user.nombre_cargo || 'Sin cargo'}</span>
+                                        {user.roles?.map((rol, i) => <Badge key={i} variant="outline">{rol}</Badge>)}
+                                    </div>
+                                    <div className="flex justify-end gap-1 border-t border-border pt-2">
+                                        <Button variant="ghost" size="icon" title="Editar" onClick={() => openEditModal(user)}><IconPencil size={16} /></Button>
+                                        <Button variant="ghost" size="icon" title="Cambiar contraseña" onClick={() => openPasswordModal(user)}><IconKey size={16} /></Button>
+                                        <Button variant="ghost" size="icon" title={user.habilitado === 'S' ? 'Deshabilitar' : 'Habilitar'} onClick={() => openConfirmModal(user)}>
+                                            {user.habilitado === 'S' ? <IconBan size={16} /> : <IconCheck size={16} />}
+                                        </Button>
+                                    </div>
+                                </div>
+                            )) : (
+                                <p className="p-6 text-center text-sm text-muted-foreground">No se encontraron usuarios</p>
                             )}
                         </div>
                     ) : (
-                        <Card size="small" styles={{ body: { padding: 0 } }}>
-                            <Table
-                                rowKey="id_usuario"
-                                columns={columns}
-                                dataSource={filteredUsers}
-                                pagination={false}
-                                size="small"
-                                scroll={{ x: 900 }}
-                                locale={{ emptyText: <Text type="secondary">No se encontraron usuarios</Text> }}
-                            />
-                        </Card>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Usuario</TableHead>
+                                    <TableHead>Cargo</TableHead>
+                                    <TableHead>Roles</TableHead>
+                                    <TableHead>Estado</TableHead>
+                                    <TableHead>Último acceso</TableHead>
+                                    <TableHead className="text-right">Acciones</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {filteredUsers.length > 0 ? filteredUsers.map((user) => (
+                                    <TableRow key={user.id_usuario}>
+                                        <TableCell>
+                                            <div className="flex items-center gap-2.5">
+                                                <Avatar>
+                                                    <AvatarFallback>{initials(user.nombre_real)}</AvatarFallback>
+                                                </Avatar>
+                                                <div className="min-w-0">
+                                                    <p className="truncate text-sm font-medium text-foreground">{user.nombre_real}</p>
+                                                    <p className="truncate text-xs text-muted-foreground">{user.correo_electronico || `@${user.nombre_usuario}`}</p>
+                                                </div>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="text-sm text-muted-foreground">{user.nombre_cargo || '-'}</TableCell>
+                                        <TableCell>
+                                            <div className="flex flex-wrap gap-1">
+                                                {user.roles?.map((rol, i) => <Badge key={i} variant="outline">{rol}</Badge>)}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant={user.habilitado === 'S' ? 'success' : 'destructive'}>
+                                                {user.habilitado === 'S' ? 'Activo' : 'Inactivo'}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-sm text-muted-foreground">{user.ultimo_acceso ?? 'Nunca'}</TableCell>
+                                        <TableCell>
+                                            <div className="flex justify-end gap-1">
+                                                <Button variant="ghost" size="icon" title="Editar" onClick={() => openEditModal(user)}><IconPencil size={16} /></Button>
+                                                <Button variant="ghost" size="icon" title="Cambiar contraseña" onClick={() => openPasswordModal(user)}><IconKey size={16} /></Button>
+                                                <Button variant="ghost" size="icon" title={user.habilitado === 'S' ? 'Deshabilitar' : 'Habilitar'} onClick={() => openConfirmModal(user)}>
+                                                    {user.habilitado === 'S' ? <IconBan size={16} /> : <IconCheck size={16} />}
+                                                </Button>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                )) : (
+                                    <TableRow>
+                                        <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">No se encontraron usuarios</TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
                     )}
                 </div>
             </div>
 
-            {/* Create / Edit Modal */}
-            <Modal
-                open={showCreateModal || showEditModal}
-                onCancel={() => {
-                    setShowCreateModal(false);
-                    setShowEditModal(false);
-                    resetForm();
-                }}
-                title={
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        {showCreateModal ? <IconPlus size={20} /> : <IconEdit size={20} />}
-                        <Text strong>{showCreateModal ? 'Crear Nuevo Usuario' : 'Editar Usuario'}</Text>
-                    </div>
-                }
-                width={isMobile ? '100%' : 640}
-                style={isMobile ? { top: 0, maxWidth: '100%', margin: 0 } : undefined}
-                footer={null}
-            >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                    <div style={{ display: 'flex', gap: 16, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
-                        <Field label="Nombre de Usuario (Login)" required style={{ flex: 1 }}>
-                            <Input
-                                placeholder="ej: jdoe"
-                                value={formData.nombre_usuario}
-                                onChange={(e) => setFormData({ ...formData, nombre_usuario: e.target.value })}
-                            />
-                        </Field>
-                        <Field label="Nombre Real" required style={{ flex: 1 }}>
-                            <Input
-                                placeholder="ej: Juan Doe"
-                                value={formData.nombre_real}
-                                onChange={(e) => setFormData({ ...formData, nombre_real: e.target.value })}
-                            />
-                        </Field>
-                    </div>
+            {/* Crear / Editar */}
+            <Dialog open={showCreateModal || showEditModal} onOpenChange={(open) => { if (!open) { setShowCreateModal(false); setShowEditModal(false); resetForm(); } }}>
+                <DialogContent className="max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>{showCreateModal ? 'Crear nuevo usuario' : 'Editar usuario'}</DialogTitle>
+                    </DialogHeader>
 
-                    <Field label="Correo Electrónico">
-                        <Input
-                            placeholder="usuario@ejemplo.com"
-                            type="email"
-                            value={formData.correo_electronico}
-                            onChange={(e) => setFormData({ ...formData, correo_electronico: e.target.value })}
-                        />
-                    </Field>
-
-                    {showCreateModal && (
-                        <Field label="Contraseña" required>
-                            <Input.Password
-                                placeholder="Ingresa la contraseña inicial"
-                                value={formData.clave_usuario}
-                                onChange={(e) => setFormData({ ...formData, clave_usuario: e.target.value })}
-                                iconRender={(visible) => (visible ? <IconEyeOff size={16} /> : <IconEye size={16} />)}
-                            />
-                        </Field>
-                    )}
-
-                    <Field label="Cargo">
-                        <Select
-                            placeholder="Selecciona el cargo"
-                            options={cargos.map(c => ({ value: String(c.id_cargo), label: c.nombre_cargo }))}
-                            value={formData.id_cargo ? String(formData.id_cargo) : undefined}
-                            onChange={(val) => setFormData({ ...formData, id_cargo: val ? Number(val) : undefined })}
-                            showSearch
-                            filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                            style={{ width: '100%' }}
-                        />
-                    </Field>
-
-                    <div style={{ marginTop: 16 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, alignItems: 'center' }}>
-                            <Text strong style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <IconShield size={16} color="#1c7ed6" /> Roles Asignados
-                            </Text>
-                            <Text type="secondary" style={{ fontSize: 12 }}>{selectedRoles.length} seleccionados</Text>
+                    <div className="flex flex-col gap-4">
+                        <div className="flex flex-col gap-4 sm:flex-row">
+                            <Field label="Nombre de usuario (login)" required className="flex-1">
+                                <Input placeholder="ej: jdoe" value={formData.nombre_usuario} onChange={(e) => setFormData({ ...formData, nombre_usuario: e.target.value })} />
+                            </Field>
+                            <Field label="Nombre real" required className="flex-1">
+                                <Input placeholder="ej: Juan Doe" value={formData.nombre_real} onChange={(e) => setFormData({ ...formData, nombre_real: e.target.value })} />
+                            </Field>
                         </div>
 
-                        <Input
-                            placeholder="Filtrar roles..."
-                            size="small"
-                            style={{ marginBottom: 8 }}
-                            prefix={<IconSearch size={14} />}
-                            value={roleSearchTerm}
-                            onChange={(e) => setRoleSearchTerm(e.target.value)}
-                        />
+                        <Field label="Correo electrónico">
+                            <Input type="email" placeholder="usuario@ejemplo.com" value={formData.correo_electronico} onChange={(e) => setFormData({ ...formData, correo_electronico: e.target.value })} />
+                        </Field>
 
-                        <Card size="small" style={{ backgroundColor: 'var(--app-hover-bg)' }} styles={{ body: { padding: 8 } }}>
-                            <div style={{ height: isMobile ? 250 : 180, overflowY: 'auto' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {showCreateModal && (
+                            <Field label="Contraseña" required>
+                                <div className="relative">
+                                    <Input
+                                        type={showPw ? 'text' : 'password'}
+                                        placeholder="Contraseña inicial"
+                                        value={formData.clave_usuario}
+                                        onChange={(e) => setFormData({ ...formData, clave_usuario: e.target.value })}
+                                        className="pr-9"
+                                    />
+                                    <button type="button" onClick={() => setShowPw(v => !v)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground">
+                                        {showPw ? <IconEyeOff size={16} /> : <IconEye size={16} />}
+                                    </button>
+                                </div>
+                            </Field>
+                        )}
+
+                        <Field label="Cargo">
+                            <Select value={formData.id_cargo ? String(formData.id_cargo) : undefined} onValueChange={(v) => setFormData({ ...formData, id_cargo: v ? Number(v) : undefined })}>
+                                <SelectTrigger><SelectValue placeholder="Selecciona el cargo" /></SelectTrigger>
+                                <SelectContent>
+                                    {cargos.map((c) => <SelectItem key={c.id_cargo} value={String(c.id_cargo)}>{c.nombre_cargo}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </Field>
+
+                        <div>
+                            <div className="mb-2 flex items-center justify-between">
+                                <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                                    <IconShieldCheck size={15} className="text-primary" /> Roles asignados
+                                </span>
+                                <span className="text-xs text-muted-foreground">{selectedRoles.length} seleccionados</span>
+                            </div>
+                            <div className="relative mb-2">
+                                <IconSearch size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                <Input placeholder="Filtrar roles..." value={roleSearchTerm} onChange={(e) => setRoleSearchTerm(e.target.value)} className="h-8 pl-8 text-xs" />
+                            </div>
+                            <div className="max-h-44 overflow-y-auto rounded-lg border border-border bg-muted/40 p-1.5">
+                                <div className="flex flex-col gap-1">
                                     {memoizedRoles.map((role) => {
                                         const checked = selectedRoles.includes(role.id_rol);
                                         return (
                                             <div
                                                 key={role.id_rol}
-                                                style={{
-                                                    padding: 8, borderRadius: 4, cursor: 'pointer',
-                                                    border: `1px solid ${checked ? '#a5d8ff' : 'transparent'}`,
-                                                    backgroundColor: checked ? 'var(--app-accent-bg)' : 'transparent',
-                                                }}
                                                 onClick={() => toggleRole(role.id_rol)}
+                                                className={cn(
+                                                    'flex cursor-pointer items-center gap-2.5 rounded-md border p-2 transition-colors',
+                                                    checked ? 'border-primary/40 bg-primary/10' : 'border-transparent hover:bg-muted'
+                                                )}
                                             >
-                                                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'nowrap' }}>
-                                                    <Checkbox checked={checked} onChange={() => {}} onClick={(e) => e.stopPropagation()} />
-                                                    <div>
-                                                        <Text style={{ fontSize: 13, fontWeight: 500 }}>{role.nombre_rol}</Text>
-                                                        {role.descripcion && (
-                                                            <Text type="secondary" style={{ fontSize: 12, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{role.descripcion}</Text>
-                                                        )}
-                                                    </div>
+                                                <Checkbox checked={checked} onCheckedChange={() => toggleRole(role.id_rol)} onClick={(e) => e.stopPropagation()} />
+                                                <div className="min-w-0">
+                                                    <p className="text-sm font-medium text-foreground">{role.nombre_rol}</p>
+                                                    {role.descripcion && <p className="truncate text-xs text-muted-foreground">{role.descripcion}</p>}
                                                 </div>
                                             </div>
                                         );
                                     })}
                                 </div>
                             </div>
-                        </Card>
+                        </div>
                     </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 24 }}>
-                        <Button type="text" onClick={() => { setShowCreateModal(false); setShowEditModal(false); resetForm(); }}>
-                            Cancelar
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => { setShowCreateModal(false); setShowEditModal(false); resetForm(); }}>Cancelar</Button>
+                        <Button onClick={showCreateModal ? handleCreateUser : handleUpdateUser} disabled={savingUser}>
+                            {savingUser ? 'Guardando...' : showCreateModal ? 'Crear usuario' : 'Guardar cambios'}
                         </Button>
-                        <Button
-                            type="primary"
-                            onClick={showCreateModal ? handleCreateUser : handleUpdateUser}
-                            loading={savingUser}
-                            block={isMobile}
-                        >
-                            {showCreateModal ? 'Crear Usuario' : 'Guardar Cambios'}
-                        </Button>
-                    </div>
-                </div>
-            </Modal>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
-            {/* Password Modal */}
-            <Modal
-                open={showPasswordModal}
-                onCancel={() => { setShowPasswordModal(false); setSelectedUser(null); }}
-                title={<div style={{ display: 'flex', gap: 8, alignItems: 'center' }}><IconKey size={20} /><Text strong>Cambiar Contraseña</Text></div>}
-                width={isMobile ? '100%' : 480}
-                style={isMobile ? { top: 0, maxWidth: '100%', margin: 0 } : undefined}
-                footer={null}
-            >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                    <Text style={{ fontSize: 13 }}>Usuario: <strong>{selectedUser?.nombre_usuario}</strong></Text>
-                    <Field label="Nueva Contraseña">
-                        <Input.Password
-                            placeholder="Ingresa la nueva contraseña"
-                            value={newPassword}
-                            onChange={(e) => setNewPassword(e.target.value)}
-                            iconRender={(visible) => (visible ? <IconEyeOff size={16} /> : <IconEye size={16} />)}
-                        />
-                    </Field>
-                    <Field label="Confirmar Contraseña">
-                        <Input.Password
-                            placeholder="Repite la contraseña"
-                            value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
-                            iconRender={(visible) => (visible ? <IconEyeOff size={16} /> : <IconEye size={16} />)}
-                        />
-                    </Field>
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
-                        <Button type="text" onClick={() => setShowPasswordModal(false)}>
-                            Cancelar
-                        </Button>
-                        <Button danger type="primary" onClick={handleUpdatePassword} loading={savingUser} block={isMobile}>
-                            Actualizar Contraseña
-                        </Button>
+            {/* Contraseña */}
+            <Dialog open={showPasswordModal} onOpenChange={(open) => { if (!open) { setShowPasswordModal(false); setSelectedUser(null); } }}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Cambiar contraseña</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-4">
+                        <p className="text-sm text-foreground">Usuario: <strong>{selectedUser?.nombre_usuario}</strong></p>
+                        <Field label="Nueva contraseña">
+                            <div className="relative">
+                                <Input type={showPw ? 'text' : 'password'} placeholder="Ingresa la nueva contraseña" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="pr-9" />
+                                <button type="button" onClick={() => setShowPw(v => !v)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground">
+                                    {showPw ? <IconEyeOff size={16} /> : <IconEye size={16} />}
+                                </button>
+                            </div>
+                        </Field>
+                        <Field label="Confirmar contraseña">
+                            <div className="relative">
+                                <Input type={showPw2 ? 'text' : 'password'} placeholder="Repite la contraseña" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="pr-9" />
+                                <button type="button" onClick={() => setShowPw2(v => !v)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground">
+                                    {showPw2 ? <IconEyeOff size={16} /> : <IconEye size={16} />}
+                                </button>
+                            </div>
+                        </Field>
                     </div>
-                </div>
-            </Modal>
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setShowPasswordModal(false)}>Cancelar</Button>
+                        <Button variant="destructive" onClick={handleUpdatePassword} disabled={savingUser}>
+                            {savingUser ? 'Actualizando...' : 'Actualizar contraseña'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
-            {/* Confirm Status Modal */}
-            <ConfirmModal
-                isOpen={showConfirmModal}
-                title={selectedUser?.habilitado === 'S' ? 'Deshabilitar Usuario' : 'Habilitar Usuario'}
-                message={
-                    selectedUser?.habilitado === 'S'
-                        ? `¿Está seguro que desea deshabilitar al usuario "${selectedUser?.nombre_usuario}"? No podrá acceder al sistema.`
-                        : `¿Está seguro que desea habilitar al usuario "${selectedUser?.nombre_usuario}"? Podrá acceder nuevamente.`
-                }
-                confirmText={selectedUser?.habilitado === 'S' ? 'Deshabilitar' : 'Habilitar'}
-                cancelText="Cancelar"
-                confirmColor={selectedUser?.habilitado === 'S' ? '#e03131' : '#2f9e44'}
-                onConfirm={handleToggleStatus}
-                onCancel={() => {
-                    setShowConfirmModal(false);
-                    setSelectedUser(null);
-                }}
-            />
+            {/* Confirmar habilitar/deshabilitar */}
+            <Dialog open={showConfirmModal} onOpenChange={(open) => { if (!open) { setShowConfirmModal(false); setSelectedUser(null); } }}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>{selectedUser?.habilitado === 'S' ? 'Deshabilitar usuario' : 'Habilitar usuario'}</DialogTitle>
+                    </DialogHeader>
+                    <p className="text-sm text-muted-foreground">
+                        {selectedUser?.habilitado === 'S'
+                            ? `¿Estás seguro que deseas deshabilitar al usuario "${selectedUser?.nombre_usuario}"? No podrá acceder al sistema.`
+                            : `¿Estás seguro que deseas habilitar al usuario "${selectedUser?.nombre_usuario}"? Podrá acceder nuevamente.`}
+                    </p>
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => { setShowConfirmModal(false); setSelectedUser(null); }}>Cancelar</Button>
+                        <Button variant={selectedUser?.habilitado === 'S' ? 'destructive' : 'default'} onClick={handleToggleStatus}>
+                            {selectedUser?.habilitado === 'S' ? 'Deshabilitar' : 'Habilitar'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };
 
-function Field({ label, required, style, children }: { label: string; required?: boolean; style?: React.CSSProperties; children: React.ReactNode }) {
+function Field({ label, required, className, children }: { label: string; required?: boolean; className?: string; children: React.ReactNode }) {
     return (
-        <div style={style}>
-            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>
-                {label}{required && <span style={{ color: '#e03131' }}> *</span>}
-            </Text>
+        <div className={className}>
+            <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                {label}{required && <span className="text-destructive"> *</span>}
+            </Label>
             {children}
         </div>
     );
