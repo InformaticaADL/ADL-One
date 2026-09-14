@@ -142,7 +142,6 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                         forceNotCollapsed={isCompact}
                         hideLogo={isCompact}
                         onNavigate={close}
-                        onHelpClick={() => setHelpCenterOpen(true, true)}
                     />
                 </div>
 

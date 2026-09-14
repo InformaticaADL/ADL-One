@@ -1,38 +1,25 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { createPortal } from 'react-dom';
-import { Menu, Dropdown, Avatar, Badge, Tooltip, Typography, Switch } from 'antd';
+import { useState, useEffect, useMemo } from 'react';
+import { Menu, Tooltip } from 'antd';
 import type { MenuProps } from 'antd';
 import {
-    IconUserCircle,
-    IconBell,
     IconMessageCircle,
-    IconExclamationMark,
-    IconLogout,
     IconLayoutSidebarLeftCollapse,
     IconLayoutSidebarRightCollapse,
     IconFileInvoice,
     IconClipboardList,
-    IconSun,
-    IconMoon,
 } from '@tabler/icons-react';
 import logoAdl from '../../assets/images/logo-adlone.png';
 import logoSmall from '../../assets/images/logo-adlone-pequeño.png';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavStore } from '../../store/navStore';
-import { useNotificationStore } from '../../store/notificationStore';
-import { useThemeStore } from '../../store/themeStore';
-import { NotificationPopover } from '../../features/notifications/components/NotificationPopover';
 import API_CONFIG from '../../config/api.config';
 import axios from 'axios';
 import { getIconComponent } from '../../config/iconRegistry';
 import classes from './Sidebar.module.css';
 
-const { Text } = Typography;
-
 // Módulos con iconos de Tabler
 const FIXED_TOP_MODULES = [
     { label: 'Solicitudes', icon: IconClipboardList, id: 'solicitudes' },
-    { label: 'Notificaciones', icon: IconBell, id: 'notificaciones' },
     { label: 'Chat / Mensajes', icon: IconMessageCircle, id: 'chat' },
     { label: 'Facturación', icon: IconFileInvoice, id: 'facturacion', permission: 'FAC_ACCESO' },
 ];
@@ -53,9 +40,8 @@ function itemLabel(label: string, badgeCount?: number) {
     );
 }
 
-export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo, onHelpClick }: { forceNotCollapsed?: boolean, onNavigate?: () => void, hideLogo?: boolean, onHelpClick?: () => void }) {
-    const { user, logout, hasPermission, token } = useAuth();
-    const { mode, toggleMode } = useThemeStore();
+export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotCollapsed?: boolean, onNavigate?: () => void, hideLogo?: boolean }) {
+    const { hasPermission, token } = useAuth();
     const {
         activeModule,
         activeSubmodule,
@@ -72,11 +58,6 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo, onHelpClick }
 
     const isCollapsed = forceNotCollapsed ? false : sidebarCollapsed;
     const [openedModule, setOpenedModule] = useState<string | null>(activeModule);
-    const [notifOpen, setNotifOpen] = useState(false);
-    const [showBubble, setShowBubble] = useState(false);
-    const isFirstLoad = useRef(true);
-    const prevUnreadCount = useRef<number>(0);
-    const notificationsRef = useRef<HTMLDivElement>(null);
 
     // Notebooks con escalado de Windows alto (125-150%) le reportan al
     // navegador un viewport efectivo mucho más angosto que la resolución
@@ -123,33 +104,6 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo, onHelpClick }
             }
         }
     }, [activeModule, forceNotCollapsed]);
-
-    const { notifications } = useNotificationStore();
-    const unreadCount = notifications.filter(n => !n.leido).length;
-
-    // Escudo temporal para suprimir alertas durante el arranque (hidratación asíncrona del store)
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            isFirstLoad.current = false;
-        }, 5000);
-        return () => clearTimeout(timer);
-    }, []);
-
-    // Detect new notifications for Bubble
-    useEffect(() => {
-        // Ignorar cambios si estamos en la ventana de carga inicial
-        if (isFirstLoad.current) {
-            prevUnreadCount.current = unreadCount;
-            return;
-        }
-
-        if (unreadCount > prevUnreadCount.current && unreadCount > 0 && !notifOpen) {
-            setShowBubble(true);
-            const timer = setTimeout(() => setShowBubble(false), 5000);
-            return () => clearTimeout(timer);
-        }
-        prevUnreadCount.current = unreadCount;
-    }, [unreadCount, notifOpen]);
 
     const canAccessModule = (module: any) => {
         let hasBasePermission = false;
@@ -209,8 +163,7 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo, onHelpClick }
 
     const visibleBottom = FIXED_BOTTOM_MODULES.filter((m) => !m.permission || hasPermission(m.permission));
 
-    const visibleTop = FIXED_TOP_MODULES.filter((m) => !m.permission || hasPermission(m.permission))
-        .filter((m) => m.id !== 'notificaciones'); // Notificaciones se renderiza aparte (abre un popover, no navega)
+    const visibleTop = FIXED_TOP_MODULES.filter((m) => !m.permission || hasPermission(m.permission));
 
     const buildDynamicItem = (mod: any): MenuItem => {
         const filteredLinks = (mod.links || []).filter((link: any) => {
@@ -292,44 +245,6 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo, onHelpClick }
         if (next) handleModuleClick(next);
     };
 
-    const userMenuItems: MenuProps['items'] = [
-        { key: 'perfil', icon: <IconUserCircle size={14} />, label: 'Mi Perfil' },
-        { key: 'ayuda', icon: <IconExclamationMark size={14} />, label: 'Ayuda' },
-        { type: 'divider' },
-        { key: 'logout', icon: <IconLogout size={14} />, label: 'Cerrar sesión', danger: true },
-    ];
-
-    const handleUserMenuClick: MenuProps['onClick'] = ({ key }) => {
-        if (key === 'perfil') {
-            setActiveModule('perfil');
-            setActiveSubmodule('');
-            onNavigate?.();
-        } else if (key === 'ayuda') {
-            onHelpClick?.();
-            onNavigate?.();
-        } else if (key === 'logout') {
-            logout();
-        }
-    };
-
-    const notifItem = FIXED_TOP_MODULES.find((m) => m.id === 'notificaciones')!;
-    const notifActive = notifOpen || activeModule === 'notificaciones';
-    const notifButton = (
-        <div ref={notificationsRef}>
-            <Tooltip title={isCollapsed ? 'Notificaciones' : ''} placement="right">
-                <button
-                    className={`${classes.notifButton} ${notifActive ? classes.notifButtonActive : ''} ${isCollapsed ? classes.notifButtonCollapsed : ''}`}
-                    onClick={() => { setNotifOpen((v) => !v); setShowBubble(false); }}
-                >
-                    <Badge count={unreadCount} size="small" offset={isCollapsed ? [-2, 2] : [0, 0]}>
-                        <notifItem.icon size={18} stroke={1.75} />
-                    </Badge>
-                    {!isCollapsed && <span style={{ flex: 1 }}>{notifItem.label}</span>}
-                </button>
-            </Tooltip>
-        </div>
-    );
-
     return (
         <nav className={`${classes.navbar} ${isCollapsed ? classes.navbarCollapsed : ''}`}>
             {!hideLogo && (
@@ -370,12 +285,6 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo, onHelpClick }
 
             <div className={classes.links}>
                 <div className={classes.linksInner}>
-                    <div className={classes.section}>
-                        <NotificationPopover opened={notifOpen} onClose={() => setNotifOpen(false)}>
-                            {notifButton}
-                        </NotificationPopover>
-                    </div>
-
                     <Menu
                         mode="inline"
                         inlineCollapsed={isCollapsed}
@@ -388,74 +297,6 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo, onHelpClick }
                     />
                 </div>
             </div>
-
-            <div className={classes.footer}>
-                <div className={classes.section}>
-                    {isCollapsed ? (
-                        <Tooltip title={mode === 'dark' ? 'Cambiar a claro' : 'Cambiar a oscuro'} placement="right">
-                            <button
-                                className={`${classes.themeSwitch} ${classes.themeSwitchCollapsed}`}
-                                onClick={toggleMode}
-                                aria-label="Cambiar tema"
-                            >
-                                {mode === 'dark' ? <IconMoon size={17} stroke={1.75} /> : <IconSun size={17} stroke={1.75} />}
-                            </button>
-                        </Tooltip>
-                    ) : (
-                        <div className={classes.themeSwitch}>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                {mode === 'dark' ? <IconMoon size={15} stroke={1.75} /> : <IconSun size={15} stroke={1.75} />}
-                                Modo {mode === 'dark' ? 'oscuro' : 'claro'}
-                            </span>
-                            <Switch size="small" checked={mode === 'dark'} onChange={toggleMode} />
-                        </div>
-                    )}
-                </div>
-
-                <div className={classes.user}>
-                    <Dropdown
-                        menu={{ items: userMenuItems, onClick: handleUserMenuClick }}
-                        placement="topRight"
-                        trigger={['click']}
-                    >
-                        <button className={classes.userButton}>
-                            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'nowrap' }}>
-                                <Avatar
-                                    src={user?.foto ? `${API_CONFIG.getBaseURL()}${user.foto}` : undefined}
-                                    size={32}
-                                    style={{ backgroundColor: '#0062a8', flexShrink: 0 }}
-                                >
-                                    {user?.name?.charAt(0)}
-                                </Avatar>
-                                {!isCollapsed && (
-                                    <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
-                                        <Text style={{ fontSize: 12, lineHeight: 1.2, display: 'block' }} strong ellipsis={{ tooltip: user?.name }}>
-                                            {user?.name || 'Usuario'}
-                                        </Text>
-                                        <Text type="secondary" style={{ fontSize: 10, lineHeight: 1.1, display: 'block' }} ellipsis={{ tooltip: user?.cargo }}>
-                                            {user?.cargo || ''}
-                                        </Text>
-                                    </div>
-                                )}
-                            </div>
-                        </button>
-                    </Dropdown>
-                </div>
-            </div>
-
-            {showBubble && notificationsRef.current && !notifOpen && createPortal(
-                <div
-                    className={classes.bubbleNotification}
-                    style={{
-                        position: 'fixed',
-                        top: notificationsRef.current.getBoundingClientRect().top + (notificationsRef.current.offsetHeight / 2) - 20,
-                        left: notificationsRef.current.getBoundingClientRect().right + 10,
-                    }}
-                >
-                    {notifications[0]?.titulo || '¡Nueva notificación!'}
-                </div>,
-                document.body
-            )}
         </nav>
     );
 }
