@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Avatar, Badge, Dropdown, Input, Switch, Tooltip, Typography } from 'antd';
 import type { MenuProps } from 'antd';
@@ -41,6 +41,7 @@ export function UserActionsCluster({ onHelpClick, onNavigate, compact }: UserAct
 
     const [notifOpen, setNotifOpen] = useState(false);
     const [showBubble, setShowBubble] = useState(false);
+    const [bubblePosition, setBubblePosition] = useState<{ top: number; left: number } | null>(null);
     const isFirstLoad = useRef(true);
     const prevUnreadCount = useRef(0);
     const notificationsRef = useRef<HTMLDivElement>(null);
@@ -57,12 +58,24 @@ export function UserActionsCluster({ onHelpClick, onNavigate, compact }: UserAct
             return;
         }
         if (unreadCount > prevUnreadCount.current && unreadCount > 0 && !notifOpen) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setShowBubble(true);
             const timer = setTimeout(() => setShowBubble(false), 5000);
             return () => clearTimeout(timer);
         }
         prevUnreadCount.current = unreadCount;
     }, [unreadCount, notifOpen]);
+
+    // Compute notification bubble position in layout phase to avoid reading ref during render
+    useLayoutEffect(() => {
+        if (showBubble && notificationsRef.current) {
+            const rect = notificationsRef.current.getBoundingClientRect();
+            setBubblePosition({
+                top: rect.bottom + 8,
+                left: rect.left - 80,
+            });
+        }
+    }, [showBubble]);
 
     const userMenuItems: MenuProps['items'] = [
         { key: 'perfil', icon: <IconUserCircle size={14} />, label: 'Mi Perfil' },
@@ -106,13 +119,12 @@ export function UserActionsCluster({ onHelpClick, onNavigate, compact }: UserAct
                     </Tooltip>
                 </NotificationPopover>
 
-                {/* eslint-disable react-hooks/refs */}
-                {showBubble && notificationsRef.current && !notifOpen && createPortal(
+                {showBubble && !notifOpen && bubblePosition && createPortal(
                     <div
                         style={{
                             position: 'fixed',
-                            top: notificationsRef.current.getBoundingClientRect().bottom + 8,
-                            left: notificationsRef.current.getBoundingClientRect().left - 80,
+                            top: bubblePosition.top,
+                            left: bubblePosition.left,
                             backgroundColor: 'var(--app-bg-elevated)', color: 'var(--app-text)',
                             padding: '10px 18px', borderRadius: 12, fontSize: 13, fontWeight: 600,
                             whiteSpace: 'nowrap', boxShadow: '0 10px 25px rgba(0,0,0,0.25)', zIndex: 2200,
@@ -123,7 +135,6 @@ export function UserActionsCluster({ onHelpClick, onNavigate, compact }: UserAct
                     </div>,
                     document.body
                 )}
-                {/* eslint-enable react-hooks/refs */}
             </div>
 
             {compact ? (
