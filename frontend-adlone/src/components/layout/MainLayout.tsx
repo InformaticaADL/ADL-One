@@ -4,6 +4,7 @@ import { IconWifiOff, IconMenu2 } from '@tabler/icons-react';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { useNavStore } from '../../store/navStore';
 import { Sidebar } from './Sidebar';
+import { TopBar, UserActionsCluster } from './TopBar';
 import { HelpCenter } from '../common/HelpCenter';
 
 import logoAdl from '../../assets/images/logo-adlone.png';
@@ -81,7 +82,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
 
     return (
         <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', background: 'var(--app-bg)' }}>
-            {isCompact && (
+            {isCompact ? (
                 <div
                     style={{
                         height: 60, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -103,8 +104,14 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                         style={{ height: 36, width: 'auto', objectFit: 'contain', cursor: 'pointer' }}
                         onClick={() => { resetNavigation(); close(); }}
                     />
-                    <div style={{ width: 30 }} />
+                    <UserActionsCluster
+                        onHelpClick={() => setHelpCenterOpen(true, true)}
+                        onNavigate={close}
+                        compact
+                    />
                 </div>
+            ) : (
+                <TopBar onHelpClick={() => setHelpCenterOpen(true, true)} />
             )}
 
             {/* Fila principal: sidebar + contenido lado a lado. Un <div> flex explícito
