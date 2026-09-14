@@ -11,8 +11,7 @@ import {
     IconTrash,
     IconCheck,
     IconX,
-    IconCalendarOff,
-    IconUserOff
+    IconFilter
 } from '@tabler/icons-react';
 
 import { Button } from '@/components/ui/button';
@@ -23,6 +22,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { DataPagination } from '@/components/ui/pagination';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
@@ -121,6 +121,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const [resolutionDate, setResolutionDate] = useState('');
     const [solicitudInResolution, setSolicitudInResolution] = useState<any | null>(null);
     const [showExportModal, setShowExportModal] = useState(false);
+    const [filtersSheetOpen, setFiltersSheetOpen] = useState(false);
     const [showRequestsModal, setShowRequestsModal] = useState(false);
     const [requestsEquipoInfo, setRequestsEquipoInfo] = useState<{ id: string | number; nombre: string; codigo?: string } | null>(null);
 
@@ -906,6 +907,13 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         searchTerm !== '' || filterTipo || filterSede || filterEstado || filterMuestreador || filterFechaDesde || filterFechaHasta || filterExpired || filterInactiveSampler,
     [searchTerm, filterTipo, filterSede, filterEstado, filterMuestreador, filterFechaDesde, filterFechaHasta, filterExpired, filterInactiveSampler]);
 
+    // Cuenta solo los filtros que viven dentro del panel lateral (Tipo/Sede/
+    // Estado/Responsable/Vigencia) — búsqueda y los 3 atajos rápidos tienen
+    // su propio indicador visual y no suman acá.
+    const panelFilterCount = useMemo(() =>
+        [filterTipo, filterSede, filterEstado, filterMuestreador, filterFechaDesde, filterFechaHasta].filter(Boolean).length,
+    [filterTipo, filterSede, filterEstado, filterMuestreador, filterFechaDesde, filterFechaHasta]);
+
     // Equipos con solicitudes pendientes aparecen primero; luego los que vencen pronto (más cercano primero)
     const sortedEquipos = useMemo(() => {
         return [...equipos].sort((a, b) => {
@@ -986,7 +994,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                     className={cn('text-destructive hover:bg-destructive/10 hover:text-destructive', isMobile && 'flex-1')}
                                     onClick={() => setShowExportModal(true)}
                                 >
-                                    <IconDownload size={16} /> Exportar EQ
+                                    <IconDownload size={16} /> Exportar
                                 </Button>
                             </ProtectedContent>
 
@@ -1003,13 +1011,9 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                     }
                 />
 
-                <div className="flex flex-wrap items-center gap-1 rounded-lg border border-border bg-card px-2 py-1.5">
+                <div className="inline-flex h-9 w-fit items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground">
                     <button
                         type="button"
-                        className={cn(
-                            'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted',
-                            isPorVencerActive && 'bg-warning/10 hover:bg-warning/15'
-                        )}
                         onClick={() => {
                             if (isPorVencerActive) {
                                 setFilterFechaDesde('');
@@ -1024,45 +1028,33 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                             }
                             setPage(1);
                         }}
+                        className={cn(
+                            'inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-colors',
+                            isPorVencerActive ? 'bg-background text-foreground shadow-sm' : 'hover:text-foreground'
+                        )}
                     >
-                        <IconAlertTriangle size={14} className="text-warning" />
-                        <span className="font-semibold">{expiringCount}</span> por vencer (30 días)
+                        Por vencer{expiringCount > 0 && ` (${expiringCount})`}
                     </button>
-
-                    <span className="h-4 w-px bg-border" />
-
                     <button
                         type="button"
-                        className={cn(
-                            'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted',
-                            filterExpired && 'bg-destructive/10 hover:bg-destructive/15'
-                        )}
                         onClick={() => {
                             const nextVal = !filterExpired;
                             setFilterExpired(nextVal);
-                            if (nextVal) {
-                                setFilterEstado('Activo');
-                            } else {
-                                setFilterEstado(null);
-                            }
+                            setFilterEstado(nextVal ? 'Activo' : null);
                             setFilterInactiveSampler(false);
                             setFilterFechaDesde('');
                             setFilterFechaHasta('');
                             setPage(1);
                         }}
+                        className={cn(
+                            'inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-colors',
+                            filterExpired ? 'bg-background text-foreground shadow-sm' : 'hover:text-foreground'
+                        )}
                     >
-                        <IconCalendarOff size={14} className="text-destructive" />
-                        <span className="font-semibold">{expiredCount}</span> con vigencia vencida
+                        Vencidos{expiredCount > 0 && ` (${expiredCount})`}
                     </button>
-
-                    <span className="h-4 w-px bg-border" />
-
                     <button
                         type="button"
-                        className={cn(
-                            'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted',
-                            filterInactiveSampler && 'bg-muted'
-                        )}
                         onClick={() => {
                             const nextVal = !filterInactiveSampler;
                             setFilterInactiveSampler(nextVal);
@@ -1072,9 +1064,12 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                             setFilterFechaHasta('');
                             setPage(1);
                         }}
+                        className={cn(
+                            'inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-colors',
+                            filterInactiveSampler ? 'bg-background text-foreground shadow-sm' : 'hover:text-foreground'
+                        )}
                     >
-                        <IconUserOff size={14} className="text-muted-foreground" />
-                        <span className="font-semibold">{inactiveSamplerCount}</span> con muestreador inactivo
+                        Muestreador inactivo{inactiveSamplerCount > 0 && ` (${inactiveSamplerCount})`}
                     </button>
                 </div>
 
@@ -1085,86 +1080,136 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                             placeholder="Nombre o código..."
                             value={localSearchTerm}
                             onChange={(e) => setLocalSearchTerm(e.target.value)}
-                            className="w-48 pl-8"
+                            className="w-56 pl-8"
                         />
                     </div>
 
-                    <Select value={filterTipo ?? 'all'} onValueChange={(v) => setFilterTipo(v === 'all' ? null : v)}>
-                        <SelectTrigger className="w-32"><SelectValue placeholder="Tipo" /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">Todos los tipos</SelectItem>
-                            {catalogs.tipos.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
+                    <Sheet open={filtersSheetOpen} onOpenChange={setFiltersSheetOpen}>
+                        <SheetTrigger asChild>
+                            <Button variant="outline">
+                                <IconFilter size={16} /> Filtros
+                                {panelFilterCount > 0 && (
+                                    <Badge variant="secondary" className="ml-1 px-1.5">{panelFilterCount}</Badge>
+                                )}
+                            </Button>
+                        </SheetTrigger>
+                        <SheetContent className="flex w-full flex-col gap-6 overflow-y-auto sm:max-w-sm">
+                            <SheetHeader>
+                                <SheetTitle>Filtros</SheetTitle>
+                            </SheetHeader>
 
-                    <Select value={filterSede ?? 'all'} onValueChange={(v) => setFilterSede(v === 'all' ? null : v)}>
-                        <SelectTrigger className="w-32"><SelectValue placeholder="Sede" /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">Todas las sedes</SelectItem>
-                            {catalogs.sedes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
+                            <div className="flex flex-1 flex-col gap-4">
+                                <div>
+                                    <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Tipo</Label>
+                                    <Select value={filterTipo ?? 'all'} onValueChange={(v) => setFilterTipo(v === 'all' ? null : v)}>
+                                        <SelectTrigger><SelectValue placeholder="Tipo" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">Todos los tipos</SelectItem>
+                                            {catalogs.tipos.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
 
-                    <Select
-                        value={filterEstado ?? 'all'}
-                        onValueChange={(v) => {
-                            const nextEstado = v === 'all' ? null : v;
-                            setFilterEstado(nextEstado);
-                            if (nextEstado !== 'Activo') {
-                                setFilterExpired(false);
-                                setFilterInactiveSampler(false);
-                            }
-                        }}
-                    >
-                        <SelectTrigger className="w-32"><SelectValue placeholder="Estado" /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">Todos los estados</SelectItem>
-                            {catalogs.estados.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
+                                <div>
+                                    <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Sede</Label>
+                                    <Select value={filterSede ?? 'all'} onValueChange={(v) => setFilterSede(v === 'all' ? null : v)}>
+                                        <SelectTrigger><SelectValue placeholder="Sede" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">Todas las sedes</SelectItem>
+                                            {catalogs.sedes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
 
-                    <Select value={filterMuestreador ?? 'all'} onValueChange={(v) => setFilterMuestreador(v === 'all' ? null : v)}>
-                        <SelectTrigger className="w-40"><SelectValue placeholder="Responsable" /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">Todos los responsables</SelectItem>
-                            {muestreadorList.map(m => (
-                                <SelectItem key={m.id_muestreador} value={String(m.id_muestreador)}>
-                                    {m.habilitado === 'N' || m.habilitado === false ? `${m.nombre_muestreador} (Inactivo)` : m.nombre_muestreador}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                                <div>
+                                    <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Estado</Label>
+                                    <Select
+                                        value={filterEstado ?? 'all'}
+                                        onValueChange={(v) => {
+                                            const nextEstado = v === 'all' ? null : v;
+                                            setFilterEstado(nextEstado);
+                                            if (nextEstado !== 'Activo') {
+                                                setFilterExpired(false);
+                                                setFilterInactiveSampler(false);
+                                            }
+                                        }}
+                                    >
+                                        <SelectTrigger><SelectValue placeholder="Estado" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">Todos los estados</SelectItem>
+                                            {catalogs.estados.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
 
-                    <div className="flex items-center gap-1.5">
-                        <Label className="text-xs text-muted-foreground">Vigencia</Label>
-                        <Input
-                            type="date"
-                            title="Vigencia desde"
-                            value={filterFechaDesde}
-                            onChange={(e) => {
-                                setFilterFechaDesde(e.target.value);
-                                setFilterExpired(false);
-                                setFilterInactiveSampler(false);
-                            }}
-                            className="w-[150px]"
-                        />
-                        <span className="text-xs text-muted-foreground">–</span>
-                        <Input
-                            type="date"
-                            title="Vigencia hasta"
-                            value={filterFechaHasta}
-                            onChange={(e) => {
-                                setFilterFechaHasta(e.target.value);
-                                setFilterExpired(false);
-                                setFilterInactiveSampler(false);
-                            }}
-                            className="w-[150px]"
-                        />
-                    </div>
+                                <div>
+                                    <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Responsable</Label>
+                                    <Select value={filterMuestreador ?? 'all'} onValueChange={(v) => setFilterMuestreador(v === 'all' ? null : v)}>
+                                        <SelectTrigger><SelectValue placeholder="Responsable" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">Todos los responsables</SelectItem>
+                                            {muestreadorList.map(m => (
+                                                <SelectItem key={m.id_muestreador} value={String(m.id_muestreador)}>
+                                                    {m.habilitado === 'N' || m.habilitado === false ? `${m.nombre_muestreador} (Inactivo)` : m.nombre_muestreador}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div>
+                                    <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Vigencia desde</Label>
+                                    <Input
+                                        type="date"
+                                        value={filterFechaDesde}
+                                        onChange={(e) => {
+                                            setFilterFechaDesde(e.target.value);
+                                            setFilterExpired(false);
+                                            setFilterInactiveSampler(false);
+                                        }}
+                                    />
+                                </div>
+                                <div>
+                                    <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Vigencia hasta</Label>
+                                    <Input
+                                        type="date"
+                                        value={filterFechaHasta}
+                                        onChange={(e) => {
+                                            setFilterFechaHasta(e.target.value);
+                                            setFilterExpired(false);
+                                            setFilterInactiveSampler(false);
+                                        }}
+                                    />
+                                </div>
+                            </div>
+
+                            <SheetFooter>
+                                {panelFilterCount > 0 && (
+                                    <Button
+                                        variant="outline"
+                                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                        onClick={() => {
+                                            setFilterTipo(null);
+                                            setFilterSede(null);
+                                            setFilterEstado(null);
+                                            setFilterMuestreador(null);
+                                            setFilterFechaDesde('');
+                                            setFilterFechaHasta('');
+                                            setFilterExpired(false);
+                                            setFilterInactiveSampler(false);
+                                        }}
+                                    >
+                                        <IconX size={16} /> Limpiar filtros
+                                    </Button>
+                                )}
+                                <Button onClick={() => setFiltersSheetOpen(false)}>Aplicar</Button>
+                            </SheetFooter>
+                        </SheetContent>
+                    </Sheet>
 
                     {hasActiveFilters && (
                         <Button variant="ghost" className="text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={handleClearFilters}>
-                            <IconX size={16} /> Limpiar
+                            <IconX size={16} /> Limpiar todo
                         </Button>
                     )}
                 </div>
