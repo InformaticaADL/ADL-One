@@ -5,8 +5,6 @@ import type { MenuProps } from 'antd';
 import {
     IconBell,
     IconExclamationMark,
-    IconLayoutSidebarLeftCollapse,
-    IconLayoutSidebarRightCollapse,
     IconLogout,
     IconMoon,
     IconSearch,
@@ -191,7 +189,7 @@ interface TopBarProps {
 // montar este componente). Logo + búsqueda (solo visual, sin lógica real
 // todavía — ver spec) + UserActionsCluster.
 export function TopBar({ onHelpClick }: TopBarProps) {
-    const { resetNavigation, sidebarCollapsed, toggleSidebar } = useNavStore();
+    const { resetNavigation, sidebarCollapsed } = useNavStore();
 
     return (
         <div
@@ -201,38 +199,17 @@ export function TopBar({ onHelpClick }: TopBarProps) {
                 borderBottom: '1px solid var(--app-border)', position: 'relative', zIndex: 210, gap: 20,
             }}
         >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
-                {/* Control de layout (colapsar/expandir el Sidebar) — vive acá y no
-                    en el propio Sidebar porque ahí, en una columna angosta, un
-                    ícono solo dentro de una fila de ancho completo se veía como
-                    una franja vacía sin importar cómo se alineara. */}
-                <Tooltip title={sidebarCollapsed ? 'Expandir menú' : 'Contraer menú'}>
-                    <button
-                        onClick={toggleSidebar}
-                        aria-label={sidebarCollapsed ? 'Expandir menú' : 'Contraer menú'}
-                        style={{
-                            border: 'none', background: 'transparent', cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            color: 'var(--app-text-secondary)', padding: 6, borderRadius: 8,
-                        }}
-                    >
-                        {sidebarCollapsed
-                            ? <IconLayoutSidebarRightCollapse size={20} />
-                            : <IconLayoutSidebarLeftCollapse size={20} />}
-                    </button>
-                </Tooltip>
-
-                {/* Mismo icono compacto que usaba el Sidebar cuando estaba colapsado —
-                    el logo ahora vive solo aquí, así que replica ese comportamiento en
-                    vez de mostrar siempre el logo completo sin importar el estado del
-                    sidebar. */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={() => resetNavigation()}>
-                    <img
-                        src={sidebarCollapsed ? logoSmall : logoAdl}
-                        alt="ADL"
-                        style={{ height: sidebarCollapsed ? 32 : 40, width: 'auto', objectFit: 'contain', transition: 'all 200ms ease' }}
-                    />
-                </div>
+            {/* Mismo icono compacto que usaba el Sidebar cuando estaba colapsado —
+                el logo ahora vive solo aquí, así que replica ese comportamiento en
+                vez de mostrar siempre el logo completo sin importar el estado del
+                sidebar. El toggle de colapsar vive en Sidebar.tsx, sobre la línea
+                divisoria vertical (ver ese archivo). */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', flexShrink: 0 }} onClick={() => resetNavigation()}>
+                <img
+                    src={sidebarCollapsed ? logoSmall : logoAdl}
+                    alt="ADL"
+                    style={{ height: sidebarCollapsed ? 32 : 40, width: 'auto', objectFit: 'contain', transition: 'all 200ms ease' }}
+                />
             </div>
 
             <Input

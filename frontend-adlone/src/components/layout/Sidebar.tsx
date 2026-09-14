@@ -1,10 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Menu } from 'antd';
+import { Menu, Tooltip } from 'antd';
 import type { MenuProps } from 'antd';
 import {
     IconMessageCircle,
     IconFileInvoice,
     IconClipboardList,
+    IconChevronLeft,
+    IconChevronRight,
 } from '@tabler/icons-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavStore } from '../../store/navStore';
@@ -42,6 +44,7 @@ export function Sidebar({ forceNotCollapsed, onNavigate }: { forceNotCollapsed?:
         activeModule,
         activeSubmodule,
         sidebarCollapsed,
+        toggleSidebar,
         setSidebarCollapsed,
         setActiveModule,
         setActiveSubmodule,
@@ -235,8 +238,23 @@ export function Sidebar({ forceNotCollapsed, onNavigate }: { forceNotCollapsed?:
 
     return (
         <nav className={`${classes.navbar} ${isCollapsed ? classes.navbarCollapsed : ''}`}>
-            {/* El logo y el botón de colapsar/expandir viven en TopBar (solo
-                desktop) — Sidebar es exclusivamente el menú de navegación. */}
+            {/* El logo vive en TopBar (solo desktop). Sidebar es el menú de
+                navegación + este botón redondo minimalista de colapsar/expandir,
+                que flota justo sobre la línea divisoria vertical (mitad adentro
+                del Sidebar, mitad sobre el borde con el contenido) — solo en
+                desktop, en mobile no hay concepto de colapsar. */}
+            {!forceNotCollapsed && (
+                <Tooltip title={isCollapsed ? 'Expandir menú' : 'Contraer menú'} placement="right">
+                    <button
+                        onClick={toggleSidebar}
+                        aria-label={isCollapsed ? 'Expandir menú' : 'Contraer menú'}
+                        className={classes.collapseToggle}
+                    >
+                        {isCollapsed ? <IconChevronRight size={14} /> : <IconChevronLeft size={14} />}
+                    </button>
+                </Tooltip>
+            )}
+
             <div className={classes.links}>
                 <div className={classes.linksInner}>
                     <Menu

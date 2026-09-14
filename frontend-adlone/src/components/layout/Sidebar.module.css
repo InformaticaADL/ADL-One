@@ -1,10 +1,9 @@
 /* Migrado a Ant Design: el listado de módulos/submódulos ahora lo dibuja
    <Menu> de antd (ver Sidebar.tsx), así que esta hoja solo conserva el
-   scroll del panel — Sidebar es exclusivamente navegación, sin logo ni
-   toggle de colapsar (viven en TopBar.tsx). Usa los tokens --app-* de
-   index.css (claro/oscuro según data-theme en <html>) en vez de
-   var(--mantine-color-*) o hex fijo, para desacoplar este panel de Mantine
-   y que responda al switch de tema. */
+   scroll del panel y el botón de colapsar/expandir — el logo vive en
+   TopBar.tsx. Usa los tokens --app-* de index.css (claro/oscuro según
+   data-theme en <html>) en vez de var(--mantine-color-*) o hex fijo, para
+   desacoplar este panel de Mantine y que responda al switch de tema. */
 
 .navbar {
   background-color: transparent;
@@ -15,12 +14,40 @@
   display: flex;
   flex-direction: column;
   border-right: none;
+  position: relative;
   transition: width 300ms ease;
 }
 
 .navbarCollapsed {
   width: 80px;
   padding: 10px;
+}
+
+.collapseToggle {
+  /* Botón redondo minimalista que flota justo sobre la línea divisoria
+     vertical entre Sidebar y el contenido — mitad adentro, mitad afuera. */
+  position: absolute;
+  top: 28px;
+  right: -13px;
+  z-index: 5;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--app-border);
+  background-color: var(--app-bg-elevated);
+  color: var(--app-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease;
+}
+
+.collapseToggle:hover {
+  color: var(--app-accent-text);
+  border-color: var(--app-accent-text);
 }
 
 .links {
