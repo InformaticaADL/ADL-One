@@ -18,7 +18,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
@@ -185,7 +184,6 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const [inactiveSamplerCount, setInactiveSamplerCount] = useState(0);
     const [filterExpired, setFilterExpired] = useState(false);
     const [filterInactiveSampler, setFilterInactiveSampler] = useState(false);
-    const [expiringAlertDismissed, setExpiringAlertDismissed] = useState(false);
     const [muestreadorList, setMuestreadorList] = useState<any[]>([]);
 
     const formatLocalDate = (date: Date): string => {
@@ -321,7 +319,6 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 setExpiringCount(response.expiringCount ?? 0);
                 setExpiredCount(response.expiredCount ?? 0);
                 setInactiveSamplerCount(response.inactiveSamplerCount ?? 0);
-                setExpiringAlertDismissed(false);
                 if (response.catalogs) {
                     setCatalogs(response.catalogs);
                 }
@@ -976,43 +973,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
 
     return (
         <div className="shadcn-scope w-full p-4 md:p-6">
-            <div className="flex flex-col gap-6">
-                {expiringCount > 0 && !expiringAlertDismissed && (
-                    <div className="relative flex flex-col gap-3 rounded-xl border border-warning/40 bg-warning/10 p-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="flex items-start gap-3 pr-6">
-                            <IconAlertTriangle size={20} className="mt-0.5 shrink-0 text-warning" />
-                            <div>
-                                <p className="text-sm font-semibold text-foreground">Atención: Equipos por Vencer</p>
-                                <p className="text-sm text-muted-foreground">
-                                    Hay <b>{expiringCount}</b> equipo{expiringCount !== 1 ? 's' : ''} que vence{expiringCount === 1 ? '' : 'n'} en los próximos 30 días.
-                                </p>
-                            </div>
-                        </div>
-                        <Button
-                            size="sm"
-                            className="shrink-0 bg-warning text-warning-foreground hover:bg-warning/90 sm:self-center"
-                            onClick={() => {
-                                setFilterFechaDesde(todayStr);
-                                setFilterFechaHasta(in30Str);
-                                setFilterEstado('Activo');
-                                setFilterExpired(false);
-                                setFilterInactiveSampler(false);
-                                setPage(1);
-                            }}
-                        >
-                            Ver equipos
-                        </Button>
-                        <button
-                            type="button"
-                            aria-label="Cerrar"
-                            onClick={() => setExpiringAlertDismissed(true)}
-                            className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
-                        >
-                            <IconX size={16} />
-                        </button>
-                    </div>
-                )}
-
+            <div className="flex flex-col gap-4">
                 <PageHeader
                     title="Gestión de Equipos"
                     subtitle="Administra y supervisa los equipos de medición del sistema."
@@ -1042,11 +1003,12 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                     }
                 />
 
-                <div className="flex flex-wrap gap-4">
-                    <Card
+                <div className="flex flex-wrap items-center gap-1 rounded-lg border border-border bg-card px-2 py-1.5">
+                    <button
+                        type="button"
                         className={cn(
-                            'min-w-[250px] flex-1 cursor-pointer p-4 transition-all hover:-translate-y-0.5 hover:shadow-md',
-                            isPorVencerActive ? 'border-warning/50 bg-warning/5' : 'border-border'
+                            'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted',
+                            isPorVencerActive && 'bg-warning/10 hover:bg-warning/15'
                         )}
                         onClick={() => {
                             if (isPorVencerActive) {
@@ -1063,21 +1025,17 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                             setPage(1);
                         }}
                     >
-                        <div className="flex items-center justify-between gap-3">
-                            <div>
-                                <p className="text-xs font-bold uppercase text-muted-foreground">Por Vencer (30 días)</p>
-                                <p className="text-2xl font-bold text-foreground">{expiringCount}</p>
-                            </div>
-                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-warning/15 text-warning">
-                                <IconAlertTriangle size={24} />
-                            </div>
-                        </div>
-                    </Card>
+                        <IconAlertTriangle size={14} className="text-warning" />
+                        <span className="font-semibold">{expiringCount}</span> por vencer (30 días)
+                    </button>
 
-                    <Card
+                    <span className="h-4 w-px bg-border" />
+
+                    <button
+                        type="button"
                         className={cn(
-                            'min-w-[250px] flex-1 cursor-pointer p-4 transition-all hover:-translate-y-0.5 hover:shadow-md',
-                            filterExpired ? 'border-destructive/50 bg-destructive/5' : 'border-border'
+                            'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted',
+                            filterExpired && 'bg-destructive/10 hover:bg-destructive/15'
                         )}
                         onClick={() => {
                             const nextVal = !filterExpired;
@@ -1093,21 +1051,17 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                             setPage(1);
                         }}
                     >
-                        <div className="flex items-center justify-between gap-3">
-                            <div>
-                                <p className="text-xs font-bold uppercase text-muted-foreground">Activos con vigencia vencida</p>
-                                <p className="text-2xl font-bold text-foreground">{expiredCount}</p>
-                            </div>
-                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-destructive/15 text-destructive">
-                                <IconCalendarOff size={24} />
-                            </div>
-                        </div>
-                    </Card>
+                        <IconCalendarOff size={14} className="text-destructive" />
+                        <span className="font-semibold">{expiredCount}</span> con vigencia vencida
+                    </button>
 
-                    <Card
+                    <span className="h-4 w-px bg-border" />
+
+                    <button
+                        type="button"
                         className={cn(
-                            'min-w-[250px] flex-1 cursor-pointer p-4 transition-all hover:-translate-y-0.5 hover:shadow-md',
-                            filterInactiveSampler ? 'border-foreground/30 bg-muted/50' : 'border-border'
+                            'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted',
+                            filterInactiveSampler && 'bg-muted'
                         )}
                         onClick={() => {
                             const nextVal = !filterInactiveSampler;
@@ -1119,124 +1073,100 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                             setPage(1);
                         }}
                     >
-                        <div className="flex items-center justify-between gap-3">
-                            <div>
-                                <p className="text-xs font-bold uppercase text-muted-foreground">Equipos con muestreadores vencidos</p>
-                                <p className="text-2xl font-bold text-foreground">{inactiveSamplerCount}</p>
-                            </div>
-                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                                <IconUserOff size={24} />
-                            </div>
-                        </div>
-                    </Card>
+                        <IconUserOff size={14} className="text-muted-foreground" />
+                        <span className="font-semibold">{inactiveSamplerCount}</span> con muestreador inactivo
+                    </button>
                 </div>
 
-                <div className="rounded-xl border border-border bg-card p-4">
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                        <div className="lg:col-span-2">
-                            <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Buscar</Label>
-                            <div className="relative">
-                                <IconSearch size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                                <Input
-                                    placeholder="Nombre o código..."
-                                    value={localSearchTerm}
-                                    onChange={(e) => setLocalSearchTerm(e.target.value)}
-                                    className="pl-8"
-                                />
-                            </div>
-                        </div>
-                        <div>
-                            <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Tipo</Label>
-                            <Select value={filterTipo ?? 'all'} onValueChange={(v) => setFilterTipo(v === 'all' ? null : v)}>
-                                <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Todos</SelectItem>
-                                    {catalogs.tipos.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div>
-                            <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Sede</Label>
-                            <Select value={filterSede ?? 'all'} onValueChange={(v) => setFilterSede(v === 'all' ? null : v)}>
-                                <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Todas</SelectItem>
-                                    {catalogs.sedes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div>
-                            <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Estado</Label>
-                            <Select
-                                value={filterEstado ?? 'all'}
-                                onValueChange={(v) => {
-                                    const nextEstado = v === 'all' ? null : v;
-                                    setFilterEstado(nextEstado);
-                                    if (nextEstado !== 'Activo') {
-                                        setFilterExpired(false);
-                                        setFilterInactiveSampler(false);
-                                    }
-                                }}
-                            >
-                                <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Todos</SelectItem>
-                                    {catalogs.estados.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="lg:col-span-2">
-                            <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Responsable</Label>
-                            <Select value={filterMuestreador ?? 'all'} onValueChange={(v) => setFilterMuestreador(v === 'all' ? null : v)}>
-                                <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Todos</SelectItem>
-                                    {muestreadorList.map(m => (
-                                        <SelectItem key={m.id_muestreador} value={String(m.id_muestreador)}>
-                                            {m.habilitado === 'N' || m.habilitado === false ? `${m.nombre_muestreador} (Inactivo)` : m.nombre_muestreador}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="flex gap-2 lg:col-span-2">
-                            <div className="flex-1">
-                                <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Vigencia desde</Label>
-                                <Input
-                                    type="date"
-                                    value={filterFechaDesde}
-                                    onChange={(e) => {
-                                        setFilterFechaDesde(e.target.value);
-                                        setFilterExpired(false);
-                                        setFilterInactiveSampler(false);
-                                    }}
-                                />
-                            </div>
-                            <div className="flex-1">
-                                <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Vigencia hasta</Label>
-                                <Input
-                                    type="date"
-                                    value={filterFechaHasta}
-                                    onChange={(e) => {
-                                        setFilterFechaHasta(e.target.value);
-                                        setFilterExpired(false);
-                                        setFilterInactiveSampler(false);
-                                    }}
-                                />
-                            </div>
-                        </div>
-                        {hasActiveFilters && (
-                            <div className="flex items-end">
-                                <Button
-                                    variant="ghost"
-                                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                    onClick={handleClearFilters}
-                                >
-                                    <IconX size={16} /> Limpiar
-                                </Button>
-                            </div>
-                        )}
+                <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative">
+                        <IconSearch size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            placeholder="Nombre o código..."
+                            value={localSearchTerm}
+                            onChange={(e) => setLocalSearchTerm(e.target.value)}
+                            className="w-48 pl-8"
+                        />
                     </div>
+
+                    <Select value={filterTipo ?? 'all'} onValueChange={(v) => setFilterTipo(v === 'all' ? null : v)}>
+                        <SelectTrigger className="w-32"><SelectValue placeholder="Tipo" /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Todos los tipos</SelectItem>
+                            {catalogs.tipos.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+
+                    <Select value={filterSede ?? 'all'} onValueChange={(v) => setFilterSede(v === 'all' ? null : v)}>
+                        <SelectTrigger className="w-32"><SelectValue placeholder="Sede" /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Todas las sedes</SelectItem>
+                            {catalogs.sedes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+
+                    <Select
+                        value={filterEstado ?? 'all'}
+                        onValueChange={(v) => {
+                            const nextEstado = v === 'all' ? null : v;
+                            setFilterEstado(nextEstado);
+                            if (nextEstado !== 'Activo') {
+                                setFilterExpired(false);
+                                setFilterInactiveSampler(false);
+                            }
+                        }}
+                    >
+                        <SelectTrigger className="w-32"><SelectValue placeholder="Estado" /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Todos los estados</SelectItem>
+                            {catalogs.estados.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+
+                    <Select value={filterMuestreador ?? 'all'} onValueChange={(v) => setFilterMuestreador(v === 'all' ? null : v)}>
+                        <SelectTrigger className="w-40"><SelectValue placeholder="Responsable" /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Todos los responsables</SelectItem>
+                            {muestreadorList.map(m => (
+                                <SelectItem key={m.id_muestreador} value={String(m.id_muestreador)}>
+                                    {m.habilitado === 'N' || m.habilitado === false ? `${m.nombre_muestreador} (Inactivo)` : m.nombre_muestreador}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+
+                    <div className="flex items-center gap-1.5">
+                        <Label className="text-xs text-muted-foreground">Vigencia</Label>
+                        <Input
+                            type="date"
+                            title="Vigencia desde"
+                            value={filterFechaDesde}
+                            onChange={(e) => {
+                                setFilterFechaDesde(e.target.value);
+                                setFilterExpired(false);
+                                setFilterInactiveSampler(false);
+                            }}
+                            className="w-[150px]"
+                        />
+                        <span className="text-xs text-muted-foreground">–</span>
+                        <Input
+                            type="date"
+                            title="Vigencia hasta"
+                            value={filterFechaHasta}
+                            onChange={(e) => {
+                                setFilterFechaHasta(e.target.value);
+                                setFilterExpired(false);
+                                setFilterInactiveSampler(false);
+                            }}
+                            className="w-[150px]"
+                        />
+                    </div>
+
+                    {hasActiveFilters && (
+                        <Button variant="ghost" className="text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={handleClearFilters}>
+                            <IconX size={16} /> Limpiar
+                        </Button>
+                    )}
                 </div>
 
                 <div className="relative overflow-hidden rounded-xl border border-border bg-card">
