@@ -9,6 +9,69 @@
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities);
 
+/* Reset mínimo equivalente al "preflight" de Tailwind, pero SCOPEADO bajo
+   .shadcn-scope en vez de global — los componentes shadcn/ui (Button,
+   Table, Input, etc.) asumen que ese reset ya neutralizó el estilo nativo
+   del navegador en <button>/<input>/<table> (fondo, borde, padding propios
+   del user-agent). Sin él, un <button> ghost se ve como un botón nativo
+   gris con borde en vez de transparente. Toda página construida con
+   shadcn debe envolver su contenido en <div className="shadcn-scope">. */
+.shadcn-scope, .shadcn-scope *, .shadcn-scope *::before, .shadcn-scope *::after {
+  box-sizing: border-box;
+  border-width: 0;
+  border-style: solid;
+  border-color: var(--border-shadcn);
+}
+.shadcn-scope {
+  font-family: var(--font-sans, 'Inter', system-ui, sans-serif);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+.shadcn-scope button,
+.shadcn-scope input,
+.shadcn-scope select,
+.shadcn-scope textarea {
+  font: inherit;
+  color: inherit;
+  margin: 0;
+  padding: 0;
+  background-color: transparent;
+  background-image: none;
+  border-radius: 0;
+}
+.shadcn-scope button,
+.shadcn-scope [type='button'],
+.shadcn-scope [type='reset'],
+.shadcn-scope [type='submit'] {
+  -webkit-appearance: button;
+  appearance: button;
+}
+.shadcn-scope button:not(:disabled) {
+  cursor: pointer;
+}
+.shadcn-scope table {
+  border-collapse: collapse;
+  text-indent: 0;
+}
+.shadcn-scope h1, .shadcn-scope h2, .shadcn-scope h3, .shadcn-scope h4, .shadcn-scope p {
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+}
+.shadcn-scope a {
+  color: inherit;
+  text-decoration: inherit;
+}
+.shadcn-scope ul, .shadcn-scope ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.shadcn-scope svg {
+  display: block;
+  vertical-align: middle;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

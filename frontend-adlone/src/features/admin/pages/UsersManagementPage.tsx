@@ -265,7 +265,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
     const initials = (name: string) => (name || '?').trim().charAt(0).toUpperCase();
 
     return (
-        <div className="w-full p-4 md:p-6">
+        <div className="shadcn-scope w-full p-4 md:p-6">
             <PageHeader
                 title="Usuarios"
                 subtitle="Administra accesos y roles del personal."
