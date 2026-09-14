@@ -987,27 +987,15 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                     subtitle="Administra y supervisa los equipos de medición del sistema."
                     breadcrumbItems={[{ label: 'Equipos', onClick: onBack }, { label: 'Gestión de Equipos' }]}
                     rightSection={
-                        <div className="flex gap-2">
-                            <ProtectedContent permission="EQ_EXP">
-                                <Button
-                                    variant="outline"
-                                    className={cn('text-destructive hover:bg-destructive/10 hover:text-destructive', isMobile && 'flex-1')}
-                                    onClick={() => setShowExportModal(true)}
-                                >
-                                    <IconDownload size={16} /> Exportar
-                                </Button>
-                            </ProtectedContent>
-
-                            <ProtectedContent permission="AI_MA_CREAR_EQUIPO">
-                                <Button
-                                    className={cn(isMobile && 'flex-1')}
-                                    onClick={() => { setSelectedEquipo(null); setViewMode('form'); }}
-                                    disabled={!canCreateEquipo}
-                                >
-                                    <IconPlus size={16} /> Nuevo{!isMobile && ' Equipo'}
-                                </Button>
-                            </ProtectedContent>
-                        </div>
+                        <ProtectedContent permission="AI_MA_CREAR_EQUIPO">
+                            <Button
+                                className={cn(isMobile && 'w-full')}
+                                onClick={() => { setSelectedEquipo(null); setViewMode('form'); }}
+                                disabled={!canCreateEquipo}
+                            >
+                                <IconPlus size={16} /> Nuevo{!isMobile && ' Equipo'}
+                            </Button>
+                        </ProtectedContent>
                     }
                 />
 
@@ -1073,7 +1061,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                     </button>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div className="flex flex-wrap items-center gap-2">
                     <div className="relative">
                         <IconSearch size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                         <Input
@@ -1212,6 +1201,13 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                             <IconX size={16} /> Limpiar todo
                         </Button>
                     )}
+                    </div>
+
+                    <ProtectedContent permission="EQ_EXP">
+                        <Button variant="outline" size="sm" onClick={() => setShowExportModal(true)}>
+                            <IconDownload size={15} /> Exportar
+                        </Button>
+                    </ProtectedContent>
                 </div>
 
                 <div className="relative overflow-hidden rounded-xl border border-border bg-card">
