@@ -1,17 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import {
-    Typography,
-    Button,
-    Table,
-    Tag,
-    Card,
-    Spin,
-    Input,
-    Select,
-    Tooltip,
-    Modal
-} from 'antd';
-import { useMediaQuery } from '../../../hooks/useMediaQuery';
+import { Modal } from 'antd';
 import {
     IconPlus,
     IconSearch,
@@ -19,10 +7,19 @@ import {
     IconPower,
     IconFileDescription,
     IconCheck,
-    IconX,
     IconBell,
-    IconSchool
+    IconSchool,
 } from '@tabler/icons-react';
+
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { Table, TableHeader, TableBody, TableRow, SortableTableHead, TableHead, TableCell } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
+
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
+import { useTableSort } from '../../../hooks/useTableSort';
 import { adminService } from '../../../services/admin.service';
 import { ursService } from '../../../services/urs.service';
 import { ConfirmModal } from '../../../components/common/ConfirmModal';
@@ -34,11 +31,11 @@ import { useToast } from '../../../contexts/ToastContext';
 import { useNavStore } from '../../../store/navStore';
 import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 
-const { Text } = Typography;
-
 interface Props {
     onBack: () => void;
 }
+
+type SortKey = 'nombre' | 'contacto' | 'estado' | 'entrenamiento';
 
 export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
     const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
@@ -48,10 +45,8 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('ACTIVOS');
 
-    // Selected state
     const [selectedMuestreador, setSelectedMuestreador] = useState<any | null>(null);
 
-    // Modals State
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
     const [muestreadorToDisable, setMuestreadorToDisable] = useState<any | null>(null);
     const [isEnableConfirmOpen, setIsEnableConfirmOpen] = useState(false);
@@ -59,7 +54,6 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
     const [showRequestsModal, setShowRequestsModal] = useState(false);
     const [requestsSamplerInfo, setRequestsSamplerInfo] = useState<{ id: string | number; nombre: string } | null>(null);
 
-    // Image Zoom State
     const [zoomedImage, setZoomedImage] = useState<string | null>(null);
     const [isExporting, setIsExporting] = useState(false);
 
@@ -83,16 +77,12 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
 
     const loadSolicitudes = async () => {
         try {
-            // Focus ONLY on ACEPTADA states as requested (the ones to be marked as realized)
             const targetStates = 'ACEPTADA';
-
             const [legacyData, ursData] = await Promise.all([
                 adminService.getSolicitudes({ estado: targetStates }).catch(() => []),
-                ursService.getRequests({ estado: targetStates }).catch(() => [])
+                ursService.getRequests({ estado: targetStates }).catch(() => []),
             ]);
             const data = [...(Array.isArray(legacyData) ? legacyData : []), ...(Array.isArray(ursData) ? ursData : [])];
-
-            // Filter ones that might relate to Muestreadores
             const filtered = data.filter((s: any) => {
                 if (s.modulo_destino === 'MUESTREADORES') return true;
                 const typeRaw = (s.tipo_solicitud || s.nombre_tipo || '').toUpperCase();
@@ -100,7 +90,7 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
             });
             setSolicitudesRealizadas(filtered);
         } catch (error) {
-            console.error("Error loading solicitudes:", error);
+            console.error('Error loading solicitudes:', error);
         }
     };
 
@@ -116,14 +106,13 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchTerm, statusFilter]);
 
-    // Handle incoming pending request from NavStore — find the muestreador it belongs to and open its requests modal
     useEffect(() => {
         if (!pendingRequestId || solicitudesRealizadas.length === 0 || muestreadores.length === 0) return;
-        const sol = solicitudesRealizadas.find(s => s.id_solicitud === pendingRequestId);
+        const sol = solicitudesRealizadas.find((s) => s.id_solicitud === pendingRequestId);
         if (!sol) return;
         const d = sol.datos_json || {};
         const idStr = String(d.id_muestreador || d.muestreador_origen_id || d.nuevo_responsable_id || '');
-        const target = muestreadores.find(m => String(m.id_muestreador) === idStr);
+        const target = muestreadores.find((m) => String(m.id_muestreador) === idStr);
         if (target) {
             handleOpenRequests(target);
         }
@@ -144,18 +133,12 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
         setShowRequestsModal(true);
     };
 
-    // Pre-build index once per solicitudesRealizadas change — O(1) lookup per row
     const pendingBySampler = useMemo(() => {
         const map = new Map<string, any[]>();
         for (const sol of solicitudesRealizadas) {
             const d = sol.datos_json || {};
-            const ids = [
-                d.id_muestreador,
-                d.muestreador_origen_id,
-                d.muestreador_destino_id,
-                d.nuevo_responsable_id,
-                d.id_muestreador_nuevo,
-            ].filter(Boolean).map(String);
+            const ids = [d.id_muestreador, d.muestreador_origen_id, d.muestreador_destino_id, d.nuevo_responsable_id, d.id_muestreador_nuevo]
+                .filter(Boolean).map(String);
             for (const idStr of ids) {
                 if (!map.has(idStr)) map.set(idStr, []);
                 map.get(idStr)!.push(sol);
@@ -170,8 +153,6 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
         setMuestreadorToDisable(m);
         setIsConfirmModalOpen(true);
     };
-
-    // Note: confirmDisable is now handled by SamplerDeactivationModal
 
     const handleEnableClick = (m: any) => {
         setMuestreadorToEnable(m);
@@ -203,23 +184,24 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
         }
     };
 
-    // Parsea las competencias asignadas (FOR JSON desde el backend) → badges
     const parseCompetencias = (m: any): { nombre: string; activo: string }[] => {
         try { return JSON.parse(m.competencias_json || '[]'); } catch { return []; }
     };
+
     const renderCompetencias = (m: any) => {
         const comps = parseCompetencias(m);
-        if (comps.length === 0) return <Text type="secondary" style={{ fontSize: 12 }}>Sin competencias</Text>;
+        if (comps.length === 0) return <span className="text-xs text-muted-foreground">Sin competencias</span>;
         return (
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            <div className="flex flex-wrap gap-1">
                 {comps.map((c, i) => (
-                    <Tag
+                    <Badge
                         key={i}
-                        color={c.activo === 'S' ? 'purple' : 'default'}
+                        variant="outline"
+                        className={c.activo !== 'S' ? 'opacity-50' : undefined}
                         title={c.activo === 'S' ? c.nombre : `${c.nombre} (inactiva)`}
                     >
                         {c.nombre}
-                    </Tag>
+                    </Badge>
                 ))}
             </div>
         );
@@ -245,91 +227,42 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
         }
     };
 
-    const columns = [
-        {
-            title: 'Muestreador', key: 'nombre',
-            render: (_: unknown, m: any) => (
-                <div>
-                    <Text strong style={{ fontSize: 13, display: 'block' }}>{m.nombre_muestreador}</Text>
-                    <Text type="secondary" style={{ fontSize: 12 }}>ID: {m.id_muestreador}</Text>
-                </div>
-            ),
-        },
-        { title: 'Contacto', key: 'contacto', render: (_: unknown, m: any) => <Text style={{ fontSize: 13 }}>{m.correo_electronico || '---'}</Text> },
-        {
-            title: 'Estado', key: 'estado',
-            render: (_: unknown, m: any) => (
-                <Tag color={m.habilitado === 'S' ? 'green' : 'red'} icon={m.habilitado === 'S' ? <IconCheck size={10} style={{ verticalAlign: 'text-bottom' }} /> : <IconX size={10} style={{ verticalAlign: 'text-bottom' }} />}>
-                    {m.habilitado === 'S' ? 'Activo' : 'Inactivo'}
-                </Tag>
-            ),
-        },
-        {
-            title: 'Entrenamiento', key: 'entrenamiento',
-            render: (_: unknown, m: any) => (
-                <Tooltip title={m.en_entrenamiento === 'S' ? 'En entrenamiento — clic para marcar Operativo' : 'Operativo — clic para marcar En entrenamiento'}>
-                    <Tag
-                        color={m.en_entrenamiento === 'S' ? 'gold' : 'green'}
-                        icon={<IconSchool size={10} style={{ verticalAlign: 'text-bottom' }} />}
-                        style={{ cursor: 'pointer' }}
-                        onClick={() => handleToggleEntrenamiento(m)}
-                    >
-                        {m.en_entrenamiento === 'S' ? 'En entrenamiento' : 'Operativo'}
-                    </Tag>
-                </Tooltip>
-            ),
-        },
-        { title: 'Competencias', key: 'competencias', render: (_: unknown, m: any) => renderCompetencias(m) },
-        {
-            title: 'Firma Digital', key: 'firma',
-            render: (_: unknown, m: any) => (
-                m.firma_muestreador ? (
-                    <Tooltip title="Ver firma ampliada">
-                        <div
-                            onClick={() => setZoomedImage(m.firma_muestreador)}
-                            style={{ height: 40, width: 100, border: '1px solid var(--app-border)', borderRadius: 6, cursor: 'pointer', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                        >
-                            <img src={m.firma_muestreador} style={{ height: 36, objectFit: 'contain' }} alt="Firma" />
-                        </div>
-                    </Tooltip>
-                ) : (
-                    <Text type="secondary" italic style={{ fontSize: 12 }}>Sin firma registrada</Text>
-                )
-            ),
-        },
-        {
-            title: 'Acciones', key: 'acciones', align: 'center' as const,
-            render: (_: unknown, m: any) => {
-                const pendingReqs = getPendingRequestsForSampler(m.id_muestreador);
-                const hasPending = pendingReqs.length > 0;
-                return (
-                    <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-                        <ProtectedContent permission="MU_SOLICITUDES">
-                            <Tooltip title="Ver Solicitudes">
-                                <Button type="text" size="small" icon={<IconBell size={16} color={hasPending ? '#e8590c' : undefined} />} onClick={() => handleOpenRequests(m)} />
-                            </Tooltip>
-                        </ProtectedContent>
-                        <ProtectedContent permission="AI_MA_EDITAR_MUESTREADOR">
-                            <Tooltip title="Editar Información">
-                                <Button type="text" size="small" icon={<IconEdit size={16} color="#1c7ed6" />} onClick={() => handleEdit(m)} />
-                            </Tooltip>
-                        </ProtectedContent>
-                        <ProtectedContent permission="AI_MA_DESHABILITAR_MUESTREADOR">
-                            {m.habilitado === 'S' ? (
-                                <Tooltip title="Deshabilitar Muestreador">
-                                    <Button type="text" size="small" icon={<IconPower size={16} color="#e03131" />} onClick={() => handleDisableClick(m)} />
-                                </Tooltip>
-                            ) : (
-                                <Tooltip title="Habilitar Muestreador">
-                                    <Button type="text" size="small" icon={<IconCheck size={16} color="#2f9e44" />} onClick={() => handleEnableClick(m)} />
-                                </Tooltip>
-                            )}
-                        </ProtectedContent>
-                    </div>
-                );
-            },
-        },
-    ];
+    const sortAccessors: Record<SortKey, (m: any) => string | number | null | undefined> = {
+        nombre: (m) => m.nombre_muestreador,
+        contacto: (m) => m.correo_electronico,
+        estado: (m) => (m.habilitado === 'S' ? 0 : 1),
+        entrenamiento: (m) => (m.en_entrenamiento === 'S' ? 0 : 1),
+    };
+    const { sorted, sort, toggleSort } = useTableSort(muestreadores, sortAccessors);
+    const sortProps = (key: SortKey) => ({ active: sort.key === key, direction: sort.direction, onSort: () => toggleSort(key) });
+
+    const trainingBadge = (m: any) => (
+        <Badge
+            variant={m.en_entrenamiento === 'S' ? 'warning' : 'success'}
+            className="cursor-pointer"
+            title={m.en_entrenamiento === 'S' ? 'En entrenamiento — clic para marcar Operativo' : 'Operativo — clic para marcar En entrenamiento'}
+            onClick={() => handleToggleEntrenamiento(m)}
+        >
+            <IconSchool size={10} className="mr-1" /> {m.en_entrenamiento === 'S' ? 'En entrenamiento' : 'Operativo'}
+        </Badge>
+    );
+
+    const signature = (m: any, size: 'sm' | 'lg') => (
+        m.firma_muestreador ? (
+            <div
+                onClick={() => setZoomedImage(m.firma_muestreador)}
+                title="Ver firma ampliada"
+                className={cn(
+                    'flex cursor-pointer items-center justify-center overflow-hidden rounded-md border border-border bg-muted/30',
+                    size === 'sm' ? 'h-10 w-24' : 'h-12 w-28'
+                )}
+            >
+                <img src={m.firma_muestreador} className="h-9 object-contain" alt="Firma" />
+            </div>
+        ) : (
+            <span className="text-xs italic text-muted-foreground">Sin firma registrada</span>
+        )
+    );
 
     const content = viewMode === 'form' ? (
         <MuestreadorForm
@@ -344,196 +277,180 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
             onViewRequests={() => handleOpenRequests(selectedMuestreador!)}
         />
     ) : (
-        <div style={{ padding: 16, width: '100%' }}>
+        <div className="shadcn-scope w-full p-4 md:p-6">
             <PageHeader
                 title="Gestión de Muestreadores"
-                subtitle={!isMobile ? "Administra el personal de muestreo técnico y sus firmas digitales autorizadas." : undefined}
+                subtitle={!isMobile ? 'Administra el personal de muestreo técnico y sus firmas digitales autorizadas.' : undefined}
                 onBack={onBack}
                 breadcrumbItems={[{ label: 'Administración', onClick: onBack }, { label: 'Muestreadores' }]}
                 rightSection={
-                    <>
+                    <div className="flex gap-2">
                         <ProtectedContent permission="MU_EXP">
-                            <Button
-                                danger
-                                icon={<IconFileDescription size={18} />}
-                                onClick={handleExportPdf}
-                                loading={isExporting}
-                                size={isMobile ? 'small' : 'middle'}
-                                style={{ flex: isMobile ? 1 : 'auto' }}
-                            >
-                                Exportar PDF
+                            <Button variant="outline" className="text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={handleExportPdf} disabled={isExporting}>
+                                <IconFileDescription size={16} /> Exportar PDF
                             </Button>
                         </ProtectedContent>
                         <ProtectedContent permission="AI_MA_CREAR_NUEVO_MUESTREADOR">
-                            <Button
-                                type="primary"
-                                icon={<IconPlus size={18} />}
-                                onClick={handleCreate}
-                                size={isMobile ? 'small' : 'middle'}
-                                style={{ flex: isMobile ? 1 : 'auto' }}
-                            >
-                                Nuevo {isMobile ? '' : 'Muestreador'}
+                            <Button onClick={handleCreate}>
+                                <IconPlus size={16} /> Nuevo{!isMobile && ' muestreador'}
                             </Button>
                         </ProtectedContent>
-                    </>
+                    </div>
                 }
             />
 
-            <Card style={{ marginTop: 32 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16 }}>
-                    <Field label="Buscar por Nombre">
-                        <Input
-                            placeholder="Escriba nombre o ID..."
-                            prefix={<IconSearch size={16} style={{ color: 'var(--app-text-secondary)' }} />}
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                    </Field>
-                    <Field label="Estado">
-                        <Select
-                            placeholder="Filtrar por estado"
-                            options={[
-                                { value: 'ACTIVOS', label: 'Solo Activos' },
-                                { value: 'INACTIVOS', label: 'Solo Inactivos' },
-                                { value: 'TODOS', label: 'Todos' }
-                            ]}
-                            value={statusFilter}
-                            onChange={(val) => setStatusFilter(val || 'ACTIVOS')}
-                            style={{ width: '100%' }}
-                        />
-                    </Field>
-                </div>
-            </Card>
-
-            <Card style={{ marginTop: 24, position: 'relative' }} styles={{ body: { padding: isMobile ? 16 : 0 } }}>
-                {loading && (
-                    <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(255,255,255,0.6)', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8 }}>
-                        <Spin />
+            <div className="mt-6 flex flex-col gap-4">
+                <div className={cn('grid gap-4', isMobile ? 'grid-cols-1' : 'grid-cols-2')}>
+                    <div className="relative">
+                        <IconSearch size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                        <Input placeholder="Buscar por nombre o ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8" />
                     </div>
-                )}
+                    <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v || 'ACTIVOS')}>
+                        <SelectTrigger><SelectValue placeholder="Filtrar por estado" /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="ACTIVOS">Solo activos</SelectItem>
+                            <SelectItem value="INACTIVOS">Solo inactivos</SelectItem>
+                            <SelectItem value="TODOS">Todos</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
 
-                {!isMobile ? (
-                    <Table
-                        rowKey="id_muestreador"
-                        columns={columns}
-                        dataSource={muestreadores}
-                        pagination={false}
-                        size="small"
-                        scroll={{ y: 500, x: 1000 }}
-                        locale={{ emptyText: 'No se encontraron muestreadores con los filtros aplicados.' }}
-                    />
-                ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                        {muestreadores.length === 0 && !loading ? (
-                            <Card size="small" style={{ backgroundColor: 'var(--app-hover-bg)', borderStyle: 'dashed', textAlign: 'center' }}>
-                                <Text type="secondary">No se encontraron muestreadores.</Text>
-                            </Card>
-                        ) : (
-                            muestreadores.map((m) => {
-                                const pendingReqs = getPendingRequestsForSampler(m.id_muestreador);
-                                const hasPending = pendingReqs.length > 0;
+                <div className="relative overflow-hidden rounded-xl border border-border bg-card">
+                    {loading && (
+                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
+                            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                        </div>
+                    )}
 
-                                return (
-                                    <Card key={m.id_muestreador} size="small">
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'nowrap' }}>
+                    {!isMobile ? (
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="hover:bg-transparent">
+                                    <SortableTableHead {...sortProps('nombre')}>Muestreador</SortableTableHead>
+                                    <SortableTableHead {...sortProps('contacto')}>Contacto</SortableTableHead>
+                                    <SortableTableHead {...sortProps('estado')}>Estado</SortableTableHead>
+                                    <SortableTableHead {...sortProps('entrenamiento')}>Entrenamiento</SortableTableHead>
+                                    <TableHead>Competencias</TableHead>
+                                    <TableHead>Firma digital</TableHead>
+                                    <TableHead className="text-center">Acciones</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {sorted.length > 0 ? sorted.map((m) => {
+                                    const hasPending = getPendingRequestsForSampler(m.id_muestreador).length > 0;
+                                    return (
+                                        <TableRow key={m.id_muestreador}>
+                                            <TableCell>
+                                                <p className="text-sm font-medium text-foreground">{m.nombre_muestreador}</p>
+                                                <p className="text-xs text-muted-foreground">ID: {m.id_muestreador}</p>
+                                            </TableCell>
+                                            <TableCell className="text-sm text-muted-foreground">{m.correo_electronico || '—'}</TableCell>
+                                            <TableCell><Badge variant={m.habilitado === 'S' ? 'success' : 'destructive'}>{m.habilitado === 'S' ? 'Activo' : 'Inactivo'}</Badge></TableCell>
+                                            <TableCell>{trainingBadge(m)}</TableCell>
+                                            <TableCell>{renderCompetencias(m)}</TableCell>
+                                            <TableCell>{signature(m, 'sm')}</TableCell>
+                                            <TableCell>
+                                                <div className="flex justify-center gap-1">
+                                                    <ProtectedContent permission="MU_SOLICITUDES">
+                                                        <Button variant="ghost" size="icon" title="Ver solicitudes" onClick={() => handleOpenRequests(m)}>
+                                                            <IconBell size={16} className={hasPending ? 'text-warning' : undefined} />
+                                                        </Button>
+                                                    </ProtectedContent>
+                                                    <ProtectedContent permission="AI_MA_EDITAR_MUESTREADOR">
+                                                        <Button variant="ghost" size="icon" title="Editar información" onClick={() => handleEdit(m)}>
+                                                            <IconEdit size={16} />
+                                                        </Button>
+                                                    </ProtectedContent>
+                                                    <ProtectedContent permission="AI_MA_DESHABILITAR_MUESTREADOR">
+                                                        {m.habilitado === 'S' ? (
+                                                            <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 hover:text-destructive" title="Deshabilitar muestreador" onClick={() => handleDisableClick(m)}>
+                                                                <IconPower size={16} />
+                                                            </Button>
+                                                        ) : (
+                                                            <Button variant="ghost" size="icon" className="text-success hover:bg-success/10 hover:text-success" title="Habilitar muestreador" onClick={() => handleEnableClick(m)}>
+                                                                <IconCheck size={16} />
+                                                            </Button>
+                                                        )}
+                                                    </ProtectedContent>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                }) : (
+                                    <TableRow className="hover:bg-transparent">
+                                        <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
+                                            No se encontraron muestreadores con los filtros aplicados.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    ) : (
+                        <div className="flex flex-col gap-3 p-3">
+                            {muestreadores.length === 0 && !loading ? (
+                                <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">No se encontraron muestreadores.</p>
+                            ) : (
+                                muestreadores.map((m) => {
+                                    const hasPending = getPendingRequestsForSampler(m.id_muestreador).length > 0;
+                                    return (
+                                        <div key={m.id_muestreador} className="rounded-xl border border-border p-3.5">
+                                            <div className="mb-3 flex items-start justify-between gap-2">
                                                 <div>
-                                                    <Text strong style={{ fontSize: 15, color: '#1864ab', display: 'block' }}>{m.nombre_muestreador}</Text>
-                                                    <Text type="secondary" strong style={{ fontSize: 12 }}>ID: {m.id_muestreador}</Text>
+                                                    <p className="text-sm font-semibold text-primary">{m.nombre_muestreador}</p>
+                                                    <p className="text-xs font-medium text-muted-foreground">ID: {m.id_muestreador}</p>
                                                 </div>
-                                                <div style={{ display: 'flex', gap: 4 }}>
-                                                    <Tag color={m.habilitado === 'S' ? 'green' : 'red'}>{m.habilitado === 'S' ? 'Activo' : 'Inactivo'}</Tag>
-                                                    <Tag
-                                                        color={m.en_entrenamiento === 'S' ? 'gold' : 'green'}
-                                                        icon={<IconSchool size={10} style={{ verticalAlign: 'text-bottom' }} />}
-                                                        style={{ cursor: 'pointer' }}
-                                                        onClick={() => handleToggleEntrenamiento(m)}
-                                                    >
-                                                        {m.en_entrenamiento === 'S' ? 'En entren.' : 'Operativo'}
-                                                    </Tag>
+                                                <div className="flex flex-wrap justify-end gap-1">
+                                                    <Badge variant={m.habilitado === 'S' ? 'success' : 'destructive'}>{m.habilitado === 'S' ? 'Activo' : 'Inactivo'}</Badge>
+                                                    {trainingBadge(m)}
                                                 </div>
                                             </div>
 
-                                            <hr style={{ border: 'none', borderTop: '1px dashed var(--app-border)' }} />
-
-                                            <div>
-                                                <Text type="secondary" strong style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>CONTACTO:</Text>
-                                                <Text strong style={{ fontSize: 13 }}>{m.correo_electronico || 'Sin correo registrado'}</Text>
+                                            <div className="flex flex-col gap-3 border-t border-dashed border-border pt-3">
+                                                <div>
+                                                    <p className="mb-1 text-[10px] font-bold uppercase text-muted-foreground">Contacto</p>
+                                                    <p className="text-sm font-medium text-foreground">{m.correo_electronico || 'Sin correo registrado'}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="mb-1 text-[10px] font-bold uppercase text-muted-foreground">Firma digital</p>
+                                                    {signature(m, 'lg')}
+                                                </div>
+                                                <div>
+                                                    <p className="mb-1 text-[10px] font-bold uppercase text-muted-foreground">Competencias</p>
+                                                    {renderCompetencias(m)}
+                                                </div>
                                             </div>
 
-                                            <div>
-                                                <Text type="secondary" strong style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>FIRMA DIGITAL:</Text>
-                                                {m.firma_muestreador ? (
-                                                    <div
-                                                        onClick={() => setZoomedImage(m.firma_muestreador)}
-                                                        style={{ border: '1px solid var(--app-border)', padding: 4, borderRadius: 8, backgroundColor: 'var(--app-hover-bg)', width: 110, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-                                                    >
-                                                        <img src={m.firma_muestreador} style={{ height: 40, objectFit: 'contain' }} alt="Firma" />
-                                                    </div>
-                                                ) : (
-                                                    <Text type="secondary" italic style={{ fontSize: 12 }}>Sin firma registrada</Text>
-                                                )}
-                                            </div>
-
-                                            <div>
-                                                <Text type="secondary" strong style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>COMPETENCIAS:</Text>
-                                                {renderCompetencias(m)}
-                                            </div>
-
-                                            <hr style={{ border: 'none', borderTop: '1px dashed var(--app-border)' }} />
-
-                                            <div style={{ display: 'flex', gap: 8 }}>
+                                            <div className="mt-3 flex gap-2 border-t border-dashed border-border pt-3">
                                                 <ProtectedContent permission="MU_SOLICITUDES">
-                                                    <Button
-                                                        style={{ flex: 1, color: hasPending ? '#e8590c' : undefined }}
-                                                        onClick={() => handleOpenRequests(m)}
-                                                        icon={<IconBell size={16} />}
-                                                        size="small"
-                                                    >
-                                                        Solicitudes
+                                                    <Button variant="outline" size="sm" className={cn('flex-1', hasPending && 'text-warning')} onClick={() => handleOpenRequests(m)}>
+                                                        <IconBell size={16} /> Solicitudes
                                                     </Button>
                                                 </ProtectedContent>
                                                 <ProtectedContent permission="AI_MA_EDITAR_MUESTREADOR">
-                                                    <Button
-                                                        style={{ flex: 1, color: '#1c7ed6' }}
-                                                        onClick={() => handleEdit(m)}
-                                                        icon={<IconEdit size={16} />}
-                                                        size="small"
-                                                    >
-                                                        Editar
+                                                    <Button variant="outline" size="sm" className="flex-1" onClick={() => handleEdit(m)}>
+                                                        <IconEdit size={16} /> Editar
                                                     </Button>
                                                 </ProtectedContent>
                                                 <ProtectedContent permission="AI_MA_DESHABILITAR_MUESTREADOR">
                                                     {m.habilitado === 'S' ? (
-                                                        <Button
-                                                            danger
-                                                            style={{ flex: 1 }}
-                                                            onClick={() => handleDisableClick(m)}
-                                                            icon={<IconPower size={16} />}
-                                                            size="small"
-                                                        >
-                                                            Baja
+                                                        <Button variant="outline" size="sm" className="flex-1 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => handleDisableClick(m)}>
+                                                            <IconPower size={16} /> Baja
                                                         </Button>
                                                     ) : (
-                                                        <Button
-                                                            style={{ flex: 1, color: '#2f9e44' }}
-                                                            onClick={() => handleEnableClick(m)}
-                                                            icon={<IconCheck size={16} />}
-                                                            size="small"
-                                                        >
-                                                            Alta
+                                                        <Button variant="outline" size="sm" className="flex-1 text-success hover:bg-success/10 hover:text-success" onClick={() => handleEnableClick(m)}>
+                                                            <IconCheck size={16} /> Alta
                                                         </Button>
                                                     )}
                                                 </ProtectedContent>
                                             </div>
                                         </div>
-                                    </Card>
-                                );
-                            })
-                        )}
-                    </div>
-                )}
-            </Card>
+                                    );
+                                })
+                            )}
+                        </div>
+                    )}
+                </div>
+            </div>
         </div>
     );
 
@@ -560,7 +477,7 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                 }}
                 sampler={{
                     id_muestreador: muestreadorToDisable?.id_muestreador,
-                    nombre_muestreador: muestreadorToDisable?.nombre_muestreador || ''
+                    nombre_muestreador: muestreadorToDisable?.nombre_muestreador || '',
                 }}
                 onSuccess={() => {
                     fetchData();
@@ -596,12 +513,3 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
         </>
     );
 };
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-    return (
-        <div>
-            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
-            {children}
-        </div>
-    );
-}
