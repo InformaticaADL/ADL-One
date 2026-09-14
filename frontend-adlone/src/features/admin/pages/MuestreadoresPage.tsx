@@ -14,7 +14,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { Table, TableHeader, TableBody, TableRow, SortableTableHead, TableHead, TableCell } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 
@@ -305,14 +305,17 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                         <IconSearch size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                         <Input placeholder="Buscar por nombre o ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8" />
                     </div>
-                    <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v || 'ACTIVOS')}>
-                        <SelectTrigger><SelectValue placeholder="Filtrar por estado" /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="ACTIVOS">Solo activos</SelectItem>
-                            <SelectItem value="INACTIVOS">Solo inactivos</SelectItem>
-                            <SelectItem value="TODOS">Todos</SelectItem>
-                        </SelectContent>
-                    </Select>
+                    <Combobox
+                        value={statusFilter}
+                        onValueChange={(v) => setStatusFilter(v || 'ACTIVOS')}
+                        placeholder="Filtrar por estado"
+                        searchPlaceholder="Buscar..."
+                        options={[
+                            { value: 'ACTIVOS', label: 'Solo activos' },
+                            { value: 'INACTIVOS', label: 'Solo inactivos' },
+                            { value: 'TODOS', label: 'Todos' },
+                        ]}
+                    />
                 </div>
 
                 <div className="relative overflow-hidden rounded-xl border border-border bg-card">

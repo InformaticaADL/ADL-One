@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -357,19 +357,13 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                                         />
                                     </Field>
                                     <Field id="cargo" label="Cargo">
-                                        <Select
+                                        <Combobox
                                             value={formData.id_cargo ? String(formData.id_cargo) : undefined}
                                             onValueChange={(v) => setFormData({ ...formData, id_cargo: v ? Number(v) : undefined })}
-                                        >
-                                            <SelectTrigger id="cargo">
-                                                <SelectValue placeholder="Selecciona el cargo" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {cargos.map((c) => (
-                                                    <SelectItem key={c.id_cargo} value={String(c.id_cargo)}>{c.nombre_cargo}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                            placeholder="Selecciona el cargo"
+                                            searchPlaceholder="Buscar cargo..."
+                                            options={cargos.map((c) => ({ value: String(c.id_cargo), label: c.nombre_cargo }))}
+                                        />
                                     </Field>
                                 </div>
                             </CardContent>
@@ -552,17 +546,17 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                                 </button>
                             )}
                         </div>
-                        <Select value={filterRole} onValueChange={(v) => { setFilterRole(v); setPage(1); }}>
-                            <SelectTrigger className="sm:w-48">
-                                <SelectValue placeholder="Rol" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todos los roles</SelectItem>
-                                {roles.filter((r) => r.nombre_rol).map((r) => (
-                                    <SelectItem key={r.id_rol} value={String(r.nombre_rol)}>{r.nombre_rol}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        <Combobox
+                            value={filterRole}
+                            onValueChange={(v) => { setFilterRole(v); setPage(1); }}
+                            placeholder="Rol"
+                            searchPlaceholder="Buscar rol..."
+                            className="sm:w-48"
+                            options={[
+                                { value: 'all', label: 'Todos los roles' },
+                                ...roles.filter((r) => r.nombre_rol).map((r) => ({ value: String(r.nombre_rol), label: r.nombre_rol })),
+                            ]}
+                        />
                     </div>
 
                     <div className="flex gap-2">

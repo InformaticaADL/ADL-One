@@ -22,7 +22,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 
@@ -502,26 +502,24 @@ const RequestTypePermissionsPage: React.FC<Props> = ({ requestType, onBack }) =>
                         )}
 
                         <div className={cn('flex flex-wrap items-start gap-4 p-4', !isCompact && 'border-t border-border bg-muted/40', isCompact && 'mt-2')}>
-                            <Select value={addRole} onValueChange={(v) => { setAddRole(v); addEntry('role', v); }}>
-                                <SelectTrigger className={isMobile ? 'w-full' : 'flex-1'}>
-                                    <SelectValue placeholder="Añadir rol..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {rolesOptions.length === 0 ? (
-                                        <div className="p-2 text-xs text-muted-foreground">No se encontraron roles</div>
-                                    ) : rolesOptions.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                            <Select value={addUser} onValueChange={(v) => { setAddUser(v); addEntry('user', v); }}>
-                                <SelectTrigger className={isMobile ? 'w-full' : 'flex-1'}>
-                                    <SelectValue placeholder="Añadir usuario..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {usersOptions.length === 0 ? (
-                                        <div className="p-2 text-xs text-muted-foreground">No se encontraron usuarios</div>
-                                    ) : usersOptions.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
+                            <Combobox
+                                value={addRole}
+                                onValueChange={(v) => { setAddRole(v); addEntry('role', v); }}
+                                placeholder="Añadir rol..."
+                                searchPlaceholder="Buscar rol..."
+                                emptyText="No se encontraron roles"
+                                className={isMobile ? 'w-full' : 'flex-1'}
+                                options={rolesOptions}
+                            />
+                            <Combobox
+                                value={addUser}
+                                onValueChange={(v) => { setAddUser(v); addEntry('user', v); }}
+                                placeholder="Añadir usuario..."
+                                searchPlaceholder="Buscar usuario..."
+                                emptyText="No se encontraron usuarios"
+                                className={isMobile ? 'w-full' : 'flex-1'}
+                                options={usersOptions}
+                            />
                             <div className={cn('flex items-center gap-1.5', isMobile ? 'w-full justify-center text-center' : 'flex-[2]')}>
                                 <IconInfoCircle size={14} className="shrink-0 text-muted-foreground" />
                                 <p className="text-xs font-medium text-muted-foreground">
