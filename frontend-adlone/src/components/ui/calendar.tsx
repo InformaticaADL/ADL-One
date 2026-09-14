@@ -7,16 +7,23 @@ import { buttonVariants } from '@/components/ui/button';
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>;
 
-function Calendar({ className, classNames, showOutsideDays = true, ...props }: CalendarProps) {
+function Calendar({ className, classNames, showOutsideDays = true, captionLayout = 'dropdown', ...props }: CalendarProps) {
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
+      captionLayout={captionLayout}
       className={cn('p-3', className)}
       classNames={{
         months: 'flex flex-col sm:flex-row gap-2',
         month: 'flex flex-col gap-4',
         month_caption: 'flex justify-center pt-1 relative items-center w-full',
-        caption_label: 'text-sm font-medium',
+        // caption_label también es la "pastilla" visible de cada dropdown de
+        // mes/año (el <select> real queda invisible encima, ver `dropdown`) —
+        // por eso lleva estilo de control clickeable, no solo texto plano.
+        caption_label: 'flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-sm font-medium',
+        dropdowns: 'flex items-center gap-1.5',
+        dropdown_root: 'relative',
+        dropdown: 'absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0',
         nav: 'flex items-center justify-between absolute inset-x-0 top-0',
         button_previous: cn(
           buttonVariants({ variant: 'outline' }),
