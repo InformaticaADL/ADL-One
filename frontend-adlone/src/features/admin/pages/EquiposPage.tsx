@@ -1285,7 +1285,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                             <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-muted-foreground">
                                                 <span>Tipo: {equipo.tipo}</span>
                                                 <span>Sede: {equipo.ubicacion}</span>
-                                                <span className={cn(expired && 'font-bold text-destructive')}>Vigencia: {equipo.vigencia}</span>
+                                                <span className={cn(expired && 'font-bold text-foreground')}>Vigencia: {equipo.vigencia}</span>
                                                 <span>
                                                     Resp.: {equipo.nombre_asignado || '---'}
                                                     {equipo.habilitado_muestreador === 'N' && <Badge variant="destructive" className="ml-1">Inactivo</Badge>}
@@ -1353,7 +1353,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                                 <TableCell className="text-sm text-muted-foreground">{equipo.ubicacion}</TableCell>
                                                 <TableCell><Badge variant={isInactive ? 'destructive' : 'success'}>{equipo.estado}</Badge></TableCell>
                                                 <TableCell>
-                                                    <span className={cn('text-sm', (expired || expiringSoon) ? 'font-bold text-destructive' : 'text-foreground')}>
+                                                    <span className={cn('text-sm text-foreground', (expired || expiringSoon) && 'font-bold')}>
                                                         {equipo.vigencia}
                                                     </span>
                                                 </TableCell>
