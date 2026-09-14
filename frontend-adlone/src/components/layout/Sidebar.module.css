@@ -24,13 +24,15 @@
 }
 
 .header {
+  /* Ya no aloja el logo (vive solo en TopBar/MainLayout) — solo el botón
+     de colapsar/expandir, así que no reserva la altura alta que el logo
+     necesitaba antes. */
   padding: 10px;
-  padding-top: 0;
   margin-left: -10px;
   margin-right: -10px;
+  margin-bottom: 6px;
   color: var(--app-text);
   border-bottom: 1px solid var(--app-border);
-  min-height: 70px;
   display: flex;
   align-items: center;
 }
