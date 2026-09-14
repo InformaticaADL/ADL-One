@@ -12,6 +12,7 @@ import {
     IconUserCircle,
 } from '@tabler/icons-react';
 import logoAdl from '../../assets/images/logo-adlone.png';
+import logoSmall from '../../assets/images/logo-adlone-pequeño.png';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavStore } from '../../store/navStore';
 import { useNotificationStore } from '../../store/notificationStore';
@@ -188,7 +189,7 @@ interface TopBarProps {
 // montar este componente). Logo + búsqueda (solo visual, sin lógica real
 // todavía — ver spec) + UserActionsCluster.
 export function TopBar({ onHelpClick }: TopBarProps) {
-    const { resetNavigation } = useNavStore();
+    const { resetNavigation, sidebarCollapsed } = useNavStore();
 
     return (
         <div
@@ -198,8 +199,16 @@ export function TopBar({ onHelpClick }: TopBarProps) {
                 borderBottom: '1px solid var(--app-border)', position: 'relative', zIndex: 210, gap: 20,
             }}
         >
+            {/* Mismo icono compacto que usaba el Sidebar cuando estaba colapsado —
+                el logo ahora vive solo aquí, así que replica ese comportamiento en
+                vez de mostrar siempre el logo completo sin importar el estado del
+                sidebar. */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', flexShrink: 0 }} onClick={() => resetNavigation()}>
-                <img src={logoAdl} alt="ADL" style={{ height: 40, width: 'auto', objectFit: 'contain' }} />
+                <img
+                    src={sidebarCollapsed ? logoSmall : logoAdl}
+                    alt="ADL"
+                    style={{ height: sidebarCollapsed ? 32 : 40, width: 'auto', objectFit: 'contain', transition: 'all 200ms ease' }}
+                />
             </div>
 
             <Input
