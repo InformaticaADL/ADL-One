@@ -735,7 +735,7 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
 function FormField({ label, required, error, children }: { label: string; required?: boolean; error?: string; children: React.ReactNode }) {
     return (
         <div>
-            <Text style={{ fontSize: 12, color: required ? '#0062a8' : 'var(--app-text-secondary)', fontWeight: required ? 600 : 400, display: 'block', marginBottom: 4 }}>
+            <Text style={{ fontSize: 12, color: required ? '#1677ff' : 'var(--app-text-secondary)', fontWeight: required ? 600 : 400, display: 'block', marginBottom: 4 }}>
                 {label}{required ? ' *' : ''}
             </Text>
             {children}

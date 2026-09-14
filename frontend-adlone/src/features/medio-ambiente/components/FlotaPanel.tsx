@@ -85,7 +85,7 @@ export function FlotaPanel({ jornadas, selectedMuestreadorId, onSelectMuestreado
                                 style={{
                                     padding: 8,
                                     borderRadius: 8,
-                                    border: `1px solid ${seleccionada ? '#0062a8' : 'var(--app-border)'}`,
+                                    border: `1px solid ${seleccionada ? '#1677ff' : 'var(--app-border)'}`,
                                     backgroundColor: seleccionada ? 'var(--app-accent-bg)' : 'transparent',
                                     textAlign: 'left',
                                     cursor: 'pointer',
@@ -130,7 +130,7 @@ export function FlotaPanel({ jornadas, selectedMuestreadorId, onSelectMuestreado
                                         { lat: Number(siguiente.ubicacion_lat), lon: Number(siguiente.ubicacion_lon) }
                                     );
                                     return (
-                                        <Text style={{ fontSize: 12, color: '#0062a8', display: 'block', marginTop: 2 }}>
+                                        <Text style={{ fontSize: 12, color: '#1677ff', display: 'block', marginTop: 2 }}>
                                             {dist < 1 ? `${Math.round(dist * 1000)} m` : `${dist.toFixed(1)} km`} a {siguiente.centro || 'la próxima ficha'}
                                         </Text>
                                     );

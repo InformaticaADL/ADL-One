@@ -34,7 +34,7 @@ interface ObservationTimelineProps {
 }
 
 const TYPE_COLOR: Record<TimelineEvent['type'], { antd: string; hex: string; bg: string }> = {
-    CREATION: { antd: 'blue', hex: '#0062a8', bg: 'var(--app-accent-bg)' },
+    CREATION: { antd: 'blue', hex: '#1677ff', bg: 'var(--app-accent-bg)' },
     APPROVAL: { antd: 'green', hex: '#0d9488', bg: 'rgba(13,148,136,0.1)' },
     REJECTION: { antd: 'red', hex: '#e03131', bg: 'rgba(224,49,49,0.08)' },
     REVIEW: { antd: 'orange', hex: '#e8590c', bg: 'rgba(232,89,12,0.08)' },

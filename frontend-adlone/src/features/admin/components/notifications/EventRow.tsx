@@ -144,7 +144,7 @@ export const EventRow: React.FC<Props> = ({ event, onOpenSettings, onStatusChang
                             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                                 <IconMail
                                     size={18}
-                                    color={hasEmail ? '#0062a8' : 'var(--app-border)'}
+                                    color={hasEmail ? '#1677ff' : 'var(--app-border)'}
                                 />
                                 <Switch
                                     checked={hasEmail}
@@ -159,7 +159,7 @@ export const EventRow: React.FC<Props> = ({ event, onOpenSettings, onStatusChang
                             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                                 <IconBell
                                     size={18}
-                                    color={hasWeb ? '#0062a8' : 'var(--app-border)'}
+                                    color={hasWeb ? '#1677ff' : 'var(--app-border)'}
                                 />
                                 <Switch
                                     checked={hasWeb}

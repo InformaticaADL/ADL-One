@@ -161,7 +161,7 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
                 onMouseLeave={() => setHovering(false)}
             >
                 <div style={{
-                    width: 60, height: 60, borderRadius: '50%', backgroundColor: 'var(--app-accent-bg)', color: '#0062a8',
+                    width: 60, height: 60, borderRadius: '50%', backgroundColor: 'var(--app-accent-bg)', color: '#1677ff',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px',
                 }}>
                     <IconUpload size={30} />

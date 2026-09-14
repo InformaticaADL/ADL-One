@@ -190,7 +190,7 @@ export const EquipoCatalogoView: React.FC<Props> = ({ onBack }) => {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: isMobile ? '100%' : 280 }}>
                             <div style={{ display: 'flex', gap: 8, flexWrap: isMobile ? 'wrap' : 'nowrap', justifyContent: isMobile ? 'center' : 'flex-start', alignItems: 'center' }}>
-                                <IconListNumbers size={28} color="#0062a8" style={{ flexShrink: 0 }} />
+                                <IconListNumbers size={28} color="#1677ff" style={{ flexShrink: 0 }} />
                                 <Title level={isMobile ? 4 : 3} style={{ margin: 0, lineHeight: 1.2, textAlign: isMobile ? 'center' : 'left' }}>
                                     {showForm ? (editingItem ? 'Editar Modelo' : 'Nuevo Modelo de Equipo') : 'Gestión de Catálogo'}
                                 </Title>

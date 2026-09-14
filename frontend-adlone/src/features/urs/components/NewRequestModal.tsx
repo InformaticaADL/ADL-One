@@ -147,7 +147,7 @@ const NewRequestModal: React.FC<NewRequestModalProps> = ({ isOpen, onClose, onSu
             width={620}
             title={
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: 'var(--app-accent-bg)', color: '#0062a8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: 'var(--app-accent-bg)', color: '#1677ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <IconPlaylistAdd size={18} />
                     </div>
                     <Text strong>Nueva Solicitud</Text>

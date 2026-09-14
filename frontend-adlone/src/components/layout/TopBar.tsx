@@ -129,7 +129,7 @@ export function UserActionsCluster({ onHelpClick, onNavigate, compact }: UserAct
                             backgroundColor: 'var(--app-bg-elevated)', color: 'var(--app-text)',
                             padding: '10px 18px', borderRadius: 12, fontSize: 13, fontWeight: 600,
                             whiteSpace: 'nowrap', boxShadow: '0 10px 25px rgba(0,0,0,0.25)', zIndex: 2200,
-                            pointerEvents: 'none', border: '1px solid var(--app-border)', borderTop: '4px solid #0062a8',
+                            pointerEvents: 'none', border: '1px solid var(--app-border)', borderTop: '4px solid #1677ff',
                         }}
                     >
                         {notifications[0]?.titulo || '¡Nueva notificación!'}

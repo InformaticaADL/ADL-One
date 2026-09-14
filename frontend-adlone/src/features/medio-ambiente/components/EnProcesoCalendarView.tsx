@@ -649,7 +649,7 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                         <div key={muestreador} style={{ border: '1px solid var(--app-border)', borderRadius: 8, padding: 10, backgroundColor: 'var(--app-hover-bg)' }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                    <div style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: '#0062a8', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13 }}>
+                                                    <div style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: '#1677ff', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13 }}>
                                                         {muestreador.charAt(0)}
                                                     </div>
                                                     <Text strong style={{ fontSize: 13 }}>{muestreador}</Text>
@@ -717,7 +717,7 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                                     {isMobile && events.length > 0 && (
                                                         <div style={{ display: 'flex', gap: 2 }}>
                                                             {events.slice(0, 2).map((_, eidx) => (
-                                                                <div key={eidx} style={{ height: 4, width: 4, borderRadius: '50%', backgroundColor: '#0062a8' }} />
+                                                                <div key={eidx} style={{ height: 4, width: 4, borderRadius: '50%', backgroundColor: '#1677ff' }} />
                                                             ))}
                                                         </div>
                                                     )}
@@ -804,7 +804,7 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                                         key={dIdx}
                                                         style={{
                                                             height: 10,
-                                                            backgroundColor: hasEvent ? '#0062a8' : 'var(--app-hover-bg)',
+                                                            backgroundColor: hasEvent ? '#1677ff' : 'var(--app-hover-bg)',
                                                             borderRadius: 2,
                                                             border: hasEvent ? '1px solid #00508a' : 'none'
                                                         }}

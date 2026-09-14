@@ -505,7 +505,7 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                {todayAgenda.filter(a => a.tipo_display === 'INICIO').slice(0, 3).map((ev, i) => (
                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 10, border: '1px solid var(--app-border)', borderRadius: 16 }}>
-                   <IconCircle color="#0062a8"><IconPlayerPlayFilled size={12} /></IconCircle>
+                   <IconCircle color="#1677ff"><IconPlayerPlayFilled size={12} /></IconCircle>
                    <div style={{ flex: 1, minWidth: 0 }}>
                      <Text strong style={{ fontSize: 12, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev._centro_name}</Text>
                      <Text type="secondary" style={{ fontSize: 12, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.muestreador_display}</Text>
@@ -748,7 +748,7 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
               <Button type="text" shape="circle" icon={<IconX size={20} />} onClick={() => setInfoModal(null)} style={{ position: 'absolute', top: 0, right: 0 }} />
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
-                <IconCircle color="#0062a8" size={56}><IconInfoCircle size={28} /></IconCircle>
+                <IconCircle color="#1677ff" size={56}><IconInfoCircle size={28} /></IconCircle>
                 <div>
                   <Text style={{ fontSize: 11, fontWeight: 800, color: 'var(--app-accent-text)', textTransform: 'uppercase', letterSpacing: 1, display: 'block' }}>Explicación Detallada</Text>
                   <Title level={4} style={{ margin: 0 }}>{infoModal.title}</Title>

@@ -300,7 +300,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
             title: 'Usuario', key: 'usuario',
             render: (_: unknown, user: User) => (
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <Avatar size="small" style={{ backgroundColor: 'var(--app-accent-bg)', color: '#0062a8' }}>
+                    <Avatar size="small" style={{ backgroundColor: 'var(--app-accent-bg)', color: '#1677ff' }}>
                         <IconUser size={14} />
                     </Avatar>
                     <Text strong style={{ fontSize: 13 }}>{user.nombre_usuario}</Text>
@@ -450,7 +450,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                                     <Card key={user.id_usuario} size="small">
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8, flexWrap: 'nowrap' }}>
                                             <div style={{ display: 'flex', gap: 8, flexWrap: 'nowrap', flex: 1, minWidth: 0 }}>
-                                                <Avatar style={{ backgroundColor: 'var(--app-accent-bg)', color: '#0062a8' }} size={40}>
+                                                <Avatar style={{ backgroundColor: 'var(--app-accent-bg)', color: '#1677ff' }} size={40}>
                                                     <IconUser size={24} />
                                                 </Avatar>
                                                 <div style={{ flex: 1, minWidth: 0 }}>

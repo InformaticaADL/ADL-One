@@ -235,7 +235,7 @@ export const UserNotificationsPage = () => {
                                             style={{
                                                 cursor: 'pointer',
                                                 transition: 'all 0.2s ease',
-                                                borderLeft: notif.leido ? undefined : '4px solid #0062a8',
+                                                borderLeft: notif.leido ? undefined : '4px solid #1677ff',
                                                 backgroundColor: notif.leido ? undefined : 'var(--app-accent-bg)',
                                                 transform: hovering ? 'translateY(-2px)' : 'none',
                                                 boxShadow: hovering ? '0 8px 20px rgba(0,0,0,0.08)' : undefined,

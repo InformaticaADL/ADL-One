@@ -422,7 +422,7 @@ export const KpiAnalystDashboardView = ({ onBack }: Props) => {
                         <Button type="text" shape="circle" icon={<IconX size={20} />} onClick={() => setInfoModal(null)} style={{ position: 'absolute', top: 0, right: 0 }} />
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
-                            <IconCircle color="#0062a8" size={56}><IconInfoCircle size={28} /></IconCircle>
+                            <IconCircle color="#1677ff" size={56}><IconInfoCircle size={28} /></IconCircle>
                             <div>
                                 <Text style={{ fontSize: 11, fontWeight: 800, color: 'var(--app-accent-text)', textTransform: 'uppercase', letterSpacing: 1, display: 'block' }}>Explicación Detallada</Text>
                                 <Title level={4} style={{ margin: 0 }}>{infoModal.title}</Title>

@@ -266,7 +266,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onStartChat })
                                     style={{
                                         border: '4px solid rgba(0, 98, 168, 0.2)',
                                         cursor: 'pointer',
-                                        backgroundColor: '#0062a8',
+                                        backgroundColor: '#1677ff',
                                         fontSize: isMobile ? 32 : 48,
                                         fontWeight: 700,
                                     }}
@@ -278,7 +278,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onStartChat })
                                     <div
                                         onClick={handleAvatarClick}
                                         style={{
-                                            width: 32, height: 32, borderRadius: '50%', backgroundColor: '#0062a8', color: '#fff',
+                                            width: 32, height: 32, borderRadius: '50%', backgroundColor: '#1677ff', color: '#fff',
                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                                             position: 'absolute',
                                             bottom: 5,
@@ -313,7 +313,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onStartChat })
                                         </Tag>
                                     ))}
                                     {profileData?.nombre_usuario && (
-                                        <Text strong style={{ fontSize: 13, color: '#0062a8', opacity: 0.8 }}>
+                                        <Text strong style={{ fontSize: 13, color: '#1677ff', opacity: 0.8 }}>
                                             @{profileData.nombre_usuario}
                                         </Text>
                                     )}
@@ -327,7 +327,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onStartChat })
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '7fr 5fr', gap: 24, alignItems: 'start' }}>
                     <Card>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24, whiteSpace: 'nowrap' }}>
-                            <div style={{ width: 28, height: 28, borderRadius: 6, backgroundColor: 'var(--app-accent-bg)', color: '#0062a8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <div style={{ width: 28, height: 28, borderRadius: 6, backgroundColor: 'var(--app-accent-bg)', color: '#1677ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 <IconId size={18} />
                             </div>
                             <Text strong style={{ fontSize: 16 }}>Información Personal</Text>
@@ -373,7 +373,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onStartChat })
 
                     <Card>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24, whiteSpace: 'nowrap' }}>
-                            <div style={{ width: 28, height: 28, borderRadius: 6, backgroundColor: 'var(--app-accent-bg)', color: '#0062a8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <div style={{ width: 28, height: 28, borderRadius: 6, backgroundColor: 'var(--app-accent-bg)', color: '#1677ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 <IconShieldCheck size={18} />
                             </div>
                             <Text strong style={{ fontSize: 16 }}>Seguridad y Rol</Text>
@@ -428,7 +428,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onStartChat })
                                         />
                                         {isSelected && (
                                             <div style={{
-                                                width: 20, height: 20, borderRadius: '50%', backgroundColor: '#0062a8', color: '#fff',
+                                                width: 20, height: 20, borderRadius: '50%', backgroundColor: '#1677ff', color: '#fff',
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                 position: 'absolute',
                                                 top: -2,
@@ -469,10 +469,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onStartChat })
                             cursor: 'pointer',
                         }}
                     >
-                        <div style={{ width: 44, height: 44, borderRadius: '50%', backgroundColor: 'rgba(0,98,168,0.15)', color: '#0062a8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <div style={{ width: 44, height: 44, borderRadius: '50%', backgroundColor: 'rgba(0,98,168,0.15)', color: '#1677ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <IconCamera size={24} />
                         </div>
-                        <Text strong style={{ fontSize: 13, color: '#0062a8' }}>Subir propia foto</Text>
+                        <Text strong style={{ fontSize: 13, color: '#1677ff' }}>Subir propia foto</Text>
                     </button>
 
                     {user.foto && (

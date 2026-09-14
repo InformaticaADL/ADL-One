@@ -153,7 +153,7 @@ export function DetalleJornadaDrawer({ jornada, opened, onClose }: DetalleJornad
                             dot: (
                                 <div style={{
                                     width: 20, height: 20, borderRadius: '50%',
-                                    backgroundColor: activa || completada ? '#0062a8' : 'var(--app-border)',
+                                    backgroundColor: activa || completada ? '#1677ff' : 'var(--app-border)',
                                     color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 }}>
                                     {completada ? <IconCheck size={11} /> : <IconClock size={11} />}

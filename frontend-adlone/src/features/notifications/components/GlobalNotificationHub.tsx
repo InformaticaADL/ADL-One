@@ -104,7 +104,7 @@ const GlobalNotificationHub: React.FC = () => {
             {/* Bubble Toast Animado Modal */}
             {showToast && !isOpen && (
                 <div className="mini-bell-toast animate-bounce-in">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0062a8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1677ff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
                         <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
                         <circle cx="18" cy="6" r="3" fill="#ef4444" stroke="white" strokeWidth="1"></circle>

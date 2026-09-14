@@ -138,7 +138,7 @@ export const NotificationHub: React.FC<{ onBack?: () => void }> = ({ onBack }) =
     const getModuleIcon = (name: string, isActive?: boolean) => {
         const n = name.toUpperCase();
         const iconSize = 18;
-        const color = isActive ? '#fff' : '#0062a8';
+        const color = isActive ? '#fff' : '#1677ff';
 
         if (n.includes('DINÁMICOS')) return <IconBolt size={iconSize} color={color} />;
         if (n.includes('MEDIO') || n.includes('AMBIENTE')) return <IconLeaf size={iconSize} color={color} />;
@@ -204,7 +204,7 @@ export const NotificationHub: React.FC<{ onBack?: () => void }> = ({ onBack }) =
                                         style={{
                                             display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 8,
                                             cursor: 'pointer', fontWeight: 600, transition: 'all 200ms ease',
-                                            backgroundColor: isActive ? '#0062a8' : 'transparent',
+                                            backgroundColor: isActive ? '#1677ff' : 'transparent',
                                             color: isActive ? '#fff' : 'var(--app-text)',
                                         }}
                                     >
@@ -229,7 +229,7 @@ export const NotificationHub: React.FC<{ onBack?: () => void }> = ({ onBack }) =
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
                                 <div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        <IconLayoutGrid size={24} color="#0062a8" />
+                                        <IconLayoutGrid size={24} color="#1677ff" />
                                         <Title level={3} style={{ margin: 0 }}>{activeModule.nombre}</Title>
                                     </div>
                                     <Text type="secondary" style={{ fontSize: 13 }}>
@@ -249,7 +249,7 @@ export const NotificationHub: React.FC<{ onBack?: () => void }> = ({ onBack }) =
                                             key: String(func.id),
                                             label: (
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                                    <div style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: 'var(--app-accent-bg)', color: '#0062a8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                    <div style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: 'var(--app-accent-bg)', color: '#1677ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                                         <IconLayoutDashboard size={18} />
                                                     </div>
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flex: 1, paddingRight: 16 }}>

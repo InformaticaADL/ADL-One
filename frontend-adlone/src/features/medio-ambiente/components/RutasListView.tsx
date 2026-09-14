@@ -642,7 +642,7 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
             <div style={{ background: 'var(--app-bg-elevated)', border: '1px solid var(--app-border)', borderRadius: 12, padding: 16 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
                     <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                        <div style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: 'var(--app-accent-bg)', color: '#0062a8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <div style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: 'var(--app-accent-bg)', color: '#1677ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <IconRoute size={18} />
                         </div>
                         <div>
@@ -675,7 +675,7 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
                                     onClick={() => toggleGroup(group.key)}
                                 >
                                     {expandedGroups.has(group.key) ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
-                                    <div style={{ width: 22, height: 22, borderRadius: 6, backgroundColor: group.key === 'sin-grupo' ? 'var(--app-border)' : 'var(--app-accent-bg)', color: group.key === 'sin-grupo' ? 'var(--app-text-secondary)' : '#0062a8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <div style={{ width: 22, height: 22, borderRadius: 6, backgroundColor: group.key === 'sin-grupo' ? 'var(--app-border)' : 'var(--app-accent-bg)', color: group.key === 'sin-grupo' ? 'var(--app-text-secondary)' : '#1677ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                         <IconFolder size={12} />
                                     </div>
                                     <Text strong style={{ fontSize: 13 }}>{group.label}</Text>
@@ -1132,7 +1132,7 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
                                             <div key={r.id_ruta_planificada} style={{ border: '1px solid var(--app-border)', borderRadius: 6, padding: 8 }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'nowrap' }}>
                                                     <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'nowrap' }}>
-                                                        <div style={{ width: 22, height: 22, borderRadius: '50%', backgroundColor: 'var(--app-accent-bg)', color: '#0062a8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                        <div style={{ width: 22, height: 22, borderRadius: '50%', backgroundColor: 'var(--app-accent-bg)', color: '#1677ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                             <IconRoute size={12} />
                                                         </div>
                                                         <Text style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.nombre_ruta}</Text>

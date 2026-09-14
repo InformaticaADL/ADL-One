@@ -93,7 +93,7 @@ export const RequestsManager: React.FC<RequestsManagerProps> = ({ onBack, onConf
             title: 'Tipo de Trámite', key: 'nombre',
             render: (_: unknown, type: RequestType) => (
                 <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                    <Avatar shape="square" size={40} style={{ backgroundColor: 'var(--app-accent-bg)', color: '#0062a8', borderRadius: 8 }} icon={<IconFileText size={22} />} />
+                    <Avatar shape="square" size={40} style={{ backgroundColor: 'var(--app-accent-bg)', color: '#1677ff', borderRadius: 8 }} icon={<IconFileText size={22} />} />
                     <div>
                         <Text strong style={{ fontSize: 13, display: 'block' }}>{type.nombre}</Text>
                         <Text type="secondary" style={{ fontSize: 12 }}>ID: {type.id_tipo}</Text>
@@ -171,7 +171,7 @@ export const RequestsManager: React.FC<RequestsManagerProps> = ({ onBack, onConf
                                 <Card key={type.id_tipo} size="small">
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, flexWrap: 'nowrap' }}>
                                         <div style={{ display: 'flex', gap: 12, flexWrap: 'nowrap', flex: 1, minWidth: 0 }}>
-                                            <Avatar shape="square" size={40} style={{ backgroundColor: 'var(--app-accent-bg)', color: '#0062a8', borderRadius: 8 }} icon={<IconFileText size={22} />} />
+                                            <Avatar shape="square" size={40} style={{ backgroundColor: 'var(--app-accent-bg)', color: '#1677ff', borderRadius: 8 }} icon={<IconFileText size={22} />} />
                                             <div style={{ flex: 1, minWidth: 0 }}>
                                                 <Text strong style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>{type.nombre}</Text>
                                                 <Text type="secondary" style={{ fontSize: 12 }}>ID: {type.id_tipo}</Text>

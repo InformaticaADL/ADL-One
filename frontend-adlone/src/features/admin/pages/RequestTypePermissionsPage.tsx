@@ -292,7 +292,7 @@ const RequestTypePermissionsPage: React.FC<Props> = ({ requestType, onBack }) =>
                 const hasOverlap = entry.type === 'user' && userOverlapsWithRole(entry.id);
                 return (
                     <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'nowrap' }}>
-                        <Avatar shape="square" style={{ borderRadius: 8, backgroundColor: entry.type === 'role' ? 'var(--app-accent-bg)' : 'rgba(12,133,153,0.12)', color: entry.type === 'role' ? '#0062a8' : '#0c8599' }}>
+                        <Avatar shape="square" style={{ borderRadius: 8, backgroundColor: entry.type === 'role' ? 'var(--app-accent-bg)' : 'rgba(12,133,153,0.12)', color: entry.type === 'role' ? '#1677ff' : '#0c8599' }}>
                             {entry.type === 'role' ? <IconUsers size={16} /> : <IconUser size={16} />}
                         </Avatar>
                         <div style={{ flex: 1, minWidth: 0 }}>
@@ -495,7 +495,7 @@ const RequestTypePermissionsPage: React.FC<Props> = ({ requestType, onBack }) =>
                                             <Card key={`${entry.type}_${entry.id}`} size="small">
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'nowrap', marginBottom: 16 }}>
                                                     <div style={{ display: 'flex', gap: 12, flexWrap: 'nowrap', flex: 1, minWidth: 0 }}>
-                                                        <Avatar shape="square" size={40} style={{ borderRadius: 8, backgroundColor: entry.type === 'role' ? 'var(--app-accent-bg)' : 'rgba(12,133,153,0.12)', color: entry.type === 'role' ? '#0062a8' : '#0c8599' }}>
+                                                        <Avatar shape="square" size={40} style={{ borderRadius: 8, backgroundColor: entry.type === 'role' ? 'var(--app-accent-bg)' : 'rgba(12,133,153,0.12)', color: entry.type === 'role' ? '#1677ff' : '#0c8599' }}>
                                                             {entry.type === 'role' ? <IconUsers size={20} /> : <IconUser size={20} />}
                                                         </Avatar>
                                                         <div style={{ flex: 1, minWidth: 0 }}>

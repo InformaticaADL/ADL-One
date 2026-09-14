@@ -31,7 +31,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
             size="small"
             icon={<IconInfoCircle size={14} stroke={2} />}
             onClick={() => setHelpCenterOpen(true)}
-            style={{ fontWeight: 600, color: '#0062a8', backgroundColor: '#e6f0fa' }}
+            style={{ fontWeight: 600, color: '#1677ff', backgroundColor: '#e6f4ff' }}
         >
             Información
         </Button>

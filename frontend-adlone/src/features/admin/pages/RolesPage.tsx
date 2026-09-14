@@ -104,7 +104,7 @@ export const RolesPage: React.FC<Props> = ({ onBack }) => {
             title: 'Nombre del Rol', key: 'nombre',
             render: (_: unknown, role: Role) => (
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <IconShieldLock size={16} color={role.estado ? '#0062a8' : 'var(--app-border)'} />
+                    <IconShieldLock size={16} color={role.estado ? '#1677ff' : 'var(--app-border)'} />
                     <Text strong={role.estado} type={role.estado ? undefined : 'secondary'} style={{ fontSize: 13 }}>{role.nombre_rol}</Text>
                 </div>
             ),
@@ -189,7 +189,7 @@ export const RolesPage: React.FC<Props> = ({ onBack }) => {
                                     <Card key={role.id_rol} size="small">
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                                             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                                                <IconShieldLock size={20} color="#0062a8" />
+                                                <IconShieldLock size={20} color="#1677ff" />
                                                 <Text strong style={{ fontSize: 13 }}>{role.nombre_rol}</Text>
                                             </div>
                                             <Tag color={role.estado ? 'green' : 'red'}>{role.estado ? 'Activo' : 'Inactivo'}</Tag>

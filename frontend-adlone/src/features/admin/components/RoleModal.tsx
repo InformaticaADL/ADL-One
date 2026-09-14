@@ -399,7 +399,7 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
             styles={{ body: { padding: 0 } }}
             title={
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <IconShield size={22} color="#0062a8" />
+                    <IconShield size={22} color="#1677ff" />
                     <div>
                         <Text strong style={{ display: 'block' }}>{role ? 'Configurar Rol / Permisos' : 'Crear Nuevo Rol de Acceso'}</Text>
                         <Text type="secondary" style={{ fontSize: 12 }}>{role ? `Editando: ${role.nombre_rol}` : 'Define capacidades del sistema'}</Text>
@@ -459,7 +459,7 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
                                 style={{
                                     display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 8, marginBottom: 4,
                                     border: 'none', cursor: 'pointer', fontWeight: 600, textAlign: 'left',
-                                    backgroundColor: activeTab === 'GENERAL' ? '#0062a8' : 'transparent',
+                                    backgroundColor: activeTab === 'GENERAL' ? '#1677ff' : 'transparent',
                                     color: activeTab === 'GENERAL' ? '#fff' : 'var(--app-text)',
                                 }}
                             >
@@ -483,7 +483,7 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
                                                 style={{
                                                     display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 8,
                                                     border: 'none', cursor: 'pointer', fontWeight: 600, textAlign: 'left',
-                                                    backgroundColor: isActive ? '#0062a8' : 'transparent',
+                                                    backgroundColor: isActive ? '#1677ff' : 'transparent',
                                                     color: isActive ? '#fff' : 'var(--app-text)',
                                                 }}
                                             >

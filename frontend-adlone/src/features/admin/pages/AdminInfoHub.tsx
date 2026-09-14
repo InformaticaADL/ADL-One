@@ -154,7 +154,7 @@ export const AdminInfoHub: React.FC<Props> = ({ onNavigate }) => {
                                         justifyContent: 'center',
                                         transition: 'all 0.2s ease',
                                         transform: hoveredId === area.id ? 'translateY(-5px)' : 'none',
-                                        borderColor: hoveredId === area.id ? '#0062a8' : undefined,
+                                        borderColor: hoveredId === area.id ? '#1677ff' : undefined,
                                         backgroundColor: hoveredId === area.id ? 'var(--app-accent-bg)' : undefined,
                                     }}
                                     styles={{ body: { textAlign: 'center', width: '100%' } }}
@@ -164,8 +164,8 @@ export const AdminInfoHub: React.FC<Props> = ({ onNavigate }) => {
                                     </div>
                                     <Text strong style={{ fontSize: 16, textAlign: 'center', display: 'block' }}>{area.label}</Text>
                                     <Text type="secondary" style={{ fontSize: 12, textAlign: 'center', display: 'block', marginTop: 4 }}>{area.description}</Text>
-                                    <div style={{ marginTop: 16, color: '#0062a8', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                                        <Text strong style={{ fontSize: 12, color: '#0062a8' }}>Acceder</Text>
+                                    <div style={{ marginTop: 16, color: '#1677ff', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                                        <Text strong style={{ fontSize: 12, color: '#1677ff' }}>Acceder</Text>
                                         <IconChevronRight size={12} />
                                     </div>
                                 </Card>
@@ -208,7 +208,7 @@ export const AdminInfoHub: React.FC<Props> = ({ onNavigate }) => {
                             <Card size="small" style={{ backgroundColor: 'var(--app-accent-bg)' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'nowrap' }}>
                                     <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'nowrap' }}>
-                                        <div style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: 'rgba(0,98,168,0.12)', color: '#0062a8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                        <div style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: 'rgba(0,98,168,0.12)', color: '#1677ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                             <IconFileSpreadsheet size={24} />
                                         </div>
                                         <div>

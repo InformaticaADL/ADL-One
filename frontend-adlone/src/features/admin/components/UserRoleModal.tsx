@@ -158,7 +158,7 @@ export const UserRoleModal: React.FC<Props> = ({ user, isOpen, onClose, onSucces
             styles={{ body: { padding: 0 } }}
             title={
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <IconShieldCheck size={22} color="#0062a8" />
+                    <IconShieldCheck size={22} color="#1677ff" />
                     <div>
                         <Text strong style={{ display: 'block' }}>Asignar Roles</Text>
                         <Text type="secondary" style={{ fontSize: 12 }}>{user?.nombre_real || user?.nombre_usuario}</Text>

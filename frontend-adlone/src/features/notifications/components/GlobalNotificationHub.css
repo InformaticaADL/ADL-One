@@ -19,11 +19,11 @@
 
 .hub-bell-button:hover {
     background-color: #f1f5f9;
-    color: #0062a8;
+    color: #1677ff;
 }
 
 .hub-bell-button.has-unread {
-    color: #0062a8;
+    color: #1677ff;
 }
 
 .unread-badge {
@@ -161,7 +161,7 @@
 .hub-footer button {
     background: none;
     border: none;
-    color: #0062a8;
+    color: #1677ff;
     font-size: 0.75rem;
     font-weight: 600;
     cursor: pointer;
@@ -198,7 +198,7 @@
     z-index: 2000;
     pointer-events: none;
     border: 1px solid #e2e8f0;
-    border-left: 4px solid #0062a8;
+    border-left: 4px solid #1677ff;
     display: flex;
     align-items: center;
     gap: 8px;
