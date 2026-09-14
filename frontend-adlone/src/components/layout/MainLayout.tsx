@@ -140,7 +140,6 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                 >
                     <Sidebar
                         forceNotCollapsed={isCompact}
-                        hideLogo={isCompact}
                         onNavigate={close}
                     />
                 </div>

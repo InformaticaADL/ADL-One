@@ -193,13 +193,13 @@ export function TopBar({ onHelpClick }: TopBarProps) {
     return (
         <div
             style={{
-                height: 60, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '0 20px', backgroundColor: 'var(--app-bg-elevated)',
+                height: 72, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '0 24px', backgroundColor: 'var(--app-bg-elevated)',
                 borderBottom: '1px solid var(--app-border)', position: 'relative', zIndex: 210, gap: 20,
             }}
         >
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', flexShrink: 0 }} onClick={() => resetNavigation()}>
-                <img src={logoAdl} alt="ADL" style={{ height: 32, width: 'auto', objectFit: 'contain' }} />
+                <img src={logoAdl} alt="ADL" style={{ height: 40, width: 'auto', objectFit: 'contain' }} />
             </div>
 
             <Input

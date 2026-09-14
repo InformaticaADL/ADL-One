@@ -8,8 +8,6 @@ import {
     IconFileInvoice,
     IconClipboardList,
 } from '@tabler/icons-react';
-import logoAdl from '../../assets/images/logo-adlone.png';
-import logoSmall from '../../assets/images/logo-adlone-pequeño.png';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavStore } from '../../store/navStore';
 import API_CONFIG from '../../config/api.config';
@@ -40,7 +38,7 @@ function itemLabel(label: string, badgeCount?: number) {
     );
 }
 
-export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotCollapsed?: boolean, onNavigate?: () => void, hideLogo?: boolean }) {
+export function Sidebar({ forceNotCollapsed, onNavigate }: { forceNotCollapsed?: boolean, onNavigate?: () => void }) {
     const { hasPermission, token } = useAuth();
     const {
         activeModule,
@@ -50,7 +48,6 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotC
         setSidebarCollapsed,
         setActiveModule,
         setActiveSubmodule,
-        resetNavigation,
         dynamicModules,
         setDynamicModules,
         ursUnreadCount,
@@ -241,23 +238,12 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotC
 
     return (
         <nav className={`${classes.navbar} ${isCollapsed ? classes.navbarCollapsed : ''}`}>
-            {!hideLogo && (
+            {/* En desktop el logo ya lo muestra TopBar arriba — este bloque solo
+                conserva el botón de colapsar/expandir. En mobile (forceNotCollapsed)
+                no hay concepto de colapsar, así que no se renderiza nada aquí. */}
+            {!forceNotCollapsed && (
                 <div className={classes.header}>
-                    <div style={{ width: '100%', display: 'flex', alignItems: 'center', position: 'relative' }}>
-                        <div style={{ flex: 1, display: 'flex', justifyContent: 'center', paddingLeft: isCollapsed ? 0 : 28 }}>
-                            <img
-                                src={isCollapsed ? logoSmall : logoAdl}
-                                alt="ADL Logo"
-                                style={{
-                                    height: isCollapsed ? 32 : 50,
-                                    maxWidth: isCollapsed ? 32 : 180,
-                                    objectFit: 'contain',
-                                    cursor: 'pointer',
-                                    transition: 'all 200ms ease',
-                                }}
-                                onClick={() => resetNavigation()}
-                            />
-                        </div>
+                    <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: isCollapsed ? 'center' : 'flex-end' }}>
                         <Tooltip title={isCollapsed ? 'Expandir menú' : 'Contraer menú'}>
                             <button
                                 onClick={toggleSidebar}
@@ -265,7 +251,6 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotC
                                     border: 'none', background: 'transparent', cursor: 'pointer',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     color: 'var(--app-text-secondary)', padding: 6, borderRadius: 6,
-                                    ...(isCollapsed ? { position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)' } : {}),
                                 }}
                             >
                                 {isCollapsed
