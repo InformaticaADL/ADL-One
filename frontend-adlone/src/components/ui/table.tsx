@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { ArrowDown, ArrowUp, ChevronsUpDown } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 
@@ -48,7 +49,7 @@ const TableHead = React.forwardRef<HTMLTableCellElement, React.ThHTMLAttributes<
     <th
       ref={ref}
       className={cn(
-        'h-10 px-3 text-left align-middle text-xs font-medium uppercase tracking-wide text-muted-foreground [&:has([role=checkbox])]:pr-0',
+        'h-11 px-3 text-left align-middle text-xs font-medium uppercase tracking-wide text-muted-foreground [&:has([role=checkbox])]:pr-0',
         className
       )}
       {...props}
@@ -57,9 +58,45 @@ const TableHead = React.forwardRef<HTMLTableCellElement, React.ThHTMLAttributes<
 );
 TableHead.displayName = 'TableHead';
 
+interface SortableTableHeadProps extends React.ThHTMLAttributes<HTMLTableCellElement> {
+  active: boolean;
+  direction: 'asc' | 'desc';
+  onSort: () => void;
+}
+
+// Encabezado clickeable: asc → desc → sin orden. Toda tabla del sistema
+// usa esto en sus columnas de datos (no en "Acciones").
+const SortableTableHead = React.forwardRef<HTMLTableCellElement, SortableTableHeadProps>(
+  ({ className, children, active, direction, onSort, ...props }, ref) => (
+    <TableHead
+      ref={ref}
+      className={className}
+      aria-sort={active ? (direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+      {...props}
+    >
+      <button
+        type="button"
+        onClick={onSort}
+        className={cn(
+          '-ml-2 inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-xs font-medium uppercase tracking-wide transition-colors hover:bg-muted hover:text-foreground',
+          active && 'text-foreground'
+        )}
+      >
+        {children}
+        {active ? (
+          direction === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />
+        ) : (
+          <ChevronsUpDown className="h-3.5 w-3.5 opacity-40" />
+        )}
+      </button>
+    </TableHead>
+  )
+);
+SortableTableHead.displayName = 'SortableTableHead';
+
 const TableCell = React.forwardRef<HTMLTableCellElement, React.TdHTMLAttributes<HTMLTableCellElement>>(
   ({ className, ...props }, ref) => (
-    <td ref={ref} className={cn('p-3 align-middle [&:has([role=checkbox])]:pr-0', className)} {...props} />
+    <td ref={ref} className={cn('px-3 py-3 align-middle [&:has([role=checkbox])]:pr-0', className)} {...props} />
   )
 );
 TableCell.displayName = 'TableCell';
@@ -71,4 +108,14 @@ const TableCaption = React.forwardRef<HTMLTableCaptionElement, React.HTMLAttribu
 );
 TableCaption.displayName = 'TableCaption';
 
-export { Table, TableHeader, TableBody, TableFooter, TableHead, TableRow, TableCell, TableCaption };
+export {
+  Table,
+  TableHeader,
+  TableBody,
+  TableFooter,
+  TableHead,
+  SortableTableHead,
+  TableRow,
+  TableCell,
+  TableCaption,
+};

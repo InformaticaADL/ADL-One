@@ -333,7 +333,13 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24, width: '100%' }}>
-            {step === 1 && <PageHeader title="Carga Masiva de Fichas (PDF / Excel)" onBack={onBack} />}
+            {step === 1 && (
+                <PageHeader
+                    title="Carga Masiva de Fichas (PDF / Excel)"
+                    onBack={onBack}
+                    breadcrumbItems={[{ label: 'Fichas de Ingreso', onClick: onBack }, { label: 'Carga masiva' }]}
+                />
+            )}
 
             <Card style={{ borderRadius: 16 }} styles={{ body: { padding: isMobile ? 16 : 32 } }}>
                 {error && (

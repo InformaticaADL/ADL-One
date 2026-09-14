@@ -222,6 +222,10 @@ export const MuestreadorForm: React.FC<Props> = ({
                 title={initialData ? 'Editar Muestreador' : 'Nuevo Muestreador'}
                 subtitle={!isMobile ? (initialData ? `Actualizando información de ${initialData.nombre_muestreador}` : 'Registra un nuevo técnico para toma de muestras') : undefined}
                 onBack={onCancel}
+                breadcrumbItems={[
+                    { label: 'Muestreadores', onClick: onCancel },
+                    { label: initialData ? 'Editar muestreador' : 'Nuevo muestreador' }
+                ]}
             />
 
             <form onSubmit={handleSubmit}>

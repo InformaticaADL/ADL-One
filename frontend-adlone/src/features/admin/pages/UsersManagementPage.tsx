@@ -3,16 +3,13 @@ import {
     IconSearch,
     IconPlus,
     IconPencil,
-    IconKey,
-    IconBan,
-    IconCheck,
+    IconUserOff,
+    IconUserCheck,
     IconEye,
     IconEyeOff,
-    IconShieldCheck,
     IconColumns3,
     IconDownload,
-    IconChevronLeft,
-    IconChevronRight,
+    IconX,
 } from '@tabler/icons-react';
 
 import { Button } from '@/components/ui/button';
@@ -23,11 +20,14 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Table, TableHeader, TableBody, TableRow, TableHead, SortableTableHead, TableCell } from '@/components/ui/table';
+import { DataPagination } from '@/components/ui/pagination';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
+import { useTableSort } from '../../../hooks/useTableSort';
 import { rbacService, type User, type CreateUserData, type UpdateUserData, type Role } from '../services/rbac.service';
 import { catalogosService } from '../../medio-ambiente/services/catalogos.service';
 import { useToast } from '../../../contexts/ToastContext';
@@ -37,44 +37,58 @@ interface Props {
     onBack?: () => void;
 }
 
-// Piloto shadcn/ui — misma lógica de negocio que la versión AntD anterior,
-// reconstruida como componentes propios (Radix + Tailwind, sin librería de
-// componentes) y con la estructura de página del "Users" de referencia:
-// tabs de estado (Todos/Activos/Inactivos) en vez de un Select, búsqueda +
-// filtro de rol en una sola fila, celda de identidad (avatar+nombre+email)
-// combinada en una sola columna, badges neutros para rol, badge de color
-// solo para estado real.
+type SortKey = 'nombre' | 'cargo' | 'roles' | 'estado' | 'ultimo_acceso';
+
+const SORT_ACCESSORS: Record<SortKey, (u: User) => string | number | null | undefined> = {
+    nombre: (u) => u.nombre_real || u.nombre_usuario,
+    cargo: (u) => u.nombre_cargo,
+    roles: (u) => (u.roles && u.roles.length > 0 ? u.roles.join(', ') : null),
+    estado: (u) => (u.habilitado === 'S' ? 0 : 1),
+    ultimo_acceso: (u) => u.ultimo_acceso,
+};
+
+const PAGE_SIZE = 10;
+
+const EMPTY_FORM: CreateUserData = {
+    nombre_usuario: '',
+    nombre_real: '',
+    correo_electronico: '',
+    id_cargo: undefined,
+    clave_usuario: '',
+};
+
+const initials = (name: string) => (name || '?').trim().charAt(0).toUpperCase();
+
+// Piloto shadcn/ui. Lista con orden por columna y paginación; crear/editar
+// es una vista de página completa (no modal) con el cambio de contraseña
+// integrado en la edición. Navegación solo por breadcrumb.
 export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
     const isMobile = useMediaQuery('(max-width: 768px)');
     const { showToast } = useToast();
+
     const [users, setUsers] = useState<User[]>([]);
     const [roles, setRoles] = useState<Role[]>([]);
     const [cargos, setCargos] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
-    const [savingUser, setSavingUser] = useState(false);
+
+    // Lista
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('active');
     const [filterRole, setFilterRole] = useState<string>('all');
+    const [page, setPage] = useState(1);
+    const [confirmUser, setConfirmUser] = useState<User | null>(null);
 
-    const [showCreateModal, setShowCreateModal] = useState(false);
-    const [showEditModal, setShowEditModal] = useState(false);
-    const [showPasswordModal, setShowPasswordModal] = useState(false);
-    const [showConfirmModal, setShowConfirmModal] = useState(false);
-    const [selectedUser, setSelectedUser] = useState<User | null>(null);
-
-    const [formData, setFormData] = useState<CreateUserData>({
-        nombre_usuario: '',
-        nombre_real: '',
-        correo_electronico: '',
-        id_cargo: undefined,
-        clave_usuario: ''
-    });
+    // Formulario (vista de página)
+    const [view, setView] = useState<'list' | 'form'>('list');
+    const [editingUser, setEditingUser] = useState<User | null>(null);
+    const [formData, setFormData] = useState<CreateUserData>(EMPTY_FORM);
     const [selectedRoles, setSelectedRoles] = useState<number[]>([]);
     const [roleSearchTerm, setRoleSearchTerm] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [showPw, setShowPw] = useState(false);
-    const [showPw2, setShowPw2] = useState(false);
+    const [saving, setSaving] = useState(false);
+
+    const isEdit = editingUser !== null;
 
     useEffect(() => {
         loadUsers();
@@ -84,8 +98,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
 
     const loadCargos = async () => {
         try {
-            const data = await catalogosService.getCargos();
-            setCargos(data);
+            setCargos(await catalogosService.getCargos());
         } catch (error) {
             console.error('Error loading cargos:', error);
         }
@@ -94,8 +107,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
     const loadUsers = async () => {
         try {
             setLoading(true);
-            const data = await rbacService.getAllUsersWithStatus();
-            setUsers(data);
+            setUsers(await rbacService.getAllUsersWithStatus());
         } catch (error) {
             showToast({ type: 'error', message: 'Error al cargar usuarios' });
         } finally {
@@ -105,147 +117,17 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
 
     const loadRoles = async () => {
         try {
-            const data = await rbacService.getRoles();
-            setRoles(data);
+            setRoles(await rbacService.getRoles());
         } catch (error) {
             console.error('Error loading roles:', error);
         }
     };
 
-    const handleCreateUser = async () => {
-        if (!formData.nombre_usuario || !formData.nombre_real || !formData.clave_usuario) {
-            return showToast({ type: 'error', message: 'Complete los campos requeridos' });
-        }
-        try {
-            setSavingUser(true);
-            const newUser = await rbacService.createUser(formData);
-            if (selectedRoles.length > 0) {
-                await rbacService.assignRolesToUser(newUser.id_usuario, selectedRoles);
-            }
-            showToast({ type: 'success', message: 'Usuario creado exitosamente' });
-            setShowCreateModal(false);
-            resetForm();
-            loadUsers();
-        } catch (error: any) {
-            showToast({ type: 'error', message: error.response?.data?.message || 'Error al crear usuario' });
-        } finally {
-            setSavingUser(false);
-        }
-    };
-
-    const handleUpdateUser = async () => {
-        if (!selectedUser) return;
-        const updateData: UpdateUserData = {
-            nombre_usuario: formData.nombre_usuario,
-            nombre_real: formData.nombre_real,
-            correo_electronico: formData.correo_electronico,
-            id_cargo: formData.id_cargo
-        };
-        try {
-            setSavingUser(true);
-            await rbacService.updateUser(selectedUser.id_usuario, updateData);
-            await rbacService.assignRolesToUser(selectedUser.id_usuario, selectedRoles);
-            showToast({ type: 'success', message: 'Usuario actualizado exitosamente' });
-            setShowEditModal(false);
-            resetForm();
-            loadUsers();
-        } catch (error: any) {
-            showToast({ type: 'error', message: error.response?.data?.message || 'Error al actualizar usuario' });
-        } finally {
-            setSavingUser(false);
-        }
-    };
-
-    const handleUpdatePassword = async () => {
-        if (!selectedUser) return;
-        if (!newPassword || newPassword !== confirmPassword) {
-            return showToast({ type: 'error', message: 'Las contraseñas no coinciden' });
-        }
-        try {
-            setSavingUser(true);
-            await rbacService.updateUserPassword(selectedUser.id_usuario, newPassword);
-            showToast({ type: 'success', message: 'Contraseña actualizada exitosamente' });
-            setShowPasswordModal(false);
-            setNewPassword('');
-            setConfirmPassword('');
-            setSelectedUser(null);
-        } catch (error) {
-            showToast({ type: 'error', message: 'Error al actualizar contraseña' });
-        } finally {
-            setSavingUser(false);
-        }
-    };
-
-    const handleToggleStatus = async () => {
-        if (!selectedUser) return;
-        const newStatus = selectedUser.habilitado !== 'S';
-        try {
-            setLoading(true);
-            await rbacService.toggleUserStatus(selectedUser.id_usuario, newStatus);
-            showToast({ type: 'success', message: `Usuario ${newStatus ? 'habilitado' : 'deshabilitado'} exitosamente` });
-            setShowConfirmModal(false);
-            setSelectedUser(null);
-            loadUsers();
-        } catch (error: any) {
-            showToast({ type: 'error', message: error.response?.data?.message || 'Error al cambiar estado del usuario' });
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const openCreateModal = () => {
-        resetForm();
-        setSelectedRoles([]);
-        setShowCreateModal(true);
-    };
-
-    const openEditModal = async (user: User) => {
-        setSelectedUser(user);
-        setFormData({
-            nombre_usuario: user.nombre_usuario,
-            nombre_real: user.nombre_real,
-            correo_electronico: user.correo_electronico || '',
-            id_cargo: user.id_cargo,
-            clave_usuario: ''
-        });
-        try {
-            const userRoles = await rbacService.getUserRoles(user.id_usuario);
-            setSelectedRoles(userRoles.map(r => r.id_rol));
-        } catch (error) {
-            console.error('Error loading user roles:', error);
-            setSelectedRoles([]);
-        }
-        setShowEditModal(true);
-    };
-
-    const openPasswordModal = (user: User) => {
-        setSelectedUser(user);
-        setNewPassword('');
-        setConfirmPassword('');
-        setShowPw(false);
-        setShowPw2(false);
-        setShowPasswordModal(true);
-    };
-
-    const openConfirmModal = (user: User) => {
-        setSelectedUser(user);
-        setShowConfirmModal(true);
-    };
-
-    const resetForm = () => {
-        setFormData({ nombre_usuario: '', nombre_real: '', correo_electronico: '', id_cargo: undefined, clave_usuario: '' });
-        setSelectedRoles([]);
-        setRoleSearchTerm('');
-        setSelectedUser(null);
-    };
-
-    const toggleRole = (roleId: number) => {
-        setSelectedRoles(prev => (prev.includes(roleId) ? prev.filter(id => id !== roleId) : [...prev, roleId]));
-    };
+    // ---- Lista ----------------------------------------------------------
 
     const filteredUsers = useMemo(() => {
         const term = searchTerm.toLowerCase();
-        return users.filter(user => {
+        return users.filter((user) => {
             const matchesSearch =
                 (user.nombre_usuario ?? '').toLowerCase().includes(term) ||
                 (user.nombre_real ?? '').toLowerCase().includes(term) ||
@@ -259,28 +141,21 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
         });
     }, [users, searchTerm, filterStatus, filterRole]);
 
-    const memoizedRoles = useMemo(() => {
-        const term = roleSearchTerm.toLowerCase();
-        return roles
-            .filter(r => r.estado && r.nombre_rol)
-            .filter(r => (r.nombre_rol ?? '').toLowerCase().includes(term) || (r.descripcion && r.descripcion.toLowerCase().includes(term)));
-    }, [roles, roleSearchTerm]);
+    const { sorted, sort, toggleSort } = useTableSort(filteredUsers, SORT_ACCESSORS);
 
-    // Paginación client-side de la lista ya filtrada — vuelve a la página 1
-    // cada vez que cambia el filtro/búsqueda para no quedar en una página
-    // vacía.
-    const PAGE_SIZE = 10;
-    const [page, setPage] = useState(1);
-    useEffect(() => { setPage(1); }, [searchTerm, filterStatus, filterRole]);
-    const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
-    const paginatedUsers = useMemo(
-        () => filteredUsers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
-        [filteredUsers, page]
-    );
+    const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+    const currentPage = Math.min(page, totalPages);
+    const paginatedUsers = sorted.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+    const sortProps = (key: SortKey) => ({
+        active: sort.key === key,
+        direction: sort.direction,
+        onSort: () => { toggleSort(key); setPage(1); },
+    });
 
     const exportCsv = () => {
         const header = ['Usuario', 'Nombre', 'Email', 'Cargo', 'Roles', 'Estado', 'Ultimo acceso'];
-        const rows = filteredUsers.map(u => [
+        const rows = sorted.map((u) => [
             u.nombre_usuario,
             u.nombre_real,
             u.correo_electronico || '',
@@ -289,7 +164,9 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
             u.habilitado === 'S' ? 'Activo' : 'Inactivo',
             u.ultimo_acceso || 'Nunca',
         ]);
-        const csv = [header, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+        const csv = [header, ...rows]
+            .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
+            .join('\n');
         const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -301,26 +178,350 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
         URL.revokeObjectURL(url);
     };
 
-    const initials = (name: string) => (name || '?').trim().charAt(0).toUpperCase();
+    const handleToggleStatus = async () => {
+        if (!confirmUser) return;
+        const newStatus = confirmUser.habilitado !== 'S';
+        try {
+            setLoading(true);
+            await rbacService.toggleUserStatus(confirmUser.id_usuario, newStatus);
+            showToast({ type: 'success', message: `Usuario ${newStatus ? 'habilitado' : 'deshabilitado'} exitosamente` });
+            setConfirmUser(null);
+            loadUsers();
+        } catch (error: any) {
+            showToast({ type: 'error', message: error.response?.data?.message || 'Error al cambiar estado del usuario' });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // ---- Formulario -----------------------------------------------------
+
+    const resetForm = () => {
+        setFormData(EMPTY_FORM);
+        setSelectedRoles([]);
+        setRoleSearchTerm('');
+        setNewPassword('');
+        setConfirmPassword('');
+        setEditingUser(null);
+    };
+
+    const openCreate = () => {
+        resetForm();
+        setView('form');
+    };
+
+    const openEdit = async (user: User) => {
+        resetForm();
+        setEditingUser(user);
+        setFormData({
+            nombre_usuario: user.nombre_usuario,
+            nombre_real: user.nombre_real,
+            correo_electronico: user.correo_electronico || '',
+            id_cargo: user.id_cargo,
+            clave_usuario: '',
+        });
+        try {
+            const userRoles = await rbacService.getUserRoles(user.id_usuario);
+            setSelectedRoles(userRoles.map((r) => r.id_rol));
+        } catch (error) {
+            console.error('Error loading user roles:', error);
+        }
+        setView('form');
+    };
+
+    const closeForm = () => {
+        resetForm();
+        setView('list');
+    };
+
+    const toggleRole = (roleId: number) =>
+        setSelectedRoles((prev) => (prev.includes(roleId) ? prev.filter((id) => id !== roleId) : [...prev, roleId]));
+
+    const visibleRoles = useMemo(() => {
+        const term = roleSearchTerm.toLowerCase();
+        return roles
+            .filter((r) => r.estado && r.nombre_rol)
+            .filter((r) => (r.nombre_rol ?? '').toLowerCase().includes(term) || (r.descripcion ?? '').toLowerCase().includes(term));
+    }, [roles, roleSearchTerm]);
+
+    const handleSubmit = async () => {
+        if (!formData.nombre_real || !formData.nombre_usuario) {
+            return showToast({ type: 'error', message: 'Completa el nombre real y el nombre de usuario' });
+        }
+        if (!isEdit && !newPassword) {
+            return showToast({ type: 'error', message: 'Ingresa una contraseña inicial' });
+        }
+        if ((newPassword || confirmPassword) && newPassword !== confirmPassword) {
+            return showToast({ type: 'error', message: 'Las contraseñas no coinciden' });
+        }
+
+        try {
+            setSaving(true);
+            if (isEdit && editingUser) {
+                const updateData: UpdateUserData = {
+                    nombre_usuario: formData.nombre_usuario,
+                    nombre_real: formData.nombre_real,
+                    correo_electronico: formData.correo_electronico,
+                    id_cargo: formData.id_cargo,
+                };
+                await rbacService.updateUser(editingUser.id_usuario, updateData);
+                await rbacService.assignRolesToUser(editingUser.id_usuario, selectedRoles);
+                if (newPassword) {
+                    await rbacService.updateUserPassword(editingUser.id_usuario, newPassword);
+                }
+                showToast({ type: 'success', message: 'Usuario actualizado exitosamente' });
+            } else {
+                const newUser = await rbacService.createUser({ ...formData, clave_usuario: newPassword });
+                if (selectedRoles.length > 0) {
+                    await rbacService.assignRolesToUser(newUser.id_usuario, selectedRoles);
+                }
+                showToast({ type: 'success', message: 'Usuario creado exitosamente' });
+            }
+            closeForm();
+            loadUsers();
+        } catch (error: any) {
+            showToast({
+                type: 'error',
+                message: error.response?.data?.message || (isEdit ? 'Error al actualizar usuario' : 'Error al crear usuario'),
+            });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    // ---- Render: formulario ---------------------------------------------
+
+    if (view === 'form') {
+        const formTitle = isEdit ? 'Editar usuario' : 'Nuevo usuario';
+        return (
+            <div className="shadcn-scope w-full p-4 md:p-6">
+                <PageHeader
+                    title={formTitle}
+                    subtitle={isEdit ? 'Actualiza los datos, la contraseña y los roles del usuario.' : 'Crea una cuenta de acceso y asígnale roles.'}
+                    breadcrumbItems={[
+                        { label: 'Administración', onClick: onBack },
+                        { label: 'Usuarios', onClick: closeForm },
+                        { label: formTitle },
+                    ]}
+                />
+
+                {isEdit && editingUser && (
+                    <div className="mb-6 flex items-center gap-3 rounded-xl border border-border bg-card p-4">
+                        <Avatar className="h-11 w-11">
+                            <AvatarFallback className="text-sm">{initials(editingUser.nombre_real)}</AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold text-foreground">{editingUser.nombre_real}</p>
+                            <p className="truncate text-xs text-muted-foreground">
+                                @{editingUser.nombre_usuario} · Último acceso: {editingUser.ultimo_acceso ?? 'Nunca'}
+                            </p>
+                        </div>
+                        <Badge variant={editingUser.habilitado === 'S' ? 'success' : 'destructive'}>
+                            {editingUser.habilitado === 'S' ? 'Activo' : 'Inactivo'}
+                        </Badge>
+                    </div>
+                )}
+
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
+                    <div className="flex flex-col gap-6">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Información personal</CardTitle>
+                                <CardDescription>Datos de identificación y cargo del usuario.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                    <Field id="nombre_real" label="Nombre real" required>
+                                        <Input
+                                            id="nombre_real"
+                                            placeholder="ej: Juan Pérez"
+                                            value={formData.nombre_real}
+                                            onChange={(e) => setFormData({ ...formData, nombre_real: e.target.value })}
+                                        />
+                                    </Field>
+                                    <Field id="nombre_usuario" label="Nombre de usuario (login)" required>
+                                        <Input
+                                            id="nombre_usuario"
+                                            placeholder="ej: jperez"
+                                            value={formData.nombre_usuario}
+                                            onChange={(e) => setFormData({ ...formData, nombre_usuario: e.target.value })}
+                                        />
+                                    </Field>
+                                    <Field id="correo" label="Correo electrónico">
+                                        <Input
+                                            id="correo"
+                                            type="email"
+                                            placeholder="usuario@adldiagnostic.cl"
+                                            value={formData.correo_electronico}
+                                            onChange={(e) => setFormData({ ...formData, correo_electronico: e.target.value })}
+                                        />
+                                    </Field>
+                                    <Field id="cargo" label="Cargo">
+                                        <Select
+                                            value={formData.id_cargo ? String(formData.id_cargo) : undefined}
+                                            onValueChange={(v) => setFormData({ ...formData, id_cargo: v ? Number(v) : undefined })}
+                                        >
+                                            <SelectTrigger id="cargo">
+                                                <SelectValue placeholder="Selecciona el cargo" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {cargos.map((c) => (
+                                                    <SelectItem key={c.id_cargo} value={String(c.id_cargo)}>{c.nombre_cargo}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </Field>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>{isEdit ? 'Cambiar contraseña' : 'Contraseña'}</CardTitle>
+                                <CardDescription>
+                                    {isEdit
+                                        ? 'Opcional. Déjalo en blanco para mantener la contraseña actual.'
+                                        : 'Contraseña inicial con la que el usuario ingresará al sistema.'}
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                    <Field id="password" label={isEdit ? 'Nueva contraseña' : 'Contraseña'} required={!isEdit}>
+                                        <PasswordInput id="password" value={newPassword} onChange={setNewPassword} placeholder="••••••••" />
+                                    </Field>
+                                    <Field id="password_confirm" label="Confirmar contraseña" required={!isEdit}>
+                                        <PasswordInput id="password_confirm" value={confirmPassword} onChange={setConfirmPassword} placeholder="••••••••" />
+                                    </Field>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    <Card className="h-fit lg:sticky lg:top-4">
+                        <CardHeader>
+                            <div className="flex items-start justify-between gap-2">
+                                <div className="flex flex-col gap-1.5">
+                                    <CardTitle>Roles y permisos</CardTitle>
+                                    <CardDescription>{selectedRoles.length} de {roles.filter((r) => r.estado).length} roles asignados</CardDescription>
+                                </div>
+                                {selectedRoles.length > 0 && (
+                                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setSelectedRoles([])}>
+                                        Quitar todos
+                                    </Button>
+                                )}
+                            </div>
+                        </CardHeader>
+                        <CardContent className="flex flex-col gap-3">
+                            <div className="relative">
+                                <IconSearch size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                <Input
+                                    placeholder="Buscar rol..."
+                                    value={roleSearchTerm}
+                                    onChange={(e) => setRoleSearchTerm(e.target.value)}
+                                    className="pl-8"
+                                />
+                            </div>
+                            <div className="max-h-[440px] overflow-y-auto rounded-lg border border-border">
+                                {visibleRoles.length === 0 ? (
+                                    <p className="p-6 text-center text-sm text-muted-foreground">Sin roles que coincidan</p>
+                                ) : (
+                                    visibleRoles.map((role) => {
+                                        const checked = selectedRoles.includes(role.id_rol);
+                                        return (
+                                            <label
+                                                key={role.id_rol}
+                                                htmlFor={`role-${role.id_rol}`}
+                                                className={cn(
+                                                    'flex cursor-pointer items-start gap-3 border-b border-border px-3 py-2.5 transition-colors last:border-b-0',
+                                                    checked ? 'bg-primary/5' : 'hover:bg-muted/60'
+                                                )}
+                                            >
+                                                <Checkbox
+                                                    id={`role-${role.id_rol}`}
+                                                    checked={checked}
+                                                    onCheckedChange={() => toggleRole(role.id_rol)}
+                                                    className="mt-0.5"
+                                                />
+                                                <span className="min-w-0">
+                                                    <span className="block text-sm font-medium text-foreground">{role.nombre_rol}</span>
+                                                    {role.descripcion && (
+                                                        <span className="block text-xs text-muted-foreground">{role.descripcion}</span>
+                                                    )}
+                                                </span>
+                                            </label>
+                                        );
+                                    })
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                <div className="sticky bottom-0 z-10 -mx-4 mt-6 flex justify-end gap-2 border-t border-border bg-background/95 px-4 py-3 backdrop-blur md:-mx-6 md:px-6">
+                    <Button variant="outline" onClick={closeForm} disabled={saving}>Cancelar</Button>
+                    <Button onClick={handleSubmit} disabled={saving}>
+                        {saving ? 'Guardando...' : isEdit ? 'Guardar cambios' : 'Crear usuario'}
+                    </Button>
+                </div>
+            </div>
+        );
+    }
+
+    // ---- Render: lista --------------------------------------------------
+
+    const statusBadge = (user: User) => (
+        <Badge variant={user.habilitado === 'S' ? 'success' : 'destructive'}>
+            {user.habilitado === 'S' ? 'Activo' : 'Inactivo'}
+        </Badge>
+    );
+
+    const rowActions = (user: User) => (
+        <div className="flex justify-end gap-1">
+            <Button variant="ghost" size="icon" className="h-8 w-8" title="Editar" aria-label="Editar" onClick={() => openEdit(user)}>
+                <IconPencil size={16} />
+            </Button>
+            {user.habilitado === 'S' ? (
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    title="Deshabilitar"
+                    aria-label="Deshabilitar"
+                    onClick={() => setConfirmUser(user)}
+                >
+                    <IconUserOff size={16} />
+                </Button>
+            ) : (
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-success hover:bg-success/10 hover:text-success"
+                    title="Habilitar"
+                    aria-label="Habilitar"
+                    onClick={() => setConfirmUser(user)}
+                >
+                    <IconUserCheck size={16} />
+                </Button>
+            )}
+        </div>
+    );
 
     return (
         <div className="shadcn-scope w-full p-4 md:p-6">
             <PageHeader
                 title="Usuarios"
                 subtitle="Administra accesos y roles del personal."
-                onBack={onBack}
                 breadcrumbItems={[{ label: 'Administración', onClick: onBack }, { label: 'Usuarios' }]}
                 rightSection={
-                    <Button onClick={openCreateModal} className={cn(isMobile && 'w-full')}>
-                        <IconPlus size={16} /> Nuevo Usuario
+                    <Button onClick={openCreate} className={cn(isMobile && 'w-full')}>
+                        <IconPlus size={16} /> Nuevo usuario
                     </Button>
                 }
             />
 
             <div className="mt-6 flex flex-col gap-4">
-                {/* Fila 1: tabs de estado + contador de resultados */}
                 <div className="flex flex-wrap items-center gap-3">
-                    <Tabs value={filterStatus} onValueChange={(v) => setFilterStatus(v as typeof filterStatus)}>
+                    <Tabs value={filterStatus} onValueChange={(v) => { setFilterStatus(v as typeof filterStatus); setPage(1); }}>
                         <TabsList>
                             <TabsTrigger value="all">Todos</TabsTrigger>
                             <TabsTrigger value="active">Activos</TabsTrigger>
@@ -330,7 +531,6 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                     <span className="text-sm text-muted-foreground">{filteredUsers.length} resultados</span>
                 </div>
 
-                {/* Fila 2: búsqueda + filtro de rol a la izquierda, Columnas/Exportar a la derecha */}
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <div className="flex flex-col gap-3 sm:flex-row">
                         <div className="relative">
@@ -338,17 +538,27 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                             <Input
                                 placeholder="Buscar usuarios..."
                                 value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
+                                onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
                                 className="pl-8 sm:w-64"
                             />
+                            {searchTerm && (
+                                <button
+                                    type="button"
+                                    aria-label="Limpiar búsqueda"
+                                    onClick={() => { setSearchTerm(''); setPage(1); }}
+                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                >
+                                    <IconX size={14} />
+                                </button>
+                            )}
                         </div>
-                        <Select value={filterRole} onValueChange={setFilterRole}>
-                            <SelectTrigger className="sm:w-44">
+                        <Select value={filterRole} onValueChange={(v) => { setFilterRole(v); setPage(1); }}>
+                            <SelectTrigger className="sm:w-48">
                                 <SelectValue placeholder="Rol" />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Todos los roles</SelectItem>
-                                {roles.filter(r => r.nombre_rol).map(r => (
+                                {roles.filter((r) => r.nombre_rol).map((r) => (
                                     <SelectItem key={r.id_rol} value={String(r.nombre_rol)}>{r.nombre_rol}</SelectItem>
                                 ))}
                             </SelectContent>
@@ -365,42 +575,33 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                     </div>
                 </div>
 
-                {/* Tabla / lista */}
-                <div className="relative rounded-xl border border-border bg-card">
-                    {loading && !showCreateModal && !showEditModal && !showPasswordModal && !showConfirmModal && (
-                        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-background/60">
+                <div className="relative overflow-hidden rounded-xl border border-border bg-card">
+                    {loading && (
+                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
                             <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                         </div>
                     )}
 
                     {isMobile ? (
-                        <div className="flex flex-col gap-3 p-3">
+                        <div className="flex flex-col divide-y divide-border">
                             {paginatedUsers.length > 0 ? paginatedUsers.map((user) => (
-                                <div key={user.id_usuario} className="rounded-lg border border-border p-3">
-                                    <div className="mb-2 flex items-start justify-between gap-2">
-                                        <div className="flex min-w-0 items-center gap-2.5">
-                                            <Avatar>
-                                                <AvatarFallback>{initials(user.nombre_real)}</AvatarFallback>
-                                            </Avatar>
-                                            <div className="min-w-0">
-                                                <p className="truncate text-sm font-semibold text-foreground">{user.nombre_real}</p>
-                                                <p className="truncate text-xs text-muted-foreground">{user.correo_electronico || `@${user.nombre_usuario}`}</p>
-                                            </div>
+                                <div key={user.id_usuario} className="flex items-start gap-3 p-3">
+                                    <Avatar>
+                                        <AvatarFallback>{initials(user.nombre_real)}</AvatarFallback>
+                                    </Avatar>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <p className="truncate text-sm font-semibold text-foreground">{user.nombre_real}</p>
+                                            {statusBadge(user)}
                                         </div>
-                                        <Badge variant={user.habilitado === 'S' ? 'success' : 'destructive'}>
-                                            {user.habilitado === 'S' ? 'Activo' : 'Inactivo'}
-                                        </Badge>
-                                    </div>
-                                    <div className="mb-3 flex flex-wrap gap-1.5">
-                                        <span className="text-xs text-muted-foreground">{user.nombre_cargo || 'Sin cargo'}</span>
-                                        {user.roles?.map((rol, i) => <Badge key={i} variant="outline">{rol}</Badge>)}
-                                    </div>
-                                    <div className="flex justify-end gap-1 border-t border-border pt-2">
-                                        <Button variant="ghost" size="icon" title="Editar" onClick={() => openEditModal(user)}><IconPencil size={16} /></Button>
-                                        <Button variant="ghost" size="icon" title="Cambiar contraseña" onClick={() => openPasswordModal(user)}><IconKey size={16} /></Button>
-                                        <Button variant="ghost" size="icon" title={user.habilitado === 'S' ? 'Deshabilitar' : 'Habilitar'} onClick={() => openConfirmModal(user)}>
-                                            {user.habilitado === 'S' ? <IconBan size={16} /> : <IconCheck size={16} />}
-                                        </Button>
+                                        <p className="truncate text-xs text-muted-foreground">{user.correo_electronico || `@${user.nombre_usuario}`}</p>
+                                        <p className="mt-1 truncate text-xs text-muted-foreground">{user.nombre_cargo || 'Sin cargo'}</p>
+                                        <div className="mt-2 flex items-center justify-between gap-2">
+                                            <div className="flex min-w-0 flex-wrap gap-1">
+                                                {user.roles?.map((rol, i) => <Badge key={i} variant="outline">{rol}</Badge>)}
+                                            </div>
+                                            {rowActions(user)}
+                                        </div>
                                     </div>
                                 </div>
                             )) : (
@@ -410,13 +611,13 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                     ) : (
                         <Table>
                             <TableHeader>
-                                <TableRow>
-                                    <TableHead>Usuario</TableHead>
-                                    <TableHead>Cargo</TableHead>
-                                    <TableHead>Roles</TableHead>
-                                    <TableHead>Estado</TableHead>
-                                    <TableHead>Último acceso</TableHead>
-                                    <TableHead className="text-right">Acciones</TableHead>
+                                <TableRow className="hover:bg-transparent">
+                                    <SortableTableHead {...sortProps('nombre')}>Usuario</SortableTableHead>
+                                    <SortableTableHead {...sortProps('cargo')}>Cargo</SortableTableHead>
+                                    <SortableTableHead {...sortProps('roles')}>Roles</SortableTableHead>
+                                    <SortableTableHead {...sortProps('estado')}>Estado</SortableTableHead>
+                                    <SortableTableHead {...sortProps('ultimo_acceso')}>Último acceso</SortableTableHead>
+                                    <TableHead className="w-24 text-right">Acciones</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -439,24 +640,12 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                                                 {user.roles?.map((rol, i) => <Badge key={i} variant="outline">{rol}</Badge>)}
                                             </div>
                                         </TableCell>
-                                        <TableCell>
-                                            <Badge variant={user.habilitado === 'S' ? 'success' : 'destructive'}>
-                                                {user.habilitado === 'S' ? 'Activo' : 'Inactivo'}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-sm text-muted-foreground">{user.ultimo_acceso ?? 'Nunca'}</TableCell>
-                                        <TableCell>
-                                            <div className="flex justify-end gap-1">
-                                                <Button variant="ghost" size="icon" title="Editar" onClick={() => openEditModal(user)}><IconPencil size={16} /></Button>
-                                                <Button variant="ghost" size="icon" title="Cambiar contraseña" onClick={() => openPasswordModal(user)}><IconKey size={16} /></Button>
-                                                <Button variant="ghost" size="icon" title={user.habilitado === 'S' ? 'Deshabilitar' : 'Habilitar'} onClick={() => openConfirmModal(user)}>
-                                                    {user.habilitado === 'S' ? <IconBan size={16} /> : <IconCheck size={16} />}
-                                                </Button>
-                                            </div>
-                                        </TableCell>
+                                        <TableCell>{statusBadge(user)}</TableCell>
+                                        <TableCell className="whitespace-nowrap text-sm text-muted-foreground">{user.ultimo_acceso ?? 'Nunca'}</TableCell>
+                                        <TableCell>{rowActions(user)}</TableCell>
                                     </TableRow>
                                 )) : (
-                                    <TableRow>
+                                    <TableRow className="hover:bg-transparent">
                                         <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">No se encontraron usuarios</TableCell>
                                     </TableRow>
                                 )}
@@ -465,176 +654,23 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                     )}
                 </div>
 
-                {/* Paginación */}
-                {filteredUsers.length > 0 && (
-                    <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
-                        <span className="text-sm text-muted-foreground">
-                            Mostrando {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filteredUsers.length)} de {filteredUsers.length} resultados
-                        </span>
-                        <div className="flex items-center gap-1">
-                            <Button variant="outline" size="icon" disabled={page === 1} onClick={() => setPage(p => Math.max(1, p - 1))}>
-                                <IconChevronLeft size={16} />
-                            </Button>
-                            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                                <Button
-                                    key={p}
-                                    variant={p === page ? 'default' : 'outline'}
-                                    size="icon"
-                                    onClick={() => setPage(p)}
-                                >
-                                    {p}
-                                </Button>
-                            ))}
-                            <Button variant="outline" size="icon" disabled={page === totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>
-                                <IconChevronRight size={16} />
-                            </Button>
-                        </div>
-                    </div>
-                )}
+                <DataPagination page={currentPage} pageSize={PAGE_SIZE} total={sorted.length} onPageChange={setPage} />
             </div>
 
-            {/* Crear / Editar */}
-            <Dialog open={showCreateModal || showEditModal} onOpenChange={(open) => { if (!open) { setShowCreateModal(false); setShowEditModal(false); resetForm(); } }}>
-                <DialogContent className="max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                        <DialogTitle>{showCreateModal ? 'Crear nuevo usuario' : 'Editar usuario'}</DialogTitle>
-                    </DialogHeader>
-
-                    <div className="flex flex-col gap-4">
-                        <div className="flex flex-col gap-4 sm:flex-row">
-                            <Field label="Nombre de usuario (login)" required className="flex-1">
-                                <Input placeholder="ej: jdoe" value={formData.nombre_usuario} onChange={(e) => setFormData({ ...formData, nombre_usuario: e.target.value })} />
-                            </Field>
-                            <Field label="Nombre real" required className="flex-1">
-                                <Input placeholder="ej: Juan Doe" value={formData.nombre_real} onChange={(e) => setFormData({ ...formData, nombre_real: e.target.value })} />
-                            </Field>
-                        </div>
-
-                        <Field label="Correo electrónico">
-                            <Input type="email" placeholder="usuario@ejemplo.com" value={formData.correo_electronico} onChange={(e) => setFormData({ ...formData, correo_electronico: e.target.value })} />
-                        </Field>
-
-                        {showCreateModal && (
-                            <Field label="Contraseña" required>
-                                <div className="relative">
-                                    <Input
-                                        type={showPw ? 'text' : 'password'}
-                                        placeholder="Contraseña inicial"
-                                        value={formData.clave_usuario}
-                                        onChange={(e) => setFormData({ ...formData, clave_usuario: e.target.value })}
-                                        className="pr-9"
-                                    />
-                                    <button type="button" onClick={() => setShowPw(v => !v)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground">
-                                        {showPw ? <IconEyeOff size={16} /> : <IconEye size={16} />}
-                                    </button>
-                                </div>
-                            </Field>
-                        )}
-
-                        <Field label="Cargo">
-                            <Select value={formData.id_cargo ? String(formData.id_cargo) : undefined} onValueChange={(v) => setFormData({ ...formData, id_cargo: v ? Number(v) : undefined })}>
-                                <SelectTrigger><SelectValue placeholder="Selecciona el cargo" /></SelectTrigger>
-                                <SelectContent>
-                                    {cargos.map((c) => <SelectItem key={c.id_cargo} value={String(c.id_cargo)}>{c.nombre_cargo}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </Field>
-
-                        <div>
-                            <div className="mb-2 flex items-center justify-between">
-                                <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-                                    <IconShieldCheck size={15} className="text-primary" /> Roles asignados
-                                </span>
-                                <span className="text-xs text-muted-foreground">{selectedRoles.length} seleccionados</span>
-                            </div>
-                            <div className="relative mb-2">
-                                <IconSearch size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                                <Input placeholder="Filtrar roles..." value={roleSearchTerm} onChange={(e) => setRoleSearchTerm(e.target.value)} className="h-8 pl-8 text-xs" />
-                            </div>
-                            <div className="max-h-44 overflow-y-auto rounded-lg border border-border bg-muted/40 p-1.5">
-                                <div className="flex flex-col gap-1">
-                                    {memoizedRoles.map((role) => {
-                                        const checked = selectedRoles.includes(role.id_rol);
-                                        return (
-                                            <div
-                                                key={role.id_rol}
-                                                onClick={() => toggleRole(role.id_rol)}
-                                                className={cn(
-                                                    'flex cursor-pointer items-center gap-2.5 rounded-md border p-2 transition-colors',
-                                                    checked ? 'border-primary/40 bg-primary/10' : 'border-transparent hover:bg-muted'
-                                                )}
-                                            >
-                                                <Checkbox checked={checked} onCheckedChange={() => toggleRole(role.id_rol)} onClick={(e) => e.stopPropagation()} />
-                                                <div className="min-w-0">
-                                                    <p className="text-sm font-medium text-foreground">{role.nombre_rol}</p>
-                                                    {role.descripcion && <p className="truncate text-xs text-muted-foreground">{role.descripcion}</p>}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <DialogFooter>
-                        <Button variant="ghost" onClick={() => { setShowCreateModal(false); setShowEditModal(false); resetForm(); }}>Cancelar</Button>
-                        <Button onClick={showCreateModal ? handleCreateUser : handleUpdateUser} disabled={savingUser}>
-                            {savingUser ? 'Guardando...' : showCreateModal ? 'Crear usuario' : 'Guardar cambios'}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* Contraseña */}
-            <Dialog open={showPasswordModal} onOpenChange={(open) => { if (!open) { setShowPasswordModal(false); setSelectedUser(null); } }}>
+            <Dialog open={confirmUser !== null} onOpenChange={(open) => { if (!open) setConfirmUser(null); }}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Cambiar contraseña</DialogTitle>
-                    </DialogHeader>
-                    <div className="flex flex-col gap-4">
-                        <p className="text-sm text-foreground">Usuario: <strong>{selectedUser?.nombre_usuario}</strong></p>
-                        <Field label="Nueva contraseña">
-                            <div className="relative">
-                                <Input type={showPw ? 'text' : 'password'} placeholder="Ingresa la nueva contraseña" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="pr-9" />
-                                <button type="button" onClick={() => setShowPw(v => !v)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground">
-                                    {showPw ? <IconEyeOff size={16} /> : <IconEye size={16} />}
-                                </button>
-                            </div>
-                        </Field>
-                        <Field label="Confirmar contraseña">
-                            <div className="relative">
-                                <Input type={showPw2 ? 'text' : 'password'} placeholder="Repite la contraseña" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="pr-9" />
-                                <button type="button" onClick={() => setShowPw2(v => !v)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground">
-                                    {showPw2 ? <IconEyeOff size={16} /> : <IconEye size={16} />}
-                                </button>
-                            </div>
-                        </Field>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="ghost" onClick={() => setShowPasswordModal(false)}>Cancelar</Button>
-                        <Button variant="destructive" onClick={handleUpdatePassword} disabled={savingUser}>
-                            {savingUser ? 'Actualizando...' : 'Actualizar contraseña'}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* Confirmar habilitar/deshabilitar */}
-            <Dialog open={showConfirmModal} onOpenChange={(open) => { if (!open) { setShowConfirmModal(false); setSelectedUser(null); } }}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>{selectedUser?.habilitado === 'S' ? 'Deshabilitar usuario' : 'Habilitar usuario'}</DialogTitle>
+                        <DialogTitle>{confirmUser?.habilitado === 'S' ? 'Deshabilitar usuario' : 'Habilitar usuario'}</DialogTitle>
                     </DialogHeader>
                     <p className="text-sm text-muted-foreground">
-                        {selectedUser?.habilitado === 'S'
-                            ? `¿Estás seguro que deseas deshabilitar al usuario "${selectedUser?.nombre_usuario}"? No podrá acceder al sistema.`
-                            : `¿Estás seguro que deseas habilitar al usuario "${selectedUser?.nombre_usuario}"? Podrá acceder nuevamente.`}
+                        {confirmUser?.habilitado === 'S'
+                            ? `¿Deshabilitar a "${confirmUser?.nombre_real}"? No podrá acceder al sistema.`
+                            : `¿Habilitar a "${confirmUser?.nombre_real}"? Podrá acceder nuevamente.`}
                     </p>
                     <DialogFooter>
-                        <Button variant="ghost" onClick={() => { setShowConfirmModal(false); setSelectedUser(null); }}>Cancelar</Button>
-                        <Button variant={selectedUser?.habilitado === 'S' ? 'destructive' : 'default'} onClick={handleToggleStatus}>
-                            {selectedUser?.habilitado === 'S' ? 'Deshabilitar' : 'Habilitar'}
+                        <Button variant="outline" onClick={() => setConfirmUser(null)}>Cancelar</Button>
+                        <Button variant={confirmUser?.habilitado === 'S' ? 'destructive' : 'default'} onClick={handleToggleStatus}>
+                            {confirmUser?.habilitado === 'S' ? 'Deshabilitar' : 'Habilitar'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -643,13 +679,38 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
     );
 };
 
-function Field({ label, required, className, children }: { label: string; required?: boolean; className?: string; children: React.ReactNode }) {
+function Field({ id, label, required, children }: { id: string; label: string; required?: boolean; children: React.ReactNode }) {
     return (
-        <div className={className}>
-            <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+        <div className="flex flex-col gap-1.5">
+            <Label htmlFor={id} className="text-xs font-medium text-muted-foreground">
                 {label}{required && <span className="text-destructive"> *</span>}
             </Label>
             {children}
+        </div>
+    );
+}
+
+function PasswordInput({ id, value, onChange, placeholder }: { id: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
+    const [visible, setVisible] = useState(false);
+    return (
+        <div className="relative">
+            <Input
+                id={id}
+                type={visible ? 'text' : 'password'}
+                autoComplete="new-password"
+                placeholder={placeholder}
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                className="pr-9"
+            />
+            <button
+                type="button"
+                aria-label={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                onClick={() => setVisible((v) => !v)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+                {visible ? <IconEyeOff size={16} /> : <IconEye size={16} />}
+            </button>
         </div>
     );
 }

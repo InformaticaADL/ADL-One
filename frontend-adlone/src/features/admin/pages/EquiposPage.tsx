@@ -989,6 +989,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                     title="Gestión de Equipos"
                     subtitle="Administra y supervisa los equipos de medición del sistema."
                     onBack={onBack}
+                    breadcrumbItems={[{ label: 'Equipos', onClick: onBack }, { label: 'Gestión de Equipos' }]}
                     rightSection={
                         <>
                             <ProtectedContent permission="EQ_EXP">

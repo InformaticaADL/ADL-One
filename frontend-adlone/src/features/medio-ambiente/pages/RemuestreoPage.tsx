@@ -161,6 +161,10 @@ const RemuestreoPageContent: React.FC = () => {
                     title="Nuevo Remuestreo"
                     subtitle={`Basado en Ficha N° ${originalFicha?.fichaingresoservicio || '-'}`}
                     onBack={() => setActiveSubmodule('ma-ficha-detalle')}
+                    breadcrumbItems={[
+                        { label: `Ficha N° ${originalFicha?.fichaingresoservicio || '-'}`, onClick: () => setActiveSubmodule('ma-ficha-detalle') },
+                        { label: 'Nuevo remuestreo' }
+                    ]}
                     rightSection={
                         <Button
                             icon={<IconX size={18} />}

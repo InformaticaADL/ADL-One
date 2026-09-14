@@ -520,6 +520,7 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                 title={`Asignación de Recursos - Ficha ${fichaId}${resamplingData ? ` (REMUESTREO DE LA FICHA N° ${resamplingData.idOriginal})` : ''}`}
                 subtitle={resamplingData ? "Gestione la asignación para este remuestreo" : "Defina fechas y muestreadores responsables para cada servicio"}
                 onBack={onBack}
+                breadcrumbItems={[{ label: 'Planificación y Asignación', onClick: onBack }, { label: `Ficha ${fichaId}` }]}
                 rightSection={
                     <ProtectedContent permission="FI_GEST_ASIG">
                         <Button

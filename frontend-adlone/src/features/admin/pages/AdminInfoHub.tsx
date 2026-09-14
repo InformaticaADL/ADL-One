@@ -109,6 +109,9 @@ export const AdminInfoHub: React.FC<Props> = ({ onNavigate }) => {
                     ? 'Genera reportes en formato Excel de las bases maestras del sistema.'
                     : 'Selecciona un módulo para gestionar su información o utiliza las herramientas globales.'}
                 onBack={currentView === 'export' ? () => setCurrentView('grid') : undefined}
+                breadcrumbItems={currentView === 'export'
+                    ? [{ label: 'Admin. Info', onClick: () => setCurrentView('grid') }, { label: 'Centro de Exportación' }]
+                    : undefined}
                 rightSection={currentView === 'grid' ? (
                     <div style={{ display: 'flex', gap: 8 }}>
                         {/* RB-08: AI_MA_ADMIN_ACCESO eliminado */}

@@ -349,6 +349,7 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                 title="Gestión de Muestreadores"
                 subtitle={!isMobile ? "Administra el personal de muestreo técnico y sus firmas digitales autorizadas." : undefined}
                 onBack={onBack}
+                breadcrumbItems={[{ label: 'Administración', onClick: onBack }, { label: 'Muestreadores' }]}
                 rightSection={
                     <>
                         <ProtectedContent permission="MU_EXP">

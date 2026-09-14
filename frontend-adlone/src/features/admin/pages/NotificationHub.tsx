@@ -153,6 +153,7 @@ export const NotificationHub: React.FC<{ onBack?: () => void }> = ({ onBack }) =
                 title="Hub de Notificaciones"
                 subtitle="Administre destinatarios y canales de alerta para todo el sistema."
                 onBack={onBack}
+                breadcrumbItems={[{ label: 'Administración', onClick: onBack }, { label: 'Notificaciones' }]}
                 rightSection={
                     <div style={{ display: 'flex', gap: 12, flexWrap: isMobile ? 'wrap' : 'nowrap', flex: 1 }}>
                         <Input
