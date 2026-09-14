@@ -22,7 +22,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
     rightSection
 }) => {
     const isMobile = useMediaQuery('(max-width: 768px)');
-    const shouldStack = useMediaQuery('(max-width: 1250px)');
+    const shouldStack = useMediaQuery('(max-width: 900px)');
     const { setHelpCenterOpen } = useNavStore();
 
     const helpButton = (
@@ -38,10 +38,10 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
     );
 
     return (
-        <div style={{ marginBottom: 16, marginTop: 8 }}>
+        <div style={{ marginBottom: 20, marginTop: 4 }}>
             {breadcrumbItems && breadcrumbItems.length > 0 && (
                 <Breadcrumb
-                    style={{ marginBottom: 10, fontSize: 12 }}
+                    style={{ marginBottom: 8, fontSize: 12 }}
                     items={breadcrumbItems.map((item) => ({
                         title: item.label,
                         href: item.href,
@@ -52,16 +52,16 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
 
             <div
                 style={{
-                    display: 'grid',
-                    gridTemplateColumns: shouldStack ? 'auto 1fr' : '1fr auto 1fr',
-                    alignItems: 'center',
+                    display: 'flex',
+                    flexDirection: shouldStack ? 'column' : 'row',
+                    alignItems: shouldStack ? 'stretch' : 'flex-start',
+                    justifyContent: 'space-between',
+                    gap: shouldStack ? 12 : 16,
                     width: '100%',
-                    position: 'relative',
-                    gap: 16,
                 }}
             >
-                {/* Left Section: Back Button */}
-                <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                {/* Left: back button (optional) + título/subtítulo, siempre alineados a la izquierda */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minWidth: 0 }}>
                     {onBack && (
                         <Button
                             type="text"
@@ -69,43 +69,29 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
                             size="large"
                             icon={<IconArrowLeft size={20} stroke={2} />}
                             onClick={onBack}
+                            style={{ flexShrink: 0, marginTop: -4 }}
                         />
                     )}
-                </div>
-
-                {/* Center Section: Title & Subtitle */}
-                <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', maxWidth: '100%' }}>
-                    <Title level={2} style={{ margin: 0, fontSize: isMobile ? 20 : 24, lineHeight: 1.1 }}>
-                        {title}
-                    </Title>
-                    {subtitle && (
-                        <Text type="secondary" style={{ fontSize: isMobile ? 12 : 13 }}>
-                            {subtitle}
-                        </Text>
-                    )}
-                </div>
-
-                {/* Right Section: Actions + Help Button (Desktop) */}
-                {!shouldStack && (
-                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                        <Space size={8} wrap={false}>
-                            {rightSection}
-                            {helpButton}
-                        </Space>
+                    <div style={{ minWidth: 0 }}>
+                        <Title level={2} style={{ margin: 0, fontSize: isMobile ? 20 : 26, lineHeight: 1.2, fontWeight: 700 }}>
+                            {title}
+                        </Title>
+                        {subtitle && (
+                            <Text type="secondary" style={{ fontSize: isMobile ? 12 : 13, display: 'block', marginTop: 2 }}>
+                                {subtitle}
+                            </Text>
+                        )}
                     </div>
-                )}
-            </div>
-
-            {/* Actions + Help Button (Mobile / Stacked) */}
-            {shouldStack && (
-                <div
-                    className="page-header-actions-stacked"
-                    style={{ width: '100%', display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap', marginTop: 16 }}
-                >
-                    {rightSection}
-                    {helpButton}
                 </div>
-            )}
+
+                {/* Right: acciones de la página + botón de ayuda, minimalistas y a la derecha */}
+                <div style={{ display: 'flex', justifyContent: shouldStack ? 'flex-start' : 'flex-end', flexShrink: 0 }}>
+                    <Space size={8} wrap>
+                        {rightSection}
+                        {helpButton}
+                    </Space>
+                </div>
+            </div>
         </div>
     );
 };
