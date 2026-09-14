@@ -11,21 +11,21 @@ import { ConfigProvider, theme as antdAlgorithms } from 'antd'
 import esES from 'antd/locale/es_ES'
 import { useThemeStore } from './store/themeStore'
 
-// Tokens de Ant Design — mismo azul de marca (#0062a8) y radios que el tema
-// Mantine de abajo, para que ambos convivan sin salto visual mientras dura
-// la migración módulo por módulo. Ant Design queda como envoltorio EXTERNO:
-// MantineProvider se mantiene montado porque el resto de la app (92 archivos)
-// todavía depende de sus variables CSS (--mantine-color-*) y componentes.
-// Claro/oscuro lo decide useThemeStore — ver getAntdTheme() más abajo, que
-// intercambia el algoritmo y los tonos que sí necesitan valor explícito por modo.
+// Tokens de Ant Design — alineados al look del módulo de Facturación
+// (#1677ff, radio 12px, tarjetas/tags suaves), adoptado como estándar visual
+// para toda la app. Ant Design queda como envoltorio EXTERNO: MantineProvider
+// se mantiene montado porque el resto de la app todavía depende de sus
+// variables CSS (--mantine-color-*) y componentes. Claro/oscuro lo decide
+// useThemeStore — ver getAntdTheme() más abajo, que intercambia el algoritmo
+// y los tonos que sí necesitan valor explícito por modo.
 function getAntdTheme(mode: 'light' | 'dark') {
   const dark = mode === 'dark';
   return {
     algorithm: dark ? antdAlgorithms.darkAlgorithm : antdAlgorithms.defaultAlgorithm,
     token: {
-      colorPrimary: '#0062a8',
-      colorInfo: '#0062a8',
-      borderRadius: 8,
+      colorPrimary: '#1677ff',
+      colorInfo: '#1677ff',
+      borderRadius: 12,
       fontFamily: 'Inter, system-ui, sans-serif',
       // Borde y texto secundario más suaves (línea zinc-200 en vez de gris
       // corporativo) — sostiene el look minimalista en toda la app sin tocar
@@ -37,35 +37,36 @@ function getAntdTheme(mode: 'light' | 'dark') {
     },
     components: {
       Menu: {
-        itemSelectedBg: dark ? 'rgba(0,98,168,0.25)' : '#e6f0fa',
-        itemSelectedColor: dark ? '#4c9fe0' : '#0062a8',
+        itemSelectedBg: dark ? 'rgba(22,119,255,0.25)' : '#e6f4ff',
+        itemSelectedColor: dark ? '#69b1ff' : '#1677ff',
         itemHoverBg: dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.03)',
         itemHeight: 40,
-        itemBorderRadius: 8,
+        itemBorderRadius: 10,
         subMenuItemBg: 'transparent',
       },
       Button: {
         fontWeight: 600,
         controlHeight: 38,
+        borderRadius: 10,
       },
       Card: {
-        borderRadiusLG: 10,
+        borderRadiusLG: 12,
       },
       Input: {
         controlHeight: 38,
-        borderRadius: 8,
+        borderRadius: 10,
       },
       InputNumber: {
         controlHeight: 38,
-        borderRadius: 8,
+        borderRadius: 10,
       },
       Select: {
         controlHeight: 38,
-        borderRadius: 8,
+        borderRadius: 10,
       },
       DatePicker: {
         controlHeight: 38,
-        borderRadius: 8,
+        borderRadius: 10,
       },
       // El "look Shadcn": sin el fondo gris clásico del header, más aire
       // entre filas, línea divisoria apenas visible.
@@ -82,7 +83,7 @@ function getAntdTheme(mode: 'light' | 'dark') {
       // Los Tag de estado ya salen como píldora suave (fondo claro + texto de
       // color, sin relleno sólido) en vez de las etiquetas planas de antes.
       Tag: {
-        borderRadiusSM: 6,
+        borderRadiusSM: 8,
         defaultBg: dark ? 'rgba(255,255,255,0.06)' : '#f4f4f5',
       },
     },
@@ -94,16 +95,16 @@ const mantineTheme = createTheme({
   primaryShade: { light: 6, dark: 4 },
   colors: {
     'adl-blue': [
-      '#e6f0fa', // 0
-      '#c0d8f4', // 1
-      '#99bfed', // 2
-      '#72a6e6', // 3
-      '#4c8ddf', // 4
-      '#2574d8', // 5
-      '#0062a8', // 6 ← brand
-      '#00508a', // 7
-      '#003e6c', // 8
-      '#002c4e', // 9
+      '#e6f4ff', // 0
+      '#bae0ff', // 1
+      '#91caff', // 2
+      '#69b1ff', // 3
+      '#4096ff', // 4
+      '#1677ff', // 5
+      '#1677ff', // 6 ← brand
+      '#0958d9', // 7
+      '#003eb3', // 8
+      '#002c8c', // 9
     ],
   },
   fontFamily: 'Inter, system-ui, sans-serif',

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&family=IBM+Plex+Mono:wght@400;600;700&display=swap');
 
 :root {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
@@ -14,7 +14,9 @@
 
   /* Tokens propios de la app (chrome fuera de Ant Design / Mantine: Sidebar,
      MainLayout, y cualquier CSS module que no pase por sus sistemas de
-     theming). El modo lo fija main.tsx con data-theme según useThemeStore. */
+     theming). El modo lo fija main.tsx con data-theme según useThemeStore.
+     Paleta alineada al look del módulo de Facturación (#1677ff), adoptado
+     como estándar visual de toda la app. */
   --app-bg: #ffffff;
   --app-bg-elevated: #ffffff;
   --app-border: rgba(0, 0, 0, 0.08);
@@ -23,8 +25,21 @@
   --app-hover-bg: rgba(0, 0, 0, 0.04);
   --app-glass-bg: rgba(255, 255, 255, 0.6);
   --app-glass-bg-strong: rgba(255, 255, 255, 0.92);
-  --app-accent-bg: #e6f0fa;
-  --app-accent-text: #0062a8;
+  --app-accent-bg: #e6f4ff;
+  --app-accent-text: #1677ff;
+
+  /* Colores de estado (solo para estado real — activo/pendiente/error, no
+     categorías decorativas, ver auditoría de tablas). */
+  --app-success: #389e0d;
+  --app-success-bg: #f6ffed;
+  --app-warning: #d46b08;
+  --app-warning-bg: #fff7e6;
+  --app-danger: #cf1322;
+  --app-danger-bg: #fff1f0;
+
+  /* Fuente monoespaciada para valores numéricos (montos, correlativos,
+     códigos) — mismo tratamiento que usa Facturación para sus KPIs. */
+  --app-font-mono: 'IBM Plex Mono', ui-monospace, monospace;
 }
 
 [data-theme='dark'] {
@@ -38,8 +53,15 @@
   --app-hover-bg: rgba(255, 255, 255, 0.06);
   --app-glass-bg: rgba(20, 20, 20, 0.6);
   --app-glass-bg-strong: rgba(28, 28, 28, 0.92);
-  --app-accent-bg: rgba(0, 98, 168, 0.25);
-  --app-accent-text: #4c9fe0;
+  --app-accent-bg: rgba(22, 119, 255, 0.25);
+  --app-accent-text: #69b1ff;
+
+  --app-success: #73d13d;
+  --app-success-bg: rgba(115, 209, 61, 0.16);
+  --app-warning: #ffa940;
+  --app-warning-bg: rgba(255, 169, 64, 0.16);
+  --app-danger: #ff7875;
+  --app-danger-bg: rgba(255, 120, 117, 0.16);
 }
 
 * {
