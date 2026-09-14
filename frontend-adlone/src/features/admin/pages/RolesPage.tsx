@@ -1,34 +1,39 @@
 import React, { useEffect, useState } from 'react';
 import {
-    Typography,
-    Button,
-    Table,
-    Tag,
-    Card,
-    Spin,
-    Tooltip
-} from 'antd';
-import { useMediaQuery } from '../../../hooks/useMediaQuery';
-import {
     IconPlus,
     IconEdit,
     IconShieldLock,
     IconToggleLeft,
-    IconToggleRight
+    IconToggleRight,
 } from '@tabler/icons-react';
+
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableHeader, TableBody, TableRow, SortableTableHead, TableHead, TableCell } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
+import { useTableSort } from '../../../hooks/useTableSort';
 import { rbacService } from '../services/rbac.service';
 import type { Role } from '../services/rbac.service';
 import { RoleModal } from '../components/RoleModal';
-import { ConfirmModal } from '../../../components/common/ConfirmModal';
 import { useToast } from '../../../contexts/ToastContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
-
-const { Text } = Typography;
 
 interface Props {
     onBack?: () => void;
 }
 
+type SortKey = 'nombre' | 'descripcion' | 'estado';
+
+const SORT_ACCESSORS: Record<SortKey, (r: Role) => string | number | null | undefined> = {
+    nombre: (r) => r.nombre_rol,
+    descripcion: (r) => r.descripcion,
+    estado: (r) => (r.estado ? 0 : 1),
+};
+
+// RoleModal (editor de permisos, 548 líneas) sigue en Ant Design por ahora
+// — se comparte igual desde acá, se puede migrar aparte después.
 export const RolesPage: React.FC<Props> = ({ onBack }) => {
     const isMobile = useMediaQuery('(max-width: 768px)');
     const { showToast } = useToast();
@@ -47,8 +52,7 @@ export const RolesPage: React.FC<Props> = ({ onBack }) => {
     const loadRoles = async () => {
         setLoading(true);
         try {
-            const data = await rbacService.getRoles();
-            setRoles(data);
+            setRoles(await rbacService.getRoles());
         } catch (error) {
             console.error('Error loading roles:', error);
             showToast({ type: 'error', message: 'Error cargando roles' });
@@ -56,6 +60,9 @@ export const RolesPage: React.FC<Props> = ({ onBack }) => {
             setLoading(false);
         }
     };
+
+    const { sorted, sort, toggleSort } = useTableSort(roles, SORT_ACCESSORS);
+    const sortProps = (key: SortKey) => ({ active: sort.key === key, direction: sort.direction, onSort: () => toggleSort(key) });
 
     const handleCreate = () => {
         setSelectedRole(null);
@@ -87,7 +94,7 @@ export const RolesPage: React.FC<Props> = ({ onBack }) => {
             await rbacService.toggleRoleStatus(confirmRole.id_rol, !confirmRole.estado);
             showToast({
                 type: 'success',
-                message: `Rol "${confirmRole.nombre_rol}" ${!confirmRole.estado ? 'activado' : 'desactivado'} correctamente`
+                message: `Rol "${confirmRole.nombre_rol}" ${!confirmRole.estado ? 'activado' : 'desactivado'} correctamente`,
             });
             loadRoles();
         } catch {
@@ -99,50 +106,21 @@ export const RolesPage: React.FC<Props> = ({ onBack }) => {
         }
     };
 
-    const columns = [
-        {
-            title: 'Nombre del Rol', key: 'nombre',
-            render: (_: unknown, role: Role) => (
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <IconShieldLock size={16} color={role.estado ? '#1677ff' : 'var(--app-border)'} />
-                    <Text strong={role.estado} type={role.estado ? undefined : 'secondary'} style={{ fontSize: 13 }}>{role.nombre_rol}</Text>
-                </div>
-            ),
-        },
-        {
-            title: 'Descripción', key: 'descripcion',
-            render: (_: unknown, role: Role) => <Text type="secondary" style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{role.descripcion || 'Sin descripción'}</Text>,
-        },
-        {
-            title: 'Estado', key: 'estado', align: 'center' as const,
-            render: (_: unknown, role: Role) => <Tag color={role.estado ? 'green' : 'red'}>{role.estado ? 'Activo' : 'Inactivo'}</Tag>,
-        },
-        {
-            title: 'Acciones', key: 'acciones', align: 'right' as const,
-            render: (_: unknown, role: Role) => (
-                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                    <Button size="small" icon={<IconEdit size={14} />} onClick={() => handleEdit(role)}>
-                        Editar / Permisos
-                    </Button>
-                    <Tooltip title={role.estado ? 'Desactivar rol' : 'Activar rol'}>
-                        <Button
-                            size="small"
-                            danger={role.estado}
-                            style={!role.estado ? { color: '#2f9e44', borderColor: '#2f9e44' } : undefined}
-                            icon={role.estado ? <IconToggleLeft size={14} /> : <IconToggleRight size={14} />}
-                            onClick={() => openConfirmToggle(role)}
-                            loading={togglingId === role.id_rol}
-                        >
-                            {role.estado ? 'Desactivar' : 'Activar'}
-                        </Button>
-                    </Tooltip>
-                </div>
-            ),
-        },
-    ];
+    const toggleAction = (role: Role) => (
+        <Button
+            variant="outline"
+            size="sm"
+            className={role.estado ? 'text-destructive hover:bg-destructive/10 hover:text-destructive' : 'text-success hover:bg-success/10 hover:text-success'}
+            onClick={() => openConfirmToggle(role)}
+            disabled={togglingId === role.id_rol}
+        >
+            {role.estado ? <IconToggleLeft size={14} /> : <IconToggleRight size={14} />}
+            {role.estado ? 'Desactivar' : 'Activar'}
+        </Button>
+    );
 
     return (
-        <div style={{ padding: isMobile ? 8 : 16, width: '100%' }}>
+        <div className="shadcn-scope w-full p-4 md:p-6">
             <PageHeader
                 title="Administración de Roles"
                 subtitle="Gestiona los perfiles de acceso y permisos."
@@ -150,92 +128,90 @@ export const RolesPage: React.FC<Props> = ({ onBack }) => {
                 breadcrumbItems={[
                     { label: 'Administración', onClick: onBack },
                     { label: 'Informática', onClick: onBack },
-                    { label: 'Roles de Sistema' }
+                    { label: 'Roles de Sistema' },
                 ]}
                 rightSection={
-                    <Button
-                        type="primary"
-                        icon={<IconPlus size={18} />}
-                        onClick={handleCreate}
-                        block={isMobile}
-                        style={{ marginTop: isMobile ? 16 : 0 }}
-                    >
-                        Nuevo Rol
+                    <Button onClick={handleCreate} className={isMobile ? 'w-full' : undefined}>
+                        <IconPlus size={16} /> Nuevo rol
                     </Button>
                 }
             />
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 24, marginTop: 32 }}>
-                <Card size="small" style={{ backgroundColor: 'var(--app-accent-bg)' }}>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: isMobile ? 'wrap' : 'nowrap', alignItems: 'flex-start' }}>
-                        <IconShieldLock size={20} color="#1c7ed6" style={{ flexShrink: 0, marginTop: 2 }} />
-                        <Text style={{ fontSize: 13, color: '#1864ab' }}>
-                            Los roles permiten agrupar permisos y asignarlos masivamente a los usuarios para facilitar la administración.
-                        </Text>
-                    </div>
-                </Card>
+            <div className="mt-6 flex flex-col gap-4">
+                <div className="flex items-start gap-2 rounded-xl bg-accent p-3.5">
+                    <IconShieldLock size={18} className="mt-0.5 shrink-0 text-primary" />
+                    <p className="text-sm text-accent-foreground">
+                        Los roles permiten agrupar permisos y asignarlos masivamente a los usuarios para facilitar la administración.
+                    </p>
+                </div>
 
-                <div style={{ position: 'relative' }}>
+                <div className="relative overflow-hidden rounded-xl border border-border bg-card">
                     {loading && (
-                        <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(255,255,255,0.6)', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <Spin />
+                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
+                            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                         </div>
                     )}
 
                     {isMobile ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                            {roles.length > 0 ? (
-                                roles.map((role) => (
-                                    <Card key={role.id_rol} size="small">
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                                                <IconShieldLock size={20} color="#1677ff" />
-                                                <Text strong style={{ fontSize: 13 }}>{role.nombre_rol}</Text>
-                                            </div>
-                                            <Tag color={role.estado ? 'green' : 'red'}>{role.estado ? 'Activo' : 'Inactivo'}</Tag>
+                        <div className="flex flex-col divide-y divide-border">
+                            {sorted.length > 0 ? sorted.map((role) => (
+                                <div key={role.id_rol} className="p-3">
+                                    <div className="mb-2 flex items-center justify-between gap-2">
+                                        <div className="flex items-center gap-2">
+                                            <IconShieldLock size={18} className={role.estado ? 'text-primary' : 'text-muted-foreground'} />
+                                            <span className="text-sm font-semibold text-foreground">{role.nombre_rol}</span>
                                         </div>
-                                        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 16 }}>
-                                            {role.descripcion || 'Sin descripción'}
-                                        </Text>
-                                        <div style={{ display: 'flex', gap: 8 }}>
-                                            <Button
-                                                size="small"
-                                                style={{ flex: 1 }}
-                                                icon={<IconEdit size={14} />}
-                                                onClick={() => handleEdit(role)}
-                                            >
-                                                Editar / Permisos
-                                            </Button>
-                                            <Button
-                                                size="small"
-                                                danger={role.estado}
-                                                style={!role.estado ? { color: '#2f9e44', borderColor: '#2f9e44' } : undefined}
-                                                icon={role.estado ? <IconToggleLeft size={14} /> : <IconToggleRight size={14} />}
-                                                onClick={() => openConfirmToggle(role)}
-                                                loading={togglingId === role.id_rol}
-                                            >
-                                                {role.estado ? 'Desactivar' : 'Activar'}
-                                            </Button>
-                                        </div>
-                                    </Card>
-                                ))
-                            ) : (
-                                <Card style={{ textAlign: 'center' }}>
-                                    <Text type="secondary">No hay roles definidos</Text>
-                                </Card>
+                                        <Badge variant={role.estado ? 'success' : 'destructive'}>{role.estado ? 'Activo' : 'Inactivo'}</Badge>
+                                    </div>
+                                    <p className="mb-3 text-xs text-muted-foreground">{role.descripcion || 'Sin descripción'}</p>
+                                    <div className="flex gap-2">
+                                        <Button variant="outline" size="sm" className="flex-1" onClick={() => handleEdit(role)}>
+                                            <IconEdit size={14} /> Editar / Permisos
+                                        </Button>
+                                        {toggleAction(role)}
+                                    </div>
+                                </div>
+                            )) : (
+                                <p className="p-6 text-center text-sm text-muted-foreground">No hay roles definidos</p>
                             )}
                         </div>
                     ) : (
-                        <Card styles={{ body: { padding: 0 } }}>
-                            <Table
-                                rowKey="id_rol"
-                                columns={columns}
-                                dataSource={roles}
-                                pagination={false}
-                                scroll={{ x: 600 }}
-                                locale={{ emptyText: <Text type="secondary">No hay roles definidos</Text> }}
-                            />
-                        </Card>
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="hover:bg-transparent">
+                                    <SortableTableHead {...sortProps('nombre')}>Nombre del rol</SortableTableHead>
+                                    <SortableTableHead {...sortProps('descripcion')}>Descripción</SortableTableHead>
+                                    <SortableTableHead {...sortProps('estado')}>Estado</SortableTableHead>
+                                    <TableHead className="text-right">Acciones</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {sorted.length > 0 ? sorted.map((role) => (
+                                    <TableRow key={role.id_rol}>
+                                        <TableCell>
+                                            <div className="flex items-center gap-2">
+                                                <IconShieldLock size={16} className={role.estado ? 'text-primary' : 'text-muted-foreground'} />
+                                                <span className={role.estado ? 'text-sm font-medium text-foreground' : 'text-sm text-muted-foreground'}>{role.nombre_rol}</span>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="max-w-sm truncate text-sm text-muted-foreground">{role.descripcion || 'Sin descripción'}</TableCell>
+                                        <TableCell><Badge variant={role.estado ? 'success' : 'destructive'}>{role.estado ? 'Activo' : 'Inactivo'}</Badge></TableCell>
+                                        <TableCell>
+                                            <div className="flex justify-end gap-2">
+                                                <Button variant="outline" size="sm" onClick={() => handleEdit(role)}>
+                                                    <IconEdit size={14} /> Editar / Permisos
+                                                </Button>
+                                                {toggleAction(role)}
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                )) : (
+                                    <TableRow className="hover:bg-transparent">
+                                        <TableCell colSpan={4} className="py-10 text-center text-sm text-muted-foreground">No hay roles definidos</TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
                     )}
                 </div>
             </div>
@@ -247,20 +223,24 @@ export const RolesPage: React.FC<Props> = ({ onBack }) => {
                 onSuccess={loadRoles}
             />
 
-            <ConfirmModal
-                isOpen={!!confirmRole}
-                title={confirmRole?.estado ? 'Desactivar Rol' : 'Activar Rol'}
-                message={
-                    confirmRole?.estado
-                        ? `¿Desactivar el rol "${confirmRole?.nombre_rol}"? ${affectedUsersCount !== null ? `${affectedUsersCount} usuario${affectedUsersCount !== 1 ? 's' : ''} ${affectedUsersCount !== 1 ? 'perderán' : 'perderá'} sus permisos asociados y serán desconectados.` : 'Los usuarios que lo tengan asignado perderán sus permisos asociados.'}`
-                        : `¿Activar el rol "${confirmRole?.nombre_rol}"? Los usuarios que lo tengan asignado recuperarán sus permisos.`
-                }
-                confirmText={confirmRole?.estado ? 'Desactivar' : 'Activar'}
-                cancelText="Cancelar"
-                confirmColor={confirmRole?.estado ? '#e03131' : '#2f9e44'}
-                onConfirm={handleToggleStatus}
-                onCancel={() => { setConfirmRole(null); setAffectedUsersCount(null); }}
-            />
+            <Dialog open={!!confirmRole} onOpenChange={(open) => { if (!open) { setConfirmRole(null); setAffectedUsersCount(null); } }}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>{confirmRole?.estado ? 'Desactivar rol' : 'Activar rol'}</DialogTitle>
+                    </DialogHeader>
+                    <p className="text-sm text-muted-foreground">
+                        {confirmRole?.estado
+                            ? `¿Desactivar el rol "${confirmRole?.nombre_rol}"? ${affectedUsersCount !== null ? `${affectedUsersCount} usuario${affectedUsersCount !== 1 ? 's' : ''} ${affectedUsersCount !== 1 ? 'perderán' : 'perderá'} sus permisos asociados y serán desconectados.` : 'Los usuarios que lo tengan asignado perderán sus permisos asociados.'}`
+                            : `¿Activar el rol "${confirmRole?.nombre_rol}"? Los usuarios que lo tengan asignado recuperarán sus permisos.`}
+                    </p>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => { setConfirmRole(null); setAffectedUsersCount(null); }}>Cancelar</Button>
+                        <Button variant={confirmRole?.estado ? 'destructive' : 'default'} onClick={handleToggleStatus}>
+                            {confirmRole?.estado ? 'Desactivar' : 'Activar'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };
