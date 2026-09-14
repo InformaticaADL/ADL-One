@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { DataPagination } from '@/components/ui/pagination';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -1090,29 +1090,29 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                             <div className="flex flex-1 flex-col gap-4">
                                 <div>
                                     <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Tipo</Label>
-                                    <Select value={filterTipo ?? 'all'} onValueChange={(v) => setFilterTipo(v === 'all' ? null : v)}>
-                                        <SelectTrigger><SelectValue placeholder="Tipo" /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">Todos los tipos</SelectItem>
-                                            {catalogs.tipos.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
+                                    <Combobox
+                                        value={filterTipo ?? 'all'}
+                                        onValueChange={(v) => setFilterTipo(v === 'all' ? null : v)}
+                                        placeholder="Tipo"
+                                        searchPlaceholder="Buscar tipo..."
+                                        options={[{ value: 'all', label: 'Todos los tipos' }, ...catalogs.tipos.map(t => ({ value: t, label: t }))]}
+                                    />
                                 </div>
 
                                 <div>
                                     <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Sede</Label>
-                                    <Select value={filterSede ?? 'all'} onValueChange={(v) => setFilterSede(v === 'all' ? null : v)}>
-                                        <SelectTrigger><SelectValue placeholder="Sede" /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">Todas las sedes</SelectItem>
-                                            {catalogs.sedes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
+                                    <Combobox
+                                        value={filterSede ?? 'all'}
+                                        onValueChange={(v) => setFilterSede(v === 'all' ? null : v)}
+                                        placeholder="Sede"
+                                        searchPlaceholder="Buscar sede..."
+                                        options={[{ value: 'all', label: 'Todas las sedes' }, ...catalogs.sedes.map(t => ({ value: t, label: t }))]}
+                                    />
                                 </div>
 
                                 <div>
                                     <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Estado</Label>
-                                    <Select
+                                    <Combobox
                                         value={filterEstado ?? 'all'}
                                         onValueChange={(v) => {
                                             const nextEstado = v === 'all' ? null : v;
@@ -1122,28 +1122,27 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                                 setFilterInactiveSampler(false);
                                             }
                                         }}
-                                    >
-                                        <SelectTrigger><SelectValue placeholder="Estado" /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">Todos los estados</SelectItem>
-                                            {catalogs.estados.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
+                                        placeholder="Estado"
+                                        searchPlaceholder="Buscar estado..."
+                                        options={[{ value: 'all', label: 'Todos los estados' }, ...catalogs.estados.map(t => ({ value: t, label: t }))]}
+                                    />
                                 </div>
 
                                 <div>
                                     <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Responsable</Label>
-                                    <Select value={filterMuestreador ?? 'all'} onValueChange={(v) => setFilterMuestreador(v === 'all' ? null : v)}>
-                                        <SelectTrigger><SelectValue placeholder="Responsable" /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">Todos los responsables</SelectItem>
-                                            {muestreadorList.map(m => (
-                                                <SelectItem key={m.id_muestreador} value={String(m.id_muestreador)}>
-                                                    {m.habilitado === 'N' || m.habilitado === false ? `${m.nombre_muestreador} (Inactivo)` : m.nombre_muestreador}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <Combobox
+                                        value={filterMuestreador ?? 'all'}
+                                        onValueChange={(v) => setFilterMuestreador(v === 'all' ? null : v)}
+                                        placeholder="Responsable"
+                                        searchPlaceholder="Buscar responsable..."
+                                        options={[
+                                            { value: 'all', label: 'Todos los responsables' },
+                                            ...muestreadorList.map(m => ({
+                                                value: String(m.id_muestreador),
+                                                label: m.habilitado === 'N' || m.habilitado === false ? `${m.nombre_muestreador} (Inactivo)` : m.nombre_muestreador,
+                                            })),
+                                        ]}
+                                    />
                                 </div>
 
                                 <div>
