@@ -1,5 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { Typography, Card, Tag, Tabs, Input } from 'antd';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 import {
     IconBuildingStore,
     IconBuilding,
@@ -38,8 +42,6 @@ import { PageHeader } from '../../../components/layout/PageHeader';
 import { MaestroDataManager } from '../components';
 import { EmpresaServicioFormView } from '../../medio-ambiente/components/EmpresaServicioFormView';
 import '../../../App.css';
-
-const { Text } = Typography;
 
 type MaestroArea = 'general' | 'medio-ambiente' | 'logistica' | 'tecnica' | 'sistema';
 
@@ -613,80 +615,54 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
 
         if (filtered.length === 0) {
             return (
-                <Text type="secondary" style={{ display: 'block', textAlign: 'center', marginTop: 32, padding: '32px 0' }}>
+                <p className="mt-8 py-8 text-center text-sm text-muted-foreground">
                     No se encontraron maestros para "{hubSearch}" en esta área.
-                </Text>
+                </p>
             );
         }
 
         return (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24, marginTop: 32 }}>
+            <div className="mt-8 grid gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
                 {filtered.map((m) => {
                     const c = colorOf(m.color);
                     return (
-                        <div
-                            key={m.id}
-                            onClick={() => setSelectedMaestro(m.id)}
-                            style={{ height: '100%', cursor: 'pointer' }}
-                        >
+                        <div key={m.id} onClick={() => setSelectedMaestro(m.id)} className="h-full cursor-pointer">
                             <Card
-                                className="maestro-card"
-                                style={{
-                                    height: '100%',
-                                    transition: 'transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease',
-                                    borderTop: `3px solid ${c.base}`,
-                                    position: 'relative',
-                                    overflow: 'hidden'
-                                }}
+                                className="maestro-card relative h-full overflow-hidden transition-all"
+                                style={{ borderTop: `3px solid ${c.base}` }}
                             >
                                 {/* Subtle background gradient */}
-                                <div style={{
-                                    position: 'absolute', top: 0, right: 0,
-                                    width: 120, height: 120, borderRadius: '50%',
-                                    background: c.bg,
-                                    transform: 'translate(40px, -40px)',
-                                    pointerEvents: 'none'
-                                }} />
+                                <div
+                                    className="pointer-events-none absolute right-0 top-0 h-[120px] w-[120px] rounded-full"
+                                    style={{ background: c.bg, transform: 'translate(40px, -40px)' }}
+                                />
 
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, position: 'relative' }}>
-                                    <div style={{
-                                        width: 48, height: 48, borderRadius: 8,
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        backgroundColor: c.bg, color: c.base
-                                    }}>
-                                        {m.icon}
+                                <div className="relative flex flex-col gap-1 p-5">
+                                    <div className="mb-2 flex items-center justify-between">
+                                        <div
+                                            className="flex h-12 w-12 items-center justify-center rounded-lg"
+                                            style={{ backgroundColor: c.bg, color: c.base }}
+                                        >
+                                            {m.icon}
+                                        </div>
+                                        <IconChevronRight size={18} stroke={2} color={c.light} />
                                     </div>
-                                    <IconChevronRight size={18} stroke={2} color={c.light} />
-                                </div>
 
-                                <Text strong style={{ fontSize: 15, display: 'block', marginBottom: 4, position: 'relative' }}>
-                                    {m.label}
-                                </Text>
+                                    <p className="text-[15px] font-semibold text-foreground">{m.label}</p>
 
-                                <Text
-                                    type="secondary"
-                                    style={{
-                                        fontSize: 13, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-                                        overflow: 'hidden', minHeight: '2.4rem', marginBottom: 16, position: 'relative'
-                                    }}
-                                >
-                                    {m.description}
-                                </Text>
+                                    <p className="mb-2 line-clamp-2 min-h-[2.4rem] text-sm text-muted-foreground">
+                                        {m.description}
+                                    </p>
 
-                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', position: 'relative' }}>
-                                    <Tag color={m.color === 'dark' ? 'default' : m.color} style={{ textTransform: 'none', fontFamily: 'monospace', fontSize: 10 }}>
-                                        {m.tableName}
-                                    </Tag>
-                                    {m.lookups && Object.keys(m.lookups).length > 0 && (
-                                        <Tag color="blue">
-                                            {Object.keys(m.lookups).length} relaci{Object.keys(m.lookups).length === 1 ? 'ón' : 'ones'}
-                                        </Tag>
-                                    )}
-                                    {m.dependsOn && (
-                                        <Tag color="orange">
-                                            Jerárquico
-                                        </Tag>
-                                    )}
+                                    <div className="flex flex-wrap gap-2">
+                                        <Badge variant="outline" className="font-mono normal-case">{m.tableName}</Badge>
+                                        {m.lookups && Object.keys(m.lookups).length > 0 && (
+                                            <Badge variant="outline">
+                                                {Object.keys(m.lookups).length} relaci{Object.keys(m.lookups).length === 1 ? 'ón' : 'ones'}
+                                            </Badge>
+                                        )}
+                                        {m.dependsOn && <Badge variant="outline">Jerárquico</Badge>}
+                                    </div>
                                 </div>
                             </Card>
                         </div>
@@ -696,8 +672,16 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
         );
     };
 
+    const tabDefs: { key: MaestroArea; label: string; icon: React.ReactNode }[] = [
+        { key: 'general', label: 'Organización', icon: <IconUsers size={15} /> },
+        { key: 'medio-ambiente', label: 'Medio Ambiente', icon: <IconFlask size={15} /> },
+        { key: 'logistica', label: 'Logística', icon: <IconTruckDelivery size={15} /> },
+        { key: 'tecnica', label: 'Técnica', icon: <IconTool size={15} /> },
+        { key: 'sistema', label: 'Configuración', icon: <IconSettings size={15} /> },
+    ];
+
     return (
-        <div style={{ padding: 16 }}>
+        <div className="shadcn-scope w-full p-4 md:p-6">
             <PageHeader
                 title="Gestión de Maestros"
                 subtitle="Administración completa de tablas de referencia del ecosistema ADL ONE."
@@ -708,48 +692,30 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
                 ]}
             />
 
-            <Input
-                placeholder="Buscar maestro por nombre o descripción..."
-                prefix={<IconSearch size={16} />}
-                value={hubSearch}
-                onChange={(e) => setHubSearch(e.target.value)}
-                size="large"
-                style={{ maxWidth: 450, marginTop: 16 }}
-            />
+            <div className="relative mt-4 max-w-[450px]">
+                <IconSearch size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                    placeholder="Buscar maestro por nombre o descripción..."
+                    value={hubSearch}
+                    onChange={(e) => setHubSearch(e.target.value)}
+                    className="h-11 pl-9"
+                />
+            </div>
 
-            <Tabs
-                activeKey={activeTab}
-                onChange={setActiveTab}
-                style={{ marginTop: 32 }}
-                items={[
-                    {
-                        key: 'general',
-                        label: <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><IconUsers size={15} /> Organización</span>,
-                        children: renderGrid('general'),
-                    },
-                    {
-                        key: 'medio-ambiente',
-                        label: <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><IconFlask size={15} /> Medio Ambiente</span>,
-                        children: renderGrid('medio-ambiente'),
-                    },
-                    {
-                        key: 'logistica',
-                        label: <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><IconTruckDelivery size={15} /> Logística</span>,
-                        children: renderGrid('logistica'),
-                    },
-                    {
-                        key: 'tecnica',
-                        label: <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><IconTool size={15} /> Técnica</span>,
-                        children: renderGrid('tecnica'),
-                    },
-                    {
-                        key: 'sistema',
-                        label: <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><IconSettings size={15} /> Configuración</span>,
-                        children: renderGrid('sistema'),
-                    },
-                ]}
-            />
-
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as MaestroArea)} className="mt-8">
+                <TabsList className={cn(tabDefs.length > 0 && 'flex-wrap')}>
+                    {tabDefs.map((t) => (
+                        <TabsTrigger key={t.key} value={t.key} className="gap-1.5">
+                            {t.icon} {t.label}
+                        </TabsTrigger>
+                    ))}
+                </TabsList>
+                {tabDefs.map((t) => (
+                    <TabsContent key={t.key} value={t.key}>
+                        {renderGrid(t.key)}
+                    </TabsContent>
+                ))}
+            </Tabs>
         </div>
     );
 };
