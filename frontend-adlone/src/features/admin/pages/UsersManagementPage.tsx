@@ -9,6 +9,10 @@ import {
     IconEye,
     IconEyeOff,
     IconShieldCheck,
+    IconColumns3,
+    IconDownload,
+    IconChevronLeft,
+    IconChevronRight,
 } from '@tabler/icons-react';
 
 import { Button } from '@/components/ui/button';
@@ -262,6 +266,41 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
             .filter(r => (r.nombre_rol ?? '').toLowerCase().includes(term) || (r.descripcion && r.descripcion.toLowerCase().includes(term)));
     }, [roles, roleSearchTerm]);
 
+    // Paginación client-side de la lista ya filtrada — vuelve a la página 1
+    // cada vez que cambia el filtro/búsqueda para no quedar en una página
+    // vacía.
+    const PAGE_SIZE = 10;
+    const [page, setPage] = useState(1);
+    useEffect(() => { setPage(1); }, [searchTerm, filterStatus, filterRole]);
+    const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
+    const paginatedUsers = useMemo(
+        () => filteredUsers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+        [filteredUsers, page]
+    );
+
+    const exportCsv = () => {
+        const header = ['Usuario', 'Nombre', 'Email', 'Cargo', 'Roles', 'Estado', 'Ultimo acceso'];
+        const rows = filteredUsers.map(u => [
+            u.nombre_usuario,
+            u.nombre_real,
+            u.correo_electronico || '',
+            u.nombre_cargo || '',
+            (u.roles || []).join(' | '),
+            u.habilitado === 'S' ? 'Activo' : 'Inactivo',
+            u.ultimo_acceso || 'Nunca',
+        ]);
+        const csv = [header, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+        const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `usuarios_${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
     const initials = (name: string) => (name || '?').trim().charAt(0).toUpperCase();
 
     return (
@@ -279,8 +318,8 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
             />
 
             <div className="mt-6 flex flex-col gap-4">
-                {/* Filtros: tabs de estado + búsqueda + rol, sin tarjeta con borde */}
-                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                {/* Fila 1: tabs de estado + contador de resultados */}
+                <div className="flex flex-wrap items-center gap-3">
                     <Tabs value={filterStatus} onValueChange={(v) => setFilterStatus(v as typeof filterStatus)}>
                         <TabsList>
                             <TabsTrigger value="all">Todos</TabsTrigger>
@@ -288,7 +327,11 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                             <TabsTrigger value="inactive">Inactivos</TabsTrigger>
                         </TabsList>
                     </Tabs>
+                    <span className="text-sm text-muted-foreground">{filteredUsers.length} resultados</span>
+                </div>
 
+                {/* Fila 2: búsqueda + filtro de rol a la izquierda, Columnas/Exportar a la derecha */}
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <div className="flex flex-col gap-3 sm:flex-row">
                         <div className="relative">
                             <IconSearch size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -311,6 +354,15 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                             </SelectContent>
                         </Select>
                     </div>
+
+                    <div className="flex gap-2">
+                        <Button variant="outline" size="sm" title="Elegir columnas visibles (próximamente)">
+                            <IconColumns3 size={15} /> Columnas
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={exportCsv}>
+                            <IconDownload size={15} /> Exportar
+                        </Button>
+                    </div>
                 </div>
 
                 {/* Tabla / lista */}
@@ -323,7 +375,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
 
                     {isMobile ? (
                         <div className="flex flex-col gap-3 p-3">
-                            {filteredUsers.length > 0 ? filteredUsers.map((user) => (
+                            {paginatedUsers.length > 0 ? paginatedUsers.map((user) => (
                                 <div key={user.id_usuario} className="rounded-lg border border-border p-3">
                                     <div className="mb-2 flex items-start justify-between gap-2">
                                         <div className="flex min-w-0 items-center gap-2.5">
@@ -368,7 +420,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {filteredUsers.length > 0 ? filteredUsers.map((user) => (
+                                {paginatedUsers.length > 0 ? paginatedUsers.map((user) => (
                                     <TableRow key={user.id_usuario}>
                                         <TableCell>
                                             <div className="flex items-center gap-2.5">
@@ -412,6 +464,33 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                         </Table>
                     )}
                 </div>
+
+                {/* Paginación */}
+                {filteredUsers.length > 0 && (
+                    <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
+                        <span className="text-sm text-muted-foreground">
+                            Mostrando {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filteredUsers.length)} de {filteredUsers.length} resultados
+                        </span>
+                        <div className="flex items-center gap-1">
+                            <Button variant="outline" size="icon" disabled={page === 1} onClick={() => setPage(p => Math.max(1, p - 1))}>
+                                <IconChevronLeft size={16} />
+                            </Button>
+                            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                                <Button
+                                    key={p}
+                                    variant={p === page ? 'default' : 'outline'}
+                                    size="icon"
+                                    onClick={() => setPage(p)}
+                                >
+                                    {p}
+                                </Button>
+                            ))}
+                            <Button variant="outline" size="icon" disabled={page === totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>
+                                <IconChevronRight size={16} />
+                            </Button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Crear / Editar */}
