@@ -533,7 +533,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                                 placeholder="Buscar usuarios..."
                                 value={searchTerm}
                                 onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
-                                className="pl-8 sm:w-64"
+                                className="pl-8 sm:w-96"
                             />
                             {searchTerm && (
                                 <button

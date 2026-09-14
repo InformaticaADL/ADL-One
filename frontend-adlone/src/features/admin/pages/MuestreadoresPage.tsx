@@ -300,8 +300,8 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
             />
 
             <div className="mt-6 flex flex-col gap-4">
-                <div className={cn('grid gap-4', isMobile ? 'grid-cols-1' : 'grid-cols-2')}>
-                    <div className="relative">
+                <div className={cn('flex gap-4', isMobile ? 'flex-col' : 'flex-row items-center')}>
+                    <div className="relative flex-1">
                         <IconSearch size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                         <Input placeholder="Buscar por nombre o ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8" />
                     </div>
@@ -310,6 +310,7 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                         onValueChange={(v) => setStatusFilter(v || 'ACTIVOS')}
                         placeholder="Filtrar por estado"
                         searchPlaceholder="Buscar..."
+                        className={isMobile ? undefined : 'w-56'}
                         options={[
                             { value: 'ACTIVOS', label: 'Solo activos' },
                             { value: 'INACTIVOS', label: 'Solo inactivos' },

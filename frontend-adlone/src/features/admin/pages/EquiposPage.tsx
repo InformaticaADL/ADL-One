@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Combobox } from '@/components/ui/combobox';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { DataPagination } from '@/components/ui/pagination';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -1147,11 +1148,10 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
 
                                 <div>
                                     <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Vigencia desde</Label>
-                                    <Input
-                                        type="date"
+                                    <DatePicker
                                         value={filterFechaDesde}
-                                        onChange={(e) => {
-                                            setFilterFechaDesde(e.target.value);
+                                        onChange={(v) => {
+                                            setFilterFechaDesde(v);
                                             setFilterExpired(false);
                                             setFilterInactiveSampler(false);
                                         }}
@@ -1159,11 +1159,10 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                 </div>
                                 <div>
                                     <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Vigencia hasta</Label>
-                                    <Input
-                                        type="date"
+                                    <DatePicker
                                         value={filterFechaHasta}
-                                        onChange={(e) => {
-                                            setFilterFechaHasta(e.target.value);
+                                        onChange={(v) => {
+                                            setFilterFechaHasta(v);
                                             setFilterExpired(false);
                                             setFilterInactiveSampler(false);
                                         }}
@@ -1622,7 +1621,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                         <p className="text-center text-sm text-foreground">Se actualizará el equipo: <b>{equipoAltaPending?.nombre}</b></p>
                         <div>
                             <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Nueva Fecha de Vigencia *</Label>
-                            <Input type="date" value={reactivationVigencia} onChange={(e) => setReactivationVigencia(e.target.value)} />
+                            <DatePicker value={reactivationVigencia} onChange={setReactivationVigencia} />
                         </div>
                     </div>
                     <DialogFooter className="sm:justify-stretch">
@@ -1654,7 +1653,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                         {['EQUIPO_DESHABILITADO', 'ALTA'].includes(solicitudInResolution?.tipo_solicitud) && (
                             <div>
                                 <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Actualizar Vigencia</Label>
-                                <Input type="date" value={resolutionDate} onChange={(e) => setResolutionDate(e.target.value)} />
+                                <DatePicker value={resolutionDate} onChange={setResolutionDate} />
                             </div>
                         )}
                     </div>
