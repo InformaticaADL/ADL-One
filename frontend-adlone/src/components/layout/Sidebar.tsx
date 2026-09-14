@@ -95,15 +95,9 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo }: { forceNotC
     // Sync opened module with active module changes
     useEffect(() => {
         if (activeModule) {
-            // En modo compacto (móvil), 'notificaciones' se maneja como panel inline,
-            // no cerramos openedModule cuando está activo
-            if (activeModule === 'notificaciones' && !forceNotCollapsed) {
-                setOpenedModule(null);
-            } else if (activeModule !== 'notificaciones') {
-                setOpenedModule(activeModule);
-            }
+            setOpenedModule(activeModule);
         }
-    }, [activeModule, forceNotCollapsed]);
+    }, [activeModule]);
 
     const canAccessModule = (module: any) => {
         let hasBasePermission = false;
